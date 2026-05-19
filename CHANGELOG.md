@@ -24,6 +24,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Removed monolithic `AGENTS.md` file (replaced by `.opencode/skills/sop-maintenance/SKILL.md`).
 - Removed `stacks/` directory (migrated to `skill-templates/`).
 
+## [4.1.0] — V4.1 Production-Ready Refinements
+
+### Added
+
+- **MCP server support** across all personas and `<opencode_protocol>` for external API/database context.
+- **`STATE.md` management** — Project Planner persona now owns `STATE.md` as the single source of truth for architecture, features, and bugs.
+- **Storybook-friendly component isolation** requirement in UI/UX Designer persona.
+- **Bug fix documentation rule** — complex fixes generate dedicated `SKILL.md` files.
+- **DevOps/Infrastructure** duty added to Software Architect persona.
+- **CRITICAL RULE 2** in `<bash_phase>` — test suite and type-checker must pass before summary.
+
+### Changed
+
+- **SOP Import Rule** simplified — always instruct Manager to copy `SKILL.md` templates from external SOP repo.
+- **Phase 0** now generates/updates `STATE.md` alongside `opencode.json` and Agent Skills.
+- **Context phase** now requires reading `STATE.md` first.
+- **Documentation phase** now updates `STATE.md` alongside `TODO.md` and `SKILL.md`.
+- **Architect behavior** — now rephrases fragmented requests for confirmation before proceeding.
+
 ## [Unreleased]
 
 ### Added
