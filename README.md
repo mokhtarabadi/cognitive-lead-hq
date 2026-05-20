@@ -30,19 +30,21 @@ This repository is the **V4 evolution** of the Cognitive Lead AI multi-agent sys
 │   └── skills/
 │       └── sop-maintenance/
 │           └── SKILL.md                # Native OpenCode skill for repo rules
-└── skill-templates/                    # Reusable stack blueprints (Agent Skills)
-    ├── nodejs-express/
-    │   └── SKILL.md
-    ├── spring-boot/
-    │   └── SKILL.md
-    ├── flask-python/
-    │   └── SKILL.md
-    ├── nextjs/
-    │   └── SKILL.md
-    ├── android-kotlin/
-    │   └── SKILL.md
-    └── android-java-xml/
-        └── SKILL.md
+    └── skill-templates/                    # Reusable stack blueprints (Agent Skills)
+        ├── nodejs-express/
+        │   └── SKILL.md
+        ├── spring-boot/
+        │   └── SKILL.md
+        ├── flask-python/
+        │   └── SKILL.md
+        ├── nextjs/
+        │   └── SKILL.md
+        ├── android-kotlin/
+        │   └── SKILL.md
+        ├── android-java-xml/
+        │   └── SKILL.md
+        └── code-search/
+            └── SKILL.md
 ```
 
 ## Code Search & MCP Integration
@@ -62,7 +64,7 @@ Semble runs via `uvx` (no installation required), but you need the `uv` package 
 
 1. The `opencode.json` in this repo configures Semble as an MCP server.
 2. When OpenCode needs to explore code, it uses natural-language `semble_search` and `semble_find_related` tools instead of raw `grep`/`glob`.
-3. The strategy is documented in `.opencode/skills/code-search/SKILL.md`.
+3. The strategy is documented in `skill-templates/code-search/SKILL.md`.
 
 ### Available Tools
 

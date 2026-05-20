@@ -4,7 +4,8 @@
 
 This repository serves as the **HQ (Headquarters)** for the Cognitive Lead AI multi-agent system. It contains:
 - `system-prompt.md` — V4.1 multi-agent prompt defining personas, Agentic Reasoning, and OpenCode protocol
-- `skill-templates/` — Reusable Agent Skills (SKILL.md with YAML frontmatter) for common tech stacks
+- `skill-templates/` — Reusable Agent Skills (SKILL.md with YAML frontmatter) for common tech stacks and workflows
+  - `code-search/SKILL.md` — Semble semantic code search strategy (importable template)
 - `.opencode/skills/` — Native OpenCode skills for progressive disclosure
   - `sop-maintenance/SKILL.md` — Rules for editing this repository
   - `code-search/SKILL.md` — Semble semantic code search strategy
@@ -20,6 +21,7 @@ This repository serves as the **HQ (Headquarters)** for the Cognitive Lead AI mu
 - 6 stack templates in `skill-templates/` (Node.js, Spring Boot, Flask, Next.js, Android Kotlin, Android Java)
 - V4.1 production-ready refinements (MCP support, STATE.md, test enforcement)
 - Semble MCP integration and code-search Agent Skill
+- `code-search` template added to `skill-templates/` for reusable import into new projects
 
 ## Known Items
 
