@@ -1,0 +1,87 @@
+{
+  "generated_at": "2026-02-01T15:58:51.789860526-03:00",
+  "source_url": "https://agentskills.io/sitemap.xml",
+  "strategy": "sitemap",
+  "total_documents": 4,
+  "organization": {
+    "method": "sequential-numbering",
+    "organized_at": "2026-02-01T18:59:00Z",
+    "total_files": 4,
+    "categories": ["Introduction", "Concepts", "Guide", "Reference"]
+  },
+  "documents": [
+    {
+      "file_path": "001-home.md",
+      "original_file_path": "home.md",
+      "title": "Overview - Agent Skills",
+      "url": "https://agentskills.io/home",
+      "source": "sitemap",
+      "fetched_at": "2026-02-01T15:58:50.164103914-03:00",
+      "description": "A simple, open format for giving agents new capabilities and expertise.",
+      "summary": "This document explains how Agent Skills enhance agent capabilities by providing contextual knowledge and reusable instructions that can be shared across different agent products and workflows.",
+      "tags": [
+        "agent-skills",
+        "ai-agents",
+        "knowledge-management",
+        "workflow-automation",
+        "open-standard"
+      ],
+      "category": "concept"
+    },
+    {
+      "file_path": "002-what-are-skills.md",
+      "original_file_path": "what-are-skills.md",
+      "title": "What are skills? - Agent Skills",
+      "url": "https://agentskills.io/what-are-skills",
+      "source": "sitemap",
+      "fetched_at": "2026-02-01T15:58:27.519195189-03:00",
+      "description": "Agent Skills are a lightweight, open format for extending AI agent capabilities with specialized knowledge and workflows.",
+      "summary": "This document explains the structure and functionality of skills, which are fundamental components for enabling agents to perform specific tasks through well-defined markdown files and optional supporting resources.",
+      "tags": [
+        "skill-structure",
+        "agent-framework",
+        "markdown-instructions",
+        "context-management",
+        "progressive-disclosure"
+      ],
+      "category": "concept"
+    },
+    {
+      "file_path": "003-integrate-skills.md",
+      "original_file_path": "integrate-skills.md",
+      "title": "Integrate skills into your agent - Agent Skills",
+      "url": "https://agentskills.io/integrate-skills",
+      "source": "sitemap",
+      "fetched_at": "2026-02-01T15:58:28.666294139-03:00",
+      "description": "How to add Agent Skills support to your agent or tool.",
+      "summary": "This document provides a comprehensive guide on implementing skills support for AI agents, covering integration approaches, discovery mechanisms, metadata handling, and security considerations.",
+      "tags": [
+        "skills-integration",
+        "ai-agents",
+        "tool-development",
+        "metadata-handling",
+        "security-considerations"
+      ],
+      "category": "guide"
+    },
+    {
+      "file_path": "004-specification.md",
+      "original_file_path": "specification.md",
+      "title": "Specification - Agent Skills",
+      "url": "https://agentskills.io/specification",
+      "source": "sitemap",
+      "fetched_at": "2026-02-01T15:58:22.387133169-03:00",
+      "description": "The complete format specification for Agent Skills.",
+      "summary": "This document specifies the standard format and structure for Agent Skills, including directory layout, SKILL.md file requirements, and optional resource directories.",
+      "tags": [
+        "agent-skills",
+        "skill-format",
+        "directory-structure",
+        "markdown",
+        "yaml-frontmatter",
+        "validation"
+      ],
+      "category": "reference"
+    }
+  ]
+}
