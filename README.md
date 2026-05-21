@@ -53,12 +53,53 @@ This system uses **Semble**, a semantic code search engine that runs locally via
 
 ### Prerequisites
 
-Semble runs via `uvx` (no installation required), but you need the `uv` package manager:
+Semble requires `uv` and runs via a pre-installed tool (recommended) or `uvx`:
 
 | Platform | Command |
 |---|---|
 | macOS / Linux | `curl -LsSf https://astral.sh/uv/install.sh \| sh` |
 | Windows | `powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 \| iex"` |
+
+### Setup
+
+#### 1. Install Semble globally (recommended)
+
+Pre-installing avoids download delays on every OpenCode startup:
+
+```bash
+# Basic install
+uv tool install "semble[mcp]"
+
+# If behind a SOCKS proxy, include httpx[socks] support:
+uv tool install "semble[mcp]" --reinstall --with "httpx[socks]"
+```
+
+#### 2. Configure `opencode.json`
+
+```json
+{
+  "mcp": {
+    "semble": {
+      "type": "local",
+      "command": ["semble"],
+      "enabled": true
+    }
+  },
+  "permission": {
+    "semble_*": "allow"
+  }
+}
+```
+
+> **Note:** Use `["semble"]` (not `["uvx", "--from", "semble[mcp]", "semble"]`) after installing globally — it avoids ephemeral environment startup delays and inherits SOCKS support.
+
+#### 3. Model download (one-time)
+
+Semble automatically downloads `minishlab/potion-code-16M` (~65 MB) on first use. Verify it's cached:
+
+```bash
+ls ~/.cache/huggingface/hub/models--minishlab--potion-code-16M/
+```
 
 ### How It Works
 
