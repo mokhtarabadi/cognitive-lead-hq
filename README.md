@@ -115,6 +115,33 @@ Best if you want this codebase exploration tool available in *every* terminal di
 - `get_directory_tree` — Generates an ASCII tree of the directory structure, respecting `.gitignore`.
 - `read_source_files` — Reads multiple source files or directories and saves their contents into a local Markdown report inside the `context-reports/` directory, returning the file path to prevent context bloat.
 
+## Global Skills Deployment
+
+To make the `code-search` skill (or any other reusable skill) available in *every* terminal directory on your machine automatically, copy the skill folder into your global OpenCode configuration path.
+
+### Step-by-Step Global Installation:
+
+1. **Create the global skills directory** (if it does not exist yet):
+   ```bash
+   mkdir -p ~/.config/opencode/skills
+   ```
+
+2. **Copy the desired skill folder** into the global skills directory:
+   For example, to install our custom `code-search` skill globally:
+   ```bash
+   cp -r skill-templates/code-search ~/.config/opencode/skills/
+   ```
+
+3. **Verify the installation:**
+   In any folder on your machine, start OpenCode and run:
+   ```bash
+   /help
+   ```
+   Under the available skills list, you will see `code-search` listed. You can now use it in any project by asking:
+   ```plaintext
+   @explore find the main router using the code-search skill
+   ```
+
 ## Key V4 Changes
 
 - **Shifted from monolithic `AGENTS.md`** to OpenCode's native **Agent Skills** (`SKILL.md`) framework for progressive disclosure and optimized context usage.
