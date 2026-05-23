@@ -29,3 +29,6 @@ node_modules/
 # Environment
 .env
 .env.local
+
+# Custom Context MCP reports
+context-reports/
