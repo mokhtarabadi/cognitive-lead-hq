@@ -47,15 +47,15 @@ com.company.project/
 
 ## Naming Conventions
 
-| Artifact | Convention | Example |
-|---|---|---|
-| Files | `PascalCase` | `UserRepositoryImpl.kt` |
-| Classes / Interfaces | `PascalCase` | `GetUserUseCase` |
-| Functions / Properties | `camelCase` | `getUserById` |
-| Constants / Companions | `UPPER_SNAKE_CASE` | `MAX_RETRY_COUNT` |
-| Composable functions | `PascalCase` | `ProfileScreen` |
-| XML resources | `snake_case` | `activity_main.xml` |
-| Navigation routes | `camelCase` | `profile/{userId}` |
+| Artifact               | Convention         | Example                 |
+| ---------------------- | ------------------ | ----------------------- |
+| Files                  | `PascalCase`       | `UserRepositoryImpl.kt` |
+| Classes / Interfaces   | `PascalCase`       | `GetUserUseCase`        |
+| Functions / Properties | `camelCase`        | `getUserById`           |
+| Constants / Companions | `UPPER_SNAKE_CASE` | `MAX_RETRY_COUNT`       |
+| Composable functions   | `PascalCase`       | `ProfileScreen`         |
+| XML resources          | `snake_case`       | `activity_main.xml`     |
+| Navigation routes      | `camelCase`        | `profile/{userId}`      |
 
 ## Architectural Patterns
 
@@ -104,12 +104,12 @@ UserEvent → ViewModel → UseCase → Repository → DataSource
 
 ## Testing Strategies
 
-| Layer | Test Type | Framework | File Naming |
-|---|---|---|---|
-| Use cases | Unit | JUnit 5 + Mockito / MockK | `GetUserUseCaseTest.kt` |
-| ViewModel | Unit | JUnit 5 + Turbine (for Flows) | `ProfileViewModelTest.kt` |
-| Repository | Unit | JUnit 5 + MockK | `UserRepositoryImplTest.kt` |
-| UI / Composable | Snapshot / Compose UI Test | Compose Test | `ProfileScreenTest.kt` |
+| Layer           | Test Type                  | Framework                     | File Naming                 |
+| --------------- | -------------------------- | ----------------------------- | --------------------------- |
+| Use cases       | Unit                       | JUnit 5 + Mockito / MockK     | `GetUserUseCaseTest.kt`     |
+| ViewModel       | Unit                       | JUnit 5 + Turbine (for Flows) | `ProfileViewModelTest.kt`   |
+| Repository      | Unit                       | JUnit 5 + MockK               | `UserRepositoryImplTest.kt` |
+| UI / Composable | Snapshot / Compose UI Test | Compose Test                  | `ProfileScreenTest.kt`      |
 
 - Use `MockK` (preferred) or `Mockito` for mocking in Kotlin.
 - Use **Turbine** library to test `StateFlow` and `SharedFlow` emissions.

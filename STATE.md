@@ -3,8 +3,9 @@
 ## Current Architecture
 
 This repository serves as the **HQ (Headquarters)** for the Cognitive Lead AI multi-agent system. It contains:
+
 - `AGENTS.md` — Project Context Hub (<150 lines) with project overview, setup commands, SOP rules, and actionable do/don't guardrails; auto-loaded by OpenCode's native agent discovery
-- `system-prompt.md` — V4.5 multi-agent prompt defining personas, Agentic Reasoning, and OpenCode protocol (Gemini 3.5 Flash optimized, Brain/Hands separation, SOP Trilogy codified, Schema & Path Conformance)
+- `system-prompt.md` — V4.6 multi-agent prompt (Dual-Task Protocol, Brain/Hands separation) defining personas, Agentic Reasoning, and OpenCode protocol
 - `docs/` — Architecture and runtime reference documentation
   - `gemini-3.5-flash-guidelines.md` — Prompting guidelines, parameter updates, function response matching, and tool overuse control for the Gemini 3.5 Flash runtime
   - `opencode-architecture-reference.md` — Configuration hierarchy, permissions engine, LSP/formatter detection, agent/subagent navigation, and tool mechanics
@@ -44,6 +45,7 @@ This repository serves as the **HQ (Headquarters)** for the Cognitive Lead AI mu
   - Both project-local (`.opencode/skills/`) and global (`~/.config/opencode/skills/`) paths restored across all persona behaviors and protocol documentation.
 - **`AGENTS.md` Project Context Hub created** — Concise ~40-line root-level `AGENTS.md` written with project overview, setup/dev commands, SOP maintenance rules, actionable do/don't guardrails, and documentation sync rules. Complements the SOP Trilogy as the auto-loaded entry point for OpenCode's native agent discovery.
 - **V4.4.2 — Global Skills Deployment Guide added to README** — Added a new "Global Skills Deployment" section to `README.md` with step-by-step instructions for installing skills globally via `~/.config/opencode/skills/`. Covers directory creation, skill folder copy, and verification using `/help`.
+- **V4.6.0 Dual-Task Protocol upgrade and code-search context loop fix.**
 - **V4.5.0 — System Prompt V4.5 Upgrade — Schema & Path Conformance:**
   - Phase 0 Discovery & Onboarding updated to mandate creation/update of `opencode.json` at project root with `"$schema": "https://opencode.ai/config.json"`.
   - `<execution_workflow>` now enforces JSON Schema conformance for all new and existing projects.

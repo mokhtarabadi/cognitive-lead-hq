@@ -26,8 +26,9 @@
 
 ## Multimodal and Inline Instructions
 
-- Place **multimodal content** (images, audio, video) *inside* the `FunctionResponse` payload, not in the system instruction or user message.
+- Place **multimodal content** (images, audio, video) _inside_ the `FunctionResponse` payload, not in the system instruction or user message.
 - Append **inline instructions** to the end of the response text, separated by **two newlines** from the main content. This prevents "thought leaks" where the model's chain-of-thought bleeds into the instruction parsing.
+
   ```
   <main content>
 

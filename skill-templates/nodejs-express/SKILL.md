@@ -31,13 +31,13 @@ src/
 
 ## Naming Conventions
 
-| Artifact | Convention | Example |
-|---|---|---|
-| Files | `kebab-case` | `user.service.js` |
-| Classes | `PascalCase` | `UserService` |
-| Functions/Variables | `camelCase` | `getUserById` |
-| Routes | plural nouns, `kebab-case` | `/api/users/:id` |
-| Environment variables | `UPPER_SNAKE_CASE` | `DATABASE_URL` |
+| Artifact              | Convention                 | Example           |
+| --------------------- | -------------------------- | ----------------- |
+| Files                 | `kebab-case`               | `user.service.js` |
+| Classes               | `PascalCase`               | `UserService`     |
+| Functions/Variables   | `camelCase`                | `getUserById`     |
+| Routes                | plural nouns, `kebab-case` | `/api/users/:id`  |
+| Environment variables | `UPPER_SNAKE_CASE`         | `DATABASE_URL`    |
 
 ## Architectural Patterns
 
@@ -65,6 +65,7 @@ Validate `process.env` at startup using **Zod** (recommended) or **Joi**. Fail f
 ### Avoiding Fat Controllers
 
 Controllers should only:
+
 1. Parse request parameters (body, params, query).
 2. Call a service method.
 3. Send the response (or pass to the error handler).
@@ -73,12 +74,12 @@ Any logic beyond this belongs in a service, middleware, or utility.
 
 ## Testing Strategies
 
-| Layer | Test Type | Framework | File Naming |
-|---|---|---|---|
-| Service | Unit | Vitest / Jest | `user.service.test.js` |
+| Layer      | Test Type   | Framework          | File Naming               |
+| ---------- | ----------- | ------------------ | ------------------------- |
+| Service    | Unit        | Vitest / Jest      | `user.service.test.js`    |
 | Controller | Integration | Supertest + Vitest | `user.controller.test.js` |
-| Middleware | Unit | Vitest | `auth.middleware.test.js` |
-| API (E2E) | E2E | Supertest | `user.api.test.js` |
+| Middleware | Unit        | Vitest             | `auth.middleware.test.js` |
+| API (E2E)  | E2E         | Supertest          | `user.api.test.js`        |
 
 - Mock external dependencies (DB, HTTP calls) at the service layer.
 - Use a test database or in-memory substitute for integration tests.

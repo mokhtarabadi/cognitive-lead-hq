@@ -34,14 +34,14 @@ src/main/resources/
 
 ## Naming Conventions
 
-| Artifact | Convention | Example |
-|---|---|---|
-| Packages | `lowercase.reverse.domain` | `com.company.project.domain.service` |
-| Classes | `PascalCase` | `UserServiceImpl` |
-| Methods | `camelCase` | `findByEmail` |
-| REST endpoints | plural nouns, `kebab-case` | `/api/users/{id}` |
-| Tables | `snake_case` plural | `user_roles` |
-| Columns | `snake_case` | `created_at` |
+| Artifact       | Convention                 | Example                              |
+| -------------- | -------------------------- | ------------------------------------ |
+| Packages       | `lowercase.reverse.domain` | `com.company.project.domain.service` |
+| Classes        | `PascalCase`               | `UserServiceImpl`                    |
+| Methods        | `camelCase`                | `findByEmail`                        |
+| REST endpoints | plural nouns, `kebab-case` | `/api/users/{id}`                    |
+| Tables         | `snake_case` plural        | `user_roles`                         |
+| Columns        | `snake_case`               | `created_at`                         |
 
 ## Architectural Patterns
 
@@ -73,11 +73,11 @@ Create a single `@RestControllerAdvice` class that catches all exceptions.
 
 ## Testing Strategies
 
-| Layer | Test Type | Framework | File Naming |
-|---|---|---|---|
-| Domain service | Unit | JUnit 5 + Mockito | `UserServiceTest.java` |
-| Controller | Slice test | `@WebMvcTest` | `UserControllerTest.java` |
-| Repository | Slice test | `@DataJpaTest` | `UserRepositoryTest.java` |
+| Layer            | Test Type   | Framework         | File Naming                |
+| ---------------- | ----------- | ----------------- | -------------------------- |
+| Domain service   | Unit        | JUnit 5 + Mockito | `UserServiceTest.java`     |
+| Controller       | Slice test  | `@WebMvcTest`     | `UserControllerTest.java`  |
+| Repository       | Slice test  | `@DataJpaTest`    | `UserRepositoryTest.java`  |
 | Full integration | Integration | `@SpringBootTest` | `UserIntegrationTest.java` |
 
 - Use `@WebMvcTest` and `@DataJpaTest` for focused tests — they bootstrap only the relevant context.

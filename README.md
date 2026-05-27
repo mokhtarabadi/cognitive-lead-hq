@@ -10,13 +10,13 @@ This repository is the **V4 evolution** of the Cognitive Lead AI multi-agent sys
 
 ## How to Use This Repository
 
-| File / Directory | When to Consult |
-|---|---|
-| `system-prompt.md` | At the start of every session; this is the V4 multi-agent prompt defining all 5 personas and the Agentic Reasoning matrix. |
-| `.opencode/skills/sop-maintenance/SKILL.md` | When an AI agent needs to modify this repository itself. |
-| `skill-templates/*/SKILL.md` | Before writing code in a specific stack (Node.js, Spring Boot, Flask, Next.js, Android Kotlin/Java). |
-| `CHANGELOG.md` | To review what has changed between versions. |
-| `TODO.md` | To see which stacks are planned for future coverage. |
+| File / Directory                            | When to Consult                                                                                                            |
+| ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `system-prompt.md`                          | At the start of every session; this is the V4 multi-agent prompt defining all 5 personas and the Agentic Reasoning matrix. |
+| `.opencode/skills/sop-maintenance/SKILL.md` | When an AI agent needs to modify this repository itself.                                                                   |
+| `skill-templates/*/SKILL.md`                | Before writing code in a specific stack (Node.js, Spring Boot, Flask, Next.js, Android Kotlin/Java).                       |
+| `CHANGELOG.md`                              | To review what has changed between versions.                                                                               |
+| `TODO.md`                                   | To see which stacks are planned for future coverage.                                                                       |
 
 ## Repository Structure
 
@@ -58,10 +58,13 @@ This system uses a local **FastMCP** Python server (`mcp-context-server/server.p
 This server can be installed locally per-project, or globally for all OpenCode sessions on your machine.
 
 #### Option A: Project-Level Setup (New or Existing Projects)
+
 Best for keeping project dependencies isolated.
+
 1. Copy `mcp-context-server/server.py` into your project root.
 2. Ensure it is executable: `chmod +x mcp-context-server/server.py`.
 3. Add the following to your project's `./opencode.json`:
+
 ```json
 {
   "mcp": {
@@ -80,17 +83,24 @@ Best for keeping project dependencies isolated.
 ```
 
 #### Option B: Global Setup (System-wide)
-Best if you want this codebase exploration tool available in *every* terminal directory automatically.
+
+Best if you want this codebase exploration tool available in _every_ terminal directory automatically.
+
 1. Create a global directory for the server: `mkdir -p ~/.config/opencode/mcp-context-server`
 2. Copy the `server.py` script into that directory.
 3. Make it executable: `chmod +x ~/.config/opencode/mcp-context-server/server.py`.
 4. Open your global config at `~/.config/opencode/opencode.json` and add the absolute path:
+
 ```json
 {
   "mcp": {
     "custom_context": {
       "type": "local",
-      "command": ["uv", "run", "/Users/<YOUR_USER>/.config/opencode/mcp-context-server/server.py"],
+      "command": [
+        "uv",
+        "run",
+        "/Users/<YOUR_USER>/.config/opencode/mcp-context-server/server.py"
+      ],
       "enabled": true
     }
   },
@@ -101,7 +111,8 @@ Best if you want this codebase exploration tool available in *every* terminal di
   }
 }
 ```
-*(Note: Replace `/Users/<YOUR_USER>` with your actual home directory path).*
+
+_(Note: Replace `/Users/<YOUR_USER>` with your actual home directory path)._
 
 ### How It Works
 
@@ -117,17 +128,19 @@ Best if you want this codebase exploration tool available in *every* terminal di
 
 ## Global Skills Deployment
 
-To make the `code-search` skill (or any other reusable skill) available in *every* terminal directory on your machine automatically, copy the skill folder into your global OpenCode configuration path.
+To make the `code-search` skill (or any other reusable skill) available in _every_ terminal directory on your machine automatically, copy the skill folder into your global OpenCode configuration path.
 
 ### Step-by-Step Global Installation:
 
 1. **Create the global skills directory** (if it does not exist yet):
+
    ```bash
    mkdir -p ~/.config/opencode/skills
    ```
 
 2. **Copy the desired skill folder** into the global skills directory:
    For example, to install our custom `code-search` skill globally:
+
    ```bash
    cp -r skill-templates/code-search ~/.config/opencode/skills/
    ```

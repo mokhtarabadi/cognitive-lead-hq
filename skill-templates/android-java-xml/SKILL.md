@@ -44,15 +44,15 @@ res/
 
 ## Naming Conventions
 
-| Artifact | Convention | Example |
-|---|---|---|
-| Files (Java) | `PascalCase` | `LoginActivity.java` |
-| Classes | `PascalCase` | `UserRepository` |
-| Methods / Variables | `camelCase` | `getUserById` |
-| Constants | `UPPER_SNAKE_CASE` | `MAX_RETRY_COUNT` |
-| Layout XML | `snake_case` prefix with component | `activity_login.xml`, `fragment_profile.xml` |
-| Resource IDs | `snake_case` | `@+id/btn_submit` |
-| String keys | `snake_case` | `error_network` |
+| Artifact            | Convention                         | Example                                      |
+| ------------------- | ---------------------------------- | -------------------------------------------- |
+| Files (Java)        | `PascalCase`                       | `LoginActivity.java`                         |
+| Classes             | `PascalCase`                       | `UserRepository`                             |
+| Methods / Variables | `camelCase`                        | `getUserById`                                |
+| Constants           | `UPPER_SNAKE_CASE`                 | `MAX_RETRY_COUNT`                            |
+| Layout XML          | `snake_case` prefix with component | `activity_login.xml`, `fragment_profile.xml` |
+| Resource IDs        | `snake_case`                       | `@+id/btn_submit`                            |
+| String keys         | `snake_case`                       | `error_network`                              |
 
 ## Architectural Patterns
 
@@ -96,12 +96,12 @@ View (Activity/Fragment) ←→ Presenter ←→ Model (Repository)
 
 ## Testing Strategies
 
-| Layer | Test Type | Framework | File Naming |
-|---|---|---|---|
-| Repository | Unit | JUnit 4 + Mockito | `UserRepositoryTest.java` |
-| Presenter / ViewModel | Unit | JUnit 4 + Mockito | `LoginPresenterTest.java` |
-| Utils | Unit | JUnit 4 | `DateUtilsTest.java` |
-| UI / Activity | Instrumentation | Espresso | `LoginActivityTest.java` |
+| Layer                 | Test Type       | Framework         | File Naming               |
+| --------------------- | --------------- | ----------------- | ------------------------- |
+| Repository            | Unit            | JUnit 4 + Mockito | `UserRepositoryTest.java` |
+| Presenter / ViewModel | Unit            | JUnit 4 + Mockito | `LoginPresenterTest.java` |
+| Utils                 | Unit            | JUnit 4           | `DateUtilsTest.java`      |
+| UI / Activity         | Instrumentation | Espresso          | `LoginActivityTest.java`  |
 
 - Use **JUnit 4** (standard for Android Java projects).
 - Use **Mockito** for mocking dependencies.

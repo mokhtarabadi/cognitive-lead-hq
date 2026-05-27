@@ -42,14 +42,14 @@ src/
 
 ## Naming Conventions
 
-| Artifact | Convention | Example |
-|---|---|---|
-| Directories (routes) | `kebab-case` | `/user-settings/` |
-| Components | `PascalCase` | `UserAvatar.tsx` |
-| Utilities / libs | `camelCase` | `formatDate.ts` |
-| Server Actions | `kebab-case` with `.action` suffix | `auth.actions.ts` |
-| CSS classes | Tailwind utility classes (prefer inline) | `"flex items-center gap-2"` |
-| Tailwind custom tokens | `kebab-case` in `tailwind.config` | `brand-primary` |
+| Artifact               | Convention                               | Example                     |
+| ---------------------- | ---------------------------------------- | --------------------------- |
+| Directories (routes)   | `kebab-case`                             | `/user-settings/`           |
+| Components             | `PascalCase`                             | `UserAvatar.tsx`            |
+| Utilities / libs       | `camelCase`                              | `formatDate.ts`             |
+| Server Actions         | `kebab-case` with `.action` suffix       | `auth.actions.ts`           |
+| CSS classes            | Tailwind utility classes (prefer inline) | `"flex items-center gap-2"` |
+| Tailwind custom tokens | `kebab-case` in `tailwind.config`        | `brand-primary`             |
 
 ## Architectural Patterns
 
@@ -90,12 +90,12 @@ Server Component (fetches data) → passes data as props → Client Component (r
 
 ## Testing Strategies
 
-| Layer | Test Type | Framework | File Naming |
-|---|---|---|---|
-| Utility functions | Unit | Vitest | `utils.test.ts` |
-| Client components | Component | Vitest + Testing Library | `UserAvatar.test.tsx` |
-| Server Actions | Integration | Vitest | `auth.actions.test.ts` |
-| Page rendering | E2E | Playwright | `login.spec.ts` |
+| Layer             | Test Type   | Framework                | File Naming            |
+| ----------------- | ----------- | ------------------------ | ---------------------- |
+| Utility functions | Unit        | Vitest                   | `utils.test.ts`        |
+| Client components | Component   | Vitest + Testing Library | `UserAvatar.test.tsx`  |
+| Server Actions    | Integration | Vitest                   | `auth.actions.test.ts` |
+| Page rendering    | E2E         | Playwright               | `login.spec.ts`        |
 
 - Use `@testing-library/react` with Vitest for component tests — test behavior, not implementation.
 - Use `msw` (Mock Service Worker) to mock API routes in tests.

@@ -14,6 +14,7 @@ OpenCode loads configuration in the following merge order (later sources overrid
 8. **macOS MDM plist** — System-managed policy plist (macOS only).
 
 **Formatting Notes:**
+
 - Accepts both `.json` and `.jsonc` (JSON with Comments) formats.
 - JSONC allows trailing commas and `//` or `/* */` style comments, useful for large config files with inline documentation.
 
@@ -62,11 +63,11 @@ In this example, all files are writable except `.env` and anything under `secret
 
 The following are blocked by default unless explicitly overridden:
 
-| Pattern | Default | Reason |
-|---------|---------|--------|
-| `.env` | blocked | Prevents secret leakage |
-| `doom_loop` | ask | Prompts before running potentially infinite loops |
-| `external_directory` | ask | Prompts before accessing files outside the project root |
+| Pattern              | Default | Reason                                                  |
+| -------------------- | ------- | ------------------------------------------------------- |
+| `.env`               | blocked | Prevents secret leakage                                 |
+| `doom_loop`          | ask     | Prompts before running potentially infinite loops       |
+| `external_directory` | ask     | Prompts before accessing files outside the project root |
 
 ---
 
@@ -74,17 +75,17 @@ The following are blocked by default unless explicitly overridden:
 
 OpenCode auto-detects language servers and formatters based on project files:
 
-| Language | Detection Trigger | LSP / Formatter |
-|----------|------------------|-----------------|
-| JavaScript/TypeScript | `package.json`, `tsconfig.json` | `typescript-language-server`, `prettier` |
-| Python | `pyproject.toml`, `requirements.txt`, `setup.py` | `pyright`, `ruff` |
-| Go | `go.mod` | `gopls`, `gofumpt` |
-| Rust | `Cargo.toml` | `rust-analyzer`, `rustfmt` |
-| Java/Kotlin | `pom.xml`, `build.gradle`, `build.gradle.kts` | `jdtls`, `kotlin-language-server` |
-| Ruby | `Gemfile` | `solargraph`, `rubocop` |
-| PHP | `composer.json` | `intelephense`, `php-cs-fixer` |
-| C/C++ | `CMakeLists.txt`, `Makefile` | `clangd`, `clang-format` |
-| C# | `*.csproj`, `solution.sln` | `csharp-ls`, `dotnet-format` |
+| Language              | Detection Trigger                                | LSP / Formatter                          |
+| --------------------- | ------------------------------------------------ | ---------------------------------------- |
+| JavaScript/TypeScript | `package.json`, `tsconfig.json`                  | `typescript-language-server`, `prettier` |
+| Python                | `pyproject.toml`, `requirements.txt`, `setup.py` | `pyright`, `ruff`                        |
+| Go                    | `go.mod`                                         | `gopls`, `gofumpt`                       |
+| Rust                  | `Cargo.toml`                                     | `rust-analyzer`, `rustfmt`               |
+| Java/Kotlin           | `pom.xml`, `build.gradle`, `build.gradle.kts`    | `jdtls`, `kotlin-language-server`        |
+| Ruby                  | `Gemfile`                                        | `solargraph`, `rubocop`                  |
+| PHP                   | `composer.json`                                  | `intelephense`, `php-cs-fixer`           |
+| C/C++                 | `CMakeLists.txt`, `Makefile`                     | `clangd`, `clang-format`                 |
+| C#                    | `*.csproj`, `solution.sln`                       | `csharp-ls`, `dotnet-format`             |
 
 Formatter settings are read from the project's existing config files (e.g., `.prettierrc`, `ruff.toml`, `editorconfig`). If none are found, OpenCode applies sensible defaults.
 
@@ -94,26 +95,26 @@ Formatter settings are read from the project's existing config files (e.g., `.pr
 
 ### Primary Agents
 
-| Agent | Mode | Purpose |
-|-------|------|---------|
-| **Build** | `build` | Executes implementation tasks, runs tests, writes code |
-| **Plan** | `plan` | Analyzes requirements, designs architecture, asks clarifying questions |
+| Agent     | Mode    | Purpose                                                                |
+| --------- | ------- | ---------------------------------------------------------------------- |
+| **Build** | `build` | Executes implementation tasks, runs tests, writes code                 |
+| **Plan**  | `plan`  | Analyzes requirements, designs architecture, asks clarifying questions |
 
 ### Subagents
 
-| Agent | Tool Access | Purpose |
-|-------|------------|---------|
-| **General** | All tools | Complex multi-step research and execution |
-| **Explore** | `read`, `glob`, `grep`, `task` | Fast codebase exploration (read-only) |
+| Agent       | Tool Access                    | Purpose                                   |
+| ----------- | ------------------------------ | ----------------------------------------- |
+| **General** | All tools                      | Complex multi-step research and execution |
+| **Explore** | `read`, `glob`, `grep`, `task` | Fast codebase exploration (read-only)     |
 
 ### Multi-Turn Session Navigation
 
 When working within agentic sessions, use the following leader keybindings:
 
-| Binding | Action |
-|---------|--------|
-| `Leader + Left/Right` | Switch between parent and child sessions |
-| `Leader + Up/Down` | Navigate between sibling subagent sessions |
+| Binding               | Action                                     |
+| --------------------- | ------------------------------------------ |
+| `Leader + Left/Right` | Switch between parent and child sessions   |
+| `Leader + Up/Down`    | Navigate between sibling subagent sessions |
 
 ---
 
@@ -124,20 +125,23 @@ When working within agentic sessions, use the following leader keybindings:
 The `apply_patch` tool parses **path marker lines** embedded in the `patchText` string to determine which files to modify. It does **not** use a separate `filePath` argument.
 
 **Path marker syntax:**
+
 ```
 *** Add File: <relative-path-from-project-root>
 *** Update File: <relative-path-from-project-root>
 ```
 
 **Example:**
-~~~
+
+```
 *** Update File: src/utils/helpers.ts
 @@ ... @@
 -const oldCode = "foo";
 +const newCode = "bar";
-~~~
+```
 
 All paths are resolved **relative to the project root directory**. The tool supports:
+
 - `*** Add File:` — Creates a new file at the specified path.
 - `*** Update File:` — Applies a diff/patch to an existing file.
 - Standard unified diff format (`@@ ... @@`) for the actual patch content.
@@ -155,9 +159,18 @@ The `question` tool creates interactive multi-option prompts. Schema:
         "question": "What database do you want to use?",
         "header": "Database Choice",
         "options": [
-          { "label": "PostgreSQL", "description": "ACID-compliant, good for complex queries" },
-          { "label": "SQLite", "description": "Embedded, zero-config, good for small projects" },
-          { "label": "MongoDB", "description": "Document-based, good for flexible schemas" }
+          {
+            "label": "PostgreSQL",
+            "description": "ACID-compliant, good for complex queries"
+          },
+          {
+            "label": "SQLite",
+            "description": "Embedded, zero-config, good for small projects"
+          },
+          {
+            "label": "MongoDB",
+            "description": "Document-based, good for flexible schemas"
+          }
         ],
         "multiple": false
       }
@@ -167,6 +180,7 @@ The `question` tool creates interactive multi-option prompts. Schema:
 ```
 
 Key fields:
+
 - `questions` — Array of question objects (supports multiple questions in one call).
 - `question` — The prompt text shown to the user.
 - `header` — A short label (max 30 characters) displayed as a title.

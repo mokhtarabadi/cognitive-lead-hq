@@ -5,7 +5,7 @@ description: Rules for modifying the Cognitive Lead AI SOP repository
 
 # OpenCode Rules for This Repository
 
-This file defines the rules that AI agents (OpenCode) must follow when modifying *this* SOP repository.
+This file defines the rules that AI agents (OpenCode) must follow when modifying _this_ SOP repository.
 
 ## General Rules
 

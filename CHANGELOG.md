@@ -53,6 +53,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **`STATE.md`** — new single source of truth for repository architecture, integrations, and known items.
 - **README.md** section on Custom Code Context MCP with setup instructions.
 
+## [4.6.0] — V4.6 Dual-Task Protocol
+
+### Added
+
+- **Dual-Task Protocol** (`<opencode_discovery_task>` and `<opencode_implementation_task>`) in the system prompt to strictly separate context gathering from code execution.
+- `docs/opencode-schema.json` to ensure strict type-safety and validation for OpenCode configurations.
+
+### Changed
+
+- Streamlined `AGENTS.md` into a concise Project Context Hub (<150 lines) with a strict guardrail against reading `context-reports/` directly.
+- Re-wrote the `code-search` skill to enforce the `read_source_files` MCP handover workflow, stopping OpenCode from polluting its own context window.
+
 ## [Unreleased]
 
 ### Added

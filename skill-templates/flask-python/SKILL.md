@@ -38,15 +38,15 @@ project/
 
 ## Naming Conventions
 
-| Artifact | Convention | Example |
-|---|---|---|
-| Files/Directories | `snake_case` | `user_service.py` |
-| Classes | `PascalCase` | `UserService` |
-| Functions/Methods | `snake_case` | `get_user_by_id` |
-| Variables | `snake_case` | `current_user` |
-| Blueprint names | plural nouns | `users` |
-| Route prefixes | plural `kebab-case` | `/api/users` |
-| Environment variables | `UPPER_SNAKE_CASE` | `DATABASE_URL` |
+| Artifact              | Convention          | Example           |
+| --------------------- | ------------------- | ----------------- |
+| Files/Directories     | `snake_case`        | `user_service.py` |
+| Classes               | `PascalCase`        | `UserService`     |
+| Functions/Methods     | `snake_case`        | `get_user_by_id`  |
+| Variables             | `snake_case`        | `current_user`    |
+| Blueprint names       | plural nouns        | `users`           |
+| Route prefixes        | plural `kebab-case` | `/api/users`      |
+| Environment variables | `UPPER_SNAKE_CASE`  | `DATABASE_URL`    |
 
 ## Architectural Patterns
 
@@ -90,11 +90,11 @@ Create a `config.py` with at least three classes: `Config` (base), `DevelopmentC
 
 ## Testing Strategies
 
-| Layer | Test Type | Framework | File Naming |
-|---|---|---|---|
-| Service | Unit | Pytest | `test_user_service.py` |
-| Route / View | Integration | Pytest + Flask test client | `test_auth_routes.py` |
-| Model | Unit | Pytest | `test_user_model.py` |
+| Layer        | Test Type   | Framework                  | File Naming            |
+| ------------ | ----------- | -------------------------- | ---------------------- |
+| Service      | Unit        | Pytest                     | `test_user_service.py` |
+| Route / View | Integration | Pytest + Flask test client | `test_auth_routes.py`  |
+| Model        | Unit        | Pytest                     | `test_user_model.py`   |
 
 - Use `pytest` as the test runner (not `unittest`).
 - Use `conftest.py` to define shared fixtures (app instance, test client, database session).
