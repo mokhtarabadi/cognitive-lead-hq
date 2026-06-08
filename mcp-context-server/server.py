@@ -241,10 +241,9 @@ def stage_and_inject_diff(task_file_path: str) -> str:
         # 1. Stage all changes
         subprocess.run(["git", "add", "."], check=True, capture_output=True)
         
-        # 2. Extract the diff (EXCLUDING the task file itself to prevent recursive diff bloat)
-        # Using git pathspec magic ':!path' with a RELATIVE path to ignore the task file
-        rel_path = os.path.relpath(task_file_path)
-        diff_cmd = ["git", "diff", "--staged", "--", ".", f":!{rel_path}"]
+        # 2. Extract the diff (EXCLUDING the entire tasks/ directory to prevent recursive diff bloat)
+        # Using git pathspec magic ':!tasks/' to ignore the entire task folder
+        diff_cmd = ["git", "diff", "--staged", "--", ".", ":!tasks/"]
         diff_process = subprocess.run(diff_cmd, capture_output=True, text=True)
         diff_text = diff_process.stdout.strip()
         
