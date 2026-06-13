@@ -13,9 +13,22 @@ Provides an optional, highly advanced workflow for syncing actionable Telegram s
 
 All Telegram MCP tool calls accept an optional `account` parameter for multi-account setups. If `account` is set in your config, it is passed to every Telegram call. If omitted, the default account is used.
 
-Forum topic scoping (`topic_id`) depends on your MCP implementation:
-- If your `telegram_get_history` / `telegram_send_message` tools accept a `topic_id` parameter, include it to scope operations to a specific forum topic.
-- If they do not, omit `topic_id` and operate on the full chat. You can still use `telegram_list_topics` to discover topics and `telegram_get_message_context` to crawl discussions manually.
+### Forum Topic Targeting (Critical)
+
+This MCP implementation does **NOT** expose a `topic_id` parameter. All messages belong to the same flat chat (`chat_id`). Forum topics in supergroups are identified by the `reply_to` field on messages. To correctly scope operations:
+
+- **Reading messages from a specific topic:** Call `telegram_get_history` with `chat_id`. It returns messages from all topics. Filter the results by checking `reply_to` field — messages belonging to your target topic have `reply_to` matching your `topic_id`. You can also use `telegram_get_message_context` around specific messages.
+
+- **Discovering topics:** Call `telegram_list_topics` with `chat_id`. Returns all forum topics with their `id` and `title`.
+
+- **Sending a message to a specific topic:** You MUST use `telegram_reply_to_message` with `message_id` set to the Topic ID (not `telegram_send_message` — that always lands in the General topic). Example:
+  ```
+  telegram_reply_to_message(chat_id="-1003517558062", message_id=2, text="Hello Apex!")
+  ```
+
+- **Reading messages:** `telegram_get_history` returns all messages. Filter by `reply_to == topic_id` to get messages scoped to your topic.
+
+Always use `telegram_list_topics` first to verify the target topic ID and title exist before posting.
 
 ## Activation (Strictly Optional)
 
@@ -64,7 +77,7 @@ Stored at project root to track local configuration and message states:
 
 ### Phase 2: Candidate Fetch & Discussion Crawling
 
-1. **Fetch Message History:** Call `telegram_get_history` passing `chat_id` from config. If `account` is not `null`, pass it as the `account` parameter. If `topic_id` is not `null` and your MCP's `telegram_get_history` supports it, pass it to scope results to that forum topic.
+1. **Fetch Message History:** Call `telegram_get_history` passing `chat_id` from config and `account` if set. The result may include messages from all forum topics. Filter the returned list to keep only messages where `reply_to == config.topic_id` to scope to your target topic.
 2. **Primary Filter (Actionable Items):** Filter for messages where:
    - Message ID > `last_processed_message_id`
    - Message text contains any of the target hashtags (e.g., `#bug`, `#feature`, `#improve`).
@@ -124,6 +137,6 @@ Before processing new candidates, run a backfill audit:
 2. Read `telegram-sync.json` to check if the completed task file path exists in `sync_registry`.
 3. If a match is found:
    - Extract the corresponding Telegram `msg_id` from the registry map.
-   - Call `telegram_send_message` with `chat_id` from config, the notification text, and `account` if set. If your MCP tools expose a topic/forum parameter, pass `topic_id` to scope the message to that forum topic. Otherwise, just send to the chat directly.
+   - Call **`telegram_reply_to_message`** with `chat_id` from config, `message_id` = the original `msg_id` (to reply directly in the correct thread/topic), the notification text, and `account` if set. Do **NOT** use `telegram_send_message` — it sends to the General topic instead of the correct thread.
    - **Notification Template:**
      _"The bug/feature reported in this thread has been successfully resolved and committed under Local Task XX (GitHub Issue #YY). Thank you!"_
