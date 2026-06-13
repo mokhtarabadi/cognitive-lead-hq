@@ -9,6 +9,14 @@ description: Optional, pure agentic sync of Telegram supergroup topics into loca
 
 Provides an optional, highly advanced workflow for syncing actionable Telegram supergroup messages into GitHub Issues and local task files without custom Python scripts, utilizing existing Telegram MCP and `gh` CLI tools. It features "Thread Crawling" to pull in non-tagged messages for discussion context.
 
+## Telegram MCP Tool Behavior
+
+All Telegram MCP tool calls accept an optional `account` parameter for multi-account setups. If `account` is set in your config, it is passed to every Telegram call. If omitted, the default account is used.
+
+Forum topic scoping (`topic_id`) depends on your MCP implementation:
+- If your `telegram_get_history` / `telegram_send_message` tools accept a `topic_id` parameter, include it to scope operations to a specific forum topic.
+- If they do not, omit `topic_id` and operate on the full chat. You can still use `telegram_list_topics` to discover topics and `telegram_get_message_context` to crawl discussions manually.
+
 ## Activation (Strictly Optional)
 
 - This skill is **OPTIONAL**. Do NOT execute or force setup unless:
@@ -25,7 +33,8 @@ Stored at project root to track local configuration and message states:
   "config": {
     "project_name": "[Name]",
     "chat_id": "[Chat ID]",
-    "topic_id": [Topic ID],
+    "topic_id": null,
+    "account": null,
     "target_hashtags": ["bug", "feature", "improve"]
   },
   "last_processed_message_id": 0,
@@ -34,40 +43,80 @@ Stored at project root to track local configuration and message states:
 }
 ```
 
+- `topic_id` — optional. If your MCP supports forum topic scoping (e.g., `telegram_get_history` accepts a `topic_id`), set this to an integer topic ID. Otherwise leave `null`.
+- `account` — optional. If your Telegram MCP uses multiple accounts, set this to the account label string. Otherwise leave `null`. All Telegram tool calls pass this value when present.
+
 ## Detailed Workflow
 
 ### Phase 1: Verification & Optional Onboarding
 
 1. Check for `telegram-sync.json` at project root.
 2. If missing AND the command was explicitly requested:
-   - Run the `question` tool to interactively ask the Manager for: `project_name`, `chat_id`, `topic_id`, and `target_hashtags`.
-   - Create the `telegram-sync.json` file with the collected config, setting `last_processed_message_id` to `0` and initializing `processed_ids` and `sync_registry`.
+   - Run the `question` tool to interactively ask the Manager for:
+     - `project_name` (required)
+     - `chat_id` (required — ID or @username)
+     - `target_hashtags` (required — comma-separated hashtags like `bug,feature,improve`)
+     - `topic_id` (optional — integer topic ID if the chat is a forum supergroup and your MCP supports topic scoping)
+     - `account` (optional — account label if your Telegram MCP uses multiple accounts)
+   - Create the `telegram-sync.json` file with the collected config. Set `topic_id` and `account` to `null` if not provided. Set `last_processed_message_id` to `0` and initialize `processed_ids` and `sync_registry`.
 3. If missing and NOT explicitly requested:
    - Abort this skill immediately. Do not prompt the user.
 
 ### Phase 2: Candidate Fetch & Discussion Crawling
 
-1. **Fetch Message History:** Call the Telegram MCP `telegram_get_history` (or equivalent tool) using the `chat_id` and `topic_id` from the config.
+1. **Fetch Message History:** Call `telegram_get_history` passing `chat_id` from config. If `account` is not `null`, pass it as the `account` parameter. If `topic_id` is not `null` and your MCP's `telegram_get_history` supports it, pass it to scope results to that forum topic.
 2. **Primary Filter (Actionable Items):** Filter for messages where:
    - Message ID > `last_processed_message_id`
    - Message text contains any of the target hashtags (e.g., `#bug`, `#feature`, `#improve`).
 3. **Secondary Filter (Discussion & Non-tagged Replies):** For each matched candidate:
-   - Retrieve all replies and subsequent discussions. Use the Telegram tools to search for messages replying to this candidate (`reply_to_message_id` matching candidate's `id`).
-   - Fetch neighboring messages around the candidate's timestamp (+/- 10 minutes) in the same topic. Extract the non-tagged dialogue, questions, and decisions made by teammates to capture the full context.
+   - Retrieve all replies and subsequent discussions via `telegram_get_message_context` (pass `account` if set) or by searching for replies to the candidate.
+   - Fetch neighboring messages around the candidate's timestamp (+/- 10 minutes) in the same topic. Extract the non-tagged dialogue, questions, and decisions to capture the full context.
 4. **Translation & Title Generation:**
    - Translate any Persian messages (and their crawl-extracted replies) into clear English.
    - **Rule 8 Compliance:** Generate a professional, concise title (<60 chars) prefixed with 'Bug: ', 'Feature: ', or 'Improve: '.
 5. **Codebase Correlation:** Scan the workspace using `custom_context_extract_signatures` with keywords from the translated discussion to identify target files.
 
+### Phase 2b: Backfill Audit — Existing Tasks Without GitHub Issues
+
+Before processing new candidates, run a backfill audit:
+
+1. **Scan `telegram-sync.json` `sync_registry`:** Find all entries where `gh_issue` is `null`.
+2. **Scan local `tasks/` directory:** For each task file, check if it has an associated `**Msg ID:** NNN` line. Cross-reference against the registry to identify tasks missing GH issues.
+3. **Present to Manager:** Use the `question` tool to ask if GH issues should be created for these orphaned tasks.
+4. **For each approved backfill:**
+   - Read the corresponding task file and reconstruct the GH issue body from its Objective/Telegram Discussion Context sections.
+   - Run `gh issue create --title "[Sync] {Title}" --body "{Body}"` with appropriate label (`bug`/`enhancement`/`improvement`).
+   - Update the `gh_issue` field in `sync_registry` to the returned issue number.
+
 ### Phase 3: Manager Approval & Multi-Sync
 
 1. Present the candidates and their crawled discussions to the Manager using the `question` tool.
 2. For each approved candidate:
-   - **Local Task:** Generate `tasks/XX-slug.md` (using your task template) with a dedicated `## Telegram Discussion Context` section containing the crawled non-tagged discussion.
-   - **GitHub Issue:** Run the non-interactive `gh` CLI:
-     `gh issue create --title "[Sync] Generated Title" --body "Detailed Body with Crawled Discussion"`
-     Extract the generated GitHub issue number from the output URL.
-   - **State Save:** Update `telegram-sync.json` local state (append to `processed_ids`, update `last_processed_message_id`, and add msg ID to `sync_registry` mapping).
+   - **Local Task:** Load the `task-generator` skill to create the base task file at `tasks/` (this ensures the correct template with `<!-- BEGIN_GIT_DIFF -->` / `<!-- END_GIT_DIFF -->` markers). After the task file is generated, open it and append the following telegram-specific sections after the `## Goal` block and before `## Local TODOs`:
+
+     ```markdown
+     **Msg ID:** {NNN}
+
+     ## Telegram Discussion Context
+
+     **Sender:** {sender}
+
+     **Original Message (Persian):**
+     {persian_text}
+
+     **Translation:**
+     {translated_text}
+
+     ## Codebase Correlation
+
+     {codebase_analysis}
+     ```
+
+   - **GitHub Issue:** Run:
+     `gh issue create --title "[Sync] Generated Title" --label "bug|enhancement|improvement" --body "Detailed Body with Crawled Discussion"`
+     Extract the GitHub issue number from the output URL.
+   - **State Save:** Update `telegram-sync.json` (append to `processed_ids`, update `last_processed_message_id`, add/update `sync_registry` entry with `gh_issue` number).
+3. **Non-actionable messages:** All seen messages with IDs between `last_processed_message_id` and max candidate ID that do NOT have target hashtags must also be added to `processed_ids` to prevent re-fetching.
 
 ### Phase 4: Closing the Loop (Completion Telegram Reply)
 
@@ -75,6 +124,6 @@ Stored at project root to track local configuration and message states:
 2. Read `telegram-sync.json` to check if the completed task file path exists in `sync_registry`.
 3. If a match is found:
    - Extract the corresponding Telegram `msg_id` from the registry map.
-   - Call your Telegram MCP tools (`telegram_send_message` or equivalent) to reply directly to the original `msg_id` inside the supergroup topic.
+   - Call `telegram_send_message` with `chat_id` from config, the notification text, and `account` if set. If your MCP tools expose a topic/forum parameter, pass `topic_id` to scope the message to that forum topic. Otherwise, just send to the chat directly.
    - **Notification Template:**
      _"The bug/feature reported in this thread has been successfully resolved and committed under Local Task XX (GitHub Issue #YY). Thank you!"_
