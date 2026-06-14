@@ -132,6 +132,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - **Project Planner persona** in `system-prompt.md` — added explicit instruction to load the `task-generator` skill when creating new task files, ensuring the template includes the correct `<!-- BEGIN_GIT_DIFF -->` / `<!-- END_GIT_DIFF -->` markers for MCP diff injection.
 
+## [5.6.0] — 2026-06-14
+
+### Added
+
+- **Mandatory Project Skill Loading constraint** in `system-prompt.md` — OpenCode must now discover and load all relevant local Agent Skills (e.g., bootstrap, spring-boot, android-kotlin, vue-nuxt) during every task's context phase. Skills are optional per project but if they exist, they MUST be loaded.
+- **`SKILL LOADING` instruction** in both the discovery task template and implementation task template `<context_phase>` blocks — ensures framework-specific rules are enforced before exploration and code generation.
+
+### Changed
+
+- `<system_version>` bumped from 5.4.1 to 5.6.0.
+
 ## [5.5.0] — 2026-06-08
 
 ### Added

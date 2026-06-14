@@ -42,6 +42,7 @@ Upgrade the system to V5.3.0 Ultimate Architecture by introducing factual Git di
 OpenCode namespaces MCP tools using the server name as a prefix (e.g., `custom_context_`). The V5.3.0 deployment referenced bare tool names (`get_directory_tree`, `read_source_files`, `stage_and_inject_diff`, `extract_signatures`) which caused tool-calling errors at runtime.
 
 **Fix applied across 5 files:**
+
 - `system-prompt.md` — 3 replacements (discovery + summary templates)
 - `AGENTS.md` — 1 replacement (End-Of-Task Sequence)
 - `skill-templates/audit-agents/SKILL.md` — 1 replacement
@@ -55,15 +56,16 @@ The V5.3.0 upgrade introduces two new MCP tools on the custom context server:
 1. **`extract_signatures`** — Uses regex to extract structural signatures (classes, functions, methods, interfaces, arrow functions) from source files. This prevents context bloat during codebase exploration by letting agents understand file structure without loading full file bodies. Targets Python, JS/TS, Go, and similar languages.
 
 2. **`stage_and_inject_diff`** — Automates the end-of-task finalization sequence: stages all changes via `git add .`, extracts the factual `git diff --staged`, and injects it into the task file's `<!-- BEGIN_GIT_DIFF -->
+
 ```diff
 diff --git a/.opencode/skills/code-search/SKILL.md b/.opencode/skills/code-search/SKILL.md
 index 5fce73b..00dcdb9 100644
 --- a/.opencode/skills/code-search/SKILL.md
 +++ b/.opencode/skills/code-search/SKILL.md
 @@ -11,11 +11,11 @@ You are the Executor. Your job is to extract codebase context so the Manager can
- 
+
  ## Discovery Workflow
- 
+
 -1. **Map the Structure:** Call the `get_directory_tree` MCP tool on the target directory (e.g., `.`, `src/`, `packages/`).
 -2. **Extract Signatures (Prevent Context Bloat):** Before reading full files, call the `extract_signatures` MCP tool on the target files to understand their structural map (classes/functions) without loading massive file bodies.
 +1. **Map the Structure:** Call the `custom_context_get_directory_tree` MCP tool on the target directory (e.g., `.`, `src/`, `packages/`).
@@ -98,16 +100,16 @@ index 0ca71aa..999ca30 100644
 -- **Mandatory End-Of-Task Sequence**: MUST explicitly mandate a 3-step completion process: 1) Write manual reasoning in the task file. 2) Call the `stage_and_inject_diff` MCP tool. 3) Notify the Manager.
 +- **Mandatory End-Of-Task Sequence**: MUST explicitly mandate a 3-step completion process: 1) Write manual reasoning in the task file. 2) Call the `custom_context_stage_and_inject_diff` MCP tool. 3) Notify the Manager.
  - **UI/UX Enforcement**: Any UI/UX changes MUST enforce the guidelines defined in the project's `DESIGN.md`.
- 
+
  ## Resolution Protocol
 diff --git a/skill-templates/code-search/SKILL.md b/skill-templates/code-search/SKILL.md
 index 5fce73b..00dcdb9 100644
 --- a/skill-templates/code-search/SKILL.md
 +++ b/skill-templates/code-search/SKILL.md
 @@ -11,11 +11,11 @@ You are the Executor. Your job is to extract codebase context so the Manager can
- 
+
  ## Discovery Workflow
- 
+
 -1. **Map the Structure:** Call the `get_directory_tree` MCP tool on the target directory (e.g., `.`, `src/`, `packages/`).
 -2. **Extract Signatures (Prevent Context Bloat):** Before reading full files, call the `extract_signatures` MCP tool on the target files to understand their structural map (classes/functions) without loading massive file bodies.
 +1. **Map the Structure:** Call the `custom_context_get_directory_tree` MCP tool on the target directory (e.g., `.`, `src/`, `packages/`).
@@ -125,18 +127,18 @@ index b3395ba..5133680 100644
 --- a/system-prompt.md
 +++ b/system-prompt.md
 @@ -79,8 +79,8 @@ You are a very strong reasoner and planner. Before taking any action (either gen
- 
+
    <execution_phase>
      OPENCODE INSTRUCTION:
 -    1. Run the `get_directory_tree` tool on the root directory (`.`).
 -    2. Run the `read_source_files` tool on the target files listed below. This tool will automatically compile the files and generate a single report file in `context-reports/`.
 +    1. Run the `custom_context_get_directory_tree` tool on the root directory (`.`).
 +    2. Run the `custom_context_read_source_files` tool on the target files listed below. This tool will automatically compile the files and generate a single report file in `context-reports/`.
- 
+
      Target Files to compile:
      [INSERT TARGET FILES HERE]
 @@ -125,7 +125,7 @@ You are a very strong reasoner and planner. Before taking any action (either gen
- 
+
    <summary_phase>
      OPENCODE INSTRUCTION: You MUST follow this exact finalization sequence:
 -    1. Call the `stage_and_inject_diff` MCP tool, providing the exact path to the active task file (e.g., `tasks/XX-task-name.md`). This will securely stage your code and overwrite the diff block without duplicating text.
@@ -145,4 +147,5 @@ index b3395ba..5133680 100644
      3. Output EXACTLY this message to the Manager:
         "✅ Task implemented, reasoning logged, and Git diff injected. **Manager:** Please copy the entire contents of `[path/to/task.md]` and send it back to the AI Studio Brain for the final Code Review."
 ```
+
 <!-- END_GIT_DIFF -->

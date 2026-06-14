@@ -22,6 +22,7 @@ This MCP implementation does **NOT** expose a `topic_id` parameter. All messages
 - **Discovering topics:** Call `telegram_list_topics` with `chat_id`. Returns all forum topics with their `id` and `title`.
 
 - **Sending a message to a specific topic:** You MUST use `telegram_reply_to_message` with `message_id` set to the Topic ID (not `telegram_send_message` — that always lands in the General topic). Example:
+
   ```
   telegram_reply_to_message(chat_id="-1003517558062", message_id=2, text="Hello Apex!")
   ```
@@ -129,6 +130,7 @@ Before processing new candidates, run a backfill audit:
      `gh issue create --title "[Sync] Generated Title" --label "bug|enhancement|improvement" --body "Detailed Body with Crawled Discussion"`
      Extract the GitHub issue number from the output URL.
    - **State Save:** Update `telegram-sync.json` (append to `processed_ids`, update `last_processed_message_id`, add/update `sync_registry` entry with `gh_issue` number).
+
 3. **Non-actionable messages:** All seen messages with IDs between `last_processed_message_id` and max candidate ID that do NOT have target hashtags must also be added to `processed_ids` to prevent re-fetching.
 
 ### Phase 4: Closing the Loop (Completion Telegram Reply)

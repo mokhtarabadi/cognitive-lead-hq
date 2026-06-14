@@ -35,11 +35,15 @@ You are the Task Generator. Your job is to create structured task files for the 
    - [ ] Verify functionality
 
    ## OpenCode Execution Log & Reasoning
+
    _(OpenCode: Manually log your technical changes, file edits, and architectural reasoning here BEFORE calling the MCP tool)_
 
    ## Factual Git Diff
+
    <!-- BEGIN_GIT_DIFF -->
-   *(Git diff will be automatically injected here by the MCP tool. Do not edit this block manually)*
+
+   _(Git diff will be automatically injected here by the MCP tool. Do not edit this block manually)_
+
    <!-- END_GIT_DIFF -->
    ```
 

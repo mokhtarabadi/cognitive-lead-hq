@@ -28,14 +28,18 @@ When modifying this repository, you must keep these files synchronized:
 4. Relevant `SKILL.md` files (if structural patterns were altered)
 
 ## 🛑 CORE FILE LOCATIONS
+
 You MUST strictly adhere to these exact paths. Do not create duplicates elsewhere:
+
 - **Global Rules:** `AGENTS.md` (Root)
 - **UI/UX Specs:** `DESIGN.md` (Root)
 - **Agent Skills:** `.opencode/skills/<skill-name>/SKILL.md` (Local workspace)
 - **Active Tasks:** `tasks/<task-number>-<name>.md`
 
 ## 🛑 MANDATORY END-OF-TASK SEQUENCE
+
 When finishing a task, you MUST execute these exact steps in order:
+
 1. **Write your Summary:** Manually write your architectural reasoning, local TODO checks, and execution notes into the active `tasks/XX-task.md` file under "OpenCode Execution Log".
 2. **Call MCP Tool:** Call the `custom_context_stage_and_inject_diff` MCP tool passing the task file path to automatically `git add .` and inject the factual code diff.
 3. **Notify Manager:** Output exactly: "Task ready. Manager, please copy the contents of `tasks/XX-task.md` and send it back to the AI Studio Brain for review."

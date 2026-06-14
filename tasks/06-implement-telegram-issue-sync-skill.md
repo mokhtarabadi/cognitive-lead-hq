@@ -31,15 +31,16 @@ Implement the global, optional Telegram-to-GitHub sync skill template (`telegram
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
-```diff
+
+````diff
 diff --git a/CHANGELOG.md b/CHANGELOG.md
 index b20048c..0d65eee 100644
 --- a/CHANGELOG.md
 +++ b/CHANGELOG.md
 @@ -124,6 +124,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
- 
+
  ### Added
- 
+
 +- **`skill-templates/telegram-issue-sync/SKILL.md`** — new global, optional Agent Skill template for syncing Telegram group topics with local tasks and GitHub issues, featuring advanced non-tagged discussion thread crawling.
 +- **Task 06** — local task file tracking the synchronization skill implementation.
  - **Mandatory Code Documentation constraint** in `system-prompt.md` — OpenCode is now required to write docstrings on all public functions/classes, inline comments on non-obvious logic, and README/header comments for new modules. Enforced via both `<constraints>` and the `<opencode_implementation_task_template>` execution phase.
@@ -145,9 +146,9 @@ index 83a4af2..7829e5f 100644
  +++ b/.opencode/skills/code-search/SKILL.md
 -@@ -11,10 +11,10 @@ You are the Executor. Your job is to extract codebase context so the Manager can
 +@@ -11,11 +11,11 @@ You are the Executor. Your job is to extract codebase context so the Manager can
-  
+
   ## Discovery Workflow
-  
+
 @@ -70,10 +70,12 @@ index 5fce73b..d4c8d6e 100644
  +2. **Extract Signatures (Prevent Context Bloat):** Before reading full files, call the `custom_context_extract_signatures` MCP tool on the target files to understand their structural map (classes/functions) without loading massive file bodies.
   3. **Target Files:** Analyze the ASCII tree to identify the exact files relevant to the Manager's request.
@@ -163,7 +164,7 @@ index 83a4af2..7829e5f 100644
  index d037887..d5181cc 100644
  --- a/AGENTS.md
 @@ -99,10 +101,10 @@ index 0ca71aa..999ca30 100644
-  
+
   ## Resolution Protocol
  diff --git a/skill-templates/code-search/SKILL.md b/skill-templates/code-search/SKILL.md
 -index 5fce73b..d4c8d6e 100644
@@ -172,9 +173,9 @@ index 83a4af2..7829e5f 100644
  +++ b/skill-templates/code-search/SKILL.md
 -@@ -11,10 +11,10 @@ You are the Executor. Your job is to extract codebase context so the Manager can
 +@@ -11,11 +11,11 @@ You are the Executor. Your job is to extract codebase context so the Manager can
-  
+
   ## Discovery Workflow
-  
+
 @@ -112,10 +114,12 @@ index 5fce73b..d4c8d6e 100644
  +2. **Extract Signatures (Prevent Context Bloat):** Before reading full files, call the `custom_context_extract_signatures` MCP tool on the target files to understand their structural map (classes/functions) without loading massive file bodies.
   3. **Target Files:** Analyze the ASCII tree to identify the exact files relevant to the Manager's request.
@@ -189,5 +190,6 @@ index 83a4af2..7829e5f 100644
  diff --git a/system-prompt.md b/system-prompt.md
  index b3395ba..5133680 100644
  --- a/system-prompt.md
-```
+````
+
 <!-- END_GIT_DIFF -->

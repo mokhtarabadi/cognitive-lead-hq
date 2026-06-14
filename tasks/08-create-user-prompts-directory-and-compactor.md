@@ -30,22 +30,23 @@ Create a new directory structure `user-prompts/` to store reusable, copy-paste p
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
-```diff
+
+````diff
 diff --git a/CHANGELOG.md b/CHANGELOG.md
 index f6b3631..8566c75 100644
 --- a/CHANGELOG.md
 +++ b/CHANGELOG.md
 @@ -124,7 +124,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
- 
+
  ### Added
- 
+
 -- Placeholder for upcoming changes.
 +- **`user-prompts/` directory** — new folder structure for storing reusable copy-paste prompt templates for the Manager.
 +- **`user-prompts/session-compactor.md`** — first reusable user prompt template for executing semantic context compaction and cold-start session restoration.
 +- **Task 08** — local task file tracking the user-prompts directory and compactor implementation.
- 
+
  ## [5.4.0] — 2026-06-08
- 
+
 diff --git a/user-prompts/session-compactor.md b/user-prompts/session-compactor.md
 new file mode 100644
 index 0000000..c2c9c68
@@ -112,5 +113,6 @@ index 0000000..c2c9c68
 +```
 +
 +Ensure this report contains **no missing context**. Every technical choice, file path, and active configuration must be written explicitly so that our next session is a 100% smooth transition. Proceed to generate the report now.
-```
+````
+
 <!-- END_GIT_DIFF -->
