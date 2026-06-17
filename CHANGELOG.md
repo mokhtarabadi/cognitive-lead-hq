@@ -126,6 +126,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - **`stage_and_inject_diff` MCP tool** — optimized the staged git diff command to globally exclude the entire `tasks/` directory (`:!tasks/`) instead of just the single active task file, completely eliminating task history clutter from factual codebase reviews.
 
+## [5.8.0] — 2026-06-17
+
+### Added
+
+- **`skill-templates/telegram-message-export/SKILL.md`** — new Agent Skill template for exporting Telegram messages (text, images, voice notes) into a numbered folder and packing them into a ZIP archive. Supports three input methods: message ID range, message link, and text search.
+
 ## [5.7.0] — 2026-06-16
 
 ### Added
