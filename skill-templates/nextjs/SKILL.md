@@ -3,7 +3,19 @@ name: frontend-architecture-nextjs
 description: App Router, Server/Client Components, Server Actions, and Tailwind tokens for Next.js
 ---
 
-# Next.js — Best Practices
+# Next.js — Best Practices & AI-Driven Scaffolding
+
+## Modern Next.js App Router Architecture
+
+Scaffold Next.js single-page or hybrid apps using these principles:
+
+1. **App Router App Layout:** Use file-based nested routing in the `app/` directory (`layout.tsx`, `page.tsx`).
+2. **Strict Server/Client Boundaries:**
+   - Components are Server Components by default. Fetch data, access databases, and handle security here.
+   - Client Components must be annotated with `"use client"` at the top. Use them only for user interactivity (hooks, event handlers, local states). Keep them at leaf-level.
+3. **Server Actions for Mutations:** Always handle form submissions and database mutations using Server Actions with the `"use server"` directive. Banned: setting up custom API routes for simple form handling.
+4. **Tailwind Token System:** Never use arbitrary Tailwind classes (like `h-[12px]`) or inline styles. Declare custom scales inside `tailwind.config.ts` and refer to them.
+5. **A11y Semantic HTML:** Always enforce standard landmarks (`<header>`, `<main>`, `<footer/>`) and `next/image` alt tags.
 
 ## Project Structure
 

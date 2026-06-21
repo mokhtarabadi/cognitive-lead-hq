@@ -3,7 +3,19 @@ name: backend-architecture-nodejs-express
 description: Architectural rules, 3-layer pattern, and naming conventions for Node.js Express
 ---
 
-# Node.js + Express — Best Practices
+# Node.js + Express — Best Practices & AI-Driven Scaffolding
+
+## Strict Node.js Service Scaffolding
+
+Initialize any Express service using this high-performance layout:
+
+1. **Zod Environment Validation:** Always validate `process.env` at startup using a strict Zod schema. Export a typed `config` object. Banned: accessing `process.env` directly inside modules.
+2. **3-Layer Architecture:** Strictly enforce `Route -> Controller -> Service` boundaries:
+   - Routes define endpoints and middleware.
+   - Controllers parse request bodies/parameters and return responses. No business logic.
+   - Services implement business logic and coordinate data layers. No request/response imports.
+3. **Centralized Global Error Handler:** Use a custom `AppError` class. Wrap controllers with `express-async-errors` to capture thrown exceptions globally and format them consistently. Banned: inline `try/catch` blocks inside controllers.
+4. **Security Basics:** Always register `helmet`, `cors`, and `express-rate-limit` middlewares at startup.
 
 ## Project Structure
 

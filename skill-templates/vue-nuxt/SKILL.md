@@ -3,7 +3,17 @@ name: frontend-architecture-vue-nuxt
 description: Vue 3 Composition API, Nuxt 3 routing, and state management
 ---
 
-# Vue 3 & Nuxt 3 — Best Practices
+# Vue 3 & Nuxt 3 — Best Practices & AI-Driven Scaffolding
+
+## Modern Nuxt 3 App Architecture
+
+Scaffold Nuxt 3 applications using these guidelines:
+
+1. **Composition API:** Always use `<script setup lang="ts">` with TypeScript. Banned: Options API.
+2. **Auto-Imports Leverage:** Rely on Nuxt's auto-imported directory structures for `composables/`, `components/`, and core Vue APIs (`ref`, `computed`, `reactive`).
+3. **State Management:** Use Pinia via `@pinia/nuxt`. Define stores using the store-factory function syntax (`defineStore('id', () => { ... })`).
+4. **SSR-Safe Data Fetching:** Always use `useFetch` or `useAsyncData` to ensure data loads on the server and hydrates safely on the client. Banned: standard `axios` or bare `fetch` inside components.
+5. **Form Validation:** Use Formkit or VeeValidate + Zod for robust client-side schemas.
 
 ## Project Structure
 

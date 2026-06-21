@@ -3,7 +3,18 @@ name: backend-architecture-spring-boot
 description: DDD, hexagonal style, and naming conventions for Spring Boot
 ---
 
-# Spring Boot — Best Practices
+# Spring Boot — Best Practices & AI-Driven Scaffolding
+
+## High-Performance Project Onboarding
+
+Initialize any Spring Boot backend from scratch with these architectural rules:
+
+1. **Domain-Driven Design (DDD):** Use a pure `domain` package containing entities, value objects, and repository ports (interfaces). The domain must not have adapter or framework dependencies.
+2. **Hexagonal Ports & Adapters:** Inbound adapters (Controllers, DTOs) and outbound adapters (JPA Repositories, Database engines) are decoupled. Controllers depend on domain services, and domain services interact with adapters via ports.
+3. **Constructor Injection:** Always use Lombok `@RequiredArgsConstructor` on classes needing dependencies. Banned: Field `@Autowired`.
+4. **MapStruct Compile-Time Mapping:** Generate mappers using MapStruct `@Mapper(componentModel = "spring")`. Banned: reflection-based mapping or manually writing setter chains.
+5. **Centralized Error Boundary:** Implement a single `@RestControllerAdvice` class capturing all domain-specific exceptions and mapping them to standardized HTTP responses `{ error, message, status, timestamp }`.
+6. **Database Migration:** Always use Flyway or Liquibase to manage relational schemas via SQL files in `resources/db/migration`. Banned: relying on JPA `hibernate.ddl-auto=update` in production.
 
 ## Project Structure
 

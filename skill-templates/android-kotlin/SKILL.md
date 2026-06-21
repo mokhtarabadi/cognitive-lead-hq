@@ -3,7 +3,22 @@ name: mobile-architecture-android-kotlin
 description: Jetpack Compose, MVVM, Clean Architecture, Coroutines, and Hilt for Android Kotlin
 ---
 
-# Android (Kotlin) — Best Practices
+# Android (Kotlin) — Best Practices & AI-Driven Scaffolding
+
+## Modern Project Initiation Guide
+
+When launching an Android Kotlin application from scratch, initialize using the following strict architectural directives:
+
+1. **100% Jetpack Compose UI:** Never generate XML layout files. Use the Material 3 design system exclusively.
+2. **Single-Activity Architecture:** Use a single `MainActivity.kt` with a Compose `NavHost` configured for standard type-safe navigation routes.
+3. **MVVM + Clean Architecture:** Group packages strictly by feature:
+   - `domain/` — Contains pure Kotlin models, repository interfaces (ports), and UseCases. No Android framework dependencies.
+   - `data/` — Implements repository interfaces. Coordinates remote (ParsePlatform or API) and local (Room) data sources.
+   - `ui/` — Houses Compose screens, individual components, and ViewModels.
+4. **ParsePlatform Integration:** Always query the Parse SDK directly. Never write Retrofit wrappers or REST interfaces around Parse endpoints.
+5. **Kotlin Coroutines & Flow:** Use `StateFlow<UiState>` for rendering state, `SharedFlow` for one-time events (navigation, snackbars), and `viewModelScope` for scoping. Never use legacy LiveData or RxJava.
+6. **Dependency Injection:** Hilt is mandatory. Annotate ViewModels with `@HiltViewModel` and inject constructor dependencies using `@Inject`.
+7. **Localization (en/fa):** All strings must be declared in `strings.xml`. Persian strings must reside inside `values-fa/strings.xml`. Ensure RTL support using `LocalLayoutDirection` on RTL screens.
 
 ## Project Structure
 

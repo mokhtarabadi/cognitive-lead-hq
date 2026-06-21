@@ -126,6 +126,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - **`stage_and_inject_diff` MCP tool** — optimized the staged git diff command to globally exclude the entire `tasks/` directory (`:!tasks/`) instead of just the single active task file, completely eliminating task history clutter from factual codebase reviews.
 
+## [5.9.0] — 2026-06-21
+
+### Added
+
+- **🛑 MANDATORY FIRST-READ RULE:** Added rules to `system-prompt.md` and `AGENTS.md` forcing coding agents to read global configurations and architectural files before starting any implementation.
+- **Parallel Subagent Guidelines:** Declared OpenCode's ability to run up to 4 concurrent subagent tasks during Phase 0 discovery.
+- **Core File Scaffolding Templates:** Integrated full schemas and templates for `architecture.md`, `DESIGN.md`, and `AGENTS.md` directly into the `audit-agents` skill template.
+- **AI-Driven Project Initialization Standards:** Standardized templates for Android Kotlin, Spring Boot, Node.js, Nuxt, and Next.js in `skill-templates/`.
+- **Task 15:** Added the active task file tracking this major system prompt and scaffolding upgrade.
+
 ## [5.7.1] — 2026-06-17
 
 ### Changed

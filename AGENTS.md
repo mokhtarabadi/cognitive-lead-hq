@@ -1,5 +1,15 @@
 # Cognitive Lead AI HQ — Project Context Hub
 
+## 🛑 MANDATORY FIRST-READ RULE
+
+The very first file the agent MUST read before performing any task is `AGENTS.md`.
+This file acts as the primary router. You MUST load and read the following documents first before executing any code changes to guarantee 100% structural and stylistic alignment:
+
+1. `DESIGN.md` — Enforces colors, typography, layout scale, component styling, and RTL Persian configurations.
+2. `docs/architecture.md` — Defines project structure, layer boundaries, and key data flow policies.
+3. `docs/data_model.md` — Defines database entities, schemas, pointers, and object relationships.
+4. `docs/conventions.md` — Defines syntax rules, naming conventions, file boundaries, and localization paths.
+
 ## Project Overview
 
 This repository is the Headquarters for the Cognitive Lead AI multi-agent system. It is a **documentation-only** repository containing system prompts, MCP servers, and Agent Skills (`SKILL.md`).
