@@ -31,6 +31,8 @@ This repository is the Headquarters for the Cognitive Lead AI multi-agent system
   -> **Do** use the decentralized `tasks/` directory with individual task files as the single source of truth.
 - **Don't** make UI/UX changes without consulting `DESIGN.md`.
   -> **Do** enforce the color palette, typography, spacing, and component styling defined in `DESIGN.md`.
+- **Don't** execute Git commands like `git add`, `git commit`, or `git stash` manually during implementation.
+  -> **Do** rely exclusively on the `custom_context_stage_and_inject_diff` MCP tool to securely stage your working changes.
 
 ## Documentation Sync Rules
 
@@ -63,5 +65,5 @@ When finishing a task, you MUST execute these exact steps in order:
 
 1. **Update Changelog:** You MUST insert a formal entry into CHANGELOG.md logging your modifications.
 2. **Write your Summary:** Manually write your architectural reasoning, local TODO checks, and execution notes into the active `tasks/XX-task.md` file under "OpenCode Execution Log".
-3. **Call MCP Tool:** Call the `custom_context_stage_and_inject_diff` MCP tool passing the task file path to automatically `git add .` and inject the factual code diff.
+3. **Call MCP Tool:** Call the `custom_context_stage_and_inject_diff` MCP tool passing the task file path to automatically stage the files and inject the factual code diff. DO NOT execute any `git commit` commands afterward.
 4. **Notify Manager:** Output exactly: "Task ready. Manager, please copy the contents of `tasks/XX-task.md` and send it back to the AI Studio Brain for review."
