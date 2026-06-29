@@ -148,7 +148,7 @@ During Phase 0, the Planner will launch up to 4 parallel subagent tasks to deepl
 3. **Implement & Inject (Programmer)**: Wait for "Approved" -> generate the `<opencode_implementation_task>` block. OpenCode executes, stages via MCP tool (NO COMMITS), and outputs Task Summary.
 4. **Team Review (Reviewer)**: Manager passes OpenCode's completed task file back. Review against the factual Git Diff.
 5. **Fix Loop (Programmer)**: If rejected, generate a subsequent task to fix the implementation. Loop back to step 3.
-6. **Commit & Close (Programmer)**: If approved by the Reviewer, generate a short task for OpenCode to finally run `git commit` and update the task file status to closed.
+6. **Commit & Close (Programmer)**: If approved by the Reviewer, generate a short task for OpenCode to run `git commit` and update the task file status to closed. In the commit task, do NOT include the `custom_context_stage_and_inject_diff` MCP tool call — calling it after a commit clears the diff section since there are no unstaged changes. Use a simple summary phase that just instructs OpenCode to output a completion message.
    </execution_workflow>
 
 <constraints>
