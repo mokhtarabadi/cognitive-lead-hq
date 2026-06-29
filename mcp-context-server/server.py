@@ -60,14 +60,13 @@ class GitIgnoreFilter:
             current = current.parent
         return False
 
+TEXT_ENCODINGS = ["utf-8", "utf-8-sig", "windows-1256", "windows-1252", "latin-1"]
+
 def is_binary(file_path: Path) -> bool:
     try:
         with open(file_path, "rb") as f:
             chunk = f.read(1024)
-            if b"\0" in chunk:
-                return True
-            chunk.decode("utf-8")
-            return False
+            return b"\0" in chunk
     except Exception:
         return True
 
@@ -109,21 +108,28 @@ def process_source_file(file_path: Path, max_size: int, line_numbers: bool) -> s
         lines.append("> Skipped: (Binary file)\n")
         return "\n".join(lines)
     ext = file_path.suffix.lstrip(".") or "text"
-    try:
-        with open(file_path, "r", encoding="utf-8") as f:
-            file_lines = f.read().split("\n")
-        if file_lines and file_lines[-1] == "":
-            file_lines.pop()
-        if line_numbers:
-            content = "\n".join(f"{i}: {line}" for i, line in enumerate(file_lines, 1))
-        else:
-            content = "\n".join(file_lines)
-        lines.append(f"```{ext}")
-        if content:
-            lines.append(content)
-        lines.append("```\n")
-    except Exception as e:
-        lines.append(f"> Skipped: (Error reading file: {e})\n")
+    content_text = None
+    for enc in TEXT_ENCODINGS:
+        try:
+            with open(file_path, "r", encoding=enc) as f:
+                content_text = f.read()
+            break
+        except (UnicodeDecodeError, UnicodeError):
+            continue
+    if content_text is None:
+        lines.append(f"> Skipped: (Could not decode file with any supported encoding)\n")
+        return "\n".join(lines)
+    file_lines = content_text.split("\n")
+    if file_lines and file_lines[-1] == "":
+        file_lines.pop()
+    if line_numbers:
+        content = "\n".join(f"{i}: {line}" for i, line in enumerate(file_lines, 1))
+    else:
+        content = "\n".join(file_lines)
+    lines.append(f"```{ext}")
+    if content:
+        lines.append(content)
+    lines.append("```\n")
     return "\n".join(lines)
 
 def collect_files(target: str, ignore_filter: GitIgnoreFilter) -> list[Path]:
