@@ -18,6 +18,7 @@ The `AGENTS.md` file MUST explicitly contain the following operational constrain
 - **UI/UX Enforcement**: Any UI/UX changes MUST enforce the guidelines defined in the project's `DESIGN.md`.
 - **Task-Generator Skill Loading**: `AGENTS.md` MUST explicitly instruct OpenCode to load the `task-generator` skill before creating new task files.
 - **Project Skill Loading**: `AGENTS.md` MUST explicitly instruct OpenCode to load every available skill matching the project's tech stack before task implementation.
+- **Complex Debugging**: Agents MUST be instructed not to guess blindly on complex bugs, but instead utilize the `debug-instrumentation` skill.
 
 ---
 
@@ -209,6 +210,8 @@ Use this when a project has no `AGENTS.md` yet (new project onboarding).
   -> **Do** [preferred alternative]
 - **Don't** execute Git commands like `git add`, `git commit`, or `git stash` manually during implementation.
   -> **Do** rely exclusively on the `custom_context_stage_and_inject_diff` MCP tool to securely stage your working changes.
+- **Don't** guess blindly when facing complex bugs, deadlocks, or silent timeouts.
+  -> **Do** utilize the `debug-instrumentation` skill to inject strategic logs and trace the runtime execution path.
 
 ## Documentation Sync Rules
 
@@ -267,6 +270,7 @@ The `AGENTS.md` file MUST explicitly contain the following operational constrain
 - **UI/UX Enforcement**: Any UI/UX changes MUST enforce the guidelines defined in the project's `DESIGN.md`.
 - **Task-Generator Skill Loading**: `AGENTS.md` MUST explicitly instruct OpenCode to load the `task-generator` skill before creating new task files.
 - **Project Skill Loading**: `AGENTS.md` MUST explicitly instruct OpenCode to load every available skill matching the project's tech stack before task implementation.
+- **Complex Debugging**: Agents MUST be instructed not to guess blindly on complex bugs, but instead utilize the `debug-instrumentation` skill.
 
 ### Resolution Protocol
 

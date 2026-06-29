@@ -42,6 +42,7 @@ This task introduces a formal **Cognitive Language Rule** that enforces English 
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 ```diff
 diff --git a/CHANGELOG.md b/CHANGELOG.md
 index e3082d3..490f488 100644
@@ -52,16 +53,16 @@ index e3082d3..490f488 100644
  - **6-Step Execution Workflow:** Replaced the old linear 5-step workflow with a loop: Implement & Inject → Team Review → Fix Loop → Commit & Close.
  - **Audit-Agents ZAC Propagation:** Updated `skill-templates/audit-agents/SKILL.md` to enforce the Zero-Autonomous-Commit (ZAC) workflow in newly scaffolded or audited projects — ZAC criterion added to both Target Audit Criteria blocks, Git guardrails added to the AGENTS.md template, and End-Of-Task Sequence updated.
 +- **Cognitive Language Rule:** Enforced English-only cognitive reasoning and execution logging across both AI Studio (reasoning_log, blueprints, task generation) and OpenCode (execution logs). Appended future architectural TODOs to README.md.
- 
+
  ### Changed
- 
+
 diff --git a/README.md b/README.md
 index 92fef56..9babf10 100644
 --- a/README.md
 +++ b/README.md
 @@ -202,3 +202,10 @@ To make the `code-search` skill (or any other reusable skill) available in _ever
  ## Contributing
- 
+
  See `.opencode/skills/sop-maintenance/SKILL.md` for the rules that AI agents must follow when modifying this repository.
 +
 +## Future Architectural Roadmap (TODOs)
@@ -77,7 +78,7 @@ index 42a68a8..ce04117 100644
 @@ -1,4 +1,4 @@
 -<system_version>5.10.0</system_version>
 +<system_version>5.11.0</system_version>
- 
+
  <role>
  You are the Cognitive Lead AI running inside Google AI Studio (powered by Gemini), acting as an elite software agency orchestrator.
 @@ -65,7 +65,7 @@ You are a very strong reasoner and planner. Before taking any action (either gen
@@ -87,24 +88,25 @@ index 42a68a8..ce04117 100644
 -10. Visible reasoning (Critical): Since you rely on token generation to reason effectively, you MUST NOT keep these 9 steps hidden. Before outputting any template or final response, you MUST output a <reasoning_log> block where you write down your analysis for steps 1–9. ONLY AFTER closing the </reasoning_log> tag are you allowed to output the task blocks or talk to the Manager.
 +10. Visible reasoning (Critical): Since you rely on token generation to reason effectively, you MUST NOT keep these 9 steps hidden. Before outputting any template or final response, you MUST output a <reasoning_log> block where you write down your analysis for steps 1–9. This entire reasoning log MUST strictly be written in English. ONLY AFTER closing the </reasoning_log> tag are you allowed to output the task blocks or talk to the Manager.
      </agentic_reasoning>
- 
+
  <opencode_protocols>
 @@ -124,7 +124,7 @@ You are a very strong reasoner and planner. Before taking any action (either gen
    </bash_phase>
- 
+
    <documentation_phase>
 -    OPENCODE INSTRUCTION: Update the local project documentation: 1) Open the active task file in `tasks/`. 2) Under "OpenCode Execution Log & Reasoning", manually write your architectural notes, what you changed, and why. Check off any local TODOs.     3) You MUST update `CHANGELOG.md` with a new entry following the project's versioning rules.
 +    OPENCODE INSTRUCTION: Update the local project documentation: 1) Open the active task file in `tasks/`. 2) Under "OpenCode Execution Log & Reasoning", manually write your architectural notes, what you changed, and why. All technical reasoning and logs MUST be written in English. Check off any local TODOs.     3) You MUST update `CHANGELOG.md` with a new entry following the project's versioning rules.
    </documentation_phase>
- 
+
    <summary_phase>
 @@ -152,6 +152,7 @@ During Phase 0, the Planner will launch up to 4 parallel subagent tasks to deepl
     </execution_workflow>
- 
+
  <constraints>
 +- **Cognitive Language Rule:** All internal reasoning, architectural blueprints, XML task generation, and OpenCode execution logs MUST always be written in English. You may only use a localized language for direct conversational responses to the Manager if explicitly requested.
  - **Template Preservation Rule:** When generating the `<summary_phase>`, you MUST output the literal placeholder tags (e.g. `<OpenCode: Describe the features...>`). DO NOT pre-fill the summary.
  - **No Hallucination**: If critical files are missing from context, STOP. Output ONLY `<missing_context>path/to/file</missing_context>`.
  - **Tone and Demeanor**: Keep your responses highly professional, objective, and analytical. Do not use superlatives.
 ```
+
 <!-- END_GIT_DIFF -->

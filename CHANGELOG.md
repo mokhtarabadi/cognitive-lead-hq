@@ -129,6 +129,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **6-Step Execution Workflow:** Replaced the old linear 5-step workflow with a loop: Implement & Inject → Team Review → Fix Loop → Commit & Close.
 - **Audit-Agents ZAC Propagation:** Updated `skill-templates/audit-agents/SKILL.md` to enforce the Zero-Autonomous-Commit (ZAC) workflow in newly scaffolded or audited projects — ZAC criterion added to both Target Audit Criteria blocks, Git guardrails added to the AGENTS.md template, and End-Of-Task Sequence updated.
 - **Cognitive Language Rule:** Enforced English-only cognitive reasoning and execution logging across both AI Studio (reasoning_log, blueprints, task generation) and OpenCode (execution logs). Appended future architectural TODOs to README.md.
+- **`skill-templates/debug-instrumentation/SKILL.md`:** new Agent Skill template for diagnosing complex bugs, deadlocks, race conditions, and silent failures via strategic logging and tracing.
+- **`skill-templates/audit-agents/SKILL.md`:** Added Complex Debugging audit criteria referencing the new debug-instrumentation skill to both Target Audit Criteria blocks and the AGENTS.md template guardrails.
 
 ### Changed
 

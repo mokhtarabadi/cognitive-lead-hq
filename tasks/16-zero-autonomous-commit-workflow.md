@@ -49,6 +49,7 @@ This upgrade introduces the **Zero-Autonomous-Commit (ZAC)** workflow — a crit
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 ```diff
 diff --git a/AGENTS.md b/AGENTS.md
 index 84db3a2..38f8848 100644
@@ -60,11 +61,11 @@ index 84db3a2..38f8848 100644
    -> **Do** enforce the color palette, typography, spacing, and component styling defined in `DESIGN.md`.
 +- **Don't** execute Git commands like `git add`, `git commit`, or `git stash` manually during implementation.
 +  -> **Do** rely exclusively on the `custom_context_stage_and_inject_diff` MCP tool to securely stage your working changes.
- 
+
  ## Documentation Sync Rules
- 
+
 @@ -63,5 +65,5 @@ When finishing a task, you MUST execute these exact steps in order:
- 
+
  1. **Update Changelog:** You MUST insert a formal entry into CHANGELOG.md logging your modifications.
  2. **Write your Summary:** Manually write your architectural reasoning, local TODO checks, and execution notes into the active `tasks/XX-task.md` file under "OpenCode Execution Log".
 -3. **Call MCP Tool:** Call the `custom_context_stage_and_inject_diff` MCP tool passing the task file path to automatically `git add .` and inject the factual code diff.
@@ -75,9 +76,9 @@ index 8247a1d..6b630ca 100644
 --- a/CHANGELOG.md
 +++ b/CHANGELOG.md
 @@ -122,8 +122,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
- 
+
  ## [Unreleased]
- 
+
 +### Added
 +
 +- **Zero-Autonomous-Commit (ZAC) Workflow:** Enforced strict separation of code staging from committing. OpenCode is now forbidden from running `git add`, `git commit`, or `git stash` during implementation (CRITICAL RULE 3). Staging is handled exclusively by the `custom_context_stage_and_inject_diff` MCP tool.
@@ -85,11 +86,11 @@ index 8247a1d..6b630ca 100644
 +- **6-Step Execution Workflow:** Replaced the old linear 5-step workflow with a loop: Implement & Inject → Team Review → Fix Loop → Commit & Close.
 +
  ### Changed
- 
+
 +- **`system-prompt.md`** — `<system_version>` bumped to 5.10.0. Code Reviewer behavior updated. CRITICAL RULE 1 in bash phase no longer lists `git commit` as a non-interactive example. CRITICAL RULE 3 added forbidding Git commands. `<execution_workflow>` rewritten with implement/inject, review, fix-loop, and commit steps.
 +- **`AGENTS.md`** — Added Git guardrail under Actionable Guardrails. Mandatory End-Of-Task Sequence step 3 updated to forbid `git commit` commands.
  - **`stage_and_inject_diff` MCP tool** — optimized the staged git diff command to globally exclude the entire `tasks/` directory (`:!tasks/`) instead of just the single active task file, completely eliminating task history clutter from factual codebase reviews.
- 
+
  ## [5.9.0] — 2026-06-21
 diff --git a/system-prompt.md b/system-prompt.md
 index 677f589..42a68a8 100644
@@ -98,7 +99,7 @@ index 677f589..42a68a8 100644
 @@ -1,4 +1,4 @@
 -<system_version>5.9.0</system_version>
 +<system_version>5.10.0</system_version>
- 
+
  <role>
  You are the Cognitive Lead AI running inside Google AI Studio (powered by Gemini), acting as an elite software agency orchestrator.
 @@ -49,7 +49,7 @@ CRITICAL INSTRUCTION: The Manager will often send informal, raw text. Before tak
@@ -109,9 +110,9 @@ index 677f589..42a68a8 100644
 +    <behavior>Read the "OpenCode Execution Log" to understand the agent's logic, but base your strict review ONLY on the "Factual Git Diff" block inside the task file. Provide rigorous formatting: Strengths, Issues, Severity, Recommendations. Output status: APPROVED, APPROVED_WITH_CHANGES, or REJECTED_NEEDS_FIXES. If rejected, explicitly state what OpenCode must fix in the next iteration and generate a subsequent implementation task to fix the implementation. If APPROVED, generate a brief OpenCode task to execute `git commit` and mark the task file as `closed`.</behavior>
    </persona>
  </personas>
- 
+
 @@ -117,8 +117,9 @@ You are a very strong reasoner and planner. Before taking any action (either gen
- 
+
    <bash_phase>
      OPENCODE INSTRUCTION: Run the necessary terminal commands to install dependencies, build, and verify changes.
 -    CRITICAL RULE 1: ALL bash commands MUST use non-interactive flags (e.g., `npm install -y`, `git commit -m "msg"`, `pytest --no-header`). Do NOT run interactive commands like `vim`, `less`, or `nano`.
@@ -120,9 +121,9 @@ index 677f589..42a68a8 100644
 +    CRITICAL RULE 3: You are STRICTLY FORBIDDEN from executing state-altering Git commands (e.g., `git add`, `git commit`, `git stash`) during implementation. Staging is handled exclusively by the `custom_context_stage_and_inject_diff` MCP tool.
      [List explicit bash commands here]
    </bash_phase>
- 
+
 @@ -144,9 +145,10 @@ During Phase 0, the Planner will launch up to 4 parallel subagent tasks to deepl
- 
+
  1. **Input Processing & Clarification**: Analyze the Manager's raw input. Clean syntax, interpret context. IF ambiguous, HALT and ask clarifying questions. IF clear, proceed.
  2. **Plan (Architect & UI/UX)**: Analyze request -> Deliver blueprint -> Ask Manager for approval.
 -3. **Implement (Programmer)**: Wait for "Approved" -> generate the strict, markdown-wrapped `<opencode_implementation_task>` block.
@@ -133,7 +134,8 @@ index 677f589..42a68a8 100644
 +5. **Fix Loop (Programmer)**: If rejected, generate a subsequent task to fix the implementation. Loop back to step 3.
 +6. **Commit & Close (Programmer)**: If approved by the Reviewer, generate a short task for OpenCode to finally run `git commit` and update the task file status to closed.
     </execution_workflow>
- 
+
  <constraints>
 ```
+
 <!-- END_GIT_DIFF -->

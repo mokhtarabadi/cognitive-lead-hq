@@ -32,9 +32,10 @@ Your report MUST strictly follow this exact structure:
 ## 3. Chronological Task Registry & Progress
 
 Provide a detailed table of all tasks handled in this session, matching their current local status:
-| Task Index & Filename | Msg ID (Telegram) | Type | Status (Completed/Todo/Halted) | Core Achievements & Technical Decisions |
-| :--- | :--- | :--- | :--- | :--- |
-| [e.g., tasks/05-xxx.md] | [e.g., 548] | [bug/feature] | Completed | [Brief summary of architectural changes made] |
+
+| Task Index & Filename   | Msg ID (Telegram) | Type          | Status (Completed/Todo/Halted) | Core Achievements & Technical Decisions       |
+| :---------------------- | :---------------- | :------------ | :----------------------------- | :-------------------------------------------- |
+| [e.g., tasks/05-xxx.md] | [e.g., 548]       | [bug/feature] | Completed                      | [Brief summary of architectural changes made] |
 
 ## 4. Codebase Forensic State (Critical & Modified Files)
 

@@ -52,14 +52,15 @@ Key design decisions:
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
-```diff
+
+````diff
 diff --git a/AGENTS.md b/AGENTS.md
 index 59bec3f..dd608be 100644
 --- a/AGENTS.md
 +++ b/AGENTS.md
 @@ -1,5 +1,15 @@
  # Cognitive Lead AI HQ — Project Context Hub
- 
+
 +## 🛑 MANDATORY FIRST-READ RULE
 +
 +The very first file the agent MUST read before performing any task is `AGENTS.md`.
@@ -71,16 +72,16 @@ index 59bec3f..dd608be 100644
 +4. `docs/conventions.md` — Defines syntax rules, naming conventions, file boundaries, and localization paths.
 +
  ## Project Overview
- 
+
  This repository is the Headquarters for the Cognitive Lead AI multi-agent system. It is a **documentation-only** repository containing system prompts, MCP servers, and Agent Skills (`SKILL.md`).
 diff --git a/CHANGELOG.md b/CHANGELOG.md
 index 3c28e18..8247a1d 100644
 --- a/CHANGELOG.md
 +++ b/CHANGELOG.md
 @@ -126,6 +126,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
- 
+
  - **`stage_and_inject_diff` MCP tool** — optimized the staged git diff command to globally exclude the entire `tasks/` directory (`:!tasks/`) instead of just the single active task file, completely eliminating task history clutter from factual codebase reviews.
- 
+
 +## [5.9.0] — 2026-06-21
 +
 +### Added
@@ -92,7 +93,7 @@ index 3c28e18..8247a1d 100644
 +- **Task 15:** Added the active task file tracking this major system prompt and scaffolding upgrade.
 +
  ## [5.7.1] — 2026-06-17
- 
+
  ### Changed
 diff --git a/skill-templates/android-kotlin/SKILL.md b/skill-templates/android-kotlin/SKILL.md
 index 83f67a5..69ec62c 100644
@@ -101,7 +102,7 @@ index 83f67a5..69ec62c 100644
 @@ -3,7 +3,22 @@ name: mobile-architecture-android-kotlin
  description: Jetpack Compose, MVVM, Clean Architecture, Coroutines, and Hilt for Android Kotlin
  ---
- 
+
 -# Android (Kotlin) — Best Practices
 +# Android (Kotlin) — Best Practices & AI-Driven Scaffolding
 +
@@ -119,17 +120,17 @@ index 83f67a5..69ec62c 100644
 +5. **Kotlin Coroutines & Flow:** Use `StateFlow<UiState>` for rendering state, `SharedFlow` for one-time events (navigation, snackbars), and `viewModelScope` for scoping. Never use legacy LiveData or RxJava.
 +6. **Dependency Injection:** Hilt is mandatory. Annotate ViewModels with `@HiltViewModel` and inject constructor dependencies using `@Inject`.
 +7. **Localization (en/fa):** All strings must be declared in `strings.xml`. Persian strings must reside inside `values-fa/strings.xml`. Ensure RTL support using `LocalLayoutDirection` on RTL screens.
- 
+
  ## Project Structure
- 
+
 diff --git a/skill-templates/audit-agents/SKILL.md b/skill-templates/audit-agents/SKILL.md
 index 652b8ff..1838e9d 100644
 --- a/skill-templates/audit-agents/SKILL.md
 +++ b/skill-templates/audit-agents/SKILL.md
 @@ -5,6 +5,167 @@ description: Enforces decentralized task management, UI/UX design strictness, an
- 
+
  # OpenCode Skill: Agent Protocol Auditor
- 
+
 +## Target Audit Criteria
 +
 +The `AGENTS.md` file MUST explicitly contain the following operational constraints, ideally within a `Task Management & OpenCode Rules` section:
@@ -292,17 +293,17 @@ index 652b8ff..1838e9d 100644
 +---
 +
  Use this skill in two modes:
- 
+
  - **Phase 0 (Generation):** When `AGENTS.md` does not exist yet — generate it from the template below.
 @@ -69,7 +230,7 @@ You MUST strictly adhere to these exact paths. Do not create duplicates elsewher
  You MUST follow these skill loading rules in every session:
- 
+
  - **Task-Generator Skill:** Before creating any new task file, you MUST load the `task-generator` skill using the `skill` tool to ensure the correct template format with `<!-- BEGIN_GIT_DIFF -->` / `<!-- END_GIT_DIFF -->` markers.
 -- **Project Skills:** Before implementing any task, you MUST load every available skill matching the project's tech stack (e.g., `[android-kotlin]`, `[spring-boot]`, `[react-vite]`). If a relevant skill exists, it MUST be loaded — this enforces framework-specific conventions and architectural rules.
 +- **Project Skills:** Before implementing any task, you MUST load every available skill matching the project's tech stack (e.g., `android-kotlin`, `spring-boot`, `react-vite`). If a relevant skill exists, it MUST be loaded — this enforces framework-specific conventions and architectural rules.
- 
+
  ## 🛑 MANDATORY END-OF-TASK SEQUENCE
- 
+
 diff --git a/skill-templates/nextjs/SKILL.md b/skill-templates/nextjs/SKILL.md
 index 412418e..51abdc6 100644
 --- a/skill-templates/nextjs/SKILL.md
@@ -310,7 +311,7 @@ index 412418e..51abdc6 100644
 @@ -3,7 +3,19 @@ name: frontend-architecture-nextjs
  description: App Router, Server/Client Components, Server Actions, and Tailwind tokens for Next.js
  ---
- 
+
 -# Next.js — Best Practices
 +# Next.js — Best Practices & AI-Driven Scaffolding
 +
@@ -325,9 +326,9 @@ index 412418e..51abdc6 100644
 +3. **Server Actions for Mutations:** Always handle form submissions and database mutations using Server Actions with the `"use server"` directive. Banned: setting up custom API routes for simple form handling.
 +4. **Tailwind Token System:** Never use arbitrary Tailwind classes (like `h-[12px]`) or inline styles. Declare custom scales inside `tailwind.config.ts` and refer to them.
 +5. **A11y Semantic HTML:** Always enforce standard landmarks (`<header>`, `<main>`, `<footer/>`) and `next/image` alt tags.
- 
+
  ## Project Structure
- 
+
 diff --git a/skill-templates/nodejs-express/SKILL.md b/skill-templates/nodejs-express/SKILL.md
 index ac5eec0..5731b43 100644
 --- a/skill-templates/nodejs-express/SKILL.md
@@ -335,7 +336,7 @@ index ac5eec0..5731b43 100644
 @@ -3,7 +3,19 @@ name: backend-architecture-nodejs-express
  description: Architectural rules, 3-layer pattern, and naming conventions for Node.js Express
  ---
- 
+
 -# Node.js + Express — Best Practices
 +# Node.js + Express — Best Practices & AI-Driven Scaffolding
 +
@@ -350,9 +351,9 @@ index ac5eec0..5731b43 100644
 +   - Services implement business logic and coordinate data layers. No request/response imports.
 +3. **Centralized Global Error Handler:** Use a custom `AppError` class. Wrap controllers with `express-async-errors` to capture thrown exceptions globally and format them consistently. Banned: inline `try/catch` blocks inside controllers.
 +4. **Security Basics:** Always register `helmet`, `cors`, and `express-rate-limit` middlewares at startup.
- 
+
  ## Project Structure
- 
+
 diff --git a/skill-templates/spring-boot/SKILL.md b/skill-templates/spring-boot/SKILL.md
 index ef2713c..2719bb2 100644
 --- a/skill-templates/spring-boot/SKILL.md
@@ -360,7 +361,7 @@ index ef2713c..2719bb2 100644
 @@ -3,7 +3,18 @@ name: backend-architecture-spring-boot
  description: DDD, hexagonal style, and naming conventions for Spring Boot
  ---
- 
+
 -# Spring Boot — Best Practices
 +# Spring Boot — Best Practices & AI-Driven Scaffolding
 +
@@ -374,9 +375,9 @@ index ef2713c..2719bb2 100644
 +4. **MapStruct Compile-Time Mapping:** Generate mappers using MapStruct `@Mapper(componentModel = "spring")`. Banned: reflection-based mapping or manually writing setter chains.
 +5. **Centralized Error Boundary:** Implement a single `@RestControllerAdvice` class capturing all domain-specific exceptions and mapping them to standardized HTTP responses `{ error, message, status, timestamp }`.
 +6. **Database Migration:** Always use Flyway or Liquibase to manage relational schemas via SQL files in `resources/db/migration`. Banned: relying on JPA `hibernate.ddl-auto=update` in production.
- 
+
  ## Project Structure
- 
+
 diff --git a/skill-templates/vue-nuxt/SKILL.md b/skill-templates/vue-nuxt/SKILL.md
 index 5a229a7..0ef8328 100644
 --- a/skill-templates/vue-nuxt/SKILL.md
@@ -384,7 +385,7 @@ index 5a229a7..0ef8328 100644
 @@ -3,7 +3,17 @@ name: frontend-architecture-vue-nuxt
  description: Vue 3 Composition API, Nuxt 3 routing, and state management
  ---
- 
+
 -# Vue 3 & Nuxt 3 — Best Practices
 +# Vue 3 & Nuxt 3 — Best Practices & AI-Driven Scaffolding
 +
@@ -397,9 +398,9 @@ index 5a229a7..0ef8328 100644
 +3. **State Management:** Use Pinia via `@pinia/nuxt`. Define stores using the store-factory function syntax (`defineStore('id', () => { ... })`).
 +4. **SSR-Safe Data Fetching:** Always use `useFetch` or `useAsyncData` to ensure data loads on the server and hydrates safely on the client. Banned: standard `axios` or bare `fetch` inside components.
 +5. **Form Validation:** Use Formkit or VeeValidate + Zod for robust client-side schemas.
- 
+
  ## Project Structure
- 
+
 diff --git a/system-prompt.md b/system-prompt.md
 index 111aa85..677f589 100644
 --- a/system-prompt.md
@@ -407,7 +408,7 @@ index 111aa85..677f589 100644
 @@ -1,9 +1,10 @@
 -<system_version>5.7.1</system_version>
 +<system_version>5.9.0</system_version>
- 
+
  <role>
  You are the Cognitive Lead AI running inside Google AI Studio (powered by Gemini), acting as an elite software agency orchestrator.
  You coordinate with the human user (The Manager) and generate highly structured, non-interactive instructions for "OpenCode" (the local autonomous agent running on the Manager's laptop).
@@ -415,7 +416,7 @@ index 111aa85..677f589 100644
 +OpenCode has parallel agent execution capabilities and can execute up to 4 tasks concurrently across different subagents to accelerate codebase discovery and file generation.
  ALWAYS start your response by declaring your active persona in brackets, e.g., **[Software Architect]**.
  </role>
- 
+
 @@ -24,7 +25,7 @@ CRITICAL INSTRUCTION: The Manager will often send informal, raw text. Before tak
    <persona name="Software Architect">
      <trigger>New features, major backend changes, or explicit Manager requests.</trigger>
@@ -423,7 +424,7 @@ index 111aa85..677f589 100644
 -    <behavior>Analyze requirements and foresee edge cases. Instruct the Project Planner to establish initial project rules. If you lack sufficient codebase context during onboarding or feature design, STOP. Do not hallucinate. Instead, request the Planner to initiate a Discovery Task so the Manager can run it in OpenCode and paste the file tree and code context back to us. Only produce the final detailed technical blueprint once you have the necessary context. Keep custom workflows isolated as task-specific toolkits in `.opencode/skills/<name>/SKILL.md` to prevent context bloat. STOP and wait for Manager approval before code generation begins.</behavior>
 +    <behavior>Analyze requirements and foresee edge cases. Instruct the Project Planner to establish initial project rules. When initializing or designing, ALWAYS instruct OpenCode to consult AGENTS.md as its very first action. AGENTS.md will then direct OpenCode to read the core architectural and design specifications (DESIGN.md, architecture.md, data_model.md, conventions.md) to guarantee fully integrated and uniform code. If you lack sufficient codebase context, STOP. Do not hallucinate. Request the Planner to initiate a Discovery Task so the Manager can run it in OpenCode and paste the file tree and code context back to us. Only produce the final detailed technical blueprint once you have the necessary context. Keep custom workflows isolated as task-specific toolkits in `.opencode/skills/<name>/SKILL.md` to prevent context bloat. STOP and wait for Manager approval before code generation begins.</behavior>
    </persona>
- 
+
    <persona name="UI/UX Designer">
 @@ -36,13 +37,13 @@ CRITICAL INSTRUCTION: The Manager will often send informal, raw text. Before tak
    <persona name="Senior Programmer">
@@ -432,22 +433,23 @@ index 111aa85..677f589 100644
 -    <behavior>Adopt the coding style defined in the project's local Agent Skills or `AGENTS.md`. You do NOT execute code yourself and you DO NOT predict execution results. You write strict, comprehensive instructions formatted as an `<opencode_implementation_task>` for the local OpenCode agent to execute. You MUST wrap the task in a Markdown code block starting with ```xml and ending with ``` so the Manager can copy it with a single click. Instruct OpenCode to leverage its native tools (`lsp`, `grep`, `websearch`, `skill`, MCP servers, and `@explore` subagent) to gain context autonomously.</behavior>
 +    <behavior>Adopt the coding style defined in the project's local Agent Skills or `AGENTS.md`. You write strict, comprehensive instructions formatted as an `<opencode_implementation_task>` for the local OpenCode agent to execute. You MUST instruct OpenCode to read AGENTS.md as its very first step, which acts as a router directing the agent to read DESIGN.md, architecture.md, data_model.md, and conventions.md before implementing changes. You do NOT execute code yourself. Wrap the task in a Markdown code block starting with ```xml and ending with ``` so the Manager can copy it with a single click. Instruct OpenCode to leverage its native tools (`lsp`, `grep`, `websearch`, `skill`, MCP servers, and `@explore` subagent) to gain context autonomously.</behavior>
    </persona>
- 
+
    <persona name="Project Planner">
      <trigger>Status checks, milestone planning, or explicit Manager requests.</trigger>
      <duty>Maintain individual task files in the tasks/ directory as the single source of truth for work items, and maintain AGENTS.md both in AI Studio context and mirrored locally.</duty>
 -    <behavior>Maintain decentralized task files in `tasks/` as the single source of truth. When creating a new task file, instruct OpenCode to load the `task-generator` skill to ensure the correct template format with `<!-- BEGIN_GIT_DIFF -->` and `<!-- END_GIT_DIFF -->` markers. In Phase 0, instruct OpenCode to load the `audit-agents` skill to generate `AGENTS.md` and perform a deep traversal of the source code to fully comprehend the project structure and UI/UX elements, resulting in a comprehensive `DESIGN.md`. Ensure `AGENTS.md` explicitly includes instructions on reading and updating the active task file.</behavior>
 +    <behavior>Maintain decentralized task files in `tasks/` as the single source of truth. When creating a new task file, instruct OpenCode to load the `task-generator` skill to ensure the correct template format with `<!-- BEGIN_GIT_DIFF -->` and `<!-- END_GIT_DIFF -->` markers. In Phase 0, instruct OpenCode to load the `audit-agents` skill to generate `AGENTS.md`. During onboarding, spawn parallel subagents (up to 4 concurrent agents) to traverse the source code to fully comprehend the project layout and UI/UX design, drafting comprehensive spec files: `DESIGN.md`, `docs/architecture.md`, `docs/data_model.md`, and `docs/conventions.md`. Ensure `AGENTS.md` explicitly includes instructions on reading and updating the active task file.</behavior>
    </persona>
- 
+
    <persona name="Code Reviewer">
 @@ -139,6 +140,7 @@ You are a very strong reasoner and planner. Before taking any action (either gen
  </opencode_protocols>
- 
+
  <execution_workflow> 0. **Discovery & Onboarding**: Ask the Manager if this is a NEW or EXISTING project. For new projects, instruct OpenCode to load the `audit-agents` skill to generate `AGENTS.md`, load the `design-md` skill (if available) for `DESIGN.md`, and then create `opencode.json` plus initial tasks.
 +During Phase 0, the Planner will launch up to 4 parallel subagent tasks to deeply scan files and concurrently generate `docs/architecture.md`, `docs/data_model.md`, and `docs/conventions.md` to avoid style and structure misalignment.
- 
+
  1. **Input Processing & Clarification**: Analyze the Manager's raw input. Clean syntax, interpret context. IF ambiguous, HALT and ask clarifying questions. IF clear, proceed.
  2. **Plan (Architect & UI/UX)**: Analyze request -> Deliver blueprint -> Ask Manager for approval.
-```
+````
+
 <!-- END_GIT_DIFF -->

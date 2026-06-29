@@ -43,6 +43,7 @@ This task propagates the Zero-Autonomous-Commit (ZAC) workflow into the `audit-a
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 ```diff
 diff --git a/CHANGELOG.md b/CHANGELOG.md
 index 6b630ca..e3082d3 100644
@@ -53,9 +54,9 @@ index 6b630ca..e3082d3 100644
  - **Reviewer-Driven Commit Cycle:** Code Reviewer persona now generates commit tasks on `APPROVED` status and fix-loop implementation tasks on `REJECTED_NEEDS_FIXES` status, completing the review loop.
  - **6-Step Execution Workflow:** Replaced the old linear 5-step workflow with a loop: Implement & Inject → Team Review → Fix Loop → Commit & Close.
 +- **Audit-Agents ZAC Propagation:** Updated `skill-templates/audit-agents/SKILL.md` to enforce the Zero-Autonomous-Commit (ZAC) workflow in newly scaffolded or audited projects — ZAC criterion added to both Target Audit Criteria blocks, Git guardrails added to the AGENTS.md template, and End-Of-Task Sequence updated.
- 
+
  ### Changed
- 
+
 diff --git a/skill-templates/audit-agents/SKILL.md b/skill-templates/audit-agents/SKILL.md
 index 1838e9d..ddf9cb9 100644
 --- a/skill-templates/audit-agents/SKILL.md
@@ -76,27 +77,30 @@ index 1838e9d..ddf9cb9 100644
    -> **Do** [preferred alternative]
 +- **Don't** execute Git commands like `git add`, `git commit`, or `git stash` manually during implementation.
 +  -> **Do** rely exclusively on the `custom_context_stage_and_inject_diff` MCP tool to securely stage your working changes.
- 
+
  ## Documentation Sync Rules
- 
+
 @@ -238,7 +241,7 @@ When finishing a task, you MUST execute these exact steps in order:
- 
+
  1. **Update Changelog:** You MUST insert a formal entry into CHANGELOG.md logging your modifications.
  2. **Write your Summary:** Manually write your architectural reasoning, local TODO checks, and execution notes into the active `tasks/XX-task.md` file under "OpenCode Execution Log".
 -3. **Call MCP Tool:** Call the `custom_context_stage_and_inject_diff` MCP tool passing the task file path to automatically `git add .` and inject the factual code diff.
 +3. **Call MCP Tool:** Call the `custom_context_stage_and_inject_diff` MCP tool passing the task file path to automatically stage the files and inject the factual code diff. DO NOT execute any `git commit` commands afterward.
  4. **Notify Manager:** Output exactly: "Task ready. Manager, please copy the contents of `tasks/XX-task.md` and send it back to the AI Studio Brain for review."
- ```
- 
+```
+
 @@ -259,7 +262,8 @@ The `AGENTS.md` file MUST explicitly contain the following operational constrain
- - **Core File Locations**: MUST explicitly list paths for `AGENTS.md`, `DESIGN.md`, `tasks/`, and `.opencode/skills/`.
- - **Decentralized Task Management**: Agents MUST strictly use decentralized, individual task files in the `tasks/` directory as their single source of truth.
- - **No Monolithic State**: Agents are strictly forbidden from creating `TODO.md` or `STATE.md`.
--- **Mandatory End-Of-Task Sequence**: MUST explicitly mandate a 4-step completion process: 1) Update CHANGELOG.md. 2) Write manual reasoning in the task file. 3) Call the `custom_context_stage_and_inject_diff` MCP tool. 4) Notify the Manager.
-+- **Zero-Autonomous-Commit**: Agents MUST strictly be forbidden from executing `git add`, `git commit`, or `git stash` manually during implementation.
-+- **Mandatory End-Of-Task Sequence**: MUST explicitly mandate a 4-step completion process: 1) Update CHANGELOG.md. 2) Write manual reasoning in the task file. 3) Call the `custom_context_stage_and_inject_diff` MCP tool (NO COMMITS ALLOWED). 4) Notify the Manager.
- - **UI/UX Enforcement**: Any UI/UX changes MUST enforce the guidelines defined in the project's `DESIGN.md`.
- - **Task-Generator Skill Loading**: `AGENTS.md` MUST explicitly instruct OpenCode to load the `task-generator` skill before creating new task files.
- - **Project Skill Loading**: `AGENTS.md` MUST explicitly instruct OpenCode to load every available skill matching the project's tech stack before task implementation.
+
+- **Core File Locations**: MUST explicitly list paths for `AGENTS.md`, `DESIGN.md`, `tasks/`, and `.opencode/skills/`.
+- **Decentralized Task Management**: Agents MUST strictly use decentralized, individual task files in the `tasks/` directory as their single source of truth.
+- **No Monolithic State**: Agents are strictly forbidden from creating `TODO.md` or `STATE.md`.
+  -- **Mandatory End-Of-Task Sequence**: MUST explicitly mandate a 4-step completion process: 1) Update CHANGELOG.md. 2) Write manual reasoning in the task file. 3) Call the `custom_context_stage_and_inject_diff` MCP tool. 4) Notify the Manager.
+  +- **Zero-Autonomous-Commit**: Agents MUST strictly be forbidden from executing `git add`, `git commit`, or `git stash` manually during implementation.
+  +- **Mandatory End-Of-Task Sequence**: MUST explicitly mandate a 4-step completion process: 1) Update CHANGELOG.md. 2) Write manual reasoning in the task file. 3) Call the `custom_context_stage_and_inject_diff` MCP tool (NO COMMITS ALLOWED). 4) Notify the Manager.
+- **UI/UX Enforcement**: Any UI/UX changes MUST enforce the guidelines defined in the project's `DESIGN.md`.
+- **Task-Generator Skill Loading**: `AGENTS.md` MUST explicitly instruct OpenCode to load the `task-generator` skill before creating new task files.
+- **Project Skill Loading**: `AGENTS.md` MUST explicitly instruct OpenCode to load every available skill matching the project's tech stack before task implementation.
+
 ```
 <!-- END_GIT_DIFF -->
+```
