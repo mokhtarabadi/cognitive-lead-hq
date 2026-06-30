@@ -122,6 +122,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [5.13.2] — 2026-06-30
+
+### Changed
+
+- **`skill-templates/telegram-issue-sync/SKILL.md`** — Replaced LLM-driven JSON state mutation with a deterministic Python updater script. Removed verbose Telegram MCP behavioral documentation. Consolidated from 5 to 4 phases.
+- **`skill-templates/telegram-message-export/SKILL.md`** — Simplified message export workflow. Removed multi-input resolution section. Stripped verbose per-message formatting. Consolidated from 5 to 4 phases.
+
 ## [5.13.1] — 2026-06-30
 
 ### Changed
