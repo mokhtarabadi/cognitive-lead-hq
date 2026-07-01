@@ -122,6 +122,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [5.14.0] — 2026-07-02
+
+### Added
+
+- **Agentic Self-Correction Loop (Gatekeeper Protocol):** Empowered OpenCode to act as a strict gatekeeper. OpenCode now cross-checks tasks against `AGENTS.md` and `DESIGN.md`, halting execution and issuing a `⚠️ RULE VIOLATION WARNING` if the AI Studio Orchestrator hallucinates or breaks architectural rules.
+- Updated `audit-agents` skill to enforce the Gatekeeper Protocol on all newly scaffolded projects.
+
 ## [5.13.2] — 2026-06-30
 
 ### Changed

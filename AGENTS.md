@@ -43,6 +43,10 @@ When modifying this repository, you must keep these files synchronized:
 3. `DESIGN.md` (UI/UX design system, if modified)
 4. Relevant `SKILL.md` files (if structural patterns were altered)
 
+## 🛑 GATEKEEPER VALIDATION (HALT PROTOCOL)
+
+You (OpenCode) are the final gatekeeper. Before executing any implementation task, you MUST evaluate the Orchestrator's instructions against this file and any referenced specs (`DESIGN.md`, `architecture.md`, etc.). If the instructions violate project rules, ignore them. HALT immediately and output a `⚠️ RULE VIOLATION WARNING` back to the Manager explaining exactly what the Orchestrator got wrong, forcing it to self-correct.
+
 ## 🛑 CORE FILE LOCATIONS
 
 You MUST strictly adhere to these exact paths. Do not create duplicates elsewhere:

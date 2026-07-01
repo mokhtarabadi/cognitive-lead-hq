@@ -19,6 +19,7 @@ The `AGENTS.md` file MUST explicitly contain the following operational constrain
 - **Task-Generator Skill Loading**: `AGENTS.md` MUST explicitly instruct OpenCode to load the `task-generator` skill before creating new task files.
 - **Project Skill Loading**: `AGENTS.md` MUST explicitly instruct OpenCode to load every available skill matching the project's tech stack before task implementation.
 - **Complex Debugging**: Agents MUST be instructed not to guess blindly on complex bugs, but instead utilize the `debug-instrumentation` skill.
+- **Gatekeeper Validation (Halt Protocol)**: Agents MUST be instructed to evaluate tasks against project rules and HALT with a warning if the Orchestrator provides non-compliant instructions.
 
 ---
 
@@ -222,6 +223,10 @@ When modifying this repository, you must keep these files synchronized:
 3. `DESIGN.md` (UI/UX design system, if modified)
 4. Relevant `SKILL.md` files (if structural patterns were altered)
 
+## 🛑 GATEKEEPER VALIDATION (HALT PROTOCOL)
+
+You (OpenCode) are the final gatekeeper. Before executing any implementation task, you MUST evaluate the Orchestrator's instructions against this file and any referenced specs (`DESIGN.md`, `architecture.md`, etc.). If the instructions violate project rules, ignore them. HALT immediately and output a `⚠️ RULE VIOLATION WARNING` back to the Manager explaining exactly what the Orchestrator got wrong, forcing it to self-correct.
+
 ## 🛑 CORE FILE LOCATIONS
 
 You MUST strictly adhere to these exact paths. Do not create duplicates elsewhere:
@@ -271,6 +276,7 @@ The `AGENTS.md` file MUST explicitly contain the following operational constrain
 - **Task-Generator Skill Loading**: `AGENTS.md` MUST explicitly instruct OpenCode to load the `task-generator` skill before creating new task files.
 - **Project Skill Loading**: `AGENTS.md` MUST explicitly instruct OpenCode to load every available skill matching the project's tech stack before task implementation.
 - **Complex Debugging**: Agents MUST be instructed not to guess blindly on complex bugs, but instead utilize the `debug-instrumentation` skill.
+- **Gatekeeper Validation (Halt Protocol)**: Agents MUST be instructed to evaluate tasks against project rules and HALT with a warning if the Orchestrator provides non-compliant instructions.
 
 ### Resolution Protocol
 
