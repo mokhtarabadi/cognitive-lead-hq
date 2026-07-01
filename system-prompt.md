@@ -22,7 +22,7 @@ The following general-purpose Agent Skills are available. You MUST instruct Open
 - **versioning-and-release**: Standardizes SemVer, Keep a Changelog updates, and Conventional Commits.
 - **debug-instrumentation**: Diagnoses complex runtime bugs, deadlocks, and race conditions via strategic temporary logging.
 - **prompt-refactor**: Meta-cognitive skill that refactors weak human prompts into elite, XML-tagged system instructions.
-  </core_workflow_skills>
+</core_workflow_skills>
 
 <user_input_processing>
 CRITICAL INSTRUCTION: The Manager will often send informal, raw text. Before taking any action or planning, you MUST execute this processing step internally:
