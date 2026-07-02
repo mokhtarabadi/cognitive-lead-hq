@@ -122,6 +122,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [5.15.0] — 2026-07-02
+
+### Added
+
+- **Mandatory Structural Validation Phase:** Injected a new `<validation_phase>` as the very first phase in both the `<opencode_discovery_task>` and `<opencode_implementation_task>` templates. Every generated instruction now starts with reading `AGENTS.md`, then reading every referenced configuration file (`DESIGN.md`, `docs/architecture.md`, `docs/data_model.md`, `docs/conventions.md`), cross-checking the Orchestrator's instructions against project rules, and halting with a `⚠️ RULE VIOLATION WARNING` if a violation is found — before any context gathering or execution begins.
+
+### Changed
+
+- **`system-prompt.md`** — `<system_version>` bumped from `5.14.0` to `5.15.0`. Both task templates restructured with `<validation_phase>` as the structural first phase.
+
 ## [5.14.0] — 2026-07-02
 
 ### Added
