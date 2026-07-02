@@ -122,6 +122,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- **`skill-templates/telegram-issue-sync/SKILL.md`** — Overhauled to fix the summarization bug (root cause: ambiguous "inject context" language allowed LLMs to paraphrase raw text). Now enforces verbatim `## Original Message ({LANGUAGE})` section, separate `## English Translation` section, `## Refactored Prompt` from prompt-refactor skill, `## Relevant Code Context` from autonomous codebase search, and `## AI Analysis & Opinion`. Added Phase 0 mandatory skill loading (prompt-refactor, task-generator). Added interactive GitHub issue toggle via Manager approval. Added 9-step per-candidate generation pipeline with data integrity guarantees table.
+
 ## [5.15.0] — 2026-07-02
 
 ### Added
