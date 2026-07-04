@@ -5,6 +5,12 @@ description: Idiomatic Go, Clean Architecture, and Gin routing best practices
 
 # Go (Gin) — Best Practices
 
+## AI Context & Token Optimization
+
+1. **Explicit Error Handling:** Never `panic`. Always return errors explicitly (`%w`). This creates a traceable breadcrumb trail for AI debugging tools.
+2. **Interface Isolation:** Define small interfaces at the consumer level (e.g., `UserRepository`). This makes AI-driven unit testing and mocking highly reliable.
+3. **Flat Handlers:** Keep Gin handlers focused strictly on JSON parsing and HTTP codes. Offload all logic to the service layer to keep files small and token-efficient.
+
 ## Project Structure
 
 ```

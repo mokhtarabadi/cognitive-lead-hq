@@ -5,6 +5,12 @@ description: App Router, Server/Client Components, Server Actions, and Tailwind 
 
 # Next.js — Best Practices & AI-Driven Scaffolding
 
+## AI Context & Token Optimization
+
+1. **Server Actions First:** Always use Server Actions (`"use server"`) instead of manual API routes for mutations. This keeps the AI's context localized to the component/action pair, eliminating network fetching boilerplate.
+2. **Strict Server/Client Boundaries:** Mark client components explicitly (`"use client"`). Keep them as leaf nodes to prevent passing complex state across the network boundary, which confuses the AI.
+3. **Tailwind Design Tokens:** Never use arbitrary values (`h-[13px]`). Rely on predefined `tailwind.config.ts` tokens to ensure visual consistency across AI generations.
+
 ## Modern Next.js App Router Architecture
 
 Scaffold Next.js single-page or hybrid apps using these principles:

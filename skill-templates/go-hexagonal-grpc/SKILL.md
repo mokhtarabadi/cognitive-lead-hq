@@ -5,6 +5,12 @@ description: Hexagonal Architecture (Ports and Adapters), gRPC, Uber Fx, and Red
 
 # Go (Golang) — "Max Power" Agentic Backend Architecture
 
+## AI Context & Token Optimization
+
+1. **Compile-Time Dependency Injection:** Use Uber Fx. This forces explicit dependency declaration, giving the AI instant compiler feedback if a module is wired incorrectly, preventing runtime panics.
+2. **gRPC Source of Truth:** Rely on `.proto` files as the absolute contract. The AI uses these to perfectly align client/server interactions.
+3. **No Reflection ORMs:** Use `pgx` or `ent`. Reflection-heavy ORMs like GORM cause unpredictable runtime behaviors that confuse AI debugging workflows.
+
 ## Modern Project Initiation Guide
 
 When scaffolding a high-performance backend (such as a sub-50ms latency Caller ID system), enforce the following strict rules to maximize AI reasoning and eliminate runtime magic:

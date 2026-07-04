@@ -24,7 +24,24 @@ app/
 └── main.py              # FastAPI instance
 ```
 
+## Naming Conventions
+
+| Artifact          | Convention   | Example           |
+| ----------------- | ------------ | ----------------- |
+| Files/Directories | `snake_case` | `user_service.py` |
+| Classes           | `PascalCase` | `UserService`     |
+| Functions/Methods | `snake_case` | `get_user_by_id`  |
+| Variables         | `snake_case` | `current_user`    |
+
 ## Architectural Patterns
 
-**Dependency Injection:** Use `Depends()` for database sessions (`get_db`) and authentication (`get_current_user`).
+**Dependency Injection:** Use `Depends()` for database sessions (`get_db`) and authentication (`get_current_user`). Never instantiate global DB sessions in routers.
 **ORM to Schema Separation:** Never return SQLAlchemy models directly from endpoints. Always return Pydantic schemas to ensure data validation and hide sensitive fields.
+**Async First:** Use `async def` for endpoints and asynchronous database drivers (e.g., `asyncpg` for SQLAlchemy) to maximize throughput.
+
+## Testing Strategies
+
+| Layer        | Test Type   | Framework                  | File Naming            |
+| ------------ | ----------- | -------------------------- | ---------------------- |
+| Service      | Unit        | Pytest                     | `test_user_service.py` |
+| Route / View | Integration | Pytest + httpx AsyncClient | `test_users.py`        |

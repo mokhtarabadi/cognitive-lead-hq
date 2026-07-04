@@ -19,7 +19,7 @@ Syncs actionable Telegram messages into GitHub Issues and local `tasks/` files. 
 
 The old Phase 3 Step 2 read:
 
-> *"Inject the translated Telegram discussion context and codebase correlation."*
+> _"Inject the translated Telegram discussion context and codebase correlation."_
 
 This was **ambiguously phrased** — it did not mandate verbatim preservation. LLMs interpret "inject context" as "extract the gist and summarize." The fix is:
 
@@ -74,8 +74,8 @@ Use the `skill` tool for each. If loading fails, HALT and report the error.
    - Snippet of the raw text (first 200 chars to identify it)
    - Detected type (bug/feature/improve)
    - Reply parent context (if any)
-3. Ask: *"Which of these candidates should be synced? (Provide the Message IDs, or state 'All')"*
-4. Also ask: *"Should GitHub issues be created for these? (yes/no)"*
+3. Ask: _"Which of these candidates should be synced? (Provide the Message IDs, or state 'All')"_
+4. Also ask: _"Should GitHub issues be created for these? (yes/no)"_
 5. Only proceed with the approved candidates.
 
 Store the Manager's GitHub preference in a variable `GH_ENABLED` (true/false).
@@ -109,6 +109,7 @@ Using the `RAW_TEXT` (the verbatim original message, which may be Persian or any
 The `prompt-refactor` skill should already be loaded (from Phase 0). Use its methodology to refactor the `RAW_TEXT` into an enhanced "Max Power" prompt. Store the output in a variable `REFACTORED_PROMPT`.
 
 The refactored prompt MUST include the 5 XML blocks:
+
 - `<role>`
 - `<system_context>`
 - `<agentic_reasoning>`
@@ -134,6 +135,7 @@ Store the results as `CODEBASE_CONTEXT` — a list of file paths with brief rele
 **5. Generate Your AI Analysis & Opinion:**
 
 Form an architectural diagnosis:
+
 - What is the root cause of the issue described?
 - What is the recommended fix?
 - What files need to change?
@@ -151,18 +153,23 @@ Create `tasks/{NEXT_ID}-hyphenated-title.md` with the following **exact structur
 # Task {NEXT_ID}: {Title}
 
 ## Original Message ({LANGUAGE})
+
 {RAW_TEXT — verbatim, zero changes}
 
 ## English Translation
+
 {EN_TRANSLATION}
 
 ## Refactored Prompt
+
 {REFACTORED_PROMPT}
 
 ## Relevant Code Context
+
 {CODEBASE_CONTEXT}
 
 ## AI Analysis & Opinion
+
 {AI_OPINION}
 
 ---
@@ -265,10 +272,10 @@ Task ready. Manager, please copy the contents of tasks/{NEXT_ID}-task.md and sen
 
 ## Data Integrity Guarantees
 
-| Risk | Mitigation |
-|------|-----------|
-| LLM summarizes raw text | `## Original Message` is declared as verbatim; the system prompt for the task-generation LLM MUST include "Do NOT summarize, paraphrase, or truncate the Original Message section" |
-| Persian text gets corrupted | The raw text is stored immediately on fetch and never re-encoded; the task file is written in UTF-8 |
-| Codebase search misses context | Three-pass search strategy (grep → glob → read) with fallback: if grep yields 0 results, broaden the search terms |
-| State file has concurrent edits | Single-threaded Python updater script with atomic `json.dump` write |
-| GitHub issue creation fails | `GH_URL` gracefully defaults to `"Failed to create"`; the task file and Telegram reply still complete |
+| Risk                            | Mitigation                                                                                                                                                                         |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| LLM summarizes raw text         | `## Original Message` is declared as verbatim; the system prompt for the task-generation LLM MUST include "Do NOT summarize, paraphrase, or truncate the Original Message section" |
+| Persian text gets corrupted     | The raw text is stored immediately on fetch and never re-encoded; the task file is written in UTF-8                                                                                |
+| Codebase search misses context  | Three-pass search strategy (grep → glob → read) with fallback: if grep yields 0 results, broaden the search terms                                                                  |
+| State file has concurrent edits | Single-threaded Python updater script with atomic `json.dump` write                                                                                                                |
+| GitHub issue creation fails     | `GH_URL` gracefully defaults to `"Failed to create"`; the task file and Telegram reply still complete                                                                              |

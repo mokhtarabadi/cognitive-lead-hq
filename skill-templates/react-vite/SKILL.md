@@ -5,6 +5,12 @@ description: React 18+ SPA architecture, hooks, and Vite configuration
 
 # React (Vite SPA) — Best Practices
 
+## AI Context & Token Optimization
+
+1. **Feature-Sliced Design (FSD):** Strictly group code by feature (e.g., `features/auth/`). This is critical for AI agents, as it keeps all related components, hooks, and APIs in a single localized directory, preventing context exhaustion from scanning global folders.
+2. **Strict TypeScript:** Always define `interface Props {}` for components. Pure JS causes prop-drilling hallucinations.
+3. **Zustand for State:** Avoid Redux boilerplate. Use Zustand for minimal, easily readable global state.
+
 ## Project Structure
 
 ```

@@ -5,6 +5,12 @@ description: SwiftUI, MVVM, and modern iOS app architecture
 
 # iOS (SwiftUI) — Best Practices
 
+## AI Context & Token Optimization
+
+1. **SwiftUI Over UIKit:** Strictly ban UIKit (unless bridging is unavoidable). Declarative SwiftUI trees are vastly more token-efficient and predictable for AI generation.
+2. **Modern Concurrency:** Mandate `async/await`. Avoid completion handlers and closures, which lead to "callback hell" formatting that breaks AI syntax continuity.
+3. **Observable State:** Use `@Observable` (iOS 17+) to keep state management clean and localized, preventing cross-file state hallucinations.
+
 ## Project Structure
 
 ```

@@ -5,6 +5,12 @@ description: DDD, hexagonal style, and naming conventions for Spring Boot
 
 # Spring Boot — Best Practices & AI-Driven Scaffolding
 
+## AI Context & Token Optimization
+
+1. **MapStruct for Mapping:** Never write manual DTO-to-Entity mapping code. AI agents often hallucinate field names during manual mapping. MapStruct ensures compile-time safety.
+2. **Constructor Injection:** Use Lombok's `@RequiredArgsConstructor`. Field `@Autowired` obscures dependencies from the AI's static analysis.
+3. **Hexagonal Boundaries:** Keep the `domain/` layer completely free of Spring/JPA annotations to ensure pure, testable Java logic.
+
 ## High-Performance Project Onboarding
 
 Initialize any Spring Boot backend from scratch with these architectural rules:

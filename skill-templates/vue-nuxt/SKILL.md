@@ -5,6 +5,12 @@ description: Vue 3 Composition API, Nuxt 3 routing, and state management
 
 # Vue 3 & Nuxt 3 — Best Practices & AI-Driven Scaffolding
 
+## AI Context & Token Optimization
+
+1. **Composition API & `<script setup>` Only:** Do NOT use the Options API. The Composition API is far more token-efficient and predictable for AI code generation.
+2. **Auto-Imports:** Rely entirely on Nuxt's auto-imports. Explicitly importing Vue refs or components wastes tokens and causes syntax hallucinations.
+3. **TypeScript Mandate:** Always use `lang="ts"`. Strongly typed props and Pinia state are required.
+
 ## Modern Nuxt 3 App Architecture
 
 Scaffold Nuxt 3 applications using these guidelines:

@@ -5,6 +5,12 @@ description: Expo Router, React Native components, and cross-platform UI
 
 # React Native (Expo) — Best Practices
 
+## AI Context & Token Optimization
+
+1. **Expo Router:** Use file-based routing (`app/`). It drastically reduces navigation boilerplate, keeping the AI's context focused on the component UI rather than navigation prop-drilling.
+2. **NativeWind:** Prefer NativeWind (Tailwind for RN) over `StyleSheet.create`. It reduces line count by 40%, saving massive amounts of tokens per file.
+3. **Zustand State:** Avoid Redux. Zustand provides the simplest API footprint for AI-managed global state.
+
 ## Project Structure
 
 ```
