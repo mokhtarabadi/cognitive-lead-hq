@@ -4,6 +4,19 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+## [5.17.0] — 2026-07-04
+
+### Added
+
+- **Max-Efficiency AI Skill Templates:** Completely rewrote the Node.js Express, Python FastAPI, and Android Kotlin skill templates to enforce "The 4 Pillars of AI-Native Code" (Strict Static Typing, Declarative UI, Low Boilerplate, Extreme Modularity) derived from LLM behavioral analysis.
+- **Node.js Template Upgrade:** Migrated from plain JavaScript to strict TypeScript with Zod validation to eliminate AI hallucinations.
+- **FastAPI Template Upgrade:** Enforced strict Pydantic V2 schemas and mandatory type-hinting.
+- **Android Template Upgrade:** Explicitly banned XML layouts to conserve token limits and mandated 100% modular Jetpack Compose.
+- **Universal AI-Native Framework Upgrades:** Injected strict `AI Context & Token Optimization` constraint blocks into all 11 stack skill templates. This ensures OpenCode always utilizes hallucination-resistant patterns (e.g., Strict TypeScript, Zod, MapStruct, Feature-Sliced Design, Server Actions) regardless of the chosen framework.
+- **Restored Structural Guardrails:** Fully restored the `Project Structure`, `Naming Conventions`, and `Testing Strategies` sections to the Node.js, FastAPI, and Android Kotlin templates, correcting an over-optimization from Task 27 and returning the repository to full SOP compliance.
+
 ## [5.1.0] — Prompt Optimization & Input Processing
 
 ### Added
@@ -120,18 +133,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **`documentation_phase`** in `system-prompt.md` — streamlined to manual logging in task file under `OpenCode Execution Log & Reasoning`.
 - **Code Reviewer persona** — now reviews based strictly on the "Factual Git Diff" block inside the task file, with iteration instructions for rejections.
 
-## [Unreleased]
-
 ## [5.16.0] — 2026-07-03
 
 ### Added
-
-- **Max-Efficiency AI Skill Templates:** Completely rewrote the Node.js Express, Python FastAPI, and Android Kotlin skill templates to enforce "The 4 Pillars of AI-Native Code" (Strict Static Typing, Declarative UI, Low Boilerplate, Extreme Modularity) derived from LLM behavioral analysis.
-- **Node.js Template Upgrade:** Migrated from plain JavaScript to strict TypeScript with Zod validation to eliminate AI hallucinations.
-- **FastAPI Template Upgrade:** Enforced strict Pydantic V2 schemas and mandatory type-hinting.
-- **Android Template Upgrade:** Explicitly banned XML layouts to conserve token limits and mandated 100% modular Jetpack Compose.
-- **Universal AI-Native Framework Upgrades:** Injected strict `AI Context & Token Optimization` constraint blocks into all 11 stack skill templates. This ensures OpenCode always utilizes hallucination-resistant patterns (e.g., Strict TypeScript, Zod, MapStruct, Feature-Sliced Design, Server Actions) regardless of the chosen framework.
-- **Restored Structural Guardrails:** Fully restored the `Project Structure`, `Naming Conventions`, and `Testing Strategies` sections to the Node.js, FastAPI, and Android Kotlin templates, correcting an over-optimization from Task 27 and returning the repository to full SOP compliance.
 
 - **Strict Approval Gate & Inline Review Pattern:** Formalized the requirement that the AI Studio Orchestrator must receive explicit Manager approval before generating OpenCode implementation tasks.
 - **Markdown Review Convention:** Documented the `> 📝 **MANAGER REVIEW:**` blockquote syntax in both `system-prompt.md` and `README.md` to establish a standard method for Managers to leave inline feedback on architectural blueprints.
