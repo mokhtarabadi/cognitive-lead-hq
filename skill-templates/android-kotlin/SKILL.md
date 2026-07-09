@@ -1,32 +1,24 @@
 ---
 name: mobile-architecture-android-kotlin
-description: Jetpack Compose, MVI (UDF), and Kotlin for token-efficient Android development.
+description: 100% Jetpack Compose, MVI (UDF), Hilt, and SQLDelight for token-efficient, zero-hallucination Android development.
 ---
 
-# Android (Kotlin) — "Max Power" AI-Driven Architectural Scaffolding
+# Android (Kotlin) — "Max Power" AI-Driven Architecture
 
-## AI Context & Token Optimization
+## AI Context & Token Optimization (Zero-Hallucination Rules)
 
-1. **XML is Strictly Banned:** Never generate `.xml` layout files. XML forces the AI to maintain cross-file context (matching IDs between Kotlin and XML), which wastes tokens and causes layout binding hallucinations.
-2. **100% Jetpack Compose:** Write all UI in declarative Kotlin. Compose allows the AI to generate UI and logic in a single, predictable, token-efficient tree.
-3. **Modular Composables:** Break large UIs into extremely small, pure `@Composable` functions. The AI struggles to modify 500-line Compose functions without breaking brackets.
-
-## Modern Project Initiation Guide
-
-When launching an Android Kotlin application (especially high-performance or offline-first apps like Caller ID) from scratch, initialize using the following strict architectural directives:
-
-1. **Single-Activity Architecture:** Use a single `MainActivity.kt` with a Compose `NavHost`.
-2. **MVI + UDF + Clean Architecture:** Group packages strictly by feature. Enforce Unidirectional Data Flow. The View sends sealed `Intents` to the ViewModel, which reduces them into a single `UiState`.
-3. **Network & Protocol:** Use gRPC via Wire or Ktor for high-performance connections.
-4. **Dependency Injection:** Hilt is mandatory. Annotate ViewModels with `@HiltViewModel`.
+1. **XML IS STRICTLY BANNED:** Never generate `.xml` layout files. XML forces cross-file context mapping which causes severe UI hallucinations.
+2. **100% Jetpack Compose:** Write all UI in declarative Kotlin. Break large UIs into extremely small, pure `@Composable` functions.
+3. **Strict Null-Safety:** Rely entirely on Kotlin's null-safety. Do not use `!!` unless absolutely necessary.
+4. **Compile-Time Safety for DB:** Use SQLDelight or Room. Do NOT use raw string SQL queries in repositories.
 
 ## Project Structure
 
-```
+```text
 com.company.project/
 ├── di/                          # Hilt DI modules
-├── data/                        # Data layer (Room DAOs, gRPC DTOs, Repositories)
-├── domain/                      # Domain layer (Pure Kotlin Models, Repository Interfaces, UseCases)
+├── data/                        # Data layer (SQLDelight/Room DAOs, DTOs, Repositories)
+├── domain/                      # Domain layer (Pure Kotlin Models, UseCases)
 └── ui/                          # Presentation layer
     ├── theme/                   # Compose theming (Color, Type, Theme)
     ├── component/               # Small, reusable, modular composables
@@ -45,10 +37,10 @@ com.company.project/
 ## Architectural Patterns
 
 **MVI (Model-View-Intent) + UDF:**
-Every screen uses a single `ViewModel`. The ViewModel exposes exactly one `StateFlow<UiState>`. The View sends sealed `Intents` to the ViewModel. This eliminates race conditions and makes the AI's reasoning traceable through a single `when(intent)` reducer block.
+Every screen uses a single `ViewModel` annotated with `@HiltViewModel`. The ViewModel exposes exactly one `StateFlow<UiState>`. The View sends sealed `Intents` to the ViewModel. This eliminates race conditions and makes the reasoning traceable through a single `when(intent)` reducer block.
 
-**Supabase / BaaS Integration:**
-For rapid AI development, prefer direct integration with Supabase/Firebase SDKs in the Data layer to eliminate custom backend boilerplate, unless a dedicated backend is provided.
+**Dependency Injection:**
+Hilt is mandatory. Do not write manual dependency factories.
 
 ## Testing Strategies
 

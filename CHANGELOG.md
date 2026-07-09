@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- **NestJS Prisma Vertical Skill Template:** Created `skill-templates/nestjs-prisma-vertical/SKILL.md` enforcing NestJS decorators, Vertical Slice Architecture, Prisma ORM, strict TypeScript, and class-validator DTOs for zero-hallucination backend development.
+
+### Changed
+
+- **Android Kotlin Template Overhaul:** `skill-templates/android-kotlin/SKILL.md` completely rewritten with strict XML ban, Hilt DI mandate, compile-time safe DB (SQLDelight/Room), and enhanced null-safety rules.
+- **React Native Expo Template Overhaul:** `skill-templates/react-native-expo/SKILL.md` rewritten with Expo Managed Workflow enforcement, ban on native folder edits, mandatory NativeWind, and strict TypeScript requirement.
+- **README.md:** Updated Stack-Specific Blueprints table to reflect removed and added templates; strengthened Android Kotlin and React Native Expo descriptions with zero-hallucination rules.
+
+### Removed
+
+- **`skill-templates/nodejs-express/`:** Deleted — unstructured Express patterns cause AI hallucinations. Superseded by opinionated frameworks (NestJS).
+- **`skill-templates/android-java-xml/`:** Deleted — XML layout files cause severe UI hallucinations. Superseded by 100% Jetpack Compose Android Kotlin template.
+
 ## [5.17.0] — 2026-07-04
 
 ### Added
