@@ -153,6 +153,7 @@ Create `tasks/{NEXT_ID}-hyphenated-title.md` with the following **exact structur
 # Task {NEXT_ID}: {Title}
 
 **File:** `tasks/{NEXT_ID}-hyphenated-title.md`
+**Status:** open
 
 ## Original Message ({LANGUAGE})
 
