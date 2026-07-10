@@ -14,7 +14,7 @@ This repository is the **V5 evolution** of the Cognitive Lead AI multi-agent sys
 | ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
 | `system-prompt.md`                          | At the start of every session; this is the V5 multi-agent prompt defining all 5 personas and the Agentic Reasoning matrix. |
 | `.opencode/skills/sop-maintenance/SKILL.md` | When an AI agent needs to modify this repository itself.                                                                   |
-| `skill-templates/*/SKILL.md`                | Before writing code in a specific stack (Spring Boot, Flask, Next.js, NestJS, Android Kotlin).                            |
+| `skill-templates/*/SKILL.md`                | Before writing code in a specific stack (Spring Boot, Flask, Next.js, NestJS, Android Kotlin).                             |
 | `CHANGELOG.md`                              | To review what has changed between versions.                                                                               |
 | `tasks/`                                    | To see the active task files and current work items.                                                                       |
 
@@ -225,20 +225,20 @@ To make the `code-search` skill (or any other reusable skill) available in _ever
 
 ### Stack-Specific Blueprints
 
-| Stack                   | Architecture Enforced                                                                                      |
-| ----------------------- | ---------------------------------------------------------------------------------------------------------- |
-| Android Kotlin          | **100% Jetpack Compose — XML Strictly Banned.** MVI (UDF), Hilt, SQLDelight/Room.                           |
-| Flask Python            | Application Factory, Blueprints, SQLAlchemy, and config separation for modular Flask applications.         |
-| Go Gin                  | Idiomatic Go, Clean Architecture layers, and Gin routing best practices for RESTful services.              |
-| Go Hexagonal gRPC       | Hexagonal Architecture (Ports and Adapters), gRPC, Uber Fx compile-time DI, Redis caching, and PostgreSQL. |
-| iOS SwiftUI             | SwiftUI, MVVM, and modern iOS app architecture with declarative UI patterns.                               |
-| NestJS Prisma Vertical  | NestJS, Prisma ORM, Vertical Slice Architecture, strict TypeScript, and class-validator DTOs.              |
-| Next.js                 | App Router, Server/Client Component separation, Server Actions, and Tailwind CSS design tokens.            |
-| Python FastAPI          | Pydantic schemas, dependency injection, async routing, and layered service architecture.                    |
-| React Native Expo       | **Expo Managed Workflow ONLY — no native folders.** Expo Router, NativeWind, Zustand, strict TypeScript.   |
-| React Vite              | React 18+ SPA architecture, hooks, and Vite configuration with optimized build tooling.                    |
-| Spring Boot             | DDD, hexagonal-style packaging, MapStruct, constructor injection, and global exception handlers.           |
-| Vue Nuxt                | Vue 3 Composition API, Nuxt 3 routing, and Pinia state management.                                         |
+| Stack                  | Architecture Enforced                                                                                      |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Android Kotlin         | **100% Jetpack Compose — XML Strictly Banned.** MVI (UDF), Hilt, SQLDelight/Room.                          |
+| Flask Python           | Application Factory, Blueprints, SQLAlchemy, and config separation for modular Flask applications.         |
+| Go Gin                 | Idiomatic Go, Clean Architecture layers, and Gin routing best practices for RESTful services.              |
+| Go Hexagonal gRPC      | Hexagonal Architecture (Ports and Adapters), gRPC, Uber Fx compile-time DI, Redis caching, and PostgreSQL. |
+| iOS SwiftUI            | SwiftUI, MVVM, and modern iOS app architecture with declarative UI patterns.                               |
+| NestJS Prisma Vertical | NestJS, Prisma ORM, Vertical Slice Architecture, strict TypeScript, and class-validator DTOs.              |
+| Next.js                | App Router, Server/Client Component separation, Server Actions, and Tailwind CSS design tokens.            |
+| Python FastAPI         | Pydantic schemas, dependency injection, async routing, and layered service architecture.                   |
+| React Native Expo      | **Expo Managed Workflow ONLY — no native folders.** Expo Router, NativeWind, Zustand, strict TypeScript.   |
+| React Vite             | React 18+ SPA architecture, hooks, and Vite configuration with optimized build tooling.                    |
+| Spring Boot            | DDD, hexagonal-style packaging, MapStruct, constructor injection, and global exception handlers.           |
+| Vue Nuxt               | Vue 3 Composition API, Nuxt 3 routing, and Pinia state management.                                         |
 
 ## Key V5 Changes
 

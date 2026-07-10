@@ -49,15 +49,16 @@ _(OpenCode: Manually log your technical changes, file edits, and architectural r
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 ```diff
 diff --git a/CHANGELOG.md b/CHANGELOG.md
 index e20c3eb..1f1f7ae 100644
 --- a/CHANGELOG.md
 +++ b/CHANGELOG.md
 @@ -122,6 +122,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
- 
+
  ## [Unreleased]
- 
+
 +## [5.13.0] — 2026-06-30
 +
 +### Added
@@ -70,7 +71,7 @@ index e20c3eb..1f1f7ae 100644
 +- **`skill-templates/android-kotlin/SKILL.md`:** Upgraded from MVVM to strict MVI (Model-View-Intent) with Unidirectional Data Flow. ParsePlatform references replaced with gRPC/Ktor. Offline-First Room caching mandated. Added a complete Kotlin MVI contract example with sealed Intents and reducer-style ViewModel.
 +
  ## [5.12.0] — 2026-06-29
- 
+
  ### Added
 diff --git a/skill-templates/android-kotlin/SKILL.md b/skill-templates/android-kotlin/SKILL.md
 index 69ec62c..83f904c 100644
@@ -82,15 +83,15 @@ index 69ec62c..83f904c 100644
 -description: Jetpack Compose, MVVM, Clean Architecture, Coroutines, and Hilt for Android Kotlin
 +description: Jetpack Compose, MVI (UDF), Clean Architecture, Offline-First Room, and Hilt for Android Kotlin
  ---
- 
+
 -# Android (Kotlin) — Best Practices & AI-Driven Scaffolding
 +# Android (Kotlin) — "Max Power" AI-Driven Architectural Scaffolding
- 
+
  ## Modern Project Initiation Guide
- 
+
 -When launching an Android Kotlin application from scratch, initialize using the following strict architectural directives:
 +When launching an Android Kotlin application (especially high-performance or offline-first apps like Caller ID) from scratch, initialize using the following strict architectural directives:
- 
+
  1. **100% Jetpack Compose UI:** Never generate XML layout files. Use the Material 3 design system exclusively.
  2. **Single-Activity Architecture:** Use a single `MainActivity.kt` with a Compose `NavHost` configured for standard type-safe navigation routes.
 -3. **MVVM + Clean Architecture:** Group packages strictly by feature:
@@ -105,7 +106,7 @@ index 69ec62c..83f904c 100644
 +5. **Kotlin Coroutines & Flow:** Use `StateFlow<UiState>` for rendering state, `SharedFlow` for one-time events, and `viewModelScope` for scoping. Never use LiveData or RxJava.
  6. **Dependency Injection:** Hilt is mandatory. Annotate ViewModels with `@HiltViewModel` and inject constructor dependencies using `@Inject`.
  7. **Localization (en/fa):** All strings must be declared in `strings.xml`. Persian strings must reside inside `values-fa/strings.xml`. Ensure RTL support using `LocalLayoutDirection` on RTL screens.
- 
+
 @@ -33,9 +33,9 @@ com.company.project/
  │   │   │   └── UserDao.kt
  │   │   └── entity/
@@ -120,92 +121,103 @@ index 69ec62c..83f904c 100644
  │   │       └── UserResponse.kt
  │   └── repository/              # Repository implementations
 @@ -82,18 +82,60 @@ UI (Compose + ViewModel) → Domain (UseCases + Models) → Data (Repositories +
- 
+
  - **UI Layer**: Composable screens observe `StateFlow` from ViewModels. No business logic.
  - **Domain Layer**: Pure Kotlin module. Contains use cases and repository interfaces. No Android framework imports.
 -- **Data Layer**: Implements repository interfaces. Coordinates local (Room) and remote (Retrofit) data sources.
 +- **Data Layer**: Implements repository interfaces. Coordinates local (Room) and remote (gRPC/Retrofit) data sources with Offline-First priority.
- 
+
 -### MVVM (Model-View-ViewModel)
 +### MVI (Model-View-Intent) with Unidirectional Data Flow
- 
+
 -Every screen gets a `ViewModel` that exposes `StateFlow<UiState>` and functions for user interactions. The Composable observes state and calls ViewModel methods. ViewModels survive configuration changes and are scoped to the navigation entry.
 +Every screen gets a `ViewModel` that exposes a single `StateFlow<UiState>` and accepts a single `onIntent(intent: ViewIntent)` function. This eliminates race conditions in UI rendering. The ViewModel acts as a reducer: incoming Intents produce new UiState via aggregation over time.
- 
- ```
+
+```
+
 -UserEvent → ViewModel → UseCase → Repository → DataSource
+
 -                              ↓
 -                         StateFlow<UiState>
 -                              ↓
 -                        Composable Screen
+
 +User Action → sealed Intent → ViewModel (Reducer) → UseCase → Repository
-+                                         ↓
-+                                    StateFlow<UiState>
-+                                         ↓
-+                                   Composable Screen
-+```
+
+-                                         ↓
+-                                    StateFlow<UiState>
+-                                         ↓
+-                                   Composable Screen
+
++`
 +
-+```kotlin
++`kotlin
 +// Example MVI Contract
 +data class CallerIdUiState(
-+    val phoneNumber: String = "",
-+    val displayName: String? = null,
-+    val isLoading: Boolean = false,
-+    val error: String? = null
-+)
-+
+
+- val phoneNumber: String = "",
+- val displayName: String? = null,
+- val isLoading: Boolean = false,
+- val error: String? = null
+  +)
+-
+
 +sealed interface CallerIdIntent {
-+    data class LookupNumber(val number: String) : CallerIdIntent
-+    data object Retry : CallerIdIntent
-+    data object Clear : CallerIdIntent
-+}
-+
+
+- data class LookupNumber(val number: String) : CallerIdIntent
+- data object Retry : CallerIdIntent
+- data object Clear : CallerIdIntent
+  +}
+-
+
 +@HiltViewModel
 +class CallerIdViewModel @Inject constructor(
-+    private val lookupNumberUseCase: LookupNumberUseCase
-+) : ViewModel() {
-+
-+    private val _uiState = MutableStateFlow(CallerIdUiState())
-+    val uiState: StateFlow<CallerIdUiState> = _uiState.asStateFlow()
-+
-+    fun onIntent(intent: CallerIdIntent) {
-+        when (intent) {
-+            is CallerIdIntent.LookupNumber -> lookupNumber(intent.number)
-+            CallerIdIntent.Retry -> retry()
-+            CallerIdIntent.Clear -> clear()
-+        }
-+    }
-+
-+    private fun lookupNumber(number: String) {
-+        _uiState.update { it.copy(isLoading = true, error = null) }
-+        viewModelScope.launch {
-+            lookupNumberUseCase(number)
-+                .onSuccess { name -> _uiState.update { it.copy(displayName = name, isLoading = false) } }
-+                .onFailure { e -> _uiState.update { it.copy(error = e.message, isLoading = false) } }
-+        }
-+    }
-+}
- ```
- 
- ### Jetpack Compose
+
+- private val lookupNumberUseCase: LookupNumberUseCase
+  +) : ViewModel() {
+-
+- private val _uiState = MutableStateFlow(CallerIdUiState())
+- val uiState: StateFlow<CallerIdUiState> = _uiState.asStateFlow()
+-
+- fun onIntent(intent: CallerIdIntent) {
+-        when (intent) {
+-            is CallerIdIntent.LookupNumber -> lookupNumber(intent.number)
+-            CallerIdIntent.Retry -> retry()
+-            CallerIdIntent.Clear -> clear()
+-        }
+- }
+-
+- private fun lookupNumber(number: String) {
+-        _uiState.update { it.copy(isLoading = true, error = null) }
+-        viewModelScope.launch {
+-            lookupNumberUseCase(number)
+-                .onSuccess { name -> _uiState.update { it.copy(displayName = name, isLoading = false) } }
+-                .onFailure { e -> _uiState.update { it.copy(error = e.message, isLoading = false) } }
+-        }
+- }
+  +}
+
+````
+
+### Jetpack Compose
 @@ -114,7 +156,7 @@ UserEvent → ViewModel → UseCase → Repository → DataSource
- ### Dependency Injection via Hilt
- 
- - Annotate constructors with `@Inject` for simple cases.
+### Dependency Injection via Hilt
+
+- Annotate constructors with `@Inject` for simple cases.
 -- Create `@Module` classes for interfaces and third-party objects (`Retrofit`, `Room`).
 +- Create `@Module` classes for interfaces and third-party objects (`gRPC/Ktor`, `Room`).
- - Scope singletons properly (`@Singleton`, `@ViewModelScoped`, `@ActivityScoped`).
- 
- ## Testing Strategies
+- Scope singletons properly (`@Singleton`, `@ViewModelScoped`, `@ActivityScoped`).
+
+## Testing Strategies
 @@ -122,7 +164,7 @@ UserEvent → ViewModel → UseCase → Repository → DataSource
- | Layer           | Test Type                  | Framework                     | File Naming                 |
- | --------------- | -------------------------- | ----------------------------- | --------------------------- |
- | Use cases       | Unit                       | JUnit 5 + Mockito / MockK     | `GetUserUseCaseTest.kt`     |
+| Layer           | Test Type                  | Framework                     | File Naming                 |
+| --------------- | -------------------------- | ----------------------------- | --------------------------- |
+| Use cases       | Unit                       | JUnit 5 + Mockito / MockK     | `GetUserUseCaseTest.kt`     |
 -| ViewModel       | Unit                       | JUnit 5 + Turbine (for Flows) | `ProfileViewModelTest.kt`   |
 +| ViewModel (MVI) | Unit (Intent injection)    | JUnit 5 + Turbine (for Flows) | `CallerIdViewModelTest.kt`  |
- | Repository      | Unit                       | JUnit 5 + MockK               | `UserRepositoryImplTest.kt` |
- | UI / Composable | Snapshot / Compose UI Test | Compose Test                  | `ProfileScreenTest.kt`      |
- 
+| Repository      | Unit                       | JUnit 5 + MockK               | `UserRepositoryImplTest.kt` |
+| UI / Composable | Snapshot / Compose UI Test | Compose Test                  | `ProfileScreenTest.kt`      |
+
 diff --git a/skill-templates/go-hexagonal-grpc/SKILL.md b/skill-templates/go-hexagonal-grpc/SKILL.md
 new file mode 100644
 index 0000000..7780810
@@ -364,5 +376,6 @@ index 0000000..5a72322
 +Before writing code, you must output a <reasoning_log> analyzing the memory safety and big-O notation of your proposed algorithm.
 +</agentic_reasoning>
 +```
-```
+````
+
 <!-- END_GIT_DIFF -->

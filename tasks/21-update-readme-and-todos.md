@@ -43,15 +43,16 @@ _(OpenCode: Manually log your technical changes, file edits, and architectural r
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 ```diff
 diff --git a/CHANGELOG.md b/CHANGELOG.md
 index 1f1f7ae..5cc3eff 100644
 --- a/CHANGELOG.md
 +++ b/CHANGELOG.md
 @@ -122,6 +122,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
- 
+
  ## [Unreleased]
- 
+
 +## [5.13.1] — 2026-06-30
 +
 +### Changed
@@ -59,7 +60,7 @@ index 1f1f7ae..5cc3eff 100644
 +- **`README.md`** — Updated repository tree to feature `go-hexagonal-grpc` and `prompt-refactor` as prominent entries; appended 2 new strategic items to the Future Architectural Roadmap (Automated Prompt Refactoring Pipeline and Hexagonal Architecture Expansion).
 +
  ## [5.13.0] — 2026-06-30
- 
+
  ### Added
 diff --git a/README.md b/README.md
 index 9babf10..88e49a6 100644
@@ -96,4 +97,5 @@ index 9babf10..88e49a6 100644
 +5. **Automated Prompt Refactoring Pipeline:** Integrate the new `prompt-refactor` skill into an auto-refine pre-hook so that Manager inputs are automatically expanded into elite system prompts before code execution begins.
 +6. **Hexagonal Architecture Expansion:** Port the strict Ports & Adapters blueprint from Go to our Python (FastAPI) and TypeScript (Node.js) templates to unify "Max Power" backend design patterns across all supported stacks.
 ```
+
 <!-- END_GIT_DIFF -->

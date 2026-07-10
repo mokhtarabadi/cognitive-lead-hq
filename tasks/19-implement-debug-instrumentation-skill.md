@@ -44,6 +44,7 @@ This task introduces a new **debug-instrumentation** Agent Skill that formalizes
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 ```diff
 diff --git a/CHANGELOG.md b/CHANGELOG.md
 index 490f488..0f0cad2 100644
@@ -55,9 +56,9 @@ index 490f488..0f0cad2 100644
  - **Cognitive Language Rule:** Enforced English-only cognitive reasoning and execution logging across both AI Studio (reasoning_log, blueprints, task generation) and OpenCode (execution logs). Appended future architectural TODOs to README.md.
 +- **`skill-templates/debug-instrumentation/SKILL.md`:** new Agent Skill template for diagnosing complex bugs, deadlocks, race conditions, and silent failures via strategic logging and tracing.
 +- **`skill-templates/audit-agents/SKILL.md`:** Added Complex Debugging audit criteria referencing the new debug-instrumentation skill to both Target Audit Criteria blocks and the AGENTS.md template guardrails.
- 
+
  ### Changed
- 
+
 diff --git a/skill-templates/audit-agents/SKILL.md b/skill-templates/audit-agents/SKILL.md
 index ddf9cb9..e7f8fbc 100644
 --- a/skill-templates/audit-agents/SKILL.md
@@ -67,26 +68,26 @@ index ddf9cb9..e7f8fbc 100644
  - **Task-Generator Skill Loading**: `AGENTS.md` MUST explicitly instruct OpenCode to load the `task-generator` skill before creating new task files.
  - **Project Skill Loading**: `AGENTS.md` MUST explicitly instruct OpenCode to load every available skill matching the project's tech stack before task implementation.
 +- **Complex Debugging**: Agents MUST be instructed not to guess blindly on complex bugs, but instead utilize the `debug-instrumentation` skill.
- 
+
  ---
- 
+
 @@ -209,6 +210,8 @@ Use this when a project has no `AGENTS.md` yet (new project onboarding).
    -> **Do** [preferred alternative]
  - **Don't** execute Git commands like `git add`, `git commit`, or `git stash` manually during implementation.
    -> **Do** rely exclusively on the `custom_context_stage_and_inject_diff` MCP tool to securely stage your working changes.
 +- **Don't** guess blindly when facing complex bugs, deadlocks, or silent timeouts.
 +  -> **Do** utilize the `debug-instrumentation` skill to inject strategic logs and trace the runtime execution path.
- 
+
  ## Documentation Sync Rules
- 
+
 @@ -267,6 +270,7 @@ The `AGENTS.md` file MUST explicitly contain the following operational constrain
  - **UI/UX Enforcement**: Any UI/UX changes MUST enforce the guidelines defined in the project's `DESIGN.md`.
  - **Task-Generator Skill Loading**: `AGENTS.md` MUST explicitly instruct OpenCode to load the `task-generator` skill before creating new task files.
  - **Project Skill Loading**: `AGENTS.md` MUST explicitly instruct OpenCode to load every available skill matching the project's tech stack before task implementation.
 +- **Complex Debugging**: Agents MUST be instructed not to guess blindly on complex bugs, but instead utilize the `debug-instrumentation` skill.
- 
+
  ### Resolution Protocol
- 
+
 diff --git a/skill-templates/debug-instrumentation/SKILL.md b/skill-templates/debug-instrumentation/SKILL.md
 new file mode 100644
 index 0000000..23a967c
@@ -149,7 +150,7 @@ index c2c9c68..27598af 100644
 +++ b/user-prompts/session-compactor.md
 @@ -32,9 +32,10 @@ Your report MUST strictly follow this exact structure:
  ## 3. Chronological Task Registry & Progress
- 
+
  Provide a detailed table of all tasks handled in this session, matching their current local status:
 -| Task Index & Filename | Msg ID (Telegram) | Type | Status (Completed/Todo/Halted) | Core Achievements & Technical Decisions |
 -| :--- | :--- | :--- | :--- | :--- |
@@ -158,7 +159,8 @@ index c2c9c68..27598af 100644
 +| Task Index & Filename   | Msg ID (Telegram) | Type          | Status (Completed/Todo/Halted) | Core Achievements & Technical Decisions       |
 +| :---------------------- | :---------------- | :------------ | :----------------------------- | :-------------------------------------------- |
 +| [e.g., tasks/05-xxx.md] | [e.g., 548]       | [bug/feature] | Completed                      | [Brief summary of architectural changes made] |
- 
+
  ## 4. Codebase Forensic State (Critical & Modified Files)
 ```
+
 <!-- END_GIT_DIFF -->

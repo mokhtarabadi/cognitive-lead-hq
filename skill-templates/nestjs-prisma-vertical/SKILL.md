@@ -40,12 +40,12 @@ src/
 
 ## Naming Conventions
 
-| Artifact          | Convention                 | Example               |
-| ----------------- | -------------------------- | --------------------- |
-| Files             | `kebab-case` with type     | `auth.controller.ts`  |
-| Classes           | `PascalCase`               | `AuthController`      |
-| Methods/Variables | `camelCase`                | `registerUser`        |
-| Prisma Models     | `PascalCase` (Singular)    | `model User`          |
+| Artifact          | Convention              | Example              |
+| ----------------- | ----------------------- | -------------------- |
+| Files             | `kebab-case` with type  | `auth.controller.ts` |
+| Classes           | `PascalCase`            | `AuthController`     |
+| Methods/Variables | `camelCase`             | `registerUser`       |
+| Prisma Models     | `PascalCase` (Singular) | `model User`         |
 
 ## Architectural Patterns
 
@@ -53,6 +53,7 @@ src/
 Use NestJS constructor injection exclusively.
 
 **Prisma Workflow:**
+
 1. Modify `prisma/schema.prisma`.
 2. Never write migrations manually. Use CLI commands to generate them.
 3. Inject `PrismaService` into feature services to interact with the DB. The LSP will guide you with exact types.
@@ -62,8 +63,8 @@ Do not use inline `try/catch` for standard HTTP errors. Throw NestJS exceptions 
 
 ## Testing Strategies
 
-| Layer            | Test Type   | Framework                 | File Naming                 |
-| ---------------- | ----------- | ------------------------- | --------------------------- |
-| Feature Service  | Unit        | Jest + Mock Prisma      | `auth.service.spec.ts`      |
-| Controller       | Unit        | Jest                      | `auth.controller.spec.ts`   |
-| Feature Endpoint | E2E         | Jest + Supertest + TestDB | `auth.e2e-spec.ts`          |
+| Layer            | Test Type | Framework                 | File Naming               |
+| ---------------- | --------- | ------------------------- | ------------------------- |
+| Feature Service  | Unit      | Jest + Mock Prisma        | `auth.service.spec.ts`    |
+| Controller       | Unit      | Jest                      | `auth.controller.spec.ts` |
+| Feature Endpoint | E2E       | Jest + Supertest + TestDB | `auth.e2e-spec.ts`        |

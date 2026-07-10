@@ -29,6 +29,7 @@ Rewrite the Node.js Express, FastAPI, and Android Kotlin templates to enforce th
 **Architectural Reasoning:** This task rewrites three framework-specific skill templates (Node.js Express, Python FastAPI, Android Kotlin) through an "AI-Native" lens. The key insight from the Orchestrator's analysis is that large, verbose templates with exhaustive sections (naming tables, full test strategies, detailed examples) consume AI Studio context tokens without proportional benefit. Each new template is compressed to ~20-40 lines with a single new "AI Context & Token Optimization" section upfront that tells the AI exactly what to prioritize and what to avoid, followed by bare-minimum architectural rules. The `types/` directory was added to the Node.js structure to centralize Zod/TS types. The Android template explicitly bans XML layout files (token overhead of cross-file binding) and strips the 100+ line Clean Architecture example that was previously the template's bulk. A new Supabase/BaaS section replaces the heavy gRPC/Hilt/Room boilerplate, reflecting the trend toward backend-as-a-service for rapid AI development.
 
 **Changes Made:**
+
 1. **skill-templates/nodejs-express/SKILL.md:** Reduced from 98 to 38 lines. Replaced JS examples with strict TypeScript + Zod. Added AI Context section. Stripped naming tables and full test strategy.
 2. **skill-templates/python-fastapi/SKILL.md:** Reduced from 48 to 24 lines. Added AI Context section. Stripped naming conventions and full test strategy. Simplified architectural patterns to two essential rules.
 3. **skill-templates/android-kotlin/SKILL.md:** Reduced from 174 to 22 lines. Added AI Context section explicitly banning XML. Stripped full Clean Architecture diagram, MVI code example, Hilt DI section, and entire testing strategies table. Added Supabase/BaaS integration note.
@@ -40,15 +41,16 @@ Rewrite the Node.js Express, FastAPI, and Android Kotlin templates to enforce th
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
-```diff
+
+````diff
 diff --git a/CHANGELOG.md b/CHANGELOG.md
 index 078814e..0315e6c 100644
 --- a/CHANGELOG.md
 +++ b/CHANGELOG.md
 @@ -126,6 +126,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
- 
+
  ### Added
- 
+
 +- **Max-Efficiency AI Skill Templates:** Completely rewrote the Node.js Express, Python FastAPI, and Android Kotlin skill templates to enforce "The 4 Pillars of AI-Native Code" (Strict Static Typing, Declarative UI, Low Boilerplate, Extreme Modularity) derived from LLM behavioral analysis.
 +- **Node.js Template Upgrade:** Migrated from plain JavaScript to strict TypeScript with Zod validation to eliminate AI hallucinations.
 +- **FastAPI Template Upgrade:** Enforced strict Pydantic V2 schemas and mandatory type-hinting.
@@ -56,7 +58,7 @@ index 078814e..0315e6c 100644
 +
  - **Strict Approval Gate & Inline Review Pattern:** Formalized the requirement that the AI Studio Orchestrator must receive explicit Manager approval before generating OpenCode implementation tasks.
  - **Markdown Review Convention:** Documented the `> 📝 **MANAGER REVIEW:**` blockquote syntax in both `system-prompt.md` and `README.md` to establish a standard method for Managers to leave inline feedback on architectural blueprints.
- 
+
 diff --git a/skill-templates/android-kotlin/SKILL.md b/skill-templates/android-kotlin/SKILL.md
 index 83f904c..9e19e8b 100644
 --- a/skill-templates/android-kotlin/SKILL.md
@@ -67,12 +69,12 @@ index 83f904c..9e19e8b 100644
 -description: Jetpack Compose, MVI (UDF), Clean Architecture, Offline-First Room, and Hilt for Android Kotlin
 +description: Jetpack Compose, MVI (UDF), and Kotlin for token-efficient Android development.
  ---
- 
+
  # Android (Kotlin) — "Max Power" AI-Driven Architectural Scaffolding
- 
+
 -## Modern Project Initiation Guide
 +## AI Context & Token Optimization
- 
+
 -When launching an Android Kotlin application (especially high-performance or offline-first apps like Caller ID) from scratch, initialize using the following strict architectural directives:
 -
 -1. **100% Jetpack Compose UI:** Never generate XML layout files. Use the Material 3 design system exclusively.
@@ -140,9 +142,9 @@ index 83f904c..9e19e8b 100644
 +1. **XML is Strictly Banned:** Never generate `.xml` layout files. XML forces the AI to maintain cross-file context (matching IDs between Kotlin and XML), which wastes tokens and causes layout binding hallucinations.
 +2. **100% Jetpack Compose:** Write all UI in declarative Kotlin. Compose allows the AI to generate UI and logic in a single, predictable, token-efficient tree.
 +3. **Modular Composables:** Break large UIs into extremely small, pure `@Composable` functions. The AI struggles to modify 500-line Compose functions without breaking brackets.
- 
+
  ## Architectural Patterns
- 
+
 -### Clean Architecture (3-Layer)
 -
 -```
@@ -238,7 +240,7 @@ index 83f904c..9e19e8b 100644
 -| UI / Composable | Snapshot / Compose UI Test | Compose Test                  | `ProfileScreenTest.kt`      |
 +**MVI (Model-View-Intent) + UDF:**
 +Every screen uses a single `ViewModel`. The ViewModel exposes exactly one `StateFlow<UiState>`. The View sends sealed `Intents` to the ViewModel. This eliminates race conditions and makes the AI's reasoning traceable through a single `when(intent)` reducer block.
- 
+
 -- Use `MockK` (preferred) or `Mockito` for mocking in Kotlin.
 -- Use **Turbine** library to test `StateFlow` and `SharedFlow` emissions.
 -- Use Compose UI Test (`createComposeRule`) to verify composable rendering and interactions.
@@ -255,13 +257,13 @@ index 5731b43..1c08a49 100644
 -description: Architectural rules, 3-layer pattern, and naming conventions for Node.js Express
 +description: AI-Optimized TypeScript Express architecture with Zod validation and 3-layer pattern.
  ---
- 
+
 -# Node.js + Express — Best Practices & AI-Driven Scaffolding
 +# Node.js + Express (TypeScript) — AI-Native Scaffolding
- 
+
 -## Strict Node.js Service Scaffolding
 +## AI Context & Token Optimization
- 
+
 -Initialize any Express service using this high-performance layout:
 -
 -1. **Zod Environment Validation:** Always validate `process.env` at startup using a strict Zod schema. Export a typed `config` object. Banned: accessing `process.env` directly inside modules.
@@ -274,37 +276,39 @@ index 5731b43..1c08a49 100644
 +1. **Strict TypeScript Only:** Pure JavaScript is banned. You MUST use strict TypeScript interfaces for all database models, API responses, and request bodies. This prevents AI hallucinations and ensures safe cross-file refactoring.
 +2. **Zod for Everything:** Use Zod for environment validation, request body validation, and type inference.
 +3. **Modular Files:** Keep files under 200 lines. The AI context window degrades when reading monolithic controllers.
- 
+
  ## Project Structure
- 
- ```
- src/
--├── config/              # Environment & app configuration
--│   ├── env.js           # Zod/Joi schema validation
--│   └── cors.js
-+├── config/              # Environment & app configuration (env.ts)
- ├── routes/              # Route definitions (thin — no business logic)
--│   ├── index.js         # Router aggregator
--│   └── user.routes.js
--├── controllers/         # Request/response handling
--│   └── user.controller.js
--├── services/            # Business logic
--│   └── user.service.js
--├── middleware/           # Express middleware
--│   ├── errorHandler.js
--│   └── auth.js
--├── validators/          # Request validation schemas
--│   └── user.validator.js
--├── utils/               # Pure helper functions
--├── app.js               # Express app setup
--└── server.js            # Entry point (listens on port)
-+├── controllers/         # Request/response handling (Typed req/res)
-+├── services/            # Business logic (Pure functions, no Express imports)
-+├── middleware/          # Express middleware (errorHandler.ts, auth.ts)
-+├── types/               # Shared TypeScript interfaces & Zod schemas
-+└── server.ts            # Entry point
- ```
- 
+
+````
+
+src/
+-├── config/ # Environment & app configuration
+-│ ├── env.js # Zod/Joi schema validation
+-│ └── cors.js
++├── config/ # Environment & app configuration (env.ts)
+├── routes/ # Route definitions (thin — no business logic)
+-│ ├── index.js # Router aggregator
+-│ └── user.routes.js
+-├── controllers/ # Request/response handling
+-│ └── user.controller.js
+-├── services/ # Business logic
+-│ └── user.service.js
+-├── middleware/ # Express middleware
+-│ ├── errorHandler.js
+-│ └── auth.js
+-├── validators/ # Request validation schemas
+-│ └── user.validator.js
+-├── utils/ # Pure helper functions
+-├── app.js # Express app setup
+-└── server.js # Entry point (listens on port)
++├── controllers/ # Request/response handling (Typed req/res)
++├── services/ # Business logic (Pure functions, no Express imports)
++├── middleware/ # Express middleware (errorHandler.ts, auth.ts)
++├── types/ # Shared TypeScript interfaces & Zod schemas
++└── server.ts # Entry point
+
+````
+
 -## Naming Conventions
 -
 -| Artifact              | Convention                 | Example           |
@@ -315,8 +319,8 @@ index 5731b43..1c08a49 100644
 -| Routes                | plural nouns, `kebab-case` | `/api/users/:id`  |
 -| Environment variables | `UPPER_SNAKE_CASE`         | `DATABASE_URL`    |
 -
- ## Architectural Patterns
- 
+## Architectural Patterns
+
 -### 3-Layer Architecture
 -
 -```
@@ -359,7 +363,7 @@ index 5731b43..1c08a49 100644
 +**3-Layer Architecture:**
 +`Route -> Controller -> Service`
 +Routes bind paths to Controllers. Controllers parse typed requests using Zod and pass data to Services. Services execute logic and return typed objects.
- 
+
 -- Mock external dependencies (DB, HTTP calls) at the service layer.
 -- Use a test database or in-memory substitute for integration tests.
 -- Aim for >80% coverage; 100% on shared middleware and validators.
@@ -370,12 +374,12 @@ index da9cdc8..f594d4f 100644
 --- a/skill-templates/python-fastapi/SKILL.md
 +++ b/skill-templates/python-fastapi/SKILL.md
 @@ -1,48 +1,30 @@
- ---
- name: backend-architecture-fastapi
+---
+name: backend-architecture-fastapi
 -description: Pydantic schemas, dependency injection, and async routing for Python FastAPI
 +description: AI-Optimized FastAPI architecture with strict Pydantic V2 schemas and modular routing.
- ---
- 
+---
+
 -# FastAPI (Python) — Best Practices
 +# FastAPI (Python) — AI-Native Scaffolding
 +
@@ -384,36 +388,38 @@ index da9cdc8..f594d4f 100644
 +1. **Strict Type Hinting:** Python's dynamic nature causes AI hallucinations. You MUST use strict type hints (`-> dict`, `: str`) on every single function, argument, and return type.
 +2. **Pydantic V2 First:** Lean heavily on Pydantic. It is the most token-efficient way for an AI to understand data structures.
 +3. **Low Boilerplate:** FastAPI is chosen for its minimal boilerplate. Do not over-engineer abstractions. Keep dependency injection (`Depends()`) simple and localized.
- 
- ## Project Structure
- 
- ```
- app/
--├── api/                 # API routers and endpoints
--│   ├── dependencies.py  # Shared dependencies (e.g., get_db, get_current_user)
--│   └── v1/
--│       └── users.py     # User endpoints
--├── core/                # Core configurations, security, and settings
--│   ├── config.py        # Pydantic BaseSettings
--│   └── security.py      # JWT, hashing
--├── models/              # SQLAlchemy / Database models
--│   └── user.py
--├── schemas/             # Pydantic models (DTOs)
--│   └── user.py
--├── services/            # Business logic and CRUD operations
--│   └── user.py
--├── tests/               # Pytest test suite
--├── main.py              # FastAPI application instance
--└── requirements.txt     # Dependencies
-+├── api/                 # API routers (v1/users.py)
-+├── core/                # config.py (Pydantic BaseSettings)
-+├── db/                  # Database session and setup (Supabase/Postgres)
-+├── models/              # SQLAlchemy 2.0 Typed Models
-+├── schemas/             # Pydantic V2 Models (DTOs)
-+├── services/            # Business logic
-+└── main.py              # FastAPI instance
- ```
- 
+
+## Project Structure
+
+````
+
+app/
+-├── api/ # API routers and endpoints
+-│ ├── dependencies.py # Shared dependencies (e.g., get_db, get_current_user)
+-│ └── v1/
+-│ └── users.py # User endpoints
+-├── core/ # Core configurations, security, and settings
+-│ ├── config.py # Pydantic BaseSettings
+-│ └── security.py # JWT, hashing
+-├── models/ # SQLAlchemy / Database models
+-│ └── user.py
+-├── schemas/ # Pydantic models (DTOs)
+-│ └── user.py
+-├── services/ # Business logic and CRUD operations
+-│ └── user.py
+-├── tests/ # Pytest test suite
+-├── main.py # FastAPI application instance
+-└── requirements.txt # Dependencies
++├── api/ # API routers (v1/users.py)
++├── core/ # config.py (Pydantic BaseSettings)
++├── db/ # Database session and setup (Supabase/Postgres)
++├── models/ # SQLAlchemy 2.0 Typed Models
++├── schemas/ # Pydantic V2 Models (DTOs)
++├── services/ # Business logic
++└── main.py # FastAPI instance
+
+```
+
 -## Naming Conventions
 -
 -- **Files/Directories**: `snake_case` (e.g., `user_service.py`)
@@ -421,8 +427,8 @@ index da9cdc8..f594d4f 100644
 -- **Functions/Variables**: `snake_case` (e.g., `get_user_by_id`)
 -- **Constants/Settings**: `UPPER_SNAKE_CASE` (e.g., `SECRET_KEY`)
 -
- ## Architectural Patterns
- 
+## Architectural Patterns
+
 -- **Dependency Injection**: Use FastAPI's `Depends()` heavily for database sessions and auth. Never instantiate global DB sessions in routers.
 -- **Separation of Concerns**: Routers (`api/`) only handle HTTP requests and Pydantic validation. All business logic lives in `services/`.
 -- **Pydantic V2**: Use Pydantic schemas for request/response validation. Keep ORM models (`models/`) strictly separate from API schemas (`schemas/`).
@@ -436,4 +442,5 @@ index da9cdc8..f594d4f 100644
 +**Dependency Injection:** Use `Depends()` for database sessions (`get_db`) and authentication (`get_current_user`).
 +**ORM to Schema Separation:** Never return SQLAlchemy models directly from endpoints. Always return Pydantic schemas to ensure data validation and hide sensitive fields.
 ```
+
 <!-- END_GIT_DIFF -->

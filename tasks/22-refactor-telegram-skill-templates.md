@@ -6,6 +6,7 @@
 ## Goal
 
 Refactor `skill-templates/telegram-issue-sync/SKILL.md` and `skill-templates/telegram-message-export/SKILL.md`:
+
 - Replace LLM-driven JSON state mutation with deterministic Python scripts (issue-sync)
 - Consolidate phases from 5 to 4 for both skills
 - Remove verbose MCP behavioral docs, streamline formatting
@@ -28,6 +29,7 @@ Refactor `skill-templates/telegram-issue-sync/SKILL.md` and `skill-templates/tel
 ## OpenCode Execution Log & Reasoning
 
 **Diff Analysis:**
+
 - `telegram-issue-sync/SKILL.md`: 96 insertions, 155 deletions. Replaced agentic "intent parsing" with deterministic Python script for JSON state management. Removed verbose Telegram MCP tool behavioral docs. Consolidated from 5 to 4 phases.
 - `telegram-message-export/SKILL.md`: Major simplification. Removed multi-input resolution section, stripped verbose per-message formatting. Consolidated from 5 to 4 phases.
 
@@ -38,15 +40,16 @@ Refactor `skill-templates/telegram-issue-sync/SKILL.md` and `skill-templates/tel
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
-```diff
+
+````diff
 diff --git a/CHANGELOG.md b/CHANGELOG.md
 index 5cc3eff..9e213bb 100644
 --- a/CHANGELOG.md
 +++ b/CHANGELOG.md
 @@ -122,6 +122,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
- 
+
  ## [Unreleased]
- 
+
 +## [5.13.2] — 2026-06-30
 +
 +### Changed
@@ -55,7 +58,7 @@ index 5cc3eff..9e213bb 100644
 +- **`skill-templates/telegram-message-export/SKILL.md`** — Simplified message export workflow. Removed multi-input resolution section. Stripped verbose per-message formatting. Consolidated from 5 to 4 phases.
 +
  ## [5.13.1] — 2026-06-30
- 
+
  ### Changed
 diff --git a/skill-templates/telegram-issue-sync/SKILL.md b/skill-templates/telegram-issue-sync/SKILL.md
 index e405cdc..125c7d7 100644
@@ -67,9 +70,9 @@ index e405cdc..125c7d7 100644
 -description: Optional, pure agentic sync of Telegram supergroup topics into local task files and GitHub issues, featuring intelligent intent parsing and reply-tree crawling.
 +description: Syncs Telegram supergroup topics into local task files and GitHub issues, using embedded Python scripts for deterministic JSON state management.
  ---
- 
+
  # Telegram Issue Sync & Discussion Crawler SOP
- 
+
  ## Purpose
 -
 -Syncs actionable Telegram supergroup messages into GitHub Issues and local `tasks/` files. It features deep "Intent Parsing" — if a Manager tags a message with `#bug` while _replying_ to an older message, this skill autonomously fetches the parent message to construct a complete, contextual narrative.
@@ -94,7 +97,7 @@ index e405cdc..125c7d7 100644
 -- **OPTIONAL**: Only run if `telegram-sync.json` exists at the workspace root, or if explicitly invoked by the Manager.
 -- **State Schema Compliance**: You must strictly adhere to the `telegram-sync.json` format. The `sync_registry` maps a string `msg_id` to an object containing `task_file`, `gh_issue`, and `type`.
 +Syncs actionable Telegram messages into GitHub Issues and local `tasks/` files. It features deep "Intent Parsing" (crawling parent/child replies) and uses a deterministic Python script to mutate the `telegram-sync.json` state, ensuring zero data loss or LLM hallucination during JSON updates.
- 
+
  ## Local State Schema (`telegram-sync.json`)
 -
 -Stored at project root to track local configuration and message states:
@@ -103,9 +106,9 @@ index e405cdc..125c7d7 100644
  {
    "config": {
 @@ -50,61 +26,77 @@ Stored at project root to track local configuration and message states:
- 
+
  ## Detailed Workflow
- 
+
 -### Phase 1: Verification & Onboarding
 -
 -1. Check for `telegram-sync.json` at project root.
@@ -152,13 +155,13 @@ index e405cdc..125c7d7 100644
 +if [ -z "$NEXT_ID" ]; then NEXT_ID="01"; fi
 +printf "%02d\n" $NEXT_ID
 +```
- 
+
 -1. Present the parsed candidates to the Manager for approval using the `question` tool.
 -2. For each approved candidate:
 -   - **Local Task Generation:** Use the `task-generator` skill to create `tasks/XX-title.md`. Inject the deep intent context:
 +**2. Generate Local Task File:**
 +Create `tasks/{NEXT_ID}-hyphenated-title.md` utilizing the standard project template (`<!-- BEGIN_GIT_DIFF -->`, etc.). Inject the translated Telegram discussion context and codebase correlation.
- 
+
 -     ```markdown
 -     **Msg ID:** {NNN}
 +**3. Create GitHub Issue:**
@@ -167,47 +170,47 @@ index e405cdc..125c7d7 100644
 +GH_URL=$(gh issue create --title "{Task Title}" --body "Migrated from Telegram. See local task file for details." --label "telegram-sync")
 +echo "GH_URL=$GH_URL"
 +```
- 
+
 -     ## Telegram Discussion Context
 +**4. Update State Deterministically (The Updater Script):**
 +Create a temporary file named `update_sync.py` with the exact code below.
 +```python
 +import json, sys, os
- 
+
 -     **Context/Parent Message:** {parent_text_translated}
 -     **Manager's Instruction:** {manager_tagged_text_translated}
 +msg_id = int(sys.argv[1])
 +task_file = sys.argv[2]
 +gh_issue_url = sys.argv[3]
 +issue_type = sys.argv[4].upper()
- 
+
 -     ## Codebase Correlation
 +file_path = 'telegram-sync.json'
 +with open(file_path, 'r') as f:
 +    data = json.load(f)
- 
+
 -     {Autonomous analysis of which files likely need changes based on the context}
 -     ```
 +data['last_processed_message_id'] = max(data.get('last_processed_message_id', 0), msg_id)
- 
+
 -   - **GitHub Issue:** Create the issue using the `gh issue create` CLI tool.
 -   - **State Update:** Update `telegram-sync.json`. Append to `processed_ids`, update `last_processed_message_id`. Add the entry to `sync_registry` using the exact schema:
 -     `"{msg_id}": { "task_file": "tasks/...", "gh_issue": 123, "type": "BUG" }`
 +if msg_id not in data.get('processed_ids', []):
 +    data.setdefault('processed_ids', []).append(msg_id)
 +    data['processed_ids'].sort()
- 
+
 -### Phase 4: Non-Actionable Message Tracking
 +data.setdefault('sync_registry', {})[str(msg_id)] = {
 +    "task_file": task_file,
 +    "gh_issue": gh_issue_url,
 +    "type": issue_type
 +}
- 
+
 -All seen messages with IDs between `last_processed_message_id` and the max candidate ID that do NOT have target hashtags must also be added to `processed_ids` to prevent re-fetching.
 +with open(file_path, 'w') as f:
 +    json.dump(data, f, indent=2)
- 
+
 -### Phase 5: Closing the Loop (Completion Notification)
 +print(f"Successfully updated registry for msg {msg_id}")
 +```
@@ -216,11 +219,11 @@ index e405cdc..125c7d7 100644
 +python3 update_sync.py "{MSG_ID}" "tasks/{NEXT_ID}-title.md" "$GH_URL" "{TYPE}"
 +rm update_sync.py
 +```
- 
+
 -When a task implementation is completed and the Git diff was injected:
 +**5. Reply in Telegram:**
 +Call `telegram_reply_to_message(chat_id=chat_id, message_id=MSG_ID, text="✅ Task synced successfully.\n📁 Local File: tasks/{NEXT_ID}-title.md\n🌐 GitHub Issue: $GH_URL", account=account)`.
- 
+
 -1. Read `telegram-sync.json` -> `sync_registry`.
 -2. If the completed `task_file` matches an entry, extract the `msg_id`.
 -3. Call `telegram_reply_to_message(chat_id=chat_id, message_id=msg_id, text="✅ The bug/feature reported in this thread has been resolved and committed under Local Task XX.", account=account)` to reply directly in the correct thread.
@@ -232,20 +235,20 @@ index 0640a4e..a38dde3 100644
 +++ b/skill-templates/telegram-message-export/SKILL.md
 @@ -6,96 +6,45 @@ description: Intelligently exports a range of Telegram messages (text, media, vo
  # Telegram Message Export Skill
- 
+
  ## Purpose
 +Extracts a highly contextual range of Telegram messages. It explicitly documents reply relationships to preserve conversation trees and packages text alongside downloaded media files (images, voice notes) into a ZIP file.
- 
+
 -Extracts a highly contextual range of Telegram messages. It automatically resolves dynamic starting/ending points, extracts text and media files side-by-side, explicitly documents reply relationships to preserve conversation trees, and packages the result into a ZIP file.
 +## Input Resolution
 +Determine the exact `[from_id, to_id]` range. If the Manager provided a text snippet, use `telegram_search_messages` to find the `msg_id`. If a link is provided (`t.me/c/CHAT_ID/MSG_ID`), extract the ID.
- 
+
 -## Input Methods
 +## Phase 1: Contextual Fetching
 +1. Call `telegram_get_history` and filter to keep messages where `id >= from_id` and `id <= to_id`.
 +2. Sort the filtered messages strictly by `id` in ascending order.
 +3. If the range spans more than 200 messages, use the `question` tool to ask for confirmation before proceeding to avoid rate limits.
- 
+
 -Accept the boundaries of the export dynamically based on the Manager's prompt:
 -
 -1. **Start & End Bounds**: Can be explicit Message IDs, Message Links (`t.me/c/CHAT_ID/MSG_ID`), or exact text snippets (which you will search for to resolve the ID).
@@ -289,7 +292,7 @@ index 0640a4e..a38dde3 100644
 +1. Create directory: `mkdir -p <workspace>/telegram-exports/export-{timestamp}/`
  2. Set counter `n = 1`.
  3. For each message in the sorted list:
- 
+
 -   **Step A: Text & Metadata Sidecar (`{n}.txt`)**
 -   - You MUST create a `{n}.txt` file for _every_ message, even if it's just media or an unsupported type.
 -   - Extract `reply_to_message_id`. If it exists, explicitly document it so the LLM can reconstruct the thread later.
@@ -329,11 +332,11 @@ index 0640a4e..a38dde3 100644
 +   [Content]
 +   {message_text | caption | '[No extractable content]'}
 +   ```
- 
+
 -### Phase 4: Archiving and Cleanup
 +   **Media Download**:
 +   If the message contains media, call `telegram_get_media_info` to get the extension. Then call `telegram_download_media(chat_id=..., message_id=..., file_path="<workspace>/telegram-exports/export-{timestamp}/{n}.{ext}")`.
- 
+
 -1. Run the bash zip command:
 -   ```bash
 -   cd <workspace>/telegram-exports && zip -r telegram-export-{unix_timestamp}.zip telegram-export-{unix_timestamp}/
@@ -343,7 +346,7 @@ index 0640a4e..a38dde3 100644
 -   rm -rf <workspace>/telegram-exports/telegram-export-{unix_timestamp}/
 -   ```
 +4. Increment `n`.
- 
+
 -### Phase 5: Notification
 +## Phase 3: Archiving
 +Run the bash zip command:
@@ -351,7 +354,7 @@ index 0640a4e..a38dde3 100644
 +cd <workspace>/telegram-exports && zip -r export-{timestamp}.zip export-{timestamp}/
 +rm -rf export-{timestamp}/
 +```
- 
+
 -Output EXACTLY:
 -"✅ Contextual Telegram export complete.
 -Range: {from_id} to {to_id}
@@ -359,5 +362,6 @@ index 0640a4e..a38dde3 100644
 -Archive path: <workspace>/telegram-exports/telegram-export-{unix_timestamp}.zip"
 +## Phase 4: Notification
 +Output exactly: "✅ Contextual Telegram export complete. Range: {from_id} to {to_id}. Archive path: <workspace>/telegram-exports/export-{timestamp}.zip"
-```
+````
+
 <!-- END_GIT_DIFF -->

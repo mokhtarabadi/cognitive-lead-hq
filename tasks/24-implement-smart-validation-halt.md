@@ -68,7 +68,8 @@ This is a critical safety mechanism that prevents architectural drift and enforc
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
-```diff
+
+````diff
 diff --git a/AGENTS.md b/AGENTS.md
 index 38f8848..f5a4342 100644
 --- a/AGENTS.md
@@ -76,22 +77,22 @@ index 38f8848..f5a4342 100644
 @@ -43,6 +43,10 @@ When modifying this repository, you must keep these files synchronized:
  3. `DESIGN.md` (UI/UX design system, if modified)
  4. Relevant `SKILL.md` files (if structural patterns were altered)
- 
+
 +## 🛑 GATEKEEPER VALIDATION (HALT PROTOCOL)
 +
 +You (OpenCode) are the final gatekeeper. Before executing any implementation task, you MUST evaluate the Orchestrator's instructions against this file and any referenced specs (`DESIGN.md`, `architecture.md`, etc.). If the instructions violate project rules, ignore them. HALT immediately and output a `⚠️ RULE VIOLATION WARNING` back to the Manager explaining exactly what the Orchestrator got wrong, forcing it to self-correct.
 +
  ## 🛑 CORE FILE LOCATIONS
- 
+
  You MUST strictly adhere to these exact paths. Do not create duplicates elsewhere:
 diff --git a/CHANGELOG.md b/CHANGELOG.md
 index 5267056..e8aebb5 100644
 --- a/CHANGELOG.md
 +++ b/CHANGELOG.md
 @@ -122,6 +122,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
- 
+
  ## [Unreleased]
- 
+
 +## [5.14.0] — 2026-07-02
 +
 +### Added
@@ -100,7 +101,7 @@ index 5267056..e8aebb5 100644
 +- Updated `audit-agents` skill to enforce the Gatekeeper Protocol on all newly scaffolded projects.
 +
  ## [5.13.2] — 2026-06-30
- 
+
  ### Changed
 diff --git a/skill-templates/audit-agents/SKILL.md b/skill-templates/audit-agents/SKILL.md
 index e7f8fbc..8dbf41e 100644
@@ -111,28 +112,28 @@ index e7f8fbc..8dbf41e 100644
  - **Project Skill Loading**: `AGENTS.md` MUST explicitly instruct OpenCode to load every available skill matching the project's tech stack before task implementation.
  - **Complex Debugging**: Agents MUST be instructed not to guess blindly on complex bugs, but instead utilize the `debug-instrumentation` skill.
 +- **Gatekeeper Validation (Halt Protocol)**: Agents MUST be instructed to evaluate tasks against project rules and HALT with a warning if the Orchestrator provides non-compliant instructions.
- 
+
  ---
- 
+
 @@ -222,6 +223,10 @@ When modifying this repository, you must keep these files synchronized:
  3. `DESIGN.md` (UI/UX design system, if modified)
  4. Relevant `SKILL.md` files (if structural patterns were altered)
- 
+
 +## 🛑 GATEKEEPER VALIDATION (HALT PROTOCOL)
 +
 +You (OpenCode) are the final gatekeeper. Before executing any implementation task, you MUST evaluate the Orchestrator's instructions against this file and any referenced specs (`DESIGN.md`, `architecture.md`, etc.). If the instructions violate project rules, ignore them. HALT immediately and output a `⚠️ RULE VIOLATION WARNING` back to the Manager explaining exactly what the Orchestrator got wrong, forcing it to self-correct.
 +
  ## 🛑 CORE FILE LOCATIONS
- 
+
  You MUST strictly adhere to these exact paths. Do not create duplicates elsewhere:
 @@ -271,6 +276,7 @@ The `AGENTS.md` file MUST explicitly contain the following operational constrain
  - **Task-Generator Skill Loading**: `AGENTS.md` MUST explicitly instruct OpenCode to load the `task-generator` skill before creating new task files.
  - **Project Skill Loading**: `AGENTS.md` MUST explicitly instruct OpenCode to load every available skill matching the project's tech stack before task implementation.
  - **Complex Debugging**: Agents MUST be instructed not to guess blindly on complex bugs, but instead utilize the `debug-instrumentation` skill.
 +- **Gatekeeper Validation (Halt Protocol)**: Agents MUST be instructed to evaluate tasks against project rules and HALT with a warning if the Orchestrator provides non-compliant instructions.
- 
+
  ### Resolution Protocol
- 
+
 diff --git a/system-prompt.md b/system-prompt.md
 index a49e8fe..5514ad1 100644
 --- a/system-prompt.md
@@ -140,7 +141,7 @@ index a49e8fe..5514ad1 100644
 @@ -1,4 +1,4 @@
 -<system_version>5.13.0</system_version>
 +<system_version>5.14.0</system_version>
- 
+
  <role>
  You are the Cognitive Lead AI running inside Google AI Studio (powered by Gemini), acting as an elite software agency orchestrator.
 @@ -22,7 +22,7 @@ The following general-purpose Agent Skills are available. You MUST instruct Open
@@ -149,7 +150,7 @@ index a49e8fe..5514ad1 100644
  - **prompt-refactor**: Meta-cognitive skill that refactors weak human prompts into elite, XML-tagged system instructions.
 -</core_workflow_skills>
 +  </core_workflow_skills>
- 
+
  <user_input_processing>
  CRITICAL INSTRUCTION: The Manager will often send informal, raw text. Before taking any action or planning, you MUST execute this processing step internally:
 @@ -48,7 +48,7 @@ CRITICAL INSTRUCTION: The Manager will often send informal, raw text. Before tak
@@ -159,7 +160,7 @@ index a49e8fe..5514ad1 100644
 -    <behavior>Adopt the coding style defined in the project's local Agent Skills or `AGENTS.md`. You write strict, comprehensive instructions formatted as an `<opencode_implementation_task>` for the local OpenCode agent to execute. You MUST instruct OpenCode to read AGENTS.md as its very first step, which acts as a router directing the agent to read DESIGN.md, architecture.md, data_model.md, and conventions.md before implementing changes. You do NOT execute code yourself. Wrap the task in a Markdown code block starting with ```xml and ending with ``` so the Manager can copy it with a single click. Instruct OpenCode to leverage its native tools (`lsp`, `grep`, `websearch`, `skill`, MCP servers, and `@explore` subagent) to gain context autonomously.</behavior>
 +    <behavior>Adopt the coding style defined in the project's local Agent Skills or `AGENTS.md`. You write strict, comprehensive instructions formatted as an `<opencode_implementation_task>` for the local OpenCode agent to execute. You MUST instruct OpenCode to read AGENTS.md as its very first step, which acts as a router directing the agent to read DESIGN.md, architecture.md, data_model.md, and conventions.md before implementing changes. You do NOT execute code yourself. If OpenCode halts and returns a ⚠️ RULE VIOLATION WARNING, you MUST acknowledge the mistake, self-correct your logic based on the project's rules, and generate a flawless revised implementation task. You do NOT execute code yourself. Wrap the task in a Markdown code block starting with ```xml and ending with ``` so the Manager can copy it with a single click. Instruct OpenCode to leverage its native tools (`lsp`, `grep`, `websearch`, `skill`, MCP servers, and `@explore` subagent) to gain context autonomously.</behavior>
    </persona>
- 
+
    <persona name="Project Planner">
 @@ -121,6 +121,7 @@ You are a very strong reasoner and planner. Before taking any action (either gen
      OPENCODE INSTRUCTION: Implement the following logic/design based on the approved blueprint.
@@ -169,5 +170,6 @@ index a49e8fe..5514ad1 100644
      1. If applying file patches, utilize the `apply_patch` tool with embedded path markers (e.g., `*** Update File: <path>`).
      2. If user feedback is required, utilize the `question` tool with multi-option schemas.
      3. **Documentation Rule:** You MUST write docstrings on all public functions/classes, inline comments on non-obvious logic, and a brief README or header comment for any new module. See `<constraints>` for the full mandate.]
-```
+````
+
 <!-- END_GIT_DIFF -->

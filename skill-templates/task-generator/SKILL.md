@@ -14,12 +14,12 @@ You are the Task Generator. Your job is to create structured task files for the 
 3. **Name:** Create a kebab-case filename (e.g., `01-fix-login-bug.md`).
 4. **Generate File:** Write the following template to the new file:
 
-    ```markdown
-    # Task: [Task Name]
+   ```markdown
+   # Task: [Task Name]
 
-    **File:** `tasks/[filename]`
-    **Type:** [bug|improvement|feature]
-    **Status:** open
+   **File:** `tasks/[filename]`
+   **Type:** [bug|improvement|feature]
+   **Status:** open
 
    ## Goal
 

@@ -57,32 +57,33 @@ Additionally, the README now has a comprehensive "Available Agent Skills Library
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
-```diff
+
+````diff
 diff --git a/CHANGELOG.md b/CHANGELOG.md
 index 9e213bb..5267056 100644
 --- a/CHANGELOG.md
 +++ b/CHANGELOG.md
 @@ -135,16 +135,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
- 
+
  - **`README.md`** — Updated repository tree to feature `go-hexagonal-grpc` and `prompt-refactor` as prominent entries; appended 2 new strategic items to the Future Architectural Roadmap (Automated Prompt Refactoring Pipeline and Hexagonal Architecture Expansion).
- 
+
 -## [5.13.0] — 2026-06-30
 +## [5.13.0] — 2026-07-01
- 
+
  ### Added
- 
+
  - **`skill-templates/go-hexagonal-grpc/SKILL.md`:** New Agent Skill template for Go Hexagonal Architecture (Ports & Adapters) with gRPC, Uber Fx compile-time DI, Redis caching, and PostgreSQL (pgx/ent). Designed for ultra-low-latency backends like the Caller ID system.
  - **`skill-templates/prompt-refactor/SKILL.md`:** New meta-cognitive Agent Skill template for refactoring basic human prompts into elite, XML-tagged, agent-optimized system instructions with `<role>`, `<system_context>`, `<agentic_reasoning>`, `<constraints>`, and `<output_format>` blocks.
 +- **`<core_workflow_skills>` registry** — injected directly into `system-prompt.md` to grant the AI Studio Orchestrator proactive awareness of available workflow tools (like `debug-instrumentation` and `versioning-and-release`).
 +- **Comprehensive Agent Skills Library tables** — added to `README.md` detailing both general workflow skills (10 skills) and stack-specific blueprints (13 stacks).
- 
+
  ### Changed
- 
+
  - **`skill-templates/android-kotlin/SKILL.md`:** Upgraded from MVVM to strict MVI (Model-View-Intent) with Unidirectional Data Flow. ParsePlatform references replaced with gRPC/Ktor. Offline-First Room caching mandated. Added a complete Kotlin MVI contract example with sealed Intents and reducer-style ViewModel.
 +- **Updated `SKILL LOADING` instructions** in task templates to explicitly instruct the Orchestrator to route core workflow skills based on task requirements, consulting the new `<core_workflow_skills>` registry.
- 
+
  ## [5.12.0] — 2026-06-29
- 
+
 diff --git a/README.md b/README.md
 index 88e49a6..85ffdfc 100644
 --- a/README.md
@@ -90,7 +91,7 @@ index 88e49a6..85ffdfc 100644
 @@ -195,6 +195,41 @@ To make the `code-search` skill (or any other reusable skill) available in _ever
     @explore find the main router using the code-search skill
     ```
- 
+
 +## Available Agent Skills Library
 +
 +### General & Workflow Skills
@@ -127,7 +128,7 @@ index 88e49a6..85ffdfc 100644
 +| Vue Nuxt          | Vue 3 Composition API, Nuxt 3 routing, and Pinia state management.                                         |
 +
  ## Key V5 Changes
- 
+
  - **Decentralized task architecture** — global `STATE.md` and `TODO.md` replaced by isolated task files in `tasks/` directory.
 diff --git a/system-prompt.md b/system-prompt.md
 index e137c8c..db58685 100644
@@ -136,13 +137,13 @@ index e137c8c..db58685 100644
 @@ -1,4 +1,4 @@
 -<system_version>5.12.0</system_version>
 +<system_version>5.13.0</system_version>
- 
+
  <role>
  You are the Cognitive Lead AI running inside Google AI Studio (powered by Gemini), acting as an elite software agency orchestrator.
 @@ -13,6 +13,17 @@ Your knowledge cutoff date is January 2025. Remember it is 2026 this year.
  For time-sensitive queries that require up-to-date information, you must instruct OpenCode to use its websearch/webfetch tools locally.
  </system_context>
- 
+
 +<core_workflow_skills>
 +The following general-purpose Agent Skills are available. You MUST instruct OpenCode to load them via the `skill` tool when their specific capabilities are required for a task:
 +
@@ -156,7 +157,7 @@ index e137c8c..db58685 100644
 +
  <user_input_processing>
  CRITICAL INSTRUCTION: The Manager will often send informal, raw text. Before taking any action or planning, you MUST execute this processing step internally:
- 
+
 @@ -103,7 +114,7 @@ You are a very strong reasoner and planner. Before taking any action (either gen
  <opencode_implementation_task>
    <context_phase>
@@ -164,7 +165,8 @@ index e137c8c..db58685 100644
 -    SKILL LOADING: Before implementing, load every available skill matching the project's tech stack (e.g., android-kotlin, spring-boot, react-vite, nodejs-express, python-fastapi). A project may have zero or multiple skills — if a relevant skill exists, it MUST be loaded. If the task involves creating a new task file, also load the `task-generator` skill. This ensures framework-specific conventions and architectural rules are enforced during implementation.
 +    SKILL LOADING: Before implementing, load every available skill matching the project's tech stack (e.g., android-kotlin, spring-boot, react-vite, nodejs-express, python-fastapi). Additionally, consult the <core_workflow_skills> registry and load any general-purpose skills required for this specific task (e.g., debug-instrumentation for bug fixes, versioning-and-release for publishing). If the task involves creating a new task file, load the task-generator skill. A project may have zero or multiple skills — if a relevant skill exists, it MUST be loaded. This ensures framework-specific conventions and architectural rules are enforced during implementation.
    </context_phase>
- 
+
    <execution_phase>
-```
+````
+
 <!-- END_GIT_DIFF -->
