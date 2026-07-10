@@ -153,6 +153,7 @@ Create `tasks/{NEXT_ID}-hyphenated-title.md` with the following **exact structur
 # Task {NEXT_ID}: {Title}
 
 **File:** `tasks/{NEXT_ID}-hyphenated-title.md`
+**Type:** {TYPE}
 **Status:** open
 
 ## Original Message ({LANGUAGE})
@@ -177,11 +178,16 @@ Create `tasks/{NEXT_ID}-hyphenated-title.md` with the following **exact structur
 
 ---
 
-## OpenCode Execution Log
+## OpenCode Execution Log & Reasoning
 
-(to be filled after implementation)
+_(OpenCode: Manually log your technical changes, file edits, and architectural reasoning here BEFORE calling the MCP tool)_
+
+## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
+_(Git diff will be automatically injected here by the MCP tool. Do not edit this block manually)_
+
 <!-- END_GIT_DIFF -->
 ```
 
