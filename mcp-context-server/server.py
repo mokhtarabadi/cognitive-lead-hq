@@ -11,6 +11,7 @@
 #     "tree-sitter-go",
 #     "tree-sitter-java",
 #     "tree-sitter-rust",
+#     "tree-sitter-kotlin",
 # ]
 # ///
 
@@ -136,8 +137,8 @@ _TS_QUERIES: dict[str, list[str]] = {
         '(impl_item trait: (type_identifier) @name) @sig',
     ],
     "kotlin": [
-        '(function_declaration name: (simple_identifier) @name) @sig',
-        '(class_declaration name: (simple_identifier) @name) @sig',
+        '(function_declaration name: (identifier) @name) @sig',
+        '(class_declaration name: (identifier) @name) @sig',
     ],
 }
 
