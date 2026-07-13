@@ -29,6 +29,7 @@ Replace the current regex-based `extract_signatures` MCP tool in `mcp-context-se
 ## OpenCode Execution Log & Reasoning
 
 ### Design decisions
+
 - Use tree-sitter **Query** system (S-expression pattern-matching) rather than manual node walking — more maintainable and token-efficient.
 - `_EXTENSION_LANG_MAP` maps file extensions → language IDs; only query supported languages.
 - Languages are loaded **lazily** via `importlib.import_module` — if a grammar package isn't installed, `_get_ts_language` returns `None` and extraction gracefully falls back to regex.
@@ -36,10 +37,12 @@ Replace the current regex-based `extract_signatures` MCP tool in `mcp-context-se
 - `_extract_signature_line` includes multi-line parameter lists but stops before the body (at `{` or `:`).
 
 ### Files modified
+
 - `mcp-context-server/server.py` — Added tree-sitter infrastructure (`_EXTENSION_LANG_MAP`, `_TS_QUERIES`, `_ts_language_cache`, `_get_ts_language`, `_extract_signature_line`, `_extract_via_tree_sitter`). Rewrote `extract_signatures` MCP tool with tree-sitter + regex fallback. Added `importlib` import and 6 tree-sitter dependencies.
 - `CHANGELOG.md` — Added `Changed` entry for the tree-sitter upgrade.
 
 ### Languages supported by tree-sitter
+
 - **Python:** `function_definition`, `class_definition`
 - **JavaScript:** `function_declaration`, `class_declaration`, `method_definition`, `arrow_function`, `generator_function_declaration`
 - **TypeScript:** function_declaration, class_declaration, interface_declaration, method_definition, type_alias_declaration, enum_declaration
@@ -49,6 +52,7 @@ Replace the current regex-based `extract_signatures` MCP tool in `mcp-context-se
 - **Kotlin:** function_declaration, class_declaration
 
 ### Verification
+
 - Tested extraction against `mcp-context-server/server.py` — correctly finds all 16 function/class signatures.
 - Regex fallback tested with unknown file extension.
 - `uv run` correctly installs tree-sitter + language packages from inline metadata.
@@ -56,15 +60,16 @@ Replace the current regex-based `extract_signatures` MCP tool in `mcp-context-se
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
-```diff
+
+````diff
 diff --git a/CHANGELOG.md b/CHANGELOG.md
 index 2755634..3e238d0 100644
 --- a/CHANGELOG.md
 +++ b/CHANGELOG.md
 @@ -12,6 +12,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
- 
+
  ### Changed
- 
+
 +- **Tree-sitter AST upgrade for `extract_signatures` MCP tool:** Replaced the regex-based signature extractor in `mcp-context-server/server.py` with a multi-language tree-sitter AST parser. Supports Python, JavaScript, TypeScript, Go, Java, Rust, and Kotlin with accurate function/class/interface/method signature extraction. Falls back to the existing regex when no grammar is available for a given language. Added 7 new tree-sitter dependencies to the inline script metadata.
 +
  - **Bulk Prettier Format:** Ran `npx prettier --write "**/*.md"` across all 46 markdown files to enforce consistent formatting — blank-line spacing, list indentation, code-fence normalization, and trailing newlines.
@@ -89,7 +94,7 @@ index 195b1d4..c0c2fd4 100755
 +#     "tree-sitter-rust",
  # ]
  # ///
- 
+
 +import importlib
  import os
  import re
@@ -97,7 +102,7 @@ index 195b1d4..c0c2fd4 100755
 @@ -70,6 +78,145 @@ def is_binary(file_path: Path) -> bool:
      except Exception:
          return True
- 
+
 +# --- Tree-sitter AST signature extraction ---
 +
 +_EXTENSION_LANG_MAP: dict[str, str] = {
@@ -241,7 +246,7 @@ index 195b1d4..c0c2fd4 100755
      lines = ["```text", dir_path.name or str(dir_path)]
      def _walk(current_path: Path, prefix: str) -> None:
 @@ -219,23 +366,33 @@ def read_source_files(paths: list[str], max_size: int = 1048576, no_line_numbers
- 
+
  @mcp.tool()
  def extract_signatures(file_path: str) -> str:
 -    """Extracts structural signatures (classes, functions, methods) from source files using regex to prevent context bloat."""
@@ -259,26 +264,27 @@ index 195b1d4..c0c2fd4 100755
      try:
          with open(file_path, 'r', encoding='utf-8') as f:
              content = f.read()
--        
+-
 +
          # Match class, function, def, interface exports
          pattern = re.compile(r'^(?:export\s+)?(?:default\s+)?(?:class|func(?:tion)?|def|interface|type)\s+\w+.*$', re.MULTILINE)
          matches = pattern.findall(content)
--        
+-
 +
          # Match const/let arrow functions
          arrow_pattern = re.compile(r'^(?:export\s+)?(?:const|let)\s+\w+\s*=\s*(?:async\s*)?(?:\([^)]*\)|[^=]*)\s*=>.*$', re.MULTILINE)
          arrow_matches = arrow_pattern.findall(content)
--        
+-
 +
          all_matches = matches + arrow_matches
          if not all_matches:
 -            return f"No standard structural signatures found in {file_path}."
--            
+-
 +            return f"No structural signatures found in {file_path}."
 +
          return f"### Signatures in {file_path}\n" + "\n".join(all_matches)
      except Exception as e:
          return f"Error extracting signatures from {file_path}: {str(e)}"
-```
+````
+
 <!-- END_GIT_DIFF -->
