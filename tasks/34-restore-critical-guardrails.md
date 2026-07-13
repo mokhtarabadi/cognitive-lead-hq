@@ -2,7 +2,7 @@
 
 **File:** `tasks/34-restore-critical-guardrails.md`
 **Type:** bug
-**Status:** open
+**Status:** closed
 
 ## Goal
 

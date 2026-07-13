@@ -2,7 +2,7 @@
 
 **File:** `tasks/32-framework-superpowers-upgrade.md`
 **Type:** improvement
-**Status:** open
+**Status:** closed
 
 ## Goal
 
