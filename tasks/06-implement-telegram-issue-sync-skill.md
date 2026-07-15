@@ -119,7 +119,7 @@ index 0000000..f255e4d
 +2. For each approved candidate:
 +   - **Local Task:** Generate `tasks/XX-slug.md` (using your task template) with a dedicated `## Telegram Discussion Context` section containing the crawled non-tagged discussion.
 +   - **GitHub Issue:** Run the non-interactive `gh` CLI:
-+     `gh issue create --title "[Sync] Generated Title" --body "Detailed Body with Crawled Discussion"`
++     `gh issue create --title "[Sync] Generated Title" --body-file /tmp/gh-issue-body.md`
 +     Extract the generated GitHub issue number from the output URL.
 +   - **State Save:** Update `telegram-sync.json` local state (append to `processed_ids`, update `last_processed_message_id`, and add msg ID to `sync_registry` mapping).
 +

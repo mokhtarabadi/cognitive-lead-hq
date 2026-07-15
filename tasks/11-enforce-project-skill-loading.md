@@ -162,7 +162,7 @@ telegram_reply_to_message(chat_id="-1003517558062", message_id=2, text="Hello Ap
 
 ```
 @@ -129,6 +130,7 @@ Before processing new candidates, run a backfill audit:
-   `gh issue create --title "[Sync] Generated Title" --label "bug|enhancement|improvement" --body "Detailed Body with Crawled Discussion"`
+   `gh issue create --title "[Sync] Generated Title" --label "bug|enhancement|improvement" --body-file /tmp/gh-issue-body.md`
    Extract the GitHub issue number from the output URL.
  - **State Save:** Update `telegram-sync.json` (append to `processed_ids`, update `last_processed_message_id`, add/update `sync_registry` entry with `gh_issue` number).
 +

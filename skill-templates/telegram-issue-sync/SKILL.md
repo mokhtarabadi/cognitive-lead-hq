@@ -200,10 +200,25 @@ _(Git diff will be automatically injected here by the MCP tool. Do not edit this
 Only if `GH_ENABLED` is true:
 
 ```bash
+cat > /tmp/gh-issue-body.md << 'EOF'
+## Original Message
+{RAW_TEXT}
+
+## English Translation
+{EN_TRANSLATION}
+
+## AI Analysis
+{AI_OPINION}
+
+---
+Migrated from Telegram. See local task file for details.
+EOF
+
 GH_URL=$(gh issue create \
   --title "{Task Title}" \
-  --body "## Original Message\n{RAW_TEXT}\n\n## English Translation\n{EN_TRANSLATION}\n\n## AI Analysis\n{AI_OPINION}\n\n---\nMigrated from Telegram. See local task file for details." \
+  --body-file /tmp/gh-issue-body.md \
   --label "telegram-sync")
+rm -f /tmp/gh-issue-body.md
 echo "GH_URL=$GH_URL"
 ```
 

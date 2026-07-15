@@ -167,7 +167,12 @@ index e405cdc..125c7d7 100644
 +**3. Create GitHub Issue:**
 +Run the GitHub CLI to create the issue and capture the URL.
 +```bash
-+GH_URL=$(gh issue create --title "{Task Title}" --body "Migrated from Telegram. See local task file for details." --label "telegram-sync")
++cat > /tmp/gh-issue-body.md << 'EOF'
++Migrated from Telegram. See local task file for details.
++EOF
++
++GH_URL=$(gh issue create --title "{Task Title}" --body-file /tmp/gh-issue-body.md --label "telegram-sync")
++rm -f /tmp/gh-issue-body.md
 +echo "GH_URL=$GH_URL"
 +```
 
