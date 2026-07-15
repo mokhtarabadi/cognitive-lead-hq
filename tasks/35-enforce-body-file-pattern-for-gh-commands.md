@@ -42,7 +42,7 @@ You are a Senior DevOps & Shell Scripting Architect specialized in GitHub CLI au
 </role>
 
 <system_context>
-You are operating inside the Cognitive Lead AI multi-agent system HQ repository (best-prompts). This repo contains system prompts, MCP servers, Agent Skills (SKILL.md), and task files in `tasks/`. The project uses `gh` (GitHub CLI) extensively for issue creation from automated pipelines, especially from the `telegram-issue-sync` skill. You have access to bash, file read/write, and git tools.
+You are operating inside the Cognitive Lead AI multi-agent system HQ repository (cognitive-lead-hq). This repo contains system prompts, MCP servers, Agent Skills (SKILL.md), and task files in `tasks/`. The project uses `gh` (GitHub CLI) extensively for issue creation from automated pipelines, especially from the `telegram-issue-sync` skill. You have access to bash, file read/write, and git tools.
 </system_context>
 
 <agentic_reasoning>
@@ -95,17 +95,17 @@ File: `<path>` (line <line_number>)
 
 ### Files Modified
 
-| File | Change |
-|------|--------|
-| `skill-templates/telegram-issue-sync/SKILL.md` | Replaced inline `--body` with `--body-file` heredoc + `rm -f` cleanup |
-| `tasks/22-refactor-telegram-skill-templates.md` | Same conversion (diff-context file) |
-| `tasks/11-enforce-project-skill-loading.md` | Changed `--body` flag to `--body-file` |
-| `tasks/06-implement-telegram-issue-sync-skill.md` | Changed `--body` flag to `--body-file` |
+| File                                              | Change                                                                |
+| ------------------------------------------------- | --------------------------------------------------------------------- |
+| `skill-templates/telegram-issue-sync/SKILL.md`    | Replaced inline `--body` with `--body-file` heredoc + `rm -f` cleanup |
+| `tasks/22-refactor-telegram-skill-templates.md`   | Same conversion (diff-context file)                                   |
+| `tasks/11-enforce-project-skill-loading.md`       | Changed `--body` flag to `--body-file`                                |
+| `tasks/06-implement-telegram-issue-sync-skill.md` | Changed `--body` flag to `--body-file`                                |
 
 ### Files Created
 
-| File | Purpose |
-|------|---------|
+| File                  | Purpose                                                                            |
+| --------------------- | ---------------------------------------------------------------------------------- |
 | `docs/conventions.md` | Documents the `--body-file` convention with rationale, standard pattern, and rules |
 
 ### Architectural Reasoning
@@ -118,21 +118,22 @@ File: `<path>` (line <line_number>)
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
-```diff
+
+````diff
 diff --git a/CHANGELOG.md b/CHANGELOG.md
 index 22d1286..4930bfa 100644
 --- a/CHANGELOG.md
 +++ b/CHANGELOG.md
 @@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
- 
+
  ## [Unreleased]
- 
+
 +### Changed
 +
 +- **Enforced `--body-file` pattern for all `gh issue create` commands** across the codebase. Replaced inline `--body` in `skill-templates/telegram-issue-sync/SKILL.md`, `tasks/22-refactor-telegram-skill-templates.md`, `tasks/11-enforce-project-skill-loading.md`, and `tasks/06-implement-telegram-issue-sync-skill.md` with heredoc `--body-file` pattern using single-quoted `'EOF'` delimiter. Added `docs/conventions.md` documenting the convention.
 +
  ## [5.18.0] — 2026-07-13
- 
+
  ### Added
 diff --git a/docs/conventions.md b/docs/conventions.md
 new file mode 100644
@@ -188,7 +189,7 @@ index 63654d6..5d131f5 100644
 +++ b/skill-templates/telegram-issue-sync/SKILL.md
 @@ -200,10 +200,25 @@ _(Git diff will be automatically injected here by the MCP tool. Do not edit this
  Only if `GH_ENABLED` is true:
- 
+
  ```bash
 +cat > /tmp/gh-issue-body.md << 'EOF'
 +## Original Message
@@ -211,6 +212,8 @@ index 63654d6..5d131f5 100644
    --label "telegram-sync")
 +rm -f /tmp/gh-issue-body.md
  echo "GH_URL=$GH_URL"
- ```
+````
+
 ```
 <!-- END_GIT_DIFF -->
+```

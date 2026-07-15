@@ -1,22 +1,34 @@
-# Cognitive Lead AI — V5 Decentralized Task Architecture
+# Cognitive Lead AI HQ
 
-This repository is the **V5 evolution** of the Cognitive Lead AI multi-agent system. It has been restructured around decentralized task files, Agent Skills, and Google's official Agentic Workflow constraints, maximizing OpenCode's native context management and reasoning capabilities.
+[![Version](https://img.shields.io/github/v/release/mokhtarabadi/cognitive-lead-hq?style=flat-square)](https://github.com/mokhtarabadi/cognitive-lead-hq/releases)
+[![License](https://img.shields.io/github/license/mokhtarabadi/cognitive-lead-hq?style=flat-square)](LICENSE)
+[![OpenCode](https://img.shields.io/badge/OpenCode-ready-6C47FF?style=flat-square)](https://opencode.ai)
+[![PRs](https://img.shields.io/badge/PRs-welcome-brightgreen?style=flat-square)](https://github.com/mokhtarabadi/cognitive-lead-hq/pulls)
 
-## Purpose
+The centralized **Headquarters** for the Cognitive Lead AI multi-agent system — a collection of hallucination-resistant system prompts, MCP servers, and strict Agent Skills (SKILL.md) built for [OpenCode](https://opencode.ai).
 
-- **Unified Agent Instruction** — `system-prompt.md` is the single source of truth for agent behavior, role definitions, Google-aligned Agentic Reasoning, and the `<opencode_task>` protocol.
-- **Agent Skills (`SKILL.md`)** — Instead of a monolithic `AGENTS.md` or flat `stacks/` directory, the system now uses OpenCode's native **Agent Skills** framework for progressive disclosure: `.opencode/skills/*/SKILL.md` for repository rules and `skill-templates/*/SKILL.md` for reusable stack blueprints.
-- **Progressive Disclosure** — OpenCode's `skill` tool loads only the relevant `SKILL.md` at the moment it is needed, optimizing context usage and keeping the system prompt lean.
+> **Want a quick install?** Give this line to OpenCode:
+>
+> ```
+> Hi, please read this address and, based on the instructions in this file, set up OpenCode for the user for our project.
+> ```
 
-## How to Use This Repository
+---
 
-| File / Directory                            | When to Consult                                                                                                            |
-| ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `system-prompt.md`                          | At the start of every session; this is the V5 multi-agent prompt defining all 5 personas and the Agentic Reasoning matrix. |
-| `.opencode/skills/sop-maintenance/SKILL.md` | When an AI agent needs to modify this repository itself.                                                                   |
-| `skill-templates/*/SKILL.md`                | Before writing code in a specific stack (Spring Boot, Flask, Next.js, NestJS, Android Kotlin).                             |
-| `CHANGELOG.md`                              | To review what has changed between versions.                                                                               |
-| `tasks/`                                    | To see the active task files and current work items.                                                                       |
+## Quick Start
+
+```bash
+# Clone the HQ
+git clone https://github.com/mokhtarabadi/cognitive-lead-hq.git
+cd cognitive-lead-hq
+
+# Start the custom context MCP server
+uv run mcp-context-server/server.py
+```
+
+Then open OpenCode in this directory. Read `system-prompt.md` to understand the multi-agent architecture, or dive into `tasks/` for active work items.
+
+---
 
 ## How to Operate: The Brain & The Hands
 
@@ -67,6 +79,8 @@ To leave feedback directly on the generated Markdown plans:
 
 The AI will process your inline feedback, generate a revised plan, and wait for your final "Approved" signal before writing code.
 
+---
+
 ## Repository Structure
 
 ```
@@ -75,30 +89,71 @@ The AI will process your inline feedback, generate a revised plan, and wait for 
 ├── system-prompt.md                    # V5 Multi-Agent System Prompt
 ├── CHANGELOG.md                        # Version history
 ├── tasks/                              # Decentralized task files
+├── docs/
+│   ├── conventions.md                  # Syntax rules and automation conventions
+│   └── opencode/                       # OpenCode documentation mirror
 ├── mcp-context-server/
 │   └── server.py                       # FastMCP server for .gitignore-aware file reading & tree
 ├── .opencode/
 │   └── skills/
 │       └── sop-maintenance/
 │           └── SKILL.md                # Native OpenCode skill for repo rules
-    └── skill-templates/                    # Reusable stack blueprints (Agent Skills)
-        ├── go-hexagonal-grpc/
-        │   └── SKILL.md
-        ├── prompt-refactor/
-        │   └── SKILL.md
-        ├── android-kotlin/
-        │   └── SKILL.md
-        ├── nextjs/
-        │   └── SKILL.md
-        ├── spring-boot/
-        │   └── SKILL.md
-        ├── flask-python/
-        │   └── SKILL.md
-        ├── nestjs-prisma-vertical/
-        │   └── SKILL.md
-        └── code-search/
-            └── SKILL.md
+└── skill-templates/                    # Reusable stack blueprints (Agent Skills)
+    ├── go-hexagonal-grpc/
+    │   └── SKILL.md
+    ├── prompt-refactor/
+    │   └── SKILL.md
+    ├── android-kotlin/
+    │   └── SKILL.md
+    ├── nextjs/
+    │   └── SKILL.md
+    ├── spring-boot/
+    │   └── SKILL.md
+    ├── flask-python/
+    │   └── SKILL.md
+    ├── nestjs-prisma-vertical/
+    │   └── SKILL.md
+    └── code-search/
+        └── SKILL.md
 ```
+
+---
+
+## Agent Skills Registry
+
+### General & Workflow Skills
+
+| Skill Name                | Purpose                                                                                                                                                                 |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `audit-agents`            | Enforces Zero-Autonomous-Commit (ZAC) workflows and generates/audits `AGENTS.md` for new and existing projects.                                                         |
+| `code-search`             | Mandatory for discovery. Uses MCP tools (`get_directory_tree`, `read_source_files`, `extract_signatures`) to explore the codebase without token bloat.                  |
+| `debug-instrumentation`   | Diagnoses complex runtime bugs, deadlocks, race conditions, and silent failures via strategic temporary logging and tracing.                                            |
+| `design-md`               | Extracts a comprehensive design system (`DESIGN.md`) directly from frontend source code — React, Vue, Svelte, Angular, plain HTML/CSS, or any web framework.            |
+| `doc-coauthoring`         | Guides users through a structured 3-stage workflow (Context Gathering, Refinement & Structure, Reader Testing) for co-authoring documentation with AI.                  |
+| `prompt-refactor`         | Meta-cognitive skill that refactors basic human prompts into elite, highly constrained, XML-tagged instructions optimized for AI agent reasoning.                       |
+| `task-generator`          | Automatically generates decentralized task files based on Manager instructions, with correct `<!-- BEGIN_GIT_DIFF -->` / `<!-- END_GIT_DIFF -->` markers.               |
+| `telegram-issue-sync`     | Syncs Telegram supergroup topics into local task files and GitHub issues, using embedded Python scripts for deterministic JSON state management.                        |
+| `telegram-message-export` | Intelligently exports a range of Telegram messages (text, media, voice notes) into a numbered folder, capturing reply hierarchies, and packing them into a ZIP archive. |
+| `versioning-and-release`  | Standardizes Semantic Versioning (SemVer), Keep a Changelog formats, Conventional Commits, and Safe Push Protocols across all repositories.                             |
+
+### Stack-Specific Blueprints
+
+| Stack                  | Architecture Enforced                                                                                      |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Android Kotlin         | **100% Jetpack Compose — XML Strictly Banned.** MVI (UDF), Hilt, SQLDelight/Room.                          |
+| Flask Python           | Application Factory, Blueprints, SQLAlchemy, and config separation for modular Flask applications.         |
+| Go Gin                 | Idiomatic Go, Clean Architecture layers, and Gin routing best practices for RESTful services.              |
+| Go Hexagonal gRPC      | Hexagonal Architecture (Ports and Adapters), gRPC, Uber Fx compile-time DI, Redis caching, and PostgreSQL. |
+| iOS SwiftUI            | SwiftUI, MVVM, and modern iOS app architecture with declarative UI patterns.                               |
+| NestJS Prisma Vertical | NestJS, Prisma ORM, Vertical Slice Architecture, strict TypeScript, and class-validator DTOs.              |
+| Next.js                | App Router, Server/Client Component separation, Server Actions, and Tailwind CSS design tokens.            |
+| Python FastAPI         | Pydantic schemas, dependency injection, async routing, and layered service architecture.                   |
+| React Native Expo      | **Expo Managed Workflow ONLY — no native folders.** Expo Router, NativeWind, Zustand, strict TypeScript.   |
+| React Vite             | React 18+ SPA architecture, hooks, and Vite configuration with optimized build tooling.                    |
+| Spring Boot            | DDD, hexagonal-style packaging, MapStruct, constructor injection, and global exception handlers.           |
+| Vue Nuxt               | Vue 3 Composition API, Nuxt 3 routing, and Pinia state management.                                         |
+
+---
 
 ## Custom Code Context MCP
 
@@ -177,6 +232,8 @@ _(Note: Replace `/Users/<YOUR_USER>` with your actual home directory path)._
 - `get_directory_tree` — Generates an ASCII tree of the directory structure, respecting `.gitignore`.
 - `read_source_files` — Reads multiple source files or directories and saves their contents into a local Markdown report inside the `context-reports/` directory, returning the file path to prevent context bloat.
 
+---
+
 ## Global Skills Deployment
 
 To make the `code-search` skill (or any other reusable skill) available in _every_ terminal directory on your machine automatically, copy the skill folder into your global OpenCode configuration path.
@@ -206,39 +263,7 @@ To make the `code-search` skill (or any other reusable skill) available in _ever
    @explore find the main router using the code-search skill
    ```
 
-## Available Agent Skills Library
-
-### General & Workflow Skills
-
-| Skill Name                | Purpose                                                                                                                                                                 |
-| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `audit-agents`            | Enforces Zero-Autonomous-Commit (ZAC) workflows and generates/audits `AGENTS.md` for new and existing projects.                                                         |
-| `code-search`             | Mandatory for discovery. Uses MCP tools (`get_directory_tree`, `read_source_files`, `extract_signatures`) to explore the codebase without token bloat.                  |
-| `debug-instrumentation`   | Diagnoses complex runtime bugs, deadlocks, race conditions, and silent failures via strategic temporary logging and tracing.                                            |
-| `design-md`               | Extracts a comprehensive design system (`DESIGN.md`) directly from frontend source code — React, Vue, Svelte, Angular, plain HTML/CSS, or any web framework.            |
-| `doc-coauthoring`         | Guides users through a structured 3-stage workflow (Context Gathering, Refinement & Structure, Reader Testing) for co-authoring documentation with AI.                  |
-| `prompt-refactor`         | Meta-cognitive skill that refactors basic human prompts into elite, highly constrained, XML-tagged instructions optimized for AI agent reasoning.                       |
-| `task-generator`          | Automatically generates decentralized task files based on Manager instructions, with correct `<!-- BEGIN_GIT_DIFF -->` / `<!-- END_GIT_DIFF -->` markers.               |
-| `telegram-issue-sync`     | Syncs Telegram supergroup topics into local task files and GitHub issues, using embedded Python scripts for deterministic JSON state management.                        |
-| `telegram-message-export` | Intelligently exports a range of Telegram messages (text, media, voice notes) into a numbered folder, capturing reply hierarchies, and packing them into a ZIP archive. |
-| `versioning-and-release`  | Standardizes Semantic Versioning (SemVer), Keep a Changelog formats, Conventional Commits, and Safe Push Protocols across all repositories.                             |
-
-### Stack-Specific Blueprints
-
-| Stack                  | Architecture Enforced                                                                                      |
-| ---------------------- | ---------------------------------------------------------------------------------------------------------- |
-| Android Kotlin         | **100% Jetpack Compose — XML Strictly Banned.** MVI (UDF), Hilt, SQLDelight/Room.                          |
-| Flask Python           | Application Factory, Blueprints, SQLAlchemy, and config separation for modular Flask applications.         |
-| Go Gin                 | Idiomatic Go, Clean Architecture layers, and Gin routing best practices for RESTful services.              |
-| Go Hexagonal gRPC      | Hexagonal Architecture (Ports and Adapters), gRPC, Uber Fx compile-time DI, Redis caching, and PostgreSQL. |
-| iOS SwiftUI            | SwiftUI, MVVM, and modern iOS app architecture with declarative UI patterns.                               |
-| NestJS Prisma Vertical | NestJS, Prisma ORM, Vertical Slice Architecture, strict TypeScript, and class-validator DTOs.              |
-| Next.js                | App Router, Server/Client Component separation, Server Actions, and Tailwind CSS design tokens.            |
-| Python FastAPI         | Pydantic schemas, dependency injection, async routing, and layered service architecture.                   |
-| React Native Expo      | **Expo Managed Workflow ONLY — no native folders.** Expo Router, NativeWind, Zustand, strict TypeScript.   |
-| React Vite             | React 18+ SPA architecture, hooks, and Vite configuration with optimized build tooling.                    |
-| Spring Boot            | DDD, hexagonal-style packaging, MapStruct, constructor injection, and global exception handlers.           |
-| Vue Nuxt               | Vue 3 Composition API, Nuxt 3 routing, and Pinia state management.                                         |
+---
 
 ## Key V5 Changes
 
@@ -248,11 +273,13 @@ To make the `code-search` skill (or any other reusable skill) available in _ever
 - **Phase 0 UI/UX traversal** — Project Planner now instructs OpenCode to perform deep source code analysis for `DESIGN.md` generation.
 - **Runtime model updated** — Gemini 3.5 Flash renamed to Gemini throughout the system prompt.
 
+---
+
 ## Contributing
 
 See `.opencode/skills/sop-maintenance/SKILL.md` for the rules that AI agents must follow when modifying this repository.
 
-## Future Architectural Roadmap (TODOs)
+## Future Architectural Roadmap
 
 1. **Automated Pull Request Integration:** Upgrade the final Code Reviewer step to automatically branch, commit, and open a PR via GitHub CLI (`gh pr create`) instead of committing locally to `main`.
 2. **Epic and Milestone Tracking:** Create an `epics/` directory and update the `task-generator` skill to link individual tasks to parent epics for better macro-level project tracking.
