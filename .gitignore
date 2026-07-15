@@ -30,5 +30,8 @@ node_modules/
 .env
 .env.local
 
+# Playwright MCP artifacts
+.playwright-mcp/
+
 # Custom Context MCP reports
 context-reports/
