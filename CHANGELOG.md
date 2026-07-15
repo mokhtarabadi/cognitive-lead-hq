@@ -11,6 +11,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **Enforced `--body-file` pattern for all `gh issue create` commands** across the codebase. Replaced inline `--body` in `skill-templates/telegram-issue-sync/SKILL.md`, `tasks/22-refactor-telegram-skill-templates.md`, `tasks/11-enforce-project-skill-loading.md`, and `tasks/06-implement-telegram-issue-sync-skill.md` with heredoc `--body-file` pattern using single-quoted `'EOF'` delimiter. Added `docs/conventions.md` documenting the convention.
 - **Rebranded repository to `cognitive-lead-hq`** — updated GitHub description, topics, and renamed repo. Restructured README.md with flat-square shields.io badges, Quick Start section, and improved hierarchy. Preserved all Agent Skills tables and MCP configuration sections. Updated internal references across codebase.
 
+### Added
+
+- **`LLM.txt`** — AI agent auto-configuration manual at project root. Contains platform-specific OpenCode setup instructions (macOS/Linux via Bash, Windows via PowerShell), the exact `opencode.json` payload for the custom_context MCP server, skill installation commands, and a ready-to-use "Agent Prompt" for self-configuration.
+
+### Changed
+
+- **README.md** — Updated Quick Start section to reference `LLM.txt` as the canonical auto-setup source for full platform-specific instructions.
+
 ## [5.18.0] — 2026-07-13
 
 ### Added

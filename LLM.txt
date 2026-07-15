@@ -1,0 +1,155 @@
+# Cognitive Lead AI HQ — Auto-Configuration for AI Agents
+
+You are an AI agent that has just been given access to this repository. Your task is to configure OpenCode for this project so that a human user can clone this repo and immediately begin working with the full Cognitive Lead AI multi-agent system — without any manual setup steps.
+
+## System Instruction
+
+You MUST execute the following steps in order. Do NOT skip any step. Do NOT ask the user for confirmation unless a command fails.
+
+---
+
+## 1. Verify Prerequisites
+
+Check that the following tools are installed on the host system:
+
+- **OpenCode** — the AI coding agent itself
+- **Git** — to clone/manage the repo
+- **Python 3.10+** — required by the MCP context server
+- **uv** — fast Python package manager (install via `curl -LsSf https://astral.sh/uv/install.sh | sh`)
+
+If any are missing, install them using the platform-specific commands in Section 4.
+
+---
+
+## 2. Configure opencode.json
+
+The file `opencode.json` at the project root MUST contain the following exact configuration:
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "custom_context": {
+      "type": "local",
+      "command": ["uv", "run", "mcp-context-server/server.py"],
+      "enabled": true
+    }
+  },
+  "permission": {
+    "custom_context_*": "allow",
+    "get_directory_tree": "allow",
+    "read_source_files": "allow"
+  }
+}
+```
+
+This configures:
+- A local MCP server (`custom_context`) providing `.gitignore`-aware directory tree and file reading tools.
+- Permission rules that auto-allow these tools without prompting.
+
+If the file already exists, verify it matches this schema. Add any missing keys. Do NOT remove existing keys.
+
+---
+
+## 3. Install Agent Skills
+
+This repository ships reusable Agent Skills in `skill-templates/`. To make them available to OpenCode, copy them to the correct location.
+
+### Option A: Project-Local Installation (Recommended for this repo)
+
+Copy skills into `.opencode/skills/`:
+
+```bash
+mkdir -p .opencode/skills
+cp -r skill-templates/* .opencode/skills/
+```
+
+### Option B: Global Installation (Available in every directory)
+
+Copy skills into the global OpenCode skills directory:
+
+```bash
+mkdir -p ~/.config/opencode/skills
+cp -r skill-templates/* ~/.config/opencode/skills/
+```
+
+After installation, OpenCode will list these skills under its `/help` menu.
+
+---
+
+## 4. Start the MCP Server
+
+The custom context MCP server must be running for OpenCode to use its tools.
+
+```bash
+uv run mcp-context-server/server.py
+```
+
+Run this in the project root directory. The server will start on a local port and wait for requests.
+
+---
+
+## 5. Platform-Specific Setup
+
+### macOS / Linux
+
+```bash
+# Install uv if missing
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Clone the repository (if not already cloned)
+git clone https://github.com/mokhtarabadi/cognitive-lead-hq.git
+cd cognitive-lead-hq
+
+# Install project-level skills
+mkdir -p .opencode/skills
+cp -r skill-templates/* .opencode/skills/
+
+# Verify opencode.json exists and is valid
+cat opencode.json
+
+# Start the MCP server (background or separate terminal)
+uv run mcp-context-server/server.py
+```
+
+### Windows (PowerShell)
+
+```powershell
+# Install uv if missing
+powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
+
+# Clone the repository
+git clone https://github.com/mokhtarabadi/cognitive-lead-hq.git
+cd cognitive-lead-hq
+
+# Install project-level skills
+mkdir .opencode\skills -Force
+Copy-Item -Path skill-templates\* -Destination .opencode\skills\ -Recurse
+
+# Verify opencode.json exists
+Get-Content opencode.json
+
+# Start the MCP server
+uv run mcp-context-server/server.py
+```
+
+---
+
+## 6. Verification Checklist
+
+After completing the steps above, verify the setup:
+
+- [ ] `opencode.json` exists at project root with valid JSON
+- [ ] Skills are installed under `.opencode/skills/` or `~/.config/opencode/skills/`
+- [ ] MCP server starts without errors via `uv run mcp-context-server/server.py`
+- [ ] OpenCode can list the installed skills via `/help`
+
+---
+
+## Agent Prompt
+
+Copy and give this exact line to your AI agent to trigger auto-configuration:
+
+```
+Hi, please read this address and, based on the instructions in this file, set up OpenCode for the user for our project.
+```
