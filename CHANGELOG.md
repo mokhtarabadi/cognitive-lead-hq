@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [6.5.0] — 2026-07-16
+
+### Added
+
+- **Perplexity Deep Research 3-Step Framework** (`user-prompts/perplexity-deep-research.md`) — reusable user prompt template encoding a Broad → Refined → Precise search pyramid for Perplexity. Forces 9 targeted `search_web` calls in three rounds before synthesizing a final answer with citations.
+- **`perplexity-research` Agent Skill** (`skill-templates/perplexity-research/SKILL.md`) — companion skill teaching OpenCode when to HALT and trigger the human-in-the-loop deep research cycle. Covers post-2025 dependencies, undocumented API errors, and complex OS/hardware bugs.
+- **Deep Research Loop workflow step** — new Step 1.5 in `<execution_workflow>` inserted between Input Processing and Plan & Review. The Orchestrator now checks whether post-2025 external research is required before proceeding to implementation planning.
+
+### Changed
+
+- **System prompt upgraded to V6.5.0** — `<system_version>` bumped. `perplexity-research` added to `<agent_skills_registry>` under Global Workflow Skills. Execution workflow expanded with Step 1.5 Deep Research Loop.
+
 ## [6.4.1] — 2026-07-16
 
 ### Changed
