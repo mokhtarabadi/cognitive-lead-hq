@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [6.4.1] — 2026-07-16
+
+### Changed
+
+- **README.md** — Cleaned up the Future Architectural Roadmap by removing completed tasks (V6.0.0 Kanban, V6.1.0 QA Persona, V6.2.0 Prompt Refactoring, V6.4.0 Memory Management) and renumbering remaining items.
+
 ## [6.4.0] — 2026-07-16
 
 ### Added
