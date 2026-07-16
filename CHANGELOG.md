@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [6.3.0] — 2026-07-16
+
+### Added
+
+- **Intelligent Cold-Start & Vertical Slicing Protocol** — new `code-search` skill section (`### Vertical Slicing Strategy`) instructing OpenCode to target specific feature modules instead of scanning the whole repo, and to always bundle Core SOP files (`AGENTS.md`, `DESIGN.md`, `docs/*.md`) in the context report.
+- **`user-prompts/cold-start-context.md`** — reusable dual-language (English/Farsi) prompt for the Manager to trigger local cold-start context generation directly in OpenCode, bypassing AI Studio for the discovery phase.
+- **Phase 0 cold-start routing** — `<execution_workflow>` updated: for EXISTING projects with an empty context window, the Orchestrator instantly outputs a discovery task to fetch the directory tree, extract vertical slice signatures, and read all Core SOP files.
+
+### Changed
+
+- **System prompt upgraded to V6.3.0** — `<system_version>` bumped. `<opencode_discovery_task_template>` execution phase updated to mandate fetching AGENTS.md, DESIGN.md, and docs/*.md as absolute source-of-truth, with explicit Vertical Slice Extraction instructions added between core file reading and compilation.
+- **README.md** — directory tree updated to include `cold-start-context.md` in `user-prompts/`.
+
 ## [6.2.0] — 2026-07-16
 
 ### Added

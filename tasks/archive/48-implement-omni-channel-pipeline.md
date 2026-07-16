@@ -44,5 +44,6 @@ Upgrade to V6.2.0 by embedding the Automated Prompt Refactoring Pipeline as an o
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `e400c001c03159af0867fed08a95aff9cbfd73ea`
 <!-- END_GIT_DIFF -->

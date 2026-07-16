@@ -27,6 +27,20 @@ You are the Executor. Your job is to extract codebase context so the Manager can
 
 ---
 
+### Vertical Slicing Strategy
+
+When the Orchestrator requests context for a **specific feature module** (e.g., `packages/billing/`, `src/features/auth/`, `apps/web/app/dashboard/`), follow this strategy instead of scanning the entire repository:
+
+1. **Target the Slice:** Run `custom_context_get_directory_tree` on the specific feature directory only — not the whole repo.
+2. **Extract Signatures:** Run `custom_context_extract_signatures` on all files within that slice to map its structural surface without full body reads.
+3. **Core SOP Files (Mandatory):** Regardless of the slice, **always** append the full text of `AGENTS.md`, `DESIGN.md`, and `docs/*.md` to the final context report. This ensures the AI Studio Brain is always grounded in the project's global rules and design system.
+4. **Dependency Trace:** If the slice imports from other local modules (e.g., shared `lib/` or `core/` packages), trace and include signatures for those dependencies too.
+5. **Compile:** Call `custom_context_read_source_files` only for the slice's key files and the mandatory Core SOP files.
+
+**Why this matters:** Full-repo scans waste tokens and dilute signal. Vertical Slicing focuses the Brain on the exact feature boundaries that matter, while the mandatory Core SOP injection guarantees structural alignment with the project's architecture.
+
+---
+
 ## Signature Extraction (`custom_context_extract_signatures`) — Details
 
 ### Why Prefer Signatures Over Full File Reads?

@@ -9,16 +9,16 @@ Established a multi-layer quality assurance and automated refactoring pipeline. 
 
 ## Files Modified
 
-| File | Change |
-|------|--------|
-| `system-prompt.md` | V6.1.0 / V6.2.0 upgrades — QA Engineer persona, 7-step workflow, bilingual translation pipeline |
-| `mcp-context-server/server.py` | `commit_and_clean_task`: `git add -A tasks/` to catch deletions |
-| `AGENTS.md` | Farsi guardrail: load prompt-refactor before raw non-English prompts |
-| `skill-templates/audit-agents/SKILL.md` | Bilingual Prompt Refactoring audit criterion + template guardrail |
-| `skill-templates/prompt-refactor/SKILL.md` | Bilingual Translation & Analysis as Step 1 |
-| `skill-templates/telegram-issue-sync/SKILL.md` | Phase 3 Step 3 as omni-channel filter |
-| `README.md` | QA Loop description, items #5 and #8 struck from roadmap |
-| `CHANGELOG.md` | V6.1.0 and V6.2.0 release entries |
+| File                                           | Change                                                                                          |
+| ---------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `system-prompt.md`                             | V6.1.0 / V6.2.0 upgrades — QA Engineer persona, 7-step workflow, bilingual translation pipeline |
+| `mcp-context-server/server.py`                 | `commit_and_clean_task`: `git add -A tasks/` to catch deletions                                 |
+| `AGENTS.md`                                    | Farsi guardrail: load prompt-refactor before raw non-English prompts                            |
+| `skill-templates/audit-agents/SKILL.md`        | Bilingual Prompt Refactoring audit criterion + template guardrail                               |
+| `skill-templates/prompt-refactor/SKILL.md`     | Bilingual Translation & Analysis as Step 1                                                      |
+| `skill-templates/telegram-issue-sync/SKILL.md` | Phase 3 Step 3 as omni-channel filter                                                           |
+| `README.md`                                    | QA Loop description, items #5 and #8 struck from roadmap                                        |
+| `CHANGELOG.md`                                 | V6.1.0 and V6.2.0 release entries                                                               |
 
 ## Individual Task Summaries
 

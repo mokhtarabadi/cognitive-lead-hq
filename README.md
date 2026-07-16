@@ -131,6 +131,7 @@ The AI will process your inline feedback, generate a revised plan, and wait for 
 │   └── code-search/
 │       └── SKILL.md
 └── user-prompts/                       # Reusable copy-paste prompt templates
+    ├── cold-start-context.md
     ├── session-compactor.md
     ├── voice-to-text-enhancer.md
     ├── persian-to-english-dictation.md
