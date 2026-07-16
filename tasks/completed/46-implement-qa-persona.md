@@ -36,5 +36,6 @@ Upgrade the repository to V6.1.0 by introducing the Adversarial QA Engineer pers
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `2d2a9c5b567b7f3382ad4f0bf2f55f83974ce57f`
 <!-- END_GIT_DIFF -->

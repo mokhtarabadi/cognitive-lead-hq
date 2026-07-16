@@ -468,7 +468,7 @@ def commit_and_clean_task(task_file_path: str, commit_message: str) -> str:
                     f.write(new_content)
                     
                 # 4. Stage the cleaned task file and amend
-                subprocess.run(["git", "add", task_file_path], check=True, capture_output=True)
+                subprocess.run(["git", "add", "-A", "tasks/"], check=True, capture_output=True)
                 subprocess.run(["git", "commit", "--amend", "--no-edit"], check=True, capture_output=True)
                 
         return f"✅ Success: Code committed (Hash: {commit_hash}). Task file {task_file_path} cleaned and amended."

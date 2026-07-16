@@ -8,6 +8,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [6.1.0] — 2026-07-16
 
+### Fixed
+
+- **Kanban `git mv` duplicate file bug** — `commit_and_clean_task` MCP tool hardened: `git add <single_file>` replaced with `git add -A tasks/` to catch deletions caused by standard `mv` fallbacks when Kanban directories are empty.
+- **Missing `mkdir -p` in completion instructions** — Code Reviewer persona and workflow Step 7 updated to explicitly mandate `mkdir -p tasks/completed/` before `git mv`, preventing failures when the target directory doesn't exist.
+
 ### Added
 
 - **QA Engineer persona** — new `<persona name="QA Engineer">` block in `system-prompt.md` inserted between Project Planner and Code Reviewer. Adopts a strictly adversarial mindset: reads the factual Git Diff, looks for missing null checks, race conditions, unchecked inputs, and missing negative test cases. Outputs QA_PASSED or QA_REJECTED with vulnerabilities and missing tests report.
