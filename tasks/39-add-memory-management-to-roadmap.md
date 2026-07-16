@@ -25,11 +25,11 @@ Add the Memory Management (Smart Note-Taking MCP & Skill) specification as item 
 
 ### Files Modified
 
-| File | Change |
-|------|--------|
-| `README.md` | Added Memory Management (Smart Note-Taking MCP & Skill) as roadmap item #7 |
-| `CHANGELOG.md` | Added entry under `[Unreleased]` > `Changed` |
-| `tasks/39-add-memory-management-to-roadmap.md` | Created as tracking task file |
+| File                                           | Change                                                                     |
+| ---------------------------------------------- | -------------------------------------------------------------------------- |
+| `README.md`                                    | Added Memory Management (Smart Note-Taking MCP & Skill) as roadmap item #7 |
+| `CHANGELOG.md`                                 | Added entry under `[Unreleased]` > `Changed`                               |
+| `tasks/39-add-memory-management-to-roadmap.md` | Created as tracking task file                                              |
 
 ### Architectural Reasoning
 
@@ -40,21 +40,22 @@ Add the Memory Management (Smart Note-Taking MCP & Skill) specification as item 
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 ```diff
 diff --git a/CHANGELOG.md b/CHANGELOG.md
 index 3f61ced..a88bccd 100644
 --- a/CHANGELOG.md
 +++ b/CHANGELOG.md
 @@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
- 
+
  ## [Unreleased]
- 
+
 +### Changed
 +
 +- **README roadmap** — Added Memory Management (Smart Note-Taking MCP & Skill) as item #7 in the Future Architectural Roadmap, describing a local `memory-mcp` server and `project-memory` agent skill for persistent context retention.
 +
  ## [5.19.0] — 2026-07-15
- 
+
  ### Added
 diff --git a/README.md b/README.md
 index d9bcb61..7f626ac 100644
@@ -72,4 +73,5 @@ index d9bcb61..7f626ac 100644
 +     - _"OpenCode, call the memory skill; remember this thing I'm telling you about the database tests."_
 +   - **Goal:** Ensure complete, highly detailed context retention across isolated sessions without permanently bloating the core `AGENTS.md` file.
 ```
+
 <!-- END_GIT_DIFF -->

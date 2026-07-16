@@ -6,15 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [6.0.0] — 2026-07-16
+
 ### Added
 
-- **Voice-to-Text Enhancer prompt** — New `user-prompts/voice-to-text-enhancer.md` with XML-tagged `<role>`, `<system_context>`, `<agentic_reasoning>`, `<constraints>`, and `<output_format>` sections. Transforms raw speech-to-text dictation into polished, actionable Markdown prompts. `user-prompts/` directory created as a new top-level namespace for user-facing prompt templates.
-- **Persian-to-English Dictation prompt** — New `user-prompts/persian-to-english-dictation.md` with XML-tagged sections. Converts raw Persian Speech-to-Text dictation into flawless, native-sounding English via phonetic decoding, contextual reconstruction, and idiomatic translation.
-- **Agile PM State Manager prompt** — New `user-prompts/agile-pm-state-manager.md` with XML-tagged sections. Acts as an agentic Technical Project Manager — parses raw engineer thoughts into a structured Agile Markdown dashboard with project status tables, technical task boards, architecture notes, archive, and changelog. Includes `<reasoning_log>` for transparent state calculation.
+- **Kanban lifecycle architecture** — flat `tasks/` directory replaced by state-based folders: `tasks/backlog/`, `tasks/in-progress/`, `tasks/qa/`, `tasks/completed/`, `tasks/archive/`. Task files are physically moved through the pipeline as work progresses.
+- **`commit_and_clean_task` MCP tool** — new tool on the custom context server (`mcp-context-server/server.py`). Commits staged changes, captures the commit hash, replaces the raw git diff in the task file with the hash reference to save space, and amends the commit to include the cleaned file.
+- **`migrate-kanban` skill** — `skill-templates/migrate-kanban/SKILL.md` for automated migration of existing flat `tasks/` files into the Kanban structure by reading `Status:` metadata. Uses `git mv` to preserve history.
+- **`archive-tasks` skill** — `skill-templates/archive-tasks/SKILL.md` for milestone compaction. Scans completed tasks, generates dense `docs/history/milestone-X-summary.md` summaries, and moves files to `tasks/archive/`.
 
 ### Changed
 
-- **Session Compactor prompt** — Refactored `user-prompts/session-compactor.md` to full XML-tagged Markdown format with `<role>`, `<system_context>`, `<agentic_reasoning>`, `<constraints>`, and `<output_format>` sections. Added `<reasoning_log>` block and expanded restoration report to 7 structured sections (Project Overview, Global Config, Task Registry, Codebase State, Architectural Map, Next Milestones, Restoration Protocol) with copy-paste usage instructions.
+- **System prompt upgraded to V6.0.0** — `<system_version>` bumped. Project Planner persona now manages state-based Kanban directories. Code Reviewer APPROVED action now generates tasks that move files through the pipeline and uses `custom_context_commit_and_clean_task`. Execution workflow updated with `backlog → in-progress → qa → completed` transitions. Implementation task template summary path updated to `tasks/in-progress/`.
+- **`task-generator` skill** — directory references changed from `tasks/` to `tasks/backlog/`. Task ID calculation now uses `find` across all Kanban subdirectories instead of `ls`.
+- **`telegram-issue-sync` skill** — `NEXT_ID` bash command updated to use `find tasks/ -type f -name "*.md"`. File creation paths changed to `tasks/backlog/`.
+- **`audit-agents` skill** — Core File Locations and Audit Criteria updated to list the 5 Kanban directories (`tasks/backlog`, `tasks/in-progress`, `tasks/qa`, `tasks/completed`, `tasks/archive`). AGENTS.md template updated accordingly.
+- **README.md** — directory tree updated to show Kanban structure and new skills. Item 9 in Future Architectural Roadmap marked as implemented in V6.0.0. New "Key V6 Changes" section added.
 - **README roadmap** — Added Memory Management (Smart Note-Taking MCP & Skill) as item #7 in the Future Architectural Roadmap, describing a local `memory-mcp` server and `project-memory` agent skill for persistent context retention.
 - **README roadmap** — Added Adversarial QA Persona as item #8 and Lifecycle Task Architecture (Kanban & Archiving) as item #9 to the Future Architectural Roadmap, describing a dedicated `[QA Engineer]` persona with adversarial testing instructions and a state-based Kanban folder workflow with archiving compaction.
 

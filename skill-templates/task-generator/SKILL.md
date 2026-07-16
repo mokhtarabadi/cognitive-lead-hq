@@ -10,14 +10,24 @@ You are the Task Generator. Your job is to create structured task files for the 
 ## Workflow
 
 1. **Analyze:** Determine if the request is a `bug`, `improvement`, or `feature`.
-2. **Index:** List the `tasks/` directory. Find the highest existing numbered task (e.g., `04-xxx.md`) and increment it for the new task (e.g., `05-xxx.md`). If `tasks/` doesn't exist, create it and start at `01`.
-3. **Name:** Create a kebab-case filename (e.g., `01-fix-login-bug.md`).
+2. **Index:** Search all Kanban subdirectories in `tasks/` for the highest existing task ID. Run:
+
+```bash
+NEXT_ID=$(find tasks/ -type f -name "*.md" -exec basename {} \; | grep -Eo '^[0-9]+' | sort -n | tail -1 | awk '{print $1+1}')
+if [ -z "$NEXT_ID" ] || [ "$NEXT_ID" -eq 0 ] 2>/dev/null; then NEXT_ID="01"; fi
+printf "%02d\n" $NEXT_ID
+```
+
+Use the output as the zero-padded task number. If `tasks/` doesn't exist, create it along with the Kanban subdirectories and start at `01`.
+
+3. **Name:** Create a kebab-case filename (e.g., `01-fix-login-bug.md`). Place it in `tasks/backlog/`.
+
 4. **Generate File:** Write the following template to the new file:
 
    ```markdown
    # Task: [Task Name]
 
-   **File:** `tasks/[filename]`
+   **File:** `tasks/backlog/[filename]`
    **Type:** [bug|improvement|feature]
    **Status:** open
 
@@ -48,4 +58,4 @@ You are the Task Generator. Your job is to create structured task files for the 
    <!-- END_GIT_DIFF -->
    ```
 
-5. **Halt and Handover:** DO NOT execute the task. Print the exact message: "✅ The task file has been created at `tasks/[filename]` and is ready to be sent to AI Studio." and STOP.
+5. **Halt and Handover:** DO NOT execute the task. Print the exact message: "✅ The task file has been created at `tasks/backlog/[filename]` and is ready to be sent to AI Studio." and STOP.

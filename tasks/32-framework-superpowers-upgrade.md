@@ -43,18 +43,19 @@ These three changes together ensure the agent produces more accurate, well-trace
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 ```diff
 diff --git a/.opencode/skills/code-search/SKILL.md b/.opencode/skills/code-search/SKILL.md
 index 1dde3ea..15540d8 100644
 --- a/.opencode/skills/code-search/SKILL.md
 +++ b/.opencode/skills/code-search/SKILL.md
 @@ -19,9 +19,17 @@ You are the Executor. Your job is to extract codebase context so the Manager can
- 
+
  4. **Compile Report (Only When Necessary):** Call `custom_context_read_source_files` ONLY when you have already narrowed the exploration to specific files and need their full bodies for detailed analysis. For broad exploration, signatures alone are sufficient.
- 
+
 -5. **Halt and Handover:** Once the `custom_context_read_source_files` tool returns the generated file path, **STOP**. Do NOT use your `read` tool to open the report.
 +## Dependency Tracing Protocol (MANDATORY)
- 
+
 -6. **Output Message:** Output the following exact message to the Manager:
 +You are strictly forbidden from guessing how imported modules work. You MUST trace dependencies explicitly:
 +
@@ -67,11 +68,11 @@ index 1dde3ea..15540d8 100644
 +5. **Output Message:** Output the following exact message to the Manager:
     > "✅ Discovery complete. I have compiled the context report here: `[INSERT_FILE_PATH]`.
     > **Manager:** Please upload this file to AI Studio for the Orchestrator's review."
- 
+
 @@ -31,24 +39,24 @@ You are the Executor. Your job is to extract codebase context so the Manager can
- 
+
  ### Why Prefer Signatures Over Full File Reads?
- 
+
 -| Approach | Token Cost | Structural Accuracy | Speed |
 -|---|---|---|---|
 -| `extract_signatures` (tree-sitter) | **Very low** — only signature lines | **High** — AST-parsed, no regex blind spots | Instant |
@@ -80,11 +81,11 @@ index 1dde3ea..15540d8 100644
 +| ---------------------------------- | ----------------------------------- | ------------------------------------------- | ---------------------- |
 +| `extract_signatures` (tree-sitter) | **Very low** — only signature lines | **High** — AST-parsed, no regex blind spots | Instant                |
 +| `read_source_files` (full body)    | **High** — entire file bodies       | N/A (full content)                          | Slower for large files |
- 
+
  For repositories with many files, extracting signatures first lets you decide which 2–3 files genuinely need full reading. This directly prevents context bloat in the AI Studio session.
- 
+
  ### Languages Supported (Tree-Sitter AST)
- 
+
 -| Language | Signatures Detected |
 -|---|---|
 -| **Python** | `def`, `class` |
@@ -102,9 +103,9 @@ index 1dde3ea..15540d8 100644
 +| **Kotlin**     | `fun`, `class`                                                                     |
 +| **Go**         | `func`, `method`, `type struct`                                                    |
 +| **Rust**       | `fn`, `struct`, `enum`, `trait`, `type alias`, `impl`                              |
- 
+
  For languages not listed above, the tool gracefully falls back to regex-based extraction (class/function/def/interface patterns).
- 
+
 diff --git a/.opencode/skills/verification-before-completion/SKILL.md b/.opencode/skills/verification-before-completion/SKILL.md
 new file mode 100644
 index 0000000..da3e0e9
@@ -138,24 +139,24 @@ index 3e238d0..d2128bf 100644
 --- a/CHANGELOG.md
 +++ b/CHANGELOG.md
 @@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
- 
+
  ### Added
- 
+
 +- **Dependency Tracing Protocol:** Injected into `code-search` skill — forces deep, recursive import/DI tracing via `extract_signatures` and multi-layer source reading for complete, unbroken context reports.
 +- **`verification-before-completion` skill:** New agent skill enforcing the "Iron Law" — no completion claims without fresh test/lint evidence. Mandatory Gate Function before `<summary_phase>`.
 +- **Hardened AI Studio XML templates:** Discovery template now requires Dependency Tracing Protocol adherence; implementation template `<bash_phase>` rewritten to invoke `verification-before-completion` skill with strict 3-attempt limit and explicit exit-code-0 gate.
 +
  - **NestJS Prisma Vertical Skill Template:** Created `skill-templates/nestjs-prisma-vertical/SKILL.md` enforcing NestJS decorators, Vertical Slice Architecture, Prisma ORM, strict TypeScript, and class-validator DTOs for zero-hallucination backend development.
- 
+
  ### Changed
 diff --git a/skill-templates/code-search/SKILL.md b/skill-templates/code-search/SKILL.md
 index 1dde3ea..2254539 100644
 --- a/skill-templates/code-search/SKILL.md
 +++ b/skill-templates/code-search/SKILL.md
 @@ -31,24 +31,24 @@ You are the Executor. Your job is to extract codebase context so the Manager can
- 
+
  ### Why Prefer Signatures Over Full File Reads?
- 
+
 -| Approach | Token Cost | Structural Accuracy | Speed |
 -|---|---|---|---|
 -| `extract_signatures` (tree-sitter) | **Very low** — only signature lines | **High** — AST-parsed, no regex blind spots | Instant |
@@ -164,11 +165,11 @@ index 1dde3ea..2254539 100644
 +| ---------------------------------- | ----------------------------------- | ------------------------------------------- | ---------------------- |
 +| `extract_signatures` (tree-sitter) | **Very low** — only signature lines | **High** — AST-parsed, no regex blind spots | Instant                |
 +| `read_source_files` (full body)    | **High** — entire file bodies       | N/A (full content)                          | Slower for large files |
- 
+
  For repositories with many files, extracting signatures first lets you decide which 2–3 files genuinely need full reading. This directly prevents context bloat in the AI Studio session.
- 
+
  ### Languages Supported (Tree-Sitter AST)
- 
+
 -| Language | Signatures Detected |
 -|---|---|
 -| **Python** | `def`, `class` |
@@ -186,9 +187,9 @@ index 1dde3ea..2254539 100644
 +| **Kotlin**     | `fun`, `class`                                                                     |
 +| **Go**         | `func`, `method`, `type struct`                                                    |
 +| **Rust**       | `fn`, `struct`, `enum`, `trait`, `type alias`, `impl`                              |
- 
+
  For languages not listed above, the tool gracefully falls back to regex-based extraction (class/function/def/interface patterns).
- 
+
 diff --git a/system-prompt.md b/system-prompt.md
 index 0d1018f..6cbeb03 100644
 --- a/system-prompt.md
@@ -198,12 +199,12 @@ index 0d1018f..6cbeb03 100644
      1. Run the `custom_context_get_directory_tree` tool on the root directory (`.`).
      2. Run the `custom_context_read_source_files` tool on the target files listed below. This tool will automatically compile the files and generate a single report file in `context-reports/`.
 +    CRITICAL: You MUST apply the Dependency Tracing Protocol. If your target files import other local services/repositories, you MUST trace and include them in this context report.
- 
+
      Target Files to compile:
      [INSERT TARGET FILES HERE]
 @@ -167,11 +168,11 @@ You are a very strong reasoner and planner. Before taking any action (either gen
    </execution_phase>
- 
+
    <bash_phase>
 -    OPENCODE INSTRUCTION: Run the necessary terminal commands to install dependencies, build, and verify changes.
 -    CRITICAL RULE 1: ALL bash commands MUST use non-interactive flags (e.g., `npm install -y`, `pytest --no-header`). Do NOT run interactive commands like `vim`, `less`, or `nano`.
@@ -216,7 +217,8 @@ index 0d1018f..6cbeb03 100644
 +    2. If tests fail, you have a maximum of 3 repair attempts.
 +    3. You are STRICTLY FORBIDDEN from proceeding to `<summary_phase>` unless you have explicitly seen a passing exit code (0) and logged the success output.
    </bash_phase>
- 
+
    <documentation_phase>
 ```
+
 <!-- END_GIT_DIFF -->

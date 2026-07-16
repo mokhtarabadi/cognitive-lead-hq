@@ -31,12 +31,11 @@ Input
 
 Input is the required text in the prompt that you want the model to provide a response to. Inputs can be a question that the model answers (question input), a task the model performs (task input), an entity the model operates on (entity input), or partial input that the model completes or continues (completion input).
 
-Input type	Prompt	Generated output
-Question	
+Input type Prompt Generated output
+Question
 
 What's a good name for a flower shop that specializes in selling bouquets of
 dried flowers? Create a list of 5 options with just the names.
-	
 
 Here are 5 names for a flower shop specializing in dried flowers:
 
@@ -46,29 +45,27 @@ Here are 5 names for a flower shop specializing in dried flowers:
 4. Whispers of Wildflowers
 5. Forever Blooms
 
-
-Task	
+Task
 Give me a simple list of just the things that I must bring on a camping trip. The list should have 5 items.
-	
+
 1. **Tent:** Your shelter from the elements.
 2. **Sleeping Bag:** Stay warm and comfortable.
 3. **Sleeping Pad:** Insulation and cushioning for a good night's sleep.
 4. **Headlamp or Flashlight:** Light for nighttime activities.
 5. **First Aid Kit:** Be prepared for minor injuries.
 
-Entity	
+Entity
 
 Classify the following items as [large, small]:
 Elephant
 Mouse
 Snail
-	
 
 Here's the classification:
 
-* **Elephant:** Large
-* **Mouse:** Small
-* **Snail:** Small
+- **Elephant:** Large
+- **Mouse:** Small
+- **Snail:** Small
 
 Partial input completion
 
@@ -98,16 +95,19 @@ Prompt:
 Valid fields are cheeseburger, hamburger, fries, and drink.
 Order: Give me a cheeseburger and fries
 Output:
+
 ```
 {
 "cheeseburger": 1,
 "fries": 1
 }
 ```
+
 Order: I want two burgers, a drink, and fries.
 Output:
 
 Response:
+
 ```
 {
 "hamburger": 2,
@@ -138,7 +138,6 @@ cybersecurity to break existing encryption methods while helping researchers cre
 meteorology to develop better weather forecasting etc. However, the current state of the art quantum
 computers are still largely experimental and impractical.
 
-
 Response:
 
 Exploiting quantum mechanical phenomena, quantum computers can perform calculations exponentially faster than traditional computers for potential applications like cybersecurity and meteorology, although they are currently largely experimental and impractical.
@@ -162,8 +161,8 @@ Here's a breakdown of what a smart DVD business in 2026 would likely entail:
 
 1. Extreme Niche Specialization: You cannot compete with streaming libraries. Your business must focus on what digital doesn't offer easily or at all. This could include:
 
-* Out-of-Print & Rare Titles: Sourcing films or TV shows that have never been released digitally or are currently unavailable on major streaming platforms.
-....
+- Out-of-Print & Rare Titles: Sourcing films or TV shows that have never been released digitally or are currently unavailable on major streaming platforms.
+  ....
 
 (gemini-2.5-flash)
 Format responses with the completion strategy
@@ -190,17 +189,17 @@ The prompt didn't specify the format for the outline and the model chose a forma
 
 Prompt:
 Create an outline for an essay about hummingbirds.
-I. Introduction
-*
+I. Introduction *
 
 Response:
 Okay, here is an outline for an essay about hummingbirds, starting from the introduction you provided:
 
 I. Introduction
-* Hook: Start with a captivating fact or description about hummingbirds (e.g., their speed, iridescent colors, or tiny size).
-* Background: Briefly introduce hummingbirds – where they are found (Americas), their reputation as unique birds, and their general characteristics.
-* Thesis Statement: State the main point of the essay, focusing on the remarkable adaptations, behaviors, and ecological significance that make hummingbirds extraordinary.
-.....
+
+- Hook: Start with a captivating fact or description about hummingbirds (e.g., their speed, iridescent colors, or tiny size).
+- Background: Briefly introduce hummingbirds – where they are found (Americas), their reputation as unique birds, and their general characteristics.
+- Thesis Statement: State the main point of the essay, focusing on the remarkable adaptations, behaviors, and ecological significance that make hummingbirds extraordinary.
+  .....
 
 (gemini-2.5-flash)
 Zero-shot vs few-shot prompts
@@ -284,12 +283,14 @@ Response:
 A yellow blinking light on your Google Wifi router usually indicates a problem
 with the internet connection. Here are some steps to troubleshoot and fix the
 issue:
+
 1. Restart your router and modem:
+
 - Unplug your modem from the power outlet and wait for 30 seconds.
 - Plug your modem back in and wait for it to fully boot up.
 - Unplug your Google Wifi router and wait for 30 seconds.
 - Plug your Google Wifi router back in and wait for it to fully boot up.
-.....
+  .....
 
 (gemini-2.5-flash)
 
@@ -367,9 +368,6 @@ Suggest a recipe for a pie.
 Version 3:
 What's a good pie recipe?
 
-
-
-
 Switch to an analogous task: If you can't get the model to follow your instructions for a task, try giving it instructions for an analogous task that achieves the same result.
 
 This prompt tells the model to categorize a book by using predefined categories:
@@ -386,10 +384,10 @@ The Odyssey belongs to the category of **mythology**.
 
 Here's why:
 
-* **Mythology:** The Odyssey tells the story of Odysseus, a hero from Greek mythology, and his
-journey home after the Trojan War. It features gods, monsters, and supernatural events common to
-Greek mythology.
-.....
+- **Mythology:** The Odyssey tells the story of Odysseus, a hero from Greek mythology, and his
+  journey home after the Trojan War. It features gods, monsters, and supernatural events common to
+  Greek mythology.
+  .....
 
 (gemini-2.5-flash)
 
@@ -399,19 +397,11 @@ Prompt:
 Multiple choice problem: Which of the following options describes the book The Odyssey?
 Options:
 
-
-
-
-
-
 thriller
-
 
 sci-fi
 
-
 mythology
-
 
 biography
 
@@ -472,11 +462,9 @@ For time-sensitive user queries that require up-to-date information, you
 MUST follow the provided current time (date and year) when formulating
 search queries in tool calls. Remember it is 2026 this year.
 
-
 Knowledge cutoff accuracy: Add the following clause to the system instructions to make the model aware of its knowledge cutoff:
 
 Your knowledge cutoff date is January 2025.
-
 
 Grounding performance: Add the following clause to the system instructions (with edits where appropriate) to improve the model's ability to ground responses in provided context:
 
@@ -521,17 +509,19 @@ You are a helpful assistant.
 [Insert the specific user request here]
 </task>
 
-
 Markdown example:
 
 # Identity
+
 You are a senior solution architect.
 
 # Constraints
+
 - No external libraries allowed.
 - Python 3.11+ syntax only.
 
 # Output format
+
 Return a single code block.
 
 Example template combining best practices
@@ -559,10 +549,10 @@ You are precise, analytical, and persistent.
 
 <output_format>
 Structure your response as follows:
+
 1. **Executive Summary**: [Short overview]
 2. **Detailed Response**: [The main content]
-</output_format>
-
+   </output_format>
 
 User Prompt:
 
@@ -613,47 +603,47 @@ You can adapt this template to fit your specific use case constraints.
 
 You are a very strong reasoner and planner. Use these critical instructions to structure your plans, thoughts, and responses.
 
-Before taking any action (either tool calls *or* responses to the user), you must proactively, methodically, and independently plan and reason about:
+Before taking any action (either tool calls _or_ responses to the user), you must proactively, methodically, and independently plan and reason about:
 
-1) Logical dependencies and constraints: Analyze the intended action against the following factors. Resolve conflicts in order of importance:
-    1.1) Policy-based rules, mandatory prerequisites, and constraints.
-    1.2) Order of operations: Ensure taking an action does not prevent a subsequent necessary action.
-        1.2.1) The user may request actions in a random order, but you may need to reorder operations to maximize successful completion of the task.
-    1.3) Other prerequisites (information and/or actions needed).
-    1.4) Explicit user constraints or preferences.
+1. Logical dependencies and constraints: Analyze the intended action against the following factors. Resolve conflicts in order of importance:
+   1.1) Policy-based rules, mandatory prerequisites, and constraints.
+   1.2) Order of operations: Ensure taking an action does not prevent a subsequent necessary action.
+   1.2.1) The user may request actions in a random order, but you may need to reorder operations to maximize successful completion of the task.
+   1.3) Other prerequisites (information and/or actions needed).
+   1.4) Explicit user constraints or preferences.
 
-2) Risk assessment: What are the consequences of taking the action? Will the new state cause any future issues?
-    2.1) For exploratory tasks (like searches), missing *optional* parameters is a LOW risk. **Prefer calling the tool with the available information over asking the user, unless** your `Rule 1` (Logical Dependencies) reasoning determines that optional information is required for a later step in your plan.
+2. Risk assessment: What are the consequences of taking the action? Will the new state cause any future issues?
+   2.1) For exploratory tasks (like searches), missing _optional_ parameters is a LOW risk. **Prefer calling the tool with the available information over asking the user, unless** your `Rule 1` (Logical Dependencies) reasoning determines that optional information is required for a later step in your plan.
 
-3) Abductive reasoning and hypothesis exploration: At each step, identify the most logical and likely reason for any problem encountered.
-    3.1) Look beyond immediate or obvious causes. The most likely reason may not be the simplest and may require deeper inference.
-    3.2) Hypotheses may require additional research. Each hypothesis may take multiple steps to test.
-    3.3) Prioritize hypotheses based on likelihood, but do not discard less likely ones prematurely. A low-probability event may still be the root cause.
+3. Abductive reasoning and hypothesis exploration: At each step, identify the most logical and likely reason for any problem encountered.
+   3.1) Look beyond immediate or obvious causes. The most likely reason may not be the simplest and may require deeper inference.
+   3.2) Hypotheses may require additional research. Each hypothesis may take multiple steps to test.
+   3.3) Prioritize hypotheses based on likelihood, but do not discard less likely ones prematurely. A low-probability event may still be the root cause.
 
-4) Outcome evaluation and adaptability: Does the previous observation require any changes to your plan?
-    4.1) If your initial hypotheses are disproven, actively generate new ones based on the gathered information.
+4. Outcome evaluation and adaptability: Does the previous observation require any changes to your plan?
+   4.1) If your initial hypotheses are disproven, actively generate new ones based on the gathered information.
 
-5) Information availability: Incorporate all applicable and alternative sources of information, including:
-    5.1) Using available tools and their capabilities
-    5.2) All policies, rules, checklists, and constraints
-    5.3) Previous observations and conversation history
-    5.4) Information only available by asking the user
+5. Information availability: Incorporate all applicable and alternative sources of information, including:
+   5.1) Using available tools and their capabilities
+   5.2) All policies, rules, checklists, and constraints
+   5.3) Previous observations and conversation history
+   5.4) Information only available by asking the user
 
-6) Precision and Grounding: Ensure your reasoning is extremely precise and relevant to each exact ongoing situation.
-    6.1) Verify your claims by quoting the exact applicable information (including policies) when referring to them. 
+6. Precision and Grounding: Ensure your reasoning is extremely precise and relevant to each exact ongoing situation.
+   6.1) Verify your claims by quoting the exact applicable information (including policies) when referring to them.
 
-7) Completeness: Ensure that all requirements, constraints, options, and preferences are exhaustively incorporated into your plan.
-    7.1) Resolve conflicts using the order of importance in #1.
-    7.2) Avoid premature conclusions: There may be multiple relevant options for a given situation.
-        7.2.1) To check for whether an option is relevant, reason about all information sources from #5.
-        7.2.2) You may need to consult the user to even know whether something is applicable. Do not assume it is not applicable without checking.
-    7.3) Review applicable sources of information from #5 to confirm which are relevant to the current state.
+7. Completeness: Ensure that all requirements, constraints, options, and preferences are exhaustively incorporated into your plan.
+   7.1) Resolve conflicts using the order of importance in #1.
+   7.2) Avoid premature conclusions: There may be multiple relevant options for a given situation.
+   7.2.1) To check for whether an option is relevant, reason about all information sources from #5.
+   7.2.2) You may need to consult the user to even know whether something is applicable. Do not assume it is not applicable without checking.
+   7.3) Review applicable sources of information from #5 to confirm which are relevant to the current state.
 
-8) Persistence and patience: Do not give up unless all the reasoning above is exhausted.
-    8.1) Don't be dissuaded by time taken or user frustration.
-    8.2) This persistence must be intelligent: On *transient* errors (e.g. please try again), you *must* retry **unless an explicit retry limit (e.g., max x tries) has been reached**. If such a limit is hit, you *must* stop. On *other* errors, you must change your strategy or arguments, not repeat the same failed call.
+8. Persistence and patience: Do not give up unless all the reasoning above is exhausted.
+   8.1) Don't be dissuaded by time taken or user frustration.
+   8.2) This persistence must be intelligent: On _transient_ errors (e.g. please try again), you _must_ retry **unless an explicit retry limit (e.g., max x tries) has been reached**. If such a limit is hit, you _must_ stop. On _other_ errors, you must change your strategy or arguments, not repeat the same failed call.
 
-9) Inhibit your response: only take an action after all the above reasoning is completed. Once you've taken an action, you cannot take it back.
+9. Inhibit your response: only take an action after all the above reasoning is completed. Once you've taken an action, you cannot take it back.
 
 Next steps
 Now that you have a deeper understanding of prompt design, try writing your own prompts using Google AI Studio.

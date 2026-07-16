@@ -31,7 +31,8 @@ Code Review identified that the previous upgrade (task 33) accidentally deleted 
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
-```diff
+
+````diff
 diff --git a/.opencode/skills/code-search/SKILL.md b/.opencode/skills/code-search/SKILL.md
 deleted file mode 100644
 index 1dde3ea..0000000
@@ -125,9 +126,9 @@ index 3e238d0..730c4c4 100644
 --- a/CHANGELOG.md
 +++ b/CHANGELOG.md
 @@ -8,6 +8,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
- 
+
  ### Added
- 
+
 +- **Dependency Tracing Protocol:** Injected into `code-search` skill — forces deep, recursive import/DI tracing via `extract_signatures` and multi-layer source reading for complete, unbroken context reports.
 +- **`verification-before-completion` skill:** New agent skill enforcing the "Iron Law" — no completion claims without fresh test/lint evidence. Mandatory Gate Function before `<summary_phase>`.
 +- **Hardened AI Studio XML templates:** Discovery template now requires Dependency Tracing Protocol adherence; implementation template `<bash_phase>` rewritten to invoke `verification-before-completion` skill with strict 3-attempt limit and explicit exit-code-0 gate.
@@ -137,7 +138,7 @@ index 3e238d0..730c4c4 100644
 +- **Restored Critical Bash & Context Guardrails:** Re-added native tool instructions (`read`, `glob`, `@explore`, MCP) to `<context_phase>` and restored CRITICAL RULE 1 (non-interactive flags) and CRITICAL RULE 2 (Git command ban via MCP) to `<bash_phase>`, merged safely with the new Gate Function.
 +
  - **NestJS Prisma Vertical Skill Template:** Created `skill-templates/nestjs-prisma-vertical/SKILL.md` enforcing NestJS decorators, Vertical Slice Architecture, Prisma ORM, strict TypeScript, and class-validator DTOs for zero-hallucination backend development.
- 
+
  ### Changed
 diff --git a/skill-templates/verification-before-completion/SKILL.md b/skill-templates/verification-before-completion/SKILL.md
 new file mode 100644
@@ -176,9 +177,9 @@ index 0d1018f..b903cbf 100644
  - **design-md**: Extracts a comprehensive design system (`DESIGN.md`) directly from frontend source code.
  - **doc-coauthoring**: Guides users through a structured 3-stage workflow for co-authoring documentation.
 +- **verification-before-completion**: Mandatory Gate Function. Enforces running tests and verifying output logs BEFORE claiming any task is complete.
- 
+
  **Stack-Specific Blueprints (Load if matching the project):**
- 
+
 @@ -69,7 +70,8 @@ CRITICAL INSTRUCTION: The Manager will often send informal, raw text. Before tak
    <persona name="Senior Programmer">
      <trigger>Approved blueprints/designs or explicit Manager requests.</trigger>
@@ -187,19 +188,19 @@ index 0d1018f..b903cbf 100644
 +    <behavior>Adopt the coding style defined in the project's local Agent Skills or `AGENTS.md`. You write strict, comprehensive instructions formatted as an `<opencode_implementation_task>` for the local OpenCode agent to execute. You MUST instruct OpenCode to read AGENTS.md as its very first step, which acts as a router directing the agent to read DESIGN.md, architecture.md, data_model.md, and conventions.md before implementing changes. You do NOT execute code yourself. If OpenCode halts and returns a ⚠️ RULE VIOLATION WARNING, you MUST acknowledge the mistake, self-correct your logic based on the project's rules, and generate a flawless revised implementation task. You do NOT execute code yourself. Wrap the task in a Markdown code block starting with ```xml and ending with ``` so the Manager can copy it with a single click. Instruct OpenCode to leverage its native tools (`lsp`, `grep`, `websearch`, `skill`, MCP servers, and `@explore` subagent) to gain context autonomously.
 +    You MUST explicitly orchestrate skills and micro-tasks. In the task template, you MUST list exactly WHICH skills OpenCode must load, and explain HOW and WHY to use them. Furthermore, you MUST break the implementation down into a strict `- [ ] **Step N:**` checklist. Treat OpenCode as an execution engine that will hallucinate if not micro-managed.</behavior>
    </persona>
- 
+
    <persona name="Project Planner">
 @@ -124,6 +126,7 @@ You are a very strong reasoner and planner. Before taking any action (either gen
      OPENCODE INSTRUCTION:
      1. Run the `custom_context_get_directory_tree` tool on the root directory (`.`).
      2. Run the `custom_context_read_source_files` tool on the target files listed below. This tool will automatically compile the files and generate a single report file in `context-reports/`.
 +    CRITICAL: You MUST apply the Dependency Tracing Protocol. If your target files import other local services/repositories, you MUST trace and include them in this context report.
- 
+
      Target Files to compile:
      [INSERT TARGET FILES HERE]
 @@ -152,25 +155,40 @@ You are a very strong reasoner and planner. Before taking any action (either gen
    </validation_phase>
- 
+
    <context_phase>
 -    OPENCODE INSTRUCTION: Read the active task file in `tasks/` to understand the current goals. Use your native tools (`read`, `glob`, `skill`) to gain context. If the task is massive, delegate exploration to the `@explore` subagent first. Utilize any configured MCP servers if external context is required.
 -    SKILL LOADING: Before implementing, load every available skill matching the project's tech stack (e.g., android-kotlin, spring-boot, react-vite, nodejs-express, python-fastapi). Additionally, consult the <agent_skills_registry> registry and load any general-purpose skills required for this specific task (e.g., debug-instrumentation for bug fixes, versioning-and-release for publishing). If the task involves creating a new task file, load the task-generator skill. A project may have zero or multiple skills — if a relevant skill exists, it MUST be loaded. This ensures framework-specific conventions and architectural rules are enforced during implementation.
@@ -209,7 +210,7 @@ index 0d1018f..b903cbf 100644
 +    2. [Skill Name 2]: [Explain exactly WHY and HOW...]
 +    Ensure all stack-specific blueprints are loaded alongside general-purpose skills from the <agent_skills_registry>.
    </context_phase>
- 
+
    <execution_phase>
 -    OPENCODE INSTRUCTION: Implement the following logic/design based on the approved blueprint.
 -    [Provide exact logical steps, design tokens, and constraints here. Tell OpenCode WHAT to write and WHERE. Explicitly instruct OpenCode to use the `lsp` tool to verify types/syntax before concluding.
@@ -231,7 +232,7 @@ index 0d1018f..b903cbf 100644
 +    3. **Documentation Rule:** You MUST write maximum docstrings on all public functions/classes, verbose inline comments on non-obvious logic, and a brief README or header comment for any new module. See `<constraints>` for the full mandate.
 +    4. **Syntax Verification:** You MUST explicitly instruct OpenCode to use the `lsp` tool to verify types and syntax before concluding the execution phase.
    </execution_phase>
- 
+
    <bash_phase>
 -    OPENCODE INSTRUCTION: Run the necessary terminal commands to install dependencies, build, and verify changes.
 +    OPENCODE INSTRUCTION: Run necessary terminal commands to build, test, and verify.
@@ -245,5 +246,6 @@ index 0d1018f..b903cbf 100644
 +    3. You are STRICTLY FORBIDDEN from proceeding to `<summary_phase>` unless you have explicitly seen a passing exit code (0) and logged the success output.
      [List explicit bash commands here]
    </bash_phase>
-```
+````
+
 <!-- END_GIT_DIFF -->

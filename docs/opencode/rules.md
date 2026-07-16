@@ -4,32 +4,23 @@
 
 # Rules
 
-
 Set custom instructions for opencode.
-
 
 You can provide custom instructions to opencode by creating an AGENTS.md file. This is similar to Cursor’s rules. It contains instructions that will be included in the LLM’s context to customize its behavior for your specific project.
 
 ---
 
-
 ## Initialize
-
 
 To create a new AGENTS.md file, you can run the /init command in opencode.
 
-
 Tip
-
 
 You should commit your project’s AGENTS.md file to Git.
 
-
 /init scans the important files in your repo, may ask a couple of targeted questions when the codebase cannot answer them, and then creates or updates AGENTS.md with concise project-specific guidance.
 
-
 It focuses on the things future agent sessions are most likely to need:
-
 
 - build, lint, and test commands
 - command order and focused verification steps when they matter
@@ -41,12 +32,9 @@ If you already have an AGENTS.md, /init will improve it in place instead of blin
 
 ---
 
-
 ## Example
 
-
 You can also just create this file manually. Here’s an example of some things you can put into an AGENTS.md file.
-
 
 ```
 # SST v3 Monorepo Project
@@ -59,38 +47,27 @@ This is an SST v3 monorepo with TypeScript. The project uses bun workspaces for 
 - Import shared modules using workspace names: `@my-app/core/example`
 ```
 
-
 We are adding project-specific instructions here and this will be shared across your team.
 
 ---
 
-
 ## Types
-
 
 opencode also supports reading the AGENTS.md file from multiple locations. And this serves different purposes.
 
-
 ### Project
-
 
 Place an AGENTS.md in your project root for project-specific rules. These only apply when you are working in this directory or its sub-directories.
 
-
 ### Global
-
 
 You can also have global rules in a ~/.config/opencode/AGENTS.md file. This gets applied across all opencode sessions.
 
-
 Since this isn’t committed to Git or shared with your team, we recommend using this to specify any personal rules that the LLM should follow.
-
 
 ### Claude Code Compatibility
 
-
 For users migrating from Claude Code, OpenCode supports Claude Code’s file conventions as fallbacks:
-
 
 - **Project rules**: CLAUDE.md in your project directory (used if no AGENTS.md exists)
 - **Global rules**: ~/.claude/CLAUDE.md (used if no ~/.config/opencode/AGENTS.md exists)
@@ -98,19 +75,15 @@ For users migrating from Claude Code, OpenCode supports Claude Code’s file con
 
 To disable Claude Code compatibility, set one of these environment variables:
 
-
 ```
 export OPENCODE_DISABLE_CLAUDE_CODE=1        # Disable all .claude supportexport OPENCODE_DISABLE_CLAUDE_CODE_PROMPT=1 # Disable only ~/.claude/CLAUDE.mdexport OPENCODE_DISABLE_CLAUDE_CODE_SKILLS=1 # Disable only .claude/skills
 ```
 
 ---
 
-
 ## Precedence
 
-
 When opencode starts, it looks for rule files in this order:
-
 
 - **Local files** by traversing up from the current directory (AGENTS.md, CLAUDE.md)
 - **Global file** at ~/.config/opencode/AGENTS.md
@@ -120,59 +93,43 @@ The first matching file wins in each category. For example, if you have both AGE
 
 ---
 
-
 ## Custom Instructions
-
 
 You can specify custom instruction files in your opencode.json or the global ~/.config/opencode/opencode.json. This allows you and your team to reuse existing rules rather than having to duplicate them to AGENTS.md.
 
-
 Example:
-
 
 ```
 {  "$schema": "https://opencode.ai/config.json",  "instructions": ["CONTRIBUTING.md", "docs/guidelines.md", ".cursor/rules/*.md"]}
 ```
 
-
 You can also use remote URLs to load instructions from the web.
-
 
 ```
 {  "$schema": "https://opencode.ai/config.json",  "instructions": ["https://raw.githubusercontent.com/my-org/shared-rules/main/style.md"]}
 ```
 
-
 Remote instructions are fetched with a 5 second timeout.
-
 
 All instruction files are combined with your AGENTS.md files.
 
 ---
 
-
 ## Referencing External Files
-
 
 While opencode doesn’t automatically parse file references in AGENTS.md, you can achieve similar functionality in two ways:
 
-
 ### Using opencode.json
 
-
 The recommended approach is to use the instructions field in opencode.json:
-
 
 ```
 {  "$schema": "https://opencode.ai/config.json",  "instructions": ["docs/development-standards.md", "test/testing-guidelines.md", "packages/*/AGENTS.md"]}
 ```
 
-
 ### Manual Instructions in AGENTS.md
 
-
 You can teach opencode to read external files by providing explicit instructions in your AGENTS.md. Here’s a practical example:
-
 
 ```
 # TypeScript Project Rules
@@ -186,9 +143,7 @@ For TypeScript code style and best practices: @docs/typescript-guidelines.mdFor 
 Read the following file immediately as it's relevant to all workflows: @rules/general-guidelines.md.
 ```
 
-
 This approach allows you to:
-
 
 - Create modular, reusable rule files
 - Share rules across projects via symlinks or git submodules
@@ -197,11 +152,8 @@ This approach allows you to:
 
 Tip
 
-
 For monorepos or projects with shared standards, using opencode.json with glob patterns (like packages/*/AGENTS.md) is more maintainable than manual instructions.
 
-
 Edit pageFound a bug? Open an issueJoin our Discord communitySelect languageEnglishالعربيةBosanskiDanskDeutschEspañolFrançaisItaliano日本語한국어Norsk BokmålPolskiPortuguês (Brasil)РусскийไทยTürkçe简体中文繁體中文© Anomaly
-
 
 Last updated: Jul 14, 2026

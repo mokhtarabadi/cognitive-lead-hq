@@ -88,11 +88,11 @@ For **each** approved candidate, execute the following steps **strictly in order
 
 **1. Determine Next Task ID:**
 
-Run this bash command:
+Run this bash command (searches across all Kanban subdirectories):
 
 ```bash
-NEXT_ID=$(ls tasks/ | grep -Eo '^[0-9]+' | sort -n | tail -1 | awk '{print $1+1}')
-if [ -z "$NEXT_ID" ]; then NEXT_ID="01"; fi
+NEXT_ID=$(find tasks/ -type f -name "*.md" -exec basename {} \; | grep -Eo '^[0-9]+' | sort -n | tail -1 | awk '{print $1+1}')
+if [ -z "$NEXT_ID" ] || [ "$NEXT_ID" -eq 0 ] 2>/dev/null; then NEXT_ID="01"; fi
 printf "%02d\n" $NEXT_ID
 ```
 
@@ -147,12 +147,12 @@ Store as `AI_OPINION`.
 
 **6. Generate Local Task File:**
 
-Create `tasks/{NEXT_ID}-hyphenated-title.md` with the following **exact structure**:
+Create `tasks/backlog/{NEXT_ID}-hyphenated-title.md` with the following **exact structure**:
 
 ```markdown
 # Task {NEXT_ID}: {Title}
 
-**File:** `tasks/{NEXT_ID}-hyphenated-title.md`
+**File:** `tasks/backlog/{NEXT_ID}-hyphenated-title.md`
 **Type:** {TYPE}
 **Status:** open
 
@@ -263,7 +263,7 @@ print(f"Successfully updated registry for msg {msg_id}")
 Run it via Bash, passing the arguments, then delete it:
 
 ```bash
-python3 update_sync.py "{MSG_ID}" "tasks/{NEXT_ID}-title.md" "$GH_URL" "{TYPE}"
+python3 update_sync.py "{MSG_ID}" "tasks/backlog/{NEXT_ID}-title.md" "$GH_URL" "{TYPE}"
 rm update_sync.py
 ```
 
@@ -275,7 +275,7 @@ Call `telegram_reply_to_message` with:
 
 ```
 ✅ Task synced successfully.
-📁 Local File: tasks/{NEXT_ID}-title.md
+📁 Local File: tasks/backlog/{NEXT_ID}-title.md
 🌐 GitHub Issue: {GH_URL}
 📝 Type: {BUG|FEATURE|IMPROVE}
 ```
@@ -291,7 +291,7 @@ Once all approved tasks are generated, update `last_processed_message_id` to the
 After the entire cycle completes, output exactly:
 
 ```
-Task ready. Manager, please copy the contents of tasks/{NEXT_ID}-task.md and send it back to the AI Studio Brain for review.
+Task ready. Manager, please copy the contents of tasks/backlog/{NEXT_ID}-task.md and send it back to the AI Studio Brain for review.
 ```
 
 ## Data Integrity Guarantees

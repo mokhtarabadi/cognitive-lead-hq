@@ -104,20 +104,20 @@ Provide a report structured as:
 
 ### GitHub CLI Operations
 
-| Command | Result |
-|---------|--------|
-| `gh repo edit --description "..."` | ✅ Succeeded — description set |
-| `gh repo edit --add-topic "opencode,ai-agent,..."` | ✅ Succeeded — 8 topics added |
-| `gh repo rename cognitive-lead-hq -y` | ✅ Succeeded — remote updated |
-| `git remote set-url origin ...` | ✅ Succeeded — local remote updated |
+| Command                                            | Result                              |
+| -------------------------------------------------- | ----------------------------------- |
+| `gh repo edit --description "..."`                 | ✅ Succeeded — description set      |
+| `gh repo edit --add-topic "opencode,ai-agent,..."` | ✅ Succeeded — 8 topics added       |
+| `gh repo rename cognitive-lead-hq -y`              | ✅ Succeeded — remote updated       |
+| `git remote set-url origin ...`                    | ✅ Succeeded — local remote updated |
 
 ### Files Modified
 
-| File | Change |
-|------|--------|
-| `README.md` | Full restructure: added shields.io badges, Quick Start section, improved hierarchy. Preserved Agent Skills tables, MCP config, and roadmap. |
-| `tasks/35-enforce-body-file-pattern-for-gh-commands.md` | Updated repo name reference from `best-prompts` to `cognitive-lead-hq` |
-| `CHANGELOG.md` | Added rebranding entry under `[Unreleased]` > `Changed` |
+| File                                                    | Change                                                                                                                                      |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `README.md`                                             | Full restructure: added shields.io badges, Quick Start section, improved hierarchy. Preserved Agent Skills tables, MCP config, and roadmap. |
+| `tasks/35-enforce-body-file-pattern-for-gh-commands.md` | Updated repo name reference from `best-prompts` to `cognitive-lead-hq`                                                                      |
+| `CHANGELOG.md`                                          | Added rebranding entry under `[Unreleased]` > `Changed`                                                                                     |
 
 ### Architectural Reasoning
 
@@ -129,19 +129,20 @@ Provide a report structured as:
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
-```diff
+
+````diff
 diff --git a/CHANGELOG.md b/CHANGELOG.md
 index 4930bfa..bd14d47 100644
 --- a/CHANGELOG.md
 +++ b/CHANGELOG.md
 @@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
  ### Changed
- 
+
  - **Enforced `--body-file` pattern for all `gh issue create` commands** across the codebase. Replaced inline `--body` in `skill-templates/telegram-issue-sync/SKILL.md`, `tasks/22-refactor-telegram-skill-templates.md`, `tasks/11-enforce-project-skill-loading.md`, and `tasks/06-implement-telegram-issue-sync-skill.md` with heredoc `--body-file` pattern using single-quoted `'EOF'` delimiter. Added `docs/conventions.md` documenting the convention.
 +- **Rebranded repository to `cognitive-lead-hq`** — updated GitHub description, topics, and renamed repo. Restructured README.md with flat-square shields.io badges, Quick Start section, and improved hierarchy. Preserved all Agent Skills tables and MCP configuration sections. Updated internal references across codebase.
- 
+
  ## [5.18.0] — 2026-07-13
- 
+
 diff --git a/README.md b/README.md
 index fc33989..524ae44 100644
 --- a/README.md
@@ -149,16 +150,16 @@ index fc33989..524ae44 100644
 @@ -1,22 +1,34 @@
 -# Cognitive Lead AI — V5 Decentralized Task Architecture
 +# Cognitive Lead AI HQ
- 
+
 -This repository is the **V5 evolution** of the Cognitive Lead AI multi-agent system. It has been restructured around decentralized task files, Agent Skills, and Google's official Agentic Workflow constraints, maximizing OpenCode's native context management and reasoning capabilities.
 +[![Version](https://img.shields.io/github/v/release/mokhtarabadi/cognitive-lead-hq?style=flat-square)](https://github.com/mokhtarabadi/cognitive-lead-hq/releases)
 +[![License](https://img.shields.io/github/license/mokhtarabadi/cognitive-lead-hq?style=flat-square)](LICENSE)
 +[![OpenCode](https://img.shields.io/badge/OpenCode-ready-6C47FF?style=flat-square)](https://opencode.ai)
 +[![PRs](https://img.shields.io/badge/PRs-welcome-brightgreen?style=flat-square)](https://github.com/mokhtarabadi/cognitive-lead-hq/pulls)
- 
+
 -## Purpose
 +The centralized **Headquarters** for the Cognitive Lead AI multi-agent system — a collection of hallucination-resistant system prompts, MCP servers, and strict Agent Skills (SKILL.md) built for [OpenCode](https://opencode.ai).
- 
+
 -- **Unified Agent Instruction** — `system-prompt.md` is the single source of truth for agent behavior, role definitions, Google-aligned Agentic Reasoning, and the `<opencode_task>` protocol.
 -- **Agent Skills (`SKILL.md`)** — Instead of a monolithic `AGENTS.md` or flat `stacks/` directory, the system now uses OpenCode's native **Agent Skills** framework for progressive disclosure: `.opencode/skills/*/SKILL.md` for repository rules and `skill-templates/*/SKILL.md` for reusable stack blueprints.
 -- **Progressive Disclosure** — OpenCode's `skill` tool loads only the relevant `SKILL.md` at the moment it is needed, optimizing context usage and keeping the system prompt lean.
@@ -167,10 +168,10 @@ index fc33989..524ae44 100644
 +> ```
 +> Hi, please read this address and, based on the instructions in this file, set up OpenCode for the user for our project.
 +> ```
- 
+
 -## How to Use This Repository
 +---
- 
+
 -| File / Directory                            | When to Consult                                                                                                            |
 -| ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
 -| `system-prompt.md`                          | At the start of every session; this is the V5 multi-agent prompt defining all 5 personas and the Agentic Reasoning matrix. |
@@ -192,32 +193,34 @@ index fc33989..524ae44 100644
 +Then open OpenCode in this directory. Read `system-prompt.md` to understand the multi-agent architecture, or dive into `tasks/` for active work items.
 +
 +---
- 
+
  ## How to Operate: The Brain & The Hands
- 
+
 @@ -67,6 +79,8 @@ To leave feedback directly on the generated Markdown plans:
- 
+
  The AI will process your inline feedback, generate a revised plan, and wait for your final "Approved" signal before writing code.
- 
+
 +---
 +
  ## Repository Structure
- 
- ```
+
+````
+
 @@ -75,31 +89,72 @@ The AI will process your inline feedback, generate a revised plan, and wait for
- ├── system-prompt.md                    # V5 Multi-Agent System Prompt
- ├── CHANGELOG.md                        # Version history
- ├── tasks/                              # Decentralized task files
+├── system-prompt.md # V5 Multi-Agent System Prompt
+├── CHANGELOG.md # Version history
+├── tasks/ # Decentralized task files
 +├── docs/
-+│   ├── conventions.md                  # Syntax rules and automation conventions
-+│   └── opencode/                       # OpenCode documentation mirror
- ├── mcp-context-server/
- │   └── server.py                       # FastMCP server for .gitignore-aware file reading & tree
- ├── .opencode/
- │   └── skills/
- │       └── sop-maintenance/
- │           └── SKILL.md                # Native OpenCode skill for repo rules
--    └── skill-templates/                    # Reusable stack blueprints (Agent Skills)
++│ ├── conventions.md # Syntax rules and automation conventions
++│ └── opencode/ # OpenCode documentation mirror
+├── mcp-context-server/
+│ └── server.py # FastMCP server for .gitignore-aware file reading & tree
+├── .opencode/
+│ └── skills/
+│ └── sop-maintenance/
+│ └── SKILL.md # Native OpenCode skill for repo rules
+
+- └── skill-templates/ # Reusable stack blueprints (Agent Skills)
 -        ├── go-hexagonal-grpc/
 -        │   └── SKILL.md
 -        ├── prompt-refactor/
@@ -234,25 +237,28 @@ index fc33989..524ae44 100644
 -        │   └── SKILL.md
 -        └── code-search/
 -            └── SKILL.md
-+└── skill-templates/                    # Reusable stack blueprints (Agent Skills)
-+    ├── go-hexagonal-grpc/
-+    │   └── SKILL.md
-+    ├── prompt-refactor/
-+    │   └── SKILL.md
-+    ├── android-kotlin/
-+    │   └── SKILL.md
-+    ├── nextjs/
-+    │   └── SKILL.md
-+    ├── spring-boot/
-+    │   └── SKILL.md
-+    ├── flask-python/
-+    │   └── SKILL.md
-+    ├── nestjs-prisma-vertical/
-+    │   └── SKILL.md
-+    └── code-search/
-+        └── SKILL.md
- ```
- 
+
++└── skill-templates/ # Reusable stack blueprints (Agent Skills)
+
+- ├── go-hexagonal-grpc/
+- │ └── SKILL.md
+- ├── prompt-refactor/
+- │ └── SKILL.md
+- ├── android-kotlin/
+- │ └── SKILL.md
+- ├── nextjs/
+- │ └── SKILL.md
+- ├── spring-boot/
+- │ └── SKILL.md
+- ├── flask-python/
+- │ └── SKILL.md
+- ├── nestjs-prisma-vertical/
+- │ └── SKILL.md
+- └── code-search/
+-        └── SKILL.md
+
+````
+
 +---
 +
 +## Agent Skills Registry
@@ -291,22 +297,22 @@ index fc33989..524ae44 100644
 +
 +---
 +
- ## Custom Code Context MCP
- 
- This system uses a local **FastMCP** Python server (`mcp-context-server/server.py`) that runs via `uv run` with zero-install dependency management. It provides deterministic, `.gitignore`-aware file reading and directory tree exploration, using far fewer tokens than raw `grep`/`glob` operations.
+## Custom Code Context MCP
+
+This system uses a local **FastMCP** Python server (`mcp-context-server/server.py`) that runs via `uv run` with zero-install dependency management. It provides deterministic, `.gitignore`-aware file reading and directory tree exploration, using far fewer tokens than raw `grep`/`glob` operations.
 @@ -177,6 +232,8 @@ _(Note: Replace `/Users/<YOUR_USER>` with your actual home directory path)._
- - `get_directory_tree` — Generates an ASCII tree of the directory structure, respecting `.gitignore`.
- - `read_source_files` — Reads multiple source files or directories and saves their contents into a local Markdown report inside the `context-reports/` directory, returning the file path to prevent context bloat.
- 
+- `get_directory_tree` — Generates an ASCII tree of the directory structure, respecting `.gitignore`.
+- `read_source_files` — Reads multiple source files or directories and saves their contents into a local Markdown report inside the `context-reports/` directory, returning the file path to prevent context bloat.
+
 +---
 +
- ## Global Skills Deployment
- 
- To make the `code-search` skill (or any other reusable skill) available in _every_ terminal directory on your machine automatically, copy the skill folder into your global OpenCode configuration path.
+## Global Skills Deployment
+
+To make the `code-search` skill (or any other reusable skill) available in _every_ terminal directory on your machine automatically, copy the skill folder into your global OpenCode configuration path.
 @@ -206,39 +263,7 @@ To make the `code-search` skill (or any other reusable skill) available in _ever
-    @explore find the main router using the code-search skill
-    ```
- 
+   @explore find the main router using the code-search skill
+   ```
+
 -## Available Agent Skills Library
 -
 -### General & Workflow Skills
@@ -341,23 +347,24 @@ index fc33989..524ae44 100644
 -| Spring Boot            | DDD, hexagonal-style packaging, MapStruct, constructor injection, and global exception handlers.           |
 -| Vue Nuxt               | Vue 3 Composition API, Nuxt 3 routing, and Pinia state management.                                         |
 +---
- 
- ## Key V5 Changes
- 
+
+## Key V5 Changes
+
 @@ -248,11 +273,13 @@ To make the `code-search` skill (or any other reusable skill) available in _ever
- - **Phase 0 UI/UX traversal** — Project Planner now instructs OpenCode to perform deep source code analysis for `DESIGN.md` generation.
- - **Runtime model updated** — Gemini 3.5 Flash renamed to Gemini throughout the system prompt.
- 
+- **Phase 0 UI/UX traversal** — Project Planner now instructs OpenCode to perform deep source code analysis for `DESIGN.md` generation.
+- **Runtime model updated** — Gemini 3.5 Flash renamed to Gemini throughout the system prompt.
+
 +---
 +
- ## Contributing
- 
- See `.opencode/skills/sop-maintenance/SKILL.md` for the rules that AI agents must follow when modifying this repository.
- 
+## Contributing
+
+See `.opencode/skills/sop-maintenance/SKILL.md` for the rules that AI agents must follow when modifying this repository.
+
 -## Future Architectural Roadmap (TODOs)
 +## Future Architectural Roadmap
- 
- 1. **Automated Pull Request Integration:** Upgrade the final Code Reviewer step to automatically branch, commit, and open a PR via GitHub CLI (`gh pr create`) instead of committing locally to `main`.
- 2. **Epic and Milestone Tracking:** Create an `epics/` directory and update the `task-generator` skill to link individual tasks to parent epics for better macro-level project tracking.
-```
+
+1. **Automated Pull Request Integration:** Upgrade the final Code Reviewer step to automatically branch, commit, and open a PR via GitHub CLI (`gh pr create`) instead of committing locally to `main`.
+2. **Epic and Milestone Tracking:** Create an `epics/` directory and update the `task-generator` skill to link individual tasks to parent epics for better macro-level project tracking.
+````
+
 <!-- END_GIT_DIFF -->

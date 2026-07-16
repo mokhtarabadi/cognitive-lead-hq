@@ -442,5 +442,40 @@ def stage_and_inject_diff(task_file_path: str) -> str:
     except Exception as e:
         return f"❌ Error staging or updating task file: {str(e)}"
 
+@mcp.tool()
+def commit_and_clean_task(task_file_path: str, commit_message: str) -> str:
+    """Commits staged changes, captures the commit hash, replaces the raw diff in the task file with the hash to save space, and amends the commit to include the cleaned task file."""
+    try:
+        # 1. Commit staged changes
+        subprocess.run(["git", "commit", "-m", commit_message], check=True, capture_output=True, text=True)
+        
+        # 2. Get the commit hash
+        hash_proc = subprocess.run(["git", "rev-parse", "HEAD"], check=True, capture_output=True, text=True)
+        commit_hash = hash_proc.stdout.strip()
+        
+        # 3. Read task file and clean diff
+        path = Path(task_file_path)
+        if path.is_file():
+            with open(path, 'r', encoding='utf-8') as f:
+                content = f.read()
+                
+            pattern = re.compile(r'<!-- BEGIN_GIT_DIFF -->.*<!-- END_GIT_DIFF -->', re.DOTALL)
+            if pattern.search(content):
+                clean_block = f"<!-- BEGIN_GIT_DIFF -->\n**Factual Git Diff:** Stored in Commit Hash: `{commit_hash}`\n<!-- END_GIT_DIFF -->"
+                new_content = pattern.sub(clean_block, content)
+                
+                with open(path, 'w', encoding='utf-8') as f:
+                    f.write(new_content)
+                    
+                # 4. Stage the cleaned task file and amend
+                subprocess.run(["git", "add", task_file_path], check=True, capture_output=True)
+                subprocess.run(["git", "commit", "--amend", "--no-edit"], check=True, capture_output=True)
+                
+        return f"✅ Success: Code committed (Hash: {commit_hash}). Task file {task_file_path} cleaned and amended."
+    except subprocess.CalledProcessError as e:
+        return f"❌ Git Error: {e.stderr}"
+    except Exception as e:
+        return f"❌ Error: {str(e)}"
+
 if __name__ == "__main__":
     mcp.run(transport="stdio")

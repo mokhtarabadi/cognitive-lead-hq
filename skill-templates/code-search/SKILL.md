@@ -31,24 +31,24 @@ You are the Executor. Your job is to extract codebase context so the Manager can
 
 ### Why Prefer Signatures Over Full File Reads?
 
-| Approach | Token Cost | Structural Accuracy | Speed |
-|---|---|---|---|
-| `extract_signatures` (tree-sitter) | **Very low** — only signature lines | **High** — AST-parsed, no regex blind spots | Instant |
-| `read_source_files` (full body) | **High** — entire file bodies | N/A (full content) | Slower for large files |
+| Approach                           | Token Cost                          | Structural Accuracy                         | Speed                  |
+| ---------------------------------- | ----------------------------------- | ------------------------------------------- | ---------------------- |
+| `extract_signatures` (tree-sitter) | **Very low** — only signature lines | **High** — AST-parsed, no regex blind spots | Instant                |
+| `read_source_files` (full body)    | **High** — entire file bodies       | N/A (full content)                          | Slower for large files |
 
 For repositories with many files, extracting signatures first lets you decide which 2–3 files genuinely need full reading. This directly prevents context bloat in the AI Studio session.
 
 ### Languages Supported (Tree-Sitter AST)
 
-| Language | Signatures Detected |
-|---|---|
-| **Python** | `def`, `class` |
-| **JavaScript** | `function`, `class`, `method`, `arrow function`, `generator` |
+| Language       | Signatures Detected                                                                |
+| -------------- | ---------------------------------------------------------------------------------- |
+| **Python**     | `def`, `class`                                                                     |
+| **JavaScript** | `function`, `class`, `method`, `arrow function`, `generator`                       |
 | **TypeScript** | `function`, `class`, `interface`, `type alias`, `enum`, `method`, `arrow function` |
-| **Java** | `method`, `class`, `interface`, `enum`, `record` |
-| **Kotlin** | `fun`, `class` |
-| **Go** | `func`, `method`, `type struct` |
-| **Rust** | `fn`, `struct`, `enum`, `trait`, `type alias`, `impl` |
+| **Java**       | `method`, `class`, `interface`, `enum`, `record`                                   |
+| **Kotlin**     | `fun`, `class`                                                                     |
+| **Go**         | `func`, `method`, `type struct`                                                    |
+| **Rust**       | `fn`, `struct`, `enum`, `trait`, `type alias`, `impl`                              |
 
 For languages not listed above, the tool gracefully falls back to regex-based extraction (class/function/def/interface patterns).
 

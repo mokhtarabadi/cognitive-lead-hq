@@ -33,6 +33,7 @@ This is the third prompt added to the `user-prompts/` namespace. Unlike the pass
 3. **`CHANGELOG.md`** — Added entry under `[Unreleased]` -> `### Added`.
 
 **Local TODOs verified:**
+
 - [x] AGENTS.md checked — no violations; creates Markdown-only prompt template
 - [x] Skills loaded — task-generator (template format), verification-before-completion (ls + cat verify)
 - [x] No git commands executed
@@ -40,19 +41,20 @@ This is the third prompt added to the `user-prompts/` namespace. Unlike the pass
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 ```diff
 diff --git a/CHANGELOG.md b/CHANGELOG.md
 index 62d5651..510b1d3 100644
 --- a/CHANGELOG.md
 +++ b/CHANGELOG.md
 @@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
- 
+
  - **Voice-to-Text Enhancer prompt** — New `user-prompts/voice-to-text-enhancer.md` with XML-tagged `<role>`, `<system_context>`, `<agentic_reasoning>`, `<constraints>`, and `<output_format>` sections. Transforms raw speech-to-text dictation into polished, actionable Markdown prompts. `user-prompts/` directory created as a new top-level namespace for user-facing prompt templates.
  - **Persian-to-English Dictation prompt** — New `user-prompts/persian-to-english-dictation.md` with XML-tagged sections. Converts raw Persian Speech-to-Text dictation into flawless, native-sounding English via phonetic decoding, contextual reconstruction, and idiomatic translation.
 +- **Agile PM State Manager prompt** — New `user-prompts/agile-pm-state-manager.md` with XML-tagged sections. Acts as an agentic Technical Project Manager — parses raw engineer thoughts into a structured Agile Markdown dashboard with project status tables, technical task boards, architecture notes, archive, and changelog. Includes `<reasoning_log>` for transparent state calculation.
- 
+
  ### Changed
- 
+
 diff --git a/user-prompts/agile-pm-state-manager.md b/user-prompts/agile-pm-state-manager.md
 new file mode 100644
 index 0000000..ee98e63
@@ -123,4 +125,5 @@ index 0000000..ee98e63
 +* [Summary of changes applied in this specific turn]
 +</output_format>
 ```
+
 <!-- END_GIT_DIFF -->

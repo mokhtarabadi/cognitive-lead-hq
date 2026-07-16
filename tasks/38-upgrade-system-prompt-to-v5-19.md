@@ -57,7 +57,8 @@ Upgrade `system-prompt.md` to V5.19.0 with Google-aligned agentic reasoning, str
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
-```diff
+
+````diff
 diff --git a/CHANGELOG.md b/CHANGELOG.md
 index 5667735..3f61ced 100644
 --- a/CHANGELOG.md
@@ -68,16 +69,16 @@ index 5667735..3f61ced 100644
  - **`docs/conventions.md`** — Centralized documentation for syntax rules and automation conventions (e.g., `--body-file` pattern for gh commands).
 +- **Strict Grounding constraint** — Added to `<constraints>` block in `system-prompt.md`. Enforces that the assistant relies only on provided context, treating external knowledge as unsupported.
 +- **CRITICAL RULE 3 (Output Truncation)** — Added to `<opencode_implementation_task_template>` instructing OpenCode to pipe massive test output through `grep`/`tail` to avoid 50KB truncation.
- 
+
  ### Changed
- 
+
  - **Rebranded repository to `cognitive-lead-hq`** — updated GitHub description, topics, and renamed repo. Restructured README.md with flat-square shields.io badges, improved hierarchy, Quick Start section. Preserved all Agent Skills tables and MCP configuration sections.
  - **Enforced `--body-file` pattern for all `gh issue create` commands** — replaced inline `--body` in `skill-templates/telegram-issue-sync/SKILL.md`, `tasks/22-refactor-telegram-skill-templates.md`, `tasks/11-enforce-project-skill-loading.md`, and `tasks/06-implement-telegram-issue-sync-skill.md` with heredoc `--body-file` pattern using single-quoted `'EOF'` delimiter.
  - **README.md** — Updated Quick Start to reference `LLM.txt` as the canonical auto-setup source.
 +- **System prompt upgraded to V5.19.0** — `<system_version>` bumped. `<agentic_reasoning>` rewritten with Google's official 10-step nested reasoning framework with numbered sub-points, explicit tool-preference rules, and intelligent retry logic. Updated `<opencode_implementation_task_template>` with subagent delegation (`@scout`, `@general` alongside `@explore`) and `apply_patch` path marker syntax.
- 
+
  ## [5.18.0] — 2026-07-13
- 
+
 diff --git a/docs/gemini-prompting-strategies.md b/docs/gemini-prompting-strategies.md
 new file mode 100644
 index 0000000..0871b20
@@ -118,11 +119,11 @@ index 0000000..0871b20
 +Input is the required text in the prompt that you want the model to provide a response to. Inputs can be a question that the model answers (question input), a task the model performs (task input), an entity the model operates on (entity input), or partial input that the model completes or continues (completion input).
 +
 +Input type	Prompt	Generated output
-+Question	
++Question
 +
 +What's a good name for a flower shop that specializes in selling bouquets of
 +dried flowers? Create a list of 5 options with just the names.
-+	
++
 +
 +Here are 5 names for a flower shop specializing in dried flowers:
 +
@@ -133,22 +134,22 @@ index 0000000..0871b20
 +5. Forever Blooms
 +
 +
-+Task	
++Task
 +Give me a simple list of just the things that I must bring on a camping trip. The list should have 5 items.
-+	
++
 +1. **Tent:** Your shelter from the elements.
 +2. **Sleeping Bag:** Stay warm and comfortable.
 +3. **Sleeping Pad:** Insulation and cushioning for a good night's sleep.
 +4. **Headlamp or Flashlight:** Light for nighttime activities.
 +5. **First Aid Kit:** Be prepared for minor injuries.
 +
-+Entity	
++Entity
 +
 +Classify the following items as [large, small]:
 +Elephant
 +Mouse
 +Snail
-+	
++
 +
 +Here's the classification:
 +
@@ -726,7 +727,7 @@ index 0000000..0871b20
 +    5.4) Information only available by asking the user
 +
 +6) Precision and Grounding: Ensure your reasoning is extremely precise and relevant to each exact ongoing situation.
-+    6.1) Verify your claims by quoting the exact applicable information (including policies) when referring to them. 
++    6.1) Verify your claims by quoting the exact applicable information (including policies) when referring to them.
 +
 +7) Completeness: Ensure that all requirements, constraints, options, and preferences are exhaustively incorporated into your plan.
 +    7.1) Resolve conflicts using the order of importance in #1.
@@ -756,12 +757,12 @@ index b903cbf..1ea8528 100644
 @@ -1,4 +1,4 @@
 -<system_version>5.18.0</system_version>
 +<system_version>5.19.0</system_version>
- 
+
  <role>
  You are the Cognitive Lead AI running inside Google AI Studio (powered by Gemini), acting as an elite software agency orchestrator.
 @@ -88,17 +88,50 @@ CRITICAL INSTRUCTION: The Manager will often send informal, raw text. Before tak
  </personas>
- 
+
  <agentic_reasoning>
 -You are a very strong reasoner and planner. Before taking any action (either generating task blocks or responding to the user), you must proactively, methodically, and independently plan and reason about:
 +You are a very strong reasoner and planner. Use these critical instructions to structure your plans, thoughts, and responses.
@@ -782,7 +783,7 @@ index b903cbf..1ea8528 100644
 +   3.1) Look beyond immediate or obvious causes. The most likely reason may not be the simplest and may require deeper inference.
 +   3.2) Hypotheses may require additional research. Each hypothesis may take multiple steps to test.
 +   3.3) Prioritize hypotheses based on likelihood, but do not discard less likely ones prematurely. A low-probability event may still be the root cause.
- 
+
 -1. Logical dependencies and constraints: Analyze policy-based rules, mandatory prerequisites, and order of operations. Ensure taking an action does not prevent a subsequent necessary action.
 -2. Risk assessment: What are the consequences of taking the action? For exploratory tasks, missing parameters is low risk. File modifications or destructive bash commands are high risk.
 -3. Abductive reasoning and hypothesis exploration: At each step, identify the most logical and likely reason for any problem encountered. Look beyond immediate or obvious causes.
@@ -818,10 +819,10 @@ index b903cbf..1ea8528 100644
 +
  10. Visible reasoning (Critical): Since you rely on token generation to reason effectively, you MUST NOT keep these 9 steps hidden. Before outputting any template or final response, you MUST output a <reasoning_log> block where you write down your analysis for steps 1–9. This entire reasoning log MUST strictly be written in English. ONLY AFTER closing the </reasoning_log> tag are you allowed to output the task blocks or talk to the Manager.
      </agentic_reasoning>
- 
+
 @@ -155,7 +188,7 @@ You are a very strong reasoner and planner. Before taking any action (either gen
    </validation_phase>
- 
+
    <context_phase>
 -    OPENCODE INSTRUCTION: Read the active task file in `tasks/`. Use your native tools (`read`, `glob`, `skill`) to gain context. If the task is massive, delegate exploration to the `@explore` subagent first. Utilize any configured MCP servers if external context is required.
 +    OPENCODE INSTRUCTION: Read the active task file in `tasks/`. Use your native tools (`read`, `glob`, `skill`) to gain context. If the task is massive, delegate exploration to subagents via the task tool: use `@explore` for fast read-only codebase mapping, `@scout` for external docs/dependency research, or `@general` for complex multi-step research. Utilize any configured MCP servers if external context is required.
@@ -831,7 +832,7 @@ index b903cbf..1ea8528 100644
 @@ -173,18 +206,19 @@ You are a very strong reasoner and planner. Before taking any action (either gen
      - [ ] **Step 3:** [Precise action, e.g., Refactor and add inline documentation]
      - [ ] **Step 4:** [Precise action, e.g., Run tests to verify]
- 
+
 -    CRITICAL TOOL RULES:
 -    0. **Rule Validation & Halt Protocol:** Before writing any code, cross-check these instructions against AGENTS.md, DESIGN.md, and loaded SKILL files. If the Orchestrator's instructions violate ANY project rules or architectural constraints, you MUST HALT immediately. Do NOT run any bash commands. Output a `⚠️ RULE VIOLATION WARNING` detailing exactly which rule was broken so the Orchestrator can self-correct.
 -    1. If applying file patches, utilize the `apply_patch` tool with embedded path markers (e.g., `*** Update File: <path>`).
@@ -845,7 +846,7 @@ index b903cbf..1ea8528 100644
 +     3. **Documentation Rule:** You MUST write maximum docstrings on all public functions/classes, verbose inline comments on non-obvious logic, and a brief README or header comment for any new module. See `<constraints>` for the full mandate.
 +     4. **Syntax Verification:** You MUST explicitly instruct OpenCode to use the `lsp` tool to verify types and syntax before concluding the execution phase.
    </execution_phase>
- 
+
    <bash_phase>
      OPENCODE INSTRUCTION: Run necessary terminal commands to build, test, and verify.
      CRITICAL RULE 1: ALL bash commands MUST use non-interactive flags (e.g., `npm install -y`, `pytest --no-header`). Do NOT run interactive commands like `vim`, `less`, or `nano`.
@@ -860,7 +861,8 @@ index b903cbf..1ea8528 100644
  - **Mandatory Project Skill Loading:** During every task's context phase, OpenCode MUST load all Agent Skills relevant to the project from the `<agent_skills_registry>`. Load every global workflow skill needed for the task, and explicitly load the stack-specific blueprint matching the project. A project may have zero, one, or multiple skills — if a skill exists, it MUST be loaded to ensure framework-specific rules and architectural patterns are always enforced.
 +- **Strict Grounding:** You are a strictly grounded assistant limited to the information provided in the User Context and project files. In your answers, rely **only** on the facts that are directly mentioned. You must **not** access or utilize your own knowledge or common sense to answer. Do not assume or infer from the provided facts; simply report them exactly as they appear. Treat the provided context as the absolute limit of truth; any facts or details that are not directly mentioned in the context must be considered **completely untruthful** and **completely unsupported**.
  </constraints>
- 
+
  <initialization>
-```
+````
+
 <!-- END_GIT_DIFF -->

@@ -29,24 +29,26 @@ The prompt must follow the XML-tagged Markdown format with `<role>`, `<system_co
 The `user-prompts/` directory establishes a new top-level namespace for user-facing prompt templates — distinctly separate from system prompts (`system-prompt.md`), agent skills (`.opencode/skills/`), and MCP configurations. This isolation prevents user-authored dictation templates from mixing with agent infrastructure. The voice-to-text enhancer prompt follows the same XML-tagged Markdown pattern (`<role>`, `<system_context>`, `<agentic_reasoning>`, `<constraints>`, `<output_format>`) used throughout the system prompt ecosystem, ensuring structural consistency and parsability for AI agents.
 
 **Local TODOs verified:**
+
 - [x] AGENTS.md checked — no violations; task creates Markdown-only prompt template (not functional code)
 - [x] DESIGN.md, docs/architecture.md, docs/data_model.md — absent from repo, thus no conflict
 - [x] Task-generator skill loaded — template format with `<!-- BEGIN_GIT_DIFF -->
+
 ```diff
 diff --git a/CHANGELOG.md b/CHANGELOG.md
 index 809754b..a74e48a 100644
 --- a/CHANGELOG.md
 +++ b/CHANGELOG.md
 @@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
- 
+
  ## [Unreleased]
- 
+
 +### Added
 +
 +- **Voice-to-Text Enhancer prompt** — New `user-prompts/voice-to-text-enhancer.md` with XML-tagged `<role>`, `<system_context>`, `<agentic_reasoning>`, `<constraints>`, and `<output_format>` sections. Transforms raw speech-to-text dictation into polished, actionable Markdown prompts. `user-prompts/` directory created as a new top-level namespace for user-facing prompt templates.
 +
  ### Changed
- 
+
  - **README roadmap** — Added Memory Management (Smart Note-Taking MCP & Skill) as item #7 in the Future Architectural Roadmap, describing a local `memory-mcp` server and `project-memory` agent skill for persistent context retention.
 diff --git a/user-prompts/voice-to-text-enhancer.md b/user-prompts/voice-to-text-enhancer.md
 new file mode 100644
@@ -82,4 +84,5 @@ index 0000000..47b418a
 +[Insert the cleaned, enhanced Markdown text directly. Zero conversational filler.]
 +</output_format>
 ```
+
 <!-- END_GIT_DIFF -->

@@ -95,16 +95,16 @@ You MUST output:
 
 ### Files Created
 
-| File | Purpose |
-|------|---------|
+| File      | Purpose                                                                                                      |
+| --------- | ------------------------------------------------------------------------------------------------------------ |
 | `LLM.txt` | AI agent auto-configuration manual — platform-specific OpenCode setup, MCP server config, skill installation |
 
 ### Files Modified
 
-| File | Change |
-|------|--------|
-| `README.md` | Updated Quick Start to reference `LLM.txt` as canonical auto-setup source; added `cp -r skill-templates/* .opencode/skills/` to manual instructions |
-| `CHANGELOG.md` | Added entries for `LLM.txt` (Added) and README refactor (Changed) |
+| File           | Change                                                                                                                                              |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `README.md`    | Updated Quick Start to reference `LLM.txt` as canonical auto-setup source; added `cp -r skill-templates/* .opencode/skills/` to manual instructions |
+| `CHANGELOG.md` | Added entries for `LLM.txt` (Added) and README refactor (Changed)                                                                                   |
 
 ### Architectural Reasoning
 
@@ -116,7 +116,8 @@ You MUST output:
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
-```diff
+
+````diff
 diff --git a/CHANGELOG.md b/CHANGELOG.md
 index bd14d47..818f4f7 100644
 --- a/CHANGELOG.md
@@ -124,7 +125,7 @@ index bd14d47..818f4f7 100644
 @@ -11,6 +11,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
  - **Enforced `--body-file` pattern for all `gh issue create` commands** across the codebase. Replaced inline `--body` in `skill-templates/telegram-issue-sync/SKILL.md`, `tasks/22-refactor-telegram-skill-templates.md`, `tasks/11-enforce-project-skill-loading.md`, and `tasks/06-implement-telegram-issue-sync-skill.md` with heredoc `--body-file` pattern using single-quoted `'EOF'` delimiter. Added `docs/conventions.md` documenting the convention.
  - **Rebranded repository to `cognitive-lead-hq`** — updated GitHub description, topics, and renamed repo. Restructured README.md with flat-square shields.io badges, Quick Start section, and improved hierarchy. Preserved all Agent Skills tables and MCP configuration sections. Updated internal references across codebase.
- 
+
 +### Added
 +
 +- **`LLM.txt`** — AI agent auto-configuration manual at project root. Contains platform-specific OpenCode setup instructions (macOS/Linux via Bash, Windows via PowerShell), the exact `opencode.json` payload for the custom_context MCP server, skill installation commands, and a ready-to-use "Agent Prompt" for self-configuration.
@@ -134,7 +135,7 @@ index bd14d47..818f4f7 100644
 +- **README.md** — Updated Quick Start section to reference `LLM.txt` as the canonical auto-setup source for full platform-specific instructions.
 +
  ## [5.18.0] — 2026-07-13
- 
+
  ### Added
 diff --git a/LLM.txt b/LLM.txt
 new file mode 100644
@@ -301,10 +302,10 @@ diff --git a/README.md b/README.md
 index 524ae44..d9bcb61 100644
 --- a/README.md
 +++ b/README.md
-@@ -17,16 +17,18 @@ The centralized **Headquarters** for the Cognitive Lead AI multi-agent system 
- 
+@@ -17,16 +17,18 @@ The centralized **Headquarters** for the Cognitive Lead AI multi-agent system
+
  ## Quick Start
- 
+
 +Give the prompt above to any AI agent (OpenCode, Cline, etc.) and it will auto-configure itself using [`LLM.txt`](LLM.txt) — the canonical auto-setup source.
 +
 +To set up manually:
@@ -317,11 +318,13 @@ index 524ae44..d9bcb61 100644
 -# Start the custom context MCP server
 +cp -r skill-templates/* .opencode/skills/
  uv run mcp-context-server/server.py
- ```
- 
+````
+
 -Then open OpenCode in this directory. Read `system-prompt.md` to understand the multi-agent architecture, or dive into `tasks/` for active work items.
 +Then open OpenCode in this directory. Read `system-prompt.md` to understand the multi-agent architecture, or dive into `tasks/` for active work items. For full platform-specific instructions (Windows, macOS, Linux), see [`LLM.txt`](LLM.txt).
- 
- ---
+
+---
+
 ```
 <!-- END_GIT_DIFF -->
+```

@@ -33,6 +33,7 @@ Extends the `user-prompts/` namespace (created in task 41) with a Persian-specif
 3. **`CHANGELOG.md`** — Added entry under `[Unreleased]` -> `### Added`.
 
 **Local TODOs verified:**
+
 - [x] AGENTS.md checked — no violations; creates Markdown-only prompt template
 - [x] Skills loaded — task-generator (template format with diff markers), verification-before-completion (ls + cat verification)
 - [x] No git commands executed — MCP tool will stage changes
@@ -40,22 +41,23 @@ Extends the `user-prompts/` namespace (created in task 41) with a Persian-specif
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 ```diff
 diff --git a/CHANGELOG.md b/CHANGELOG.md
 index 809754b..62d5651 100644
 --- a/CHANGELOG.md
 +++ b/CHANGELOG.md
 @@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
- 
+
  ## [Unreleased]
- 
+
 +### Added
 +
 +- **Voice-to-Text Enhancer prompt** — New `user-prompts/voice-to-text-enhancer.md` with XML-tagged `<role>`, `<system_context>`, `<agentic_reasoning>`, `<constraints>`, and `<output_format>` sections. Transforms raw speech-to-text dictation into polished, actionable Markdown prompts. `user-prompts/` directory created as a new top-level namespace for user-facing prompt templates.
 +- **Persian-to-English Dictation prompt** — New `user-prompts/persian-to-english-dictation.md` with XML-tagged sections. Converts raw Persian Speech-to-Text dictation into flawless, native-sounding English via phonetic decoding, contextual reconstruction, and idiomatic translation.
 +
  ### Changed
- 
+
  - **README roadmap** — Added Memory Management (Smart Note-Taking MCP & Skill) as item #7 in the Future Architectural Roadmap, describing a local `memory-mcp` server and `project-memory` agent skill for persistent context retention.
 diff --git a/user-prompts/persian-to-english-dictation.md b/user-prompts/persian-to-english-dictation.md
 new file mode 100644
@@ -123,4 +125,5 @@ index 0000000..47b418a
 +[Insert the cleaned, enhanced Markdown text directly. Zero conversational filler.]
 +</output_format>
 ```
+
 <!-- END_GIT_DIFF -->

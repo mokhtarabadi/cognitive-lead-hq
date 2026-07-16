@@ -4,12 +4,9 @@
 
 # Keybinds
 
-
 Customize your keybinds.
 
-
 OpenCode has a list of keybinds that you can customize through tui.json.
-
 
 ```
 {  "$schema": "https://opencode.ai/tui.json",  "leader_timeout": 2000,  "keybinds": {    "leader": "ctrl+x",    "app_exit": "ctrl+c,ctrl+d,<leader>q",    "app_debug": "none",    "app_console": "none",    "app_heap_snapshot": "none",    "app_toggle_animations": "none",    "app_toggle_file_context": "none",    "app_toggle_diffwrap": "none",    "app_toggle_paste_summary": "none",    "app_toggle_session_directory_filter": "none",    "command_list": "ctrl+p",    "help_show": "none",    "docs_open": "none",
@@ -24,46 +21,34 @@ OpenCode has a list of keybinds that you can customize through tui.json.
     "which_key_toggle": "ctrl+alt+k",    "which_key_layout_toggle": "ctrl+alt+shift+k",    "which_key_pending_toggle": "ctrl+alt+shift+p",    "which_key_group_previous": "ctrl+alt+left,ctrl+alt+[",    "which_key_group_next": "ctrl+alt+right,ctrl+alt+]",    "which_key_scroll_up": "ctrl+alt+up,ctrl+alt+p",    "which_key_scroll_down": "ctrl+alt+down,ctrl+alt+n",    "which_key_page_up": "ctrl+alt+pageup",    "which_key_page_down": "ctrl+alt+pagedown",    "which_key_home": "ctrl+alt+home",    "which_key_end": "ctrl+alt+end"  }}
 ```
 
-
 Note
-
 
 On Windows, the defaults for input_undo and terminal_suspend are different:
 
-
 - input_undo defaults to ctrl+z,ctrl+-,super+z when it is not explicitly configured. The ctrl+z binding is added because Windows terminals do not support POSIX suspend.
 - terminal_suspend is forced to none because native Windows terminals do not support POSIX suspend.
----
 
+---
 
 ## Leader Key
 
-
 OpenCode uses a leader key for many keybinds. This avoids conflicts in your terminal.
-
 
 By default, ctrl+x is the leader key and many actions require you to first press the leader key and then the shortcut. For example, to start a new session you first press ctrl+x and then press n.
 
-
 You don’t need to use a leader key for your keybinds but we recommend doing so.
 
-
 Some navigation keybinds intentionally do not use the leader key by default. For subagent sessions, the defaults are session_child_first = <leader>down, session_child_cycle = right, session_child_cycle_reverse = left, and session_parent = up.
-
 
 leader_timeout controls how long OpenCode waits for the next key after the leader key. It defaults to 2000 milliseconds.
 
 ---
 
-
 ## Binding Values
-
 
 A string can contain one shortcut or multiple comma-separated shortcuts. You can also use an array for multiple shortcuts.
 
-
 For advanced cases, use an object with key, event, preventDefault, or fallthrough.
-
 
 ```
 {  "$schema": "https://opencode.ai/tui.json",  "keybinds": {    "messages_copy": ["<leader>y", "ctrl+shift+c"],    "input_paste": {      "key": "ctrl+v",      "preventDefault": false    }  }}
@@ -71,12 +56,9 @@ For advanced cases, use an object with key, event, preventDefault, or fallthroug
 
 ---
 
-
 ## Disable Keybind
 
-
 You can disable a keybind by adding the key to tui.json with a value of "none" or false.
-
 
 ```
 {  "$schema": "https://opencode.ai/tui.json",  "keybinds": {    "session_compact": "none"  }}
@@ -84,108 +66,80 @@ You can disable a keybind by adding the key to tui.json with a value of "none" o
 
 ---
 
-
 ## Desktop Prompt Shortcuts
-
 
 The OpenCode desktop app prompt input supports common Readline/Emacs-style shortcuts for editing text. These are built-in and currently not configurable via opencode.json.
 
-
 | Shortcut | Action |
-| --- | --- |
-
+| -------- | ------ |
 
 | ctrl+a | Move to start of current line |
-| --- | --- |
-
+| ------ | ----------------------------- |
 
 | ctrl+e | Move to end of current line |
-| --- | --- |
-
+| ------ | --------------------------- |
 
 | ctrl+b | Move cursor back one character |
-| --- | --- |
-
+| ------ | ------------------------------ |
 
 | ctrl+f | Move cursor forward one character |
-| --- | --- |
-
+| ------ | --------------------------------- |
 
 | alt+b | Move cursor back one word |
-| --- | --- |
-
+| ----- | ------------------------- |
 
 | alt+f | Move cursor forward one word |
-| --- | --- |
-
+| ----- | ---------------------------- |
 
 | ctrl+d | Delete character under cursor |
-| --- | --- |
-
+| ------ | ----------------------------- |
 
 | ctrl+k | Kill to end of line |
-| --- | --- |
-
+| ------ | ------------------- |
 
 | ctrl+u | Kill to start of line |
-| --- | --- |
-
+| ------ | --------------------- |
 
 | ctrl+w | Kill previous word |
-| --- | --- |
-
+| ------ | ------------------ |
 
 | alt+d | Kill next word |
-| --- | --- |
-
+| ----- | -------------- |
 
 | ctrl+t | Transpose characters |
-| --- | --- |
-
+| ------ | -------------------- |
 
 | ctrl+g | Cancel popovers / abort running response |
-| --- | --- |
+| ------ | ---------------------------------------- |
 
 ---
 
-
 ## Shift+Enter
-
 
 Some terminals don’t send modifier keys with Enter by default. You may need to configure your terminal to send Shift+Enter as an escape sequence.
 
-
 ### Windows Terminal
 
-
 Open your settings.json at:
-
 
 ```
 %LOCALAPPDATA%\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json
 ```
 
-
 Add this to the root-level actions array:
-
 
 ```
 "actions": [  {    "command": {      "action": "sendInput",      "input": "\u001b[13;2u"    },    "id": "User.sendInput.ShiftEnterCustom"  }]
 ```
 
-
 Add this to the root-level keybindings array:
-
 
 ```
 "keybindings": [  {    "keys": "shift+enter",    "id": "User.sendInput.ShiftEnterCustom"  }]
 ```
 
-
 Save the file and restart Windows Terminal or open a new tab.
 
-
 Edit pageFound a bug? Open an issueJoin our Discord communitySelect languageEnglishالعربيةBosanskiDanskDeutschEspañolFrançaisItaliano日本語한국어Norsk BokmålPolskiPortuguês (Brasil)РусскийไทยTürkçe简体中文繁體中文© Anomaly
-
 
 Last updated: Jul 14, 2026

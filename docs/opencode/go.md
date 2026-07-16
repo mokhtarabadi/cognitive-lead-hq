@@ -4,76 +4,59 @@
 
 # Go
 
-
 Low cost subscription for open coding models.
 
-
 OpenCode Go is a low cost subscription — **$5 for your first month**, then **$10/month** — that gives you reliable access to popular open coding models.
-
 
 Go works like any other provider in OpenCode. You subscribe to OpenCode Go and
 get your API key. It’s **completely optional** and you don’t need to use it to
 use OpenCode.
 
-
 It is designed primarily for international users, with models hosted in the US, EU, and Singapore for stable global access.
 
 ---
 
-
 ## Background
-
 
 Open models have gotten really good. They now reach performance close to
 proprietary models for coding tasks. And because many providers can serve them
 competitively, they are usually far cheaper.
 
-
 However, getting reliable, low latency access to them can be difficult. Providers
 vary in quality and availability.
 
-
 Tip
-
 
 We tested a select group of models and providers that work well with OpenCode.
 
-
 To fix this, we did a couple of things:
 
-
 - We tested a select group of open models and talked to their teams about how to
-best run them.
+  best run them.
 - We then worked with a few providers to make sure these were being served
-correctly.
+  correctly.
 - Finally, we benchmarked the combination of the model/provider and came up
-with a list that we feel good recommending.
+  with a list that we feel good recommending.
 
 OpenCode Go gives you access to these models for **$5 for your first month**, then **$10/month**.
 
 ---
 
-
 ## How it works
-
 
 OpenCode Go works like any other provider in OpenCode.
 
-
 - You sign in to **OpenCode Zen**, subscribe to Go, and
-copy your API key.
+  copy your API key.
 - You run the /connect command in the TUI, select OpenCode Go, and paste
-your API key.
+  your API key.
 - Run /models in the TUI to see the list of models available through Go.
 
 Note
 
-
 Only one member per workspace can subscribe to OpenCode Go.
 
-
 The current list of models includes:
-
 
 - **GLM-5.2**
 - **GLM-5.1**
@@ -93,12 +76,9 @@ The list of models may change as we test and add new ones.
 
 ---
 
-
 ## Usage limits
 
-
 OpenCode Go includes the following limits:
-
 
 - **5 hour limit** — $12 of usage
 - **Weekly limit** — $30 of usage
@@ -106,68 +86,51 @@ OpenCode Go includes the following limits:
 
 Limits are defined in dollar value. This means your actual request count depends on the model you use. Cheaper models like DeepSeek V4 Flash allow for more requests, while higher-cost models like GLM-5.2 allow for fewer.
 
-
 The table below provides an estimated request count based on typical Go usage patterns:
 
-
 | Model | requests per 5 hour | requests per week | requests per month |
-| --- | --- | --- | --- |
-
+| ----- | ------------------- | ----------------- | ------------------ |
 
 | GLM-5.2 | 880 | 2,150 | 4,300 |
-| --- | --- | --- | --- |
-
+| ------- | --- | ----- | ----- |
 
 | GLM-5.1 | 880 | 2,150 | 4,300 |
-| --- | --- | --- | --- |
-
+| ------- | --- | ----- | ----- |
 
 | Kimi K2.6 | 1,150 | 2,880 | 5,750 |
-| --- | --- | --- | --- |
-
+| --------- | ----- | ----- | ----- |
 
 | Kimi K2.7 Code | 1,350 | 4,630 | 9,250 |
-| --- | --- | --- | --- |
-
+| -------------- | ----- | ----- | ----- |
 
 | MiMo-V2.5 | 30,100 | 75,200 | 150,400 |
-| --- | --- | --- | --- |
-
+| --------- | ------ | ------ | ------- |
 
 | MiMo-V2.5-Pro | 3,250 | 8,150 | 16,300 |
-| --- | --- | --- | --- |
-
+| ------------- | ----- | ----- | ------ |
 
 | MiniMax M3 | 3,200 | 8,000 | 16,000 |
-| --- | --- | --- | --- |
-
+| ---------- | ----- | ----- | ------ |
 
 | MiniMax M2.7 | 3,400 | 8,500 | 17,000 |
-| --- | --- | --- | --- |
-
+| ------------ | ----- | ----- | ------ |
 
 | Qwen3.7 Max | 950 | 2,390 | 4,770 |
-| --- | --- | --- | --- |
-
+| ----------- | --- | ----- | ----- |
 
 | Qwen3.7 Plus | 4,300 | 10,800 | 21,600 |
-| --- | --- | --- | --- |
-
+| ------------ | ----- | ------ | ------ |
 
 | Qwen3.6 Plus | 3,300 | 8,200 | 16,300 |
-| --- | --- | --- | --- |
-
+| ------------ | ----- | ----- | ------ |
 
 | DeepSeek V4 Pro | 3,450 | 8,550 | 17,150 |
-| --- | --- | --- | --- |
-
+| --------------- | ----- | ----- | ------ |
 
 | DeepSeek V4 Flash | 31,650 | 79,050 | 158,150 |
-| --- | --- | --- | --- |
-
+| ----------------- | ------ | ------ | ------- |
 
 The estimates are based on observed average request patterns:
-
 
 - GLM-5.2/5.1 — 700 input, 52,000 cached, 150 output tokens per request
 - Kimi K2.7 Code/K2.6 — 870 input, 55,000 cached, 200 output tokens per request
@@ -183,91 +146,68 @@ The estimates are based on observed average request patterns:
 
 The estimates are also based on the following prices per 1M tokens:
 
-
 | Model | Input | Output | Cached Read | Cached Write |
-| --- | --- | --- | --- | --- |
+| ----- | ----- | ------ | ----------- | ------------ |
 
+| GLM-5.2 | $1.40 | $4.40 | $0.26 | -   |
+| ------- | ----- | ----- | ----- | --- |
 
-| GLM-5.2 | $1.40 | $4.40 | $0.26 | - |
-| --- | --- | --- | --- | --- |
+| GLM-5.1 | $1.40 | $4.40 | $0.26 | -   |
+| ------- | ----- | ----- | ----- | --- |
 
+| Kimi K2.7 Code | $0.95 | $4.00 | $0.19 | -   |
+| -------------- | ----- | ----- | ----- | --- |
 
-| GLM-5.1 | $1.40 | $4.40 | $0.26 | - |
-| --- | --- | --- | --- | --- |
+| Kimi K2.6 | $0.95 | $4.00 | $0.16 | -   |
+| --------- | ----- | ----- | ----- | --- |
 
+| MiMo V2.5 | $0.14 | $0.28 | $0.0028 | -   |
+| --------- | ----- | ----- | ------- | --- |
 
-| Kimi K2.7 Code | $0.95 | $4.00 | $0.19 | - |
-| --- | --- | --- | --- | --- |
+| MiMo V2.5 Pro | $1.74 | $3.48 | $0.0145 | -   |
+| ------------- | ----- | ----- | ------- | --- |
 
-
-| Kimi K2.6 | $0.95 | $4.00 | $0.16 | - |
-| --- | --- | --- | --- | --- |
-
-
-| MiMo V2.5 | $0.14 | $0.28 | $0.0028 | - |
-| --- | --- | --- | --- | --- |
-
-
-| MiMo V2.5 Pro | $1.74 | $3.48 | $0.0145 | - |
-| --- | --- | --- | --- | --- |
-
-
-| MiniMax M3 | $0.30 | $1.20 | $0.06 | - |
-| --- | --- | --- | --- | --- |
-
+| MiniMax M3 | $0.30 | $1.20 | $0.06 | -   |
+| ---------- | ----- | ----- | ----- | --- |
 
 | MiniMax M2.7 | $0.30 | $1.20 | $0.06 | $0.375 |
-| --- | --- | --- | --- | --- |
-
+| ------------ | ----- | ----- | ----- | ------ |
 
 | MiniMax M2.5 | $0.30 | $1.20 | $0.06 | $0.375 |
-| --- | --- | --- | --- | --- |
-
+| ------------ | ----- | ----- | ----- | ------ |
 
 | Qwen3.7 Max | $2.50 | $7.50 | $0.50 | $3.125 |
-| --- | --- | --- | --- | --- |
-
+| ----------- | ----- | ----- | ----- | ------ |
 
 | Qwen3.7 Plus (≤ 256K tokens) | $0.40 | $1.60 | $0.04 | $0.50 |
-| --- | --- | --- | --- | --- |
-
+| ---------------------------- | ----- | ----- | ----- | ----- |
 
 | Qwen3.7 Plus (> 256K tokens) | $1.20 | $4.80 | $0.12 | $1.50 |
-| --- | --- | --- | --- | --- |
-
+| ---------------------------- | ----- | ----- | ----- | ----- |
 
 | Qwen3.6 Plus (≤ 256K tokens) | $0.50 | $3.00 | $0.05 | $0.625 |
-| --- | --- | --- | --- | --- |
-
+| ---------------------------- | ----- | ----- | ----- | ------ |
 
 | Qwen3.6 Plus (> 256K tokens) | $2.00 | $6.00 | $0.20 | $2.50 |
-| --- | --- | --- | --- | --- |
+| ---------------------------- | ----- | ----- | ----- | ----- |
 
+| DeepSeek V4 Pro | $1.74 | $3.48 | $0.0145 | -   |
+| --------------- | ----- | ----- | ------- | --- |
 
-| DeepSeek V4 Pro | $1.74 | $3.48 | $0.0145 | - |
-| --- | --- | --- | --- | --- |
-
-
-| DeepSeek V4 Flash | $0.14 | $0.28 | $0.0028 | - |
-| --- | --- | --- | --- | --- |
-
+| DeepSeek V4 Flash | $0.14 | $0.28 | $0.0028 | -   |
+| ----------------- | ----- | ----- | ------- | --- |
 
 You can track your current usage in the **console**.
 
-
 Tip
 
-
 If you reach the usage limit, you can continue using the free models.
-
 
 Usage limits may change as we learn from early usage and feedback.
 
 ---
 
-
 ### Usage beyond limits
-
 
 If you also have credits on your Zen balance, you can enable the **Use balance**
 option in the console. When enabled, Go will fall back to your Zen balance
@@ -275,72 +215,54 @@ after you’ve reached your usage limits instead of blocking requests.
 
 ---
 
-
 ## Endpoints
-
 
 You can also access Go models through the following API endpoints.
 
-
 | Model | Model ID | Endpoint | AI SDK Package |
-| --- | --- | --- | --- |
-
+| ----- | -------- | -------- | -------------- |
 
 | GLM-5.2 | glm-5.2 | https://opencode.ai/zen/go/v1/chat/completions | @ai-sdk/openai-compatible |
-| --- | --- | --- | --- |
-
+| ------- | ------- | ---------------------------------------------- | ------------------------- |
 
 | GLM-5.1 | glm-5.1 | https://opencode.ai/zen/go/v1/chat/completions | @ai-sdk/openai-compatible |
-| --- | --- | --- | --- |
-
+| ------- | ------- | ---------------------------------------------- | ------------------------- |
 
 | Kimi K2.7 Code | kimi-k2.7-code | https://opencode.ai/zen/go/v1/chat/completions | @ai-sdk/openai-compatible |
-| --- | --- | --- | --- |
-
+| -------------- | -------------- | ---------------------------------------------- | ------------------------- |
 
 | Kimi K2.6 | kimi-k2.6 | https://opencode.ai/zen/go/v1/chat/completions | @ai-sdk/openai-compatible |
-| --- | --- | --- | --- |
-
+| --------- | --------- | ---------------------------------------------- | ------------------------- |
 
 | DeepSeek V4 Pro | deepseek-v4-pro | https://opencode.ai/zen/go/v1/chat/completions | @ai-sdk/openai-compatible |
-| --- | --- | --- | --- |
-
+| --------------- | --------------- | ---------------------------------------------- | ------------------------- |
 
 | DeepSeek V4 Flash | deepseek-v4-flash | https://opencode.ai/zen/go/v1/chat/completions | @ai-sdk/openai-compatible |
-| --- | --- | --- | --- |
-
+| ----------------- | ----------------- | ---------------------------------------------- | ------------------------- |
 
 | MiMo-V2.5 | mimo-v2.5 | https://opencode.ai/zen/go/v1/chat/completions | @ai-sdk/openai-compatible |
-| --- | --- | --- | --- |
-
+| --------- | --------- | ---------------------------------------------- | ------------------------- |
 
 | MiMo-V2.5-Pro | mimo-v2.5-pro | https://opencode.ai/zen/go/v1/chat/completions | @ai-sdk/openai-compatible |
-| --- | --- | --- | --- |
-
+| ------------- | ------------- | ---------------------------------------------- | ------------------------- |
 
 | MiniMax M3 | minimax-m3 | https://opencode.ai/zen/go/v1/messages | @ai-sdk/anthropic |
-| --- | --- | --- | --- |
-
+| ---------- | ---------- | -------------------------------------- | ----------------- |
 
 | MiniMax M2.7 | minimax-m2.7 | https://opencode.ai/zen/go/v1/messages | @ai-sdk/anthropic |
-| --- | --- | --- | --- |
-
+| ------------ | ------------ | -------------------------------------- | ----------------- |
 
 | MiniMax M2.5 | minimax-m2.5 | https://opencode.ai/zen/go/v1/messages | @ai-sdk/anthropic |
-| --- | --- | --- | --- |
-
+| ------------ | ------------ | -------------------------------------- | ----------------- |
 
 | Qwen3.7 Max | qwen3.7-max | https://opencode.ai/zen/go/v1/messages | @ai-sdk/anthropic |
-| --- | --- | --- | --- |
-
+| ----------- | ----------- | -------------------------------------- | ----------------- |
 
 | Qwen3.7 Plus | qwen3.7-plus | https://opencode.ai/zen/go/v1/messages | @ai-sdk/anthropic |
-| --- | --- | --- | --- |
-
+| ------------ | ------------ | -------------------------------------- | ----------------- |
 
 | Qwen3.6 Plus | qwen3.6-plus | https://opencode.ai/zen/go/v1/messages | @ai-sdk/anthropic |
-| --- | --- | --- | --- |
-
+| ------------ | ------------ | -------------------------------------- | ----------------- |
 
 The model id in your OpenCode config
 uses the format opencode-go/<model-id>. For example, for Kimi K2.7 Code, you would
@@ -348,12 +270,9 @@ use opencode-go/kimi-k2.7-code in your config.
 
 ---
 
-
 ### Models
 
-
 You can fetch the full list of available models and their metadata from:
-
 
 ```
 https://opencode.ai/zen/go/v1/models
@@ -361,20 +280,15 @@ https://opencode.ai/zen/go/v1/models
 
 ---
 
-
 ## Privacy
-
 
 The plan is designed primarily for international users, with models hosted in the US, EU, and Singapore for stable global access. Our providers follow a zero-retention policy and do not use your data for model training.
 
 ---
 
-
 ## Goals
 
-
 We created OpenCode Go to:
-
 
 - Make AI coding **accessible** to more people with a low cost subscription.
 - Provide **reliable** access to the best open coding models.
@@ -382,6 +296,5 @@ We created OpenCode Go to:
 - Have **no lock-in** by allowing you to use any other provider with OpenCode as well.
 
 Edit pageFound a bug? Open an issueJoin our Discord communitySelect languageEnglishالعربيةBosanskiDanskDeutschEspañolFrançaisItaliano日本語한국어Norsk BokmålPolskiPortuguês (Brasil)РусскийไทยTürkçe简体中文繁體中文© Anomaly
-
 
 Last updated: Jul 14, 2026

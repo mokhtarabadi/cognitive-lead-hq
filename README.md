@@ -88,11 +88,17 @@ The AI will process your inline feedback, generate a revised plan, and wait for 
 ```
 /
 ├── README.md                           # This file
-├── system-prompt.md                    # V5 Multi-Agent System Prompt
+├── system-prompt.md                    # V6 Multi-Agent System Prompt
 ├── CHANGELOG.md                        # Version history
-├── tasks/                              # Decentralized task files
+├── tasks/
+│   ├── backlog/                        # Open / unstarted tasks
+│   ├── in-progress/                    # Currently being worked on
+│   ├── qa/                             # Awaiting quality assurance review
+│   ├── completed/                      # Finished tasks
+│   └── archive/                        # Milestone-compacted historical tasks
 ├── docs/
 │   ├── conventions.md                  # Syntax rules and automation conventions
+│   ├── history/                        # Milestone compaction summaries
 │   └── opencode/                       # OpenCode documentation mirror
 ├── mcp-context-server/
 │   └── server.py                       # FastMCP server for .gitignore-aware file reading & tree
@@ -100,23 +106,34 @@ The AI will process your inline feedback, generate a revised plan, and wait for 
 │   └── skills/
 │       └── sop-maintenance/
 │           └── SKILL.md                # Native OpenCode skill for repo rules
-└── skill-templates/                    # Reusable stack blueprints (Agent Skills)
-    ├── go-hexagonal-grpc/
-    │   └── SKILL.md
-    ├── prompt-refactor/
-    │   └── SKILL.md
-    ├── android-kotlin/
-    │   └── SKILL.md
-    ├── nextjs/
-    │   └── SKILL.md
-    ├── spring-boot/
-    │   └── SKILL.md
-    ├── flask-python/
-    │   └── SKILL.md
-    ├── nestjs-prisma-vertical/
-    │   └── SKILL.md
-    └── code-search/
-        └── SKILL.md
+├── skill-templates/                    # Reusable stack blueprints (Agent Skills)
+│   ├── archive-tasks/                  # Milestone compaction skill
+│   │   └── SKILL.md
+│   ├── migrate-kanban/                 # Flat-to-Kanban migration skill
+│   │   └── SKILL.md
+│   ├── task-generator/                 # Generates tasks in tasks/backlog/
+│   │   └── SKILL.md
+│   ├── go-hexagonal-grpc/
+│   │   └── SKILL.md
+│   ├── prompt-refactor/
+│   │   └── SKILL.md
+│   ├── android-kotlin/
+│   │   └── SKILL.md
+│   ├── nextjs/
+│   │   └── SKILL.md
+│   ├── spring-boot/
+│   │   └── SKILL.md
+│   ├── flask-python/
+│   │   └── SKILL.md
+│   ├── nestjs-prisma-vertical/
+│   │   └── SKILL.md
+│   └── code-search/
+│       └── SKILL.md
+└── user-prompts/                       # Reusable copy-paste prompt templates
+    ├── session-compactor.md
+    ├── voice-to-text-enhancer.md
+    ├── persian-to-english-dictation.md
+    └── agile-pm-state-manager.md
 ```
 
 ---
@@ -275,6 +292,14 @@ To make the `code-search` skill (or any other reusable skill) available in _ever
 - **Phase 0 UI/UX traversal** — Project Planner now instructs OpenCode to perform deep source code analysis for `DESIGN.md` generation.
 - **Runtime model updated** — Gemini 3.5 Flash renamed to Gemini throughout the system prompt.
 
+## Key V6 Changes
+
+- **Kanban lifecycle architecture** — flat `tasks/` directory replaced by state-based folders: `tasks/backlog/`, `tasks/in-progress/`, `tasks/qa/`, `tasks/completed/`, `tasks/archive/`.
+- **`commit_and_clean_task` MCP tool** — new tool on the custom context server that commits staged changes, strips the raw git diff from the task file, and replaces it with a commit hash reference, keeping task files lean.
+- **`migrate-kanban` skill** — automated migration of existing flat `tasks/` files into the Kanban structure by reading status metadata.
+- **`archive-tasks` skill** — milestone compaction: scans `tasks/completed/`, generates dense `docs/history/milestone-X-summary.md`, and moves files to `tasks/archive/`.
+- **System prompt upgraded to V6.0.0** — all personas and workflows updated for the Kanban lifecycle. Project Planner manages state-based Kanban directories. Code Reviewer now generates tasks that move files through the pipeline. Execution workflow includes `backlog → in-progress → qa → completed` transitions.
+
 ---
 
 ## Contributing
@@ -297,7 +322,7 @@ See `.opencode/skills/sop-maintenance/SKILL.md` for the rules that AI agents mus
      - _"OpenCode, call the memory skill; remember this thing I'm telling you about the database tests."_
    - **Goal:** Ensure complete, highly detailed context retention across isolated sessions without permanently bloating the core `AGENTS.md` file.
 8. **Adversarial QA Persona:** Introduce a dedicated `[QA Engineer]` persona to the `system-prompt.md`. Unlike the Code Reviewer (who checks for formatting and architectural compliance), the QA Engineer's explicit instruction is adversarial: _actively attempt to break the Senior Programmer's implementation_. It will focus on generating negative test cases, boundary tests, fuzzing scripts, and identifying race conditions, ensuring enterprise-grade stability before a task is marked complete.
-9. **Lifecycle Task Architecture (Kanban & Archiving):** Migrate the flat `tasks/` directory into a state-based Kanban folder structure to prevent context bloat and improve project tracking.
-   - **Folders:** `tasks/backlog/`, `tasks/in-progress/`, `tasks/qa/`, and `tasks/completed/`.
-   - **Workflow:** The `task-generator` skill creates tasks in `backlog/`. As the Programmer and QA personas work, the file is physically moved through the pipeline.
-   - **Compaction:** An archiving skill will periodically compress older files in the `completed/` directory into dense, single-file summaries in `docs/history/` (e.g., `milestone-1-summary.md`), keeping the active `grep` and `glob` MCP searches blazingly fast.
+9. **Lifecycle Task Architecture (Kanban & Archiving):** ~~Migrate the flat `tasks/` directory into a state-based Kanban folder structure to prevent context bloat and improve project tracking.~~ ✅ **Implemented in V6.0.0**
+   ~~- **Folders:** `tasks/backlog/`, `tasks/in-progress/`, `tasks/qa/`, and `tasks/completed/`.~~
+   ~~- **Workflow:** The `task-generator` skill creates tasks in `backlog/`. As the Programmer and QA personas work, the file is physically moved through the pipeline.~~
+   ~~- **Compaction:** An archiving skill will periodically compress older files in the `completed/` directory into dense, single-file summaries in `docs/history/` (e.g., `milestone-1-summary.md`), keeping the active `grep` and `glob` MCP searches blazingly fast.~~

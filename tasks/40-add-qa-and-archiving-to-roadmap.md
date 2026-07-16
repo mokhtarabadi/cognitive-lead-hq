@@ -12,6 +12,7 @@ Append two new strategic items to the Future Architectural Roadmap in README.md 
 
 - Only README.md, CHANGELOG.md, and this task file should be modified.
 - Use the standard task template with `<!-- BEGIN_GIT_DIFF -->
+
 ```diff
 diff --git a/CHANGELOG.md b/CHANGELOG.md
 index a88bccd..809754b 100644
@@ -19,12 +20,12 @@ index a88bccd..809754b 100644
 +++ b/CHANGELOG.md
 @@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
  ### Changed
- 
+
  - **README roadmap** — Added Memory Management (Smart Note-Taking MCP & Skill) as item #7 in the Future Architectural Roadmap, describing a local `memory-mcp` server and `project-memory` agent skill for persistent context retention.
 +- **README roadmap** — Added Adversarial QA Persona as item #8 and Lifecycle Task Architecture (Kanban & Archiving) as item #9 to the Future Architectural Roadmap, describing a dedicated `[QA Engineer]` persona with adversarial testing instructions and a state-based Kanban folder workflow with archiving compaction.
- 
+
  ## [5.19.0] — 2026-07-15
- 
+
 diff --git a/README.md b/README.md
 index 7f626ac..0229055 100644
 --- a/README.md
@@ -39,4 +40,5 @@ index 7f626ac..0229055 100644
 +   - **Workflow:** The `task-generator` skill creates tasks in `backlog/`. As the Programmer and QA personas work, the file is physically moved through the pipeline.
 +   - **Compaction:** An archiving skill will periodically compress older files in the `completed/` directory into dense, single-file summaries in `docs/history/` (e.g., `milestone-1-summary.md`), keeping the active `grep` and `glob` MCP searches blazingly fast.
 ```
+
 <!-- END_GIT_DIFF -->
