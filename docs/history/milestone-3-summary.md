@@ -9,20 +9,20 @@ Established persistent project memory with an MCP server and companion skill, en
 
 ## Files Modified
 
-| File | Change |
-| ---- | ------ |
-| `system-prompt.md` | V6.3.0 / V6.4.0 / V6.4.1 / V6.5.0 / V6.6.0 upgrades — cold start protocol, memory system, perplexity research, UX refactor, skill name standardization |
-| `skill-templates/code-search/SKILL.md` | Added Vertical Slicing Strategy section under Discovery Workflow |
-| `user-prompts/cold-start-context.md` | Created — reusable cold-start discovery prompt for the Manager |
-| `README.md` | Removed completed roadmap items, renumbered Hexagonal Architecture to #5 |
-| `mcp-memory-server/server.py` | Created — FastMCP server with store/read/search/list_namespaces/delete_memory tools |
-| `opencode.json` | Added memory tool permissions |
-| `skill-templates/project-memory/SKILL.md` | Created — companion skill for the memory MCP server |
-| `user-prompts/perplexity-deep-research.md` | Created — 3-Step Framework user prompt template for Perplexity |
-| `skill-templates/perplexity-research/SKILL.md` | Created — companion skill for the deep research loop |
-| `skill-templates/perplexity-research/SKILL.md` | Refactored — embedded full 3-Step Framework prompt inline |
-| `skill-templates/*/SKILL.md` (13 files) | Fixed YAML `name:` fields to match folder names |
-| `CHANGELOG.md` | Updated with entries for V6.3.0 through V6.6.0 |
+| File                                           | Change                                                                                                                                                 |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `system-prompt.md`                             | V6.3.0 / V6.4.0 / V6.4.1 / V6.5.0 / V6.6.0 upgrades — cold start protocol, memory system, perplexity research, UX refactor, skill name standardization |
+| `skill-templates/code-search/SKILL.md`         | Added Vertical Slicing Strategy section under Discovery Workflow                                                                                       |
+| `user-prompts/cold-start-context.md`           | Created — reusable cold-start discovery prompt for the Manager                                                                                         |
+| `README.md`                                    | Removed completed roadmap items, renumbered Hexagonal Architecture to #5                                                                               |
+| `mcp-memory-server/server.py`                  | Created — FastMCP server with store/read/search/list_namespaces/delete_memory tools                                                                    |
+| `opencode.json`                                | Added memory tool permissions                                                                                                                          |
+| `skill-templates/project-memory/SKILL.md`      | Created — companion skill for the memory MCP server                                                                                                    |
+| `user-prompts/perplexity-deep-research.md`     | Created — 3-Step Framework user prompt template for Perplexity                                                                                         |
+| `skill-templates/perplexity-research/SKILL.md` | Created — companion skill for the deep research loop                                                                                                   |
+| `skill-templates/perplexity-research/SKILL.md` | Refactored — embedded full 3-Step Framework prompt inline                                                                                              |
+| `skill-templates/*/SKILL.md` (13 files)        | Fixed YAML `name:` fields to match folder names                                                                                                        |
+| `CHANGELOG.md`                                 | Updated with entries for V6.3.0 through V6.6.0                                                                                                         |
 
 ## Individual Task Summaries
 

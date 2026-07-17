@@ -31,11 +31,13 @@ The refactored skill embeds the **entire 3-Step Framework prompt** directly insi
 This is a pure UX improvement. The standalone `user-prompts/perplexity-deep-research.md` is preserved for cases where the Manager wants to manually craft research prompts outside the agent loop.
 
 ### Files Modified
+
 - `skill-templates/perplexity-research/SKILL.md` — complete replacement with embedded full-prompt UX
 - `CHANGELOG.md` — added UX improvement entry under V6.5.0
 
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `5259b3f86620a6d6885b9b5cb3e423cf528824bf`
 <!-- END_GIT_DIFF -->

@@ -7,6 +7,7 @@
 ## Goal
 
 Ensure three-way consistency across all 27 skills in `skill-templates/`:
+
 1. **Folder name** matches the YAML `name:` frontmatter field in each `SKILL.md`
 2. **YAML `description:`** field matches the system prompt description for each skill
 3. **System prompt entry name** matches the folder name / YAML name
@@ -38,11 +39,13 @@ _OpenCode: Manually log your technical changes, file edits, and architectural re
 The skill loading system (both the `skill` tool and `<available_skills>` list) uses the YAML `name:` field as the canonical identifier. Previously, 13 skills had prefixed names (e.g. `backend-architecture-flask-python`) while their folders and system prompt entries used short names (e.g. `flask-python`). This mismatch would cause the `skill` tool to fail when the orchestrator instructed OpenCode to load a skill by its short name. The fix standardizes all three layers (folder, YAML name, system prompt entry) on the same short kebab-case identifier.
 
 **Files Modified:**
+
 - `skill-templates/*/SKILL.md` — YAML `name:` field in 13 files, markdown `#` headings restored in all 27 files
 - `system-prompt.md` — Added 2 missing skills, aligned all 27 descriptions with YAML counterparts
 
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `d6208c647d35c3baefec370c8e666d95906ce088`
 <!-- END_GIT_DIFF -->

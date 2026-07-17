@@ -27,9 +27,11 @@ Add a `delete_memory` tool to the Project Memory MCP server so stale/obsolete no
 ## OpenCode Execution Log & Reasoning
 
 ### Reasoning
+
 User requested a `delete_memory` tool since the MCP server only had store/read/search/list. Added the tool after `read_memory`, reusing the existing `_validate_and_resolve` for path safety. The function unlinks the file and cleans up empty namespace directories to prevent clutter. Updated the `project-memory` skill to instruct agents on when to delete (Manager explicitly revoking a rule). Also registered `delete_memory: allow` in `opencode.json` and updated the CHANGELOG tool count from 4 to 5.
 
 ### Files Changed
+
 - **Modified:** `mcp-memory-server/server.py` — added `delete_memory` tool
 - **Modified:** `opencode.json` — added `delete_memory: allow`
 - **Modified:** `skill-templates/project-memory/SKILL.md` — added "When to DELETE" section
@@ -37,11 +39,13 @@ User requested a `delete_memory` tool since the MCP server only had store/read/s
 - **Created:** `tasks/in-progress/51-add-memory-deletion.md` — this task file
 
 ### Verifications
+
 - Python syntax: PASS (py_compile)
 - Markdown formatting: PASS (prettier)
 
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `06904f7d0bc454ec6081f4dbbede08293bb8d9a6`
 <!-- END_GIT_DIFF -->

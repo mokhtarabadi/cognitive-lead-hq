@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [6.6.0] — 2026-07-17
+
+### Added
+
+- **Multi-Agent Brainstorming Protocol** (`system-prompt.md`) — new `<brainstorming_protocol>` section defining Phase 1.5, six expert personas (system_architect, security_engineer, product_manager, business_strategist, legal_advisor, critical_thinker), and the exact XML-tagged output schema for session reports.
+- **Standalone brainstorming user prompt** (`user-prompts/multi-agent-brainstorming.md`) — reusable XML-tagged prompt template for running the simulated 6-persona expert swarm in any chat environment (AI Studio, ChatGPT, Claude, Gemini). Includes role, system context, agentic reasoning, constraints, and output format blocks.
+- **`brainstorm-swarm` skill definition** — added to `<agent_skills_registry>` in system-prompt.md under Global Workflow Skills.
+- **Brainstorming trigger rule** — new Step 3 in `<user_input_processing>`: if the Manager requests brainstorming or the input exhibits cross-disciplinary ambiguity, halt and trigger Phase 1.5 instead of blind execution.
+
+### Changed
+
+- **System prompt upgraded to V6.6.0** — `<system_version>` already at 6.6.0. `brainstorm-swarm` added to `<agent_skills_registry>`. `<user_input_processing>` expanded with brainstorming trigger. New `<brainstorming_protocol>` section added.
+- **AGENTS.md guardrails** — added directive: trigger Multi-Agent Brainstorming Loop when Manager requests brainstorming or cross-disciplinary ambiguity is detected. Interpret `<brainstorming_session>` results as non-functional guidelines.
+
 ## [6.5.1] — 2026-07-17
 
 ### Fixed

@@ -216,6 +216,8 @@ Use this when a project has no `AGENTS.md` yet (new project onboarding).
   -> **Do** utilize the `debug-instrumentation` skill to inject strategic logs and trace the runtime execution path.
 - **Don't** execute raw, informal, or non-English (Farsi) prompts directly.
   -> **Do** load the `prompt-refactor` skill to translate and expand the intent into an elite English spec first. (Note: If you receive a standard XML task block, skip this and execute normally).
+- **Don't** attempt to resolve cross-disciplinary ambiguity within a single persona.
+  -> **Do** trigger the Multi-Agent Brainstorming Loop if the Manager explicitly requests brainstorming or a task exhibits cross-disciplinary ambiguity. Interpret the `<brainstorming_session>` results in backlog tasks as non-functional guidelines that govern execution.
 
 ## Documentation Sync Rules
 
@@ -284,7 +286,7 @@ The `AGENTS.md` file MUST explicitly contain the following operational constrain
 - **Project Skill Loading**: `AGENTS.md` MUST explicitly instruct OpenCode to load every available skill matching the project's tech stack before task implementation.
 - **Complex Debugging**: Agents MUST be instructed not to guess blindly on complex bugs, but instead utilize the `debug-instrumentation` skill.
 - **Gatekeeper Validation (Halt Protocol)**: Agents MUST be instructed to evaluate tasks against project rules and HALT with a warning if the Orchestrator provides non-compliant instructions.
-- **Bilingual Prompt Refactoring**: Agents MUST be instructed not to execute raw, informal, or non-English prompts directly. The `prompt-refactor` skill must be loaded to translate and expand intent first. Standard XML task blocks are exempt.
+- **Bilingual Prompt Refactoring & Brainstorming Protocol**: Agents MUST be instructed not to execute raw, informal, or non-English prompts directly. The `prompt-refactor` skill must be loaded, or the Phase 1.5 Multi-Agent Brainstorming Protocol triggered, to translate and expand intent first. Standard XML task blocks are exempt.
 - **Context Bootstrapping**: `AGENTS.md` MUST explicitly instruct OpenCode: "At the start of every task, you MUST call `search_memory` or `list_namespaces` to load any hidden project quirks relevant to your domain before implementing."
 
 ### Resolution Protocol
