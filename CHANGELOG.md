@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [6.5.1] — 2026-07-17
+
+### Fixed
+
+- **Skill name standardization** — Aligned YAML `name:` fields across all 27 `skill-templates/*/SKILL.md` files to match folder names exactly. Removed architecture-prefixed names (`backend-architecture-*`, `frontend-architecture-*`, `mobile-architecture-*`) and `stitch::extract-design-md` in favor of clean short names matching each folder.
+- **System prompt consistency** — Added missing `archive-tasks` and `migrate-kanban` to the skills registry. Aligned all 27 skill descriptions in `<agent_skills_registry>` verbatim with their YAML `description:` counterparts.
+
+### Changed
+
+- **Milestone 3 archive** — Compacted tasks 49–55 into `docs/history/milestone-3-summary.md` and moved completed task files to `tasks/archive/`.
+
 ## [6.5.0] — 2026-07-16
 
 ### Added
