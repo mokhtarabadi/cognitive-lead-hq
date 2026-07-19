@@ -103,6 +103,9 @@ Copy the entire XML block below and paste it into a fresh AI Studio / Gemini / C
           </recommendations>
         </response>
       </persona_responses>
+      <tradeoffs>
+        <tradeoff factor="e.g., UX vs. Security">Explicitly weigh the technical debt and business trade-offs here.</tradeoff>
+      </tradeoffs>
       <conflict_resolution>
         <conflict persona_1="..." persona_2="...">
           <issue>Describe the contradictory advice.</issue>

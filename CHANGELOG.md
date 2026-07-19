@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [6.7.1] — 2026-07-19
+
+### Changed
+
+- **Multi-Agent Brainstorming Enhancement** — Added explicit `<tradeoffs>` and `<conflict_resolution>` blocks to the XML schema in both `system-prompt.md` and `user-prompts/multi-agent-brainstorming.md`. This forces an iterative debate layer where personas explicitly "hash out" compromises, producing a solution magnitudes superior to siloed outputs.
+
 ## [6.7.0] — 2026-07-19
 
 ### Added
