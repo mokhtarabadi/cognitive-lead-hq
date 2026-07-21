@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [6.8.0] — 2026-07-21
+
+### Added
+
+- **CRITICAL RULE 4 (File Staging)** — Added to `<bash_phase>` of `<opencode_implementation_task_template>` in `system-prompt.md`. Forces the Orchestrator to explicitly include `git mv tasks/backlog/XX-task.md tasks/in-progress/XX-task.md` as the first bash command when the active task resides in `tasks/backlog/`. This resolves a deadlock where Zero-Autonomous-Commit prevented task file promotion when the Orchestrator forgot to write the command.
+
 ## [6.7.1] — 2026-07-19
 
 ### Changed
