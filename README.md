@@ -7,10 +7,10 @@
 
 The centralized **Headquarters** for the Cognitive Lead AI multi-agent system — a collection of hallucination-resistant system prompts, MCP servers, and strict Agent Skills (SKILL.md) built for [OpenCode](https://opencode.ai).
 
-> **Want a quick install?** Copy this line and give it to OpenCode:
+> **Want a quick install?** Copy this line and give it to any AI agent (OpenCode, Cline, etc.):
 >
 > ```
-> Please read the LLM.txt file in this project and follow its instructions to auto-configure everything for me.
+> Please read https://raw.githubusercontent.com/mokhtarabadi/cognitive-lead-hq/main/LLM.txt and follow its instructions to auto-configure everything for me.
 > ```
 
 ---
