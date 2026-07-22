@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [6.9.1] — 2026-07-21
+
+### Added
+
+- **Deterministic Tool Orchestration (Anti-Lazy Rule)** — Added to `<constraints>` in `system-prompt.md`. Forces singular, deterministic MCP tool commands without "OR" fallback options, preventing LLM agents from bypassing tools.
+- **Isolated Closure Mandate** — Added to execution workflow step 8. Forbids bundling `git mv` to completed with unrelated documentation tasks.
+
+### Fixed
+
+- **XML closing tag indentation** — Fixed leading whitespace on 5 closing XML tags (`</manager_profile>`, `</leadership_and_language_protocol>`, `</agent_skills_registry>`, `</user_input_processing>`, `</agentic_reasoning>`).
+- **Code Reviewer strict tool enforcement** — Added "without alternative options" wording to force deterministic MCP tool execution.
+
 ## [6.9.0] — 2026-07-21
 
 ### Added
