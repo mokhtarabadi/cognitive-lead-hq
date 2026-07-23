@@ -88,6 +88,13 @@ Create a single `@RestControllerAdvice` class that catches all exceptions.
 - Return a consistent error response body (`{ error, message, status, timestamp }`).
 - Log the stack trace at `ERROR` level for 5xx; `WARN` for 4xx.
 
+## Universal DateTime Governance
+
+- **DTOs:** `LocalDateTime` and `Date` are BANNED in API DTOs. Use `java.time.Instant` for absolute timestamps and `OffsetDateTime` for human-readable boundaries. Use `@JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ssXXX")` on `OffsetDateTime` fields.
+- **Domain/Entities:** Store `java.time.Instant` in entity fields mapped to `TIMESTAMP WITH TIME ZONE` columns.
+- **Clock Injection:** Inject `java.time.Clock` via constructor (`@RequiredArgsConstructor`). Never call `Instant.now()` or `LocalDateTime.now()` directly in business logic — always use `clock.instant()`.
+- **API Serialization:** Configure `spring.jackson` to serialize `Instant` as epoch milliseconds and `OffsetDateTime` as ISO-8601 string with offset.
+
 ## Testing Strategies
 
 | Layer            | Test Type   | Framework         | File Naming                |

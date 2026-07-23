@@ -61,6 +61,13 @@ Use NestJS constructor injection exclusively.
 **Global Error Handling:**
 Do not use inline `try/catch` for standard HTTP errors. Throw NestJS exceptions (`ConflictException`, `NotFoundException`) and let the global filter handle the JSON formatting.
 
+## Universal DateTime Governance
+
+- **Prisma Schema:** Use `DateTime` fields with `@db.Timestamptz()` in the Prisma schema to enforce UTC storage. Never use `@db.Date` or `@db.Timestamp` without timezone.
+- **API DTOs (class-validator):** Use `@IsString()` for ISO-8601 strings or `@IsInt()` for epoch ms. Banned: `Date` type in DTOs (serialization is unreliable cross-timezone).
+- **Clock Injection:** Create a `ClockProvider` service (`@Injectable`) wrapping `new Date()` — inject it into feature services. Never call `new Date()` or `Date.now()` directly in business logic.
+- **API Format:** All API responses MUST transmit datetimes as ISO-8601 UTC strings (`2026-07-23T14:30:00.000Z`) or epoch ms (number). Never transmit naive date strings.
+
 ## Testing Strategies
 
 | Layer            | Test Type | Framework                 | File Naming               |

@@ -41,6 +41,13 @@ project/
 - **State**: Use `Zustand`. Avoid Redux.
 - **Safe Areas**: Wrap top-level screen views in `SafeAreaView` from `react-native-safe-area-context`.
 
+## Universal DateTime Governance
+
+- **API Boundary:** All datetime values received from the backend are epoch ms or ISO-8601 UTC strings. Normalize to epoch ms immediately upon receipt.
+- **Client Display:** Format for the user's locale using `Intl.DateTimeFormat` with `timeZone` from `expo-localization`. Never hardcode a timezone.
+- **State:** Store timestamps as epoch ms (number) in Zustand stores. Only convert to localized strings in component render functions.
+- **Offline Queue:** Timestamps in offline mutation queues must be epoch ms to avoid timezone dependency when the device's locale changes.
+
 ## Testing Strategies
 
 - **Framework**: `Jest` + `@testing-library/react-native`.

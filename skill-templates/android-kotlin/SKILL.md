@@ -42,6 +42,13 @@ Every screen uses a single `ViewModel` annotated with `@HiltViewModel`. The View
 **Dependency Injection:**
 Hilt is mandatory. Do not write manual dependency factories.
 
+## Universal DateTime Governance
+
+- **UTC at Rest:** Use `java.time.Instant` for all entity and DTO fields representing absolute timestamps. Store as `TEXT` (ISO-8601) or `INTEGER` (epoch ms) in SQLDelight/Room.
+- **Clock Injection:** Inject `java.time.Clock` via Hilt (`@Provides @Singleton fun clock(): Clock = Clock.systemUTC()`). ViewModels and UseCases receive `Clock` via constructor. Banned: `Instant.now()`, `System.currentTimeMillis()`, `LocalDateTime.now()`.
+- **API Boundary:** Transmit datetimes as epoch ms (Long) or ISO-8601 strings with offset. Parse with `Instant.parse()` or `Instant.ofEpochMilli()`. Never use `SimpleDateFormat` or `java.util.Date`.
+- **UI Display:** Format for user locale using `java.time.format.DateTimeFormatter` with explicit `ZoneId`. Never use the device's default timezone implicitly.
+
 ## Testing Strategies
 
 | Layer           | Test Type                  | Framework                     |

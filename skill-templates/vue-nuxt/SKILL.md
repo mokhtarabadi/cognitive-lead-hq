@@ -52,6 +52,13 @@ project/
 - **State Management**: Use `Pinia` for global state. Avoid Vuex.
 - **Data Fetching**: Use `useFetch` or `useAsyncData` for SSR-friendly data fetching. Do not use standard `fetch` or `axios` directly in components.
 
+## Universal DateTime Governance
+
+- **API Boundary:** All datetimes from the backend are epoch ms or ISO-8601 UTC strings. Normalize to epoch ms in Pinia stores.
+- **Client Display:** Format using `Intl.DateTimeFormat` with explicit `timeZone` in a composable (`useDateTimeFormatter`). Never rely on the browser's locale alone.
+- **SSR Safety:** Use `useAsyncData` with `dayjs.utc()` for datetime parsing in server-side code. Never call `new Date()` in `setup()` without UTC normalization.
+- **State:** Timestamps in Pinia stores must be epoch ms (number). Convert to localized strings only in template computed properties.
+
 ## Testing Strategies
 
 - **Framework**: `Vitest` + `Vue Test Utils`.

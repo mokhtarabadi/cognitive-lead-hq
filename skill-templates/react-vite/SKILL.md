@@ -43,6 +43,13 @@ src/
 - **Strict typing**: Use TypeScript interfaces for component props (`interface ButtonProps {}`).
 - **Performance**: Use `React.memo`, `useMemo`, and `useCallback` only when profiling indicates a bottleneck, not preemptively.
 
+## Universal DateTime Governance
+
+- **API Boundary:** Receive datetimes as epoch ms (number) or ISO-8601 UTC strings from the backend. Never parse timezone-naive date strings.
+- **Client Formatting:** Use `Intl.DateTimeFormat` with explicit `timeZone` option for user-facing display. Never rely on the browser's default timezone detection alone.
+- **Utilities:** Use `dayjs` with `dayjs/plugin/utc` for UTC normalization. Store all internal state as epoch ms. Only convert to localized strings at render time.
+- **State:** Timestamps in Zustand stores must be epoch ms (number). Never store `Date` objects in global state.
+
 ## Testing Strategies
 
 - **Framework**: `Vitest` + `React Testing Library`.

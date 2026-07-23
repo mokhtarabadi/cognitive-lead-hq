@@ -39,6 +39,13 @@ app/
 **ORM to Schema Separation:** Never return SQLAlchemy models directly from endpoints. Always return Pydantic schemas to ensure data validation and hide sensitive fields.
 **Async First:** Use `async def` for endpoints and asynchronous database drivers (e.g., `asyncpg` for SQLAlchemy) to maximize throughput.
 
+## Universal DateTime Governance
+
+- **Timezone-Aware Datetimes:** Use `datetime.now(timezone.utc)` exclusively. Banned: bare `datetime.now()` and `datetime.utcnow()` which produce naive datetimes.
+- **Pydantic Schemas:** Use `AwareDatetime` (Pydantic V2) for all datetime fields in request/response schemas. Never use `datetime` without timezone info.
+- **Clock Abstraction:** Define a `ClockProvider` class with a `def now() -> datetime` method. Inject it via `Depends()` in service layers. Banned: direct `datetime.now()` calls in domain/business logic.
+- **API Format:** Transmit datetimes as ISO-8601 with offset (`2026-07-23T14:30:00+00:00`) or Unix epoch milliseconds (int).
+
 ## Testing Strategies
 
 | Layer        | Test Type   | Framework                  | File Naming            |

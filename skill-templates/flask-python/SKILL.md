@@ -88,6 +88,12 @@ Create a `config.py` with at least three classes: `Config` (base), `DevelopmentC
 - Pin dependency versions in `requirements.txt`.
 - Never commit `.venv/` or `__pycache__/` to version control.
 
+## Universal DateTime Governance
+
+- **Timezone-Aware Datetimes:** Use `datetime.now(timezone.utc)` exclusively. Banned: bare `datetime.now()` and `datetime.utcnow()`.
+- **Clock Abstraction:** Create a `ClockProvider` class (`def now() -> datetime`) injected into services. Never call `datetime.now()` directly in business logic.
+- **API Format:** Transmit datetimes as ISO-8601 with offset (`2026-07-23T14:30:00+00:00`) or Unix epoch milliseconds.
+
 ## Testing Strategies
 
 | Layer        | Test Type   | Framework                  | File Naming            |

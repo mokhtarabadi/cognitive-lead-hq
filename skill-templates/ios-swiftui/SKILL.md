@@ -40,6 +40,13 @@ App/
 - **Networking**: Use modern `async/await` (`URLSession.shared.data(from:)`). Avoid legacy closures/completion blocks.
 - **Concurrency**: Use `@MainActor` on ViewModels to ensure UI updates happen on the main thread.
 
+## Universal DateTime Governance
+
+- **UTC at Rest:** Store all `Date` values in UTC. Use `ISO8601DateFormatter()` with `.withInternetDateTime` and `.withFractionalSeconds` options for serialization.
+- **Clock Injection:** Define a `ClockProvider` protocol with `func now() -> Date`. Default implementation returns `Date()`. Inject via `@Environment` or initializer. Banned: calling `Date()` directly in ViewModels or business logic.
+- **API Boundary:** Transmit datetimes as epoch ms (Int64) or ISO-8601 UTC strings. Use `JSONEncoder.DateEncodingStrategy.millisecondsSince1970` or custom `DateFormatter`.
+- **UI Display:** Format with `DateFormatter` using explicit `timeZone = TimeZone(secondsFromGMT: 0)` for server times, then convert to user's local timezone. Never mix timezone-ambiguous `Date` objects.
+
 ## Testing Strategies
 
 - **Framework**: `XCTest` + `XCUITest`.

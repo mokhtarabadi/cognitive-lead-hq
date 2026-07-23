@@ -77,6 +77,13 @@ func WithTimeout(t time.Duration) Option {
 Never panic. Return errors explicitly. Wrap errors with context using `%w` so the AI agent reading the logs can trace the exact failure path:
 `return fmt.Errorf("redis cache miss for number %s: %w", number, err)`
 
+## Universal DateTime Governance
+
+- **UTC Storage:** All `time.Time` fields in domain structs MUST use `time.Now().UTC()`. Banned: bare `time.Now()`.
+- **Clock Interface:** Define a `Clock` interface (`Now() time.Time`) in the `core/ports` package. Default implementation uses `time.Now().UTC()`. Inject via Uber Fx. Banned: calling `time.Now()` directly in application/domain code.
+- **gRPC Proto:** Use `google.protobuf.Timestamp` (always UTC) in `.proto` files. Never send raw Unix ints over gRPC unless the proto explicitly defines an `int64` field for epoch ms.
+- **Redis Cache:** Store epoch ms (int64) in Redis for time-based values. Never store formatted date strings in cache keys or values.
+
 ## Testing Strategies
 
 | Layer       | Test Type   | Framework / Tools                                     |

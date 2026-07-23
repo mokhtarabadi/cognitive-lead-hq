@@ -6,10 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [6.11.0] — 2026-07-23
+
+### Added
+
+- **SOLID Programming Mandate** (`<solid_programming_mandate>`) — New block in `system-prompt.md` codifying the 5 SOLID principles (SRP, OCP, LSP, ISP, DIP) plus Pragmatic Guardrails (No-Zero-Abstraction Dogma, 3-Implementation Rule, YAGNI, Occam's Razor) to prevent over-engineering while enforcing strict architecture.
+- **Universal DateTime Rules** (`<universal_datetime_rules>`) — New block in `system-prompt.md` enforcing: UTC at rest, ISO-8601 with Offset / Epoch ms at API boundaries, SOLID Clock Injection (banning unmockable clock calls), Dual-Representation for future calendar events, and `TZ=UTC` infrastructure enforcement.
+- **`docs/conventions.md` DateTime & SOLID sections** — Dedicated documentation of the Universal DateTime Standard and SOLID Programming Guidelines for quick reference.
+- **12 Skill Template DateTime Governance** — Injected stack-specific datetime rules into all skill templates covering Spring Boot, Python FastAPI, Flask, NestJS Prisma, Go Gin, Go Hexagonal gRPC, React Vite, Next.js, React Native Expo, Vue Nuxt, Android Kotlin, and iOS SwiftUI.
+
 ### Changed
 
-- **LLM.txt** — Refactored into a standalone, self-contained global auto-installation script. Now clones the repository to `/tmp/cognitive-lead-hq`, copies MCP servers and skills globally to `~/.config/opencode/`, configures `opencode.json` with absolute paths, and cleans up the temporary clone. Added `git` prerequisite check alongside `uv`. All operations are independent of the user's current working directory.
-- **README.md** — Simplified Quick Start to a single copy-paste prompt instructing OpenCode to `webfetch` the raw `LLM.txt` from GitHub and auto-configure. Removed manual setup instructions.
+- **System prompt upgraded to V6.11.0** — `<system_version>` bumped from 6.9.1 to 6.11.0.
 
 ## [6.10.0] — 2026-07-21
 

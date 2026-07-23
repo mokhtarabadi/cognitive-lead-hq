@@ -106,6 +106,13 @@ Server Component (fetches data) → passes data as props → Client Component (r
 - Use `next/image` for images (provides `alt` enforcement).
 - Run `@axe-core/react` or the Lighthouse a11y audit on every page.
 
+## Universal DateTime Governance
+
+- **Server Actions / API Routes:** Process all datetimes in UTC. Use `dayjs.utc()` for parsing. Never rely on the server's local timezone.
+- **Client Components:** Receive epoch ms or ISO-8601 UTC strings as props from Server Components. Format for display using `Intl.DateTimeFormat` with an explicit `timeZone` option in a `useFormatter()` hook.
+- **Database (Prisma):** Use `DateTime` with `@db.Timestamptz()`. Store as UTC. Query with UTC `Date` objects only.
+- **Clock Injection (Server):** In Server Actions, use a `ClockProvider` service wrapping `new Date()` for testability. Never hardcode `new Date()` in mutation logic.
+
 ## Testing Strategies
 
 | Layer             | Test Type   | Framework                | File Naming            |
