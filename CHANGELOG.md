@@ -6,9 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [6.12.0] — 2026-07-23
+
+### Added
+
+- **audit-agents conventions.md governance** — The `audit-agents` skill now auto-generates and audits `docs/conventions.md` with Universal DateTime Standard and SOLID Programming Guidelines. Mode 1 (Phase 0) generates conventions.md alongside AGENTS.md. Mode 2 audits and patches conventions.md if missing or incomplete. Agent Audit Summary expanded with conventions.md compliance status.
+
 ### Changed
 
-- **`audit-agents` skill** — Upgraded to enforce `docs/conventions.md` governance. Added conventions.md validation to Target Audit Criteria. Mode 1 now generates a complete `docs/conventions.md` template with Universal DateTime Standard and SOLID Programming Guidelines. Mode 2 audits both `AGENTS.md` and `conventions.md`, patching any missing or incomplete sections. Agent Audit Summary output expanded with `conventions.md` compliance status.
+- **Milestone 4 archive** — Compacted tasks 56–64 into `docs/history/milestone-4-summary.md` and moved completed task files to `tasks/archive/`.
+- **System prompt upgraded to V6.12.0** — `<system_version>` bumped from 6.11.0 to 6.12.0.
 
 ## [6.11.0] — 2026-07-23
 
