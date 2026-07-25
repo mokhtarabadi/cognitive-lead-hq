@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [7.0.1] — 2026-07-25
+
+### Changed
+
+- **Milestone 5 archive** — Compacted task 65 into `docs/history/milestone-5-summary.md` and moved completed task file to `tasks/archive/`.
+
 ## [7.0.0] — 2026-07-25
 
 ### Changed
