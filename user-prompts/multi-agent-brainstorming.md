@@ -1,6 +1,6 @@
 # Multi-Agent Brainstorming Protocol — Standalone Prompt
 
-Copy the entire XML block below and paste it into a fresh AI Studio / Gemini / ChatGPT / Claude session to run the simulated 6-persona expert swarm on your problem.
+Copy the entire XML block below and paste it into a fresh ChatGPT / Claude / Hugging Face / Grok / any LLM platform session to run the simulated 6-persona expert swarm on your problem.
 
 ```xml
 <brainstorming_session>
@@ -126,7 +126,7 @@ Copy the entire XML block below and paste it into a fresh AI Studio / Gemini / C
 
 ## Usage Instructions
 
-1. **Open a fresh session** in AI Studio, ChatGPT, Claude, or Gemini.
+1. **Open a fresh session** in ChatGPT, Claude, Hugging Face, Grok, or any LLM platform.
 2. **Copy the entire XML block** above and paste it as your prompt.
 3. **Replace the `<problem_to_analyze>`** section with your actual problem.
 4. **Run the prompt**. The AI will simulate all six personas independently and produce a synthesized recommendation.

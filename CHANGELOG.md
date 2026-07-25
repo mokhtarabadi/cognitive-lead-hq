@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [7.0.0] — 2026-07-25
+
+### Changed
+
+- **Platform-Agnostic Rebrand:** Removed all hardcoded references to "Google AI Studio" and "Gemini" from active project files. The workflow is now entirely vendor-neutral, relying on "Orchestrator" terminology. Covers system-prompt.md, README.md, AGENTS.md, skill-templates/, and user-prompts/.
+- System prompt version bumped to 7.0.0.
+
 ## [6.12.0] — 2026-07-23
 
 ### Added

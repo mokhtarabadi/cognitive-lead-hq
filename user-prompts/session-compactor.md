@@ -1,6 +1,6 @@
 # Reusable User Prompt: Session Context Compactor & Restoration Generator
 
-**How to use:** When your AI Studio context window becomes heavily loaded (e.g., approaching 1M tokens), copy the entire text below this block, paste it into the active chat, and let the AI generate your compact restoration report. Then, copy that generated report, open a brand-new blank AI Studio session, and paste it to resume work with 0% context loss and a 99% reduction in active token load.
+**How to use:** When your Orchestrator context window becomes heavily loaded (e.g., approaching 1M tokens), copy the entire text below this block, paste it into the active chat, and let the AI generate your compact restoration report. Then, copy that generated report, open a brand-new blank Orchestrator session, and paste it to resume work with 0% context loss and a 99% reduction in active token load.
 
 --- COPY BELOW THIS LINE TO COMPACT SESSIONS ---
 
@@ -9,7 +9,7 @@ You are an elite Context Compaction Specialist and Systems Archivist. Your objec
 </role>
 
 <system_context>
-Our current AI Studio development session is reaching its token limit. To preserve the complete operational context without carrying forward millions of redundant conversational tokens, we must generate a dense, stateless checkpoint. This checkpoint will be loaded into a brand-new, blank session to resume work with zero context loss.
+Our current Orchestrator development session is reaching its token limit. To preserve the complete operational context without carrying forward millions of redundant conversational tokens, we must generate a dense, stateless checkpoint. This checkpoint will be loaded into a brand-new, blank session to resume work with zero context loss.
 </system_context>
 
 <agentic_reasoning>

@@ -1,11 +1,11 @@
 ---
 name: code-search
-description: Mandatory workflow for exploring the codebase and gathering context for AI Studio.
+description: Mandatory workflow for exploring the codebase and gathering context for the Orchestrator.
 ---
 
 # Code Search & Discovery Strategy
 
-You are the Executor. Your job is to extract codebase context so the Manager can upload it to the Orchestrator (Google AI Studio).
+You are the Executor. Your job is to extract codebase context so the Manager can upload it to the Orchestrator.
 
 **CRITICAL GUARDRAIL:** You MUST NOT read, analyze, or process the generated reports yourself. You are strictly a data gatherer in this phase.
 
@@ -23,7 +23,7 @@ You are the Executor. Your job is to extract codebase context so the Manager can
 
 6. **Output Message:** Output the following exact message to the Manager:
    > "✅ Discovery complete. I have compiled the context report here: `[INSERT_FILE_PATH]`.
-   > **Manager:** Please upload this file to AI Studio for the Orchestrator's review."
+   > **Manager:** Please upload this file to the Orchestrator for review."
 
 ---
 
@@ -33,7 +33,7 @@ When the Orchestrator requests context for a **specific feature module** (e.g., 
 
 1. **Target the Slice:** Run `custom_context_get_directory_tree` on the specific feature directory only — not the whole repo.
 2. **Extract Signatures:** Run `custom_context_extract_signatures` on all files within that slice to map its structural surface without full body reads.
-3. **Core SOP Files (Mandatory):** Regardless of the slice, **always** append the full text of `AGENTS.md`, `DESIGN.md`, and `docs/*.md` to the final context report. This ensures the AI Studio Brain is always grounded in the project's global rules and design system.
+3. **Core SOP Files (Mandatory):** Regardless of the slice, **always** append the full text of `AGENTS.md`, `DESIGN.md`, and `docs/*.md` to the final context report. This ensures the Orchestrator Brain is always grounded in the project's global rules and design system.
 4. **Dependency Trace:** If the slice imports from other local modules (e.g., shared `lib/` or `core/` packages), trace and include signatures for those dependencies too.
 5. **Compile:** Call `custom_context_read_source_files` only for the slice's key files and the mandatory Core SOP files.
 
@@ -50,7 +50,7 @@ When the Orchestrator requests context for a **specific feature module** (e.g., 
 | `extract_signatures` (tree-sitter) | **Very low** — only signature lines | **High** — AST-parsed, no regex blind spots | Instant                |
 | `read_source_files` (full body)    | **High** — entire file bodies       | N/A (full content)                          | Slower for large files |
 
-For repositories with many files, extracting signatures first lets you decide which 2–3 files genuinely need full reading. This directly prevents context bloat in the AI Studio session.
+For repositories with many files, extracting signatures first lets you decide which 2–3 files genuinely need full reading. This directly prevents context bloat in the Orchestrator session.
 
 ### Languages Supported (Tree-Sitter AST)
 

@@ -58,4 +58,4 @@ Use the output as the zero-padded task number. If `tasks/` doesn't exist, create
    <!-- END_GIT_DIFF -->
    ```
 
-5. **Halt and Handover:** DO NOT execute the task. Print the exact message: "✅ The task file has been created at `tasks/backlog/[filename]` and is ready to be sent to AI Studio." and STOP.
+5. **Halt and Handover:** DO NOT execute the task. Print the exact message: "✅ The task file has been created at `tasks/backlog/[filename]` and is ready to be sent to the Orchestrator." and STOP.

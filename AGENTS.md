@@ -32,7 +32,7 @@ This repository is the Headquarters for the Cognitive Lead AI multi-agent system
 - **Don't** make UI/UX changes without consulting `DESIGN.md`.
   -> **Do** enforce the color palette, typography, spacing, and component styling defined in `DESIGN.md`.
 - **Don't** execute Git commands like `git add`, `git commit`, or `git mv` autonomously or try to guess when to stage code.
-  -> **Do** execute Git commands ONLY when explicitly instructed by an AI Studio task block. Otherwise, rely on the `custom_context_stage_and_inject_diff` MCP tool.
+  -> **Do** execute Git commands ONLY when explicitly instructed by an Orchestrator task block. Otherwise, rely on the `custom_context_stage_and_inject_diff` MCP tool.
 - **Don't** guess blindly when facing complex bugs, deadlocks, race conditions, or silent failures.
   -> **Do** utilize the `debug-instrumentation` skill to inject strategic logs and trace the runtime execution path.
 - **Don't** execute raw, informal, or non-English (Farsi) prompts directly.
@@ -81,4 +81,4 @@ When finishing a task, you MUST execute these exact steps in order:
 2. **Move to Completed:** If the task is finished and approved, move the task file from its current Kanban directory to `tasks/completed/` and update its status to closed.
 3. **Write your Summary:** Manually write your architectural reasoning, local TODO checks, and execution notes into the active task file under "OpenCode Execution Log".
 4. **Call MCP Tool:** Call the `custom_context_stage_and_inject_diff` MCP tool passing the task file path to automatically stage the files and inject the factual code diff. DO NOT execute any `git commit` commands afterward — use `custom_context_commit_and_clean_task` instead.
-5. **Notify Manager:** Output exactly: "Task ready. Manager, please copy the contents of `tasks/completed/XX-task-name.md` and send it back to the AI Studio Brain for review."
+5. **Notify Manager:** Output exactly: "Task ready. Manager, please copy the contents of `tasks/completed/XX-task-name.md` and send it back to the Orchestrator Brain for review."

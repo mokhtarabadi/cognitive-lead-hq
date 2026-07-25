@@ -27,14 +27,14 @@ For full platform-specific instructions (Windows, macOS, Linux), see [`LLM.txt`]
 
 This system relies on a strict separation of concerns:
 
-- **The Brain (Google AI Studio):** You paste the `system-prompt.md` here. It acts as the Orchestrator. It has _no_ direct access to your files or terminal. It thinks, plans, and generates XML task blocks.
+- **The Brain (The Orchestrator):** You paste the `system-prompt.md` here. It acts as the Orchestrator. It has _no_ direct access to your files or terminal. It thinks, plans, and generates XML task blocks.
 - **The Hands (OpenCode):** Runs locally on your machine. You paste the XML task blocks here. It executes file changes, runs bash commands, triggers Agent Skills, and generates task summaries to feed back to the Brain.
-- **The QA Loop:** After OpenCode implements a task, the Manager pastes the task file back to AI Studio. The QA Engineer persona performs adversarial testing — actively trying to break the logic. If QA fails, a fix task is generated. If QA passes, the Code Reviewer does a final architectural review before the task is committed and closed.
+- **The QA Loop:** After OpenCode implements a task, the Manager pastes the task file back to the Orchestrator. The QA Engineer persona performs adversarial testing — actively trying to break the logic. If QA fails, a fix task is generated. If QA passes, the Code Reviewer does a final architectural review before the task is committed and closed.
 
 ### Scenario A: Phase 0 for a Brand New Project
 
 1. Initialize an empty repository on your machine and start OpenCode.
-2. In AI Studio, paste the `system-prompt.md` and say: _"This is a new project. Start Phase 0."_
+2. In the Orchestrator, paste the `system-prompt.md` and say: _"This is a new project. Start Phase 0."_
 3. Tell the AI your desired tech stack (e.g., Next.js, Node.js).
 4. The AI will generate an implementation task instructing OpenCode to:
    - Copy the relevant stack `SKILL.md` template from your global skills directory.
@@ -44,10 +44,10 @@ This system relies on a strict separation of concerns:
 ### Scenario B: Phase 0 for an Existing Project (Never used this workflow)
 
 1. Open your existing project in OpenCode.
-2. In AI Studio, paste the `system-prompt.md` and say: _"This is an existing project. Start Phase 0."_
+2. In the Orchestrator, paste the `system-prompt.md` and say: _"This is an existing project. Start Phase 0."_
 3. The AI will immediately output an `<opencode_discovery_task>`. Paste this into OpenCode.
 4. OpenCode will use its MCP tools to map the directory tree and read core files into a `context-reports/` markdown file.
-5. Copy the contents of that report and paste it back into AI Studio.
+5. Copy the contents of that report and paste it back into the Orchestrator.
 6. The AI will analyze your existing architecture and design, then generate an implementation task to create `AGENTS.md` (<150 lines), `DESIGN.md` (if UI exists), `opencode.json`, and the `tasks/` directory, locking in your current conventions.
 
 ### Scenario C: Migrating a V4 Project to V5
@@ -56,7 +56,7 @@ If you have an older project using global `STATE.md` and `TODO.md` files:
 
 1. Open the project locally. Delete `STATE.md` and `TODO.md`.
 2. Create a `tasks/` directory.
-3. In AI Studio, paste the **new V5 `system-prompt.md`**.
+3. In the Orchestrator, paste the **new V5 `system-prompt.md`**.
 4. Tell the AI: _"Migrate this project from V4 to V5. Generate a task to update `AGENTS.md` and move existing roadmap items into `tasks/01-v5-migration.md`."_
 5. Ensure the `task-generator` and `audit-agents` skills are imported into `.opencode/skills/` (or installed globally).
 
@@ -69,7 +69,7 @@ To leave feedback directly on the generated Markdown plans:
 1. Copy the plan into your editor.
 2. Add `> 📝 **MANAGER REVIEW:**` blockquotes immediately below the section you want to change.
 3. Alternatively, use standard Markdown strikethrough (`~~text~~`) and bold (`**text**`) for direct edits.
-4. Paste the annotated Markdown back to AI Studio.
+4. Paste the annotated Markdown back to the Orchestrator.
 
 The AI will process your inline feedback, generate a revised plan, and wait for your final "Approved" signal before writing code.
 
@@ -290,10 +290,10 @@ To make the `code-search` skill (or any other reusable skill) available in _ever
 ## Key V5 Changes
 
 - **Decentralized task architecture** — global `STATE.md` and `TODO.md` replaced by isolated task files in `tasks/` directory.
-- **Brain/Hands separation codified** — `system-prompt.md` explicitly declares AI Studio as the text-only Orchestrator and OpenCode as the local execution agent.
+- **Brain/Hands separation codified** — `system-prompt.md` explicitly declares the Orchestrator as the text-only Brain and OpenCode as the local execution agent.
 - **New Agent Skills** — `task-generator` for creating numbered task files and `audit-agents` for enforcing `AGENTS.md` workflows.
 - **Phase 0 UI/UX traversal** — Project Planner now instructs OpenCode to perform deep source code analysis for `DESIGN.md` generation.
-- **Runtime model updated** — Gemini 3.5 Flash renamed to Gemini throughout the system prompt.
+- **Runtime model updated** — Model identifier cleaned up for platform-agnostic use.
 
 ## Key V6 Changes
 

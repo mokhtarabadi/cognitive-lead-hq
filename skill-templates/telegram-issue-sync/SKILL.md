@@ -291,7 +291,7 @@ Once all approved tasks are generated, update `last_processed_message_id` to the
 After the entire cycle completes, output exactly:
 
 ```
-Task ready. Manager, please copy the contents of tasks/backlog/{NEXT_ID}-task.md and send it back to the AI Studio Brain for review.
+Task ready. Manager, please copy the contents of tasks/backlog/{NEXT_ID}-task.md and send it back to the Orchestrator Brain for review.
 ```
 
 ## Data Integrity Guarantees

@@ -245,7 +245,7 @@ Use this when a project has no `AGENTS.md` yet (new project onboarding).
 - **Don't** [another anti-pattern]
   -> **Do** [preferred alternative]
 - **Don't** execute Git commands like `git add`, `git commit`, or `git mv` autonomously or try to guess when to stage code.
-  -> **Do** execute Git commands ONLY when explicitly instructed by an AI Studio task block. Otherwise, rely on the `custom_context_stage_and_inject_diff` MCP tool.
+  -> **Do** execute Git commands ONLY when explicitly instructed by an Orchestrator task block. Otherwise, rely on the `custom_context_stage_and_inject_diff` MCP tool.
 - **Don't** guess blindly when facing complex bugs, deadlocks, or silent timeouts.
   -> **Do** utilize the `debug-instrumentation` skill to inject strategic logs and trace the runtime execution path.
 - **Don't** execute raw, informal, or non-English (Farsi) prompts directly.
@@ -294,7 +294,7 @@ When finishing a task, you MUST execute these exact steps in order:
 1. **Update Changelog:** You MUST insert a formal entry into CHANGELOG.md logging your modifications.
 2. **Write your Summary:** Manually write your architectural reasoning, local TODO checks, and execution notes into the active `tasks/XX-task.md` file under "OpenCode Execution Log".
 3. **Call MCP Tool:** Call the `custom_context_stage_and_inject_diff` MCP tool passing the task file path to automatically stage the files and inject the factual code diff. DO NOT execute any `git commit` commands afterward.
-4. **Notify Manager:** Output exactly: "Task ready. Manager, please copy the contents of `tasks/XX-task.md` and send it back to the AI Studio Brain for review."
+4. **Notify Manager:** Output exactly: "Task ready. Manager, please copy the contents of `tasks/XX-task.md` and send it back to the Orchestrator Brain for review."
 ```
 
 ---
@@ -314,6 +314,7 @@ The `AGENTS.md` file MUST explicitly contain the following operational constrain
 - **Core File Locations**: MUST explicitly list paths for `AGENTS.md`, `DESIGN.md`, `.opencode/skills/`, `docs/conventions.md`, and the 5 Kanban directories (`tasks/backlog`, `tasks/in-progress`, `tasks/qa`, `tasks/completed`, `tasks/archive`).
 
 Additionally, the `docs/conventions.md` file MUST exist and contain:
+
 - **Universal DateTime Standard**: UTC at rest, Epoch/ISO-8601 with Offset at API boundaries, Clock injection, Dual-Representation for future events, `TZ=UTC` Infrastructure.
 - **SOLID Programming Guidelines**: SRP, OCP, LSP, ISP, DIP, and Pragmatic Guardrails (No abstraction for <3 trivial ops, 3-Implementation Rule, YAGNI, Occam's Razor).
 - **Decentralized Task Management**: Agents MUST strictly use decentralized, individual task files in the `tasks/` directory as their single source of truth.
