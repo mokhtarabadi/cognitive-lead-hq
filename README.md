@@ -199,7 +199,8 @@ Best for keeping project dependencies isolated.
     "custom_context": {
       "type": "local",
       "command": ["uv", "run", "mcp-context-server/server.py"],
-      "enabled": true
+      "enabled": true,
+      "timeout": 15000
     }
   },
   "permission": {
@@ -229,7 +230,8 @@ Best if you want this codebase exploration tool available in _every_ terminal di
         "run",
         "/Users/<YOUR_USER>/.config/opencode/mcp-context-server/server.py"
       ],
-      "enabled": true
+      "enabled": true,
+      "timeout": 15000
     }
   },
   "permission": {

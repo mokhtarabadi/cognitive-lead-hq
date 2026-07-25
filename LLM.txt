@@ -77,6 +77,9 @@ cp /tmp/cognitive-lead-hq/mcp-context-server/server.py ~/.config/opencode/mcp-co
 cp /tmp/cognitive-lead-hq/mcp-memory-server/server.py ~/.config/opencode/mcp-memory-server/
 chmod +x ~/.config/opencode/mcp-context-server/server.py
 chmod +x ~/.config/opencode/mcp-memory-server/server.py
+
+# Preserve system-prompt.md globally for the user's Orchestrator
+cp /tmp/cognitive-lead-hq/system-prompt.md ~/.config/opencode/system-prompt.md
 ```
 
 ---
@@ -106,12 +109,14 @@ Write the following JSON (replace `$HOME` with the actual home directory path):
     "custom_context": {
       "type": "local",
       "command": ["uv", "run", "$HOME/.config/opencode/mcp-context-server/server.py"],
-      "enabled": true
+      "enabled": true,
+      "timeout": 15000
     },
     "project_memory": {
       "type": "local",
       "command": ["uv", "run", "$HOME/.config/opencode/mcp-memory-server/server.py"],
-      "enabled": true
+      "enabled": true,
+      "timeout": 15000
     }
   },
   "permission": {
@@ -144,7 +149,7 @@ rm -rf /tmp/cognitive-lead-hq
 
 ## 9. Customize the Manager Profile
 
-The `system-prompt.md` contains a `<manager_profile>` block customized for the original author (Mohammad).
+A copy of `system-prompt.md` has been saved to `~/.config/opencode/system-prompt.md` for your convenience. It contains a `<manager_profile>` block customized for the original author (Mohammad).
 
 **Instruction for AI:** If you are setting this up for a new user, advise them to edit the `<manager_profile>` block in `system-prompt.md` to reflect their own name, background, technical skills, and leadership goals.
 

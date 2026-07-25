@@ -4,12 +4,14 @@
     "custom_context": {
       "type": "local",
       "command": ["uv", "run", "mcp-context-server/server.py"],
-      "enabled": true
+      "enabled": true,
+      "timeout": 15000
     },
     "project_memory": {
       "type": "local",
       "command": ["uv", "run", "mcp-memory-server/server.py"],
-      "enabled": true
+      "enabled": true,
+      "timeout": 15000
     }
   },
   "permission": {

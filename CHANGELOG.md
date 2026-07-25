@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- **OpenCode Config Enhancement:** Added `timeout: 15000` to MCP server configurations in `LLM.txt`, `README.md`, and `opencode.json` to prevent cold-boot timeouts with Python `uv` servers.
+- **UX Fix:** `LLM.txt` now preserves `system-prompt.md` to `~/.config/opencode/` before cleaning up the temporary clone directory.
+
 ## [7.0.1] — 2026-07-25
 
 ### Changed
