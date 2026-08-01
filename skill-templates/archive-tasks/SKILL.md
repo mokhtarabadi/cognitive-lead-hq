@@ -61,7 +61,15 @@ mkdir -p docs/history
 mv tasks/completed/*.md tasks/archive/
 ```
 
-6. **Stage the new summary and moved files**:
+6. **Memory Validation:** After compacting tasks, audit the project memory bank for stale or superseded entries:
+   a. Call `list_namespaces` to enumerate all memory namespaces.
+   b. For each namespace, call `search_memory` using keywords from the archived tasks.
+   c. Identify memories that reference archived/completed task files or superseded workflows.
+   d. Detect duplicates: if two memories in the same namespace cover the same topic and one references a newer date or task, flag the older one as superseded.
+   e. Output a `## Stale Memory Report` listing all flagged memories with their namespace, key, and reason for flagging.
+   f. Wait for Manager approval before calling `delete_memory` on any flagged entry. NEVER auto-delete memories without explicit Manager confirmation.
+
+7. **Stage the new summary and moved files**:
 
 ```bash
 git add docs/history/ tasks/archive/

@@ -30,6 +30,18 @@ Every project MUST maintain a `CHANGELOG.md` file at the root. Modifications mus
 - `Fixed` — for any bug fixes.
 - `Security` — in case of vulnerabilities or security updates.
 
+### Parse-Then-Append Protocol
+
+Before inserting any entry into CHANGELOG.md:
+
+1. Read the entire file.
+2. Search for the target version header (e.g., `## [7.1.0]`).
+3. If the version header exists, search for the target category (e.g., `### Changed`) under it.
+4. If the category exists, append the new entry as a bullet under it.
+5. If the category does NOT exist, create it under the version header in the canonical order: Added, Changed, Deprecated, Removed, Fixed, Security.
+6. If the version header does NOT exist, create it at the top (below `## [Unreleased]` if present) with the required category.
+7. NEVER create a duplicate category header under the same version.
+
 ### 3. Conventional Commits
 
 All git commit messages MUST use lowercase prefixes followed by a colon and a space, describing the change concisely (maximum 72 characters):
@@ -46,6 +58,7 @@ All git commit messages MUST use lowercase prefixes followed by a colon and a sp
 
 1. Before completing any task, ensure the local test suite and type-checkers have passed successfully (maximum of 3 consecutive repair attempts as per V5.3.0 strict guardrails).
 2. Ensure `AGENTS.md` and `DESIGN.md` conventions are fully respected.
+3. **Pre-Commit Verification Gate (Environment Verification, DevOps/Infra tasks only):** If the task involves deployment, Docker, CI/CD, or infrastructure changes, run ALL environment-specific verification commands (e.g., `docker login`, token scope validation, registry access checks) BEFORE proceeding to staging. If ANY check fails, HALT and output a failure report. Do NOT stage partial work.
 
 ### Phase 2: Metadata Synchronization
 

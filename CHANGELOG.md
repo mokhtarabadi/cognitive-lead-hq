@@ -11,7 +11,43 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **OpenCode Config Enhancement:** Added `timeout: 15000` to MCP server configurations in `LLM.txt`, `README.md`, and `opencode.json` to prevent cold-boot timeouts with Python `uv` servers.
 - **UX Fix:** `LLM.txt` now preserves `system-prompt.md` to `~/.config/opencode/` before cleaning up the temporary clone directory.
 
-## [7.0.1] — 2026-07-25
+## [7.1.1] - 2026-08-01
+
+### Changed
+
+- **README V7 consistency polish** — repository tree now labels `system-prompt.md` as the V7 Multi-Agent System Prompt, adds a `## Key V7 Changes` section (brainstorming protocol, universal datetime rules, SOLID mandate, leadership & language protocol, expanded skills registry), and completes the `skill-templates/` tree with all 28 skill directories (grouped General & Workflow / Stack-Specific Blueprints, alphabetical within each group — including previously missing `audit-agents/`).
+- **`<execution_workflow>` renumbered** — workflow list now runs `1.`–`9.` instead of `0.`–`8.`. Discovery & Onboarding is step 1, explicitly labeled `(Phase 0)` to preserve the `<initialization>` anchor. Sub-steps re-parented: `1.5` Task Number Pre-Assignment Validation, `2.5` Deep Research Loop, `2.7` Combined Discovery+Plan Workflow. Internal "Loop back to step 3" reference corrected to step 4. Opening and closing `<execution_workflow>` tags moved to their own lines.
+- **System prompt version bumped to 7.1.1** — PATCH increment per SemVer (formatting and documentation sync).
+
+### Fixed
+
+- **task-generator Collision Check renumbered** — step `2.5` moved to `3.5` so numbering ascends (Collision Check sits between Name and Generate File steps).
+- **README skill-templates tree grouping labels** — `# General & Workflow` and `# Stack-Specific Blueprints` comment lines removed from the tree and replaced with standalone `**General & Workflow:**` / `**Stack-Specific Blueprints:**` lines before each group's first entry, keeping all 28 skill directories unchanged.
+- **Memory auto-deletion policy reconciled** — `project-memory` Supersession Detection now scopes auto-`delete_memory` to store-time supersession within the same namespace/key topic only, aligning with `archive-tasks` Memory Validation's "NEVER auto-delete without Manager confirmation".
+
+## [7.1.0] - 2026-08-01
+
+### Added
+
+- **Combined Discovery+Plan workflow template** (`<opencode_combined_task>`) — reducing Manager round-trips from 6 to 3.
+- **Topic Shift Detection protocol** in `<user_input_processing>` for proactive context-switch notices.
+- **Multi-phase task file support** in task-generator skill (single file with inline phase sections).
+- **Memory Validation step** in archive-tasks skill for detecting stale/superseded memories.
+- **Supersession Detection heuristic** in project-memory skill.
+- **Pre-Commit Verification Gate** for DevOps/infrastructure tasks in bash_phase.
+
+### Changed
+
+- **Task number assignment** now requires mandatory pre-assignment validation via OpenCode ID discovery script.
+- **CHANGELOG update step** now uses Parse-Then-Append Protocol to prevent duplicate section headers.
+- **Senior Programmer persona** now enforces single-file multi-phase tasks instead of separate subtask files.
+
+### Fixed
+
+- **Task file numbering collision** (e.g., Task 608 assigned twice) by adding collision check to task-generator.
+- **CHANGELOG duplicate `### Changed` headers** (Tasks 606, 610) by enforcing parse-before-append.
+
+## [7.0.1] - 2026-07-25
 
 ### Changed
 

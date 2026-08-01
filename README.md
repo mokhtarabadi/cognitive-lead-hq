@@ -90,7 +90,7 @@ Open `system-prompt.md` and edit the `<manager_profile>` block. Put in your own 
 ```
 /
 ├── README.md                           # This file
-├── system-prompt.md                    # V6 Multi-Agent System Prompt
+├── system-prompt.md                    # V7 Multi-Agent System Prompt
 ├── CHANGELOG.md                        # Version history
 ├── tasks/
 │   ├── backlog/                        # Open / unstarted tasks
@@ -109,27 +109,67 @@ Open `system-prompt.md` and edit the `<manager_profile>` block. Put in your own 
 │       └── sop-maintenance/
 │           └── SKILL.md                # Native OpenCode skill for repo rules
 ├── skill-templates/                    # Reusable stack blueprints (Agent Skills)
+│
+│   **General & Workflow:**
+│
 │   ├── archive-tasks/                  # Milestone compaction skill
+│   │   └── SKILL.md
+│   ├── audit-agents/                   # AGENTS.md generation & ZAC audits
+│   │   └── SKILL.md
+│   ├── brainstorm-swarm/               # Multi-persona brainstorming sessions
+│   │   └── SKILL.md
+│   ├── code-search/                    # MCP-based codebase discovery
+│   │   └── SKILL.md
+│   ├── debug-instrumentation/          # Strategic logging for complex bug diagnosis
+│   │   └── SKILL.md
+│   ├── design-md/                      # Design system extraction (DESIGN.md)
+│   │   └── SKILL.md
+│   ├── doc-coauthoring/                # Structured documentation co-authoring
 │   │   └── SKILL.md
 │   ├── migrate-kanban/                 # Flat-to-Kanban migration skill
 │   │   └── SKILL.md
+│   ├── perplexity-research/            # Human-in-the-loop deep research
+│   │   └── SKILL.md
+│   ├── project-memory/                 # Persistent project memory bank
+│   │   └── SKILL.md
+│   ├── prompt-refactor/                # Refactors raw prompts into elite XML specs
+│   │   └── SKILL.md
 │   ├── task-generator/                 # Generates tasks in tasks/backlog/
 │   │   └── SKILL.md
-│   ├── go-hexagonal-grpc/
+│   ├── telegram-issue-sync/            # Telegram topics → tasks/GitHub sync
 │   │   └── SKILL.md
-│   ├── prompt-refactor/
+│   ├── telegram-message-export/        # Export Telegram messages to ZIP
 │   │   └── SKILL.md
-│   ├── android-kotlin/
+│   ├── verification-before-completion/ # Mandatory verification gate
 │   │   └── SKILL.md
-│   ├── nextjs/
+│   ├── versioning-and-release/         # SemVer, Changelog, Commit standards
 │   │   └── SKILL.md
-│   ├── spring-boot/
+│
+│   **Stack-Specific Blueprints:**
+│
+│   ├── android-kotlin/                 # 100% Jetpack Compose + MVI + Hilt
 │   │   └── SKILL.md
-│   ├── flask-python/
+│   ├── flask-python/                   # Application Factory + SQLAlchemy
 │   │   └── SKILL.md
-│   ├── nestjs-prisma-vertical/
+│   ├── go-gin/                         # Idiomatic Go + Clean Architecture
 │   │   └── SKILL.md
-│   └── code-search/
+│   ├── go-hexagonal-grpc/              # Ports & Adapters + gRPC + Uber Fx
+│   │   └── SKILL.md
+│   ├── ios-swiftui/                    # SwiftUI + MVVM
+│   │   └── SKILL.md
+│   ├── nestjs-prisma-vertical/         # NestJS + Prisma + Vertical Slices
+│   │   └── SKILL.md
+│   ├── nextjs/                         # App Router + Server Actions + Tailwind
+│   │   └── SKILL.md
+│   ├── python-fastapi/                 # Pydantic V2 + modular routing
+│   │   └── SKILL.md
+│   ├── react-native-expo/              # Expo Managed + NativeWind
+│   │   └── SKILL.md
+│   ├── react-vite/                     # React 18+ SPA + hooks
+│   │   └── SKILL.md
+│   ├── spring-boot/                    # DDD + hexagonal-style packaging
+│   │   └── SKILL.md
+│   └── vue-nuxt/                       # Vue 3 Composition API + Nuxt 3
 │       └── SKILL.md
 └── user-prompts/                       # Reusable copy-paste prompt templates
     ├── cold-start-context.md
@@ -296,6 +336,14 @@ To make the `code-search` skill (or any other reusable skill) available in _ever
 - **New Agent Skills** — `task-generator` for creating numbered task files and `audit-agents` for enforcing `AGENTS.md` workflows.
 - **Phase 0 UI/UX traversal** — Project Planner now instructs OpenCode to perform deep source code analysis for `DESIGN.md` generation.
 - **Runtime model updated** — Model identifier cleaned up for platform-agnostic use.
+
+## Key V7 Changes
+
+- **Brainstorming Protocol (`<brainstorming_protocol>`):** Multi-agent brainstorming with six specialized personas (system_architect, security_engineer, product_manager, business_strategist, legal_advisor, critical_thinker) for cross-disciplinary ambiguity resolution.
+- **Universal Datetime Rules (`<universal_datetime_rules>`):** UTC-at-rest, ISO-8601/Unix-epoch at API boundaries, SOLID Clock injection, dual-representation for future calendar events, and timezone-independent CI/CD testing.
+- **SOLID Programming Mandate (`<solid_programming_mandate>`):** Single Responsibility, Open/Closed, Liskov Substitution, Interface Segregation, and Dependency Inversion enforced on every generated implementation task, with pragmatic guardrails (No Zero-Abstraction Dogma, 3-Implementation Rule, YAGNI, Occam's Razor).
+- **Leadership & Language Protocol (`<leadership_and_language_protocol>`):** Executive coaching persona that provides vocabulary assistance, English pronunciation guides (Persian phonetics), and ruthless soft-skills feedback during sprint retrospectives.
+- **Expanded Agent Skills Registry:** 28 skills including stack-specific blueprints (android-kotlin, spring-boot, react-vite, nestjs-prisma-vertical, go-hexagonal-grpc, python-fastapi, nextjs, flask-python, react-native-expo, ios-swiftui, vue-nuxt, go-gin) and global workflow skills (brainstorm-swarm, design-md, project-memory, telegram-issue-sync, perplexity-research, verification-before-completion, debug-instrumentation).
 
 ## Key V6 Changes
 
