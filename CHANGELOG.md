@@ -11,6 +11,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **OpenCode Config Enhancement:** Added `timeout: 15000` to MCP server configurations in `LLM.txt`, `README.md`, and `opencode.json` to prevent cold-boot timeouts with Python `uv` servers.
 - **UX Fix:** `LLM.txt` now preserves `system-prompt.md` to `~/.config/opencode/` before cleaning up the temporary clone directory.
 
+## [7.2.0] - 2026-08-01
+
+### Added
+
+- Unified canonical task file template with polymorphic `## Source Context` section supporting three provenances: `orchestrator`, `telegram`, `manager`.
+- Mandatory `## Goal` and `## Local TODOs` sections for all task files regardless of source.
+- `Source:` metadata field in task file header for provenance tracking.
+- `Source Distribution` table in `archive-tasks` milestone summaries.
+
+### Changed
+
+- `task-generator` skill template updated to unified canonical format with `# Task [NN]: [Title]` title convention.
+- `telegram-issue-sync` Phase 3 Step 6 now references the unified template instead of defining an inline template.
+- `archive-tasks` skill now extracts and reports `Source:` metadata per task.
+- "Architectural Blueprint Reference" renamed to "Blueprint Reference" in the orchestrator source context block.
+
 ## [7.1.1] - 2026-08-01
 
 ### Changed

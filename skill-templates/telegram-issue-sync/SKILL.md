@@ -147,51 +147,26 @@ Store as `AI_OPINION`.
 
 **6. Generate Local Task File:**
 
-Create `tasks/backlog/{NEXT_ID}-hyphenated-title.md` with the following **exact structure**:
+Create `tasks/backlog/{NEXT_ID}-hyphenated-title.md` using the **unified canonical template** from the `task-generator` skill, with `**Source:** telegram`. Do NOT define a separate inline template — the `task-generator` skill is the single source of truth for the file structure.
+
+Populate the telegram variant (`## Source Context` → Variant B) by filling these fields:
+
+- `## Goal` — **MANDATORY.** Derive a one-line goal from the `RAW_TEXT` before writing the file.
+- `## Original Message ({LANGUAGE})` — `{RAW_TEXT}` — **verbatim, zero changes.**
+
+  **RULE:** The `## Original Message` section MUST contain the exact text from Telegram. If the text is Persian, the section header is `## Original Message (Persian)`. If Arabic, `## Original Message (Arabic)`, etc. If the language is unknown, use `## Original Message (Raw)`.
+
+- `## English Translation` — `{EN_TRANSLATION}`
+- `## Refactored Prompt` — `{REFACTORED_PROMPT}`
+- `## Relevant Code Context` — `{CODEBASE_CONTEXT}`
+- `## AI Analysis & Opinion` — `{AI_OPINION}`
+
+`## Local TODOs` MUST be populated with at minimum:
 
 ```markdown
-# Task {NEXT_ID}: {Title}
-
-**File:** `tasks/backlog/{NEXT_ID}-hyphenated-title.md`
-**Type:** {TYPE}
-**Status:** open
-
-## Original Message ({LANGUAGE})
-
-{RAW_TEXT — verbatim, zero changes}
-
-## English Translation
-
-{EN_TRANSLATION}
-
-## Refactored Prompt
-
-{REFACTORED_PROMPT}
-
-## Relevant Code Context
-
-{CODEBASE_CONTEXT}
-
-## AI Analysis & Opinion
-
-{AI_OPINION}
-
----
-
-## OpenCode Execution Log & Reasoning
-
-_(OpenCode: Manually log your technical changes, file edits, and architectural reasoning here BEFORE calling the MCP tool)_
-
-## Factual Git Diff
-
-<!-- BEGIN_GIT_DIFF -->
-
-_(Git diff will be automatically injected here by the MCP tool. Do not edit this block manually)_
-
-<!-- END_GIT_DIFF -->
+- [ ] Initial codebase exploration
+- [ ] Verify functionality
 ```
-
-**RULE:** The `## Original Message` section MUST contain the exact text from Telegram. If the text is Persian, the section header is `## Original Message (Persian)`. If Arabic, `## Original Message (Arabic)`, etc. If the language is unknown, use `## Original Message (Raw)`.
 
 ---
 

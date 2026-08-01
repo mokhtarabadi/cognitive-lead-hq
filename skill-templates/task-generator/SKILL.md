@@ -20,22 +20,75 @@ printf "%02d\n" $NEXT_ID
 
 Use the output as the zero-padded task number. If `tasks/` doesn't exist, create it along with the Kanban subdirectories and start at `01`.
 
+Title consistency check (unified template `# Task [NN]: [Title]`): flag any duplicate title numbers:
+
+```bash
+grep -rhn "^# Task [0-9][0-9]*:" tasks/ | sort | uniq -d
+```
+
+The title number MUST match the filename ID. Any mismatch or duplicate must be resolved with the Collision Check below before writing the file.
+
 3. **Name:** Create a kebab-case filename (e.g., `01-fix-login-bug.md`). Place it in `tasks/backlog/`.
 
 3.5. **Collision Check:** Before writing the file, verify that `tasks/backlog/{NEXT_ID}-*.md` does NOT already exist. Run: `ls tasks/backlog/${NEXT_ID}-*.md 2>/dev/null`. If a file with that ID already exists, HALT and report: '⚠️ Task ID collision: {NEXT_ID} is already in use. Re-run ID discovery.' Do NOT overwrite existing files.
 
-4. **Generate File:** Write the following template to the new file:
+4. **Generate File:** Write the following unified canonical template to the new file. The `## Source Context` section is **polymorphic** — include ONLY the variant block matching the `**Source:**` value. `## Goal` and `## Local TODOs` are MANDATORY for ALL source types:
 
    ```markdown
-   # Task: [Task Name]
+   # Task [NN]: [Title]
 
    **File:** `tasks/backlog/[filename]`
+   **Source:** [orchestrator|telegram|manager]
    **Type:** [bug|improvement|feature]
    **Status:** open
 
+   ## Source Context
+
+   ### Variant A: Orchestrator (`**Source:** orchestrator`)
+
    ## Goal
 
-   [Summary of the goal]
+   [Summary of the goal — MANDATORY]
+
+   ## Blueprint Reference
+
+   [Link or reference to the approved architectural blueprint]
+
+   ## Manager's Notes
+
+   [Any specific notes, requirements, or constraints]
+
+   ### Variant B: Telegram (`**Source:** telegram`)
+
+   ## Goal
+
+   [MANDATORY — one-line goal derived from the RAW_TEXT]
+
+   ## Original Message ([Language])
+
+   {RAW_TEXT — verbatim, zero changes}
+
+   ## English Translation
+
+   {EN_TRANSLATION}
+
+   ## Refactored Prompt
+
+   {REFACTORED_PROMPT}
+
+   ## Relevant Code Context
+
+   {CODEBASE_CONTEXT}
+
+   ## AI Analysis & Opinion
+
+   {AI_OPINION}
+
+   ### Variant C: Manager (`**Source:** manager`)
+
+   ## Goal
+
+   [Summary of the goal — MANDATORY]
 
    ## Manager's Notes
 
@@ -46,6 +99,8 @@ Use the output as the zero-padded task number. If `tasks/` doesn't exist, create
    - [ ] Initial codebase exploration
    - [ ] [Specific step 1]
    - [ ] Verify functionality
+
+   ---
 
    ## OpenCode Execution Log & Reasoning
 
@@ -62,12 +117,13 @@ Use the output as the zero-padded task number. If `tasks/` doesn't exist, create
 
 ## Multi-Phase Task Template
 
-If the Orchestrator specifies `multi_phase: true`, generate a SINGLE task file with inline phase sections instead of separate files. Use this structure:
+If the Orchestrator specifies `multi_phase: true`, generate a SINGLE task file with inline phase sections instead of separate files. Use this structure (same unified metadata header, `## Goal` mandatory):
 
 ```markdown
-# Task: [Task Name]
+# Task [NN]: [Title]
 
 **File:** `tasks/backlog/[filename]`
+**Source:** [orchestrator|telegram|manager]
 **Type:** [bug|improvement|feature]
 **Status:** open
 

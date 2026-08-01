@@ -20,6 +20,7 @@ ls tasks/completed/*.md 2>/dev/null
 2. **Read each file** and extract:
    - Task number and title
    - Type (bug/improvement/feature)
+   - Source (from the `**Source:**` metadata line)
    - OpenCode Execution Log (architectural reasoning)
    - Key files modified
 
@@ -30,6 +31,14 @@ ls tasks/completed/*.md 2>/dev/null
 
    **Date:** YYYY-MM-DD
    **Tasks Compacted:** N
+
+   ## Source Distribution
+
+   | Source       | Count |
+   | ------------ | ----- |
+   | orchestrator | N     |
+   | telegram     | N     |
+   | manager      | N     |
 
    ## Architectural Changes
 
@@ -46,6 +55,7 @@ ls tasks/completed/*.md 2>/dev/null
    ### Task XX: Title
 
    - **Type:** bug|improvement|feature
+   - **Source:** [orchestrator|telegram|manager]
    - **Reasoning:** [condensed execution log]
    ```
 
