@@ -4,10 +4,11 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased]
+## [7.2.1] - 2026-08-01
 
 ### Changed
 
+- **Milestone 6 archive** — Compacted tasks 66–68 into `docs/history/milestone-6-summary.md` and moved completed task files to `tasks/archive/`. System prompt version bumped to 7.2.1.
 - **OpenCode Config Enhancement:** Added `timeout: 15000` to MCP server configurations in `LLM.txt`, `README.md`, and `opencode.json` to prevent cold-boot timeouts with Python `uv` servers.
 - **UX Fix:** `LLM.txt` now preserves `system-prompt.md` to `~/.config/opencode/` before cleaning up the temporary clone directory.
 
