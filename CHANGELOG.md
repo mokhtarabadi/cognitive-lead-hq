@@ -4,6 +4,12 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [7.2.2] - 2026-08-02
+
+### Added
+
+- **MIT License** — Added `LICENSE` file to project root. The repository previously had a README badge pointing to `LICENSE` but no actual file existed. MIT chosen as the best fit for a documentation-only, community-driven open-source framework repository.
+
 ## [7.2.1] - 2026-08-01
 
 ### Changed
