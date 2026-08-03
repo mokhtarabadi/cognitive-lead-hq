@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [8.0.0] - 2026-08-04
+
 ### Added
 
 - **P1 Quality Improvements (V8.0.0 Phase 5)** — Added `tests/test_mcp_servers.py` for basic MCP server import and logic validation. Enhanced `mcp-memory-server` with YAML frontmatter support (`pyyaml`) for metadata tracking and improved `search_memory` with tag filtering and ranking. Created `docs/system-prompt-modularization.md` design document for V9.0.0 planning. Documented tree-sitter regex fallback for Swift, Ruby, PHP, and C# in `code-search` skill. System prompt version bumped to 7.5.0.
@@ -13,6 +15,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- **Milestone 7 archive** — Compacted tasks 70–76 into `docs/history/milestone-7-summary.md` and moved completed task files to `tasks/archive/`. System prompt version bumped to 8.0.0.
 - **Task Template Ecosystem Enforcement (V8.0.0 Phase 4 Revised)** — Enforced new task template sections across the entire ecosystem. Updated `mcp-lint-server` to mandate `## Acceptance Criteria`, `## Verification Evidence`, and `## Risk & Rollback`. Instructed `telegram-issue-sync` to populate acceptance criteria from message intent. Enhanced `archive-tasks` milestone summaries to extract and report criteria met. Added `CRITICAL RULE 6 (Evidence Capture)` to `<bash_phase>` in `system-prompt.md` to force verification evidence logging before summary. System prompt version bumped to 7.4.2.
 - **Task Template Enhancement & Lint Integration (V8.0.0 Phase 4)** — Enhanced `task-generator` skill template with mandatory `## Acceptance Criteria`, `## Verification Evidence`, and `## Risk & Rollback` sections for both unified and multi-phase task files. Integrated `lint_task_file` MCP tool into the `<summary_phase>` of both `<opencode_implementation_task_template>` and `<opencode_combined_task_template>` to enforce structural validation before diff injection. System prompt version bumped to 7.4.1.
 - **Input Processing Pipeline Enhancement (V8.0.0 Phase 1)** — Enhanced `<user_input_processing>` in `system-prompt.md` with mandatory Input Validation Gate (Step 0.5), enriched Intent Expansion, and Prompt Refactor Gate (Step 5.5). Enhanced `prompt-refactor` skill with Step 0 validation and typo correction. Updated `AGENTS.md` guardrail to enforce Input Validation Pipeline. Created `user-prompts/input-validation-test.md`. System prompt version bumped to 7.3.0.
