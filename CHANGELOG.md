@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- **Input Processing Pipeline Enhancement (V8.0.0 Phase 1)** — Enhanced `<user_input_processing>` in `system-prompt.md` with mandatory Input Validation Gate (Step 0.5), enriched Intent Expansion, and Prompt Refactor Gate (Step 5.5). Enhanced `prompt-refactor` skill with Step 0 validation and typo correction. Updated `AGENTS.md` guardrail to enforce Input Validation Pipeline. Created `user-prompts/input-validation-test.md`. System prompt version bumped to 7.3.0.
+
 ### Fixed
 
 - **MCP servers crash on startup with MCP SDK 2.0** — Pinned `mcp[cli]>=1.0,<2.0` in the `# /// script` dependency headers of `mcp-context-server/server.py` and `mcp-memory-server/server.py`. PyPI's latest `mcp` (2.0.0) removed `mcp.server.fastmcp`, causing `ModuleNotFoundError` on boot and disabling both `custom_context` and `project_memory` tools.
