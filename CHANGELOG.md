@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **P1 Quality Improvements (V8.0.0 Phase 5)** — Added `tests/test_mcp_servers.py` for basic MCP server import and logic validation. Enhanced `mcp-memory-server` with YAML frontmatter support (`pyyaml`) for metadata tracking and improved `search_memory` with tag filtering and ranking. Created `docs/system-prompt-modularization.md` design document for V9.0.0 planning. Documented tree-sitter regex fallback for Swift, Ruby, PHP, and C# in `code-search` skill. System prompt version bumped to 7.5.0.
 - **New Lint MCP Server & Skill (V8.0.0 Phase 3)** — Created `mcp-lint-server/server.py` providing `lint_markdown`, `lint_task_file`, and `lint_all_tasks` tools for structural validation. Registered server in `opencode.json` and `LLM.txt` global configs. Created `task-lint` skill template. Added `task-lint` to `<agent_skills_registry>` in `system-prompt.md`. System prompt version bumped to 7.4.0.
 
 ### Changed
@@ -18,6 +19,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- **Fixed search_memory tag-only query edge case** — When querying with only `tag:xxx` (no additional search terms), the function now correctly returns all files matching the tag filter instead of returning zero results. Previously, the fallback content matching would search for the literal string "tag:xxx" in file content, which would never match.
 - **P0 Consistency & Safety Fixes (V8.0.0 Phase 2)** — Resolved AGENTS.md documentation-only contradiction by adding explicit exceptions for MCP servers and tooling. Hardened `stage_and_inject_diff` to exclude sensitive files (`.env`, `.pem`, etc.) from blind `git add .`. Hardened `commit_and_clean_task` with empty-staged checks and push-history amend warnings. Fixed version sync rules in `versioning-and-release` skill. Resolved `DESIGN.md` path conflict (root vs `.stitch/`). Converted `archive-tasks` to use `git mv` for history preservation. Secured memory deletion by changing `delete_memory` permission to `ask` in `opencode.json` and `LLM.txt`, and adding a Safety Gate to the `project-memory` skill.
 - **MCP servers crash on startup with MCP SDK 2.0** — Pinned `mcp[cli]>=1.0,<2.0` in the `# /// script` dependency headers of `mcp-context-server/server.py` and `mcp-memory-server/server.py`. PyPI's latest `mcp` (2.0.0) removed `mcp.server.fastmcp`, causing `ModuleNotFoundError` on boot and disabling both `custom_context` and `project_memory` tools.
 

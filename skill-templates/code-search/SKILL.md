@@ -66,6 +66,8 @@ For repositories with many files, extracting signatures first lets you decide wh
 
 For languages not listed above, the tool gracefully falls back to regex-based extraction (class/function/def/interface patterns).
 
+**Regex Fallback Languages:** Swift, Ruby, PHP, and C# are mapped in the extension table but do NOT have tree-sitter queries configured in the MCP server. They use regex-based extraction which is less accurate. Tree-sitter support for these languages is planned for a future release.
+
 ### What Signatures Include
 
 - **Function/method signatures:** name, parameters (including type annotations), return type, decorators if on the same line

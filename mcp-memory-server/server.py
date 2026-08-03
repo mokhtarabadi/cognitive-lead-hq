@@ -2,15 +2,19 @@
 # /// script
 # requires-python = ">=3.10"
 # dependencies = [
-#     "mcp[cli]>=1.0,<2.0"
+#     "mcp[cli]>=1.0,<2.0",
+#     "pyyaml",
 # ]
 # ///
 
 import os
 import re
 import tempfile
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
+
+import yaml
 from mcp.server.fastmcp import FastMCP
 
 MEMORY_DIR = Path(".opencode/memory")
@@ -47,6 +51,16 @@ def store_memory(namespace: str, key: str, content: str, overwrite: bool = True)
 
         if file_path.exists() and not overwrite:
             return f"Error: Memory '{key}' in namespace '{namespace}' already exists and overwrite is False."
+
+        # Prepend YAML frontmatter if not present
+        if not content.strip().startswith("---"):
+            frontmatter = {
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+                "status": "active",
+                "tags": [],
+            }
+            content = f"---\n{yaml.dump(frontmatter, default_flow_style=False)}---\n\n{content}"
 
         fd, temp_path = tempfile.mkstemp(dir=ns_dir, text=True)
         try:
@@ -97,7 +111,11 @@ def delete_memory(namespace: str, key: str) -> str:
 
 @mcp.tool()
 def search_memory(query: str, namespace: Optional[str] = None) -> str:
-    """Performs a full-text search across memories. If namespace is provided, limits search to that slice."""
+    """Performs a full-text search across memories. If namespace is provided, limits search to that slice.
+
+    Supports tag filtering: include `tag:xxx` in the query to filter by frontmatter tag.
+    Results are ranked: exact key matches rank higher than content-only matches.
+    """
     if not MEMORY_DIR.exists():
         return "No memories recorded yet."
 
@@ -109,22 +127,68 @@ def search_memory(query: str, namespace: Optional[str] = None) -> str:
     if not target_dir.exists():
         return f"Namespace '{namespace}' does not exist."
 
+    # Parse tag filter from query
+    tag_filter = None
+    search_query = query
+    tag_match = re.search(r'\btag:(\S+)', query)
+    if tag_match:
+        tag_filter = tag_match.group(1).lower()
+        search_query = query[:tag_match.start()].strip() + " " + query[tag_match.end():].strip()
+        search_query = search_query.strip()
+
     results = []
     for md_file in target_dir.rglob("*.md"):
         try:
             file_rel = md_file.relative_to(MEMORY_DIR)
             with open(md_file, 'r', encoding='utf-8') as f:
                 content = f.read()
-                if query.lower() in content.lower() or query.lower() in md_file.name.lower():
+
+            # Parse YAML frontmatter for tag filtering and ranking
+            file_tags = []
+            has_frontmatter = content.strip().startswith("---")
+            if has_frontmatter:
+                try:
+                    end_idx = content.index("---", 3)
+                    fm_text = content[3:end_idx].strip()
+                    fm_data = yaml.safe_load(fm_text)
+                    if isinstance(fm_data, dict):
+                        file_tags = [t.lower() for t in fm_data.get("tags", [])]
+                except Exception:
+                    pass
+
+            # Apply tag filter
+            if tag_filter and tag_filter not in file_tags:
+                continue
+
+            key_name = md_file.stem.lower()
+            content_lower = content.lower()
+
+            # If search_query is empty and we have a tag filter, the tag match is sufficient
+            if not search_query and tag_filter:
+                # Tag-only query: include all files that matched the tag filter
+                snippet = content[:200] + "..." if len(content) > 200 else content
+                results.append((1, f"   **{file_rel}**\n{snippet}\n"))
+            else:
+                query_lower = search_query.lower() if search_query else query.lower()
+                key_match = query_lower in key_name if query_lower else False
+                content_match = query_lower in content_lower if query_lower else True
+
+                if key_match or content_match:
                     snippet = content[:200] + "..." if len(content) > 200 else content
-                    results.append(f"- **{file_rel}**\n{snippet}\n")
+                    rank_marker = "⭐ " if key_match else "   "
+                    results.append((0 if key_match else 1, f"{rank_marker}**{file_rel}**\n{snippet}\n"))
+
         except Exception:
             continue
 
     if not results:
         return f"No memories found matching '{query}'."
 
-    return "### Search Results\n\n" + "\n---\n".join(results)
+    # Sort by rank (0 = key match first, 1 = content match)
+    results.sort(key=lambda x: x[0])
+    ranked_results = [r[1] for r in results]
+
+    return "### Search Results\n\n" + "\n---\n".join(ranked_results)
 
 @mcp.tool()
 def list_namespaces() -> str:
