@@ -3,7 +3,7 @@
 **File:** `tasks/backlog/77-milestone-7-archive-and-v8-release.md`
 **Source:** orchestrator
 **Type:** chore
-**Status:** open
+**Status:** closed
 
 ## Source Context
 
