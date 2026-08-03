@@ -63,6 +63,7 @@ Create the global OpenCode directories:
 ```bash
 mkdir -p ~/.config/opencode/mcp-context-server
 mkdir -p ~/.config/opencode/mcp-memory-server
+mkdir -p ~/.config/opencode/mcp-lint-server
 mkdir -p ~/.config/opencode/skills
 ```
 
@@ -75,8 +76,10 @@ Copy both MCP server scripts from the cloned repo:
 ```bash
 cp /tmp/cognitive-lead-hq/mcp-context-server/server.py ~/.config/opencode/mcp-context-server/
 cp /tmp/cognitive-lead-hq/mcp-memory-server/server.py ~/.config/opencode/mcp-memory-server/
+cp /tmp/cognitive-lead-hq/mcp-lint-server/server.py ~/.config/opencode/mcp-lint-server/
 chmod +x ~/.config/opencode/mcp-context-server/server.py
 chmod +x ~/.config/opencode/mcp-memory-server/server.py
+chmod +x ~/.config/opencode/mcp-lint-server/server.py
 
 # Preserve system-prompt.md globally for the user's Orchestrator
 cp /tmp/cognitive-lead-hq/system-prompt.md ~/.config/opencode/system-prompt.md
@@ -117,11 +120,21 @@ Write the following JSON (replace `$HOME` with the actual home directory path):
       "command": ["uv", "run", "$HOME/.config/opencode/mcp-memory-server/server.py"],
       "enabled": true,
       "timeout": 15000
+    },
+    "lint": {
+      "type": "local",
+      "command": ["uv", "run", "$HOME/.config/opencode/mcp-lint-server/server.py"],
+      "enabled": true,
+      "timeout": 15000
     }
   },
   "permission": {
     "custom_context_*": "allow",
     "project_memory_*": "allow",
+    "lint_*": "allow",
+    "lint_markdown": "allow",
+    "lint_task_file": "allow",
+    "lint_all_tasks": "allow",
     "store_memory": "allow",
     "delete_memory": "ask",
     "read_memory": "allow",

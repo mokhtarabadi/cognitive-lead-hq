@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- **New Lint MCP Server & Skill (V8.0.0 Phase 3)** — Created `mcp-lint-server/server.py` providing `lint_markdown`, `lint_task_file`, and `lint_all_tasks` tools for structural validation. Registered server in `opencode.json` and `LLM.txt` global configs. Created `task-lint` skill template. Added `task-lint` to `<agent_skills_registry>` in `system-prompt.md`. System prompt version bumped to 7.4.0.
+
 ### Changed
 
 - **Input Processing Pipeline Enhancement (V8.0.0 Phase 1)** — Enhanced `<user_input_processing>` in `system-prompt.md` with mandatory Input Validation Gate (Step 0.5), enriched Intent Expansion, and Prompt Refactor Gate (Step 5.5). Enhanced `prompt-refactor` skill with Step 0 validation and typo correction. Updated `AGENTS.md` guardrail to enforce Input Validation Pipeline. Created `user-prompts/input-validation-test.md`. System prompt version bumped to 7.3.0.
