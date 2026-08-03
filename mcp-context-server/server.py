@@ -405,13 +405,16 @@ def extract_signatures(file_path: str) -> str:
 def stage_and_inject_diff(task_file_path: str) -> str:
     """Stages current changes via Git and intelligently injects the diff into the task file's Git Diff block."""
     try:
-        # 1. Stage all changes EXCEPT known dangerous patterns
-        subprocess.run([
-            "git", "add", ".",
-            ":!*.env", ":!*.env.*", ":!*.key", ":!*.pem",
-            ":!credentials*", ":!secrets*",
-            ":!context-reports/", ":!.opencode/cache/"
-        ], check=True, capture_output=True)
+        # 1. Stage all changes. Plain `git add -A .` respects .gitignore.
+        #    Negative pathspecs (`:!...`) make `git add` fail with
+        #    "paths are ignored" whenever an ignored path (e.g.
+        #    context-reports/) exists on disk, so sensitive files are instead
+        #    unstaged afterwards via explicit reset patterns (defense-in-depth
+        #    for non-ignored secret files).
+        subprocess.run(["git", "add", "-A", "."], check=True, capture_output=True)
+        for pat in ["*.env", "*.env.*", "*.key", "*.pem", "credentials*",
+                    "secrets*", "context-reports/", ".opencode/cache/"]:
+            subprocess.run(["git", "reset", "-q", "--", pat], capture_output=True)
         
         # 2. Extract the diff (EXCLUDING the entire tasks/ directory to prevent recursive diff bloat)
         # Using git pathspec magic ':!tasks/' to ignore the entire task folder
@@ -447,53 +450,72 @@ def stage_and_inject_diff(task_file_path: str) -> str:
     except Exception as e:
         return f"❌ Error staging or updating task file: {str(e)}"
 
+def _derive_task_slug(task_file_path: str) -> str:
+    """Derives a 'task <NN> - <slug>' label from a task file name (e.g. '78-fix-bug.md' -> 'task 78 - fix bug')."""
+    name = Path(task_file_path).stem
+    parts = re.split(r"[-_]", name, maxsplit=1)
+    if len(parts) == 2 and parts[0].isdigit():
+        return f"task {parts[0]} - {parts[1].replace('-', ' ')}"
+    return f"task - {name.replace('-', ' ')}"
+
 @mcp.tool()
 def commit_and_clean_task(task_file_path: str, commit_message: str) -> str:
-    """Commits staged changes, captures the commit hash, replaces the raw diff in the task file with the hash to save space, and amends the commit to include the cleaned task file."""
+    """Commits staged changes, captures the feature commit hash, replaces the raw diff in the task file with the hash reference, and commits the cleaned task file as a separate closure commit. The stored hash always points to the feature commit, which stays reachable forever (no amend, no orphaned commits)."""
     try:
-        # 0. Safety checks before commit
+        # 0. Idempotency guard: skip if the task file was already cleaned.
+        #    Placed first so a cleaned task file short-circuits even on a clean tree.
+        #    Must match the EXACT cleaned-block structure, not a bare substring:
+        #    a raw injected diff can itself mention 'Stored in Commit Hash' (e.g.
+        #    the diff of this very guard or its CHANGELOG entry), causing a false
+        #    positive that blocks legitimate closures.
+        path = Path(task_file_path)
+        if path.is_file():
+            with open(path, 'r', encoding='utf-8') as f:
+                existing = f.read()
+            cleaned_block = re.compile(
+                r'<!-- BEGIN_GIT_DIFF -->\s*\*\*Factual Git Diff:\*\* Stored in Commit Hash: `[0-9a-f]{7,40}`\s*<!-- END_GIT_DIFF -->',
+                re.DOTALL
+            )
+            if cleaned_block.search(existing):
+                return "⚠️ Task file already cleaned (Stored in Commit Hash present). Nothing to commit."
+
+        # 0.5 Safety check before commit
         staged_check = subprocess.run(["git", "diff", "--staged", "--quiet"], capture_output=True)
         if staged_check.returncode == 0:
             return "⚠️ No staged changes to commit."
 
-        # 1. Commit staged changes
+        # 1. Commit staged changes (feature commit H1)
         subprocess.run(["git", "commit", "-m", commit_message], check=True, capture_output=True, text=True)
-        
-        # 2. Get the commit hash
+
+        # 2. Capture H1 — the feature commit hash. It stays reachable forever
+        #    as the parent of the closure commit (step 5). NEVER amend it.
         hash_proc = subprocess.run(["git", "rev-parse", "HEAD"], check=True, capture_output=True, text=True)
         commit_hash = hash_proc.stdout.strip()
-        
-        # 3. Read task file and clean diff
-        path = Path(task_file_path)
+
+        # 3. Read task file and replace raw diff with the hash reference
         if path.is_file():
             with open(path, 'r', encoding='utf-8') as f:
                 content = f.read()
-                
+
             pattern = re.compile(r'<!-- BEGIN_GIT_DIFF -->.*<!-- END_GIT_DIFF -->', re.DOTALL)
             if pattern.search(content):
                 clean_block = f"<!-- BEGIN_GIT_DIFF -->\n**Factual Git Diff:** Stored in Commit Hash: `{commit_hash}`\n<!-- END_GIT_DIFF -->"
                 new_content = pattern.sub(clean_block, content)
-                
+
                 with open(path, 'w', encoding='utf-8') as f:
                     f.write(new_content)
-                    
-                # 4. Stage the cleaned task file and amend
-                subprocess.run(["git", "add", "-A", "tasks/"], check=True, capture_output=True)
-                # Safety check: warn if amending pushed history
-                upstream_check = subprocess.run(
-                    ["git", "rev-parse", "--abbrev-ref", "@{upstream}"],
-                    capture_output=True, text=True
-                )
-                if upstream_check.returncode == 0:
-                    ahead_check = subprocess.run(
-                        ["git", "rev-list", "--count", "@{upstream}..HEAD"],
-                        capture_output=True, text=True
-                    )
-                    if int(ahead_check.stdout.strip()) > 0:
-                        print("⚠️ Warning: Amending a pushed commit. Ensure you know what you are doing.", file=sys.stderr)
-                subprocess.run(["git", "commit", "--amend", "--no-edit"], check=True, capture_output=True)
-                
-        return f"✅ Success: Code committed (Hash: {commit_hash}). Task file {task_file_path} cleaned and amended."
+
+        # 4. Stage the cleaned task file (catches moves/deletions under tasks/)
+        subprocess.run(["git", "add", "-A", "tasks/"], check=True, capture_output=True)
+
+        # 5. Commit the cleaned task file as a separate closure commit.
+        #    A plain commit (NOT --amend) keeps H1 reachable from HEAD.
+        slug = _derive_task_slug(task_file_path)
+        staged_after = subprocess.run(["git", "diff", "--staged", "--quiet"], capture_output=True)
+        if staged_after.returncode != 0:
+            subprocess.run(["git", "commit", "-m", f"chore: close {slug}"], check=True, capture_output=True, text=True)
+
+        return f"✅ Success: Code committed (Hash: `{commit_hash}`). Task file {task_file_path} cleaned; closure commit `chore: close {slug}` created on top."
     except subprocess.CalledProcessError as e:
         return f"❌ Git Error: {e.stderr}"
     except Exception as e:

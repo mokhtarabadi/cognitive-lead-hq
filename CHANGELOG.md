@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- **Commit Lifecycle Rule (ZAC) in system-prompt `<constraints>`** — Added a `<commit_lifecycle_rule>` bullet to the top-level `<constraints>` section documenting the two commit-producing MCP tools (`stage_and_inject_diff` for development-time, `commit_and_clean_task` for closure-time), their distinct lifecycle semantics, the two-commit flow (feature + closure), and ZAC enforcement. Previously the ZAC intent was only visible in `<bash_phase>` implementation templates, allowing LLM agents to invoke `commit_and_clean_task` during implementation (Zen Router incident, Task 13). System prompt version bumped to 8.0.1 (PATCH).
+
+### Fixed
+
+- **Orphaned commit hash bug in `commit_and_clean_task`** — The tool captured the commit hash *before* `git commit --amend`, so the hash stored in the task file pointed to a commit that became unreachable after the amend replaced it. Reworked the tool to a two-commit flow: the feature commit hash is captured and stored in the task file, then the cleaned task file is committed as a separate `chore: close task N` closure commit. The stored hash is now permanently reachable from HEAD, `git show <hash>` returns the real code diff, and no amend/orphaned commits are produced. The idempotency guard matches the exact cleaned-block structure (regex), so a raw injected diff that merely mentions "Stored in Commit Hash" (e.g. this very changelog entry or the guard's own source line) cannot false-positive and block a legitimate closure. Regression tests: `test_commit_and_clean_task_stores_reachable_hash`, `test_commit_and_clean_task_guard_no_false_positive_on_diff_mention`.
+- **`stage_and_inject_diff` crash when an ignored `context-reports/` directory exists** — the tool staged with `git add . :!...` negative pathspecs, which makes git exit 1 with "paths are ignored" whenever an excluded path actually exists on disk (the accumulated `context-reports/` reports), blocking every closure until deleted. Replaced with plain `git add -A .` (gitignore-respected) plus defense-in-depth `git reset -q -- <pattern>` for the sensitive/ignored paths. Regression test: `test_stage_and_inject_diff_with_ignored_context_reports`.
+
 ## [8.0.0] - 2026-08-04
 
 ### Added
