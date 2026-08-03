@@ -4,6 +4,12 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Fixed
+
+- **MCP servers crash on startup with MCP SDK 2.0** — Pinned `mcp[cli]>=1.0,<2.0` in the `# /// script` dependency headers of `mcp-context-server/server.py` and `mcp-memory-server/server.py`. PyPI's latest `mcp` (2.0.0) removed `mcp.server.fastmcp`, causing `ModuleNotFoundError` on boot and disabling both `custom_context` and `project_memory` tools.
+
 ## [7.2.2] - 2026-08-02
 
 ### Added

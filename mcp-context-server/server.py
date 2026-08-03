@@ -3,7 +3,7 @@
 # requires-python = ">=3.10"
 # dependencies = [
 #     "pathspec",
-#     "mcp[cli]",
+#     "mcp[cli]>=1.0,<2.0",
 #     "tree-sitter",
 #     "tree-sitter-python",
 #     "tree-sitter-javascript",
