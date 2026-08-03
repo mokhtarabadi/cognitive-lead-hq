@@ -6,9 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [8.0.2] - 2026-08-04
+
 ### Changed
 
 - **Commit Lifecycle Rule (ZAC) in system-prompt `<constraints>`** — Added a `<commit_lifecycle_rule>` bullet to the top-level `<constraints>` section documenting the two commit-producing MCP tools (`stage_and_inject_diff` for development-time, `commit_and_clean_task` for closure-time), their distinct lifecycle semantics, the two-commit flow (feature + closure), and ZAC enforcement. Previously the ZAC intent was only visible in `<bash_phase>` implementation templates, allowing LLM agents to invoke `commit_and_clean_task` during implementation (Zen Router incident, Task 13). System prompt version bumped to 8.0.1 (PATCH).
+- **Milestone 8 archive** — Compacted Tasks 69, 77–79 into `docs/history/milestone-8-summary.md` and moved completed task files to `tasks/archive/`. System prompt version bumped to 8.0.2.
 
 ### Fixed
 
