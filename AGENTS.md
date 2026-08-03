@@ -21,8 +21,9 @@ This repository is the Headquarters for the Cognitive Lead AI multi-agent system
 
 ## Actionable Guardrails (Do's & Don'ts)
 
-- **Don't** generate or write functional application code (Python, JS, Go, etc.) in this repository.
-  -> **Do** write structured framework-specific SOPs and reusable Markdown templates only.
+- **Don't** generate target application code (product features, user-facing apps) in this repository.
+  -> **Do** write structured framework-specific SOPs and reusable Markdown templates.
+  -> **Exception:** MCP servers (`mcp-context-server/`, `mcp-memory-server/`, `mcp-lint-server/`), maintenance scripts (`scripts/`), and tooling required for the Cognitive Lead AI platform itself ARE permitted.
 - **Don't** edit `system-prompt.md` without updating the version identifier.
   -> **Do** increment the version inside `<system_version>` at the very top of `system-prompt.md`, update the active task file in `tasks/`, and log a formal entry in `CHANGELOG.md`.
 - **Don't** read `context-reports/` markdown files yourself.

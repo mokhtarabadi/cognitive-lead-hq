@@ -19,9 +19,11 @@ Whenever the Manager explicitly states a rule, preference, or architectural cons
 
 ## When to DELETE Memory (Trigger)
 
-If the Manager explicitly states that a previous rule or constraint is no longer valid (e.g., "We are no longer using Webpack, drop those rules"), you MUST:
+If the Manager explicitly states that a previous rule or constraint is no longer valid, or if supersession requires deletion:
 
-1. Call `delete_memory` with the obsolete `namespace` and `key` to prune the memory bank and prevent stale context injection.
+1. **Safety Gate:** Before calling `delete_memory`, you MUST output: "⚠️ Memory deletion requested: `{namespace}/{key}`. Manager, please confirm."
+2. Wait for explicit Manager approval (unless it is an automatic store-time supersession within the same namespace/key topic, which is logged as `Supersedes: {old_namespace}/{old_key}`).
+3. Upon approval, call `delete_memory` with the obsolete `namespace` and `key` to prune the memory bank.
 
 ## Supersession Detection Heuristic
 

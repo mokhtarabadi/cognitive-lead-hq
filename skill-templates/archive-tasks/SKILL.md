@@ -68,8 +68,10 @@ mkdir -p docs/history
 5. **Move completed files to archive**:
 
 ```bash
-mv tasks/completed/*.md tasks/archive/
+git mv tasks/completed/*.md tasks/archive/
 ```
+
+*Note: If files are untracked, use standard `mv` and then `git add tasks/archive/`.*
 
 6. **Memory Validation:** After compacting tasks, audit the project memory bank for stale or superseded entries:
    a. Call `list_namespaces` to enumerate all memory namespaces.

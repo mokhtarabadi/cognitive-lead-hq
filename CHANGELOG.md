@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- **P0 Consistency & Safety Fixes (V8.0.0 Phase 2)** — Resolved AGENTS.md documentation-only contradiction by adding explicit exceptions for MCP servers and tooling. Hardened `stage_and_inject_diff` to exclude sensitive files (`.env`, `.pem`, etc.) from blind `git add .`. Hardened `commit_and_clean_task` with empty-staged checks and push-history amend warnings. Fixed version sync rules in `versioning-and-release` skill. Resolved `DESIGN.md` path conflict (root vs `.stitch/`). Converted `archive-tasks` to use `git mv` for history preservation. Secured memory deletion by changing `delete_memory` permission to `ask` in `opencode.json` and `LLM.txt`, and adding a Safety Gate to the `project-memory` skill.
 - **MCP servers crash on startup with MCP SDK 2.0** — Pinned `mcp[cli]>=1.0,<2.0` in the `# /// script` dependency headers of `mcp-context-server/server.py` and `mcp-memory-server/server.py`. PyPI's latest `mcp` (2.0.0) removed `mcp.server.fastmcp`, causing `ModuleNotFoundError` on boot and disabling both `custom_context` and `project_memory` tools.
 
 ## [7.2.2] - 2026-08-02

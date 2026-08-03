@@ -284,9 +284,9 @@ Synthesize the extraction into actionable prompts for Stitch:
 
 ### Phase 3: Write the DESIGN.md
 
-Assemble everything into the standard DESIGN.md format. Place it at
-`.stitch/DESIGN.md` in the project directory (create the `.stitch/` directory
-if it doesn't exist).
+Assemble everything into the standard DESIGN.md format. 
+Place the primary `DESIGN.md` at the project root. This is the canonical source of truth per `AGENTS.md` Core File Locations.
+If the user explicitly requests Stitch integration, ALSO create a copy at `.stitch/DESIGN.md` (create the `.stitch/` directory if it doesn't exist).
 
 > The file must start with YAML frontmatter with `name` and `colors` mapping, followed by the markdown sections.
 

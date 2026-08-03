@@ -405,8 +405,13 @@ def extract_signatures(file_path: str) -> str:
 def stage_and_inject_diff(task_file_path: str) -> str:
     """Stages current changes via Git and intelligently injects the diff into the task file's Git Diff block."""
     try:
-        # 1. Stage all changes
-        subprocess.run(["git", "add", "."], check=True, capture_output=True)
+        # 1. Stage all changes EXCEPT known dangerous patterns
+        subprocess.run([
+            "git", "add", ".",
+            ":!*.env", ":!*.env.*", ":!*.key", ":!*.pem",
+            ":!credentials*", ":!secrets*",
+            ":!context-reports/", ":!.opencode/cache/"
+        ], check=True, capture_output=True)
         
         # 2. Extract the diff (EXCLUDING the entire tasks/ directory to prevent recursive diff bloat)
         # Using git pathspec magic ':!tasks/' to ignore the entire task folder
@@ -446,6 +451,11 @@ def stage_and_inject_diff(task_file_path: str) -> str:
 def commit_and_clean_task(task_file_path: str, commit_message: str) -> str:
     """Commits staged changes, captures the commit hash, replaces the raw diff in the task file with the hash to save space, and amends the commit to include the cleaned task file."""
     try:
+        # 0. Safety checks before commit
+        staged_check = subprocess.run(["git", "diff", "--staged", "--quiet"], capture_output=True)
+        if staged_check.returncode == 0:
+            return "⚠️ No staged changes to commit."
+
         # 1. Commit staged changes
         subprocess.run(["git", "commit", "-m", commit_message], check=True, capture_output=True, text=True)
         
@@ -469,6 +479,18 @@ def commit_and_clean_task(task_file_path: str, commit_message: str) -> str:
                     
                 # 4. Stage the cleaned task file and amend
                 subprocess.run(["git", "add", "-A", "tasks/"], check=True, capture_output=True)
+                # Safety check: warn if amending pushed history
+                upstream_check = subprocess.run(
+                    ["git", "rev-parse", "--abbrev-ref", "@{upstream}"],
+                    capture_output=True, text=True
+                )
+                if upstream_check.returncode == 0:
+                    ahead_check = subprocess.run(
+                        ["git", "rev-list", "--count", "@{upstream}..HEAD"],
+                        capture_output=True, text=True
+                    )
+                    if int(ahead_check.stdout.strip()) > 0:
+                        print("⚠️ Warning: Amending a pushed commit. Ensure you know what you are doing.", file=sys.stderr)
                 subprocess.run(["git", "commit", "--amend", "--no-edit"], check=True, capture_output=True)
                 
         return f"✅ Success: Code committed (Hash: {commit_hash}). Task file {task_file_path} cleaned and amended."

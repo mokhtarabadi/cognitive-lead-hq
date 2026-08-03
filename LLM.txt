@@ -123,7 +123,7 @@ Write the following JSON (replace `$HOME` with the actual home directory path):
     "custom_context_*": "allow",
     "project_memory_*": "allow",
     "store_memory": "allow",
-    "delete_memory": "allow",
+    "delete_memory": "ask",
     "read_memory": "allow",
     "search_memory": "allow",
     "list_namespaces": "allow",
