@@ -100,6 +100,23 @@ The title number MUST match the filename ID. Any mismatch or duplicate must be r
    - [ ] [Specific step 1]
    - [ ] Verify functionality
 
+   ## Acceptance Criteria
+
+   - [ ] [Criterion 1 — what must be true for this task to be considered done]
+   - [ ] [Criterion 2]
+
+   ## Verification Evidence
+
+   - **Test command:** [exact command]
+   - **Expected result:** [what success looks like]
+   - **Actual result:** _(OpenCode fills this during execution)_
+   - **Exit code:** _(OpenCode fills this during execution)_
+
+   ## Risk & Rollback
+
+   - **Risk:** [what could go wrong]
+   - **Rollback plan:** [how to undo if needed]
+
    ---
 
    ## OpenCode Execution Log & Reasoning
@@ -130,6 +147,23 @@ If the Orchestrator specifies `multi_phase: true`, generate a SINGLE task file w
 ## Goal
 
 [Summary of the goal]
+
+## Acceptance Criteria
+
+- [ ] [Criterion 1 — what must be true for this task to be considered done]
+- [ ] [Criterion 2]
+
+## Verification Evidence
+
+- **Test command:** [exact command]
+- **Expected result:** [what success looks like]
+- **Actual result:** _(OpenCode fills this during execution)_
+- **Exit code:** _(OpenCode fills this during execution)_
+
+## Risk & Rollback
+
+- **Risk:** [what could go wrong]
+- **Rollback plan:** [how to undo if needed]
 
 ## Phase 1: [Name]
 

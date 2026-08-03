@@ -50,6 +50,12 @@ ls tasks/completed/*.md 2>/dev/null
    | ------------ | ----------- |
    | path/to/file | description |
 
+   ## Criteria Met
+
+   | Task | Acceptance Criteria | Status |
+   | ---- | ------------------- | ------ |
+   | XX   | [Extracted criteria from the completed task's `## Acceptance Criteria` section] | ✅ Met |
+
    ## Individual Task Summaries
 
    ### Task XX: Title

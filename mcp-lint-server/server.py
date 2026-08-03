@@ -117,6 +117,9 @@ def _check_task_file_structure(content: str, file_path: str) -> list[str]:
     required_sections = [
         "## Goal",
         "## Local TODOs",
+        "## Acceptance Criteria",
+        "## Verification Evidence",
+        "## Risk & Rollback",
         "## OpenCode Execution Log & Reasoning",
         "## Factual Git Diff",
     ]

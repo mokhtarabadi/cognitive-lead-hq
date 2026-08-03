@@ -152,6 +152,7 @@ Create `tasks/backlog/{NEXT_ID}-hyphenated-title.md` using the **unified canonic
 Populate the telegram variant (`## Source Context` → Variant B) by filling these fields:
 
 - `## Goal` — **MANDATORY.** Derive a one-line goal from the `RAW_TEXT` before writing the file.
+- `## Acceptance Criteria` — **MANDATORY.** Derive 2-3 concrete, verifiable conditions from the Telegram message's intent before writing the file.
 - `## Original Message ({LANGUAGE})` — `{RAW_TEXT}` — **verbatim, zero changes.**
 
   **RULE:** The `## Original Message` section MUST contain the exact text from Telegram. If the text is Persian, the section header is `## Original Message (Persian)`. If Arabic, `## Original Message (Arabic)`, etc. If the language is unknown, use `## Original Message (Raw)`.
