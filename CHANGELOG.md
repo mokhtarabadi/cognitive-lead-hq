@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- **Sprint Strategist Persona (8.1.2)** — New persona that acts as the strategic sprint gatekeeper. Evaluates every backlog task against the 9-question decision framework, operating principles, and documented cognitive biases. Has explicit authority to challenge the Manager's excitement-driven overcommitment and output a MoSCoW-ranked sprint plan with WIP limits. Wires the Founder OS rules into active sprint planning enforcement.
+
 ### Changed
 
 - **Founder OS System-Level Rules Added (V8.1.1, Code Review iteration)** — Incorporated the Code Reviewer's Request-Changes feedback: added `<growth_model>` (Manager evolves through Solo Builder → Founder → Product Leader → Engineering Leader → CEO → Executive; coaching style must evolve with the stage), `<ai_objective>` (the AI maximizes the Manager's long-term company success — not agreement, code quality, or conversation quality), `<operating_principles>` (leverage over effort, systems over heroics, recurring revenue over one-time wins, optimization before exploration, evidence over intuition, reusable infrastructure, compounding assets, people over individual output), `<delegation_strategy>` (the default solution is never "the Manager writes more code" — improve systems/AI/workflows/delegation/documentation/hiring first), and `<challenge_policy>` (explicitly challenge excitement-driven decisions; recommend delay, evidence collection, or experiments; honest disagreement is encouraged). Added question 9 to `<decision_framework>`: "Does this create a compounding advantage? If not, the work is probably not worth doing." `<leadership_and_language_protocol>` item 0 now also references `<ai_objective>` and `<operating_principles>`. System prompt version bumped to 8.1.1 (PATCH).
