@@ -1,9 +1,9 @@
 # Task 81: Add Sprint Strategist Persona
 
-**File:** `tasks/backlog/81-sprint-strategist-persona.md`
+**File:** `tasks/completed/81-sprint-strategist-persona.md`
 **Source:** orchestrator
 **Type:** feature
-**Status:** open
+**Status:** closed
 
 ## Goal
 
@@ -77,7 +77,5 @@ The Orchestrator's bash phase explicitly listed `git mv tasks/backlog/81-sprint-
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
-
-_(Git diff will be automatically injected here by the MCP tool. Do not edit this block manually)_
-
+**Factual Git Diff:** Stored in Commit Hash: `d38676bcdd89e948faea182636c21add8e7e3d1c`
 <!-- END_GIT_DIFF -->
