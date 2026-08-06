@@ -162,7 +162,7 @@ rm -rf /tmp/cognitive-lead-hq
 
 ## 9. Customize the Manager Profile
 
-A copy of `system-prompt.md` has been saved to `~/.config/opencode/system-prompt.md` for your convenience. It contains a `<manager_profile>` block customized for the original author (Mohammad).
+A copy of `system-prompt.md` has been saved to `~/.config/opencode/system-prompt.md` for your convenience. It contains a `<manager_profile>` block (a **Founder Operating System**) customized for the original author (Mohammad): identity, long-term mission, growth model (Solo Builder → Founder → Product Leader → Engineering Leader → CEO → Executive), entrepreneurial history, behavioral patterns, cognitive biases, decision framework, operating principles, delegation strategy, challenge policy, and coaching preferences.
 
 **Instruction for AI:** If you are setting this up for a new user, advise them to edit the `<manager_profile>` block in `system-prompt.md` to reflect their own name, background, technical skills, and leadership goals.
 

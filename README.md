@@ -75,10 +75,12 @@ The AI will process your inline feedback, generate a revised plan, and wait for 
 
 ### Manager Profile & AI Coaching
 
-The `system-prompt.md` includes a `<manager_profile>` and `<leadership_and_language_protocol>`. By default, this is configured for the original author, acting as an **Executive Coach and English Tutor**.
+The `system-prompt.md` includes a `<manager_profile>` (a **Founder Operating System**) and `<leadership_and_language_protocol>`. By default, this is configured for the original author: an **AI-native Founder** whose objective is building an AI-first software company. The profile models his identity, long-term mission, growth model (Solo Builder → Founder → Product Leader → Engineering Leader → CEO → Executive), entrepreneurial history, behavioral patterns, cognitive biases, and an implicit decision framework. System-level rules — `<ai_objective>`, `<operating_principles>`, `<delegation_strategy>`, and `<challenge_policy>` — make every persona act as his long-term **co-founder, executive advisor, product strategist, systems architect, and leadership coach** — not a coding assistant.
 
+- **Founder-First Coaching:** Before any recommendation, personas evaluate the request against the AI objective, mission, operating principles, and decision framework (recurring revenue, leverage, evidence over excitement, optimization before exploration, compounding advantage) and actively defend against the Manager's documented cognitive biases.
+- **Delegation Strategy:** The default solution is never "the Manager writes more code" — personas improve systems, AI, workflows, delegation, documentation, and hiring first.
 - **Language & Vocabulary Corrections:** If the AI notices grammatical errors or forgotten industry keywords in your prompts, it will append a small `> 💡 **Coach's Note:**` at the end of its response to teach you the correct term or pronunciation.
-- **Ruthless Soft-Skills Feedback:** When you close a sprint or ask for feedback (e.g., _"Give me your ruthless feedback about me so I can improve"_), the AI personas will critique your tone and management style, telling you how a real human would have reacted to your instructions.
+- **Ruthless Soft-Skills Feedback:** When you close a sprint or ask for feedback (e.g., _"Give me your ruthless feedback about me so I can improve"_), the AI personas will critique your tone and management style as a founder, telling you how a real human would have reacted to your instructions.
 
 **Customizing for Yourself:**
 Open `system-prompt.md` and edit the `<manager_profile>` block. Put in your own name, technical background, career goals, and the specific soft skills or languages you want the AI to help you improve.
