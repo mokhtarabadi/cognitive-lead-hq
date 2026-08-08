@@ -331,6 +331,18 @@ To make the `code-search` skill (or any other reusable skill) available in _ever
 
 ---
 
+## Custom OpenCode Agents
+
+This workflow relies on a dedicated primary agent (`cognitive-executor`) and a read-only subagent (`cognitive-discovery`) to hard-enforce Zero-Autonomous-Commits (ZAC), MCP-first context gathering, and the strict finalization sequence at the platform permission layer.
+
+To install them globally, run the `LLM.txt` auto-configuration script. Once installed, you can start OpenCode with the executor agent using:
+
+```bash
+opencode --agent cognitive-executor
+```
+
+---
+
 ## Key V5 Changes
 
 - **Decentralized task architecture** — global `STATE.md` and `TODO.md` replaced by isolated task files in `tasks/` directory.

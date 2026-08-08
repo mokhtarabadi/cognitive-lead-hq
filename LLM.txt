@@ -99,6 +99,20 @@ After this, the skills will be available via `/help` from any directory.
 
 ---
 
+## 6.5. Install Custom Agents Globally
+
+Create the global agents directory and copy the custom OpenCode agents from the cloned repo:
+
+```bash
+mkdir -p ~/.config/opencode/agents
+cp /tmp/cognitive-lead-hq/agents/cognitive-executor.md ~/.config/opencode/agents/
+cp /tmp/cognitive-lead-hq/agents/cognitive-discovery.md ~/.config/opencode/agents/
+```
+
+After this, the `cognitive-executor` will be available as a primary agent, enforcing ZAC and strict workflow protocols.
+
+---
+
 ## 7. Configure Global opencode.json (with Absolute Paths)
 
 Create or update `~/.config/opencode/opencode.json`. You MUST use **absolute paths** in the `command` array — resolve the `~` to the full home directory path discovered in Step 3.
@@ -108,6 +122,7 @@ Write the following JSON (replace `$HOME` with the actual home directory path):
 ```json
 {
   "$schema": "https://opencode.ai/config.json",
+  "default_agent": "cognitive-executor",
   "mcp": {
     "custom_context": {
       "type": "local",
@@ -177,6 +192,8 @@ After completing all steps, verify:
 - [ ] `~/.config/opencode/mcp-context-server/server.py` exists and is executable
 - [ ] `~/.config/opencode/mcp-memory-server/server.py` exists and is executable
 - [ ] Skills are installed under `~/.config/opencode/skills/` (at least one subfolder exists)
+- [ ] `~/.config/opencode/agents/cognitive-executor.md` exists
+- [ ] `~/.config/opencode/agents/cognitive-discovery.md` exists
 - [ ] `~/.config/opencode/opencode.json` exists with **absolute paths** (not `~` or relative paths)
 - [ ] `/tmp/cognitive-lead-hq` no longer exists
 - [ ] Start each MCP server to verify it launches without errors:

@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- Implemented global `cognitive-executor` and `cognitive-discovery` OpenCode agents to hard-enforce ZAC and workflow protocols at the permission layer.
+
 ## [8.2.0] - 2026-08-06
 
 ### Added
