@@ -4,11 +4,15 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased]
+## [8.3.0] - 2026-08-08
 
 ### Added
 
 - Implemented global `cognitive-executor` and `cognitive-discovery` OpenCode agents to hard-enforce ZAC and workflow protocols at the permission layer.
+
+### Changed
+
+- **Cognitive Executor Agent Hardened (8.3.0)** — The `cognitive-executor` primary agent now carries the full execution protocol as its permanent system prompt: bash full-autonomy with ZAC denies (`git add`/`git commit`/`git push` → `deny`) and `rm -rf` guard, Task Lifecycle & Kanban State Enforcement (self-correcting `backlog → in-progress` and closure moves), Skill Auto-Loading Matrix (14 stack/workflow mappings), Direct Input (Ad-Hoc) Validation Protocol, Context Bootstrapping & Memory Protocol, and Subagent Delegation for Context Discovery via `cognitive-discovery`. `LLM.txt` bootstrap extended with Section 6.5 (global agent install) and `default_agent` in the Section 7 config JSON; `README.md` documents the custom agents. `opencode.json` and `opencode.jsonc` set `default_agent: cognitive-executor`. System prompt version bumped to 8.3.0 (MINOR).
 
 ## [8.2.0] - 2026-08-06
 
