@@ -1,9 +1,9 @@
 # Task 84: Release v8.3.0 - Cognitive Executor Agents
 
-**File:** `tasks/in-progress/84-release-v830-cognitive-executor-agents.md`
+**File:** `tasks/completed/84-release-v830-cognitive-executor-agents.md`
 **Source:** manager
 **Type:** feature
-**Status:** open
+**Status:** closed
 
 ## Source Context
 
@@ -51,12 +51,25 @@ Cut release **v8.3.0** (MINOR — new feature: global `cognitive-executor`/`cogn
 
 ## OpenCode Execution Log & Reasoning
 
-_(OpenCode: Manually log your technical changes, file edits, and architectural reasoning here BEFORE calling the MCP tool)_
+Release v8.3.0 cut via the MCP commit lifecycle (ZAC: `git add`/`git commit`/`git push` denied at the permission layer for the executor agent).
+
+### What was done
+
+1. **`system-prompt.md`** — `<system_version>` bumped 8.2.0 → 8.3.0 (MINOR per SemVer: new agent features, non-breaking; milestone-release precedent).
+2. **`CHANGELOG.md`** — `[Unreleased]` moved to `## [8.3.0] - 2026-08-08`; existing `### Added` entry (cognitive-executor/cognitive-discovery agents) retained; new `### Changed` entry documenting the executor hardening, LLM.txt Section 6.5 + `default_agent` bootstrap, and README updates.
+3. **Git lifecycle** — staged via `custom_context_stage_and_inject_diff`; committed via `custom_context_commit_and_clean_task` (`ee5e9d7` release + `51663cd` close task 84). ZAC blocked a direct `git add`/`git commit`/`git push` attempt — enforcement verified working in-session.
+4. **Push** — Manager pushed `origin/main` (verified 0/0 ahead/behind).
+5. **⚠️ Pending (Manager-owned):** tag `v8.3.0` and `gh release create` were NOT executed — no local/remote tag exists. Acceptance criteria items 3–4 remain partially unmet until the Manager runs the tag + release commands.
+
+### Architectural reasoning
+
+- The ZAC permission layer (inherited from the `cognitive-executor` agent config) turned the release into a hybrid flow: agent-side metadata + commit, Manager-side push/tag/release. This is the intended division of power — the agent can never forge history; the human owns the remote.
+- The task file itself was tracked through the full Kanban lifecycle (in-progress → completed) with the release metadata, keeping the decentralized task system as the source of truth.
+
+Task approved for closure by the Manager. Moved to completed/. Tag + GitHub release remain pending Manager execution.
 
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
-```diff
-No code changes detected or staged.
-```
+**Factual Git Diff:** Stored in Commit Hash: `b873609ace62147f29c7f72f0f9fc4f13c70924a`
 <!-- END_GIT_DIFF -->
