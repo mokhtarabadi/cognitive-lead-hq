@@ -1,9 +1,9 @@
 # Task 82: Implement Cognitive Executor Agent
 
-**File:** `tasks/backlog/82-implement-cognitive-executor-agent.md`
+**File:** `tasks/completed/82-implement-cognitive-executor-agent.md`
 **Source:** manager
 **Type:** feature
-**Status:** open
+**Status:** closed
 
 ## Goal
 
@@ -40,12 +40,12 @@ OpenCode analysis session (2026-08-08): "Introducing a custom opencode agent for
 
 ## Acceptance Criteria
 
-- [ ] `~/.config/opencode/agents/cognitive-executor.md` exists with `mode: primary` and ZAC deny rules (`git commit*`, `git add*`, `git push*` → deny)
-- [ ] `~/.config/opencode/agents/cognitive-discovery.md` exists as read-only subagent
-- [ ] `default_agent: cognitive-executor` present in global `opencode.jsonc`
-- [ ] `opencode agent list` shows both new agents
-- [ ] LLM.txt contains a bootstrap step installing both agent files globally
-- [ ] CHANGELOG.md has the feature entry under `[Unreleased]` → `### Added`
+- [x] `~/.config/opencode/agents/cognitive-executor.md` exists with `mode: primary` and ZAC deny rules (`git commit*`, `git add*`, `git push*` → deny)
+- [x] `~/.config/opencode/agents/cognitive-discovery.md` exists as read-only subagent
+- [x] `default_agent: cognitive-executor` present in global `opencode.jsonc`
+- [x] `opencode agent list` shows both new agents
+- [x] LLM.txt contains a bootstrap step installing both agent files globally
+- [x] CHANGELOG.md has the feature entry under `[Unreleased]` → `### Added`
 
 ## Verification Evidence
 
@@ -91,154 +91,10 @@ The bash phase's `git mv tasks/backlog/... tasks/in-progress/...` failed (`fatal
 2. **`LLM.txt`** — Section 7's global `opencode.json` bootstrap JSON now includes `"default_agent": "cognitive-executor"` right after `$schema`, so fresh machines auto-configure the executor as the default primary agent (matches the manual global config set during the initial implementation).
 3. No new CHANGELOG entry — QA fix on the same unreleased feature; the existing `[Unreleased]` → `### Added` entry covers it.
 
+Task approved for closure by the Manager. Moved to completed/.
+
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
-```diff
-diff --git a/CHANGELOG.md b/CHANGELOG.md
-index bb7066a..3444212 100644
---- a/CHANGELOG.md
-+++ b/CHANGELOG.md
-@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
- 
- ## [Unreleased]
- 
-+### Added
-+
-+- Implemented global `cognitive-executor` and `cognitive-discovery` OpenCode agents to hard-enforce ZAC and workflow protocols at the permission layer.
-+
- ## [8.2.0] - 2026-08-06
- 
- ### Added
-diff --git a/LLM.txt b/LLM.txt
-index 6fba902..bc038dc 100644
---- a/LLM.txt
-+++ b/LLM.txt
-@@ -99,6 +99,20 @@ After this, the skills will be available via `/help` from any directory.
- 
- ---
- 
-+## 6.5. Install Custom Agents Globally
-+
-+Create the global agents directory and copy the custom OpenCode agents from the cloned repo:
-+
-+```bash
-+mkdir -p ~/.config/opencode/agents
-+cp /tmp/cognitive-lead-hq/agents/cognitive-executor.md ~/.config/opencode/agents/
-+cp /tmp/cognitive-lead-hq/agents/cognitive-discovery.md ~/.config/opencode/agents/
-+```
-+
-+After this, the `cognitive-executor` will be available as a primary agent, enforcing ZAC and strict workflow protocols.
-+
-+---
-+
- ## 7. Configure Global opencode.json (with Absolute Paths)
- 
- Create or update `~/.config/opencode/opencode.json`. You MUST use **absolute paths** in the `command` array — resolve the `~` to the full home directory path discovered in Step 3.
-@@ -177,6 +191,8 @@ After completing all steps, verify:
- - [ ] `~/.config/opencode/mcp-context-server/server.py` exists and is executable
- - [ ] `~/.config/opencode/mcp-memory-server/server.py` exists and is executable
- - [ ] Skills are installed under `~/.config/opencode/skills/` (at least one subfolder exists)
-+- [ ] `~/.config/opencode/agents/cognitive-executor.md` exists
-+- [ ] `~/.config/opencode/agents/cognitive-discovery.md` exists
- - [ ] `~/.config/opencode/opencode.json` exists with **absolute paths** (not `~` or relative paths)
- - [ ] `/tmp/cognitive-lead-hq` no longer exists
- - [ ] Start each MCP server to verify it launches without errors:
-diff --git a/README.md b/README.md
-index 8d40836..7cbf086 100644
---- a/README.md
-+++ b/README.md
-@@ -331,6 +331,18 @@ To make the `code-search` skill (or any other reusable skill) available in _ever
- 
- ---
- 
-+## Custom OpenCode Agents
-+
-+This workflow relies on a dedicated primary agent (`cognitive-executor`) and a read-only subagent (`cognitive-discovery`) to hard-enforce Zero-Autonomous-Commits (ZAC), MCP-first context gathering, and the strict finalization sequence at the platform permission layer.
-+
-+To install them globally, run the `LLM.txt` auto-configuration script. Once installed, you can start OpenCode with the executor agent using:
-+
-+```bash
-+opencode --agent cognitive-executor
-+```
-+
-+---
-+
- ## Key V5 Changes
- 
- - **Decentralized task architecture** — global `STATE.md` and `TODO.md` replaced by isolated task files in `tasks/` directory.
-diff --git a/agents/cognitive-discovery.md b/agents/cognitive-discovery.md
-new file mode 100644
-index 0000000..9ed8119
---- /dev/null
-+++ b/agents/cognitive-discovery.md
-@@ -0,0 +1,21 @@
-+---
-+description: Read-only subagent for gathering context via custom_context MCP tools.
-+mode: subagent
-+permission:
-+  edit: deny
-+  bash: deny
-+  read: allow
-+  custom_context_*: allow
-+---
-+# Cognitive Discovery Subagent
-+
-+You are a read-only assistant specialized in codebase mapping and context extraction.
-+
-+## Objective
-+
-+When invoked, you must use the `custom_context` MCP tools to compile comprehensive context reports.
-+1. Use `get_directory_tree` to map the requested directory structure.
-+2. Use `read_source_files` to fetch the exact source code of requested files.
-+3. Use `extract_signatures` to pull function/class signatures for vertical slices.
-+
-+Do not modify any files. Do not attempt to execute code. Compile the report and halt.
-diff --git a/agents/cognitive-executor.md b/agents/cognitive-executor.md
-new file mode 100644
-index 0000000..3db36ef
---- /dev/null
-+++ b/agents/cognitive-executor.md
-@@ -0,0 +1,40 @@
-+---
-+description: Executes Cognitive Lead AI XML tasks with strict ZAC and MCP-first context enforcement.
-+mode: primary
-+temperature: 0.1
-+steps: 100
-+permission:
-+  edit: allow
-+  bash:
-+    "*": "ask"
-+    "git status*": "allow"
-+    "git log*": "allow"
-+    "git diff*": "allow"
-+    "git mv tasks/*": "allow"
-+    "npx prettier*": "allow"
-+    "pytest*": "allow"
-+    "npm test*": "allow"
-+    "uv run *": "allow"
-+    "ls*": "allow"
-+    "find*": "allow"
-+    "rm -rf*": "ask"
-+    "git add*": "deny"
-+    "git commit*": "deny"
-+    "git push*": "deny"
-+  external_directory: ask
-+---
-+# Cognitive Executor Agent
-+
-+You are the primary execution engine for the Cognitive Lead AI platform. You receive highly structured XML task blocks and execute them with absolute precision.
-+
-+## Core Protocol (Non-Negotiable)
-+
-+1. **Entry Point:** Your absolute first action is to read `AGENTS.md`. If `AGENTS.md` references `DESIGN.md`, `docs/architecture.md`, `docs/data_model.md`, or `docs/conventions.md`, you MUST read them.
-+2. **Rule Validation:** If the Orchestrator's instructions violate ANY project rule, HALT immediately. Output a `⚠️ RULE VIOLATION WARNING` detailing the broken rule. Do NOT proceed.
-+3. **MCP-First Context:** When instructed to gather context, you MUST use the `custom_context` MCP tools (`get_directory_tree`, `read_source_files`, `extract_signatures`). NEVER use native `read` to dump large file contents inline.
-+4. **Skill Loading:** Load all skills explicitly named in the XML task's `<context_phase>`.
-+5. **Zero-Autonomous-Commit (ZAC):** You are STRICTLY FORBIDDEN from executing `git add`, `git commit`, or `git push`. These are denied at the permission layer. All staging is done via the `custom_context_stage_and_inject_diff` MCP tool.
-+6. **Finalization Sequence:** When a task is complete, you MUST execute this exact sequence:
-+   a. Call `lint_task_file` on the active task file.
-+   b. Call `custom_context_stage_and_inject_diff` passing the task file path.
-+   c. Output the exact hand-off message instructed by the Orchestrator.
-```
+**Factual Git Diff:** Stored in Commit Hash: `908011d3bd4924521a70be56cc43d9dde614a545`
 <!-- END_GIT_DIFF -->
