@@ -27,7 +27,7 @@ This repository is the Headquarters for the Cognitive Lead AI multi-agent system
 - **Don't** edit `system-prompt.md` without updating the version identifier.
   -> **Do** increment the version inside `<system_version>` at the very top of `system-prompt.md`, update the active task file in `tasks/`, and log a formal entry in `CHANGELOG.md`.
 - **Don't** read `context-reports/` markdown files yourself.
-  -> **Do** generate them using the MCP server and hand the file path to the Manager.
+  -> **Do** generate them using the MCP server — context reports via `custom_context_read_source_files`, tree reports via `custom_context_create_tree_report` ("create a tree of the project") — and hand the file path to the Manager.
 - **Don't** create monolithic state files like `TODO.md` or `STATE.md`.
   -> **Do** use the decentralized `tasks/` directory with individual task files as the single source of truth.
 - **Don't** make UI/UX changes without consulting `DESIGN.md`.

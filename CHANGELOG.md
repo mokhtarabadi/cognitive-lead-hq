@@ -4,6 +4,16 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Added
+
+- **Tree Report MCP Tool (8.4.0)** — New `create_tree_report` tool on the `custom_context` server: saves a `.gitignore`-aware directory tree of any path (default: the entire project) as `context-reports/tree_report_<timestamp>_<uuid>.md`, mirroring the `context_report_<timestamp>.md` naming convention (with a UUID suffix to guarantee collision-free naming). Trigger phrase: "create a tree of the project". Wired into the discovery/combined task templates in `system-prompt.md` (version bumped 8.3.0 → 8.4.0, MINOR), the `code-search` skill, the `cognitive-executor` and `cognitive-discovery` agents, `README.md`, and the `AGENTS.md` context-reports guardrail. The `audit-agents` skill gained an **MCP Report Generation** audit criterion (top summary + Mode 2 lists) and the matching guardrail pair in its Mode 1 `AGENTS.md` template; deployed global skill copies (`code-search`, `audit-agents`) synced from `skill-templates/`. Regression tests added for explicit-path, default-target, invalid-path, `.gitignore` filtering, same-second collision, path-traversal rejection, and `None` input handling.
+
+### Fixed
+
+- **Security hardening of `create_tree_report` (QA iteration)** — (1) Path traversal prevention: `target_path` is resolved against the workspace root and rejected with `"Error: Path traversal detected. target_path must be within the project workspace."` when it escapes the project. (2) TOCTOU race condition: the `while report_file.exists():` numeric-suffix check loop was replaced with a UUID suffix (`uuid4().hex[:8]`) so filenames are unique by construction. (3) `None`/invalid `target_path` types now degrade gracefully to the whole-project default instead of raising `TypeError`. Regression tests: `test_create_tree_report_rejects_path_traversal`, `test_create_tree_report_handles_none_input`. Filename pattern documented in README, system-prompt templates, agents, and the code-search skill updated to `tree_report_<timestamp>_<uuid>.md`.
+
 ## [8.3.0] - 2026-08-08
 
 ### Added

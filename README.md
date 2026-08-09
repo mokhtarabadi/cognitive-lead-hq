@@ -289,13 +289,14 @@ _(Note: Replace `/Users/<YOUR_USER>` with your actual home directory path)._
 ### How It Works
 
 1. `opencode.json` configures the custom context server as a local MCP server.
-2. When OpenCode needs to explore code, it uses `get_directory_tree` and `read_source_files` tools.
+2. When OpenCode needs to explore code, it uses `get_directory_tree` (inline tree), `create_tree_report` (persistent tree file), and `read_source_files` (compiled context report) tools.
 3. All file reads respect `.gitignore` rules and skip binary/large files automatically.
 4. The strategy is documented in `skill-templates/code-search/SKILL.md`.
 
 ### Available Tools
 
 - `get_directory_tree` — Generates an ASCII tree of the directory structure, respecting `.gitignore`.
+- `create_tree_report` — Saves a persistent `.gitignore`-aware directory tree of any path (default: the entire project) as `context-reports/tree_report_<timestamp>_<uuid>.md`, mirroring the context report convention. Trigger phrase: "create a tree of the project".
 - `read_source_files` — Reads multiple source files or directories and saves their contents into a local Markdown report inside the `context-reports/` directory, returning the file path to prevent context bloat.
 
 ---

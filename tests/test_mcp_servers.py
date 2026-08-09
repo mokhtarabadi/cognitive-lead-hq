@@ -309,6 +309,211 @@ def test_commit_and_clean_task_guard_no_false_positive_on_diff_mention():
         assert ancestry.returncode == 0, f"Stored hash {stored_hash} is orphaned/unreachable"
 
 
+def test_create_tree_report_saves_md_in_context_reports():
+    """Verify create_tree_report saves a tree_report_*.md file that respects .gitignore."""
+    import importlib
+    import os
+    import tempfile
+
+    server_path = Path(__file__).parent.parent / "mcp-context-server" / "server.py"
+    spec = importlib.util.spec_from_file_location("context_server_tree", server_path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    with tempfile.TemporaryDirectory() as repo_dir:
+        repo = Path(repo_dir)
+        (repo / "src").mkdir()
+        (repo / "src" / "app.py").write_text("x = 1\n")
+        (repo / "README.md").write_text("# README\n")
+        (repo / "node_modules").mkdir()
+        (repo / "node_modules" / "dep.js").write_text("y = 2\n")
+        (repo / ".gitignore").write_text("node_modules/\n")
+
+        old_cwd = os.getcwd()
+        os.chdir(repo)
+        try:
+            result = mod.create_tree_report(str(repo))
+            # Assertions run while cwd still points at the temp repo so the
+            # relative report path returned by the tool resolves correctly.
+            assert "✅ Success" in result, result
+            report_file = None
+            for line in result.splitlines():
+                if "Generated Report:" in line and "`" in line:
+                    report_file = line.split("`")[1]
+            assert report_file, "Could not parse report path"
+            assert "tree_report_" in Path(report_file).name, report_file
+            assert Path(report_file).is_file(), report_file
+
+            content = Path(report_file).read_text()
+            assert "app.py" in content, "Tracked file should appear in the tree"
+            assert "README.md" in content, "Tracked file should appear in the tree"
+            assert "node_modules" not in content, "Ignored entries must be excluded"
+
+            # .gitignore safeguard: context-reports/ appended by the tool
+            gitignore_text = (repo / ".gitignore").read_text()
+            assert "context-reports/" in gitignore_text, "Tool must safeguard context-reports/ in .gitignore"
+        finally:
+            os.chdir(old_cwd)
+
+
+def test_create_tree_report_default_target_is_cwd():
+    """Verify create_tree_report with no arguments trees the entire project (cwd)."""
+    import importlib
+    import os
+    import tempfile
+
+    server_path = Path(__file__).parent.parent / "mcp-context-server" / "server.py"
+    spec = importlib.util.spec_from_file_location("context_server_tree_default", server_path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    with tempfile.TemporaryDirectory() as repo_dir:
+        repo = Path(repo_dir)
+        (repo / "package").mkdir()
+        (repo / "package" / "main.py").write_text("print('hi')\n")
+
+        old_cwd = os.getcwd()
+        os.chdir(repo)
+        try:
+            result = mod.create_tree_report()  # no target_path -> whole project
+            assert "✅ Success" in result, result
+            report_file = None
+            for line in result.splitlines():
+                if "Generated Report:" in line and "`" in line:
+                    report_file = line.split("`")[1]
+            assert report_file, "Could not parse report path"
+            assert "tree_report_" in Path(report_file).name, report_file
+            content = Path(report_file).read_text()
+            assert "main.py" in content, "Project files should appear in the default whole-project tree"
+        finally:
+            os.chdir(old_cwd)
+
+
+def test_create_tree_report_rapid_calls_do_not_overwrite():
+    """Verify two quick calls in the same second produce distinct report files.
+
+    Regression test: both calls previously wrote to tree_report_<same-ts>.md,
+    silently overwriting the first tree with the second.
+    """
+    import importlib
+    import os
+    import tempfile
+
+    server_path = Path(__file__).parent.parent / "mcp-context-server" / "server.py"
+    spec = importlib.util.spec_from_file_location("context_server_tree_rapid", server_path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    with tempfile.TemporaryDirectory() as repo_dir:
+        repo = Path(repo_dir)
+        (repo / "a.txt").write_text("a\n")
+        (repo / "b.txt").write_text("b\n")
+
+        old_cwd = os.getcwd()
+        os.chdir(repo)
+        try:
+            first = mod.create_tree_report(str(repo))
+            second = mod.create_tree_report(str(repo))
+            assert "✅ Success" in first and "✅ Success" in second
+
+            reports = sorted((repo / "context-reports").glob("tree_report_*.md"))
+            assert len(reports) >= 2, f"Expected 2 distinct reports, got {len(reports)}: {reports}"
+            assert reports[0].is_file() and reports[1].is_file()
+        finally:
+            os.chdir(old_cwd)
+
+
+def test_create_tree_report_invalid_path():
+    """Verify create_tree_report rejects non-directory targets gracefully."""
+    import importlib
+    import os
+    import tempfile
+
+    server_path = Path(__file__).parent.parent / "mcp-context-server" / "server.py"
+    spec = importlib.util.spec_from_file_location("context_server_tree_invalid", server_path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    with tempfile.TemporaryDirectory() as repo_dir:
+        repo = Path(repo_dir)
+        (repo / "somefile.txt").write_text("x\n")
+
+        old_cwd = os.getcwd()
+        os.chdir(repo)
+        try:
+            result = mod.create_tree_report(str(repo / "somefile.txt"))
+            assert "Error" in result and "not a valid directory" in result, result
+        finally:
+            os.chdir(old_cwd)
+
+
+def test_create_tree_report_rejects_path_traversal():
+    """Verify create_tree_report rejects absolute paths outside the workspace.
+
+    Regression test: the tool previously accepted any directory (e.g. /tmp),
+    walking filesystem paths outside the project the server runs in.
+    """
+    import importlib
+    import os
+    import tempfile
+
+    server_path = Path(__file__).parent.parent / "mcp-context-server" / "server.py"
+    spec = importlib.util.spec_from_file_location("context_server_tree_traversal", server_path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    with tempfile.TemporaryDirectory() as repo_dir:
+        repo = Path(repo_dir)
+
+        old_cwd = os.getcwd()
+        os.chdir(repo)
+        try:
+            # The temp repo's parent (system temp dir) is outside the workspace.
+            outside_path = str(repo.parent)
+            result = mod.create_tree_report(outside_path)
+            assert "Path traversal detected" in result, result
+            assert "within the project workspace" in result, result
+        finally:
+            os.chdir(old_cwd)
+
+
+def test_create_tree_report_handles_none_input():
+    """Verify create_tree_report(None) degrades gracefully to the whole project.
+
+    Regression test: a malformed tool invocation must not raise; it falls back
+    to the default '.' (workspace root) target.
+    """
+    import importlib
+    import os
+    import tempfile
+
+    server_path = Path(__file__).parent.parent / "mcp-context-server" / "server.py"
+    spec = importlib.util.spec_from_file_location("context_server_tree_none", server_path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    with tempfile.TemporaryDirectory() as repo_dir:
+        repo = Path(repo_dir)
+        (repo / "src").mkdir()
+        (repo / "src" / "main.py").write_text("x = 1\n")
+
+        old_cwd = os.getcwd()
+        os.chdir(repo)
+        try:
+            # Must not raise; defaults to "." (whole project from cwd).
+            result = mod.create_tree_report(None)
+            assert "✅ Success" in result, result
+            report_file = None
+            for line in result.splitlines():
+                if "Generated Report:" in line and "`" in line:
+                    report_file = line.split("`")[1]
+            assert report_file, "Could not parse report path"
+            content = Path(report_file).read_text()
+            assert "main.py" in content, "None input should default to the whole-project tree"
+        finally:
+            os.chdir(old_cwd)
+
+
 def test_stage_and_inject_diff_with_ignored_context_reports():
     """Verify stage_and_inject_diff succeeds even when an ignored context-reports/ dir exists.
 

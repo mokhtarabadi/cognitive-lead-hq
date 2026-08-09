@@ -21,6 +21,7 @@ import re
 import subprocess
 import sys
 import time
+import uuid
 from pathlib import Path
 from typing import Optional
 
@@ -299,6 +300,22 @@ def collect_files(target: str, ignore_filter: GitIgnoreFilter) -> list[Path]:
                 collected.append(file_path)
     return collected
 
+def _ensure_context_reports_ignored() -> None:
+    """Safeguard: Append context-reports/ to .gitignore if not present.
+
+    Both report-producing tools (read_source_files and create_tree_report)
+    call this so generated reports are never accidentally committed.
+    """
+    gitignore = Path(".gitignore")
+    if gitignore.is_file():
+        try:
+            with open(gitignore, "r+", encoding="utf-8") as f:
+                content = f.read()
+                if "context-reports/" not in content:
+                    f.write("\n# Custom Context MCP reports\ncontext-reports/\n")
+        except Exception as e:
+            print(f"Warning: Failed to update .gitignore: {e}", file=sys.stderr)
+
 mcp = FastMCP("CustomContext")
 
 @mcp.tool()
@@ -316,15 +333,7 @@ def get_directory_tree(target_path: str = ".") -> str:
 def read_source_files(paths: list[str], max_size: int = 1048576, no_line_numbers: bool = False) -> str:
     """Reads multiple source files/directories, compiles their contents into a Markdown file under context-reports/, and returns the report file path."""
     # Safeguard: Append context-reports/ to .gitignore if not present
-    gitignore = Path(".gitignore")
-    if gitignore.is_file():
-        try:
-            with open(gitignore, "r+", encoding="utf-8") as f:
-                content = f.read()
-                if "context-reports/" not in content:
-                    f.write("\n# Custom Context MCP reports\ncontext-reports/\n")
-        except Exception as e:
-            print(f"Warning: Failed to update .gitignore: {e}", file=sys.stderr)
+    _ensure_context_reports_ignored()
 
     ignore_filter = GitIgnoreFilter()
     files_to_process: dict[Path, Path] = {}
@@ -366,6 +375,64 @@ def read_source_files(paths: list[str], max_size: int = 1048576, no_line_numbers
         f"✅ Success: Compiled context for {len(files_to_process)} files.\n"
         f"📁 Generated Report: `{report_file}`\n\n"
         f"Manager: You can now open `{report_file}` in your local editor to view the codebase context or copy/paste it directly for the AI."
+    )
+
+@mcp.tool()
+def create_tree_report(target_path: str = ".") -> str:
+    """Creates a .gitignore-aware directory tree of a path or the entire project and saves it as a Markdown file under context-reports/ (named tree_report_<timestamp>_<uuid>.md). Use when the Manager asks to 'create a tree of the project' or 'create a tree of <path>'. Security: target_path is resolved against the workspace root and rejected if it escapes the project (path traversal prevention)."""
+    # Safeguard: Append context-reports/ to .gitignore if not present
+    _ensure_context_reports_ignored()
+
+    # Security: Coerce None or invalid types back to the whole-project default
+    # so a malformed tool invocation degrades gracefully instead of crashing.
+    if not isinstance(target_path, str):
+        target_path = "."
+
+    # Security: Resolve the target against the workspace root and reject any
+    # path that escapes it. Path traversal prevention — the tool must never
+    # walk directories outside the project the server is running in.
+    workspace_root = Path.cwd().resolve()
+    tree_path = Path(target_path).resolve()
+    try:
+        tree_path.relative_to(workspace_root)
+    except ValueError:
+        return "Error: Path traversal detected. target_path must be within the project workspace."
+
+    ignore_filter = GitIgnoreFilter()
+    if not tree_path.is_dir():
+        return f"Error: {target_path} is not a valid directory."
+    if ignore_filter.is_ignored(tree_path):
+        return f"Warning: Target tree path is ignored by .gitignore: {target_path}"
+
+    tree_text = generate_tree(tree_path, ignore_filter)
+
+    # Ensure output directory exists
+    report_dir = Path("context-reports")
+    report_dir.mkdir(exist_ok=True)
+
+    # Unique filename: timestamp + random UUID suffix. The UUID guarantees
+    # collision-free naming without a TOCTOU-prone exists()/open() check loop.
+    timestamp = time.strftime("%Y%m%d_%H%M%S")
+    unique = uuid.uuid4().hex[:8]
+    report_file = report_dir / f"tree_report_{timestamp}_{unique}.md"
+
+    content = (
+        f"# Directory Tree Report\n\n"
+        f"- **Target:** `{tree_path}`\n"
+        f"- **Generated:** {timestamp}\n\n"
+        f"{tree_text}\n"
+    )
+
+    try:
+        with open(report_file, "w", encoding="utf-8") as f:
+            f.write(content)
+    except Exception as e:
+        return f"Error writing tree report file: {e}"
+
+    return (
+        f"✅ Success: Directory tree saved for `{tree_path}`.\n"
+        f"📁 Generated Report: `{report_file}`\n\n"
+        f"Manager: You can now open `{report_file}` in your local editor to view the project tree or copy/paste it directly for the AI."
     )
 
 @mcp.tool()
