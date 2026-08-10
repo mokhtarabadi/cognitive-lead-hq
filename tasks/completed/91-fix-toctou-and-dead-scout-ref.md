@@ -1,9 +1,9 @@
 # Task 91: Fix TOCTOU and Dead Scout Ref
 
-**File:** `tasks/in-progress/91-fix-toctou-and-dead-scout-ref.md`
+**File:** `tasks/completed/91-fix-toctou-and-dead-scout-ref.md`
 **Source:** manager
 **Type:** bug
-**Status:** open
+**Status:** closed
 
 ## Source Context
 
@@ -77,4 +77,5 @@ Fix two audit findings from Task 87: (F4) apply the UUID-suffix pattern to `read
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+**Factual Git Diff:** Stored in Commit Hash: `7389b48d4562f5e77798c8c5cb76b585fc994c9a`
 <!-- END_GIT_DIFF -->
