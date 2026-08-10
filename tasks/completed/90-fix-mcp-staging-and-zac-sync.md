@@ -1,9 +1,9 @@
 # Task 90: Fix MCP Staging and ZAC Sync
 
-**File:** `tasks/in-progress/90-fix-mcp-staging-and-zac-sync.md`
+**File:** `tasks/completed/90-fix-mcp-staging-and-zac-sync.md`
 **Source:** manager
 **Type:** security
-**Status:** open
+**Status:** closed
 
 ## Source Context
 
@@ -85,4 +85,5 @@ Implement the F5 fix from Task 87: replace blind `git add -A .` / `git add -A ta
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+**Factual Git Diff:** Stored in Commit Hash: `0eb5eebe90d314516e21a5c6f6da9a0fa0921c12`
 <!-- END_GIT_DIFF -->
