@@ -10,6 +10,8 @@ This file acts as the primary router. You MUST load and read the following docum
 3. `docs/data_model.md` — Defines database entities, schemas, pointers, and object relationships.
 4. `docs/conventions.md` — Defines syntax rules, naming conventions, file boundaries, and localization paths.
 
+> **Absent-File Policy:** If a referenced core file (e.g., `DESIGN.md`, `docs/architecture.md`, `docs/data_model.md`) does NOT exist in the repository, SKIP it gracefully with an explicit internal note. DO NOT HALT. DO NOT HALLUCINATE its contents. Proceed to the next step. This policy applies to all validation phases, discovery tasks, and implementation tasks.
+
 ## Project Overview
 
 This repository is the Headquarters for the Cognitive Lead AI multi-agent system. It is a **documentation-only** repository containing system prompts, MCP servers, and Agent Skills (`SKILL.md`).

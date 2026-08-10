@@ -32,7 +32,7 @@ The title number MUST match the filename ID. Any mismatch or duplicate must be r
 
 3.5. **Collision Check:** Before writing the file, verify that `tasks/backlog/{NEXT_ID}-*.md` does NOT already exist. Run: `ls tasks/backlog/${NEXT_ID}-*.md 2>/dev/null`. If a file with that ID already exists, HALT and report: '⚠️ Task ID collision: {NEXT_ID} is already in use. Re-run ID discovery.' Do NOT overwrite existing files.
 
-4. **Generate File:** Write the following unified canonical template to the new file. The `## Source Context` section is **polymorphic** — include ONLY the variant block matching the `**Source:**` value. `## Goal` and `## Local TODOs` are MANDATORY for ALL source types:
+4. **Generate File:** Write the following unified canonical template to the new file. The `## Source Context` section is **polymorphic** — include ONLY the variant block matching the `**Source:**` value. `## Goal`, `## Local TODOs`, `## Acceptance Criteria`, `## Verification Evidence`, and `## Risk & Rollback` are MANDATORY and UNCONDITIONAL for ALL source types (lint contract):
 
    ```markdown
    # Task [NN]: [Title]
@@ -93,6 +93,8 @@ The title number MUST match the filename ID. Any mismatch or duplicate must be r
    ## Manager's Notes
 
    [Any specific notes, requirements, or constraints]
+
+   <!-- These sections are unconditional per lint contract — DO NOT move back inside variants -->
 
    ## Local TODOs
 

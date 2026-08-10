@@ -18,6 +18,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - **External directory permission: `/tmp` allowed for agents** — `external_directory` set to `{"*": "ask", "/tmp/**": "allow"}` (last-match-wins; only `/tmp/**` auto-approved, everything else still prompts) in `agents/cognitive-executor.md`, `agents/cognitive-discovery.md`, project `opencode.json`, global `~/.config/opencode/opencode.json`, and the `LLM.txt` Step-7 global config template. Shape verified against the authoritative `https://opencode.ai/config.json` schema (`PermissionRuleConfig` = action enum or `{pattern → action}` object).
 
+## [8.4.1] - 2026-08-10
+
+### Fixed
+
+- **Task-generator template now includes all lint-required sections (Local TODOs, Acceptance Criteria, Verification Evidence, Risk & Rollback) unconditionally for all source variants (F2)** — the 4 sections were moved OUT of the polymorphic variant switch (previously only Variant C carried them, so orchestrator- and telegram-sourced tasks failed `lint_task_file` at creation). A marker comment now guards the unconditional block: `<!-- These sections are unconditional per lint contract — DO NOT move back inside variants -->`. Global copy `~/.config/opencode/skills/task-generator/SKILL.md` re-synced from `skill-templates/` (byte-identical).
+- **Added absent-file policy to AGENTS.md and all 3 validation phases in system-prompt.md — agents now gracefully skip missing core docs instead of halting or hallucinating (F1)** — `DESIGN.md`, `docs/architecture.md`, and `docs/data_model.md` are referenced as mandatory first-reads but do not exist in this repository; the new policy instructs agents to SKIP absent referenced files with an explicit internal note (DO NOT HALT, DO NOT HALLUCINATE). System prompt version bumped 8.4.0 → 8.4.1 (PATCH).
+
 ## [8.3.0] - 2026-08-08
 
 ### Added
