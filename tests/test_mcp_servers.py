@@ -553,7 +553,9 @@ def test_stage_and_inject_diff_with_ignored_context_reports():
         old_cwd = os.getcwd()
         os.chdir(repo)
         try:
-            result = mod.stage_and_inject_diff(str(task_file))
+            # F5 contract (Task 90): stage_and_inject_diff stages ONLY the explicitly
+            # listed modified files + the task file — pass the modified file list.
+            result = mod.stage_and_inject_diff(str(task_file), modified_files=["feature.py"])
         finally:
             os.chdir(old_cwd)
         assert "✅ Success" in result, result

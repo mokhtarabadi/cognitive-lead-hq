@@ -83,5 +83,5 @@ When finishing a task, you MUST execute these exact steps in order:
 1. **Update Changelog:** You MUST insert a formal entry into CHANGELOG.md logging your modifications.
 2. **Move to Completed:** If the task is finished and approved, move the task file from its current Kanban directory to `tasks/completed/` and update its status to closed.
 3. **Write your Summary:** Manually write your architectural reasoning, local TODO checks, and execution notes into the active task file under "OpenCode Execution Log".
-4. **Call MCP Tool:** Call the `custom_context_stage_and_inject_diff` MCP tool passing the task file path to automatically stage the files and inject the factual code diff. DO NOT execute any `git commit` commands afterward — use `custom_context_commit_and_clean_task` instead.
+4. **Call MCP Tool:** Call the `custom_context_stage_and_inject_diff` MCP tool passing the task file path AND the `modified_files` array (list of all code files you changed) to automatically stage ONLY those files and inject the factual code diff. DO NOT execute any `git commit` commands afterward — use `custom_context_commit_and_clean_task` instead.
 5. **Notify Manager:** Output exactly: "Task ready. Manager, please copy the contents of `tasks/completed/XX-task-name.md` and send it back to the Orchestrator Brain for review."

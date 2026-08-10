@@ -18,6 +18,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - **External directory permission: `/tmp` allowed for agents** — `external_directory` set to `{"*": "ask", "/tmp/**": "allow"}` (last-match-wins; only `/tmp/**` auto-approved, everything else still prompts) in `agents/cognitive-executor.md`, `agents/cognitive-discovery.md`, project `opencode.json`, global `~/.config/opencode/opencode.json`, and the `LLM.txt` Step-7 global config template. Shape verified against the authoritative `https://opencode.ai/config.json` schema (`PermissionRuleConfig` = action enum or `{pattern → action}` object).
 
+## [8.4.2] - 2026-08-10
+
+### Fixed
+
+- **MCP `stage_and_inject_diff` now requires explicit `modified_files` list (F5 Fix - prevents cross-session contamination)** — blind `git add -A .` staging (plus the sensitive-file reset loop) replaced with explicit path scoping: only the files OpenCode lists plus the active task file are staged. `commit_and_clean_task` stages only the active task file (`git add -- <task_file>` instead of `git add -A tasks/`), closing the proven contamination hole that swept tasks 86/87/88 into Task 89's closure commit. System prompt and AGENTS.md updated to enforce ZAC compliance: all 3 task templates' summary-phase instructions (implementation + combined; discovery does not stage) now carry the `modified_files` contract with a CRITICAL REMINDER, and `audit-agents` gained an Explicit Staging Contract audit criterion. System prompt version bumped 8.4.1 → 8.4.2 (PATCH).
+
 ## [8.4.1] - 2026-08-10
 
 ### Fixed

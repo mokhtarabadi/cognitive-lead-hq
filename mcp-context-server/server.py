@@ -469,19 +469,21 @@ def extract_signatures(file_path: str) -> str:
         return f"Error extracting signatures from {file_path}: {str(e)}"
 
 @mcp.tool()
-def stage_and_inject_diff(task_file_path: str) -> str:
-    """Stages current changes via Git and intelligently injects the diff into the task file's Git Diff block."""
+def stage_and_inject_diff(task_file_path: str, modified_files: list[str] = []) -> str:
+    """Stages ONLY the explicitly listed modified files plus the task file, then intelligently injects the staged diff into the task file's Git Diff block.
+
+    F5 fix (Task 90): explicit path scoping replaces the old blind `git add -A .`,
+    which swept parallel-session/foreign files into unrelated commits and required
+    fragile sensitive-file reset heuristics. The OpenCode agent MUST pass every code
+    file it modified via `modified_files`; if omitted or empty, only the task file is
+    staged and the diff table will be empty (by design — the Brain cannot review work
+    that was never explicitly listed).
+    """
     try:
-        # 1. Stage all changes. Plain `git add -A .` respects .gitignore.
-        #    Negative pathspecs (`:!...`) make `git add` fail with
-        #    "paths are ignored" whenever an ignored path (e.g.
-        #    context-reports/) exists on disk, so sensitive files are instead
-        #    unstaged afterwards via explicit reset patterns (defense-in-depth
-        #    for non-ignored secret files).
-        subprocess.run(["git", "add", "-A", "."], check=True, capture_output=True)
-        for pat in ["*.env", "*.env.*", "*.key", "*.pem", "credentials*",
-                    "secrets*", "context-reports/", ".opencode/cache/"]:
-            subprocess.run(["git", "reset", "-q", "--", pat], capture_output=True)
+        # 1. F5 Fix: Explicit path scoping. Stage ONLY the files OpenCode modified + the task file.
+        #    This prevents cross-session contamination and keeps the diff table clean for the Brain.
+        files_to_stage = modified_files + [task_file_path]
+        subprocess.run(["git", "add", "--"] + files_to_stage, check=True, capture_output=True)
         
         # 2. Extract the diff (EXCLUDING the entire tasks/ directory to prevent recursive diff bloat)
         # Using git pathspec magic ':!tasks/' to ignore the entire task folder
@@ -572,8 +574,9 @@ def commit_and_clean_task(task_file_path: str, commit_message: str) -> str:
                 with open(path, 'w', encoding='utf-8') as f:
                     f.write(new_content)
 
-        # 4. Stage the cleaned task file (catches moves/deletions under tasks/)
-        subprocess.run(["git", "add", "-A", "tasks/"], check=True, capture_output=True)
+        # 4. Stage the cleaned task file ONLY (F5 fix: never `git add -A tasks/`,
+        #    which swept foreign/parallel-session task files into this commit).
+        subprocess.run(["git", "add", "--", task_file_path], check=True, capture_output=True)
 
         # 5. Commit the cleaned task file as a separate closure commit.
         #    A plain commit (NOT --amend) keeps H1 reachable from HEAD.
