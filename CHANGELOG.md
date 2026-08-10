@@ -14,6 +14,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - **Security hardening of `create_tree_report` (QA iteration)** — (1) Path traversal prevention: `target_path` is resolved against the workspace root and rejected with `"Error: Path traversal detected. target_path must be within the project workspace."` when it escapes the project. (2) TOCTOU race condition: the `while report_file.exists():` numeric-suffix check loop was replaced with a UUID suffix (`uuid4().hex[:8]`) so filenames are unique by construction. (3) `None`/invalid `target_path` types now degrade gracefully to the whole-project default instead of raising `TypeError`. Regression tests: `test_create_tree_report_rejects_path_traversal`, `test_create_tree_report_handles_none_input`. Filename pattern documented in README, system-prompt templates, agents, and the code-search skill updated to `tree_report_<timestamp>_<uuid>.md`.
 
+### Changed
+
+- **External directory permission: `/tmp` allowed for agents** — `external_directory` set to `{"*": "ask", "/tmp/**": "allow"}` (last-match-wins; only `/tmp/**` auto-approved, everything else still prompts) in `agents/cognitive-executor.md`, `agents/cognitive-discovery.md`, project `opencode.json`, global `~/.config/opencode/opencode.json`, and the `LLM.txt` Step-7 global config template. Shape verified against the authoritative `https://opencode.ai/config.json` schema (`PermissionRuleConfig` = action enum or `{pattern → action}` object).
+
 ## [8.3.0] - 2026-08-08
 
 ### Added

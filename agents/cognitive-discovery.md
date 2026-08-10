@@ -6,6 +6,9 @@ permission:
   bash: deny
   read: allow
   custom_context_*: allow
+  external_directory:
+    "*": "ask"
+    "/tmp/**": "allow"
 ---
 
 # Cognitive Discovery Subagent

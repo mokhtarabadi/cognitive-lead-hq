@@ -156,7 +156,11 @@ Write the following JSON (replace `$HOME` with the actual home directory path):
     "search_memory": "allow",
     "list_namespaces": "allow",
     "get_directory_tree": "allow",
-    "read_source_files": "allow"
+    "read_source_files": "allow",
+    "external_directory": {
+      "*": "ask",
+      "/tmp/**": "allow"
+    }
   }
 }
 ```

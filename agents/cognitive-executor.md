@@ -11,7 +11,9 @@ permission:
     "git add*": "deny"
     "git commit*": "deny"
     "git push*": "deny"
-  external_directory: ask
+  external_directory:
+    "*": "ask"
+    "/tmp/**": "allow"
 ---
 
 # Cognitive Executor Agent
