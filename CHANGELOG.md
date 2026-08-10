@@ -24,6 +24,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - **MCP `stage_and_inject_diff` now requires explicit `modified_files` list (F5 Fix - prevents cross-session contamination)** — blind `git add -A .` staging (plus the sensitive-file reset loop) replaced with explicit path scoping: only the files OpenCode lists plus the active task file are staged. `commit_and_clean_task` stages only the active task file (`git add -- <task_file>` instead of `git add -A tasks/`), closing the proven contamination hole that swept tasks 86/87/88 into Task 89's closure commit. System prompt and AGENTS.md updated to enforce ZAC compliance: all 3 task templates' summary-phase instructions (implementation + combined; discovery does not stage) now carry the `modified_files` contract with a CRITICAL REMINDER, and `audit-agents` gained an Explicit Staging Contract audit criterion. System prompt version bumped 8.4.1 → 8.4.2 (PATCH).
 
+## [8.4.3] - 2026-08-10
+
+### Fixed
+
+- **MCP `read_source_files` now uses UUID suffix for context reports to prevent same-second TOCTOU overwrites (F4)** — `context_report_<timestamp>_<uuid8>.md` replaces `context_report_<timestamp>.md`, mirroring the `create_tree_report` pattern from Task 85 that was never ported back.
+- **Removed dead `@scout` subagent reference from system-prompt implementation template; replaced with `@general` (F6)** — no `scout` agent exists in the platform (only `cognitive-discovery`, `explore`, `general`); the dead reference could error or be silently substituted. System prompt version bumped 8.4.2 → 8.4.3 (PATCH).
+
 ## [8.4.1] - 2026-08-10
 
 ### Fixed

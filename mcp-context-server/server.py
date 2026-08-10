@@ -360,9 +360,11 @@ def read_source_files(paths: list[str], max_size: int = 1048576, no_line_numbers
     report_dir = Path("context-reports")
     report_dir.mkdir(exist_ok=True)
 
-    # Generate timestamped filename
+    # Generate timestamped filename with a UUID suffix.
+    # F4 Fix: UUID suffix prevents same-second TOCTOU overwrite, mirroring create_tree_report logic.
     timestamp = time.strftime("%Y%m%d_%H%M%S")
-    report_file = report_dir / f"context_report_{timestamp}.md"
+    unique = uuid.uuid4().hex[:8]
+    report_file = report_dir / f"context_report_{timestamp}_{unique}.md"
 
     # Write to file
     try:
