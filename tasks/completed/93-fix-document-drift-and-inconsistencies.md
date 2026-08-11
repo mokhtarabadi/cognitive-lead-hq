@@ -1,9 +1,9 @@
 # Task 93: Fix Document Drift and Inconsistencies
 
-**File:** `tasks/in-progress/93-fix-document-drift-and-inconsistencies.md`
+**File:** `tasks/completed/93-fix-document-drift-and-inconsistencies.md`
 **Source:** manager
 **Type:** docs
-**Status:** open
+**Status:** closed
 
 ## Source Context
 
@@ -74,7 +74,16 @@ Resolve all four F7 findings from Task 87: (F7a) sync the README structure tree 
 
 - All bash greps returned expected results (see Verification Evidence). JSON validated with `python3 -m json.tool`. No repair attempts needed (the single CHANGELOG slip was self-corrected during the task).
 
+### Known lint false positive (flagged for Reviewer/Orchestrator)
+
+- `lint_task_file` reports 1 issue on this file: "Unclosed code block detected". Root cause: the injected Factual Git Diff contains a diff CONTEXT line ` ``` ` (space + backticks — the README tree's fence, line 110) INSIDE the ```diff block (lines 80–164). The lint server's naive fence counter (`line.strip().startswith("```")`) cannot distinguish diff-content lines from real Markdown fences, so it mis-toggles and reports an unclosed block. The file is structurally valid; the injected diff is factual and MUST NOT be edited. This is a lint-server limitation (same family as Task 87 F3's noise-wall finding) — a follow-up should make `_check_markdown_basics` fence-aware (skip lines inside ```diff blocks).
+
+### QA transition (first live application of F7d)
+
+- Per the rule installed in this task, the task file was moved to `tasks/qa/93-fix-document-drift-and-inconsistencies.md` via `git mv` AFTER `stage_and_inject_diff` and BEFORE the summary message — `tasks/qa/` now holds its first real file, and `tasks/in-progress/` is empty again. The future closure task should target the `tasks/qa/` path (closure flow supports `qa → completed`).
+
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+**Factual Git Diff:** Stored in Commit Hash: `11be5cc29554b8b00b306c890985860dfb537786`
 <!-- END_GIT_DIFF -->
