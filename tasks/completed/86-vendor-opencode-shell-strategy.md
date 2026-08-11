@@ -1,9 +1,9 @@
 # Task 86: Vendor OpenCode Shell Strategy Instructions
 
-**File:** `tasks/backlog/86-vendor-opencode-shell-strategy.md`
+**File:** `tasks/completed/86-vendor-opencode-shell-strategy.md`
 **Source:** manager
 **Type:** improvement
-**Status:** open
+**Status:** closed
 
 ## Source Context
 
@@ -81,4 +81,5 @@ Vendor the MIT-licensed `shell_strategy.md` instruction set from [`JRedeker/open
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+**Factual Git Diff:** Stored in Commit Hash: `20119b2eb09a6134bb9f54a4e5734ae697737e93`
 <!-- END_GIT_DIFF -->
