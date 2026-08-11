@@ -14,8 +14,8 @@ The `AGENTS.md` file MUST explicitly contain the following operational constrain
 - **conventions.md Compliance**: The project MUST have a `docs/conventions.md` file containing the Universal DateTime Standard (UTC at rest, Epoch/ISO-8601 with Offset at API boundaries, Clock injection, Dual-Representation for future events, TZ=UTC Infrastructure) and SOLID Programming Guidelines (SRP, OCP, LSP, ISP, DIP, Pragmatic Guardrails).
 - **Decentralized Task Management**: Agents MUST strictly use decentralized, individual task files in the Kanban directories (`tasks/backlog`, `tasks/in-progress`, `tasks/qa`, `tasks/completed`, `tasks/archive`) as their single source of truth.
 - **No Monolithic State**: Agents are strictly forbidden from creating `TODO.md` or `STATE.md`.
-- **Zero-Autonomous-Commit**: Agents MUST be strictly forbidden from executing Git commands autonomously; they may only run Git commands when explicitly instructed by the Orchestrator.
-- **Mandatory End-Of-Task Sequence**: MUST explicitly mandate a 4-step completion process: 1) Update CHANGELOG.md. 2) Write manual reasoning in the task file. 3) Call the `custom_context_stage_and_inject_diff` MCP tool (NO COMMITS ALLOWED). 4) Notify the Manager.
+- **Zero-Autonomous-Commit**: Agents MUST be strictly forbidden from executing Git commands autonomously; they may only run Git commands when explicitly instructed by the Orchestrator. **Exception:** `git mv` is permitted for moving task files between Kanban directories (`backlog`, `in-progress`, `qa`, `completed`, `archive`).
+- **Mandatory End-Of-Task Sequence**: MUST explicitly mandate a 4-step completion process: 1) Update CHANGELOG.md. 2) Write manual reasoning in the task file. 3) Call the `custom_context_stage_and_inject_diff` MCP tool, then `git mv` the task to `tasks/qa/` (NO COMMITS ALLOWED). 4) Notify the Manager.
 - **UI/UX Enforcement**: Any UI/UX changes MUST enforce the guidelines defined in the project's `DESIGN.md`.
 - **Task-Generator Skill Loading**: `AGENTS.md` MUST explicitly instruct OpenCode to load the `task-generator` skill before creating new task files.
 - **Project Skill Loading**: `AGENTS.md` MUST explicitly instruct OpenCode to load every available skill matching the project's tech stack before task implementation.
@@ -250,6 +250,7 @@ Use this when a project has no `AGENTS.md` yet (new project onboarding).
   -> **Do** generate them using the MCP server — context reports via `custom_context_read_source_files`, tree reports via `custom_context_create_tree_report` ("create a tree of the project") — and hand the file path to the Manager.
 - **Don't** execute Git commands like `git add`, `git commit`, or `git mv` autonomously or try to guess when to stage code.
   -> **Do** execute Git commands ONLY when explicitly instructed by an Orchestrator task block. Otherwise, rely on the `custom_context_stage_and_inject_diff` MCP tool.
+  -> **Exception:** `git mv` is permitted autonomously for moving task files between Kanban directories.
 - **Don't** guess blindly when facing complex bugs, deadlocks, or silent timeouts.
   -> **Do** utilize the `debug-instrumentation` skill to inject strategic logs and trace the runtime execution path.
 - **Don't** execute raw, informal, or non-English (Farsi) prompts directly.
@@ -297,7 +298,7 @@ When finishing a task, you MUST execute these exact steps in order:
 
 1. **Update Changelog:** You MUST insert a formal entry into CHANGELOG.md logging your modifications.
 2. **Write your Summary:** Manually write your architectural reasoning, local TODO checks, and execution notes into the active `tasks/XX-task.md` file under "OpenCode Execution Log".
-3. **Call MCP Tool:** Call the `custom_context_stage_and_inject_diff` MCP tool passing the task file path to automatically stage the files and inject the factual code diff. DO NOT execute any `git commit` commands afterward.
+3. **Call MCP Tool & QA Transition:** Call the `custom_context_stage_and_inject_diff` MCP tool. After injection, you MUST move the task file to `tasks/qa/` via `git mv` before notifying the Manager. DO NOT execute any `git commit` commands.
 4. **Notify Manager:** Output exactly: "Task ready. Manager, please copy the contents of `tasks/XX-task.md` and send it back to the Orchestrator Brain for review."
 ```
 
@@ -323,8 +324,8 @@ Additionally, the `docs/conventions.md` file MUST exist and contain:
 - **SOLID Programming Guidelines**: SRP, OCP, LSP, ISP, DIP, and Pragmatic Guardrails (No abstraction for <3 trivial ops, 3-Implementation Rule, YAGNI, Occam's Razor).
 - **Decentralized Task Management**: Agents MUST strictly use decentralized, individual task files in the `tasks/` directory as their single source of truth.
 - **No Monolithic State**: Agents are strictly forbidden from creating `TODO.md` or `STATE.md`.
-- **Zero-Autonomous-Commit**: Agents MUST be strictly forbidden from executing Git commands autonomously; they may only run Git commands when explicitly instructed by the Orchestrator.
-- **Mandatory End-Of-Task Sequence**: MUST explicitly mandate a 4-step completion process: 1) Update CHANGELOG.md. 2) Write manual reasoning in the task file. 3) Call the `custom_context_stage_and_inject_diff` MCP tool (NO COMMITS ALLOWED). 4) Notify the Manager.
+- **Zero-Autonomous-Commit**: Agents MUST be strictly forbidden from executing Git commands autonomously; they may only run Git commands when explicitly instructed by the Orchestrator. **Exception:** `git mv` is permitted for moving task files between Kanban directories (`backlog`, `in-progress`, `qa`, `completed`, `archive`).
+- **Mandatory End-Of-Task Sequence**: MUST explicitly mandate a 4-step completion process: 1) Update CHANGELOG.md. 2) Write manual reasoning in the task file. 3) Call the `custom_context_stage_and_inject_diff` MCP tool, then `git mv` the task to `tasks/qa/` (NO COMMITS ALLOWED). 4) Notify the Manager.
 - **UI/UX Enforcement**: Any UI/UX changes MUST enforce the guidelines defined in the project's `DESIGN.md`.
 - **Task-Generator Skill Loading**: `AGENTS.md` MUST explicitly instruct OpenCode to load the `task-generator` skill before creating new task files.
 - **Project Skill Loading**: `AGENTS.md` MUST explicitly instruct OpenCode to load every available skill matching the project's tech stack before task implementation.
