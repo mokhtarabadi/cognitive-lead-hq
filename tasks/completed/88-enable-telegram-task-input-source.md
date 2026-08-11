@@ -165,7 +165,5 @@ Produce: (1) one task file tasks/backlog/{NN}-hyphenated-title.md with the Varia
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
-
-_(No code diff — sync setup task. New files created: `tasks/backlog/88-enable-telegram-task-input-source.md` (this file) and `telegram-sync.json` (local state, untracked).)_
-
+**Factual Git Diff:** Stored in Commit Hash: `910ae353b4789d615e8c08bbf98979f9b1918311`
 <!-- END_GIT_DIFF -->
