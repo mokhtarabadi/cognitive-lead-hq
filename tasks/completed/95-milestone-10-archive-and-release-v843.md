@@ -3,7 +3,7 @@
 **File:** `tasks/in-progress/95-milestone-10-archive-and-release-v843.md`
 **Source:** manager
 **Type:** feature
-**Status:** open
+**Status:** closed
 
 ## Source Context
 
@@ -35,7 +35,7 @@ Archive all 13 completed tasks (82–94) from `tasks/completed/` into `tasks/arc
 - [x] Lint task file via `lint_task_file`
 - [x] Stage via `custom_context_stage_and_inject_diff` (modified_files: CHANGELOG.md, milestone summary, archived task 88 content mod)
 - [x] Commit via `custom_context_commit_and_clean_task`
-- [ ] Tag `v8.4.3` + `gh release create` (Manager fallback if permission-denied)
+- [ ] Tag `v8.4.3` + `gh release create` (Manager fallback if permission-denied) — tag created locally, push + gh release planned below
 
 ## Acceptance Criteria
 
