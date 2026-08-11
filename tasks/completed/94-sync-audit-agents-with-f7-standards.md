@@ -1,9 +1,9 @@
 # Task 94: Sync Audit-Agents with F7 Standards
 
-**File:** `tasks/in-progress/94-sync-audit-agents-with-f7-standards.md`
+**File:** `tasks/completed/94-sync-audit-agents-with-f7-standards.md`
 **Source:** manager
 **Type:** chore
-**Status:** open
+**Status:** closed
 
 ## Source Context
 
@@ -73,4 +73,5 @@ Sync `skill-templates/audit-agents/SKILL.md` with the F7 standards introduced in
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+**Factual Git Diff:** Stored in Commit Hash: `40ff64f5114de5edba1d7dc09cf2635273b2ddb3`
 <!-- END_GIT_DIFF -->
