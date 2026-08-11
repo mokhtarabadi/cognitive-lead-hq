@@ -1,6 +1,6 @@
 # Task 95: Milestone 10 Archive and Release v8.4.3
 
-**File:** `tasks/in-progress/95-milestone-10-archive-and-release-v843.md`
+**File:** `tasks/completed/95-milestone-10-archive-and-release-v843.md`
 **Source:** manager
 **Type:** feature
 **Status:** closed
@@ -35,7 +35,7 @@ Archive all 13 completed tasks (82–94) from `tasks/completed/` into `tasks/arc
 - [x] Lint task file via `lint_task_file`
 - [x] Stage via `custom_context_stage_and_inject_diff` (modified_files: CHANGELOG.md, milestone summary, archived task 88 content mod)
 - [x] Commit via `custom_context_commit_and_clean_task`
-- [ ] Tag `v8.4.3` + `gh release create` (Manager fallback if permission-denied) — tag created locally, push + gh release planned below
+- [x] Tag `v8.4.3` + `gh release create` (Manager executed 2026-08-11: tag pushed, GitHub release created at https://github.com/mokhtarabadi/cognitive-lead-hq/releases/tag/v8.4.3)
 
 ## Acceptance Criteria
 
@@ -43,7 +43,7 @@ Archive all 13 completed tasks (82–94) from `tasks/completed/` into `tasks/arc
 - [x] `tasks/archive/` contains tasks 82–94; `tasks/completed/` is empty
 - [x] `CHANGELOG.md`: `## [8.4.3] - 2026-08-11` is the topmost version header (above 8.4.2); all Unreleased entries consolidated; `[Unreleased]` removed; release `### Changed` entry present
 - [x] Release commit created via MCP lifecycle (ZAC)
-- [ ] Tag `v8.4.3` exists locally/remote; GitHub release created (Manager-owned if denied)
+- [x] Tag `v8.4.3` exists locally/remote; GitHub release created (Manager executed 2026-08-11 — pushed `main` 26c62b4..327a230 + `[new tag] v8.4.3`; release URL: https://github.com/mokhtarabadi/cognitive-lead-hq/releases/tag/v8.4.3)
 - [x] Task file passes `lint_task_file`
 
 ## Verification Evidence
@@ -80,7 +80,15 @@ Archive all 13 completed tasks (82–94) from `tasks/completed/` into `tasks/arc
 
 ### ZAC compliance
 
-No `git add`/`git commit`/`git push`/`git tag` executed directly. Only `git mv` (Kanban moves — permitted exception) and read-only greps/ls. Staging + commit exclusively via MCP tools. Tag + GitHub release remain pending (permission layer or Manager execution — Task 84 precedent).
+No `git add`/`git commit`/`git push`/`git tag` executed directly. Only `git mv` (Kanban moves — permitted exception) and read-only greps/ls. Staging + commit exclusively via MCP tools. Tag + GitHub release were executed by the Manager (permission layer denies `git push` for the executor — Task 84 precedent).
+
+### Release completion (Manager execution, 2026-08-11)
+
+- Manager ran `git push origin main` → `26c62b4..327a230` (170 objects, 74.90 KiB) — repo now in sync with `origin/main`.
+- Manager ran `git push origin v8.4.3` → `* [new tag] v8.4.3` pushed to origin.
+- Manager ran `gh release create v8.4.3 --title "v8.4.3 — Milestone 10 Archive & Release" --notes-file <(git log --oneline v8.3.0..v8.4.3)` → **GitHub release created**: https://github.com/mokhtarabadi/cognitive-lead-hq/releases/tag/v8.4.3
+- `git status` → `On branch main ... up to date with 'origin/main'` / `nothing to commit, working tree clean`.
+- **Milestone 10 is fully complete: archive ✅, milestone summary ✅, release v8.4.3 ✅ (committed, pushed, tagged, GitHub release live).**
 
 ### Verification
 
@@ -93,5 +101,7 @@ No `git add`/`git commit`/`git push`/`git tag` executed directly. Only `git mv` 
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
-**Factual Git Diff:** Stored in Commit Hash: `acb93d6a1487d4d5847aa672e84a7b396e4d1892`
+```diff
+No code changes detected or staged.
+```
 <!-- END_GIT_DIFF -->
