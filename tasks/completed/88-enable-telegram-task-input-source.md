@@ -3,7 +3,7 @@
 **File:** `tasks/backlog/88-enable-telegram-task-input-source.md`
 **Source:** telegram
 **Type:** feature
-**Status:** open
+**Status:** closed
 
 ## Source Context
 

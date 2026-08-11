@@ -1,0 +1,25 @@
+{
+  "config": {
+    "project_name": "cognitive-lead-hq",
+    "chat_id": -1003993323129,
+    "topic_id": 425,
+    "account": null,
+    "target_hashtags": [
+      "bug",
+      "feature",
+      "improve"
+    ]
+  },
+  "last_processed_message_id": 426,
+  "processed_ids": [
+    425,
+    426
+  ],
+  "sync_registry": {
+    "426": {
+      "task_file": "tasks/backlog/88-enable-telegram-task-input-source.md",
+      "gh_issue": "Not created (skipped)",
+      "type": "FEATURE"
+    }
+  }
+}
