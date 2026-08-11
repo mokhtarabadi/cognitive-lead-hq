@@ -92,7 +92,7 @@ Open `system-prompt.md` and edit the `<manager_profile>` block. Put in your own 
 ```
 /
 ├── README.md                           # This file
-├── system-prompt.md                    # V7 Multi-Agent System Prompt
+├── system-prompt.md                    # V8 Multi-Agent System Prompt
 ├── CHANGELOG.md                        # Version history
 ├── tasks/
 │   ├── backlog/                        # Open / unstarted tasks
@@ -100,12 +100,21 @@ Open `system-prompt.md` and edit the `<manager_profile>` block. Put in your own 
 │   ├── qa/                             # Awaiting quality assurance review
 │   ├── completed/                      # Finished tasks
 │   └── archive/                        # Milestone-compacted historical tasks
+├── agents/                             # Custom OpenCode agents (cognitive-executor, etc.)
+│   ├── cognitive-executor.md           # Primary execution engine (ZAC, Kanban lifecycle)
+│   └── cognitive-discovery.md          # Read-only context gathering subagent
 ├── docs/
 │   ├── conventions.md                  # Syntax rules and automation conventions
 │   ├── history/                        # Milestone compaction summaries
 │   └── opencode/                       # OpenCode documentation mirror
 ├── mcp-context-server/
 │   └── server.py                       # FastMCP server for .gitignore-aware file reading & tree
+├── mcp-lint-server/
+│   └── server.py                       # FastMCP server for task file linting
+├── mcp-memory-server/
+│   └── server.py                       # FastMCP server for persistent project memory
+├── tests/
+│   └── test_mcp_servers.py             # Pytest suite for MCP servers
 ├── .opencode/
 │   └── skills/
 │       └── sop-maintenance/

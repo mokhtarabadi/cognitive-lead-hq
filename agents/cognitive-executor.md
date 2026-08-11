@@ -41,7 +41,7 @@ You are the final gatekeeper of the Kanban task state. If the Orchestrator forge
    - **Rule:** Before writing any code, you MUST verify the active task file is located in `tasks/in-progress/`.
    - **Action:** If the file is in `tasks/backlog/`, you MUST execute `git mv tasks/backlog/<file> tasks/in-progress/<file>` (or filesystem `mv` if untracked) _before_ executing the implementation steps.
 3. **QA/Review Phase:**
-   - You do not move files during your own execution. The QA/Review transitions are handled by the Orchestrator/Manager.
+   - **Rule:** When your implementation and `stage_and_inject_diff` are complete, you MUST move the task file to `tasks/qa/` via `git mv tasks/in-progress/<file> tasks/qa/<file>` before outputting the summary message to the Manager.
 4. **Closure Sequence:**
    - **Rule:** Only when the Manager explicitly says "Approved for closure" or "Close task" will you execute the closure sequence.
    - **Action:** You MUST move the file to `tasks/completed/` via `git mv tasks/in-progress/<file> tasks/completed/<file>` (or `tasks/qa/` to `completed/`), update the status to `closed`, and then call the `custom_context_commit_and_clean_task` MCP tool.
