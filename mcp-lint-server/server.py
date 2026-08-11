@@ -219,13 +219,17 @@ def lint_task_file(task_file_path: str) -> str:
 
 
 @mcp.tool()
-def lint_all_tasks() -> str:
+def lint_all_tasks(include_archive: bool = False) -> str:
     """
-    Run lint_task_file on ALL task files across all Kanban subdirectories.
+    Run lint_task_file on ALL task files across the ACTIVE Kanban subdirectories.
 
-    Scans tasks/backlog/, tasks/in-progress/, tasks/qa/, tasks/completed/,
-    and tasks/archive/ for .md files. Outputs a summary report with total
-    files scanned, total issues found, and a per-file breakdown.
+    Scans tasks/backlog/, tasks/in-progress/, tasks/qa/, and tasks/completed/
+    for .md files. The tasks/archive/ directory is EXCLUDED by default (F3 fix:
+    archive is a historical record; linting it generates noise). Pass
+    include_archive=True to explicitly lint archived tasks as well.
+
+    Args:
+        include_archive: If True, also scans tasks/archive/ (default False).
 
     Returns:
         A summary report of the linting results.
@@ -234,7 +238,10 @@ def lint_all_tasks() -> str:
     if not tasks_dir.is_dir():
         return "Error: `tasks/` directory not found."
 
-    kanban_dirs = ["backlog", "in-progress", "qa", "completed", "archive"]
+    # F3 Fix: Archive is a historical record; linting it generates noise. Exclude by default.
+    kanban_dirs = ["backlog", "in-progress", "qa", "completed"]
+    if include_archive:
+        kanban_dirs.append("archive")
     total_files = 0
     total_issues = 0
     report: list[str] = []
