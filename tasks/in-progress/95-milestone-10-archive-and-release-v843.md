@@ -93,7 +93,5 @@ No `git add`/`git commit`/`git push`/`git tag` executed directly. Only `git mv` 
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
-
-_(Git diff will be automatically injected here by the MCP tool. Do not edit this block manually)_
-
+**Factual Git Diff:** Stored in Commit Hash: `43d879c78d642c74c94df88400d6d31ebf731354`
 <!-- END_GIT_DIFF -->
