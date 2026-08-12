@@ -173,6 +173,56 @@ Write the following JSON (replace `$HOME` with the actual home directory path):
 
 ---
 
+## 7.5. (Optional) Partial Freebuff Support
+
+> **OpenCode remains the primary runtime.** Freebuff support is **partial** (see `docs/freebuff-support.md`). This step installs the MCP servers and Skills into Freebuff's global `.agents/` so the same tooling works in Freebuff sessions. It does NOT alter the OpenCode workflow or `system-prompt.md`.
+
+Freebuff (freebuff.com, vendor: manicode, formerly Codebuff-based) does not read `opencode.json`. It discovers MCP servers, Skills, and custom agents from `.agents/` folders (global: `~/.agents/`). Ask the user whether they want this optional step; if they decline, skip it.
+
+Create the global Freebuff directory and write the MCP config (absolute paths only):
+
+```bash
+mkdir -p ~/.agents/skills
+
+cat > ~/.agents/mcp.json <<'EOF'
+{
+  "mcpServers": {
+    "custom_context": {
+      "type": "stdio",
+      "command": "uv",
+      "args": ["run", "$HOME/.config/opencode/mcp-context-server/server.py"]
+    },
+    "project_memory": {
+      "type": "stdio",
+      "command": "uv",
+      "args": ["run", "$HOME/.config/opencode/mcp-memory-server/server.py"]
+    },
+    "lint": {
+      "type": "stdio",
+      "command": "uv",
+      "args": ["run", "$HOME/.config/opencode/mcp-lint-server/server.py"]
+    }
+  }
+}
+EOF
+```
+
+**Important:** Replace `$HOME` with the actual absolute path discovered in Step 3 — Freebuff resolves these paths from any working directory, so `~` is not safe here.
+
+Install all 29 Agent Skills globally for Freebuff:
+
+```bash
+cp -r /tmp/cognitive-lead-hq/skill-templates/* ~/.agents/skills/
+```
+
+> **Custom agents are INSTALLED-ONLY on the free tier.** The Freebuff agent ports
+> (`~/.agents/cognitive-executor.ts`, `~/.agents/cognitive-discovery.ts`) are recognized but blocked on the
+> free tier (HTTP 403 `free_mode_invalid_agent_model`); they require a credits/paid mode. The system prompt
+> itself is used manually — paste `system-prompt.md` into any Freebuff chat as the Orchestrator Brain. See
+> `docs/freebuff-support.md` for the full port record and verification steps.
+
+---
+
 ## 8. Clean Up Temporary Clone
 
 Remove the cloned repository from `/tmp/`:

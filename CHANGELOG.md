@@ -4,6 +4,12 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Added
+
+- **Partial Freebuff Support documentation (Task 96)** — New `docs/freebuff-support.md` documenting the 2026-08-12 port of Cognitive Lead AI HQ components to the Freebuff runtime (vendor: manicode, formerly Codebuff-based): what Freebuff is, its extension points (`.agents/mcp.json`, `.agents/skills/<name>/SKILL.md`, `.agents/*.ts` custom `AgentDefinition` agents) as discovered via binary analysis, the full port record (3 MCP servers + 29 skills + 2 custom agent `.ts` ports under `~/.agents/`), verification commands, the partial-support matrix, and the free-tier limitation (`HTTP 403 free_mode_invalid_agent_model`). `README.md` gained a "Partial Freebuff Support (Experimental)" section with the port matrix and link to the docs; `LLM.txt` gained an optional Step 7.5 that installs the MCP servers + 29 skills globally under `~/.agents/`. The primary runtime and `system-prompt.md` are **unchanged** — OpenCode remains the task-generation target; Freebuff support is intentionally partial and documented as such. Verified: `lint_task_file` ✅, `lint_markdown` ✅, prettier ✅, grep gates ✅.
+
 ## [8.4.3] - 2026-08-11
 
 ### Added

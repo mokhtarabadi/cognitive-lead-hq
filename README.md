@@ -353,6 +353,26 @@ opencode --agent cognitive-executor
 
 ---
 
+## Partial Freebuff Support (Experimental)
+
+> **OpenCode remains the primary runtime.** The system prompt (`system-prompt.md`) generates tasks for OpenCode — Freebuff support is **partial** and does not change that.
+
+[Freebuff](https://freebuff.com) (vendor: manicode, formerly Codebuff-based) is a free, ad-funded terminal AI coding agent. It does **not** read `opencode.json`; it uses its own `.agents/` extension points. As of 2026-08-12 (Freebuff CLI `0.0.146`) the following Cognitive Lead AI HQ components were ported and verified live:
+
+| Component                                                   | Freebuff status   | Notes                                                                                            |
+| ----------------------------------------------------------- | ----------------- | ------------------------------------------------------------------------------------------------ |
+| MCP servers (`custom_context`, `project_memory`, `lint`)    | ✅ FULL           | `~/.agents/mcp.json`, 14 tools verified                                                          |
+| Skills (29)                                                 | ✅ FULL           | `~/.agents/skills/`, verified loading                                                            |
+| Custom agents (`cognitive-executor`, `cognitive-discovery`) | ⚠️ INSTALLED-ONLY | `~/.agents/*.ts`, recognized but blocked on free tier (HTTP 403 `free_mode_invalid_agent_model`) |
+| `system-prompt.md` Orchestrator Brain                       | 📄 MANUAL         | Paste into a Freebuff chat as a session document                                                 |
+| `user-prompts/` templates                                   | 📄 MANUAL         | Runtime-agnostic copy-paste templates                                                            |
+
+**For users who want to run the Cognitive Lead workflow with Freebuff instead of OpenCode**, see the full guide: [`docs/freebuff-support.md`](docs/freebuff-support.md) — it documents the extension points (mcp.json / skills / TS agents), the port record, verification commands, and the free-tier limitation.
+
+**Installing:** the `LLM.txt` auto-configuration includes an **optional** Freebuff step (Step 7.5) that installs the MCP servers + 29 skills globally under `~/.agents/`.
+
+---
+
 ## Key V5 Changes
 
 - **Decentralized task architecture** — global `STATE.md` and `TODO.md` replaced by isolated task files in `tasks/` directory.
