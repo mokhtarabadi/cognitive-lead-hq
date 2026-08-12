@@ -107,8 +107,199 @@ Test
 <!-- BEGIN_GIT_DIFF -->
 <!-- END_GIT_DIFF -->
 """
-    issues = mod._check_task_file_structure(valid_content, "99-test.md")
+    issues = mod._check_task_file_structure(valid_content, "tasks/backlog/99-test.md")
     assert len(issues) == 0, f"Expected no issues, got: {issues}"
+
+
+def test_lint_task_file_path_mismatch():
+    """Verify the lint server flags a **File:** header that drifts from the actual path.
+
+    Fail-first regression test for the path-drift guard: content whose
+    `**File:**` header points at `tasks/backlog/99-test.md` but which is passed
+    in as `tasks/in-progress/99-test.md` must be reported as a mismatch (e.g.
+    after a git mv between Kanban directories leaves a stale header behind).
+    """
+    import importlib
+
+    server_path = Path(__file__).parent.parent / "mcp-lint-server" / "server.py"
+    spec = importlib.util.spec_from_file_location("lint_server", server_path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    valid_content = """# Task 99: Test
+
+**File:** `tasks/backlog/99-test.md`
+**Source:** orchestrator
+**Type:** improvement
+**Status:** open
+
+## Goal
+
+Test
+
+## Local TODOs
+
+- [x] Test
+
+## Acceptance Criteria
+
+- [x] Test
+
+## Verification Evidence
+
+Test
+
+## Risk & Rollback
+
+Test
+
+## OpenCode Execution Log & Reasoning
+
+Test
+
+## Factual Git Diff
+
+<!-- BEGIN_GIT_DIFF -->
+<!-- END_GIT_DIFF -->
+"""
+    # Header says backlog, but the file is actually in in-progress.
+    issues = mod._check_task_file_structure(valid_content, "tasks/in-progress/99-test.md")
+    assert any("File path mismatch" in i for i in issues), (
+        f"Expected 'File path mismatch' issue, got: {issues}"
+    )
+
+    # Sanity: same content with the matching path must produce no mismatch.
+    issues_ok = mod._check_task_file_structure(valid_content, "tasks/backlog/99-test.md")
+    assert not any("File path mismatch" in i for i in issues_ok), (
+        f"Matching header/path must not be flagged: {issues_ok}"
+    )
+
+
+def test_lint_task_file_missing_file_header():
+    """Verify the lint server flags a task file with no `**File:**` metadata field.
+
+    Fail-first regression test for the missing-header guard: content that has
+    all required sections but omits the `**File:**` line entirely must produce
+    a "Missing `**File:**` metadata field." issue instead of crashing the
+    regex comparison or silently passing.
+    """
+    import importlib
+
+    server_path = Path(__file__).parent.parent / "mcp-lint-server" / "server.py"
+    spec = importlib.util.spec_from_file_location("lint_server", server_path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    # All required sections present, but NO `**File:**` line at all.
+    no_header_content = """# Task 99: Test
+
+**Source:** orchestrator
+**Type:** improvement
+**Status:** open
+
+## Goal
+
+Test
+
+## Local TODOs
+
+- [x] Test
+
+## Acceptance Criteria
+
+- [x] Test
+
+## Verification Evidence
+
+Test
+
+## Risk & Rollback
+
+Test
+
+## OpenCode Execution Log & Reasoning
+
+Test
+
+## Factual Git Diff
+
+<!-- BEGIN_GIT_DIFF -->
+<!-- END_GIT_DIFF -->
+"""
+    issues = mod._check_task_file_structure(no_header_content, "99-test.md")
+    assert any("Missing `**File:**` metadata field." in i for i in issues), (
+        f"Expected 'Missing **File:** metadata field' issue, got: {issues}"
+    )
+    # The missing header must not also produce a spurious path mismatch.
+    assert not any("File path mismatch" in i for i in issues), (
+        f"Missing header must not produce a path mismatch: {issues}"
+    )
+
+
+def test_lint_task_file_absolute_path_matches_relative_header():
+    """Verify the path-drift guard compares RESOLVED absolute paths, not raw strings.
+
+    Fail-first regression test: `lint_task_file` explicitly accepts absolute or
+    relative paths, so calling `_check_task_file_structure` with an absolute
+    path while the `**File:**` header holds the equivalent relative path must
+    NOT be flagged as a mismatch (they resolve to the same file).
+    """
+    import importlib
+
+    server_path = Path(__file__).parent.parent / "mcp-lint-server" / "server.py"
+    spec = importlib.util.spec_from_file_location("lint_server", server_path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    valid_content = """# Task 99: Test
+
+**File:** `tasks/backlog/99-test.md`
+**Source:** orchestrator
+**Type:** improvement
+**Status:** open
+
+## Goal
+
+Test
+
+## Local TODOs
+
+- [x] Test
+
+## Acceptance Criteria
+
+- [x] Test
+
+## Verification Evidence
+
+Test
+
+## Risk & Rollback
+
+Test
+
+## OpenCode Execution Log & Reasoning
+
+Test
+
+## Factual Git Diff
+
+<!-- BEGIN_GIT_DIFF -->
+<!-- END_GIT_DIFF -->
+"""
+    # Relative header + equivalent absolute actual path -> must match.
+    abs_path = str(Path("tasks/backlog/99-test.md").resolve())
+    issues = mod._check_task_file_structure(valid_content, abs_path)
+    assert not any("File path mismatch" in i for i in issues), (
+        f"Resolved absolute path must match relative header, got: {issues}"
+    )
+
+    # Sanity: a genuinely different absolute path still flags the mismatch.
+    other_path = str(Path("tasks/in-progress/99-test.md").resolve())
+    issues_mismatch = mod._check_task_file_structure(valid_content, other_path)
+    assert any("File path mismatch" in i for i in issues_mismatch), (
+        f"Different resolved path must still be flagged: {issues_mismatch}"
+    )
 
 
 def test_lint_task_file_missing_sections():
@@ -145,7 +336,7 @@ Test
 <!-- BEGIN_GIT_DIFF -->
 <!-- END_GIT_DIFF -->
 """
-    issues = mod._check_task_file_structure(incomplete_content, "99-test.md")
+    issues = mod._check_task_file_structure(incomplete_content, "tasks/backlog/99-test.md")
     assert len(issues) > 0, "Expected issues for missing sections, got none"
     # Should flag missing Acceptance Criteria, Verification Evidence, Risk & Rollback
     assert any("Acceptance Criteria" in i for i in issues), (

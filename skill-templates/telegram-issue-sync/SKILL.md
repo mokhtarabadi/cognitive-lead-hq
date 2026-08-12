@@ -84,6 +84,25 @@ Store the Manager's GitHub preference in a variable `GH_ENABLED` (true/false).
 
 For **each** approved candidate, execute the following steps **strictly in order**:
 
+> **TASK-GENERATOR MIRROR MANDATE:** Task creation MUST mirror `task-generator` exactly: same ID discovery command, same duplicate-title check, same duplicate-ID check, same collision check, same canonical template, and same `## Definition of Done` block. Do NOT maintain divergent logic — if the `task-generator` skill's workflow changes, mirror those changes here.
+
+---
+
+**0. Mirror Checks (from task-generator):**
+
+Before writing the task file, run the same guards the `task-generator` skill runs:
+
+```bash
+# Duplicate-title check
+grep -rhn "^# Task [0-9][0-9]*:" tasks/ | sort | uniq -d
+# Duplicate-ID check (active Kanban dirs only — archive never blocks)
+find tasks/backlog tasks/in-progress tasks/qa tasks/completed -type f -name "*.md" -exec basename {} \; | grep -Eo '^[0-9]+' | sort | uniq -d
+# Collision check
+ls tasks/backlog/${NEXT_ID}-*.md 2>/dev/null
+```
+
+If any check returns output, HALT and report the collision. Do NOT overwrite files. Archive is a historical record and MUST NOT be included in the blocking duplicate-ID check. If archive duplicates are discovered separately, report them as a warning only, never HALT task creation. Then confirm the generated task file includes the same `## Definition of Done` block as `task-generator` (Build/Test/Lint exit 0, `lint_task_file` passes, `CHANGELOG.md` via Parse-Then-Append, `verification-before-completion` evidence).
+
 ---
 
 **1. Determine Next Task ID:**

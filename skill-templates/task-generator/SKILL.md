@@ -28,6 +28,14 @@ grep -rhn "^# Task [0-9][0-9]*:" tasks/ | sort | uniq -d
 
 The title number MUST match the filename ID. Any mismatch or duplicate must be resolved with the Collision Check below before writing the file.
 
+Duplicate ID check — flag any duplicated numeric task IDs across the ACTIVE Kanban directories only:
+
+```bash
+find tasks/backlog tasks/in-progress tasks/qa tasks/completed -type f -name "*.md" -exec basename {} \; | grep -Eo '^[0-9]+' | sort | uniq -d
+```
+
+If the output is non-empty, HALT and report duplicate task IDs. Do NOT overwrite files. Archive is a historical record and MUST NOT be included in the blocking duplicate-ID check. If archive duplicates are discovered separately, report them as a warning only, never HALT task creation.
+
 3. **Name:** Create a kebab-case filename (e.g., `01-fix-login-bug.md`). Place it in `tasks/backlog/`.
 
 3.5. **Collision Check:** Before writing the file, verify that `tasks/backlog/{NEXT_ID}-*.md` does NOT already exist. Run: `ls tasks/backlog/${NEXT_ID}-*.md 2>/dev/null`. If a file with that ID already exists, HALT and report: '⚠️ Task ID collision: {NEXT_ID} is already in use. Re-run ID discovery.' Do NOT overwrite existing files.
@@ -114,6 +122,15 @@ The title number MUST match the filename ID. Any mismatch or duplicate must be r
    - **Actual result:** _(OpenCode fills this during execution)_
    - **Exit code:** _(OpenCode fills this during execution)_
 
+   ## Definition of Done
+
+   The task is NOT done unless ALL of the following are true (unconditional, applies to every source type):
+
+   - [ ] Build/Test/Lint pass with exit code 0
+   - [ ] `lint_task_file` passes on the active task file
+   - [ ] `CHANGELOG.md` updated via Parse-Then-Append
+   - [ ] `verification-before-completion` applied and evidence recorded
+
    ## Risk & Rollback
 
    - **Risk:** [what could go wrong]
@@ -161,6 +178,15 @@ If the Orchestrator specifies `multi_phase: true`, generate a SINGLE task file w
 - **Expected result:** [what success looks like]
 - **Actual result:** _(OpenCode fills this during execution)_
 - **Exit code:** _(OpenCode fills this during execution)_
+
+## Definition of Done
+
+The task is NOT done unless ALL of the following are true (unconditional, applies to every multi-phase task):
+
+- [ ] Build/Test/Lint pass with exit code 0
+- [ ] `lint_task_file` passes on the active task file
+- [ ] `CHANGELOG.md` updated via Parse-Then-Append
+- [ ] `verification-before-completion` applied and evidence recorded
 
 ## Risk & Rollback
 

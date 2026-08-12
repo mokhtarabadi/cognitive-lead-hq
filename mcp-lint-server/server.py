@@ -83,13 +83,15 @@ def _check_task_file_structure(content: str, file_path: str) -> list[str]:
 
     Checks:
     - Filename ID matches the title number
+    - **File:** header path matches the actual file path (path-drift guard)
     - Required sections exist (## Goal, ## Local TODOs, etc.)
     - BEGIN/END_GIT_DIFF markers are present
     - Source and Type metadata fields are valid
 
     Args:
         content: The raw Markdown text of the task file.
-        file_path: The file path (used for filename-based ID checks).
+        file_path: The file path (used for filename-based ID checks and the
+            **File:** header path-drift comparison).
 
     Returns:
         A list of issue descriptions found in the content.
@@ -112,6 +114,31 @@ def _check_task_file_structure(content: str, file_path: str) -> list[str]:
             issues.append("Missing standard title format: `# Task [NN]: [Title]`")
     else:
         issues.append("Filename does not start with a numeric ID.")
+
+    # 1.5 Path-drift guard: **File:** header must match the actual file path.
+    # First, ensure the `**File:**` metadata field exists at all — a missing
+    # header is a structural defect in its own right and is reported before
+    # any path comparison. The header value is normalized (whitespace and
+    # surrounding backticks stripped) so `tasks/in-progress/97-foo.md` can be
+    # compared to the path the linter was called with.
+    #
+    # Comparison is done on RESOLVED ABSOLUTE paths, not raw strings: the
+    # lint_task_file tool explicitly accepts both absolute and relative paths,
+    # so a relative header (`tasks/in-progress/97-foo.md`) and an absolute
+    # actual path (`/repo/tasks/in-progress/97-foo.md`) describe the same file
+    # and must match. Path.resolve() collapses relative components, "..", and
+    # symlinks so equivalent spellings of the same file never false-positive.
+    # This still catches genuinely stale headers left behind after git mv
+    # between Kanban directories (different file => different resolved path).
+    file_header_match = re.search(r'\*\*File:\*\*\s*`([^`]+)`', content)
+    if not file_header_match:
+        issues.append("Missing `**File:**` metadata field.")
+    else:
+        header_path = file_header_match.group(1).strip()
+        if Path(header_path).resolve() != Path(file_path).resolve():
+            issues.append(
+                f"File path mismatch: header says '{header_path}' but actual path is '{file_path}'."
+            )
 
     # 2. Required sections exist
     required_sections = [
