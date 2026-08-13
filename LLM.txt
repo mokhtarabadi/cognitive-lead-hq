@@ -223,14 +223,16 @@ cp /tmp/cognitive-lead-hq/freebuff/agents/cognitive-discovery.ts ~/.agents/cogni
 cp /tmp/cognitive-lead-hq/freebuff/AGENTS.global.md ~/.AGENTS.md
 ```
 
-> **Custom agents work on the free tier (v1.2.0):** the ports are **schema-validated** against the Codebuff
+> **Custom agents are schema-validated and model-free (v1.2.0), but NOT spawnable on the free tier**
+> (verified 2026-08-13 — see `docs/freebuff-support.md` §5). The ports are validated against the Codebuff
 > 17-tool platform whitelist (`toolNames` pruned to valid platform tools, `spawnableAgents` in
-> `publisher/name@version` format) and **model-free** (`model` omitted so the runtime falls back to the
-> free-mode default model, fixing the earlier HTTP 403 `free_mode_invalid_agent_model`). The **live
-> free-tier spawn is a manual verification item** pending Manager confirmation — see `docs/freebuff-support.md`
-> §5 for the caveat, status, and full port record. The system prompt is used manually — paste
-> `system-prompt.md` into any Freebuff chat as the Orchestrator Brain; it emits `<hands_*_task>` blocks
-> that run in Freebuff or OpenCode.
+> `publisher/name@version` format) and **model-free** (`model` omitted, fixing the earlier HTTP 403
+> `free_mode_invalid_agent_model`) — but Freebuff's free tier only whitelists its **built-in** subagents
+> (via the `base2-free-*` "Free Orchestrator" agents); custom local agents require a credits/paid tier.
+> On the free tier, paste `<hands_*_task>` blocks into the base chat (all MCP tools + skills + `~/.AGENTS.md`
+> are loaded) or spawn Freebuff's built-in subagents via a `base2-free-*` agent. The system prompt is used
+> manually — paste `system-prompt.md` into any Freebuff chat as the Orchestrator Brain; it emits
+> `<hands_*_task>` blocks that run in Freebuff or OpenCode.
 
 ---
 

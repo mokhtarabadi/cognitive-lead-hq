@@ -8,8 +8,9 @@
 > - **Last verified:** 2026-08-13 (Freebuff CLI `0.0.149`)
 > - **Source of truth:** Task 96 (port audit) and Task 98 (full-support completion) — reference by ID, not path.
 > - **Overall status:** ✅ FULL (REPO-LEVEL) — MCP servers, Skills, global rules, and custom agents are all
->   in place and schema-validated; the live free-tier spawn remains a **manual verification item** pending
->   Manager confirmation (see §5).
+>   in place and schema-validated. **Verified 2026-08-13 (binary analysis + live session):** the free tier
+>   CANNOT spawn the custom local agents (paid/credits tier required); the free tier CAN spawn Freebuff's
+>   built-in subagents when running as a `base2-free-*` "Free Orchestrator" agent (see §5).
 
 ---
 
@@ -143,18 +144,19 @@ task files, MCP/skill usage, and changelog discipline.
 ## 3. What Was Ported (2026-08-12, completed 2026-08-13)
 
 All ported components are installed globally under `~/.agents/` (plus `~/.AGENTS.md`). MCP servers, Skills, and
-global rules are **verified live**; the custom agents are **✅ FULL (REPO-LEVEL)** — schema-validated in-repo
-(v1.2.0) with the **live free-tier spawn still pending** Manager confirmation (see §5).
+global rules are **verified live**; the custom agents are **✅ FULL (REPO-LEVEL, schema-validated v1.2.0)** but
+**NOT spawnable on the free tier** — verified 2026-08-13 via binary analysis + a live `@Cognitive Executor`
+session (see §5).
 
-| #   | Component                                                       | Install location     | Status                       |
-| --- | --------------------------------------------------------------- | -------------------- | ---------------------------- |
-| 1   | **MCP servers** (`custom_context`, `project_memory`, `lint`)    | `~/.agents/mcp.json` | ✅ FULL                      |
-| 2   | **Agent Skills** (all 29 from `skill-templates/`)               | `~/.agents/skills/`  | ✅ FULL                      |
-| 3   | **Custom agents** (`cognitive-executor`, `cognitive-discovery`) | `~/.agents/*.ts`     | ✅ FULL (REPO-LEVEL) — schema-validated v1.2.0; free-tier spawn pending |
-| 4   | **Global rules** ("The Hands")                                  | `~/.AGENTS.md`       | ✅ FULL                      |
-| 5   | `system-prompt.md` (Orchestrator Brain)                         | — (manual)           | 📄 MANUAL — runtime-agnostic |
-| 6   | `user-prompts/` templates                                       | — (manual)           | 📄 MANUAL                    |
-| 7   | `docs/opencode-shell-strategy.md`                               | —                    | ➖ N/A (OpenCode-specific)   |
+| #   | Component                                                       | Install location     | Status                                                                                                           |
+| --- | --------------------------------------------------------------- | -------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| 1   | **MCP servers** (`custom_context`, `project_memory`, `lint`)    | `~/.agents/mcp.json` | ✅ FULL                                                                                                          |
+| 2   | **Agent Skills** (all 29 from `skill-templates/`)               | `~/.agents/skills/`  | ✅ FULL                                                                                                          |
+| 3   | **Custom agents** (`cognitive-executor`, `cognitive-discovery`) | `~/.agents/*.ts`     | ✅ FULL (REPO-LEVEL) — schema-validated v1.2.0; ❌ not spawnable on the free tier (paid tier required, verified) |
+| 4   | **Global rules** ("The Hands")                                  | `~/.AGENTS.md`       | ✅ FULL                                                                                                          |
+| 5   | `system-prompt.md` (Orchestrator Brain)                         | — (manual)           | 📄 MANUAL — runtime-agnostic                                                                                     |
+| 6   | `user-prompts/` templates                                       | — (manual)           | 📄 MANUAL                                                                                                        |
+| 7   | `docs/opencode-shell-strategy.md`                               | —                    | ➖ N/A (OpenCode-specific)                                                                                       |
 
 ### 3.1 MCP servers (`~/.agents/mcp.json`) — ✅ FULL
 
@@ -176,7 +178,7 @@ All 29 `skill-templates/*` were copied byte-identical. Validation: 29/29 kebab-c
 29/29 `SKILL.md` present, 29/29 `name` + `description` frontmatter. In-session proof: `task-generator`,
 `code-search`, `project-memory`, `python-fastapi`, `task-lint` all load via the `skill` tool.
 
-### 3.3 Custom agents (`~/.agents/*.ts`) — ✅ FULL (REPO-LEVEL, schema-validated v1.2.0)
+### 3.3 Custom agents (`~/.agents/*.ts`) — ✅ FULL (REPO-LEVEL, schema-validated v1.2.0) / ❌ free-tier spawn blocked
 
 Two TypeScript ports of the OpenCode agents are authored **in-repo** at `freebuff/agents/*.ts` and
 installed to `~/.agents/`:
@@ -201,42 +203,67 @@ removed, and `spawnableAgents` now uses `publisher/name@version` for built-ins (
 `.agents/` agents). Directory mapping remains covered by the `custom_context` MCP tools (auto-available to
 all base agents, no whitelisting needed); skills load via `/skill:<name>` slash commands.
 
+**2026-08-13 live verification (free-tier spawn BLOCKED — binary analysis + session log):** the free tier
+cannot spawn the custom local agents. Evidence from the Freebuff CLI `0.0.149` binary and a live
+`@Cognitive Executor say hello` session (`~/.config/manicode/projects/.../log.jsonl`):
+
+- The **default free agent** (`base3-free-deepseek-flash`, "Buffy on DeepSeek Flash") has **NO `spawn_agents`
+  tool** in its whitelist at all. The mention fell through as plain text — the run used `agentTemplateId:
+base3-free-deepseek-flash` with the full prompt as literal input and no `spawn_agents` call.
+- The **free-tier orchestrators** (`base2-free-*`, "Buffy the Free Orchestrator") DO ship `spawn_agents`, but
+  their `spawnableAgents` whitelists contain **only built-in Codebuff subagents** (`file-picker`,
+  `code-searcher`, `researcher-web`, `researcher-docs`, `basher`, `tmux-cli`, `browser-use`,
+  `code-reviewer-*`, `context-pruner`). The client-side spawn validation (`qIH(I.spawnableAgents, o)`)
+  rejects any target outside that list with `Agent "<id>" is not available to spawn`, so
+  `cognitive-executor`/`cognitive-discovery` are rejected even though `g0()` resolves them from
+  `~/.agents/` (discovery order: `{cwd}/.agents` → `{cwd}/../.agents` → `~/.agents`).
+- **Bottom line:** custom `.agents/*.ts` agents require a **credits/paid tier** on Freebuff. The free tier
+  can only spawn Freebuff's built-in subagents, and only when the session runs as a `base2-free-*`
+  "Free Orchestrator" agent (switch via the model/agent selector — `settings.json` currently pins
+  `deepseek/deepseek-v4-flash`, which maps to the non-spawning `base3-free-deepseek-flash`).
+
 ---
 
 ## 4. Freebuff Support Matrix
 
-| Component                                                   | Freebuff status | Notes                                                                                   |
-| ----------------------------------------------------------- | --------------- | --------------------------------------------------------------------------------------- |
-| MCP servers (`custom_context`, `project_memory`, `lint`)    | ✅ FULL         | Verified live, 14 tools                                                                 |
-| Skills (29)                                                 | ✅ FULL         | Verified loading via `skill` tool                                                       |
-| Custom agents (`cognitive-executor`, `cognitive-discovery`) | ✅ FULL (REPO-LEVEL) | Schema-validated v1.2.0 (11/4 tool whitelists, `publisher/name@version` spawnables); `model` omitted — live free-tier spawn pending (§5 caveat) |
-| Global rules (`~/.AGENTS.md`)                               | ✅ FULL         | Baseline constraints in every Freebuff session; source: `freebuff/AGENTS.global.md`     |
-| `system-prompt.md` (Orchestrator Brain)                     | 📄 MANUAL       | Runtime-agnostic since v8.4.5 — emits `<hands_*_task>`; paste into Freebuff or OpenCode |
-| `user-prompts/` templates                                   | 📄 MANUAL       | Copy-paste templates, work in any chat                                                  |
-| `opencode-shell-strategy.md`                                | ➖ N/A          | OpenCode-specific; Git/ZAC rules live in `AGENTS.md` + `~/.AGENTS.md`                   |
+| Component                                                   | Freebuff status      | Notes                                                                                                                                                                                                                                                                             |
+| ----------------------------------------------------------- | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| MCP servers (`custom_context`, `project_memory`, `lint`)    | ✅ FULL              | Verified live, 14 tools                                                                                                                                                                                                                                                           |
+| Skills (29)                                                 | ✅ FULL              | Verified loading via `skill` tool                                                                                                                                                                                                                                                 |
+| Custom agents (`cognitive-executor`, `cognitive-discovery`) | ✅ FULL (REPO-LEVEL) | Schema-validated v1.2.0 (11/4 tool whitelists, `publisher/name@version` spawnables); `model` omitted — ❌ NOT spawnable on the free tier (verified 2026-08-13); paid/credits tier required. Free tier can spawn Freebuff built-in subagents only via `base2-free-*` orchestrators |
+| Global rules (`~/.AGENTS.md`)                               | ✅ FULL              | Baseline constraints in every Freebuff session; source: `freebuff/AGENTS.global.md`                                                                                                                                                                                               |
+| `system-prompt.md` (Orchestrator Brain)                     | 📄 MANUAL            | Runtime-agnostic since v8.4.5 — emits `<hands_*_task>`; paste into Freebuff or OpenCode                                                                                                                                                                                           |
+| `user-prompts/` templates                                   | 📄 MANUAL            | Copy-paste templates, work in any chat                                                                                                                                                                                                                                            |
+| `opencode-shell-strategy.md`                                | ➖ N/A               | OpenCode-specific; Git/ZAC rules live in `AGENTS.md` + `~/.AGENTS.md`                                                                                                                                                                                                             |
 
 ---
 
-## 5. Free-Tier Note (Custom Agents — Resolved v1.1.0)
+## 5. Free-Tier Note (Custom Agents — VERIFIED: not spawnable on the free tier)
 
-Task 96 observed that a spawn attempt resolved the agent and then the runtime returned:
+**History:** Task 96 observed the original ports (with a pinned `model`) return `HTTP 403
+free_mode_invalid_agent_model` on the free tier. v1.1.0 removed the `model` field and v1.2.0
+schema-validated the ports — but **live verification on 2026-08-13 proved the model fix was necessary but
+NOT sufficient**: the free tier cannot spawn custom local agents regardless of the `model` field.
 
-```text
-HTTP 403  free_mode_invalid_agent_model
-"Free mode is only available for specific agent and model combinations"
-```
+**Verified evidence (Freebuff CLI `0.0.149` binary + live session):**
 
-**Root cause + fix:** the port pinned an explicit `model` (`deepseek/deepseek-v4-flash`). Free mode only
-permits the platform's default free-mode model combinations, so any pinned model was rejected. Removing
-the `model` field (v1.1.0) lets the runtime fall back to the free-mode default. **Caveat:** if Freebuff
-additionally restricts _custom agents themselves_ (not just models) on the free tier, a credits/paid
-tier may still be required — the `~/.agents/*.ts` ports are already correct either way, and `@cognitive-executor`
-/ `@cognitive-discovery` should be tried on the current free tier to confirm.
+1. The **default free agent** (`base3-free-deepseek-flash`, "Buffy on DeepSeek Flash") has **NO `spawn_agents`
+   tool** in its whitelist. `@Cognitive Executor say hello` was recorded in the session log as a plain prompt
+   run by `base3-free-deepseek-flash` — no spawn, no 403, the mention was simply treated as text.
+2. The **free-tier orchestrator** (`base2-free-*`, "Buffy the Free Orchestrator") has `spawn_agents`, but its
+   `spawnableAgents` list contains **only built-in Codebuff subagents**. The client-side validation
+   (`qIH(I.spawnableAgents, o)`) rejects anything else with `Agent "..." is not available to spawn`, so local
+   custom agents (`cognitive-executor`, `cognitive-discovery`) are rejected before any backend call.
+3. Local agents ARE discovered (order: `{cwd}/.agents` → `{cwd}/../.agents` → `~/.agents`) and resolved by
+   `g0()` — but the whitelist gate above blocks them on the free tier.
 
-**Status note (v1.2.0):** as of the QA adversarial pass the repo-level port is **✅ FULL (REPO-LEVEL)** —
-the schema is verified against the live Codebuff docs and the model-free fix is in place, but the live
-free-tier spawn could not be executed from the CI-like environment. It is a **manual verification item**
-until the Manager starts Freebuff and confirms `@Cognitive Executor <prompt>` spawns without HTTP 403.
+**Conclusion:** custom `.agents/*.ts` agents require a **credits/paid tier**. The repo-level ports remain
+**✅ FULL (REPO-LEVEL)** — correct, schema-valid, and ready — but on the free tier you must either (a) run
+the Cognitive Lead workflow through the base chat (paste `<hands_*_task>` blocks directly; the base agent has
+all MCP tools + skills + `~/.AGENTS.md` loaded), or (b) use a paid/credits tier to spawn `@cognitive-executor`.
+As a bonus, the free tier CAN spawn Freebuff's built-in subagents (researcher-web, code-searcher, basher,
+browser-use, file-picker, code-reviewer, ...) if you switch the free model to a `base2-free-*`
+"Free Orchestrator" agent.
 
 ---
 
@@ -251,9 +278,11 @@ Since v8.4.5 the workflow is runtime-agnostic — the same task blocks run in Fr
    `AGENTS.md` applies inside HQ clones.
 3. **Tooling (automatic):** with `~/.agents/mcp.json` + `~/.agents/skills/` installed, Freebuff gains the
    context/MCP, project-memory, and lint servers plus the 29 skills in any repository.
-4. **Custom agents (free tier, REPO-LEVEL):** `@cognitive-executor` and `@cognitive-discovery` are
-   installed, schema-validated (v1.2.0), and model-free; spawn them per §5 — the live spawn is the
-   pending manual verification item.
+4. **Custom agents (REPO-LEVEL, paid tier):** `@cognitive-executor` and `@cognitive-discovery` are installed,
+   schema-validated (v1.2.0), and model-free — but the **free tier cannot spawn them** (verified 2026-08-13,
+   §5). On the free tier, either paste `<hands_*_task>` blocks into the base chat (which has all MCP tools +
+   skills + `~/.AGENTS.md` loaded), or switch the free model to a `base2-free-*` "Free Orchestrator" agent to
+   spawn Freebuff's built-in subagents. Use the custom agents on a credits/paid tier.
 5. **User prompts (manual):** `user-prompts/*.md` are runtime-agnostic copy-paste templates; use them in any
    Freebuff chat.
 
@@ -281,9 +310,11 @@ grep -c "model:" ~/.agents/cognitive-executor.ts ~/.agents/cognitive-discovery.t
 #    In-session probes answered: `get_directory_tree`, `list_namespaces`,
 #    `lint_all_tasks`, `read_memory`, `lint_markdown`.
 
-# 6. Spawn smoke test (MANUAL, pending): start Freebuff and run `@Cognitive Executor <any prompt>`
-#    — v1.2.0 is schema-validated and model-free; confirm no HTTP 403. Until the Manager
-#    confirms this, the repo-level status is ✅ FULL (REPO-LEVEL), not verified-live FULL.
+# 6. Spawn smoke test — DONE 2026-08-13 (free tier): `@Cognitive Executor say hello` ran as
+#    `base3-free-deepseek-flash` with the mention as plain text (no spawn, no 403) — the free tier
+#    lacks `spawn_agents` (base3-free) / whitelists only built-in subagents (base2-free). Custom
+#    local agents are paid-tier only; Freebuff built-in subagents spawn via `base2-free-*`.
+#    See §5 for the full verified evidence.
 
 # 7. Repo test suite (servers healthy)
 uv run --with pytest --with 'mcp[cli]>=1.0,<2.0' --with pathspec --with pyyaml --with tree-sitter --with tree-sitter-python --with tree-sitter-javascript --with tree-sitter-typescript --with tree-sitter-go --with tree-sitter-java --with tree-sitter-rust --with tree-sitter-kotlin pytest tests/ -q   # → 14 passed
@@ -311,5 +342,8 @@ Reference links (for staying current as Freebuff/Codebuff evolves):
   remain OpenCode references and are N/A to Freebuff.
 - The agent ports are at **v1.2.0** (schema-validated 2026-08-13); the installed `~/.agents/*.ts` copies
   must be re-synced from `freebuff/agents/*.ts` via `LLM.txt` Step 7.5 after any port change.
+- **Free-tier custom-agent spawn is VERIFIED BLOCKED (2026-08-13)** — the earlier "manual verification item"
+  status is closed: the free tier cannot spawn custom local agents (see §5). Re-verify only if Freebuff
+  changes its free-tier agent policy.
 - This document, the README section, and the `LLM.txt` optional step are the durable record; see
   Tasks 96 and 98 for the full audit performed 2026-08-12/13.

@@ -4,6 +4,24 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Fixed
+
+- **Freebuff free-tier spawn status verified and corrected (docs hotfix, 2026-08-13)** — the "manual
+  verification item" status for the custom agents' live free-tier spawn is **closed**: binary analysis of the
+  Freebuff CLI `0.0.149` plus a live `@Cognitive Executor say hello` session proved the free tier CANNOT spawn
+  custom local `.agents/*.ts` agents. Root cause: the default free agent (`base3-free-deepseek-flash`) has no
+  `spawn_agents` tool in its whitelist, and the free-tier orchestrator (`base2-free-*`) only whitelists
+  built-in Codebuff subagents — the client-side spawn validation rejects anything else with `Agent "..." is
+not available to spawn` (the earlier `model`-omission fix was necessary but not sufficient). Docs updated:
+  `docs/freebuff-support.md` (header status, §3.3 verification evidence, §4 matrix, §5 rewrite, §6 step 4,
+  §7 step 6, §8 drift note), `README.md` Freebuff matrix + guide link, and `LLM.txt` Step 7.5 note. Corrected
+  guidance: on the free tier paste `<hands_*_task>` blocks into the base chat (all MCP tools + skills +
+  `~/.AGENTS.md` loaded) or switch to a `base2-free-*` "Free Orchestrator" agent to spawn Freebuff's built-in
+  subagents; custom agents require a credits/paid tier. `system-prompt.md` version unchanged (metadata/docs-only).
+  Verified: `lint_markdown` on all edited docs ✅, prettier ✅.
+
 ## [8.4.5] - 2026-08-13
 
 ### Added
