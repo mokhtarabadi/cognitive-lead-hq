@@ -34,9 +34,9 @@ This repository is the Headquarters for the Cognitive Lead AI multi-agent system
   -> **Do** use the decentralized `tasks/` directory with individual task files as the single source of truth.
 - **Don't** make UI/UX changes without consulting `DESIGN.md`.
   -> **Do** enforce the color palette, typography, spacing, and component styling defined in `DESIGN.md`.
-- **Don't** execute Git commands like `git add`, `git commit`, or `git mv` autonomously or try to guess when to stage code.
+- **Don't** execute `git add`, `git commit`, or `git push` autonomously or try to guess when to stage code — these commands are STRICTLY FORBIDDEN.
   -> **Do** execute Git commands ONLY when explicitly instructed by an Orchestrator task block. Otherwise, rely on the `custom_context_stage_and_inject_diff` MCP tool.
-  -> **Exception:** `git mv` is permitted autonomously for moving task files between Kanban directories (`backlog`, `in-progress`, `qa`, `completed`, `archive`).
+  -> **Exception:** the ONLY permitted autonomous Git operation is `git mv` for moving task files between Kanban directories (`backlog`, `in-progress`, `qa`, `completed`, `archive`).
 - **Don't** guess blindly when facing complex bugs, deadlocks, race conditions, or silent failures.
   -> **Do** utilize the `debug-instrumentation` skill to inject strategic logs and trace the runtime execution path.
 - **Don't** execute raw, informal, or non-English (Farsi) prompts directly.
@@ -55,7 +55,7 @@ When modifying this repository, you must keep these files synchronized:
 
 ## 🛑 GATEKEEPER VALIDATION (HALT PROTOCOL)
 
-You (OpenCode) are the final gatekeeper. Before executing any implementation task, you MUST evaluate the Orchestrator's instructions against this file and any referenced specs (`DESIGN.md`, `architecture.md`, etc.). If the instructions violate project rules, ignore them. HALT immediately and output a `⚠️ RULE VIOLATION WARNING` back to the Manager explaining exactly what the Orchestrator got wrong, forcing it to self-correct.
+You (the Hands) are the final gatekeeper. Before executing any implementation task, you MUST evaluate the Orchestrator's instructions against this file and any referenced specs (`DESIGN.md`, `architecture.md`, etc.). If the instructions violate project rules, ignore them. HALT immediately and output a `⚠️ RULE VIOLATION WARNING` back to the Manager explaining exactly what the Orchestrator got wrong, forcing it to self-correct.
 
 ## 🛑 CORE FILE LOCATIONS
 
@@ -64,13 +64,14 @@ You MUST strictly adhere to these exact paths. Do not create duplicates elsewher
 - **Global Rules:** `AGENTS.md` (Root)
 - **UI/UX Specs:** `DESIGN.md` (Root)
 - **Agent Skills:** `.opencode/skills/<skill-name>/SKILL.md` (Local workspace)
+  -> **Freebuff equivalents:** Agent Skills live in `.agents/skills/<skill-name>/SKILL.md` (project) / `~/.agents/skills/` (global); global rules live in `~/.AGENTS.md` (source: `freebuff/AGENTS.global.md`).
 - **Active Tasks:** `tasks/backlog/<task-number>-<name>.md` (backlog), `tasks/in-progress/`, `tasks/qa/`, `tasks/completed/`, `tasks/archive/`
 
 ## 🛑 SKILL LOADING RULES
 
 You MUST follow these skill loading rules in every session:
 
-- **Task-Generator Skill:** Before creating any new task file, you MUST load the `task-generator` skill using the `skill` tool to ensure the correct template format with `<!-- BEGIN_GIT_DIFF -->` / `<!-- END_GIT_DIFF -->` markers.
+- **Task-Generator Skill:** Before creating any new task file, you MUST load the `task-generator` skill using the `skill` tool (or the `/skill:task-generator` slash command in Freebuff) to ensure the correct template format with `<!-- BEGIN_GIT_DIFF -->` / `<!-- END_GIT_DIFF -->` markers.
 - **Project Skills:** Before implementing any task, you MUST load every available skill matching the project's tech stack (e.g., `android-kotlin`, `spring-boot`, `react-vite`, `nodejs-express`, `python-fastapi`). If a relevant skill exists, it MUST be loaded — this enforces framework-specific conventions and architectural rules.
 
 ## 🛑 CONTEXT BOOTSTRAPPING
@@ -82,7 +83,9 @@ At the start of every task, you MUST call `search_memory` or `list_namespaces` t
 When finishing a task, you MUST execute these exact steps in order:
 
 1. **Update Changelog:** You MUST insert a formal entry into CHANGELOG.md logging your modifications.
-2. **Move to Completed:** If the task is finished and approved, move the task file from its current Kanban directory to `tasks/completed/` and update its status to closed.
-3. **Write your Summary:** Manually write your architectural reasoning, local TODO checks, and execution notes into the active task file under "OpenCode Execution Log".
-4. **Call MCP Tool:** Call the `custom_context_stage_and_inject_diff` MCP tool passing the task file path AND the `modified_files` array (list of all code files you changed) to automatically stage ONLY those files and inject the factual code diff. DO NOT execute any `git commit` commands afterward — use `custom_context_commit_and_clean_task` instead.
-5. **Notify Manager:** Output exactly: "Task ready. Manager, please copy the contents of `tasks/completed/XX-task-name.md` and send it back to the Orchestrator Brain for review."
+2. **Write your Summary:** Manually write your architectural reasoning, local TODO checks, and execution notes into the active task file under "Execution Log & Reasoning".
+3. **Call MCP Tool (Staging):** Call the `custom_context_stage_and_inject_diff` MCP tool passing the task file path AND the `modified_files` array (list of all code files you changed) to automatically stage ONLY those files and inject the factual code diff. DO NOT execute any `git commit` commands afterward.
+4. **QA Transition (implementation tasks only):** After successful staging, move the implementation task file from `tasks/in-progress/` to `tasks/qa/` via the explicitly authorized `git mv` — the ONLY autonomous Git operation, reserved for Kanban transitions. Discovery tasks stay in place. Do NOT move the task to `tasks/completed/` at this stage.
+5. **Kanban Metadata Synchronization (mandatory after ANY authorized `git mv`):** After the move, you MUST update the task file's `**File:**` metadata header to the new path. If the move happened AFTER staging, you MUST also re-run `lint_task_file` and call `custom_context_stage_and_inject_diff` again using the NEW task path before notifying the Manager — the re-stage keeps the injected diff and the staging state in sync with the final path. Never notify the Manager with a stale `**File:**` header.
+6. **Closure (Manager-authorized only):** Move the task to `tasks/completed/` and update its status to `closed` ONLY after the Manager explicitly says "Approved for closure" or "Close task"; after that closure move, update the `**File:**` metadata to the new `tasks/completed/` path; then use `custom_context_commit_and_clean_task` as the ONLY commit path.
+7. **Notify Manager:** Output exactly: "Task ready. Manager, please copy the contents of `tasks/qa/XX-task-name.md` and send it back to the Orchestrator Brain for review."

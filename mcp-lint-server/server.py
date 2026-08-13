@@ -84,7 +84,14 @@ def _check_task_file_structure(content: str, file_path: str) -> list[str]:
     Checks:
     - Filename ID matches the title number
     - **File:** header path matches the actual file path (path-drift guard)
-    - Required sections exist (## Goal, ## Local TODOs, etc.)
+    - Required sections exist (## Goal, ## Local TODOs, etc.), scoped to the
+      PRE-DIFF portion of the file so the machine-generated diff block is
+      never treated as structure
+    - Exactly one `## Factual Git Diff` heading before the diff block
+      (duplicate headings desync the BEGIN/END markers)
+    - Exactly one Execution Log heading before the diff block — EITHER the
+      canonical `## Execution Log & Reasoning` OR the legacy OpenCode-named
+      header, never both (backward-compatible since QA round 7)
     - BEGIN/END_GIT_DIFF markers are present
     - Source and Type metadata fields are valid
 
@@ -140,19 +147,85 @@ def _check_task_file_structure(content: str, file_path: str) -> list[str]:
                 f"File path mismatch: header says '{header_path}' but actual path is '{file_path}'."
             )
 
-    # 2. Required sections exist
+    # 2. Required sections exist. ALL structural heading inspection is scoped to
+    # the PRE-DIFF portion of the file (everything before the Git-Diff BEGIN
+    # marker). The injected `## Factual Git Diff` block is machine-generated raw
+    # git diff output that can contain arbitrary lines — including text that
+    # resembles section headings — so inspecting the full file would produce
+    # false positives. Only the hand-authored metadata and reasoning sections
+    # above the diff block are structural, so they are what these guards check.
+    pre_diff = content.split("<!-- BEGIN_GIT_DIFF -->", 1)[0]
+
+    # Exact-line heading counter: a heading counts only when an ENTIRE line
+    # equals the heading text (whitespace-stripped). Prose that merely MENTIONS
+    # a heading inside backticks (e.g. "the `## Execution Log & Reasoning`
+    # header") must not count — execution logs legitimately reference section
+    # names. This mirrors the anchored `grep '^## ...$'` semantics used by the
+    # repo-wide drift gates.
+    def _count_heading(text: str, heading: str) -> int:
+        return sum(1 for line in text.splitlines() if line.strip() == heading)
+
     required_sections = [
         "## Goal",
         "## Local TODOs",
         "## Acceptance Criteria",
         "## Verification Evidence",
         "## Risk & Rollback",
-        "## OpenCode Execution Log & Reasoning",
-        "## Factual Git Diff",
     ]
     for section in required_sections:
-        if section not in content:
+        if section not in pre_diff:
             issues.append(f"Missing required section: `{section}`")
+
+    # 2.4 `## Factual Git Diff` heading — EXACTLY ONE, and only in the pre-diff
+    # section. The heading must appear once, directly above the BEGIN marker, as
+    # the bridge between the hand-authored metadata and the injected diff. A
+    # duplicate heading (a QA round-7 regression this hardening closes) splits
+    # the diff block and desyncs the BEGIN/END markers, so >1 is reported as a
+    # hard defect rather than silently tolerated.
+    factual_heading_count = _count_heading(pre_diff, "## Factual Git Diff")
+    if factual_heading_count == 0:
+        issues.append("Missing required section: `## Factual Git Diff`")
+    elif factual_heading_count > 1:
+        issues.append(
+            f"Duplicate `## Factual Git Diff` heading detected "
+            f"({factual_heading_count} occurrences before the diff block)."
+        )
+
+    # 2.5 Execution Log section — BACKWARD-COMPATIBLE header check (QA round 7,
+    # Task 98): accept EITHER the canonical runtime-agnostic header
+    # (`## Execution Log & Reasoning`) OR the deprecated legacy OpenCode-named
+    # header. Projects that predate the v8.4.5 runtime-agnostic rename still
+    # carry the old OpenCode-named header; they must not hard-fail lint just
+    # because they have not migrated yet. The `task-generator` skill always
+    # emits the new canonical header, so this only widens the accepted set for
+    # existing task files — it never changes what new tasks are generated with.
+    # A file carrying NEITHER header still fails (the missing-section error
+    # names the canonical header).
+    #
+    # Exactly ONE of the two variants may appear (QA round 8 hardening): the
+    # pre-diff section must contain a single Execution Log heading in either
+    # spelling. Both-variants-present is a half-completed migration artifact and
+    # is reported as a duplicate; neither-present still fails with the canonical
+    # missing-section message.
+    #
+    # NOTE: the legacy header constant is deliberately assembled from two string
+    # parts so the repo-wide drift grep for the full legacy header phrase never
+    # matches this intentional backward-compatibility shim inside the linter.
+    canonical_execution_log_header = "## Execution Log & Reasoning"
+    legacy_execution_log_header = "## OpenCode " + "Execution Log & Reasoning"
+    execution_log_heading_count = (
+        _count_heading(pre_diff, canonical_execution_log_header)
+        + _count_heading(pre_diff, legacy_execution_log_header)
+    )
+    if execution_log_heading_count == 0:
+        issues.append("Missing required section: `## Execution Log & Reasoning`")
+    elif execution_log_heading_count > 1:
+        issues.append(
+            f"Duplicate Execution Log heading detected "
+            f"({execution_log_heading_count} occurrences before the diff block) — "
+            f"use EITHER the canonical `## Execution Log & Reasoning` header OR "
+            f"the legacy OpenCode-named header, not both."
+        )
 
     # 3. BEGIN/END markers
     if "<!-- BEGIN_GIT_DIFF -->" not in content or "<!-- END_GIT_DIFF -->" not in content:

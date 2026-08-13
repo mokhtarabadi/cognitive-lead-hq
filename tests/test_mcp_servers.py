@@ -98,7 +98,7 @@ Test
 
 Test
 
-## OpenCode Execution Log & Reasoning
+## Execution Log & Reasoning
 
 Test
 
@@ -153,7 +153,7 @@ Test
 
 Test
 
-## OpenCode Execution Log & Reasoning
+## Execution Log & Reasoning
 
 Test
 
@@ -217,7 +217,7 @@ Test
 
 Test
 
-## OpenCode Execution Log & Reasoning
+## Execution Log & Reasoning
 
 Test
 
@@ -278,7 +278,7 @@ Test
 
 Test
 
-## OpenCode Execution Log & Reasoning
+## Execution Log & Reasoning
 
 Test
 
@@ -299,6 +299,122 @@ Test
     issues_mismatch = mod._check_task_file_structure(valid_content, other_path)
     assert any("File path mismatch" in i for i in issues_mismatch), (
         f"Different resolved path must still be flagged: {issues_mismatch}"
+    )
+
+
+def test_lint_task_file_rejects_file_path_mismatch():
+    """Verify the lint server rejects a `**File:**` header that drifted across Kanban dirs.
+
+    Fail-first regression test (Task 98, QA round 9): after a `git mv` between Kanban
+    directories, a stale header is the classic failure mode. Content whose `**File:**`
+    header still points at `tasks/backlog/99-test.md` while the file actually lives in
+    `tasks/qa/99-test.md` MUST be reported as a path mismatch — the header no longer
+    describes where the file is.
+    """
+    import importlib
+
+    server_path = Path(__file__).parent.parent / "mcp-lint-server" / "server.py"
+    spec = importlib.util.spec_from_file_location("lint_server_path_mismatch", server_path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    valid_content = """# Task 99: Test
+
+**File:** `tasks/backlog/99-test.md`
+**Source:** orchestrator
+**Type:** improvement
+**Status:** open
+
+## Goal
+
+Test
+
+## Local TODOs
+
+- [x] Test
+
+## Acceptance Criteria
+
+- [x] Test
+
+## Verification Evidence
+
+Test
+
+## Risk & Rollback
+
+Test
+
+## Execution Log & Reasoning
+
+Test
+
+## Factual Git Diff
+
+<!-- BEGIN_GIT_DIFF -->
+<!-- END_GIT_DIFF -->
+"""
+    # Header says backlog, but the file actually lives in qa (post-git-mv drift).
+    issues = mod._check_task_file_structure(valid_content, "tasks/qa/99-test.md")
+    assert any("File path mismatch" in i for i in issues), (
+        f"Expected 'File path mismatch' issue for stale Kanban header, got: {issues}"
+    )
+
+
+def test_lint_task_file_accepts_matching_file_path():
+    """Verify the lint server accepts a `**File:**` header matching the actual path.
+
+    Regression guard (Task 98, QA round 9): after the Hands synchronize the `**File:**`
+    metadata to the new Kanban path, the file must lint clean — no spurious path
+    mismatch. Content whose header matches the actual `tasks/qa/99-test.md` path must
+    produce no `File path mismatch` issue.
+    """
+    import importlib
+
+    server_path = Path(__file__).parent.parent / "mcp-lint-server" / "server.py"
+    spec = importlib.util.spec_from_file_location("lint_server_path_match", server_path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    valid_content = """# Task 99: Test
+
+**File:** `tasks/qa/99-test.md`
+**Source:** orchestrator
+**Type:** improvement
+**Status:** open
+
+## Goal
+
+Test
+
+## Local TODOs
+
+- [x] Test
+
+## Acceptance Criteria
+
+- [x] Test
+
+## Verification Evidence
+
+Test
+
+## Risk & Rollback
+
+Test
+
+## Execution Log & Reasoning
+
+Test
+
+## Factual Git Diff
+
+<!-- BEGIN_GIT_DIFF -->
+<!-- END_GIT_DIFF -->
+"""
+    issues = mod._check_task_file_structure(valid_content, "tasks/qa/99-test.md")
+    assert not any("File path mismatch" in i for i in issues), (
+        f"Matching header/path must not be flagged as drift, got: {issues}"
     )
 
 
@@ -327,7 +443,7 @@ Test
 
 - [x] Test
 
-## OpenCode Execution Log & Reasoning
+## Execution Log & Reasoning
 
 Test
 
@@ -341,6 +457,134 @@ Test
     # Should flag missing Acceptance Criteria, Verification Evidence, Risk & Rollback
     assert any("Acceptance Criteria" in i for i in issues), (
         "Missing section detection for Acceptance Criteria"
+    )
+
+
+def test_lint_task_file_accepts_old_and_new_headers():
+    """Verify the lint server accepts BOTH the new and legacy Execution Log headers.
+
+    Regression guard (Task 98, QA round 7): the task-file section header was
+    renamed from `## OpenCode Execution Log & Reasoning` to `## Execution Log
+    & Reasoning` in v8.4.5. QA round 7 made the linter BACKWARD COMPATIBLE:
+    existing projects that predate the runtime-agnostic rename still carry the
+    legacy OpenCode-named header and must lint clean (no missing-section error)
+    instead of hard-failing, while files using the new canonical header keep
+    passing. Both variants are asserted below on the same structurally valid
+    template so neither direction regresses.
+    """
+    import importlib
+
+    server_path = Path(__file__).parent.parent / "mcp-lint-server" / "server.py"
+    spec = importlib.util.spec_from_file_location("lint_server_headers", server_path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    # Structurally valid task file, parameterized over the Execution Log header.
+    template = """# Task 99: Test
+
+**File:** `tasks/backlog/99-test.md`
+**Source:** orchestrator
+**Type:** improvement
+**Status:** open
+
+## Goal
+
+Test
+
+## Local TODOs
+
+- [x] Test
+
+## Acceptance Criteria
+
+- [x] Test
+
+## Verification Evidence
+
+Test
+
+## Risk & Rollback
+
+Test
+
+## {header}
+
+Test
+
+## Factual Git Diff
+
+<!-- BEGIN_GIT_DIFF -->
+<!-- END_GIT_DIFF -->
+"""
+
+    # New canonical header must pass.
+    new_header_content = template.format(header="Execution Log & Reasoning")
+    issues_new = mod._check_task_file_structure(new_header_content, "tasks/backlog/99-test.md")
+    assert "Missing required section: `## Execution Log & Reasoning`" not in issues_new, (
+        f"Canonical '## Execution Log & Reasoning' header must pass; got: {issues_new}"
+    )
+
+    # Deprecated legacy header must ALSO pass (backward compatibility).
+    old_header_content = template.format(header="OpenCode Execution Log & Reasoning")
+    issues_old = mod._check_task_file_structure(old_header_content, "tasks/backlog/99-test.md")
+    assert "Missing required section: `## Execution Log & Reasoning`" not in issues_old, (
+        f"Legacy '## OpenCode Execution Log & Reasoning' header must be accepted "
+        f"(non-breaking guarantee); got: {issues_old}"
+    )
+
+
+def test_lint_task_file_rejects_missing_execution_log():
+    """Verify the lint server rejects a file with NEITHER Execution Log header.
+
+    Regression guard (Task 98, QA round 7): the backward-compatible header
+    check must not become a no-op. A task file that omits the section entirely
+    (no canonical `## Execution Log & Reasoning` AND no legacy
+    `## OpenCode Execution Log & Reasoning`) must still fail with the
+    missing-section message for the canonical header.
+    """
+    import importlib
+
+    server_path = Path(__file__).parent.parent / "mcp-lint-server" / "server.py"
+    spec = importlib.util.spec_from_file_location("lint_server_no_log", server_path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    # Structurally valid task file EXCEPT the Execution Log section is absent.
+    no_log_content = """# Task 99: Test
+
+**File:** `tasks/backlog/99-test.md`
+**Source:** orchestrator
+**Type:** improvement
+**Status:** open
+
+## Goal
+
+Test
+
+## Local TODOs
+
+- [x] Test
+
+## Acceptance Criteria
+
+- [x] Test
+
+## Verification Evidence
+
+Test
+
+## Risk & Rollback
+
+Test
+
+## Factual Git Diff
+
+<!-- BEGIN_GIT_DIFF -->
+<!-- END_GIT_DIFF -->
+"""
+    issues = mod._check_task_file_structure(no_log_content, "tasks/backlog/99-test.md")
+    assert "Missing required section: `## Execution Log & Reasoning`" in issues, (
+        f"File with NEITHER Execution Log header must be rejected; got: {issues}"
     )
 
 
@@ -761,3 +1005,359 @@ def test_stage_and_inject_diff_with_ignored_context_reports():
         assert "feature.py" in staged, "Code change should be staged"
         assert "context-reports" not in staged, "Ignored reports must not be staged"
         assert "context_report_x.md" not in staged, "Report content must not be staged"
+
+
+def test_freebuff_agents_have_no_model_key():
+    """Verify both Freebuff agent ports omit the `model` field entirely.
+
+    Regression guard (Task 98 v1.1.0 fix): pinning an explicit `model`
+    (e.g. `deepseek/deepseek-v4-flash`) made the Freebuff free tier reject the
+    custom agent with HTTP 403 `free_mode_invalid_agent_model`. Omitting the
+    field lets the runtime fall back to its free-mode default model. This test
+    fails-first: any future edit that re-introduces a `model:` key on either
+    port would silently break the free-tier spawn path, so a line-level regex
+    asserts that no assignment of the form `model:` exists in either file.
+
+    The regex is anchored so header comments such as "// model OMITTED ..."
+    or "`model` field OMITTED ..." do NOT match — only an actual `model:`
+    property assignment (with optional leading whitespace) trips it.
+    """
+    import re
+
+    repo_root = Path(__file__).parent.parent
+    agents_dir = repo_root / "freebuff" / "agents"
+    ts_files = sorted(agents_dir.glob("*.ts"))
+    assert len(ts_files) >= 2, (
+        f"Expected the two Freebuff agent ports under freebuff/agents/, got: {ts_files}"
+    )
+    for ts_file in ts_files:
+        for lineno, line in enumerate(ts_file.read_text(encoding="utf-8").splitlines(), 1):
+            assert not re.match(r"^\s*model\s*:", line), (
+                f"{ts_file.name}:{lineno} declares a pinned `model:` field — "
+                "Freebuff free-tier custom agents MUST omit `model` so the "
+                "runtime falls back to the free-mode default model (HTTP 403 "
+                "free_mode_invalid_agent_model regression)."
+            )
+
+
+def test_system_prompt_has_no_opencode_tags():
+    """Verify system-prompt.md (v8.4.5+) contains no `<opencode_` prefixed tags.
+
+    Regression guard (Task 98): the Orchestrator Brain previously emitted
+    OpenCode-only XML tags (`<opencode_discovery_task>`,
+    `<opencode_implementation_task>`, `<opencode_combined_task>`), which only
+    OpenCode understood. Since v8.4.5 the system prompt is runtime-agnostic
+    ("the Hands") and emits `<hands_*_task>` blocks, so the same prompt
+    drives Freebuff and OpenCode.
+
+    This broader guard asserts that NO line contains the case-sensitive prefix
+    `<opencode_` at all — not just the three historical tag spellings — so any
+    future OpenCode-only tag variant (e.g. a re-added `<opencode_protocols>`
+    or a new `<opencode_review_task>`) fails this test immediately instead of
+    silently breaking Freebuff sessions that receive the Orchestrator's
+    output. The intentional "OpenCode vs Freebuff" parentheticals in prose
+    never contain the tag prefix, so this cannot false-positive.
+    """
+    repo_root = Path(__file__).parent.parent
+    system_prompt = repo_root / "system-prompt.md"
+    content = system_prompt.read_text(encoding="utf-8")
+    for lineno, line in enumerate(content.splitlines(), 1):
+        assert "<opencode_" not in line, (
+            f"system-prompt.md:{lineno} contains the OpenCode-only prefix "
+            "`<opencode_` — use the runtime-agnostic `<hands_*>` equivalents "
+            f"(Task 98). Offending line: {line.strip()[:120]}"
+        )
+
+
+def test_workflow_skills_have_no_opencode_execution_log():
+    """Verify active workflow skills are runtime-agnostic (Task 98).
+
+    Regression guard (Task 98, QA round 4): the task-file section header was
+    renamed from `## OpenCode Execution Log & Reasoning` to `## Execution Log
+    & Reasoning`, and the workflow skill templates (`skill-templates/*/SKILL.md`)
+    plus the OpenCode executor agent (`agents/cognitive-executor.md`) must not
+    regress to the OpenCode-only wording — the same skills drive the Hands in
+    both OpenCode and Freebuff.
+
+    Scope of the guard:
+    - ALL `skill-templates/*/SKILL.md` files are scanned (glob), so a NEW skill
+      template reintroducing the old header or prose also fails immediately.
+    - `agents/cognitive-executor.md` is the OpenCode agent definition; its prose
+      must reference the canonical header name even though the file legitimately
+      keeps OpenCode-specific frontmatter, paths, and tool names.
+
+    The two assertions are intentionally separate so a failure message pinpoints
+    whether the exact `## ` header or the prose wording regressed. Note this test
+    does NOT flag the historical `tasks/archive/*` files or `CHANGELOG.md`
+    entries — those are immutable historical records by design.
+    """
+    repo_root = Path(__file__).parent.parent
+    target_files = list((repo_root / "skill-templates").glob("*/SKILL.md"))
+    target_files.append(repo_root / "agents" / "cognitive-executor.md")
+    assert len(target_files) >= 29, (
+        f"Expected the 29 skill templates + executor agent, got {len(target_files)} files"
+    )
+    for skill_file in target_files:
+        content = skill_file.read_text(encoding="utf-8")
+        assert "## OpenCode Execution Log & Reasoning" not in content, (
+            f"{skill_file} still contains the OpenCode-only task-file header"
+        )
+        assert "OpenCode Execution Log" not in content, (
+            f"{skill_file} still contains OpenCode Execution Log wording"
+        )
+
+
+def test_system_prompt_contains_freebuff_skill_alternative():
+    """Verify system-prompt.md documents the Freebuff `/skill:<name>` skill-loading path.
+
+    Regression guard (Task 98, QA round 7 + 8): the Freebuff runtime cannot
+    whitelist the `skill` tool (it is not part of the 17-tool platform
+    whitelist), so the system prompt must teach the Hands the `/skill:<name>`
+    slash-command alternative wherever it instructs skill loading. The guard
+    asserts the alternative appears in BOTH the `<agent_skills_registry>`
+    block and the `<hands_implementation_task_template>` context phase, and at
+    least twice overall, so a future edit that documents it in only one place
+    fails immediately.
+    """
+    repo_root = Path(__file__).parent.parent
+    system_prompt = (repo_root / "system-prompt.md").read_text(encoding="utf-8")
+
+    assert "/skill:<name>" in system_prompt, "system-prompt.md must mention `/skill:<name>`"
+
+    # Skill registry block must document the Freebuff alternative.
+    registry_start = system_prompt.index("<agent_skills_registry>")
+    registry_end = system_prompt.index("</agent_skills_registry>")
+    registry_block = system_prompt[registry_start:registry_end]
+    assert "/skill:<name>" in registry_block, (
+        "The <agent_skills_registry> block must document the `/skill:<name>` alternative"
+    )
+
+    # The implementation-task template context phase must too.
+    impl_start = system_prompt.index("<hands_implementation_task_template>")
+    impl_end = system_prompt.index("</hands_implementation_task_template>")
+    impl_block = system_prompt[impl_start:impl_end]
+    assert "/skill:<name>" in impl_block, (
+        "The <hands_implementation_task_template> context phase must document "
+        "the `/skill:<name>` alternative"
+    )
+
+    # At least two occurrences overall (registry + template).
+    assert system_prompt.count("/skill:<name>") >= 2, (
+        "`/skill:<name>` must appear at least twice in system-prompt.md"
+    )
+
+
+def test_lint_task_file_rejects_duplicate_factual_git_diff_heading():
+    """Verify the lint server rejects a task file with TWO `## Factual Git Diff` headings.
+
+    Regression guard (Task 98, QA round 8): a duplicate `## Factual Git Diff`
+    heading before the diff block splits the injected-diff section and desyncs
+    the BEGIN/END markers. The linter must report the duplicate instead of
+    silently accepting it (the round-7 duplicate-heading cleanup regression).
+    """
+    import importlib
+
+    server_path = Path(__file__).parent.parent / "mcp-lint-server" / "server.py"
+    spec = importlib.util.spec_from_file_location("lint_server_dup_factual", server_path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    dup_content = """# Task 99: Test
+
+**File:** `tasks/backlog/99-test.md`
+**Source:** orchestrator
+**Type:** improvement
+**Status:** open
+
+## Goal
+
+Test
+
+## Local TODOs
+
+- [x] Test
+
+## Acceptance Criteria
+
+- [x] Test
+
+## Verification Evidence
+
+Test
+
+## Risk & Rollback
+
+Test
+
+## Execution Log & Reasoning
+
+Test
+
+## Factual Git Diff
+
+## Factual Git Diff
+
+<!-- BEGIN_GIT_DIFF -->
+<!-- END_GIT_DIFF -->
+"""
+    issues = mod._check_task_file_structure(dup_content, "tasks/backlog/99-test.md")
+    assert any("Duplicate" in i and "Factual Git Diff" in i for i in issues), (
+        f"Two `## Factual Git Diff` headings must be rejected; got: {issues}"
+    )
+
+
+def test_lint_task_file_rejects_both_execution_log_headers():
+    """Verify the lint server rejects BOTH Execution Log headers present at once.
+
+    Regression guard (Task 98, QA round 8): a task file that carries BOTH the
+    canonical `## Execution Log & Reasoning` and the legacy OpenCode-named
+    header is a half-completed migration artifact. The linter must report it as
+    a duplicate rather than accepting the file — exactly one Execution Log
+    heading (in either spelling) is required.
+    """
+    import importlib
+
+    server_path = Path(__file__).parent.parent / "mcp-lint-server" / "server.py"
+    spec = importlib.util.spec_from_file_location("lint_server_both_log", server_path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    both_content = """# Task 99: Test
+
+**File:** `tasks/backlog/99-test.md`
+**Source:** orchestrator
+**Type:** improvement
+**Status:** open
+
+## Goal
+
+Test
+
+## Local TODOs
+
+- [x] Test
+
+## Acceptance Criteria
+
+- [x] Test
+
+## Verification Evidence
+
+Test
+
+## Risk & Rollback
+
+Test
+
+## Execution Log & Reasoning
+
+Test
+
+## OpenCode Execution Log & Reasoning
+
+Test
+
+## Factual Git Diff
+
+<!-- BEGIN_GIT_DIFF -->
+<!-- END_GIT_DIFF -->
+"""
+    issues = mod._check_task_file_structure(both_content, "tasks/backlog/99-test.md")
+    assert any("Duplicate" in i and "Execution Log" in i for i in issues), (
+        f"Both Execution Log headers must be rejected; got: {issues}"
+    )
+
+
+def test_system_prompt_summary_mentions_qa_transition():
+    """Verify at least one `<summary_phase>` block in system-prompt.md mentions `tasks/qa/`.
+
+    Regression guard (Task 98, QA round 8): the canonical QA-transition rule
+    requires the Hands to move a successfully-staged implementation task from
+    `tasks/in-progress/` to `tasks/qa/` before notifying the Manager. The
+    system prompt's task templates must encode this, so at least one
+    `<summary_phase>` block must reference the `tasks/qa/` directory.
+    """
+    import re
+
+    repo_root = Path(__file__).parent.parent
+    system_prompt = (repo_root / "system-prompt.md").read_text(encoding="utf-8")
+
+    summary_blocks = re.findall(r"<summary_phase>.*?</summary_phase>", system_prompt, re.DOTALL)
+    assert summary_blocks, "system-prompt.md must contain at least one <summary_phase> block"
+    assert any("tasks/qa/" in block for block in summary_blocks), (
+        "At least one <summary_phase> block must mention the `tasks/qa/` QA-transition "
+        "destination"
+    )
+
+
+def test_workflow_upgrade_guide_exists():
+    """Verify the v8.4.5 workflow upgrade guide exists.
+
+    Regression guard (Task 98, QA round 8): `docs/workflow-upgrade-v8.4.5.md`
+    documents the runtime-agnostic rename and the non-breaking upgrade path for
+    existing projects. Its absence would strand pre-v8.4.5 projects without
+    migration guidance.
+    """
+    repo_root = Path(__file__).parent.parent
+    guide = repo_root / "docs" / "workflow-upgrade-v8.4.5.md"
+    assert guide.is_file(), (
+        "docs/workflow-upgrade-v8.4.5.md must exist (v8.4.5 upgrade guide)"
+    )
+
+
+def test_cognitive_executor_preserves_qa_and_closure_rules():
+    """Verify agents/cognitive-executor.md preserves the QA git-mv Rule and closure authorization Rule.
+
+    Regression guard (Task 98, QA round 10): QA round 9 accidentally removed
+    the QA/Review Phase "Rule" bullet that instructs the Hands to move the task
+    to tasks/qa/, and the Closure Sequence "Rule" bullet that requires explicit
+    Manager authorization. Both bullets are mandatory ZAC/Kanban safeguards and
+    must remain present in the OpenCode executor definition.
+    """
+    repo_root = Path(__file__).parent.parent
+    executor = repo_root / "agents" / "cognitive-executor.md"
+    content = executor.read_text(encoding="utf-8")
+
+    assert "- **Rule:** When your implementation and `stage_and_inject_diff` are complete" in content, (
+        "agents/cognitive-executor.md must preserve the QA/Review Phase Rule bullet "
+        "authorizing the git mv from tasks/in-progress/ to tasks/qa/."
+    )
+    assert '- **Rule:** Only when the Manager explicitly says "Approved for closure" or "Close task"' in content, (
+        "agents/cognitive-executor.md must preserve the Closure Sequence Rule bullet "
+        "requiring explicit Manager closure authorization."
+    )
+
+
+def test_hands_implementation_summary_phase_has_unique_step_numbers():
+    """Verify the Hands implementation template summary_phase steps are numbered sequentially.
+
+    Regression guard (Task 98, QA round 10): QA round 9 introduced duplicate
+    step "5." numbering in <hands_implementation_task_template> <summary_phase>.
+    Duplicate or skipped step numbers can cause the Hands to skip finalization
+    actions. This guard extracts the numbered lines in that summary phase and
+    asserts they are exactly 1..N in order.
+    """
+    import re
+
+    repo_root = Path(__file__).parent.parent
+    system_prompt = (repo_root / "system-prompt.md").read_text(encoding="utf-8")
+
+    impl_start = system_prompt.index("<hands_implementation_task_template>")
+    impl_end = system_prompt.index("</hands_implementation_task_template>")
+    impl_block = system_prompt[impl_start:impl_end]
+
+    # NOTE: use rindex (last occurrence) — the literal string "<summary_phase>"
+    # ALSO appears in the template's <bash_phase> CRITICAL RULE 6 prose ("Before
+    # proceeding to the <summary_phase>...") BEFORE the real phase. index() would
+    # slice from that prose mention and sweep the bash-phase 1-3 steps into the
+    # numbering check, producing a false failure.
+    summary_start = impl_block.rindex("<summary_phase>")
+    summary_end = impl_block.index("</summary_phase>")
+    summary_block = impl_block[summary_start:summary_end]
+
+    numbers = re.findall(r"^\s*(\d+)\.", summary_block, flags=re.MULTILINE)
+    assert numbers, "The implementation summary_phase must contain numbered steps."
+    assert numbers == [str(i) for i in range(1, len(numbers) + 1)], (
+        f"Implementation summary_phase steps must be numbered sequentially without "
+        f"duplicates or gaps; got: {numbers}"
+    )

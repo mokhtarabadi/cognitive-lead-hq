@@ -21,7 +21,7 @@ ls tasks/completed/*.md 2>/dev/null
    - Task number and title
    - Type (bug/improvement/feature)
    - Source (from the `**Source:**` metadata line)
-   - OpenCode Execution Log (architectural reasoning)
+   - Execution Log & Reasoning (architectural reasoning)
    - Key files modified
 
 3. **Generate a milestone summary** at `docs/history/milestone-X-summary.md` with the following structure:

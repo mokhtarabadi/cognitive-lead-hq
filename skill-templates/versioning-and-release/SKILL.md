@@ -64,7 +64,7 @@ All git commit messages MUST use lowercase prefixes followed by a colon and a sp
 
 1. If `system-prompt.md` was edited, verify that `<system_version>` at the top is bumped according to SemVer rules.
 2. Open `CHANGELOG.md` and insert a formal release entry under the new version header, categorizing your modifications correctly.
-3. Open the active task file in `tasks/` and ensure your final reasoning and files modified are accurately logged under the "OpenCode Execution Log" section.
+3. Open the active task file in `tasks/` and ensure your final reasoning and files modified are accurately logged under the "Execution Log & Reasoning" section.
 4. If a release includes changes to system behavior, skills, MCP servers, task templates, or workflow rules, `system-prompt.md` version MUST be bumped.
 5. If a release is metadata-only (e.g., LICENSE addition), the CHANGELOG MUST explicitly state: "system-prompt.md version unchanged."
 6. The `[Unreleased]` section MUST be empty after a release. All entries MUST be moved under the new version header.

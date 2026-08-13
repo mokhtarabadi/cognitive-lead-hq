@@ -119,8 +119,8 @@ If the output is non-empty, HALT and report duplicate task IDs. Do NOT overwrite
 
    - **Test command:** [exact command]
    - **Expected result:** [what success looks like]
-   - **Actual result:** _(OpenCode fills this during execution)_
-   - **Exit code:** _(OpenCode fills this during execution)_
+   - **Actual result:** _(The Hands fill this during execution)_
+   - **Exit code:** _(The Hands fill this during execution)_
 
    ## Definition of Done
 
@@ -138,9 +138,9 @@ If the output is non-empty, HALT and report duplicate task IDs. Do NOT overwrite
 
    ---
 
-   ## OpenCode Execution Log & Reasoning
+   ## Execution Log & Reasoning
 
-   _(OpenCode: Manually log your technical changes, file edits, and architectural reasoning here BEFORE calling the MCP tool)_
+   _(The Hands: Manually log your technical changes, file edits, and architectural reasoning here BEFORE calling the MCP tool)_
 
    ## Factual Git Diff
 
@@ -176,8 +176,8 @@ If the Orchestrator specifies `multi_phase: true`, generate a SINGLE task file w
 
 - **Test command:** [exact command]
 - **Expected result:** [what success looks like]
-- **Actual result:** _(OpenCode fills this during execution)_
-- **Exit code:** _(OpenCode fills this during execution)_
+- **Actual result:** _(The Hands fill this during execution)_
+- **Exit code:** _(The Hands fill this during execution)_
 
 ## Definition of Done
 
@@ -207,9 +207,9 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 - [ ] [Phase 2 step 1]
 - [ ] [Phase 2 step 2]
 
-## OpenCode Execution Log & Reasoning
+## Execution Log & Reasoning
 
-_(OpenCode: Manually log your technical changes, file edits, and architectural reasoning here BEFORE calling the MCP tool)_
+_(The Hands: Manually log your technical changes, file edits, and architectural reasoning here BEFORE calling the MCP tool)_
 
 ## Factual Git Diff
 

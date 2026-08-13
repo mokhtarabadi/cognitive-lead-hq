@@ -173,11 +173,11 @@ Write the following JSON (replace `$HOME` with the actual home directory path):
 
 ---
 
-## 7.5. (Optional) Partial Freebuff Support
+## 7.5. (Optional) Freebuff Support
 
-> **OpenCode remains the primary runtime.** Freebuff support is **partial** (see `docs/freebuff-support.md`). This step installs the MCP servers and Skills into Freebuff's global `.agents/` so the same tooling works in Freebuff sessions. It does NOT alter the OpenCode workflow or `system-prompt.md`.
+> **Dual-runtime support.** Since v8.4.5 `system-prompt.md` is runtime-agnostic ("the Hands", `<hands_*_task>` blocks), so this step makes the same tooling — MCP servers, Skills, custom agents, and global rules — work in Freebuff sessions. It does NOT alter the OpenCode workflow.
 
-Freebuff (freebuff.com, vendor: manicode, formerly Codebuff-based) does not read `opencode.json`. It discovers MCP servers, Skills, and custom agents from `.agents/` folders (global: `~/.agents/`). Ask the user whether they want this optional step; if they decline, skip it.
+Freebuff (freebuff.com, vendor: manicode, formerly Codebuff-based) does not read `opencode.json`. It discovers MCP servers, Skills, and custom agents from `.agents/` folders (global: `~/.agents/`) and reads home-directory rules files (`~/.AGENTS.md`, `~/.knowledge.md`, `~/.CLAUDE.md`). Ask the user whether they want this optional step; if they decline, skip it.
 
 Create the global Freebuff directory and write the MCP config (absolute paths only):
 
@@ -215,11 +215,22 @@ Install all 29 Agent Skills globally for Freebuff:
 cp -r /tmp/cognitive-lead-hq/skill-templates/* ~/.agents/skills/
 ```
 
-> **Custom agents are INSTALLED-ONLY on the free tier.** The Freebuff agent ports
-> (`~/.agents/cognitive-executor.ts`, `~/.agents/cognitive-discovery.ts`) are recognized but blocked on the
-> free tier (HTTP 403 `free_mode_invalid_agent_model`); they require a credits/paid mode. The system prompt
-> itself is used manually — paste `system-prompt.md` into any Freebuff chat as the Orchestrator Brain. See
-> `docs/freebuff-support.md` for the full port record and verification steps.
+Install the custom agent ports (model-free, free-tier compatible) and the global rules file:
+
+```bash
+cp /tmp/cognitive-lead-hq/freebuff/agents/cognitive-executor.ts ~/.agents/cognitive-executor.ts
+cp /tmp/cognitive-lead-hq/freebuff/agents/cognitive-discovery.ts ~/.agents/cognitive-discovery.ts
+cp /tmp/cognitive-lead-hq/freebuff/AGENTS.global.md ~/.AGENTS.md
+```
+
+> **Custom agents work on the free tier (v1.2.0):** the ports are **schema-validated** against the Codebuff
+> 17-tool platform whitelist (`toolNames` pruned to valid platform tools, `spawnableAgents` in
+> `publisher/name@version` format) and **model-free** (`model` omitted so the runtime falls back to the
+> free-mode default model, fixing the earlier HTTP 403 `free_mode_invalid_agent_model`). The **live
+> free-tier spawn is a manual verification item** pending Manager confirmation — see `docs/freebuff-support.md`
+> §5 for the caveat, status, and full port record. The system prompt is used manually — paste
+> `system-prompt.md` into any Freebuff chat as the Orchestrator Brain; it emits `<hands_*_task>` blocks
+> that run in Freebuff or OpenCode.
 
 ---
 

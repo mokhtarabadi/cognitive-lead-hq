@@ -45,7 +45,7 @@ This system relies on a strict separation of concerns:
 
 1. Open your existing project in OpenCode.
 2. In the Orchestrator, paste the `system-prompt.md` and say: _"This is an existing project. Start Phase 0."_
-3. The AI will immediately output an `<opencode_discovery_task>`. Paste this into OpenCode.
+3. The AI will immediately output a `<hands_discovery_task>`. Paste this into your local agent (OpenCode or Freebuff).
 4. OpenCode will use its MCP tools to map the directory tree and read core files into a `context-reports/` markdown file.
 5. Copy the contents of that report and paste it back into the Orchestrator.
 6. The AI will analyze your existing architecture and design, then generate an implementation task to create `AGENTS.md` (<150 lines), `DESIGN.md` (if UI exists), `opencode.json`, and the `tasks/` directory, locking in your current conventions.
@@ -353,23 +353,26 @@ opencode --agent cognitive-executor
 
 ---
 
-## Partial Freebuff Support (Experimental)
+## Freebuff Support (Dual-Runtime)
 
-> **OpenCode remains the primary runtime.** The system prompt (`system-prompt.md`) generates tasks for OpenCode — Freebuff support is **partial** and does not change that.
+> **Dual-runtime support.** Since v8.4.5 the system prompt (`system-prompt.md`) is **runtime-agnostic** — it addresses "the Hands" (the local execution agent) and emits `<hands_*_task>` blocks that work in both OpenCode and Freebuff.
 
-[Freebuff](https://freebuff.com) (vendor: manicode, formerly Codebuff-based) is a free, ad-funded terminal AI coding agent. It does **not** read `opencode.json`; it uses its own `.agents/` extension points. As of 2026-08-12 (Freebuff CLI `0.0.146`) the following Cognitive Lead AI HQ components were ported and verified live:
+[Freebuff](https://freebuff.com) (vendor: manicode, formerly Codebuff-based) is a free, ad-funded terminal AI coding agent. It does **not** read `opencode.json`; it uses its own `.agents/` extension points plus a home-directory global rules file. As of 2026-08-13 (Freebuff CLI `0.0.149`) the following Cognitive Lead AI HQ components were ported and verified (schema-validated in-repo; the custom agents' **live free-tier spawn remains a manual verification item** pending Manager confirmation):
 
-| Component                                                   | Freebuff status   | Notes                                                                                            |
-| ----------------------------------------------------------- | ----------------- | ------------------------------------------------------------------------------------------------ |
-| MCP servers (`custom_context`, `project_memory`, `lint`)    | ✅ FULL           | `~/.agents/mcp.json`, 14 tools verified                                                          |
-| Skills (29)                                                 | ✅ FULL           | `~/.agents/skills/`, verified loading                                                            |
-| Custom agents (`cognitive-executor`, `cognitive-discovery`) | ⚠️ INSTALLED-ONLY | `~/.agents/*.ts`, recognized but blocked on free tier (HTTP 403 `free_mode_invalid_agent_model`) |
-| `system-prompt.md` Orchestrator Brain                       | 📄 MANUAL         | Paste into a Freebuff chat as a session document                                                 |
-| `user-prompts/` templates                                   | 📄 MANUAL         | Runtime-agnostic copy-paste templates                                                            |
+| Component                                                   | Freebuff status | Notes                                                                                       |
+| ----------------------------------------------------------- | --------------- | ------------------------------------------------------------------------------------------- |
+| MCP servers (`custom_context`, `project_memory`, `lint`)    | ✅ FULL         | `~/.agents/mcp.json`, 14 tools verified                                                     |
+| Skills (29)                                                 | ✅ FULL         | `~/.agents/skills/`, verified loading                                                       |
+| Custom agents (`cognitive-executor`, `cognitive-discovery`) | ✅ FULL (REPO-LEVEL) | `~/.agents/*.ts` (v1.2.0) — schema-validated 17-tool whitelist + `publisher/name@version` spawnables; `model` omitted — live free-tier spawn pending |
+| Global rules ("The Hands")                                  | ✅ FULL         | `~/.AGENTS.md` — baseline constraints in every session; source: `freebuff/AGENTS.global.md` |
+| `system-prompt.md` Orchestrator Brain                       | 📄 MANUAL       | Runtime-agnostic since v8.4.5 — paste into Freebuff or OpenCode                             |
+| `user-prompts/` templates                                   | 📄 MANUAL       | Runtime-agnostic copy-paste templates                                                       |
 
-**For users who want to run the Cognitive Lead workflow with Freebuff instead of OpenCode**, see the full guide: [`docs/freebuff-support.md`](docs/freebuff-support.md) — it documents the extension points (mcp.json / skills / TS agents), the port record, verification commands, and the free-tier limitation.
+**For users who want to run the Cognitive Lead workflow with Freebuff instead of OpenCode**, see the full guide: [`docs/freebuff-support.md`](docs/freebuff-support.md) — it documents the extension points (mcp.json / skills / TS agents / global rules), the port record, verification commands, and the free-tier model fix.
 
-**Installing:** the `LLM.txt` auto-configuration includes an **optional** Freebuff step (Step 7.5) that installs the MCP servers + 29 skills globally under `~/.agents/`.
+**Installing:** the `LLM.txt` auto-configuration includes an **optional** Freebuff step (Step 7.5) that installs the MCP servers + 29 skills + custom agents + global rules under `~/.agents/` and `~/.AGENTS.md`.
+
+**Upgrading an existing project** to the v8.4.5 runtime-agnostic workflow (non-breaking, legacy headers still lint): see [`docs/workflow-upgrade-v8.4.5.md`](docs/workflow-upgrade-v8.4.5.md).
 
 ---
 
