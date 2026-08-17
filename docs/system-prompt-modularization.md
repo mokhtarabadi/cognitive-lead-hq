@@ -4,6 +4,17 @@
 **Date:** 2026-08-03
 **Status:** Assessment Draft
 
+> **Status (Task 99):** This assessment is being **superseded** by the
+> modularization implementation in [`tasks/qa/99-modularize-system-prompt-shared-validation-phase.md`](../tasks/qa/99-modularize-system-prompt-shared-validation-phase.md).
+> The `system-prompt.md` is now split into `prompts/fragments/` (20 per-tag
+> fragment files) + `prompts/shared/validation-phase.md` (the shared
+> `<validation_phase>` partial), assembled via
+> `scripts/prompt-build/assemble_system_prompt.py`, with sync verification via
+> `lint_system_prompt_sync()` in the lint MCP server. The token estimates in
+> this document are outdated; a full rewrite with corrected figures is a
+> separate follow-up docs task. See `prompts/README.md` for the current
+> authoring workflow.
+
 ## Executive Summary
 
 The current `system-prompt.md` (7.4.2) is a 479-line monolithic file containing 12 distinct functional sections. This document analyzes the current structure, identifies duplicated rules across files, proposes a modular directory architecture, and estimates the token savings and maintenance benefits of modularization.

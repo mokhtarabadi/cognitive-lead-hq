@@ -1361,3 +1361,657 @@ def test_hands_implementation_summary_phase_has_unique_step_numbers():
         f"Implementation summary_phase steps must be numbered sequentially without "
         f"duplicates or gaps; got: {numbers}"
     )
+
+
+def test_system_prompt_split_assemble_round_trip():
+    """Verify assemble(split(pristine)) reproduces the source byte-for-byte.
+
+    Regression / correctness guard (Task 99): system-prompt.md is now a
+    generated build artifact assembled from prompts/fragments/ +
+    prompts/shared/. This test splits a pristine copy of the committed
+    system-prompt.md into temporary fragment/shared directories, assembles
+    them back into a temporary output, and asserts the result is
+    byte-identical to the original — proving the split/assemble pipeline is
+    lossless (no text change to the final assembled file is permitted).
+    """
+    import importlib
+    import tempfile
+    import shutil
+
+    repo_root = Path(__file__).parent.parent
+    pristine_path = repo_root / "system-prompt.md"
+    splitter_path = repo_root / "scripts" / "prompt-build" / "split_system_prompt.py"
+    assembler_path = repo_root / "scripts" / "prompt-build" / "assemble_system_prompt.py"
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp = Path(tmpdir)
+
+        # Copy the committed system-prompt.md as the pristine source.
+        pristine_copy = tmp / "system-prompt.pristine.md"
+        shutil.copy(pristine_path, pristine_copy)
+
+        # Temp output directories for the split.
+        frag_dir = tmp / "fragments"
+        shared_dir = tmp / "shared"
+        manifest = tmp / "manifest.txt"
+
+        # Import + run the splitter against the temp copy.
+        spec = importlib.util.spec_from_file_location("splitter_rt", splitter_path)
+        splitter = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(splitter)
+        splitter.split_system_prompt(
+            source_path=str(pristine_copy),
+            fragments_dir=str(frag_dir),
+            shared_dir=str(shared_dir),
+            manifest_path=str(manifest),
+        )
+
+        # Import + run the assembler reading from the temp dirs.
+        spec2 = importlib.util.spec_from_file_location("assembler_rt", assembler_path)
+        assembler = importlib.util.module_from_spec(spec2)
+        spec2.loader.exec_module(assembler)
+        assembled_path = tmp / "assembled.md"
+        assembler.assemble(
+            output_path=str(assembled_path),
+            fragments_dir=str(frag_dir),
+            shared_dir=str(shared_dir),
+            manifest_path=str(manifest),
+        )
+
+        assembled = assembled_path.read_text(encoding="utf-8")
+        pristine = pristine_copy.read_text(encoding="utf-8")
+        assert assembled == pristine, (
+            "assemble(split(pristine)) must be byte-identical to the pristine "
+            f"copy. First diff: ...{repr(assembled[:200])}... vs ...{repr(pristine[:200])}..."
+        )
+
+
+def test_lint_system_prompt_sync_clean():
+    """Verify lint_system_prompt_sync reports 'in sync' on the committed state.
+
+    Regression guard (Task 99): the lint tool must report clean when the
+    committed system-prompt.md matches the fragments that assemble it.
+    """
+    import importlib
+
+    repo_root = Path(__file__).parent.parent
+    server_path = repo_root / "mcp-lint-server" / "server.py"
+    spec = importlib.util.spec_from_file_location("lint_server_sync_clean", server_path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    in_sync, msg = mod._check_system_prompt_sync()
+    assert in_sync is True, f"Expected clean sync but got: {msg}"
+    assert "in sync" in msg.lower(), f"Unexpected sync message: {msg}"
+
+
+def test_lint_system_prompt_sync_detects_drift():
+    """Verify lint_system_prompt_sync detects drift from a mutated fragment.
+
+    Regression guard (Task 99): when a fragment is artificially mutated in a
+    temp copy, the sync check must report DRIFT (not silently pass). The test
+    copies the real fragments/shared/manifest to a temp dir, mutates one
+    fragment, and asserts the check against the unchanged committed
+    system-prompt.md flags the discrepancy.
+    """
+    import importlib
+    import tempfile
+    import shutil
+
+    repo_root = Path(__file__).parent.parent
+    server_path = repo_root / "mcp-lint-server" / "server.py"
+    spec = importlib.util.spec_from_file_location("lint_server_drift", server_path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp = Path(tmpdir)
+
+        # Copy the real fragments/shared/manifest into a temp dir.
+        frag_dir = tmp / "fragments"
+        shared_dir = tmp / "shared"
+        shutil.copytree(repo_root / "prompts" / "fragments", frag_dir)
+        shutil.copytree(repo_root / "prompts" / "shared", shared_dir)
+        manifest = tmp / "manifest.txt"
+        shutil.copy(repo_root / "prompts" / "manifest.txt", manifest)
+
+        # Mutate a fragment in the temp copy.
+        fpath = frag_dir / "03-system_context.md"
+        original = fpath.read_text(encoding="utf-8")
+        fpath.write_text(
+            original.replace("January 2025", "January 2099"), encoding="utf-8"
+        )
+
+        # The committed system-prompt.md is unchanged — drift must be detected.
+        in_sync, msg = mod._check_system_prompt_sync(
+            fragments_dir=str(frag_dir),
+            shared_dir=str(shared_dir),
+            manifest_path=str(manifest),
+            system_prompt_path=str(repo_root / "system-prompt.md"),
+        )
+        assert in_sync is False, "Expected drift to be detected, but check reported clean."
+        assert "DRIFT DETECTED" in msg, f"Expected DRIFT message, got: {msg[:200]}"
+
+
+def test_lint_system_prompt_sync_missing_system_prompt_file():
+    """Verify lint_system_prompt_sync handles missing system-prompt.md gracefully.
+
+    Regression guard (QA Fix Round 1, V1): _check_system_prompt_sync() must
+    return a clean (False, "Error: File not found: ...") tuple instead of
+    raising FileNotFoundError when the system_prompt_path does not exist.
+    This mirrors the existence-guard pattern used by lint_markdown() and
+    lint_task_file() in the same server.
+    """
+    import importlib
+    import tempfile
+
+    repo_root = Path(__file__).parent.parent
+    server_path = repo_root / "mcp-lint-server" / "server.py"
+    spec = importlib.util.spec_from_file_location("lint_server_missing", server_path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Use a non-existent path for system_prompt_path
+        missing_path = Path(tmpdir) / "does_not_exist.md"
+        in_sync, msg = mod._check_system_prompt_sync(
+            system_prompt_path=str(missing_path)
+        )
+        assert in_sync is False, f"Expected False for missing file, got: {msg}"
+        assert "not found" in msg.lower(), f"Expected 'not found' in message: {msg}"
+
+
+def test_assemble_raises_on_unresolved_placeholder():
+    """Verify assemble() raises ValueError when a placeholder remains unresolved.
+
+    Regression guard (QA Fix Round 1, V2): assemble() must fail loudly with
+    ValueError if any {{PLACEHOLDER}} remains in a fragment after include
+    resolution. This prevents silent corruption where a shared partial's
+    placeholder is never substituted and literal placeholder text leaks into
+    the generated system-prompt.md.
+    """
+    import importlib
+    import tempfile
+    import shutil
+    import pytest
+
+    repo_root = Path(__file__).parent.parent
+    assembler_path = repo_root / "scripts" / "prompt-build" / "assemble_system_prompt.py"
+    spec = importlib.util.spec_from_file_location("assembler_unresolved", assembler_path)
+    assembler = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(assembler)
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp = Path(tmpdir)
+
+        # Create a minimal fragment that includes a shared partial with an
+        # unresolved placeholder {{FOO}}.
+        frag_dir = tmp / "fragments"
+        shared_dir = tmp / "shared"
+        frag_dir.mkdir()
+        shared_dir.mkdir()
+
+        # Fragment with include marker that supplies no value for FOO
+        fragment_path = frag_dir / "01-test.md"
+        fragment_path.write_text(
+            "<test>\n<!--INCLUDE:shared/test.md|NEXT_PHASE=Context-->\n</test>\n",
+            encoding="utf-8",
+        )
+
+        # Shared partial containing {{FOO}} placeholder — no include marker
+        # provides a value for FOO, so it should remain unresolved.
+        shared_path = shared_dir / "test.md"
+        shared_path.write_text(
+            "Content with {{FOO}} placeholder.\n", encoding="utf-8"
+        )
+
+        manifest = tmp / "manifest.txt"
+        manifest.write_text("01-test.md\n", encoding="utf-8")
+
+        assembled_path = tmp / "assembled.md"
+
+        # assemble() should raise ValueError with the unresolved placeholder name.
+        with pytest.raises(ValueError, match=r"Unresolved placeholder \{\{FOO\}\} in fragment 01-test.md"):
+            assembler.assemble(
+                output_path=str(tmp / "out.md"),
+                fragments_dir=str(frag_dir),
+                shared_dir=str(shared_dir),
+                manifest_path=str(manifest),
+            )
+
+
+def test_lint_system_prompt_sync_handles_unresolved_placeholder():
+    """Verify _check_system_prompt_sync() degrades cleanly on unresolved placeholder.
+
+    Regression guard (QA Fix Round 2): assemble() raises ValueError when a
+    {{PLACEHOLDER}} remains unresolved — that is intentional and correct for
+    CLI/direct callers. But the lint server's _check_system_prompt_sync() is a
+    diagnostic tool and must NOT crash when it drives the assembler against a
+    broken fragment tree. It must catch the ValueError (added in round 2) and
+    return a clean (False, <message>) tuple whose message still identifies the
+    placeholder, so the user can fix the source prompt tree.
+    """
+    import importlib
+    import tempfile
+
+    repo_root = Path(__file__).parent.parent
+    server_path = repo_root / "mcp-lint-server" / "server.py"
+    spec = importlib.util.spec_from_file_location("lint_server_unresolved", server_path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp = Path(tmpdir)
+
+        # Reuse the same fixture shape as test_assemble_raises_on_unresolved_placeholder:
+        # a fragment with an include marker, a shared partial containing an
+        # unresolved {{FOO}} placeholder, and a manifest.
+        frag_dir = tmp / "fragments"
+        shared_dir = tmp / "shared"
+        frag_dir.mkdir()
+        shared_dir.mkdir()
+
+        fragment_path = frag_dir / "01-test.md"
+        fragment_path.write_text(
+            "<test>\n<!--INCLUDE:shared/test.md|NEXT_PHASE=Context-->\n</test>\n",
+            encoding="utf-8",
+        )
+        shared_path = shared_dir / "test.md"
+        shared_path.write_text(
+            "Content with {{FOO}} placeholder.\n", encoding="utf-8"
+        )
+        manifest = tmp / "manifest.txt"
+        manifest.write_text("01-test.md\n", encoding="utf-8")
+
+        # _check_system_prompt_sync() must return (False, message) WITHOUT raising.
+        in_sync, msg = mod._check_system_prompt_sync(
+            fragments_dir=str(frag_dir),
+            shared_dir=str(shared_dir),
+            manifest_path=str(manifest),
+            system_prompt_path=str(repo_root / "system-prompt.md"),
+        )
+        assert in_sync is False, f"Expected False, got: {msg}"
+        assert "FOO" in msg, f"Expected message to identify the placeholder {{FOO}}, got: {msg}"
+
+
+def test_split_halts_on_missing_top_level_tag():
+    """Verify split_system_prompt() halts when a top-level tag is missing.
+
+    Regression guard (QA Fix Round 1, Step 5): split_system_prompt() uses
+    _halt() -> sys.exit(1) when a declared top-level tag cannot be located.
+    This test verifies that behavior by stripping one top-level tag from a
+    pristine copy and asserting SystemExit is raised.
+    """
+    import importlib
+    import tempfile
+    import shutil
+    import pytest
+
+    repo_root = Path(__file__).parent.parent
+    pristine_path = repo_root / "system-prompt.md"
+    splitter_path = repo_root / "scripts" / "prompt-build" / "split_system_prompt.py"
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp = Path(tmpdir)
+
+        # Copy pristine and strip one top-level tag (e.g., <ai_objective>...</ai_objective>)
+        pristine_copy = tmp / "system-prompt.pristine.md"
+        shutil.copy(pristine_path, pristine_copy)
+        content = pristine_copy.read_text(encoding="utf-8")
+
+        # Remove the <ai_objective> block (including its opening/closing tags)
+        # Find the block boundaries
+        start = content.find("<ai_objective>")
+        end = content.find("</ai_objective>")
+        assert start != -1 and end != -1, "Test setup: ai_objective tag not found in pristine"
+        end += len("</ai_objective>")
+        corrupted = content[:start] + content[end:]
+        corrupted_path = tmp / "system-prompt.corrupted.md"
+        corrupted_path.write_text(corrupted, encoding="utf-8")
+
+        # Import + run splitter on corrupted file — should raise SystemExit
+        spec = importlib.util.spec_from_file_location("splitter_corrupt", splitter_path)
+        splitter = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(splitter)
+
+        with pytest.raises(SystemExit) as exc_info:
+            splitter.split_system_prompt(
+                source_path=str(corrupted_path),
+                fragments_dir=str(tmp / "fragments"),
+                shared_dir=str(tmp / "shared"),
+                manifest_path=str(tmp / "manifest.txt"),
+            )
+        # _halt() calls sys.exit(1)
+        assert exc_info.value.code == 1
+
+
+def test_assemble_rejects_path_traversal_include():
+    """Verify assemble() rejects include markers that escape prompts/ via '..'.
+
+    Regression guard (QA Fix Round 3): include paths are resolved relative to
+    prompts/ and the resolved path MUST stay inside prompts/. An include
+    marker like <!--INCLUDE:../outside.md--> would otherwise read an arbitrary
+    file from outside the prompt source tree — a path-traversal hole. The
+    assembler must raise ValueError naming the unsafe include path.
+    """
+    import importlib
+    import tempfile
+    import pytest
+
+    repo_root = Path(__file__).parent.parent
+    assembler_path = repo_root / "scripts" / "prompt-build" / "assemble_system_prompt.py"
+    spec = importlib.util.spec_from_file_location("assembler_traversal", assembler_path)
+    assembler = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(assembler)
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp = Path(tmpdir)
+
+        # Build a prompt tree where prompts/fragments/ is inside a temp prompts/ dir.
+        prompts_dir = tmp / "prompts"
+        frag_dir = prompts_dir / "fragments"
+        shared_dir = prompts_dir / "shared"
+        frag_dir.mkdir(parents=True)
+        shared_dir.mkdir()
+
+        # A file OUTSIDE prompts/ that the traversal attempt should NOT be able
+        # to read.
+        outside_file = tmp / "outside.md"
+        outside_file.write_text("SECRET OUTSIDE CONTENT\n", encoding="utf-8")
+
+        # Fragment with an include marker attempting to read ../outside.md
+        # (resolves to tmp/outside.md — outside prompts_dir).
+        fragment_path = frag_dir / "01-test.md"
+        fragment_path.write_text(
+            "<test>\n<!--INCLUDE:../outside.md-->\n</test>\n",
+            encoding="utf-8",
+        )
+        manifest = tmp / "manifest.txt"
+        manifest.write_text("01-test.md\n", encoding="utf-8")
+
+        # assemble() must raise ValueError naming the unsafe include path.
+        with pytest.raises(ValueError) as exc_info:
+            assembler.assemble(
+                output_path=str(tmp / "out.md"),
+                fragments_dir=str(frag_dir),
+                shared_dir=str(shared_dir),
+                manifest_path=str(manifest),
+            )
+        assert "../outside.md" in str(exc_info.value), (
+            f"Error message must identify the unsafe include path, got: {exc_info.value}"
+        )
+
+
+def test_assemble_rejects_malformed_include_marker():
+    """Verify assemble() fails loudly on a malformed include marker.
+
+    Regression guard (QA Fix Round 3): a marker like
+    <!--INCLUDE:shared/test.md|NEXT_PHASE=Context--!> is malformed — its
+    closing sequence is wrong, so the regex-driven _resolve_includes() cannot
+    match it and the literal marker text would silently leak into the
+    generated system-prompt.md. The assembler must detect any remaining
+    `<!--INCLUDE:` substring after resolution and raise ValueError identifying
+    the fragment and the malformed/unresolved marker.
+    """
+    import importlib
+    import tempfile
+    import pytest
+
+    repo_root = Path(__file__).parent.parent
+    assembler_path = repo_root / "scripts" / "prompt-build" / "assemble_system_prompt.py"
+    spec = importlib.util.spec_from_file_location("assembler_malformed", assembler_path)
+    assembler = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(assembler)
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp = Path(tmpdir)
+
+        frag_dir = tmp / "fragments"
+        shared_dir = tmp / "shared"
+        frag_dir.mkdir()
+        shared_dir.mkdir()
+        # A well-formed shared file exists, but the fragment's marker is
+        # malformed so it will never be resolved.
+        (shared_dir / "test.md").write_text("SHARED\n", encoding="utf-8")
+
+        fragment_path = frag_dir / "01-test.md"
+        fragment_path.write_text(
+            "<test>\n<!--INCLUDE:shared/test.md|NEXT_PHASE=Context--!>\n</test>\n",
+            encoding="utf-8",
+        )
+        manifest = tmp / "manifest.txt"
+        manifest.write_text("01-test.md\n", encoding="utf-8")
+
+        # assemble() must raise ValueError identifying the fragment and the
+        # malformed/unresolved marker.
+        with pytest.raises(ValueError) as exc_info:
+            assembler.assemble(
+                output_path=str(tmp / "out.md"),
+                fragments_dir=str(frag_dir),
+                shared_dir=str(shared_dir),
+                manifest_path=str(manifest),
+            )
+        msg = str(exc_info.value)
+        assert "01-test.md" in msg, f"Error message must identify the fragment, got: {msg}"
+        assert "<!--INCLUDE:" in msg or "INCLUDE" in msg, (
+            f"Error message must identify the malformed include marker, got: {msg}"
+        )
+
+
+def test_lint_system_prompt_sync_missing_include_file():
+    """Verify _check_system_prompt_sync() degrades cleanly when a shared include file is missing.
+
+    Regression guard (QA Fix Round 3): a fragment referencing a shared partial
+    that does not exist raises FileNotFoundError inside the assembler. The lint
+    diagnostic tool must catch it and return (False, message) — identifying the
+    missing file / include failure — WITHOUT raising.
+    """
+    import importlib
+    import tempfile
+
+    repo_root = Path(__file__).parent.parent
+    server_path = repo_root / "mcp-lint-server" / "server.py"
+    spec = importlib.util.spec_from_file_location("lint_server_missing_include", server_path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp = Path(tmpdir)
+
+        frag_dir = tmp / "fragments"
+        shared_dir = tmp / "shared"
+        frag_dir.mkdir()
+        shared_dir.mkdir()
+        # Valid-looking include marker pointing at a shared file that does NOT exist.
+        fragment_path = frag_dir / "01-test.md"
+        fragment_path.write_text(
+            "<test>\n<!--INCLUDE:shared/missing.md-->\n</test>\n",
+            encoding="utf-8",
+        )
+        manifest = tmp / "manifest.txt"
+        manifest.write_text("01-test.md\n", encoding="utf-8")
+
+        in_sync, msg = mod._check_system_prompt_sync(
+            fragments_dir=str(frag_dir),
+            shared_dir=str(shared_dir),
+            manifest_path=str(manifest),
+            system_prompt_path=str(repo_root / "system-prompt.md"),
+        )
+        assert in_sync is False, f"Expected False, got: {msg}"
+        assert "missing" in msg.lower() or "not found" in msg.lower() or "include" in msg.lower(), (
+            f"Expected message to identify the missing file or include failure, got: {msg[:200]}"
+        )
+
+
+def test_lint_system_prompt_sync_invalid_fragments_dir_configuration():
+    """Verify _check_system_prompt_sync() degrades cleanly on invalid fragments_dir.
+
+    Regression guard (QA Fix Round 3): passing a regular FILE path (instead of
+    a directory) as fragments_dir must not crash the diagnostic tool — it must
+    return (False, message) WITHOUT raising.
+    """
+    import importlib
+    import tempfile
+
+    repo_root = Path(__file__).parent.parent
+    server_path = repo_root / "mcp-lint-server" / "server.py"
+    spec = importlib.util.spec_from_file_location("lint_server_invalid_cfg", server_path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp = Path(tmpdir)
+
+        # A regular text file used as fragments_dir — a misconfiguration.
+        bogus_fragments_dir = tmp / "not-a-directory.txt"
+        bogus_fragments_dir.write_text("this is a file, not a directory\n", encoding="utf-8")
+
+        shared_dir = tmp / "shared"
+        shared_dir.mkdir()
+        manifest = tmp / "manifest.txt"
+        manifest.write_text("01-test.md\n", encoding="utf-8")
+
+        in_sync, msg = mod._check_system_prompt_sync(
+            fragments_dir=str(bogus_fragments_dir),
+            shared_dir=str(shared_dir),
+            manifest_path=str(manifest),
+            system_prompt_path=str(repo_root / "system-prompt.md"),
+        )
+        assert in_sync is False, f"Expected False for invalid fragments_dir, got: {msg}"
+        assert "error" in msg.lower(), f"Expected an error message, got: {msg[:200]}"
+
+
+def test_assemble_rejects_path_traversal_manifest_entry():
+    """Verify assemble() rejects manifest entries that escape fragments/ via '..'.
+
+    Regression guard (QA Fix Round 4): the manifest is an untrusted input
+    surface — it lists the fragment files to read. A manifest entry like
+    `../outside.md` would resolve to a file OUTSIDE prompts/fragments/ (the
+    assembler reads fragment files by joining fragments_dir with the manifest
+    entry). Path traversal via the manifest must raise ValueError naming the
+    unsafe manifest entry.
+    """
+    import importlib
+    import tempfile
+    import pytest
+
+    repo_root = Path(__file__).parent.parent
+    assembler_path = repo_root / "scripts" / "prompt-build" / "assemble_system_prompt.py"
+    spec = importlib.util.spec_from_file_location("assembler_manifest_trav", assembler_path)
+    assembler = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(assembler)
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp = Path(tmpdir)
+
+        frag_dir = tmp / "fragments"
+        shared_dir = tmp / "shared"
+        frag_dir.mkdir()
+        shared_dir.mkdir()
+
+        # A file OUTSIDE prompts/fragments/ that traversal must NOT reach.
+        outside_file = tmp / "outside.md"
+        outside_file.write_text("SECRET OUTSIDE CONTENT\n", encoding="utf-8")
+
+        # A legit fragment exists, but the manifest points at ../outside.md.
+        (frag_dir / "01-test.md").write_text("<test>ok</test>\n", encoding="utf-8")
+        manifest = tmp / "manifest.txt"
+        manifest.write_text("../outside.md\n", encoding="utf-8")
+
+        # assemble() must raise ValueError naming the unsafe manifest entry.
+        with pytest.raises(ValueError) as exc_info:
+            assembler.assemble(
+                output_path=str(tmp / "out.md"),
+                fragments_dir=str(frag_dir),
+                shared_dir=str(shared_dir),
+                manifest_path=str(manifest),
+            )
+        assert "../outside.md" in str(exc_info.value), (
+            f"Error message must identify the unsafe manifest entry, got: {exc_info.value}"
+        )
+
+
+def test_assemble_rejects_absolute_manifest_entry():
+    """Verify assemble() rejects absolute paths in the manifest.
+
+    Regression guard (QA Fix Round 4): the manifest must only reference fragment
+    files inside prompts/fragments/. An absolute manifest entry (e.g. the
+    absolute path of a file outside fragments/) must raise ValueError naming the
+    unsafe absolute manifest entry — the manifest is untrusted input and must
+    never be able to point the assembler at an arbitrary file on the host.
+    """
+    import importlib
+    import tempfile
+    import pytest
+
+    repo_root = Path(__file__).parent.parent
+    assembler_path = repo_root / "scripts" / "prompt-build" / "assemble_system_prompt.py"
+    spec = importlib.util.spec_from_file_location("assembler_manifest_abs", assembler_path)
+    assembler = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(assembler)
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp = Path(tmpdir)
+
+        frag_dir = tmp / "fragments"
+        shared_dir = tmp / "shared"
+        frag_dir.mkdir()
+        shared_dir.mkdir()
+
+        # A file OUTSIDE prompts/fragments/ whose absolute path goes in the manifest.
+        outside_file = tmp / "outside.md"
+        outside_file.write_text("SECRET OUTSIDE CONTENT\n", encoding="utf-8")
+
+        (frag_dir / "01-test.md").write_text("<test>ok</test>\n", encoding="utf-8")
+        manifest = tmp / "manifest.txt"
+        manifest.write_text(f"{outside_file}\n", encoding="utf-8")
+
+        # assemble() must raise ValueError naming the unsafe absolute entry.
+        with pytest.raises(ValueError) as exc_info:
+            assembler.assemble(
+                output_path=str(tmp / "out.md"),
+                fragments_dir=str(frag_dir),
+                shared_dir=str(shared_dir),
+                manifest_path=str(manifest),
+            )
+        assert str(outside_file) in str(exc_info.value), (
+            f"Error message must identify the unsafe absolute manifest entry, "
+            f"got: {exc_info.value}"
+        )
+
+
+def test_lint_system_prompt_sync_handles_assembler_load_failure(monkeypatch):
+    """Verify _check_system_prompt_sync() degrades cleanly when the assembler cannot load.
+
+    Regression guard (QA Fix Round 4): _load_assembler() dynamically executes
+    Python code from scripts/prompt-build/assemble_system_prompt.py — it can
+    raise SyntaxError/ImportError (not just FileNotFoundError) if the script is
+    corrupted. The MCP diagnostic tool must catch ALL load failures and return
+    (False, message) without raising, identifying the load failure.
+    """
+    import importlib
+
+    repo_root = Path(__file__).parent.parent
+    server_path = repo_root / "mcp-lint-server" / "server.py"
+    spec = importlib.util.spec_from_file_location("lint_server_load_fail", server_path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    # Replace _load_assembler with a synthetic failing loader.
+    def _failing_loader():
+        raise SyntaxError("synthetic assembler load failure")
+
+    monkeypatch.setattr(mod, "_load_assembler", _failing_loader)
+
+    # Use real repo paths for the prompt tree; only the loader is broken here.
+    in_sync, msg = mod._check_system_prompt_sync(
+        fragments_dir=str(repo_root / "prompts" / "fragments"),
+        shared_dir=str(repo_root / "prompts" / "shared"),
+        manifest_path=str(repo_root / "prompts" / "manifest.txt"),
+        system_prompt_path=str(repo_root / "system-prompt.md"),
+    )
+    assert in_sync is False, f"Expected False on assembler load failure, got: {msg}"
+    assert "error" in msg.lower(), f"Expected an error message, got: {msg[:200]}"
+    assert "synthetic assembler load failure" in msg, (
+        f"Expected message to identify the load failure, got: {msg[:200]}"
+    )

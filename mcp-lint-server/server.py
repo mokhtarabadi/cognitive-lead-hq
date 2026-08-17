@@ -16,7 +16,10 @@ while covering the most critical formatting and structural rules.
 
 import re
 import os
+import tempfile
+import difflib
 from pathlib import Path
+from typing import Tuple
 from mcp.server.fastmcp import FastMCP
 
 
@@ -373,6 +376,181 @@ def lint_all_tasks(include_archive: bool = False) -> str:
         summary += "✅ All task files are perfectly formatted."
 
     return summary
+
+
+# ---------------------------------------------------------------------------
+# system-prompt.md sync verification
+# ---------------------------------------------------------------------------
+# Since v8.4.6, system-prompt.md is a GENERATED build artifact assembled from
+# prompts/fragments/ + prompts/shared/ via scripts/prompt-build/. This tool
+# guards against drift: it re-runs the assembler against a temporary path and
+# compares the result to the committed system-prompt.md. If they differ, the
+# fragments and the committed file are out of sync and the Hands must
+# regenerate. The check is covered by the existing "lint_*": "allow" permission
+# rule in opencode.json, so no permissions change is needed.
+
+
+def _load_assembler():
+    """Dynamically import the assemble_system_prompt module from scripts/.
+
+    Uses importlib so the lint server (run via `uv run mcp-lint-server/server.py`
+    from the project root) can load the assembler without a package dependency.
+    """
+    import importlib.util
+
+    assembler_path = (
+        Path(__file__).resolve().parent.parent
+        / "scripts"
+        / "prompt-build"
+        / "assemble_system_prompt.py"
+    )
+    spec = importlib.util.spec_from_file_location(
+        "assemble_system_prompt", assembler_path
+    )
+    if spec is None or spec.loader is None:
+        raise FileNotFoundError(f"Cannot load assembler at {assembler_path}")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def _check_system_prompt_sync(
+    fragments_dir: str = "prompts/fragments",
+    shared_dir: str = "prompts/shared",
+    manifest_path: str = "prompts/manifest.txt",
+    system_prompt_path: str = "system-prompt.md",
+) -> Tuple[bool, str]:
+    """Check whether the committed system-prompt.md is in sync with prompts/.
+
+    Re-runs the assembler (writing to a temporary path) and compares the result
+    to the committed system-prompt.md. Accepts custom path parameters so tests
+    can verify both the clean case and drift detection without mutating the
+    real files.
+
+    Args:
+        fragments_dir: Directory of per-tag fragment files.
+        shared_dir: Directory of shared partials (used by include resolution).
+        manifest_path: Assembly-order manifest file.
+        system_prompt_path: The committed system-prompt.md to compare against.
+
+    Returns:
+        A tuple (in_sync, message).
+    """
+    # Existence guard for system_prompt_path — mirrors the pattern used by
+    # lint_markdown() and lint_task_file() in this file. Prevents a
+    # FileNotFoundError from propagating out of this function when the
+    # committed system-prompt.md is missing (e.g., in test scenarios or if
+    # the file was accidentally deleted). Returns a clean (False, error)
+    # tuple so the caller can handle it gracefully.
+    sp_path = Path(system_prompt_path)
+    if not sp_path.is_file():
+        return False, f"Error: File not found: {system_prompt_path}"
+
+    try:
+        assembler = _load_assembler()
+    except FileNotFoundError as e:
+        return False, f"Error: Assembler not found at {e}"
+    except Exception as e:
+        # Generic assembler-load failure handler (QA Fix Round 4):
+        # _load_assembler() dynamically executes Python source from
+        # scripts/prompt-build/assemble_system_prompt.py via importlib. If that
+        # file is corrupted or edited into a broken state, exec_module() can
+        # raise SyntaxError/IndentationError/ImportError — NOT just
+        # FileNotFoundError. This MCP diagnostic tool must degrade gracefully
+        # to a clean (False, error) tuple instead of crashing the lint server.
+        # `except Exception` deliberately does NOT catch SystemExit or
+        # KeyboardInterrupt (both derive from BaseException), so the process
+        # can still be terminated normally.
+        return False, f"Error: {e}"
+
+    # Assemble to a temporary file so we never overwrite the committed prompt.
+    with tempfile.NamedTemporaryFile(
+        mode="w", suffix=".md", delete=False, encoding="utf-8"
+    ) as tmp:
+        tmp_path = tmp.name
+
+    try:
+        # Run the assembler with the provided fragment/shared paths.
+        try:
+            assembler.assemble(
+                output_path=tmp_path,
+                fragments_dir=fragments_dir,
+                shared_dir=shared_dir,
+                manifest_path=manifest_path,
+            )
+        except FileNotFoundError as e:
+            return False, f"Error: Fragment or manifest file not found: {e}"
+        except ValueError as e:
+            # WHY ValueError is caught here specifically: assemble()'s
+            # unresolved-placeholder, unsafe-include-path, and malformed-marker
+            # guards (added in QA Fix Rounds 1–3) raise ValueError
+            # intentionally — they are loud, named failures for CLI/direct
+            # callers. But this diagnostic-tool caller must degrade to a clean
+            # error string instead of crashing the lint server. The message
+            # still identifies the offending fragment, placeholder, or include
+            # path so the user can fix the source prompt tree.
+            return False, f"Error: {e}"
+
+        assembled = Path(tmp_path).read_text(encoding="utf-8")
+        committed = Path(system_prompt_path).read_text(encoding="utf-8")
+
+        if assembled == committed:
+            return True, "✅ system-prompt.md is in sync with prompts/"
+
+        # Drift detected — produce a concise unified-diff summary.
+        diff_lines = list(
+            difflib.unified_diff(
+                committed.splitlines(keepends=True),
+                assembled.splitlines(keepends=True),
+                fromfile="system-prompt.md",
+                tofile="prompts/ (assembled)",
+                n=2,
+            )
+        )
+        diff_text = "".join(diff_lines[:200])  # cap to avoid huge output
+        if len(diff_lines) > 200:
+            diff_text += f"\n... ({len(diff_lines) - 200} more diff lines truncated)\n"
+        return False, f"⚠️ DRIFT DETECTED — system-prompt.md is out of sync with prompts/:\n{diff_text}"
+    except Exception as e:
+        # BROAD DIAGNOSTIC CATCH (QA Fix Round 3): this function is a
+        # diagnostic tool exposed over the MCP lint server. It must degrade
+        # gracefully to a clean (False, error) tuple rather than crash the
+        # server, no matter what the underlying assembler or file layer
+        # throws — e.g. a misconfigured fragments_dir that is a regular file
+        # (NotADirectoryError), a permission error, or any unexpected
+        # exception from assembly, temp-file reading, committed-file reading,
+        # or diff generation. `except Exception` deliberately does NOT catch
+        # SystemExit or KeyboardInterrupt (both derive from BaseException),
+        # so the process can still be terminated normally. This does NOT
+        # weaken assemble() itself — assemble() keeps failing loudly for
+        # direct CLI callers; only this diagnostic wrapper is degrading to
+        # error-string form.
+        return False, f"Error: {e}"
+    finally:
+        # Always clean up the temporary file.
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+
+
+@mcp.tool()
+def lint_system_prompt_sync() -> str:
+    """
+    Verify that the committed system-prompt.md is byte-identical to the output
+    of assembling prompts/fragments/ + prompts/shared/.
+
+    Since v8.4.6, system-prompt.md is a generated build artifact. This tool
+    re-runs the assembler against a temp path and compares the result to the
+    committed system-prompt.md. Use it before any commit to confirm the
+    fragments (the true source of truth) and the generated file are in sync.
+
+    Returns:
+        "✅ system-prompt.md is in sync with prompts/" when in sync, or a
+        "⚠️ DRIFT DETECTED" message with a diff summary when they differ.
+    """
+    in_sync, message = _check_system_prompt_sync()
+    return message
 
 
 # --- Entry Point ---

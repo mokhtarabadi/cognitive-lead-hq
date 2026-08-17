@@ -83,7 +83,7 @@ The `system-prompt.md` includes a `<manager_profile>` (a **Founder Operating Sys
 - **Ruthless Soft-Skills Feedback:** When you close a sprint or ask for feedback (e.g., _"Give me your ruthless feedback about me so I can improve"_), the AI personas will critique your tone and management style as a founder, telling you how a real human would have reacted to your instructions.
 
 **Customizing for Yourself:**
-Open `system-prompt.md` and edit the `<manager_profile>` block. Put in your own name, technical background, career goals, and the specific soft skills or languages you want the AI to help you improve.
+Open `prompts/fragments/04-manager_profile.md` and edit the `<manager_profile>` block there, then regenerate via `python3 scripts/prompt-build/assemble_system_prompt.py` (see `prompts/README.md` for the full authoring workflow).
 
 ---
 
@@ -92,7 +92,7 @@ Open `system-prompt.md` and edit the `<manager_profile>` block. Put in your own 
 ```
 /
 ├── README.md                           # This file
-├── system-prompt.md                    # V8 Multi-Agent System Prompt
+├── system-prompt.md                    # Generated Orchestrator system prompt (assembled from prompts/)
 ├── CHANGELOG.md                        # Version history
 ├── tasks/
 │   ├── backlog/                        # Open / unstarted tasks
@@ -113,12 +113,21 @@ Open `system-prompt.md` and edit the `<manager_profile>` block. Put in your own 
 │   └── server.py                       # FastMCP server for task file linting
 ├── mcp-memory-server/
 │   └── server.py                       # FastMCP server for persistent project memory
+├── prompts/                            # System prompt source tree (fragments + shared partials)
+│   ├── README.md                       # Authoring workflow guide
+│   ├── manifest.txt                    # Ordered fragment list (assembly order)
+│   ├── fragments/                      # One file per top-level XML tag (01-20)
+│   └── shared/                         # Shared partials (e.g. validation-phase.md)
 ├── tests/
 │   └── test_mcp_servers.py             # Pytest suite for MCP servers
 ├── .opencode/
 │   └── skills/
 │       └── sop-maintenance/
 │           └── SKILL.md                # Native OpenCode skill for repo rules
+├── scripts/
+│   └── prompt-build/
+│       ├── split_system_prompt.py     # Disassembler: system-prompt.md → fragments/
+│       └── assemble_system_prompt.py  # Assembler: fragments/ → system-prompt.md
 ├── skill-templates/                    # Reusable stack blueprints (Agent Skills)
 │
 │   **General & Workflow:**
