@@ -6,22 +6,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
-### Fixed
-
-- **Freebuff free-tier spawn status verified and corrected (docs hotfix, 2026-08-13)** — the "manual
-  verification item" status for the custom agents' live free-tier spawn is **closed**: binary analysis of the
-  Freebuff CLI `0.0.149` plus a live `@Cognitive Executor say hello` session proved the free tier CANNOT spawn
-  custom local `.agents/*.ts` agents. Root cause: the default free agent (`base3-free-deepseek-flash`) has no
-  `spawn_agents` tool in its whitelist, and the free-tier orchestrator (`base2-free-*`) only whitelists
-  built-in Codebuff subagents — the client-side spawn validation rejects anything else with `Agent "..." is
-not available to spawn` (the earlier `model`-omission fix was necessary but not sufficient). Docs updated:
-  `docs/freebuff-support.md` (header status, §3.3 verification evidence, §4 matrix, §5 rewrite, §6 step 4,
-  §7 step 6, §8 drift note), `README.md` Freebuff matrix + guide link, and `LLM.txt` Step 7.5 note. Corrected
-  guidance: on the free tier paste `<hands_*_task>` blocks into the base chat (all MCP tools + skills +
-  `~/.AGENTS.md` loaded) or switch to a `base2-free-*` "Free Orchestrator" agent to spawn Freebuff's built-in
-  subagents; custom agents require a credits/paid tier. `system-prompt.md` version unchanged (metadata/docs-only).
-  Verified: `lint_markdown` on all edited docs ✅, prettier ✅.
-
 ## [8.4.6] - 2026-08-16
 
 ### Added
@@ -37,6 +21,7 @@ not available to spawn` (the earlier `model`-omission fix was necessary but not 
 ### Changed
 
 - **`system-prompt.md` is now generated, not hand-edited** — edits go in `prompts/fragments/` or `prompts/shared/`, then regenerate via `python3 scripts/prompt-build/assemble_system_prompt.py`. The "Customizing for Yourself" section of `README.md` was updated to point to `prompts/fragments/04-manager_profile.md` instead of `system-prompt.md` directly. Version bumped 8.4.5 → **8.4.6** (the ONLY byte difference from the pre-task monolithic file; verified by round-trip diff: zero differences pre-bump, only the `<system_version>` line post-bump). `README.md` repository structure tree updated to include the `prompts/` and `scripts/prompt-build/` entries. `docs/system-prompt-modularization.md` given a status note pointing to Task 99.
+- **Release v8.4.6 preparation** — consolidated the [Unreleased] docs hotfix under [8.4.6], stored persistent release workflow memory at release/release-workflow, and verified release gates. system-prompt.md version unchanged.
 
 ### Fixed
 
@@ -48,6 +33,19 @@ not available to spawn` (the earlier `model`-omission fix was necessary but not 
   - **QA Fix Round 2 (ValueError catch composition gap)** — `_check_system_prompt_sync()` in `mcp-lint-server/server.py` only caught `FileNotFoundError` around `assembler.assemble(...)`, so if a fragment tree contained an unresolved `{{PLACEHOLDER}}`, the `ValueError` raised by `assemble()` (round-1 V2 behavior, intentional for CLI callers) would propagate out and crash the lint diagnostic tool. Widened the exception handling to also catch `ValueError`, returning a clean `(False, f"Error: {e}")` tuple (message still identifies the fragment + placeholder); the `FileNotFoundError` branch wording is unchanged. Added regression test `test_lint_system_prompt_sync_handles_unresolved_placeholder` (reuses the round-1 `{{FOO}}` fixture shape but drives `_check_system_prompt_sync()`, asserting a clean `(False, <message>)` without raising). Total regression tests: 37 → **38** (all passing).
   - **QA Fix Round 3 (include-path safety + lint diagnostic hardening)** — (1) **Include-path traversal rejection**: `scripts/prompt-build/assemble_system_prompt.py` gained a `_safe_include_path(rel_path, prompts_dir)` helper that rejects absolute include paths and resolves every include path against the `prompts/` boundary (raising `ValueError` for `..` traversal or any resolution outside `prompts/`), closing a hole where a marker like `<!--INCLUDE:../outside.md-->` could read an arbitrary file outside the prompt source tree. (2) **Malformed/unresolved include-marker rejection**: after include resolution, each fragment is scanned for any remaining literal `<!--INCLUDE:` substring (e.g. a marker with a broken `--!>` closing); if found, `ValueError` names the fragment — malformed markers never leak into the generated `system-prompt.md`. This guard runs BEFORE the unresolved-placeholder check. (3) **Lint diagnostic exception hardening**: `_check_system_prompt_sync()` now wraps the post-guard region (assembler load, assembly, temp/committed file reads, diff generation) in a broad `except Exception` handler (NOT catching `SystemExit`/`KeyboardInterrupt`) returning `(False, f"Error: {e}")`, with `finally` temp cleanup preserved — a misconfigured `fragments_dir` (e.g. a regular file), a missing include file, or any unexpected exception degrades to an error string instead of crashing the MCP lint server; `assemble()` itself still fails loudly for CLI callers. `prompts/README.md` documents the include-path safety contract. Four regression tests added (38 → **42**): `test_assemble_rejects_path_traversal_include`, `test_assemble_rejects_malformed_include_marker`, `test_lint_system_prompt_sync_missing_include_file`, `test_lint_system_prompt_sync_invalid_fragments_dir_configuration`. Reference audit (read-only): `AGENTS.md`/`LLM.txt` do not yet describe the generated-artifact workflow — documented gap for a separate follow-up docs task. Verified: py_compile exit 0, pytest 42/42 exit 0, fresh assembler diff exit 0 (byte-identical), `lint_system_prompt_sync` ✅ in sync.
   - **QA Fix Round 4 (manifest-path safety + assembler-load hardening)** — (1) **Manifest-entry path-traversal rejection**: `scripts/prompt-build/assemble_system_prompt.py` gained a `_safe_fragment_path(filename, fragments_dir)` helper treating the manifest (`prompts/manifest.txt`) as an untrusted input surface — empty manifest entries are rejected, absolute entries are rejected, and every entry is resolved via `Path.resolve()` and must remain inside `prompts/fragments/` (raising `ValueError` naming the unsafe entry for `..` traversal or any escape of `fragments/`), closing the same traversal hole as round 3 but on the fragment-read path. (2) **Absolute manifest-entry rejection**: absolute paths in the manifest are rejected outright — only filenames relative to `fragments/` are part of the manifest API. (3) **Assembler-load exception hardening**: `_check_system_prompt_sync()` in `mcp-lint-server/server.py` keeps the specific `FileNotFoundError` handler for `_load_assembler()` and adds a generic `except Exception` handler returning `(False, f"Error: {e}")` — `_load_assembler()` dynamically executes Python source via importlib and can raise `SyntaxError`/`ImportError` if the script is corrupted, so the MCP diagnostic tool degrades gracefully instead of crashing (`SystemExit`/`KeyboardInterrupt` deliberately not caught). Three regression tests added (42 → **45**): `test_assemble_rejects_path_traversal_manifest_entry`, `test_assemble_rejects_absolute_manifest_entry`, `test_lint_system_prompt_sync_handles_assembler_load_failure` (monkeypatched `SyntaxError` load failure). TDD flow honored (tests confirmed failing pre-fix, passing post-fix); a `NameError` regression introduced mid-round (accidentally swallowed `def _resolve_includes`) was caught by the verification gate and repaired — full suite 45/45. `prompts/README.md` documents the manifest-entry safety contract. Verified: py_compile exit 0, pytest 45/45 exit 0, fresh assembler diff exit 0 (byte-identical), `lint_system_prompt_sync` ✅ in sync.
+  - **Freebuff free-tier spawn status verified and corrected (docs hotfix, 2026-08-13)** — the "manual
+  verification item" status for the custom agents' live free-tier spawn is **closed**: binary analysis of the
+  Freebuff CLI `0.0.149` plus a live `@Cognitive Executor say hello` session proved the free tier CANNOT spawn
+  custom local `.agents/*.ts` agents. Root cause: the default free agent (`base3-free-deepseek-flash`) has no
+  `spawn_agents` tool in its whitelist, and the free-tier orchestrator (`base2-free-*`) only whitelists
+  built-in Codebuff subagents — the client-side spawn validation rejects anything else with `Agent "..." is
+not available to spawn` (the earlier `model`-omission fix was necessary but not sufficient). Docs updated:
+  `docs/freebuff-support.md` (header status, §3.3 verification evidence, §4 matrix, §5 rewrite, §6 step 4,
+  §7 step 6, §8 drift note), `README.md` Freebuff matrix + guide link, and `LLM.txt` Step 7.5 note. Corrected
+  guidance: on the free tier paste `<hands_*_task>` blocks into the base chat (all MCP tools + skills +
+  `~/.AGENTS.md` loaded) or switch to a `base2-free-*` "Free Orchestrator" agent to spawn Freebuff's built-in
+  subagents; custom agents require a credits/paid tier. `system-prompt.md` version unchanged (metadata/docs-only).
+  Verified: `lint_markdown` on all edited docs ✅, prettier ✅.
 
 ## [8.4.5] - 2026-08-13
 
