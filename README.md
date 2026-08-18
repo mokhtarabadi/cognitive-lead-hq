@@ -87,6 +87,21 @@ Open `prompts/fragments/04-manager_profile.md` and edit the `<manager_profile>` 
 
 ---
 
+### Prompt Composer Tool
+
+The repository includes a standalone web tool at `tools/prompt-composer/index.html` that automates the Brain↔Hands copy-paste workflow. The tool fetches the latest `system-prompt.md` from GitHub, provides preset Manager commands, and generates structured Markdown output ready to paste into the Orchestrator chat interface.
+
+**Access the tool:** [https://mokhtarabadi.github.io/cognitive-lead-hq/](https://mokhtarabadi.github.io/cognitive-lead-hq/) (deployed via GitHub Pages)
+
+**Features:**
+- Fetches the latest `system-prompt.md` from GitHub
+- Preset Manager commands (Phase 0, Approved, QA, Code Review, Closure)
+- Custom notes and task file pasting
+- Generates structured Markdown output
+- One-click copy to clipboard
+
+---
+
 ## Repository Structure
 
 ```

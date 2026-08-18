@@ -49,10 +49,33 @@ def _check_markdown_basics(content: str, file_path: str) -> list[str]:
     issues: list[str] = []
     lines = content.split('\n')
 
+    # The machine-generated `## Factual Git Diff` block (between the
+    # BEGIN_GIT_DIFF / END_GIT_DIFF markers) can contain arbitrary raw git
+    # diff output — including lines that look like code fences (e.g. a diff
+    # of a Markdown file that itself contains ``` blocks). Naively tracking
+    # fences across the full file produces false "Unclosed code block"
+    # positives, so the diff region is excluded from ALL markdown-basics
+    # checks (fence tracking, heading spacing, trailing whitespace). This
+    # mirrors the pre-diff scoping already applied to structural checks in
+    # `_check_task_file_structure` (see the comment above its `pre_diff`
+    # split). For regular Markdown files without the markers, behavior is
+    # unchanged.
+    in_diff_region = False
     in_code_block = False
     for i, line in enumerate(lines, 1):
+        stripped = line.strip()
+        if stripped == "<!-- BEGIN_GIT_DIFF -->":
+            in_diff_region = True
+            continue
+        if stripped == "<!-- END_GIT_DIFF -->":
+            in_diff_region = False
+            continue
+        # Skip everything inside the machine-generated diff region.
+        if in_diff_region:
+            continue
+
         # Track fenced code blocks
-        if line.strip().startswith("```"):
+        if stripped.startswith("```"):
             in_code_block = not in_code_block
             continue
 

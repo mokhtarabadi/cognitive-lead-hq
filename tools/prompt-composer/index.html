@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <!--
+    Prompt Composer — Cognitive Lead AI
+    Standalone web tool that automates the Brain<->Hands copy-paste workflow.
+    Fetches system-prompt.md from GitHub, provides preset Manager commands,
+    assembles a structured Markdown message, and copies it to the clipboard.
+    Self-contained: only external dependency is the Tailwind CSS CDN.
+  -->
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Prompt Composer — Cognitive Lead AI</title>
+  <!-- Tailwind CSS via CDN (the only external dependency) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* Minimal custom styles that Tailwind does not cover cleanly. */
+    .font-mono {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-900 min-h-screen">
+
+  <!-- ===================== Header ===================== -->
+  <header class="bg-slate-900 text-white">
+    <div class="max-w-6xl mx-auto px-4 py-6">
+      <h1 class="text-2xl font-bold tracking-tight">Prompt Composer</h1>
+      <p class="text-slate-300 text-sm mt-1">
+        Automate the Brain ↔ Hands copy-paste workflow for Cognitive Lead AI.
+      </p>
+    </div>
+  </header>
+
+  <main class="max-w-6xl mx-auto px-4 py-8 space-y-8">
+
+    <!-- ===================== System Instructions Section ===================== -->
+    <section aria-labelledby="system-instructions-heading">
+      <h2 id="system-instructions-heading" class="text-lg font-semibold mb-2">1. System Instructions</h2>
+      <div class="flex items-center gap-3 mb-2">
+        <button
+          type="button"
+          onclick="fetchSystemPrompt()"
+          class="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium transition"
+        >
+          Fetch System Prompt
+        </button>
+        <span id="fetch-status" class="text-sm text-slate-500"></span>
+      </div>
+      <!-- Read-only system prompt content; user can paste manually if fetch fails -->
+      <textarea
+        id="system-prompt"
+        rows="12"
+        class="w-full font-mono text-sm p-3 rounded-lg border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+        placeholder="System prompt will load here automatically. If the fetch fails, paste the contents of system-prompt.md manually."
+        aria-label="System Instructions"
+      ></textarea>
+    </section>
+
+    <!-- ===================== Manager Message Section ===================== -->
+    <section aria-labelledby="manager-message-heading">
+      <h2 id="manager-message-heading" class="text-lg font-semibold mb-2">2. Manager Message</h2>
+
+      <!-- Preset Command Selector -->
+      <div class="mb-3">
+        <p class="text-sm font-medium text-slate-700 mb-2">Preset Commands</p>
+        <div class="flex flex-wrap gap-2" role="group" aria-label="Preset commands">
+          <button type="button" onclick="selectPreset('This is a new project. Start Phase 0.')" class="px-3 py-1.5 rounded-full bg-slate-200 hover:bg-slate-300 text-sm transition">New Project — Phase 0</button>
+          <button type="button" onclick="selectPreset('This is an existing project. Start Phase 0.')" class="px-3 py-1.5 rounded-full bg-slate-200 hover:bg-slate-300 text-sm transition">Existing Project — Phase 0</button>
+          <button type="button" onclick="selectPreset('Approved')" class="px-3 py-1.5 rounded-full bg-emerald-200 hover:bg-emerald-300 text-sm transition">Approved</button>
+          <button type="button" onclick="selectPreset('Approved for closure')" class="px-3 py-1.5 rounded-full bg-emerald-200 hover:bg-emerald-300 text-sm transition">Approved for Closure</button>
+          <button type="button" onclick="selectPreset('[QA Engineer], please perform adversarial testing.')" class="px-3 py-1.5 rounded-full bg-amber-200 hover:bg-amber-300 text-sm transition">QA — Adversarial Testing</button>
+          <button type="button" onclick="selectPreset('[Code Reviewer], please perform the final review.')" class="px-3 py-1.5 rounded-full bg-violet-200 hover:bg-violet-300 text-sm transition">Code Review — Final Review</button>
+          <button type="button" onclick="selectPreset('Close task')" class="px-3 py-1.5 rounded-full bg-rose-200 hover:bg-rose-300 text-sm transition">Close Task</button>
+          <button type="button" onclick="selectPreset('')" class="px-3 py-1.5 rounded-full bg-slate-400 hover:bg-slate-500 text-white text-sm transition">Custom</button>
+        </div>
+      </div>
+
+      <!-- Manager Message textarea -->
+      <textarea
+        id="manager-message"
+        rows="4"
+        class="w-full font-mono text-sm p-3 rounded-lg border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+        placeholder="Selected preset command appears here. For 'Custom', type your command."
+        aria-label="Manager Message"
+      ></textarea>
+
+      <!-- Custom Notes Section (separate from the preset command) -->
+      <label for="custom-notes" class="block text-sm font-medium text-slate-700 mt-4 mb-1">Custom Notes</label>
+      <textarea
+        id="custom-notes"
+        rows="3"
+        class="w-full font-mono text-sm p-3 rounded-lg border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+        placeholder="Optional: additional instructions or context for the Orchestrator."
+        aria-label="Custom Notes"
+      ></textarea>
+    </section>
+
+    <!-- ===================== Task File Section ===================== -->
+    <section aria-labelledby="task-file-heading">
+      <h2 id="task-file-heading" class="text-lg font-semibold mb-2">3. Task File</h2>
+      <textarea
+        id="task-file"
+        rows="10"
+        class="w-full font-mono text-sm p-3 rounded-lg border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+        placeholder="Paste the contents of a task file (e.g., tasks/qa/XX-task-name.md) here."
+        aria-label="Task File"
+      ></textarea>
+    </section>
+
+    <!-- ===================== Generate & Output Section ===================== -->
+    <section aria-labelledby="generate-heading">
+      <button
+        type="button"
+        onclick="generateMarkdown()"
+        class="px-6 py-2.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-sm font-semibold transition"
+      >
+        Generate Markdown
+      </button>
+
+      <div class="mt-4 flex items-center gap-3">
+        <h2 id="generate-heading" class="text-lg font-semibold">4. Output</h2>
+        <button
+          type="button"
+          onclick="copyToClipboard()"
+          class="px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium transition"
+        >
+          Copy to Clipboard
+        </button>
+        <span id="copy-status" class="text-sm text-slate-500"></span>
+      </div>
+
+      <!-- Generated Markdown output (read-only) -->
+      <textarea
+        id="output"
+        rows="16"
+        readonly
+        class="w-full font-mono text-sm p-3 rounded-lg border border-slate-300 bg-slate-50 text-slate-800 focus:outline-none"
+        placeholder="Generated Markdown will appear here."
+        aria-label="Generated Markdown Output"
+      ></textarea>
+    </section>
+
+  </main>
+
+  <footer class="max-w-6xl mx-auto px-4 pb-8 text-sm text-slate-400">
+    Prompt Composer — Cognitive Lead AI HQ · ZAC-compliant (no commits are made by this tool)
+  </footer>
+
+  <script>
+    /**
+     * Prompt Composer — Cognitive Lead AI
+     * Vanilla JavaScript, no external JS dependencies.
+     * All functions are defined on the global scope so inline onclick handlers can reach them.
+     */
+
+    // Cache the GitHub raw URL for the system prompt (canonical source).
+    const SYSTEM_PROMPT_URL = 'https://raw.githubusercontent.com/mokhtarabadi/cognitive-lead-hq/main/system-prompt.md';
+
+    /**
+     * Fetches the system prompt from GitHub and displays it in the textarea.
+     * On failure, shows an error message and lets the user paste manually.
+     * @returns {Promise<void>} Resolves when fetch completes (success or fallback).
+     */
+    async function fetchSystemPrompt() {
+      const textarea = document.getElementById('system-prompt');
+      const status = document.getElementById('fetch-status');
+      status.textContent = 'Fetching…';
+      try {
+        const response = await fetch(SYSTEM_PROMPT_URL);
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        const text = await response.text();
+        textarea.value = text;
+        status.textContent = `✅ Loaded (${(text.length / 1024).toFixed(1)} KB)`;
+      } catch (error) {
+        // Graceful degradation: allow manual paste instead of hard-failing.
+        status.textContent = `⚠️ Fetch failed (${error.message}). Paste manually below.`;
+      }
+    }
+
+    /**
+     * Populates the Manager Message textarea with a preset command.
+     * @param {string} command - The preset command text. Empty string = Custom.
+     * @returns {void}
+     */
+    function selectPreset(command) {
+      const textarea = document.getElementById('manager-message');
+      textarea.value = command;
+      // Focus for immediate editing if a custom command is intended.
+      textarea.focus();
+    }
+
+    /**
+     * Assembles the structured Markdown output from the three inputs:
+     * System Instructions + Manager Message (+ Custom Notes) + Task File.
+     * @returns {void} Writes the assembled Markdown into the output textarea.
+     */
+    function generateMarkdown() {
+      const systemPrompt = document.getElementById('system-prompt').value.trim();
+      const managerMessage = document.getElementById('manager-message').value.trim();
+      const customNotes = document.getElementById('custom-notes').value.trim();
+      const taskFile = document.getElementById('task-file').value.trim();
+
+      // Build the Manager Message block: preset/custom command plus optional notes.
+      let managerBlock = managerMessage;
+      if (customNotes) {
+        managerBlock = managerBlock ? `${managerBlock}\n\n${customNotes}` : customNotes;
+      }
+
+      const sections = [
+        '# System Instructions',
+        systemPrompt || '_No system prompt provided. Fetch it or paste it manually._',
+        '',
+        '---',
+        '',
+        '# Manager Message',
+        managerBlock || '_No manager message provided._',
+        '',
+        '---',
+        '',
+        '# Task File',
+        taskFile || '_No task file provided._',
+      ];
+
+      document.getElementById('output').value = sections.join('\n');
+    }
+
+    /**
+     * Copies the generated Markdown to the clipboard using the Clipboard API.
+     * Falls back to selecting the textarea content if the API is unavailable.
+     * @returns {Promise<void>} Resolves after copy attempt (success or fallback).
+     */
+    async function copyToClipboard() {
+      const output = document.getElementById('output');
+      const status = document.getElementById('copy-status');
+      try {
+        await navigator.clipboard.writeText(output.value);
+        status.textContent = '✅ Copied to clipboard';
+      } catch (error) {
+        // Fallback: select the text so the user can copy manually (CSP/permission denied).
+        output.focus();
+        output.select();
+        status.textContent = '⚠️ Clipboard API unavailable — selected, press Ctrl+C';
+      }
+      // Clear the transient status after a few seconds.
+      setTimeout(() => { status.textContent = ''; }, 3000);
+    }
+
+    // Initialize on DOM ready: auto-fetch the system prompt for convenience.
+    document.addEventListener('DOMContentLoaded', () => {
+      fetchSystemPrompt();
+    });
+  </script>
+</body>
+</html>
