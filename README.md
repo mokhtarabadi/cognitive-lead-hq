@@ -95,7 +95,8 @@ The repository includes a standalone web tool at `tools/prompt-composer/index.ht
 
 **Features:**
 - Fetches the latest `system-prompt.md` from GitHub
-- Preset Manager commands (Phase 0, Approved, QA, Code Review, Closure)
+- Preset Manager commands (Phase 0, Task Discovery, Collect Context, Approved, QA, Code Review, Closure)
+- Optional Project Tree input — included in the generated Markdown when provided
 - Custom notes and task file pasting
 - Generates structured Markdown output
 - One-click copy to clipboard

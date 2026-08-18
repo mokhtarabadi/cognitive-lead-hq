@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Added
 
 - **Prompt Composer Web Tool** — new standalone HTML tool at `tools/prompt-composer/index.html` that automates the Brain↔Hands copy-paste workflow. Fetches the system prompt from GitHub, provides preset Manager commands, allows custom notes and task file pasting, generates structured Markdown output, and copies to clipboard. Deployed to GitHub Pages via `.github/workflows/deploy-prompt-composer.yml`. `system-prompt.md` version unchanged.
+- **Prompt Composer — Task Discovery presets + Project Tree input (Task 103)** — the prompt-composer tool's preset command row gains two out-of-the-box context-gathering commands: **Task Discovery** (instructs the Orchestrator to generate a `<hands_discovery_task>` that gathers the working task's context — directory tree + persisted tree report, Core SOP files, vertical-slice signatures, compiled context report) and **Collect Context** (lightweight `code-search`-skill variant that returns the report path). A new optional **Project Tree** textarea lets the user paste a directory tree/subtree, which is emitted as a `# Project Tree` section in the generated Markdown only when non-empty. Existing named functions (`fetchSystemPrompt`, `generateMarkdown`, `copyToClipboard`, `selectPreset`) preserved; README feature list updated. `system-prompt.md` version unchanged.
 
 ## [8.4.6] - 2026-08-16
 
