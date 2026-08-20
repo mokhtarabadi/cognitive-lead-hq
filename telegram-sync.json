@@ -1,25 +1,39 @@
 {
   "config": {
-    "project_name": "cognitive-lead-hq",
+    "project_name": "Cognitive Lead",
     "chat_id": -1003993323129,
-    "topic_id": 425,
-    "account": null,
+    "topic_id": 458,
+    "account": "work",
     "target_hashtags": [
       "bug",
       "feature",
-      "improve"
+      "improve",
+      "task"
     ]
   },
-  "last_processed_message_id": 426,
+  "last_processed_message_id": 468,
   "processed_ids": [
-    425,
-    426
+    458,
+    465,
+    466,
+    467,
+    468
   ],
   "sync_registry": {
-    "426": {
-      "task_file": "tasks/backlog/88-enable-telegram-task-input-source.md",
-      "gh_issue": "Not created (skipped)",
+    "466": {
+      "task_file": "tasks/backlog/104-multi-project-prompt-composer.md",
+      "gh_issue": "https://github.com/mokhtarabadi/cognitive-lead-hq/issues/4",
+      "type": "IMPROVE"
+    },
+    "467": {
+      "task_file": "tasks/backlog/105-mermaid-diagram-generation.md",
+      "gh_issue": "https://github.com/mokhtarabadi/cognitive-lead-hq/issues/6",
       "type": "FEATURE"
+    },
+    "468": {
+      "task_file": "tasks/backlog/106-system-prompt-gap-analysis.md",
+      "gh_issue": "https://github.com/mokhtarabadi/cognitive-lead-hq/issues/5",
+      "type": "IMPROVE"
     }
   }
 }
