@@ -1,9 +1,9 @@
 # Task 107: Context Report Section in Prompt Composer
 
-**File:** `tasks/qa/107-context-report-prompt-composer.md`
+**File:** `tasks/completed/107-context-report-prompt-composer.md`
 **Source:** manager
 **Type:** improvement
-**Status:** open
+**Status:** closed
 
 ## Source Context
 
@@ -133,103 +133,5 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
-```diff
-diff --git a/CHANGELOG.md b/CHANGELOG.md
-index 6e91e24..6e4691c 100644
---- a/CHANGELOG.md
-+++ b/CHANGELOG.md
-@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
- 
- - **Prompt Composer Web Tool** — new standalone HTML tool at `tools/prompt-composer/index.html` that automates the Brain↔Hands copy-paste workflow. Fetches the system prompt from GitHub, provides preset Manager commands, allows custom notes and task file pasting, generates structured Markdown output, and copies to clipboard. Deployed to GitHub Pages via `.github/workflows/deploy-prompt-composer.yml`. `system-prompt.md` version unchanged.
- - **Prompt Composer — Task Discovery presets + Project Tree input (Task 103)** — the prompt-composer tool's preset command row gains two out-of-the-box context-gathering commands: **Task Discovery** (instructs the Orchestrator to generate a `<hands_discovery_task>` that gathers the working task's context — directory tree + persisted tree report, Core SOP files, vertical-slice signatures, compiled context report) and **Collect Context** (lightweight `code-search`-skill variant that returns the report path). A new optional **Project Tree** textarea lets the user paste a directory tree/subtree, which is emitted as a `# Project Tree` section in the generated Markdown only when non-empty. Existing named functions (`fetchSystemPrompt`, `generateMarkdown`, `copyToClipboard`, `selectPreset`) preserved; README feature list updated. `system-prompt.md` version unchanged.
-+- **Prompt Composer — Context Report input (Task 107)** — added a dedicated "Context Report" section with an accompanying "Context Report Review" preset button to feed AI-generated context reports back into the Orchestrator loop. Tool's section numbering updated; generated Markdown gracefully omits the section when empty.
- 
- ## [8.4.6] - 2026-08-16
- 
-diff --git a/tools/prompt-composer/index.html b/tools/prompt-composer/index.html
-index 1a4551a..45f5dbb 100644
---- a/tools/prompt-composer/index.html
-+++ b/tools/prompt-composer/index.html
-@@ -71,6 +71,7 @@
-           <button type="button" onclick="selectPreset('This is an existing project. Start Phase 0.')" class="px-3 py-1.5 rounded-full bg-slate-200 hover:bg-slate-300 text-sm transition">Existing Project — Phase 0</button>
-           <button type="button" onclick="selectPreset('Generate a <hands_discovery_task> for the task we are working on. Instruct the Hands to gather the necessary context: get and persist the project directory tree, read all Core SOP files (AGENTS.md, DESIGN.md, docs/architecture.md, docs/data_model.md, docs/conventions.md), extract vertical slice signatures for the relevant module, and compile everything into a single context report. Use the provided Project Tree as the target context when available. Do not proceed to implementation until the discovery context has been returned and reviewed.')" class="px-3 py-1.5 rounded-full bg-sky-200 hover:bg-sky-300 text-sm transition">Task Discovery</button>
-           <button type="button" onclick="selectPreset('Load the code-search skill and collect context for the current task. Get the project directory tree, extract vertical slice signatures for the target module, and read all Core SOP files (AGENTS.md, DESIGN.md, docs/architecture.md, docs/data_model.md, docs/conventions.md). Compile everything into a single context report. Do NOT read the report yourself — return the file path to me.')" class="px-3 py-1.5 rounded-full bg-cyan-200 hover:bg-cyan-300 text-sm transition">Collect Context</button>
-+          <button type="button" onclick="selectPreset('A context report is provided in the Context Report section below. Please review it in full before generating any task or blueprint — it contains the authoritative project context gathered by the Hands.')" class="px-3 py-1.5 rounded-full bg-teal-200 hover:bg-teal-300 text-sm transition">Context Report Review</button>
-           <button type="button" onclick="selectPreset('Approved')" class="px-3 py-1.5 rounded-full bg-emerald-200 hover:bg-emerald-300 text-sm transition">Approved</button>
-           <button type="button" onclick="selectPreset('Approved for closure')" class="px-3 py-1.5 rounded-full bg-emerald-200 hover:bg-emerald-300 text-sm transition">Approved for Closure</button>
-           <button type="button" onclick="selectPreset('[QA Engineer], please perform adversarial testing.')" class="px-3 py-1.5 rounded-full bg-amber-200 hover:bg-amber-300 text-sm transition">QA — Adversarial Testing</button>
-@@ -114,9 +115,21 @@
-       ></textarea>
-     </section>
- 
-+    <!-- ===================== Context Report Section (Optional) ===================== -->
-+    <section aria-labelledby="context-report-heading">
-+      <h2 id="context-report-heading" class="text-lg font-semibold mb-2">4. Context Report <span class="text-sm font-normal text-slate-400">(optional)</span></h2>
-+      <textarea
-+        id="context-report"
-+        rows="10"
-+        class="w-full font-mono text-sm p-3 rounded-lg border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-+        placeholder="Optional: paste the contents of a context report (e.g., context-reports/context_report_...) here. If provided, it is included in the generated Markdown as a # Context Report section."
-+        aria-label="Context Report"
-+      ></textarea>
-+    </section>
-+
-     <!-- ===================== Task File Section ===================== -->
-     <section aria-labelledby="task-file-heading">
--      <h2 id="task-file-heading" class="text-lg font-semibold mb-2">4. Task File</h2>
-+      <h2 id="task-file-heading" class="text-lg font-semibold mb-2">5. Task File</h2>
-       <textarea
-         id="task-file"
-         rows="10"
-@@ -137,7 +150,7 @@
-       </button>
- 
-       <div class="mt-4 flex items-center gap-3">
--        <h2 id="generate-heading" class="text-lg font-semibold">5. Output</h2>
-+        <h2 id="generate-heading" class="text-lg font-semibold">6. Output</h2>
-         <button
-           type="button"
-           onclick="copyToClipboard()"
-@@ -211,10 +224,11 @@
-     }
- 
-     /**
--     * Assembles the structured Markdown output from the four inputs:
-+     * Assembles the structured Markdown output from the five inputs:
-      * System Instructions + Manager Message (+ Custom Notes) + optional
--     * Project Tree + Task File. The Project Tree section is only emitted
--     * when the user provides one, so the output stays clean otherwise.
-+     * Project Tree + optional Context Report + Task File. The Project Tree
-+     * and Context Report sections are only emitted when the user provides
-+     * them, so the output stays clean otherwise.
-      * @returns {void} Writes the assembled Markdown into the output textarea.
-      */
-     function generateMarkdown() {
-@@ -222,6 +236,7 @@
-       const managerMessage = document.getElementById('manager-message').value.trim();
-       const customNotes = document.getElementById('custom-notes').value.trim();
-       const projectTree = document.getElementById('project-tree').value.trim();
-+      const contextReport = document.getElementById('context-report').value.trim();
-       const taskFile = document.getElementById('task-file').value.trim();
- 
-       // Build the Manager Message block: preset/custom command plus optional notes.
-@@ -251,6 +266,17 @@
-         );
-       }
- 
-+      // Optional Context Report: included only when a report is provided.
-+      if (contextReport) {
-+        sections.push(
-+          '',
-+          '---',
-+          '',
-+          '# Context Report',
-+          contextReport
-+        );
-+      }
-+
-       sections.push(
-         '',
-         '---',
-```
+**Factual Git Diff:** Stored in Commit Hash: `a77bf883fa68420ecc8301edb70e5b50e85107b1`
 <!-- END_GIT_DIFF -->
