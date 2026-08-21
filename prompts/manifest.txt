@@ -18,3 +18,4 @@
 18-solid_programming_mandate.md
 19-universal_datetime_rules.md
 20-initialization.md
+21-communication_examples.md

@@ -13,6 +13,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **Prompt Composer — Context Report input (Task 107)** — added a dedicated "Context Report" section with an accompanying "Context Report Review" preset button to feed AI-generated context reports back into the Orchestrator loop. Tool's section numbering updated; generated Markdown gracefully omits the section when empty.
 - **Prompt Composer — Multi-Project Persistence (Task 104)** — added localStorage-based state management allowing users to create, switch, rename, and delete multiple independent project configurations. Included a native HTML modal for management and a responsive tab bar, strictly retaining the single-file vanilla JS architecture and ZAC compliance.
 - **Mermaid Diagram Directives (Task 105)** — added explicit instructions to the Software Architect and UI/UX Designer system prompt fragments to generate Mermaid code blocks (`flowchart`, `sequenceDiagram`, `erDiagram`) within Markdown blueprints, granting the Manager visual comprehension of complex architectures without bloating token usage with syntax tutorials.
+- **System Prompt Gap Analysis (Task 106)** — performed a comparative analysis against the external Opus 5 reference prompt. Identified 5 key capability gaps and documented the top 3 recommendations (Few-Shot Examples, Hard Scope Boundaries, Banned Linguistic Patterns) inside the task file to further reduce AI hallucination and conversational fluff.
+
+### Changed
+
+- **Opus 5 Communication Guardrails (Task 106)** — integrated the highest-leverage techniques from the external Opus 5 reference prompt into the system prompt fragments. Added Hard Operational Boundaries (scope containment), Positive/Negative Linguistic Patterns (banned phrases), the Reference Point System (F1, O1) for structured options, and a new `<communication_examples>` fragment providing few-shot DO/DO NOT conversation examples to eliminate AI conversational fluff.
 
 ## [8.4.6] - 2026-08-16
 
