@@ -58,9 +58,9 @@ from typing import List, Tuple
 # Configuration
 # ---------------------------------------------------------------------------
 
-# The 20 top-level XML tags in system-prompt.md, in document order.
+# The 21 top-level XML tags in system-prompt.md, in document order.
 # This explicit ordered list is the authoritative contract for the split: the
-# script verifies that these (and only these) 20 tags appear at the top level,
+# script verifies that these (and only these) 21 tags appear at the top level,
 # in this exact order. Nested tags (e.g. <identity> inside <manager_profile>,
 # or <phase>/<workflow>/<personas> inside <brainstorming_protocol>) are part of
 # their parent block's content and are NOT split out separately.
@@ -85,6 +85,7 @@ TOP_LEVEL_TAGS: List[str] = [
     "solid_programming_mandate",
     "universal_datetime_rules",
     "initialization",
+    "communication_examples",
 ]
 
 # Regex patterns for locating top-level tag boundaries.
@@ -289,7 +290,7 @@ def split_system_prompt(
     content = src.read_text(encoding="utf-8")
     lines = content.split("\n")
 
-    # --- 1. Locate the 20 top-level block ranges ---
+    # --- 1. Locate the 21 top-level block ranges ---
     ranges = _find_block_ranges(lines)
     if len(ranges) != len(TOP_LEVEL_TAGS):
         _halt(
@@ -318,9 +319,17 @@ def split_system_prompt(
         # No trailing newline: the assembler joins fragments with '\n\n' and
         # appends the file's single trailing '\n', reproducing byte-identical
         # output. A trailing newline here would create an extra blank line.
+        #
+        # Exception: if the source file ends with '\n\n' (a trailing blank
+        # line after the last closing tag), the last fragment needs a trailing
+        # '\n' so the assembler's single '\n' produces the correct '\n\n'
+        # termination.
         seq_str = str(seq).zfill(2)
         filename = f"{seq_str}-{tag}.md"
-        (frag_dir / filename).write_text(block_text, encoding="utf-8")
+        write_text = block_text
+        if seq == len(ranges) and content.endswith("\n\n"):
+            write_text = block_text + "\n"
+        (frag_dir / filename).write_text(write_text, encoding="utf-8")
         fragment_filenames.append(filename)
 
     # --- 3. Emit the manifest (one filename per line, assembly order) ---
