@@ -141,6 +141,7 @@ The repository includes a standalone web tool at `tools/prompt-composer/index.ht
 │       └── sop-maintenance/
 │           └── SKILL.md                # Native OpenCode skill for repo rules
 ├── scripts/
+│   ├── bundle-tasks.py                # Deterministic meta-task bundler (Task 110) — CLI for `bundle_tasks` MCP
 │   └── prompt-build/
 │       ├── split_system_prompt.py     # Disassembler: system-prompt.md → fragments/
 │       └── assemble_system_prompt.py  # Assembler: fragments/ → system-prompt.md
@@ -169,6 +170,8 @@ The repository includes a standalone web tool at `tools/prompt-composer/index.ht
 │   ├── project-memory/                 # Persistent project memory bank
 │   │   └── SKILL.md
 │   ├── prompt-refactor/                # Refactors raw prompts into elite XML specs
+│   │   └── SKILL.md
+│   ├── bundle-tasks/                   # Meta-task bundling — 2–6 tasks → one META (CLI + MCP)
 │   │   └── SKILL.md
 │   ├── task-generator/                 # Generates tasks in tasks/backlog/
 │   │   └── SKILL.md
@@ -229,6 +232,7 @@ The repository includes a standalone web tool at `tools/prompt-composer/index.ht
 | `design-md`               | Extracts a comprehensive design system (`DESIGN.md`) directly from frontend source code — React, Vue, Svelte, Angular, plain HTML/CSS, or any web framework.            |
 | `doc-coauthoring`         | Guides users through a structured 3-stage workflow (Context Gathering, Refinement & Structure, Reader Testing) for co-authoring documentation with AI.                  |
 | `prompt-refactor`         | Meta-cognitive skill that refactors basic human prompts into elite, highly constrained, XML-tagged instructions optimized for AI agent reasoning.                       |
+| `bundle-tasks`            | Deterministic meta-task bundling — bundles 2–6 small related tasks into one META for unified execution with verbatim preservation and auto-archive. Exposed as both `scripts/bundle-tasks.py` CLI and `bundle_tasks` MCP tool (Task 110). |
 | `task-generator`          | Automatically generates decentralized task files based on Manager instructions, with correct `<!-- BEGIN_GIT_DIFF -->` / `<!-- END_GIT_DIFF -->` markers.               |
 | `telegram-issue-sync`     | Syncs Telegram supergroup topics into local task files and GitHub issues, using embedded Python scripts for deterministic JSON state management.                        |
 | `telegram-message-export` | Intelligently exports a range of Telegram messages (text, media, voice notes) into a numbered folder, capturing reply hierarchies, and packing them into a ZIP archive. |
@@ -282,7 +286,8 @@ Best for keeping project dependencies isolated.
   "permission": {
     "custom_context_*": "allow",
     "get_directory_tree": "allow",
-    "read_source_files": "allow"
+    "read_source_files": "allow",
+    "bundle_tasks": "allow"
   }
 }
 ```
@@ -313,7 +318,8 @@ Best if you want this codebase exploration tool available in _every_ terminal di
   "permission": {
     "custom_context_*": "allow",
     "get_directory_tree": "allow",
-    "read_source_files": "allow"
+    "read_source_files": "allow",
+    "bundle_tasks": "allow"
   }
 }
 ```
@@ -332,6 +338,18 @@ _(Note: Replace `/Users/<YOUR_USER>` with your actual home directory path)._
 - `get_directory_tree` — Generates an ASCII tree of the directory structure, respecting `.gitignore`.
 - `create_tree_report` — Saves a persistent `.gitignore`-aware directory tree of any path (default: the entire project) as `context-reports/tree_report_<timestamp>_<uuid>.md`, mirroring the context report convention. Trigger phrase: "create a tree of the project".
 - `read_source_files` — Reads multiple source files or directories and saves their contents into a local Markdown report inside the `context-reports/` directory, returning the file path to prevent context bloat.
+- `extract_signatures` — Extracts structural signatures (classes, functions, methods) via tree-sitter (fallback to regex) and saves to `context-reports/signatures_report_<timestamp>_<uuid>.md`.
+- `bundle_tasks` — **Meta-task bundler (Task 110, self-contained).** Bundles 2–6 small related tasks into one META for unified execution (`tasks/backlog/<NEXT_ID>-<slug>.md` + `**Supersedes:** [ids]` + verbatim appendices, `git mv` to `tasks/archive/` with `superseded` patch). CLI `uv run scripts/bundle-tasks.py <id> ... --title "<title>" [--dry-run] [--force]` and MCP `bundle_tasks(task_ids, title, dry_run, force)` are identical and self-contained — other projects that only have this MCP server (no `scripts/` copy) can still bundle via the Hands. Guardrails: cap 6, LOC >400 warning, missing-ID and collision checks. See `skill-templates/bundle-tasks/SKILL.md` and `AGENTS.md` `## 🛑 META-TASK BUNDLE LIFECYCLE`.
+
+### Meta-Task Bundling — CLI vs MCP (When to Copy the Script)
+
+| Scenario | What to copy | How to bundle |
+|---|---|---|
+| **You have shell (Manager runs `uv run`)** | Copy `scripts/bundle-tasks.py` to your project's `scripts/` (or keep it from the HQ template) | `uv run scripts/bundle-tasks.py 12 15 20 --title "android-polish" [--dry-run]` |
+| **You only have the MCP server (Hands in other projects, no shell)** | **No script copy needed** — `mcp-context-server/server.py:bundle_tasks` is self-contained (helpers duplicated from the script, no `scripts/` dependency) | Hands calls MCP tool `bundle_tasks(task_ids=["12","15","20"], title="android-polish", dry_run=true)` |
+| **Both** | Keep both — they are kept in sync and produce identical `tasks/backlog/<NEXT_ID>-<slug>.md` + archive patching | Use CLI for Manager one-offs, MCP for AI-driven bundling |
+
+> **Is the script redundant?** No — CLI is for the Manager (`uv run`), MCP is for the Hands (AI). For cross-project reuse, **MCP is sufficient**: other projects that vendor this HQ's MCP servers (`~/.config/opencode/mcp-context-server/server.py`) can bundle without copying `scripts/`. If those projects also want CLI, copy `scripts/bundle-tasks.py` to `scripts/` (one file, `chmod +x`).
 
 ---
 

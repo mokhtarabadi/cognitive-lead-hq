@@ -261,9 +261,9 @@ def _check_task_file_structure(content: str, file_path: str) -> list[str]:
     if not re.search(r'\*\*Source:\*\*\s*(orchestrator|telegram|manager)', content):
         issues.append("Missing or invalid `**Source:**` metadata field.")
 
-    # 5. Type field
+    # 5. Type field (Task 110: allow `meta` for bundled META tasks; canonical META still uses `feature` + `**Meta:** true`)
     if not re.search(
-        r'\*\*Type:\*\*\s*(bug|improvement|feature|chore|docs|refactor|security|research|infra)',
+        r'\*\*Type:\*\*\s*(bug|improvement|feature|chore|docs|refactor|security|research|infra|meta)',
         content,
     ):
         issues.append("Missing or invalid `**Type:**` metadata field.")

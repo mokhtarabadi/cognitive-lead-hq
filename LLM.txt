@@ -98,7 +98,21 @@ Copy all reusable skills from `skill-templates/` into the global OpenCode skills
 cp -r /tmp/cognitive-lead-hq/skill-templates/* ~/.config/opencode/skills/
 ```
 
-After this, the skills will be available via `/help` from any directory.
+After this, the skills will be available via `/help` from any directory. Since Task 110, `skill-templates/` contains **30 skills** (29 + new `bundle-tasks` for meta-task bundling).
+
+### 6.1. (Optional) Bundle CLI Script — Only If You Want `uv run scripts/bundle-tasks.py`
+
+The `bundle_tasks` MCP tool (`mcp-context-server/server.py`) is **self-contained** — it bundles without needing the script, so other projects that only have the MCP server can bundle via the Hands (`bundle_tasks` MCP call) with no extra files.
+
+If you also want the Manager CLI (`uv run scripts/bundle-tasks.py <id> ... --title "<title>" [--dry-run]`), copy the script to your project's `scripts/`:
+
+```bash
+mkdir -p scripts
+cp /tmp/cognitive-lead-hq/scripts/bundle-tasks.py scripts/bundle-tasks.py
+chmod +x scripts/bundle-tasks.py
+```
+
+> **Is the script redundant?** No — CLI is for the Manager, MCP is for the Hands. For cross-project reuse, MCP is sufficient. Keep both if you want `uv run` one-offs and AI-driven bundling.
 
 ---
 
@@ -161,6 +175,7 @@ Write the following JSON (replace `$HOME` with the actual home directory path):
     "list_namespaces": "allow",
     "get_directory_tree": "allow",
     "read_source_files": "allow",
+    "bundle_tasks": "allow",
     "external_directory": {
       "*": "ask",
       "/tmp/**": "allow"
@@ -262,7 +277,7 @@ After completing all steps, verify:
 - [ ] `uv` is installed and available (`uv --version`)
 - [ ] `~/.config/opencode/mcp-context-server/server.py` exists and is executable
 - [ ] `~/.config/opencode/mcp-memory-server/server.py` exists and is executable
-- [ ] Skills are installed under `~/.config/opencode/skills/` (at least one subfolder exists)
+- [ ] Skills are installed under `~/.config/opencode/skills/` (at least one subfolder exists) — should include `bundle-tasks` (30 skills total)
 - [ ] `~/.config/opencode/agents/cognitive-executor.md` exists
 - [ ] `~/.config/opencode/agents/cognitive-discovery.md` exists
 - [ ] `~/.config/opencode/opencode.json` exists with **absolute paths** (not `~` or relative paths)

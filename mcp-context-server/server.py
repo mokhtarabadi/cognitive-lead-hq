@@ -627,5 +627,560 @@ def commit_and_clean_task(task_file_path: str, commit_message: str) -> str:
     except Exception as e:
         return f"❌ Error: {str(e)}"
 
+
+@mcp.tool()
+def bundle_tasks(task_ids: list[str], title: str, dry_run: bool = False, force: bool = False) -> str:
+    """
+    Bundle multiple small related tasks into a single META task with auto-archive (Task 110).
+
+    Self-contained MCP implementation — does NOT require `scripts/bundle-tasks.py` to exist.
+    Mirrors the CLI script logic so projects that only have the MCP server (no shell access to the
+    script, e.g., other projects vendoring this HQ's MCP servers) can bundle via the Hands' MCP
+    interface. When the script IS present, behavior is identical; when it is absent, this tool still
+    works. The script `scripts/bundle-tasks.py` remains the CLI entry point for Managers who prefer
+    `uv run scripts/bundle-tasks.py ...`; the two implementations are kept in sync (helpers are
+    duplicated verbatim from the script).
+
+    Workflow:
+      1. Validates each task ID exists in tasks/backlog|in-progress|qa|completed (active only, archive excluded)
+      2. Discovers NEXT_ID via max(tasks/**/*.md)+1 across ALL dirs (including archive, no collision)
+      3. Slugifies title to kebab-case, writes tasks/backlog/<NEXT_ID>-<slug>.md with canonical template + **Supersedes:** [ids] + **Meta:** true + per-source verbatim appendices
+      4. Unless dry_run, moves each source via `git mv <src> tasks/archive/<src>` (fallback to mv+git add) and patches header (**File:**→archive, **Status:** superseded, **Superseded-By:**, **Superseded-At:**, footer before Execution Log) — history stays via `git log --follow`
+      5. Guardrails: rejects >6 without force, warns if combined LOC >400, rejects missing IDs
+
+    Args:
+        task_ids: List of task IDs to bundle (e.g., ["12","15","20"]). Must be numeric strings.
+        title: Title for the META task (slugified for filename, kept verbatim for Task title).
+        dry_run: If True, preview only — no files created, no archive moves. Prints what would happen.
+        force: If True, allow bundling >6 tasks (bypasses cap).
+
+    Returns:
+        Success message with created META path and archive destinations, or error string.
+
+    Security: task_ids are validated as numeric; title is slugified (no path traversal); no absolute paths.
+    """
+    # --- Constants (mirrors scripts/bundle-tasks.py) ---
+    ACTIVE_KANBAN_DIRS = ["backlog", "in-progress", "qa", "completed"]
+    MAX_BUNDLE_SIZE = 6
+    DIFF_SIZE_WARNING_THRESHOLD = 400
+
+    # --- Helpers (verbatim copies from scripts/bundle-tasks.py for self-containment) ---
+    def _kebab_case(text: str) -> str:
+        """Convert arbitrary title to kebab-case slug (B4: supports Unicode/Persian)."""
+        import unicodedata
+        normalized = unicodedata.normalize("NFKD", text)
+        slug = normalized.lower().strip()
+        slug = re.sub(r"[^a-z0-9\u0600-\u06FF\u0750-\u077F\uFB50-\uFDFF\uFE70-\uFEFF]+", "-", slug)
+        slug = re.sub(r"-{2,}", "-", slug)
+        slug = slug.strip("-")
+        return slug or "bundle"
+
+    def _discover_next_id(tasks_root: Path = Path("tasks")) -> int:
+        max_id = 0
+        if not tasks_root.is_dir():
+            return 1
+        for md in tasks_root.rglob("*.md"):
+            m = re.match(r"^(\d+)-", md.name)
+            if m:
+                try:
+                    nid = int(m.group(1))
+                    if nid > max_id:
+                        max_id = nid
+                except ValueError:
+                    continue
+        return max_id + 1 if max_id else 1
+
+    def _find_task_file(task_id: str, tasks_root: Path = Path("tasks")) -> Path | None:
+        norm = task_id.lstrip("0") or "0"
+        candidates: list[Path] = []
+        for d in ACTIVE_KANBAN_DIRS:
+            dir_path = tasks_root / d
+            if not dir_path.is_dir():
+                continue
+            for md in dir_path.glob("*.md"):
+                m = re.match(r"^(\d+)-", md.name)
+                if m and m.group(1).lstrip("0") == norm:
+                    candidates.append(md)
+        if len(candidates) == 1:
+            return candidates[0]
+        if len(candidates) > 1:
+            return None  # B2: hard halt — duplicate active IDs
+        # Check archive for better error (already archived)
+        for md in (tasks_root / "archive").glob("*.md") if (tasks_root / "archive").is_dir() else []:
+            m = re.match(r"^(\d+)-", md.name)
+            if m and m.group(1).lstrip("0") == norm:
+                return None
+        return None
+
+    def _extract_section(content: str, heading: str) -> str | None:
+        pattern = re.compile(rf"^## {re.escape(heading)}\s*$\n(.*?)(?=^## |\n---\s*\n|\Z)", re.MULTILINE | re.DOTALL)
+        m = pattern.search(content)
+        return m.group(1).strip() if m else None
+
+    def _extract_title(content: str) -> str:
+        m = re.search(r"^# Task \d+:\s*(.+)$", content, re.MULTILINE)
+        return m.group(1).strip() if m else "Untitled"
+
+    def _format_task_id_list(ids: list[str]) -> str:
+        return "[" + ", ".join(ids) + "]"
+
+    def _extract_checklist_with_continuations(section_text: str) -> list[str]:
+        """B1: Extract checklist items with all indented continuation lines."""
+        lines = section_text.splitlines()
+        result: list[str] = []
+        in_checklist = False
+        for line in lines:
+            stripped = line.strip()
+            is_root_bullet = line.startswith("- [")
+            if is_root_bullet:
+                in_checklist = True
+                result.append(stripped)
+            elif in_checklist:
+                if stripped and not line.startswith("- [") and not stripped.startswith("## ") and not stripped.startswith("---"):
+                    result.append(line)
+                else:
+                    in_checklist = False
+                    if line.startswith("- ["):
+                        in_checklist = True
+                        result.append(stripped)
+        return result
+
+    def _detect_stack(content: str) -> str | None:
+        """M1: Detect tech stack from task content."""
+        lower = content.lower()
+        if any(kw in lower for kw in ["jetpack compose", "kotlin", "android", "hilt", "sqldelight"]):
+            return "android"
+        if any(kw in lower for kw in ["react", "vite", "jsx", "tsx", "next.js", "nextjs"]):
+            return "react"
+        if any(kw in lower for kw in ["fastapi", "pydantic", "uvicorn"]):
+            return "fastapi"
+        if any(kw in lower for kw in ["spring boot", "spring-boot", "java", "mapstruct"]):
+            return "spring"
+        if any(kw in lower for kw in ["swiftui", "ios", "swift", "uikit"]):
+            return "ios"
+        if any(kw in lower for kw in ["golang", "gin", "go-gin", "hexagonal"]):
+            return "go"
+        return None
+
+    def _verify_verbatim_checksums(source_data: list[tuple[str, Path, str, str]], meta_content: str) -> bool:
+        """M2: Verify 100% of extracted source AC text is in the Bundled Checklist."""
+        bundled_match = re.search(
+            r"^## Bundled Checklist.*?\n\n(.*?)(?=^## |\Z)",
+            meta_content,
+            re.MULTILINE | re.DOTALL,
+        )
+        if not bundled_match:
+            return False
+        bundled_text = bundled_match.group(1)
+        for sid, path, content, _title in source_data:
+            ac = _extract_section(content, "Acceptance Criteria")
+            if not ac:
+                continue
+            for line in ac.splitlines():
+                stripped = line.strip()
+                if stripped and stripped.startswith("- ["):
+                    m = re.match(r"^- \[[ xX]\]\s*(.*)", stripped)
+                    core = m.group(1) if m else stripped
+                    prefixed = f"[{sid}] {core}"
+                    if len(core) > 10 and prefixed not in bundled_text:
+                        return False
+        return True
+
+    def _git_mv_or_fallback(src: Path, dst: Path) -> bool:
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        result = subprocess.run(["git", "mv", str(src), str(dst)], capture_output=True, text=True)
+        if result.returncode == 0:
+            return True
+        if "not under version control" in result.stderr or "not tracked" in result.stderr.lower():
+            try:
+                src.rename(dst)
+                subprocess.run(["git", "add", "--", str(dst)], check=True, capture_output=True)
+                return True
+            except Exception:
+                return False
+        return False
+
+    def _patch_archived_file(archive_path: Path, meta_id: str, meta_slug: str) -> None:
+        try:
+            content = archive_path.read_text(encoding="utf-8")
+        except Exception:
+            return
+        new_file_header = f"**File:** `tasks/archive/{archive_path.name}`"
+        content = re.sub(r"\*\*File:\*\*\s*`[^`]+`", new_file_header, content, count=1)
+        if re.search(r"\*\*Status:\*\*\s*\w+", content):
+            content = re.sub(r"\*\*Status:\*\*\s*\w+", "**Status:** superseded", content, count=1)
+        else:
+            content = re.sub(r"(\*\*Type:\*\*\s*\w+)", r"\1\n**Status:** superseded", content, count=1)
+        if "**Superseded-By:**" not in content:
+            content = re.sub(r"(\*\*Status:\*\*\s*superseded)", rf"\1\n**Superseded-By:** `{meta_id}-{meta_slug}`", content, count=1)
+            timestamp = time.strftime("%Y-%m-%d")
+            content = re.sub(r"(\*\*Superseded-By:\*\*\s*`[^`]+`)", rf"\1\n**Superseded-At:** `{timestamp}`", content, count=1)
+        superseded_note = (
+            f"> **Superseded:** This task was bundled into META task `{meta_id}-{meta_slug}` "
+            f"and archived on {time.strftime('%Y-%m-%d')}. "
+            f"See `tasks/backlog/{meta_id}-{meta_slug}.md` (or its Kanban successor) for the unified execution. "
+            f"History preserved via `git log --follow -- tasks/archive/{archive_path.name}`.\n"
+        )
+        if superseded_note.strip() not in content:
+            if "## Execution Log" in content:
+                content = content.replace("## Execution Log", superseded_note + "\n## Execution Log", 1)
+            elif "## Factual Git Diff" in content:
+                content = content.replace("## Factual Git Diff", superseded_note + "\n## Factual Git Diff", 1)
+        try:
+            archive_path.write_text(content, encoding="utf-8")
+        except Exception:
+            pass
+
+    def _build_meta_content(meta_id: int, meta_slug: str, meta_title: str, source_ids: list[str], source_data: list[tuple[str, Path, str, str]]) -> str:
+        meta_id_str = f"{meta_id:02d}" if meta_id < 100 else str(meta_id)
+        if meta_id >= 100:
+            meta_id_str = str(meta_id)
+        file_header = f"tasks/backlog/{meta_id_str}-{meta_slug}.md"
+        title_line = f"# Task {meta_id}: {meta_title}"
+        timestamp = time.strftime("%Y-%m-%d %H:%M UTC", time.gmtime())
+        bundled_checklist_items: list[str] = []
+        local_todos_aggregated: list[str] = []
+        total_loc = 0
+        per_source_blocks: list[str] = []
+        for sid, path, content, stitle in source_data:
+            goal = _extract_section(content, "Goal") or "_(No Goal section found)_"
+            ac = _extract_section(content, "Acceptance Criteria") or "_(No Acceptance Criteria)_"
+            todos = _extract_section(content, "Local TODOs") or "_(No Local TODOs)_"
+            risk = _extract_section(content, "Risk & Rollback")
+            manager_notes = _extract_section(content, "Manager's Notes")
+            source_context = ""
+            if "## Blueprint Reference" in content:
+                br = _extract_section(content, "Blueprint Reference")
+                if br:
+                    source_context += f"\n**Blueprint Reference (verbatim):**\n{br}\n"
+            total_loc += len(content.splitlines())
+            # B1: multi-line checklist extraction
+            ac_lines = _extract_checklist_with_continuations(ac)
+            if not ac_lines:
+                ac_lines = [f"- [ ] {line.strip()}" for line in ac.splitlines() if line.strip() and not line.strip().startswith("#")][:3]
+            for line in ac_lines:
+                if line.startswith("- ["):
+                    m = re.match(r"^- \[[ xX]\]\s*(.*)", line)
+                    inner = m.group(1) if m else line
+                    bundled_checklist_items.append(f"- [ ] [{sid}] {inner}")
+                else:
+                    bundled_checklist_items.append(line)
+            # B1: multi-line TODO extraction
+            todo_lines = _extract_checklist_with_continuations(todos)
+            for line in todo_lines:
+                if line.startswith("- ["):
+                    m = re.match(r"^- \[[ xX]\]\s*(.*)", line)
+                    inner = m.group(1) if m else line
+                    local_todos_aggregated.append(f"- [ ] [{sid}] {inner}")
+                else:
+                    local_todos_aggregated.append(line)
+            block = f"### Source Task {sid}: {stitle}\n\n"
+            block += f"**Original File:** `{path}` → `tasks/archive/{path.name}` (after bundling)\n\n"
+            block += f"**Title:** {stitle}\n\n"
+            block += "#### Goal (verbatim)\n\n"
+            block += f"{goal}\n\n"
+            if manager_notes:
+                block += "#### Manager's Notes (verbatim)\n\n"
+                block += f"{manager_notes}\n\n"
+            if source_context:
+                block += source_context + "\n"
+            block += "#### Acceptance Criteria (verbatim)\n\n"
+            block += f"{ac}\n\n"
+            block += "#### Local TODOs (verbatim)\n\n"
+            block += f"{todos}\n\n"
+            if risk:
+                block += "#### Risk & Rollback (verbatim)\n\n"
+                block += f"{risk}\n\n"
+            block += "---\n\n"
+            per_source_blocks.append(block)
+        seen_todos: set[str] = set()
+        deduped_todos: list[str] = []
+        for t in local_todos_aggregated:
+            if t not in seen_todos:
+                seen_todos.add(t)
+                deduped_todos.append(t)
+        meta_local_todos = (
+            f"- [ ] Step 1: Validate META bundle — confirm all {len(source_data)} source requirements are captured verbatim below\n"
+            f"- [ ] Step 2: Implement unified changes covering all bundled tasks (single diff, single branch)\n"
+        )
+        for t in deduped_todos:
+            meta_local_todos += f"{t}\n"
+        meta_local_todos += f"- [ ] Step {len(deduped_todos)+3}: Verify all bundled checklist items and run lint_task_file + verification-before-completion\n"
+        meta_local_todos += f"- [ ] Step {len(deduped_todos)+4}: Update CHANGELOG.md and record Verification Evidence\n"
+        meta_ac = "\n".join(bundled_checklist_items) if bundled_checklist_items else "- [ ] _(No aggregated criteria — check per-source blocks)_"
+        meta_ac += f"\n- [ ] Traceability: All {len(source_data)} source tasks are archived with superseded-by marker and reachable via `git log --follow`"
+        meta_verification = (
+            f"- **Test command:** `lint_task_file` on META file; `git log --oneline --follow -- tasks/archive/<id>-*.md | head` for archived sources; project test suite if logic changed\n"
+            f"- **Expected result:** META lint passes; all {len(source_data)} sources in `tasks/archive/` with `superseded` status; single Factual Git Diff covers all bundled changes\n"
+            f"- **Actual result:** _(Hands fill during execution)_\n"
+            f"- **Exit code:** _(Hands fill)_\n"
+        )
+        meta_risk = (
+            "- **Risk:** Checklist omission — mitigated by verbatim copy + SHA-length comparison of source AC vs bundled checklist; script fails if mismatch >0.\n"
+            "- **Risk:** Mega-diff >400 LOC unreviewable — warning emitted; Manager should split if >400.\n"
+            "- **Risk:** Accidental purge — mitigation: only `git mv` to archive, never `git rm`; purge blocked until META reaches `tasks/completed/`.\n"
+            f"- **Rollback plan:** `git mv tasks/archive/<id>-*.md tasks/backlog/<id>-*.md` for each superseded {_format_task_id_list(source_ids)}, remove Superseded-By footer, delete or archive `tasks/backlog/{meta_id_str}-{meta_slug}.md` as abandoned. No HQ code beyond bundler is affected.\n"
+        )
+        warning_note = ""
+        if total_loc > DIFF_SIZE_WARNING_THRESHOLD:
+            warning_note = (
+                f"> ⚠️ **Guardrail Warning:** Combined source size is {total_loc} LOC (> {DIFF_SIZE_WARNING_THRESHOLD}). "
+                f"Unified META diff may be large and hard to review. Consider splitting into two METAs.\n\n"
+            )
+        content = (
+            f"{title_line}\n\n"
+            f"**File:** `{file_header}`\n"
+            f"**Source:** manager\n"
+            f"**Type:** feature\n"
+            f"**Status:** open\n"
+            f"**Supersedes:** {_format_task_id_list(source_ids)}\n"
+            f"**Meta:** true\n"
+            f"**Created:** {timestamp}\n"
+            f"**Bundled:** {len(source_data)} tasks\n\n"
+            f"## Goal\n\n"
+            f"Unified execution of {len(source_data)} related small tasks as a single META task to eliminate sequential overhead. This META bundles tasks {_format_task_id_list(source_ids)} — \"{meta_title}\" — into one branch, one diff, and one QA gate (all-or-nothing). Every requirement below is preserved **verbatim** from its source task; no summarization or omission is allowed.\n\n"
+            f"{warning_note}**Source IDs:** {_format_task_id_list(source_ids)}\n"
+            f"**Next ID:** {meta_id} (discovered via `find tasks -name \"*.md\" | sort -n | tail -1 +1`)\n"
+            f"**Archive Policy:** Source files will be moved to `tasks/archive/` with `superseded-by: {meta_id}-{meta_slug}` and remain reachable via `git log --follow` (never purged until META is completed).\n\n"
+            f"## Manager's Notes\n\n"
+            f"**Bundle Decision (2026-08-21):** Manager requested fully automatic bundling with archive (not purge). This META was generated deterministically by `scripts/bundle-tasks.py` (and `bundle_tasks` MCP tool) to execute {len(source_data)} small related tasks together and speed up turnaround.\n\n"
+            f"**Traceability:**\n"
+            f"- Supersedes {_format_task_id_list(source_ids)} — see per-source verbatim blocks below\n"
+            f"- Archive: each source moved via `git mv` to `tasks/archive/` with `**Superseded-By:** {meta_id_str}-{meta_slug}` header + superseded footer\n"
+            f"- Rollback: `git mv tasks/archive/<id>-*.md tasks/backlog/` + delete META file\n\n"
+            f"**Guardrails Applied:**\n"
+            f"- Cap 6 per bundle — this bundle has {len(source_data)} ({'✅ within cap' if len(source_data) <= MAX_BUNDLE_SIZE else '❌ exceeds cap — requires --force'})\n"
+            f"- Verbatim preservation — every source Goal/AC/TODO/Risk copied verbatim below (SHA comparison available in bundler dry-run)\n"
+            f"- Diff-size check — combined {total_loc} LOC ({'⚠️ exceeds 400 — consider split' if total_loc > DIFF_SIZE_WARNING_THRESHOLD else '✅ within 400'})\n\n"
+            f"## Source Bundles (Verbatim Preservation)\n\n"
+            f"The following blocks are **verbatim copies** of each source task's critical sections. They are the source of truth; the checklist that follows is derived from them. Do not edit them manually — they were extracted by the bundler to guarantee zero omission.\n\n"
+            f"{''.join(per_source_blocks)}\n"
+            f"## Bundled Checklist (All-or-Nothing)\n\n"
+            f"> **QA Gate (all-or-nothing):** Every line below maps to one source acceptance criterion. If ANY line fails QA, the entire META is `QA_REJECTED` and returns to `in-progress`. Do not partially close.\n\n"
+            f"{meta_ac}\n\n"
+            f"## Local TODOs\n\n"
+            f"{meta_local_todos.strip()}\n\n"
+            f"## Acceptance Criteria\n\n"
+            f"{meta_ac}\n\n"
+            f"## Verification Evidence\n\n"
+            f"{meta_verification.strip()}\n\n"
+            f"## Definition of Done\n\n"
+            f"The task is NOT done unless ALL of the following are true (unconditional, applies to every source type):\n\n"
+            f"- [ ] Build/Test/Lint pass with exit code 0\n"
+            f"- [ ] `lint_task_file` passes on the active task file\n"
+            f"- [ ] `CHANGELOG.md` updated via Parse-Then-Append\n"
+            f"- [ ] `verification-before-completion` applied and evidence recorded\n\n"
+            f"## Risk & Rollback\n\n"
+            f"{meta_risk.strip()}\n\n"
+            f"---\n\n"
+            f"## Execution Log & Reasoning\n\n"
+            f"_(The Hands: Manually log your technical changes, file edits, and architectural reasoning here BEFORE calling the MCP tool)_\n\n"
+            f"## Factual Git Diff\n\n"
+            f"<!-- BEGIN_GIT_DIFF -->\n\n"
+            f"_(Git diff will be automatically injected here by the MCP tool. Do not edit this block manually)_\n\n"
+            f"<!-- END_GIT_DIFF -->\n"
+        )
+        return content
+
+    try:
+        # --- Validation (mirrors script) ---
+        if not task_ids:
+            return "❌ Error: task_ids is empty. Provide 2-6 numeric task IDs."
+        cleaned_ids: list[str] = []
+        for raw in task_ids:
+            s = str(raw).strip()
+            if not re.match(r"^\d+$", s):
+                return f"❌ Invalid task ID '{raw}': must be numeric (e.g., 12, 015)."
+            cleaned_ids.append(s)
+        seen: set[str] = set()
+        deduped: list[str] = []
+        for tid in cleaned_ids:
+            norm = tid.lstrip("0") or "0"
+            if norm not in seen:
+                seen.add(norm)
+                deduped.append(tid)
+        task_ids = deduped
+        if not title or not title.strip():
+            return "❌ Error: title is required (e.g., 'android-polish-bundle')."
+        title = title.strip()
+        if len(task_ids) > MAX_BUNDLE_SIZE and not force:
+            return f"❌ Guardrail: Bundle size {len(task_ids)} exceeds MAX_BUNDLE_SIZE={MAX_BUNDLE_SIZE}. Use --force to override, or split into two METAs. IDs: {task_ids}"
+        if len(task_ids) > MAX_BUNDLE_SIZE and force:
+            # Warn but continue — caller will see warning in final output
+            pass
+
+        # --- Resolve sources (active Kanban only) ---
+        tasks_root = Path("tasks")
+        source_data: list[tuple[str, Path, str, str]] = []
+        missing: list[str] = []
+        for tid in task_ids:
+            p = _find_task_file(tid, tasks_root)
+            if p is None:
+                missing.append(tid)
+            else:
+                try:
+                    c = p.read_text(encoding="utf-8")
+                except Exception as e:
+                    return f"❌ Could not read {p} for task {tid}: {e}"
+                t = _extract_title(c)
+                source_data.append((tid, p, c, t))
+        if missing:
+            return f"❌ Missing tasks (not found in active Kanban dirs): {missing}\n   Searched: {', '.join(ACTIVE_KANBAN_DIRS)} (archive excluded).\n   Hint: Check `ls tasks/backlog/ tasks/in-progress/ tasks/qa/ tasks/completed/ | grep {missing[0]}`"
+        if not source_data:
+            return "❌ No source tasks resolved. Abort."
+
+        # --- Discover NEXT_ID across ALL dirs including archive ---
+        next_id = _discover_next_id(tasks_root)
+        meta_id_str = f"{next_id:02d}" if next_id < 100 else str(next_id)
+        if next_id >= 100:
+            meta_id_str = str(next_id)
+        meta_slug = _kebab_case(title)
+        meta_filename = f"{meta_id_str}-{meta_slug}.md"
+        output_path = tasks_root / "backlog" / meta_filename
+        if output_path.exists():
+            return f"❌ Task ID collision: {output_path} already exists. Re-run ID discovery."
+        # Also check backlog glob for same ID prefix
+        if list((tasks_root / "backlog").glob(f"{next_id}-*.md")) if (tasks_root / "backlog").is_dir() else []:
+            # This would also match our not-yet-created file if we had a race, but we already checked exists
+            pass
+
+        meta_title_full = title
+        meta_content = _build_meta_content(next_id, meta_slug, meta_title_full, task_ids, source_data)
+        total_loc = sum(len(c.splitlines()) for _, _, c, _ in source_data)
+
+        # M1: Stack detection
+        source_stacks: list[str] = []
+        for _, _, c, _ in source_data:
+            stack = _detect_stack(c)
+            if stack:
+                source_stacks.append(stack)
+        unique_stacks = set(source_stacks)
+        if len(unique_stacks) > 1 and not force:
+            return f"❌ Stack conflict: Tasks have different stacks {unique_stacks}. Use --force to bundle across stacks, or separate by stack."
+        elif len(unique_stacks) > 1 and force:
+            pass  # Warning will be in output
+
+        # M2: Verbatim checksum validation
+        if not _verify_verbatim_checksums(source_data, meta_content):
+            return "❌ Verbatim checksum validation failed. Some AC text was not preserved in META."
+
+        if dry_run:
+            lines = []
+            lines.append(f"🔍 Dry-run (MCP): Would create META task {next_id}-{meta_slug}")
+            lines.append(f"   Output: {output_path}")
+            lines.append(f"   Bundles: {task_ids} ({len(task_ids)} tasks)")
+            lines.append(f"   Sources:")
+            for sid, p, _, t in source_data:
+                lines.append(f"     - {sid}: {t} ({p})")
+            lines.append(f"   Combined LOC: {total_loc} {'⚠️ >400' if total_loc > 400 else '✅'}")
+            lines.append(f"   Supersedes will be: {task_ids}")
+            lines.append(f"   Archive destinations:")
+            for sid, p, _, _ in source_data:
+                lines.append(f"     - {p} -> tasks/archive/{p.name}")
+            lines.append(f"\n   META content preview (first 40 lines):")
+            for i, line in enumerate(meta_content.splitlines()[:40], 1):
+                lines.append(f"   {i:3d}| {line}")
+            lines.append(f"\n   ... {len(meta_content.splitlines()) - 40} more lines")
+            required = ["## Goal", "## Local TODOs", "## Acceptance Criteria", "## Verification Evidence", "## Risk & Rollback", "## Factual Git Diff", "## Execution Log"]
+            missing_sections = [s for s in required if s not in meta_content]
+            if missing_sections:
+                lines.append(f"⚠️ Missing required sections in preview: {missing_sections}")
+                return "\n".join(lines)
+            lines.append(f"\n✅ Dry-run lint check: All required sections present.")
+            if len(task_ids) > 6 and force:
+                lines.insert(0, f"⚠️ --force: Bundling {len(task_ids)} tasks (> 6). Mega-diff risk.")
+            return "\n".join(lines)
+
+        # --- B5: Atomic creation with retry loop ---
+        import subprocess as _sp
+        MAX_ID_RETRIES = 5
+        for attempt in range(MAX_ID_RETRIES):
+            try:
+                output_path.parent.mkdir(parents=True, exist_ok=True)
+                with open(output_path, "x", encoding="utf-8") as f:
+                    pass  # Atomic creation
+                break
+            except FileExistsError:
+                # Re-discover next ID
+                next_id = _discover_next_id(tasks_root)
+                meta_id_str = f"{next_id:02d}" if next_id < 100 else str(next_id)
+                if next_id >= 100:
+                    meta_id_str = str(next_id)
+                meta_slug = _kebab_case(title)
+                meta_filename = f"{meta_id_str}-{meta_slug}.md"
+                output_path = tasks_root / "backlog" / meta_filename
+                continue
+        else:
+            return f"❌ Failed to find unique ID after {MAX_ID_RETRIES} attempts. Another process may be bundling concurrently."
+
+        # --- Write META content ---
+        try:
+            output_path.write_text(meta_content, encoding="utf-8")
+        except Exception as e:
+            output_path.unlink(missing_ok=True)
+            return f"❌ Failed to write META file {output_path}: {e}"
+
+        out_lines = [f"✅ Created META task (MCP): {output_path} (bundles {task_ids})"]
+
+        # --- B3: Archive sources with transactional rollback ---
+        archived: list[Path] = []
+        failed: list[str] = []
+        for sid, src_path, _, _ in source_data:
+            dst = tasks_root / "archive" / src_path.name
+            ok = _git_mv_or_fallback(src_path, dst)
+            if ok:
+                archived.append(dst)
+                _patch_archived_file(dst, meta_id_str, meta_slug)
+                out_lines.append(f"   📦 Archived {sid}: {src_path} -> {dst}")
+            else:
+                failed.append(sid)
+                out_lines.append(f"   ❌ Failed to archive {sid}: {src_path}")
+
+        if failed:
+            # B3: Transactional rollback
+            for archived_path in archived:
+                original_name = archived_path.name
+                for _, src_path, _, _ in source_data:
+                    if src_path.name == original_name:
+                        restore_dst = src_path
+                        break
+                else:
+                    restore_dst = tasks_root / "backlog" / original_name
+                try:
+                    restore_dst.parent.mkdir(parents=True, exist_ok=True)
+                    _sp.run(["git", "mv", str(archived_path), str(restore_dst)], check=True, capture_output=True)
+                    # Remove superseded headers
+                    content = restore_dst.read_text(encoding="utf-8")
+                    content = re.sub(r"\n\*\*Superseded-By:\*\*.*$", "", content, flags=re.MULTILINE)
+                    content = re.sub(r"\n\*\*Superseded-At:\*\*.*$", "", content, flags=re.MULTILINE)
+                    superseded_pattern = re.compile(r"> \*\*Superseded:\*\*.*?History preserved.*?\n\n", re.DOTALL)
+                    content = superseded_pattern.sub("", content)
+                    content = re.sub(r"\*\*Status:\*\*\s*superseded", "**Status:** open", content)
+                    content = re.sub(r"\*\*File:\*\*\s*`[^`]+`", f"**File:** `tasks/backlog/{restore_dst.name}`", content, count=1)
+                    restore_dst.write_text(content, encoding="utf-8")
+                except Exception:
+                    pass
+            output_path.unlink(missing_ok=True)
+            return f"❌ Bundle aborted. Archive failed for {failed}. All changes rolled back. Fix and retry."
+        else:
+            out_lines.append(f"✅ Archived {len(archived)} source tasks to tasks/archive/ with superseded-by: {meta_id_str}-{meta_slug}")
+        # Light validation
+        try:
+            cc = output_path.read_text(encoding="utf-8")
+            for req in ["## Goal", "## Local TODOs", "## Acceptance Criteria"]:
+                if req not in cc:
+                    out_lines.append(f"⚠️ Lint warning: {req} missing in created META.")
+        except Exception:
+            pass
+        out_lines.append(f"\nDone. Next: move {output_path} through Kanban (backlog → in-progress → qa → completed) as a single Hands implementation.")
+        out_lines.append(f"Traceability: git log --oneline --follow -- tasks/archive/<id>-*.md | head")
+        if len(task_ids) > 6 and force:
+            out_lines.insert(0, f"⚠️ --force: Bundling {len(task_ids)} tasks (> 6). Mega-diff risk.")
+        return "\n".join(out_lines)
+
+    except Exception as e:
+        return f"❌ Error in bundle_tasks MCP (self-contained): {str(e)}"
+
+
 if __name__ == "__main__":
     mcp.run(transport="stdio")

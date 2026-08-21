@@ -66,6 +66,23 @@ You MUST strictly adhere to these exact paths. Do not create duplicates elsewher
 - **Agent Skills:** `.opencode/skills/<skill-name>/SKILL.md` (Local workspace)
   -> **Freebuff equivalents:** Agent Skills live in `.agents/skills/<skill-name>/SKILL.md` (project) / `~/.agents/skills/` (global); global rules live in `~/.AGENTS.md` (source: `freebuff/AGENTS.global.md`).
 - **Active Tasks:** `tasks/backlog/<task-number>-<name>.md` (backlog), `tasks/in-progress/`, `tasks/qa/`, `tasks/completed/`, `tasks/archive/`
+- **Bundle Script:** `scripts/bundle-tasks.py` — deterministic meta-task bundler for `task-generator` (Task 110)
+
+## 🛑 META-TASK BUNDLE LIFECYCLE (Task 110)
+
+A meta-task bundles 2–6 small related tasks into one META for unified execution. This is a **fully automatic, script-driven** workflow (never manual copy-paste).
+
+1. **Creation:** Manager runs `uv run scripts/bundle-tasks.py <id> <id> ... --title "<title>" [--dry-run]`. The script:
+   - discovers `NEXT_ID` via `find tasks -name "*.md" | grep -Eo '^[0-9]+' | sort -n | tail -1 +1` (ALL dirs including archive, no collision)
+   - validates each ID exists in `tasks/backlog|in-progress|qa|completed` (active only, archive excluded), rejects >6 without `--force`, warns if combined LOC >400
+   - slugifies `--title` to kebab-case, writes `tasks/backlog/<NEXT_ID>-<slug>.md` with canonical template + `**Supersedes:** [ids]` + `**Meta:** true` + per-source verbatim appendices (`### Source Task XX: Title` with Goal/AC/TODO/Risk copied verbatim, zero omission)
+   - generates `## Bundled Checklist (All-or-Nothing)` — every source AC line prefixed `[XX]`, single QA gate
+2. **Auto-Archive:** unless `--dry-run`, each source file is moved via `git mv <src> tasks/archive/<src>` (fallback to filesystem `mv` + `git add` for untracked) and patched:
+   - `**File:**` → `tasks/archive/<file>`, `**Status:** superseded`, `**Superseded-By:** <META_ID>-<slug>`, `**Superseded-At:** YYYY-MM-DD`, superseded footer before `## Execution Log`
+   - History stays reachable: `git log --oneline --follow -- tasks/archive/<file>` — never `git rm` until META reaches `tasks/completed/`
+   - Rollback: `git mv tasks/archive/<id>-*.md tasks/backlog/` + delete META
+3. **Kanban:** META follows the normal lifecycle `tasks/backlog/<META>` → `tasks/in-progress/<META>` → `tasks/qa/<META>` → `tasks/completed/<META>` with one injected `Factual Git Diff`. QA is all-or-nothing: if ANY bundled criterion fails, the entire META is `QA_REJECTED`.
+4. **Verification:** `uv run scripts/bundle-tasks.py --dry-run` for preview, `lint_task_file` on META, `git log --follow` on archived sources
 
 ## 🛑 SKILL LOADING RULES
 

@@ -36,6 +36,7 @@
     "list_namespaces": "allow",
     "get_directory_tree": "allow",
     "read_source_files": "allow",
+    "bundle_tasks": "allow",
     "external_directory": {
       "*": "ask",
       "/tmp/**": "allow"

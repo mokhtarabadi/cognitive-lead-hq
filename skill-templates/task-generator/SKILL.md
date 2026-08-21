@@ -221,3 +221,67 @@ _(Git diff will be automatically injected here by the MCP tool. Do not edit this
 ```
 
 5. **Halt and Handover:** DO NOT execute the task. Print the exact message: "✅ The task file has been created at `tasks/backlog/[filename]` and is ready to be sent to the Orchestrator." and STOP.
+
+## Bundle Workflow (Meta-Tasks) — Task 110
+
+Use this when the Manager has 4–6 small related tasks that should be executed together instead of sequentially. The bundler preserves every requirement verbatim and archives the sources.
+
+### When to Use
+
+- Manager says: "bundle tasks 1, 2, 5, 10, 15, 20" or "create a meta-task from 12 15 20"
+- Tasks are small, same stack/domain (e.g., all Android polish), and would be inefficient to run one-by-one
+- Goal is one branch, one `Factual Git Diff`, one QA gate (all-or-nothing)
+
+### Canonical Command
+
+```bash
+uv run scripts/bundle-tasks.py <id> <id> ... --title "<kebab-or-human-title>" [--dry-run] [--force]
+```
+
+Examples:
+
+```bash
+uv run scripts/bundle-tasks.py 12 15 20 --title "android-polish-bundle"
+uv run scripts/bundle-tasks.py 12 15 20 --title "android-polish-bundle" --dry-run
+uv run scripts/bundle-tasks.py 1 2 3 4 5 6 7 --title "mega-bundle" --force  # bypass 6-cap
+```
+
+### What the Script Does (Deterministic, No LLM)
+
+1. **Validate IDs:** searches `tasks/backlog/ tasks/in-progress/ tasks/qa/ tasks/completed/` (active only, archive excluded) for each `<id>-*.md`. HALT if any missing or if archive already contains the ID (already superseded). Rejects non-numeric IDs.
+2. **Next-ID Discovery:** `find tasks -type f -name "*.md" | grep -Eo '^[0-9]+' | sort -n | tail -1 +1` across ALL dirs (including archive) — guarantees no collision. Zero-padded (`02d` for <100, raw for >=100).
+3. **Slug:** kebab-case the `--title` (`android Polish_Bundle` → `android-polish-bundle`). Output file: `tasks/backlog/<NEXT_ID>-<slug>.md`.
+4. **Verbatim Extraction:** for each source, extracts `## Goal`, `## Manager's Notes`/`## Blueprint Reference`, `## Acceptance Criteria`, `## Local TODOs`, `## Risk & Rollback` verbatim (regex until next `## `). No summarization.
+5. **Generate META File:** canonical template + extra metadata:
+   - `**Supersedes:** [12, 15, 20]`
+   - `**Meta:** true` (flag for tooling; `**Type:**` stays `feature` for lint compat, `meta` is also allowed)
+   - Per-source appendix: `### Source Task XX: Title` with verbatim blocks
+   - `## Bundled Checklist (All-or-Nothing)` — every source AC line prefixed `[XX]`, single QA gate
+   - `## Local TODOs` aggregates all source TODOs prefixed `[XX]` plus bundle-specific steps
+   - Guardrail notes: diff-size warning if combined LOC >400
+6. **Auto-Archive:** unless `--dry-run`, runs `git mv <source> tasks/archive/<source>` (fallback to `mv` + `git add` for untracked) and patches the archived file:
+   - `**File:**` → `tasks/archive/<file>`
+   - `**Status:** superseded`
+   - `**Superseded-By:** <META_ID>-<slug>` + `**Superseded-At:** YYYY-MM-DD`
+   - Superseded footer before `## Execution Log` with `git log --follow` hint
+   History remains reachable: `git log --oneline --follow -- tasks/archive/<file>`
+
+### Guardrails
+
+- **Cap:** `MAX_BUNDLE_SIZE=6` — rejects >6 without `--force` (mega-diff prevention)
+- **Diff-size:** warns if combined source LOC >400 ("consider split")
+- **Duplicate/Collision:** `ls tasks/backlog/<NEXT_ID>-*.md` check before write; HALT if exists. Duplicate active IDs HALT.
+- **Archive-Only:** `git mv` to `tasks/archive/` — never `git rm` / purge until META reaches `tasks/completed/`; rollback is `git mv tasks/archive/<id>-*.md tasks/backlog/`
+
+### QA & Completion
+
+- META follows normal Kanban: `tasks/backlog/<META>` → `tasks/in-progress/<META>` → `tasks/qa/<META>` → `tasks/completed/<META>` with a single injected diff
+- QA is all-or-nothing: if ANY bundled criterion fails, entire META is `QA_REJECTED`
+
+### Verification
+
+```bash
+uv run scripts/bundle-tasks.py 12 15 20 --title "test" --dry-run
+lint_task_file tasks/backlog/<META_FILE>
+git log --oneline --follow -- tasks/archive/12-*.md | head
+```
