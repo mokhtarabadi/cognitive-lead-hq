@@ -90,11 +90,14 @@ For languages not listed above, the tool gracefully falls back to regex-based ex
 ### Example Usage
 
 ```json
-// Extract signatures from a single file
+// Extract signatures from a single file — result is saved to context-reports/signatures_report_<timestamp>_<uuid>.md
 custom_context_extract_signatures({ "file_path": "src/services/user_service.py" })
-// Returns: class UserService:, def get_user_by_id(id: int) -> User:, def create_user(data: CreateUserDTO) -> User:
+// Returns: "✅ Success: Signatures extracted from `src/services/user_service.py`.
+//          📁 Generated Report: `context-reports/signatures_report_20260821_104224_cc209479.md`"
 
-// Extract signatures from multiple files
-custom_context_extract_signatures({ "file_path": "src/components/Button.tsx" })
-// Returns: interface ButtonProps:, const Button: React.FC<ButtonProps> =>, function handleClick():
+// The generated report contains the extracted signatures, e.g.:
+// ### Signatures in src/services/user_service.py
+// class UserService:
+// def get_user_by_id(id: int) -> User:
+// def create_user(data: CreateUserDTO) -> User:
 ```

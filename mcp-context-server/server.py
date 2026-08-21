@@ -439,34 +439,68 @@ def create_tree_report(target_path: str = ".") -> str:
 
 @mcp.tool()
 def extract_signatures(file_path: str) -> str:
-    """Extracts structural signatures (classes, functions, methods) from source files using tree-sitter AST. Falls back to regex when no tree-sitter grammar is available for the language."""
-    path = Path(file_path)
-    if not path.is_file():
-        return f"Error: File not found: {file_path}"
-
-    # Try tree-sitter AST extraction first
-    ts_result = _extract_via_tree_sitter(path)
-    if ts_result:
-        return ts_result
-
-    # Fallback to regex
+    """Extracts structural signatures (classes, functions, methods) from source files using tree-sitter AST. Falls back to regex when no tree-sitter grammar is available for the language. Saves the result to a Markdown file under context-reports/ and returns the report file path."""
+    # Master try/except: ensure extract_signatures never crashes the MCP server
     try:
-        with open(file_path, 'r', encoding='utf-8') as f:
-            content = f.read()
+        # Safeguard: Append context-reports/ to .gitignore if not present
+        _ensure_context_reports_ignored()
 
-        # Match class, function, def, interface exports
-        pattern = re.compile(r'^(?:export\s+)?(?:default\s+)?(?:class|func(?:tion)?|def|interface|type)\s+\w+.*$', re.MULTILINE)
-        matches = pattern.findall(content)
+        path = Path(file_path)
+        if not path.is_file():
+            return f"Error: File not found: {file_path}"
 
-        # Match const/let arrow functions
-        arrow_pattern = re.compile(r'^(?:export\s+)?(?:const|let)\s+\w+\s*=\s*(?:async\s*)?(?:\([^)]*\)|[^=]*)\s*=>.*$', re.MULTILINE)
-        arrow_matches = arrow_pattern.findall(content)
+        result_content = None
 
-        all_matches = matches + arrow_matches
-        if not all_matches:
-            return f"No structural signatures found in {file_path}."
+        # Try tree-sitter AST extraction first (wrapped — fall back to regex on any failure)
+        try:
+            ts_result = _extract_via_tree_sitter(path)
+            if ts_result:
+                result_content = ts_result
+        except Exception as ts_err:
+            # Tree-sitter failed (missing grammar, parse error, etc.) — proceed to regex
+            pass
 
-        return f"### Signatures in {file_path}\n" + "\n".join(all_matches)
+        # Fallback to regex if tree-sitter did not produce results
+        if result_content is None:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+
+            # Match class, function, def, interface, type — with access modifiers
+            pattern = re.compile(
+                r'^(?:\s*(?:export|default|public|private|protected|internal|pub|static|abstract|final|override|inline|open|suspend)\s+)*'
+                r'(?:class|struct|enum|trait|impl|interface|type|def|fun|func(?:tion)?)\s+\w+.*$',
+                re.MULTILINE
+            )
+            matches = pattern.findall(content)
+
+            # Match const/let arrow functions
+            arrow_pattern = re.compile(r'^(?:export\s+)?(?:const|let)\s+\w+\s*=\s*(?:async\s*)?(?:\([^)]*\)|[^=]*)\s*=>.*$', re.MULTILINE)
+            arrow_matches = arrow_pattern.findall(content)
+
+            all_matches = matches + arrow_matches
+            if not all_matches:
+                return f"No structural signatures found in {file_path}."
+
+            result_content = f"### Signatures in {file_path}\n" + "\n".join(all_matches)
+
+        # Ensure output directory exists
+        report_dir = Path("context-reports")
+        report_dir.mkdir(exist_ok=True)
+
+        # Generate timestamped filename with UUID suffix (mirrors read_source_files / create_tree_report)
+        timestamp = time.strftime("%Y%m%d_%H%M%S")
+        unique = uuid.uuid4().hex[:8]
+        report_file = report_dir / f"signatures_report_{timestamp}_{unique}.md"
+
+        # Write to file
+        with open(report_file, "w", encoding="utf-8") as f:
+            f.write(result_content)
+
+        return (
+            f"✅ Success: Signatures extracted from `{file_path}`.\n"
+            f"📁 Generated Report: `{report_file}`\n\n"
+            f"Manager: You can now open `{report_file}` in your local editor to view the extracted signatures or copy/paste it directly for the AI."
+        )
     except Exception as e:
         return f"Error extracting signatures from {file_path}: {str(e)}"
 
