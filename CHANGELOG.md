@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [8.5.0] - 2026-08-20
+
 ### Added
 
 - **Prompt Composer Web Tool** — new standalone HTML tool at `tools/prompt-composer/index.html` that automates the Brain↔Hands copy-paste workflow. Fetches the system prompt from GitHub, provides preset Manager commands, allows custom notes and task file pasting, generates structured Markdown output, and copies to clipboard. Deployed to GitHub Pages via `.github/workflows/deploy-prompt-composer.yml`. `system-prompt.md` version unchanged.
