@@ -49,12 +49,15 @@ class LLMRouter:
 
     def _build_system_context(self, persona: str = "architect") -> str:
         parts = []
-        if self.system_prompt:
-            parts.append(f"# System Prompt\n\n{self.system_prompt[:2000]}")
+        # Send FULL AGENTS.md and conventions — they're the project rules
         if self.agents_md:
-            parts.append(f"# Project Rules\n\n{self.agents_md[:1500]}")
+            parts.append(f"# Project Rules (AGENTS.md)\n\n{self.agents_md}")
         if self.conventions:
-            parts.append(f"# Conventions\n\n{self.conventions[:1000]}")
+            parts.append(f"# Conventions\n\n{self.conventions}")
+        # System prompt: send first 10k chars (role + manager profile + key rules)
+        # The full 75k is for the Brain, not for daemon LLM calls
+        if self.system_prompt:
+            parts.append(f"# System Context\n\n{self.system_prompt[:10000]}")
 
         personas = {
             "architect": "You are the Architect. Generate a detailed implementation plan with specific file changes, functions, and acceptance criteria. Output a <hands_implementation_task> XML block.",
