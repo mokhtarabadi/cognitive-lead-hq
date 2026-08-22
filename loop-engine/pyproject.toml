@@ -1,0 +1,20 @@
+[project]
+name = "cognitive-loop-engine"
+version = "0.1.0"
+description = "Automated Brain↔Hands orchestration daemon for Cognitive Lead AI HQ"
+requires-python = ">=3.12"
+dependencies = [
+    "pydantic>=2.0",
+    "litellm>=1.0",
+    "watchdog>=4.0",
+    "python-telegram-bot>=21.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

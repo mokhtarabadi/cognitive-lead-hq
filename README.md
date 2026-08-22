@@ -103,6 +103,52 @@ The repository includes a standalone web tool at `tools/prompt-composer/index.ht
 
 ---
 
+## Cognitive Loop Engine
+
+The **Cognitive Loop Engine** is a local orchestration daemon that eliminates the manual copy-paste workflow between the Orchestrator (Brain) and OpenCode (Hands). It routes tasks to LLM APIs, invokes execution programmatically, and maintains Manager approval gates via Telegram.
+
+### What It Does
+
+```
+Manager creates task → Daemon detects → AI plans → Telegram approval →
+OpenCode executes → QA reviews → Telegram closure → Done
+```
+
+### Quick Start
+
+```bash
+# 1. Install dependencies
+cd loop-engine
+uv venv .venv
+source .venv/bin/activate
+uv pip install pydantic litellm watchdog python-telegram-bot
+
+# 2. Configure
+cp ../.env.example ../.env
+# Edit .env with your API keys
+
+# 3. Start
+python daemon.py
+```
+
+### Features
+
+- **Category-based model routing** — quick→kimi, deep→gpt-5.6, visual→opus-5
+- **Telegram approval gateway** — Inline keyboard Approve/Reject
+- **Auto-continue** — Goal Plugin handles idle detection and continuation
+- **Evidence-bound QA** — No evidence = no commit
+- **SQLite state machine** — Crash recovery, task tracking
+- **Multi-project support** — One bot, Topics per project
+
+### Documentation
+
+- [Architecture Overview](docs/loop-engine/README.md)
+- [Setup Guide](docs/loop-engine/setup.md)
+- [Configuration Reference](docs/loop-engine/configuration.md)
+- [Multi-Project Guide](docs/loop-engine/multi-project.md)
+
+---
+
 ## Repository Structure
 
 ```
@@ -129,6 +175,17 @@ The repository includes a standalone web tool at `tools/prompt-composer/index.ht
 │   └── server.py                       # FastMCP server for task file linting
 ├── mcp-memory-server/
 │   └── server.py                       # FastMCP server for persistent project memory
+├── loop-engine/                         # Cognitive Loop Engine daemon
+│   ├── daemon.py                        # Main entry point
+│   ├── models.py                        # Pydantic config validation
+│   ├── state.py                         # SQLite state machine
+│   ├── watcher.py                       # Kanban filesystem observer
+│   ├── router.py                        # LLM category routing
+│   ├── executor.py                      # Goal Plugin delegation
+│   ├── gateway.py                       # Telegram approval gateway
+│   ├── qa_engine.py                     # Evidence-bound QA
+│   ├── loop-engine.jsonc                # Configuration file
+│   └── pyproject.toml                   # Python dependencies
 ├── prompts/                            # System prompt source tree (fragments + shared partials)
 │   ├── README.md                       # Authoring workflow guide
 │   ├── manifest.txt                    # Ordered fragment list (assembly order)

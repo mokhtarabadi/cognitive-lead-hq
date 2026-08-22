@@ -1,0 +1,59 @@
+{
+  // Cognitive Loop Engine Configuration
+  // API keys are loaded from environment variables (never stored here)
+
+  "default_provider": "gemini/gemini-2.5-flash",
+
+  "categories": {
+    "quick": {
+      "models": ["kimi/kimi-k3"],
+      "description": "Single-file changes, typos, quick fixes"
+    },
+    "deep": {
+      "models": ["openai/gpt-5.6-sol", "gemini/gemini-2.5-pro"],
+      "reasoning": "medium",
+      "description": "Autonomous research + execution"
+    },
+    "visual": {
+      "models": ["anthropic/claude-opus-5", "kimi/kimi-k3"],
+      "reasoning": "max",
+      "description": "Frontend, UI/UX, design"
+    },
+    "unspecified": {
+      "models": ["gemini/gemini-2.5-flash", "kimi/kimi-k3"],
+      "description": "Default fallback"
+    }
+  },
+
+  "provider_concurrency": {
+    "anthropic": 3,
+    "openai": 3,
+    "opencode": 10,
+    "kimi": 5
+  },
+
+  "max_parallel_tasks": 1,
+
+  "idle": {
+    "thinking_timeout_seconds": 60,
+    "executing_timeout_seconds": 900,
+    "max_retries": 5,
+    "no_progress_threshold": 50,
+    "no_progress_turns_before_pause": 2,
+    "min_delay_seconds": 2.0
+  },
+
+  "approval": {
+    "bot_token_env": "TELEGRAM_BOT_TOKEN",
+    "chat_id": 0,
+    "timeout_seconds": 3600
+  },
+
+  "max_qa_retries": 3,
+  "evidence_dir": "loop-engine/evidence",
+
+  "system_prompt_path": "system-prompt.md",
+  "tasks_dir": "tasks",
+  "agmd_path": "AGENTS.md",
+  "conventions_path": "docs/conventions.md"
+}
