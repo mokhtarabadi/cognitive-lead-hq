@@ -150,8 +150,8 @@ session (see §5).
 
 | #   | Component                                                       | Install location     | Status                                                                                                           |
 | --- | --------------------------------------------------------------- | -------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| 1   | **MCP servers** (`custom_context`, `project_memory`, `lint`)    | `~/.agents/mcp.json` | ✅ FULL                                                                                                          |
-| 2   | **Agent Skills** (all 29 from `skill-templates/`)               | `~/.agents/skills/`  | ✅ FULL                                                                                                          |
+| 1   | **MCP servers** (`custom_context`, `project_memory`, `lint`, `blowsh`, `telegram`) | `~/.agents/mcp.json` | ✅ FULL — 5 servers (core 3 + blowsh Docker + telegram Telethon) |
+| 2   | **Agent Skills** (all 30 from `skill-templates/`)               | `~/.agents/skills/`  | ✅ FULL                                                                                                          |
 | 3   | **Custom agents** (`cognitive-executor`, `cognitive-discovery`) | `~/.agents/*.ts`     | ✅ FULL (REPO-LEVEL) — schema-validated v1.2.0; ❌ not spawnable on the free tier (paid tier required, verified) |
 | 4   | **Global rules** ("The Hands")                                  | `~/.AGENTS.md`       | ✅ FULL                                                                                                          |
 | 5   | `system-prompt.md` (Orchestrator Brain)                         | — (manual)           | 📄 MANUAL — runtime-agnostic                                                                                     |
@@ -160,23 +160,24 @@ session (see §5).
 
 ### 3.1 MCP servers (`~/.agents/mcp.json`) — ✅ FULL
 
-All three Python MCP servers from this repo are wired into Freebuff's global `mcp.json` with **absolute
-paths** (matching the OpenCode global install under `~/.config/opencode/`):
+All five MCP servers from this HQ are wired into Freebuff's global `mcp.json` with **absolute
+paths** (matching the OpenCode global install under `~/.config/opencode/`; blowsh is Docker, telegram reuses the Telethon checkout):
 
-| Server           | Command                                                               | Tools |
-| ---------------- | --------------------------------------------------------------------- | ----- |
-| `custom_context` | `uv run /home/mohammad/.config/opencode/mcp-context-server/server.py` | 6     |
-| `project_memory` | `uv run /home/mohammad/.config/opencode/mcp-memory-server/server.py`  | 5     |
-| `lint`           | `uv run /home/mohammad/.config/opencode/mcp-lint-server/server.py`    | 3     |
+| Server           | Command                                                                       | Tools | Notes |
+| ---------------- | ----------------------------------------------------------------------------- | ----- | ----- |
+| `custom_context` | `uv run $HOME/.config/opencode/mcp-context-server/server.py`                  | 6     | Core — tree + file reads + bundle_tasks (absolute path, replace `$HOME` per LLM.txt Step 3) |
+| `project_memory` | `uv run $HOME/.config/opencode/mcp-memory-server/server.py`                   | 5     | Core — persistent memory (absolute path) |
+| `lint`           | `uv run $HOME/.config/opencode/mcp-lint-server/server.py`                     | 3     | Core — lint (absolute path) |
+| `blowsh`         | `docker run --rm -i ghcr.io/mokhtarabadi/blowsh-mcp:latest`                    | 4     | Optional — JS browsing, retired browser MCP replacement (SSRF guard, cache, timeout 120s) — Docker, no host dir |
+| `telegram`       | `uv --directory $HOME/.config/opencode/mcp-telegram-server run main.py /tmp/telegram-mcp $HOME/.config/opencode/mcp-telegram-server/downloads` | 80+   | Optional — Telethon; work/personal `account` routing, allowed roots (`/tmp` + config dir), see `docs/telegram-setup.md` |
 
-E2E verified via an MCP stdio client (`initialize` + `tools/list` → **14 tools reachable**). In-session
-proof: `get_directory_tree`, `list_namespaces`, `lint_all_tasks`, `read_memory`, `lint_markdown` all answered.
+E2E verified (core 3) via an MCP stdio client (`initialize` + `tools/list` → **14 tools reachable** for core). Blowsh verified via `docker pull` + container stdin wait; telegram verified via `telegram_get_messages` when `TELEGRAM_SESSION_STRING` present (and via `uv run session_string_generator.py --help` otherwise). In-session proof: `get_directory_tree`, `list_namespaces`, `lint_all_tasks`, `read_memory`, `lint_markdown` all answered; telegram proof documented in `docs/telegram-setup.md` §6 and `workflows/telegram-file-delivery` memory.
 
 ### 3.2 Skills (`~/.agents/skills/`) — ✅ FULL
 
-All 29 `skill-templates/*` were copied byte-identical. Validation: 29/29 kebab-case directory names,
-29/29 `SKILL.md` present, 29/29 `name` + `description` frontmatter. In-session proof: `task-generator`,
-`code-search`, `project-memory`, `python-fastapi`, `task-lint` all load via the `skill` tool.
+All 30 `skill-templates/*` were copied byte-identical (30 since Task 110 bundle-tasks). Validation: 30/30 kebab-case directory names,
+30/30 `SKILL.md` present, 30/30 `name` + `description` frontmatter. In-session proof: `task-generator`,
+`code-search`, `project-memory`, `python-fastapi`, `task-lint` all load via the `skill` tool; telegram skills `telegram-issue-sync` / `telegram-message-export` consume the `telegram` MCP when `docs/telegram-setup.md` account is set.
 
 ### 3.3 Custom agents (`~/.agents/*.ts`) — ✅ FULL (REPO-LEVEL, schema-validated v1.2.0) / ❌ free-tier spawn blocked
 
@@ -226,10 +227,10 @@ base3-free-deepseek-flash` with the full prompt as literal input and no `spawn_a
 
 ## 4. Freebuff Support Matrix
 
-| Component                                                   | Freebuff status      | Notes                                                                                                                                                                                                                                                                             |
-| ----------------------------------------------------------- | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| MCP servers (`custom_context`, `project_memory`, `lint`)    | ✅ FULL              | Verified live, 14 tools                                                                                                                                                                                                                                                           |
-| Skills (29)                                                 | ✅ FULL              | Verified loading via `skill` tool                                                                                                                                                                                                                                                 |
+| Component                                                                        | Freebuff status      | Notes                                                                                                                                                                                                                                                                             |
+| -------------------------------------------------------------------------------- | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| MCP servers (`custom_context`, `project_memory`, `lint`, `blowsh`, `telegram`)   | ✅ FULL              | Verified live, core 14 + blowsh (4, Docker) + telegram (80+, Telethon)                                                                                                                                                                                                           |
+| Skills (30)                                                                      | ✅ FULL              | Verified loading via `skill` tool (30 since Task 110)                                                                                                                                                                                                                            |
 | Custom agents (`cognitive-executor`, `cognitive-discovery`) | ✅ FULL (REPO-LEVEL) | Schema-validated v1.2.0 (11/4 tool whitelists, `publisher/name@version` spawnables); `model` omitted — ❌ NOT spawnable on the free tier (verified 2026-08-13); paid/credits tier required. Free tier can spawn Freebuff built-in subagents only via `base2-free-*` orchestrators |
 | Global rules (`~/.AGENTS.md`)                               | ✅ FULL              | Baseline constraints in every Freebuff session; source: `freebuff/AGENTS.global.md`                                                                                                                                                                                               |
 | `system-prompt.md` (Orchestrator Brain)                     | 📄 MANUAL            | Runtime-agnostic since v8.4.5 — emits `<hands_*_task>`; paste into Freebuff or OpenCode                                                                                                                                                                                           |
@@ -277,7 +278,7 @@ Since v8.4.5 the workflow is runtime-agnostic — the same task blocks run in Fr
 2. **Rules (automatic):** `~/.AGENTS.md` applies the baseline constraints in every session; the repo root
    `AGENTS.md` applies inside HQ clones.
 3. **Tooling (automatic):** with `~/.agents/mcp.json` + `~/.agents/skills/` installed, Freebuff gains the
-   context/MCP, project-memory, and lint servers plus the 29 skills in any repository.
+   context/MCP, project-memory, lint, blowsh (Docker) and telegram (Telethon) servers plus the 30 skills in any repository (30 since Task 110).
 4. **Custom agents (REPO-LEVEL, paid tier):** `@cognitive-executor` and `@cognitive-discovery` are installed,
    schema-validated (v1.2.0), and model-free — but the **free tier cannot spawn them** (verified 2026-08-13,
    §5). On the free tier, either paste `<hands_*_task>` blocks into the base chat (which has all MCP tools +
@@ -299,16 +300,16 @@ Run these to confirm the components are live:
 # 2. Global install exists
 ls ~/.agents/mcp.json ~/.agents/skills ~/.agents/*.ts ~/.AGENTS.md
 
-# 3. Skills valid (29/29 kebab-case + frontmatter)
-ls ~/.agents/skills/ | wc -l                    # → 29
+# 3. Skills valid (30/30 kebab-case + frontmatter)
+ls ~/.agents/skills/ | wc -l                    # → 30
 
 # 4. Custom agents are model-free (no pinned model → free-tier default)
 grep -c "model:" ~/.agents/cognitive-executor.ts ~/.agents/cognitive-discovery.ts   # → 0 (comments only)
 
 # 5. MCP servers reachable — verified via MCP stdio client:
-#    `initialize` + `tools/list` → 14 tools reachable across the 3 servers.
-#    In-session probes answered: `get_directory_tree`, `list_namespaces`,
-#    `lint_all_tasks`, `read_memory`, `lint_markdown`.
+#    `initialize` + `tools/list` → 14 tools (core 3) + blowsh (4) + telegram (80+) reachable.
+#    Core probes answered: `get_directory_tree`, `list_namespaces`,
+#    `lint_all_tasks`, `read_memory`, `lint_markdown`; telegram probe: `list_accounts` when creds present.
 
 # 6. Spawn smoke test — DONE 2026-08-13 (free tier): `@Cognitive Executor say hello` ran as
 #    `base3-free-deepseek-flash` with the mention as plain text (no spawn, no 403) — the free tier

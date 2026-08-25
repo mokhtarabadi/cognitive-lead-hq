@@ -32,4 +32,4 @@ When the Manager asks to send a task file to Telegram, send the **WHOLE file AS 
 
 ## Limitation
 
-`send_file` in telegram-mcp has NO `reply_to`/topic param (verified in `/home/mohammad/telegram-mcp/telegram_mcp/tools/media.py`). File attachments can only reach the General topic. If in-topic attachments ever become required, the MCP server itself must be extended.
+`send_file` in telegram-mcp has NO `reply_to`/topic param (verified in `$HOME/.config/opencode/mcp-telegram-server/telegram_mcp/tools/media.py` — installed in opencode config dir per global-install-upgrade). File attachments can only reach the General topic. If in-topic attachments ever become required, the MCP server itself must be extended.

@@ -390,13 +390,20 @@ _(Note: Replace `/Users/<YOUR_USER>` with your actual home directory path)._
 3. All file reads respect `.gitignore` rules and skip binary/large files automatically.
 4. The strategy is documented in `skill-templates/code-search/SKILL.md`.
 
-### Available Tools
+### Available Tools (Core 3 + 2 Optional)
+
+**Core — always installed:**
 
 - `get_directory_tree` — Generates an ASCII tree of the directory structure, respecting `.gitignore`.
 - `create_tree_report` — Saves a persistent `.gitignore`-aware directory tree of any path (default: the entire project) as `context-reports/tree_report_<timestamp>_<uuid>.md`, mirroring the context report convention. Trigger phrase: "create a tree of the project".
 - `read_source_files` — Reads multiple source files or directories and saves their contents into a local Markdown report inside the `context-reports/` directory, returning the file path to prevent context bloat.
 - `extract_signatures` — Extracts structural signatures (classes, functions, methods) via tree-sitter (fallback to regex) and saves to `context-reports/signatures_report_<timestamp>_<uuid>.md`.
 - `bundle_tasks` — **Meta-task bundler (Task 110, self-contained).** Bundles 2–6 small related tasks into one META for unified execution (`tasks/backlog/<NEXT_ID>-<slug>.md` + `**Supersedes:** [ids]` + verbatim appendices, `git mv` to `tasks/archive/` with `superseded` patch). CLI `uv run scripts/bundle-tasks.py <id> ... --title "<title>" [--dry-run] [--force]` and MCP `bundle_tasks(task_ids, title, dry_run, force)` are identical and self-contained — other projects that only have this MCP server (no `scripts/` copy) can still bundle via the Hands. Guardrails: cap 6, LOC >400 warning, missing-ID and collision checks. See `skill-templates/bundle-tasks/SKILL.md` and `AGENTS.md` `## 🛑 META-TASK BUNDLE LIFECYCLE`.
+
+**Optional — auto-installed via `LLM.txt` Step 7.6:**
+
+- `blowsh` (Docker `ghcr.io/mokhtarabadi/blowsh-mcp:latest`, 4 tools) — **JS-capable browsing (retired browser MCP replacement).** `fetch_web` (plain/html/markdown/pdf + selector/max_chars/wait_ms), `search_web` (DuckDuckGo+Bing), `extract_links`, `fetch_web_batch` (10 URLs). SSRF guard, TTL cache. Timeout 120s. See https://github.com/mokhtarabadi/blowsh-mcp and `docs/telegram-setup.md` (setup maps to same global install).
+- `telegram` (Telethon, 80+ tools, `uv --directory $HOME/.config/opencode/mcp-telegram-server run main.py` over absolute path in opencode config dir) — Accounts (`list_accounts`, multi-account `account` param), chats/groups, messages (`send_message`/`reply_to_message` with `account="personal"`/`"work"`), contacts/aliases, media (`send_file`/`download_media`), events (`wait_for_settled_message`, `enable_incoming_feed`). File roots required for media tools (`/tmp/telegram-mcp` + `$HOME/.config/opencode/mcp-telegram-server/downloads`). Used by `skill-templates/telegram-issue-sync/SKILL.md` (supergroup → tasks) and `telegram-message-export/SKILL.md` (range → ZIP) — see `docs/telegram-setup.md` §6 for the full skill→tool→config table. Single vs work/personal setup documented there plus `LLM.txt` 7.6 (absolute paths, installed in `~/.config/opencode/`).
 
 ### Meta-Task Bundling — CLI vs MCP (When to Copy the Script)
 
@@ -461,8 +468,8 @@ opencode --agent cognitive-executor
 
 | Component                                                   | Freebuff status      | Notes                                                                                                                                                                                                                                                                  |
 | ----------------------------------------------------------- | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| MCP servers (`custom_context`, `project_memory`, `lint`)    | ✅ FULL              | `~/.agents/mcp.json`, 14 tools verified                                                                                                                                                                                                                                |
-| Skills (29)                                                 | ✅ FULL              | `~/.agents/skills/`, verified loading                                                                                                                                                                                                                                  |
+| MCP servers (`custom_context`, `project_memory`, `lint`, `blowsh`, `telegram`) | ✅ FULL | `~/.agents/mcp.json`, 18+ tools core + blowsh (4) + telegram (80+) verified; `blowsh` Docker, `telegram` Telethon |
+| Skills (30)                                                 | ✅ FULL              | `~/.agents/skills/`, verified loading (30 since Task 110)                                                                                                                                                                           |
 | Custom agents (`cognitive-executor`, `cognitive-discovery`) | ✅ FULL (REPO-LEVEL) | `~/.agents/*.ts` (v1.2.0) — schema-validated 17-tool whitelist + `publisher/name@version` spawnables; `model` omitted — ❌ free-tier spawn **VERIFIED BLOCKED** (paid tier required); free tier can spawn Freebuff built-in subagents via `base2-free-*` orchestrators |
 | Global rules ("The Hands")                                  | ✅ FULL              | `~/.AGENTS.md` — baseline constraints in every session; source: `freebuff/AGENTS.global.md`                                                                                                                                                                            |
 | `system-prompt.md` Orchestrator Brain                       | 📄 MANUAL            | Runtime-agnostic since v8.4.5 — paste into Freebuff or OpenCode                                                                                                                                                                                                        |
@@ -470,7 +477,7 @@ opencode --agent cognitive-executor
 
 **For users who want to run the Cognitive Lead workflow with Freebuff instead of OpenCode**, see the full guide: [`docs/freebuff-support.md`](docs/freebuff-support.md) — it documents the extension points (mcp.json / skills / TS agents / global rules), the port record, verification commands, and the verified free-tier limitation (custom agents require a paid/credits tier; on free tier paste `<hands_*_task>` blocks into the base chat or spawn Freebuff's built-in subagents via a `base2-free-*` "Free Orchestrator" agent).
 
-**Installing:** the `LLM.txt` auto-configuration includes an **optional** Freebuff step (Step 7.5) that installs the MCP servers + 29 skills + custom agents + global rules under `~/.agents/` and `~/.AGENTS.md`.
+**Installing:** the `LLM.txt` auto-configuration includes an **optional** Freebuff step (Step 7.5) that installs the MCP servers + 30 skills + custom agents + global rules under `~/.agents/` and `~/.AGENTS.md`. Blowsh (`docker run --rm -i ghcr.io/mokhtarabadi/blowsh-mcp:latest`, 4 tools) provides JS-capable browsing; Telegram (`uv --directory $HOME/.config/opencode/mcp-telegram-server run main.py` over absolute path, 80+ tools) is configured in Step 7.6 with work/personal `account` routing, installed in opencode config dir (`~/.config/opencode/mcp-telegram-server/`) — see `docs/telegram-setup.md`.
 
 **Upgrading an existing project** to the v8.4.5 runtime-agnostic workflow (non-breaking, legacy headers still lint): see [`docs/workflow-upgrade-v8.4.5.md`](docs/workflow-upgrade-v8.4.5.md).
 

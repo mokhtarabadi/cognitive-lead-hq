@@ -30,8 +30,8 @@ node_modules/
 .env
 .env.local
 
-# Playwright MCP artifacts
-.playwright-mcp/
+# Retired browser automation MCP artifacts
+.retired-browser-name/
 
 # Custom Context MCP reports
 context-reports/

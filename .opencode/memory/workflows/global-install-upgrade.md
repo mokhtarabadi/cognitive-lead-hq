@@ -41,19 +41,29 @@ Updates the machine-global installations of the Cognitive Lead AI HQ (MCP server
    diff -q freebuff/AGENTS.global.md ~/.AGENTS.md || echo "DRIFT: AGENTS.global"
    diff -q system-prompt.md ~/.config/opencode/system-prompt.md || echo "DRIFT: system-prompt"
    for d in skill-templates/*/; do n=$(basename "$d"); diff -rq "$d" ~/.config/opencode/skills/"$n" >/dev/null 2>&1 || echo "DRIFT: opencode skill $n"; diff -rq "$d" ~/.agents/skills/"$n" >/dev/null 2>&1 || echo "DRIFT: freebuff skill $n"; done
-   diff -q opencode.json ~/.config/opencode/opencode.json || echo "DRIFT: opencode.json"
+   # opencode.json: repo uses relative mcp-*-server/server.py for 3 core (so `opencode mcp list` shows ✓ connected inside clone) while global uses absolute /home/... — they will ALWAYS differ by design. Do NOT `cp opencode.json` blindly; instead audit the logical shape:
+   diff -q opencode.json ~/.config/opencode/opencode.json && echo "UNEXPECTED: opencode.json identical (should differ relative vs absolute)" || echo "EXPECTED DRIFT: opencode.json relative vs absolute (check shape separately)"
+    cat opencode.json | python3 -c "import json,sys; d=json.load(open('opencode.json')); assert d['mcp']['custom_context']['command']==['uv','run','mcp-context-server/server.py'], 'repo must use relative'"
+    cat ~/.config/opencode/opencode.json | python3 -c "import json, os; home=os.path.expanduser('~'); d=json.load(open(home+'/.config/opencode/opencode.json')); assert home+'/.config/opencode/mcp-context-server/server.py' in str(d), 'global must use absolute'"
    ```
-2. **Copy drifted files** with `cp` + `chmod +x` (only those that differ):
+2. **Copy drifted files** with `cp` + `chmod +x` (only those that differ). For `opencode.json` do NOT blind copy — regenerate global with absolute paths (see `LLM.txt:7` template):
    ```bash
    cp mcp-lint-server/server.py ~/.config/opencode/mcp-lint-server/server.py && chmod +x ~/.config/opencode/mcp-lint-server/server.py
    cp system-prompt.md ~/.config/opencode/system-prompt.md
    cp skill-templates/task-generator/SKILL.md ~/.config/opencode/skills/task-generator/SKILL.md
    cp skill-templates/task-generator/SKILL.md ~/.agents/skills/task-generator/SKILL.md
-   cp opencode.json ~/.config/opencode/opencode.json
+   # global opencode.json — regenerate with absolute /home/... for 5 MCPs (custom_context, project_memory, lint, blowsh docker, telegram uv --directory ...), do not cp repo's relative version
+    python3 - <<'PY'
+    import json, os, pathlib
+    home = os.path.expanduser("~")
+    cfg={"$schema":"https://opencode.ai/config.json","default_agent":"cognitive-executor","instructions":[f"{home}/.config/opencode/opencode-shell-strategy.md"],"plugin":["@prevalentware/opencode-goal-plugin"],"mcp":{"custom_context":{"type":"local","command":["uv","run",f"{home}/.config/opencode/mcp-context-server/server.py"],"enabled":True,"timeout":15000},"project_memory":{"type":"local","command":["uv","run",f"{home}/.config/opencode/mcp-memory-server/server.py"],"enabled":True,"timeout":15000},"lint":{"type":"local","command":["uv","run",f"{home}/.config/opencode/mcp-lint-server/server.py"],"enabled":True,"timeout":15000},"blowsh":{"type":"local","command":["docker","run","--rm","-i","ghcr.io/mokhtarabadi/blowsh-mcp:latest"],"enabled":True,"timeout":120000},"telegram":{"type":"local","command":["uv","--directory",f"{home}/.config/opencode/mcp-telegram-server","run","main.py","/tmp/telegram-mcp",f"{home}/.config/opencode/mcp-telegram-server/downloads"],"enabled":True,"timeout":15000}},"permission":{"custom_context_*":"allow","project_memory_*":"allow","lint_*":"allow","lint_markdown":"allow","lint_task_file":"allow","lint_all_tasks":"allow","store_memory":"allow","delete_memory":"ask","read_memory":"allow","search_memory":"allow","list_namespaces":"allow","get_directory_tree":"allow","read_source_files":"allow","bundle_tasks":"allow","blowsh_*":"allow","telegram_*":"allow","external_directory":{"*":"ask","/tmp/**":"allow"}}}
+    pathlib.Path(f"{home}/.config/opencode/opencode.json").write_text(json.dumps(cfg,indent=2))
+    PY
    ```
-3. **Re-verify** with the same diff commands — expect no DRIFT output.
+3. **Re-verify** with the same diff commands — expect no DRIFT output except the expected `opencode.json` relative vs absolute (verify shape with python asserts above).
 4. **Smoke-test** servers launch and run the full test suite (52 passed expected):
    ```bash
+   opencode mcp list  # should show ✓ connected for custom_context, project_memory, lint (project relative) and global absolute when outside repo
    uv run --with pytest --with 'mcp[cli]>=1.0,<2.0' --with pathspec --with pyyaml --with tree-sitter --with tree-sitter-python --with tree-sitter-javascript --with tree-sitter-typescript --with tree-sitter-go --with tree-sitter-java --with tree-sitter-rust --with tree-sitter-kotlin pytest tests/ -q
    ```
 
@@ -64,4 +74,5 @@ Updates the machine-global installations of the Cognitive Lead AI HQ (MCP server
 - Skills must be synced to BOTH `~/.config/opencode/skills/` AND `~/.agents/skills/`.
 - Agent ports: `.md` for OpenCode (`agents/`), `.ts` for Freebuff (`freebuff/agents/`).
 - `opencode.json` permission `bundle_tasks: allow` is required for the `bundle_tasks` MCP tool (added Task 110).
-- Last run: 2026-08-21 — drift was `mcp-lint-server/server.py`, `system-prompt.md` (8.5.0→8.6.0), `task-generator` skill (bundle workflow), `opencode.json` (bundle_tasks:allow). All 30 skills ×2, all 4 agents, context+memory servers, shell-strategy, and `~/.AGENTS.md` already identical. 52 tests passed.
+- **Project vs Global `opencode.json` (Option A 2026-08-25):** Repo `opencode.json` uses **relative** `mcp-context-server/server.py` etc for 3 core — `opencode mcp list` inside clone shows `✓ connected`; literal `$HOME/...` in repo's `command` breaks (`uv run $HOME/...` → `No such file or directory`). Global `~/.config/opencode/opencode.json` must use **absolute** `$HOME/.config/opencode/...` (e.g., `/home/<user>/.config/opencode/...`) for all 5. `blowsh`/`telegram` stay `enabled:false` in repo (require global install) vs `enabled:true` in global. `diff opencode.json` will always differ — verify shape, not identity.
+- Last run: 2026-08-25 — drift was `mcp-context-server/server.py`, `mcp-memory-server/server.py` (relative fix), `mcp-lint-server/server.py`, `system-prompt.md`, `task-generator` + all skills sync, `telegram-mcp` hidden `.env`/`*.session` copy, global `opencode.json` absolute 5 MCPs + `~/.agents/mcp.json`. All 30 skills ×2, all 4 agents, context+memory servers, shell-strategy, and `~/.AGENTS.md` identical. `opencode mcp list` now `✓ connected` for 3 core, `52 tests passed`.

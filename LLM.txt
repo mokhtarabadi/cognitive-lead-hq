@@ -132,15 +132,16 @@ After this, the `cognitive-executor` will be available as a primary agent, enfor
 
 ## 7. Configure Global opencode.json (with Absolute Paths)
 
-Create or update `~/.config/opencode/opencode.json`. You MUST use **absolute paths** in the `command` array — resolve the `~` to the full home directory path discovered in Step 3.
+Create or update `~/.config/opencode/opencode.json`. You MUST use **absolute paths** in the `command` array — resolve the `~` to the full home directory path discovered in Step 3. Since 2026-08-25 the project ships **5 MCP servers** (3 core + `blowsh` browsing + `telegram` account routing); the previous browser automation MCP has been retired — use `blowsh` for JS-heavy browsing.
 
-Write the following JSON (replace `$HOME` with the actual home directory path):
+Write the following JSON (replace `$HOME` with the actual home directory path, and adjust the `telegram` `--directory` if you cloned `telegram-mcp` elsewhere):
 
 ```json
 {
   "$schema": "https://opencode.ai/config.json",
   "default_agent": "cognitive-executor",
   "instructions": ["$HOME/.config/opencode/opencode-shell-strategy.md"],
+  "plugin": ["@prevalentware/opencode-goal-plugin"],
   "mcp": {
     "custom_context": {
       "type": "local",
@@ -157,6 +158,18 @@ Write the following JSON (replace `$HOME` with the actual home directory path):
     "lint": {
       "type": "local",
       "command": ["uv", "run", "$HOME/.config/opencode/mcp-lint-server/server.py"],
+      "enabled": true,
+      "timeout": 15000
+    },
+    "blowsh": {
+      "type": "local",
+      "command": ["docker", "run", "--rm", "-i", "ghcr.io/mokhtarabadi/blowsh-mcp:latest"],
+      "enabled": true,
+      "timeout": 120000
+    },
+    "telegram": {
+      "type": "local",
+      "command": ["uv", "--directory", "$HOME/.config/opencode/mcp-telegram-server", "run", "main.py", "/tmp/telegram-mcp", "$HOME/.config/opencode/mcp-telegram-server/downloads"],
       "enabled": true,
       "timeout": 15000
     }
@@ -176,6 +189,8 @@ Write the following JSON (replace `$HOME` with the actual home directory path):
     "get_directory_tree": "allow",
     "read_source_files": "allow",
     "bundle_tasks": "allow",
+    "blowsh_*": "allow",
+    "telegram_*": "allow",
     "external_directory": {
       "*": "ask",
       "/tmp/**": "allow"
@@ -185,6 +200,60 @@ Write the following JSON (replace `$HOME` with the actual home directory path):
 ```
 
 **Important:** Replace `$HOME` with the actual absolute path resolved in Step 3 (e.g., `/home/alice` or `/Users/alice`). This is critical — MCP servers will NOT work with relative paths or `~` in the global config because OpenCode may be invoked from any working directory.
+
+> **Project vs Global `opencode.json` (Option A fix 2026-08-25):** The **repo's** `opencode.json` (committed) intentionally uses **relative** paths for the 3 core servers — `mcp-context-server/server.py`, `mcp-memory-server/server.py`, `mcp-lint-server/server.py` — so `opencode mcp list` inside the clone shows `✓ connected` without shell expansion (verified `uv run $HOME/...` fails with `No such file or directory`). Using literal `$HOME` in the repo's `command` array breaks local launches because OpenCode does not expand env vars. The **global** `~/.config/opencode/opencode.json` (created here) **must** use absolute paths as in the JSON above. `blowsh` (docker) and `telegram` stay `enabled:false` with `$HOME` placeholders in the repo (they require the global install at `~/.config/opencode/mcp-telegram-server/`), while the global enables them `true` with absolute roots. New installations and `global-install-upgrade` (Step 5 in `.opencode/memory/workflows/global-install-upgrade.md`) must keep this split — `diff -q opencode.json ~/.config/opencode/opencode.json` will always differ (relative vs absolute) by design; verify project shows `uv run mcp-*-server/server.py` and global shows `/home/...`.
+
+**Telegram is optional but auto-configured:** the entry above points at `~/.config/opencode/mcp-telegram-server` (installed in the opencode config dir per global-install-upgrade, absolute path required) with two allowed roots (`/tmp/telegram-mcp` for temp state + `~/.config/opencode/mcp-telegram-server/downloads` for exported media). If you cloned elsewhere, update the `--directory` and the trailing roots — keep them inside `$HOME` or `/tmp` and ensure `telegram_download_media` can write there. The server is installed in Step 7.6 even before you have API credentials; it stays idle (no `TELEGRAM_SESSION_STRING`) until you finish 7.6. For Docker blowsh no host binary is needed — `docker pull ghcr.io/mokhtarabadi/blowsh-mcp:latest` on first `fetch_web` run.
+
+---
+
+## 7.6. (Optional but Recommended) Install Telegram + Blowsh Prerequisites
+
+These two servers extend the core 3 with external browsing and Telegram account control. Skip `telegram` if you do not use Telegram; skip `blowsh` if you cannot run Docker.
+
+### Telegram prerequisites
+
+1. **Clone the upstream** into the opencode config dir (absolute path required):
+
+```bash
+mkdir -p $HOME/.config/opencode/mcp-telegram-server
+git clone https://github.com/chigwell/telegram-mcp.git $HOME/.config/opencode/mcp-telegram-server
+cd $HOME/.config/opencode/mcp-telegram-server
+uv sync
+
+# Create the two allowed roots from Step 7 — file tools (send_file/download_media)
+# fail with "Path rejected" on first use if these do not exist:
+mkdir -p /tmp/telegram-mcp
+mkdir -p $HOME/.config/opencode/mcp-telegram-server/downloads
+```
+
+2. **Create API credentials** at https://my.telegram.org/apps → copy `API_ID` + `API_HASH`. Choose `uv run session_string_generator.py --qr` (scan QR on a logged-in device) or `--phone` (phone-code login) and save the printed session string.
+
+3. **Write `.env` for single or work/personal multi-account** (single shown; for multi-account see `docs/telegram-setup.md` §4.2):
+
+```bash
+cp .env.example .env
+# edit .env — single-account
+TELEGRAM_API_ID=123456
+TELEGRAM_API_HASH=abcdef123...
+TELEGRAM_SESSION_STRING=1A...long...
+# multi-account adds TELEGRAM_SESSION_STRING_WORK / _PERSONAL and account param
+```
+
+4. **Allowed roots already baked into Step 7:** the `telegram` entry passes two roots so `send_file`/`download_media` work immediately. Adjust them in `~/.config/opencode/opencode.json` if you moved the checkout.
+
+Do **not** `pip install telegram-mcp` / `uvx telegram-mcp` — that name on PyPI is a different package and will steal credentials.
+
+### Blowsh prerequisites
+
+- Requires Docker only (no Firefox/Browsh on host):
+```bash
+docker pull ghcr.io/mokhtarabadi/blowsh-mcp:latest
+docker run --rm -i ghcr.io/mokhtarabadi/blowsh-mcp:latest  # smoke test: should wait for JSON-RPC on stdin
+```
+- If you cannot use Docker, install natively: Node 20.18+, Firefox in PATH, Browsh CLI, `html2markdown` — see https://github.com/mokhtarabadi/blowsh-mcp#installation. Then change the `blowsh` command to `["node", "dist/server.js"]` with the native checkout path.
+
+Telemetry-free cache/SSRF defaults (`CACHE_TTL_MS=300000`, `ALLOW_PRIVATE_URLS=false`, `BROWSH_REQUEST_TIMEOUT_MS=30000`) need no extra config.
 
 ---
 
@@ -216,6 +285,16 @@ cat > ~/.agents/mcp.json <<'EOF'
       "type": "stdio",
       "command": "uv",
       "args": ["run", "$HOME/.config/opencode/mcp-lint-server/server.py"]
+    },
+    "blowsh": {
+      "type": "stdio",
+      "command": "docker",
+      "args": ["run", "--rm", "-i", "ghcr.io/mokhtarabadi/blowsh-mcp:latest"]
+    },
+    "telegram": {
+      "type": "stdio",
+      "command": "uv",
+      "args": ["--directory", "$HOME/.config/opencode/mcp-telegram-server", "run", "main.py", "/tmp/telegram-mcp", "$HOME/.config/opencode/mcp-telegram-server/downloads"]
     }
   }
 }
@@ -224,7 +303,9 @@ EOF
 
 **Important:** Replace `$HOME` with the actual absolute path discovered in Step 3 — Freebuff resolves these paths from any working directory, so `~` is not safe here.
 
-Install all 29 Agent Skills globally for Freebuff:
+> **Blowsh/Telegram parity:** Blowsh is Docker-only (same image as OpenCode) so Freebuff gets it for free; telegram is installed once in the opencode config dir (`~/.config/opencode/mcp-telegram-server`) and reused by both OpenCode and Freebuff via absolute paths — a single checkout satisfies both runtimes (no separate copy).
+
+Install all 30 Agent Skills globally for Freebuff:
 
 ```bash
 cp -r /tmp/cognitive-lead-hq/skill-templates/* ~/.agents/skills/
@@ -277,16 +358,25 @@ After completing all steps, verify:
 - [ ] `uv` is installed and available (`uv --version`)
 - [ ] `~/.config/opencode/mcp-context-server/server.py` exists and is executable
 - [ ] `~/.config/opencode/mcp-memory-server/server.py` exists and is executable
+- [ ] `~/.config/opencode/mcp-lint-server/server.py` exists and is executable
 - [ ] Skills are installed under `~/.config/opencode/skills/` (at least one subfolder exists) — should include `bundle-tasks` (30 skills total)
 - [ ] `~/.config/opencode/agents/cognitive-executor.md` exists
 - [ ] `~/.config/opencode/agents/cognitive-discovery.md` exists
-- [ ] `~/.config/opencode/opencode.json` exists with **absolute paths** (not `~` or relative paths)
+- [ ] `~/.config/opencode/opencode.json` exists with **absolute paths** (not `~` or relative paths) and 5 `mcp` entries (`custom_context`, `project_memory`, `lint`, `blowsh`, `telegram`) + `blowsh_*`/`telegram_*` permissions, no former browser entry
+- [ ] `~/.config/opencode/opencode.json` `blowsh` uses `docker run --rm -i ghcr.io/mokhtarabadi/blowsh-mcp:latest` (120s timeout) and `telegram` uses `uv --directory $HOME/.config/opencode/mcp-telegram-server run main.py` with allowed roots (`/tmp/telegram-mcp` + config dir downloads)
+- [ ] `~/.agents/mcp.json` mirrors the 5 servers (same absolute opencode paths: `~/.config/opencode/mcp-*` + `mcp-telegram-server`) when Freebuff step was taken
 - [ ] `~/.config/opencode/opencode-shell-strategy.md` exists (instructions file referenced by the `instructions` key)
 - [ ] `/tmp/cognitive-lead-hq` no longer exists
-- [ ] Start each MCP server to verify it launches without errors:
+- [ ] `docker pull ghcr.io/mokhtarabadi/blowsh-mcp:latest` succeeds (or `docker` not installed → blowsh stays disabled, document it)
+- [ ] `~/.config/opencode/mcp-telegram-server/main.py` exists if telegram enabled (`ls $HOME/.config/opencode/mcp-telegram-server/main.py`); otherwise server stays `enabled:false` and no crash
+- [ ] Telegram smoke check (only if `TELEGRAM_SESSION_STRING` set): `telegram_get_messages` or `list_accounts` returns without `No Telegram session configured`
+- [ ] No former browser MCP remains in configs: `grep -R "former-browser" opencode.json LLM.txt docs/ ~/.config/opencode/opencode.json ~/.agents/mcp.json` check described here validates that removal is complete (automated check in task 111 greps for the retired browser name)
+- [ ] `docs/telegram-setup.md` exists and is linked from `README.md` and this file
+- [ ] Start each core MCP server to verify it launches without errors:
   ```bash
   uv run ~/.config/opencode/mcp-context-server/server.py &
   uv run ~/.config/opencode/mcp-memory-server/server.py &
+  uv run ~/.config/opencode/mcp-lint-server/server.py &
   ```
 
 ---

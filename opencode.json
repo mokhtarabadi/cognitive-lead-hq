@@ -21,6 +21,18 @@
       "command": ["uv", "run", "mcp-lint-server/server.py"],
       "enabled": true,
       "timeout": 15000
+    },
+    "blowsh": {
+      "type": "local",
+      "command": ["docker", "run", "--rm", "-i", "ghcr.io/mokhtarabadi/blowsh-mcp:latest"],
+      "enabled": false,
+      "timeout": 120000
+    },
+    "telegram": {
+      "type": "local",
+      "command": ["uv", "--directory", "$HOME/.config/opencode/mcp-telegram-server", "run", "main.py", "/tmp/telegram-mcp", "$HOME/.config/opencode/mcp-telegram-server/downloads"],
+      "enabled": false,
+      "timeout": 15000
     }
   },
   "permission": {
@@ -38,6 +50,8 @@
     "get_directory_tree": "allow",
     "read_source_files": "allow",
     "bundle_tasks": "allow",
+    "blowsh_*": "allow",
+    "telegram_*": "allow",
     "external_directory": {
       "*": "ask",
       "/tmp/**": "allow"
