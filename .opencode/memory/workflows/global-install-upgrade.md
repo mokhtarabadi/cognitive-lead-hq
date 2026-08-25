@@ -2,7 +2,7 @@
 created_at: '2026-08-19T05:09:27.234287+00:00'
 status: active
 tags: []
-updated_at: '2026-08-21T14:45:00+00:00'
+updated_at: '2026-08-25T17:15:00+00:00'
 ---
 
 # Global Install Upgrade Workflow (OpenCode + Freebuff)
@@ -16,6 +16,7 @@ Updates the machine-global installations of the Cognitive Lead AI HQ (MCP server
 | Component | OpenCode | Freebuff |
 | --- | --- | --- |
 | MCP servers | `~/.config/opencode/mcp-{context,memory,lint}-server/server.py` | `~/.agents/mcp.json` points AT the same global opencode paths (no separate copies needed) |
+| Telegram MCP | `~/.config/opencode/mcp-telegram-server/` (upstream clone of chigwell/telegram-mcp, NO `.git`) | same dir via `~/.agents/mcp.json` (no separate copy) |
 | Skills (30) | `~/.config/opencode/skills/<name>/SKILL.md` | `~/.agents/skills/<name>/SKILL.md` |
 | Custom agents | `~/.config/opencode/agents/{cognitive-executor,cognitive-discovery}.md` | `~/.agents/{cognitive-executor,cognitive-discovery}.ts` |
 | Global rules | — (n/a) | `~/.AGENTS.md` (from `freebuff/AGENTS.global.md`) |
@@ -67,6 +68,35 @@ Updates the machine-global installations of the Cognitive Lead AI HQ (MCP server
    uv run --with pytest --with 'mcp[cli]>=1.0,<2.0' --with pathspec --with pyyaml --with tree-sitter --with tree-sitter-python --with tree-sitter-javascript --with tree-sitter-typescript --with tree-sitter-go --with tree-sitter-java --with tree-sitter-rust --with tree-sitter-kotlin pytest tests/ -q
    ```
 
+## Telegram MCP Auto-Upgrade (chigwell/telegram-mcp)
+
+The installed copy at `~/.config/opencode/mcp-telegram-server` has **NO `.git`** — `git pull` is impossible. Upgrade = fresh shallow clone + rsync overlay, preserving local secrets/state. Run this as an additional step of every upgrade cycle (Step 2.5).
+
+1. **Audit drift vs upstream:**
+   ```bash
+   rm -rf /tmp/opencode/telegram-mcp-upstream
+   GIT_TERMINAL_PROMPT=0 git clone --depth 30 https://github.com/chigwell/telegram-mcp.git /tmp/opencode/telegram-mcp-upstream
+   diff -rq --exclude=.git --exclude=.env --exclude='*.session' --exclude=downloads --exclude=.venv --exclude=__pycache__ --exclude='*.egg-info' --exclude=mcp_errors.log --exclude=claude_desktop_config.json \
+     /tmp/opencode/telegram-mcp-upstream ~/.config/opencode/mcp-telegram-server
+   ```
+   Any output = drift (upstream pyproject `version` can stay "2.0.1" across feature drift — judge by file diff, not version string).
+2. **Backup, then upgrade:**
+   ```bash
+   cp -a ~/.config/opencode/mcp-telegram-server "/tmp/opencode/telegram-backup-$(date +%Y%m%d-%H%M%S)"
+   rsync -a --exclude=.git --exclude=.env --exclude='*.session' --exclude=downloads --exclude=.venv --exclude=__pycache__ --exclude='*.egg-info' --exclude=mcp_errors.log --exclude=claude_desktop_config.json \
+     /tmp/opencode/telegram-mcp-upstream/ ~/.config/opencode/mcp-telegram-server/
+   cd ~/.config/opencode/mcp-telegram-server && uv sync
+   ```
+   Preserved local-only files: `.env` (credentials), `*.session`, `downloads/`, `claude_desktop_config.json`, `mcp_errors.log`. NEVER overwrite these from upstream.
+3. **Verify:**
+   ```bash
+   cd ~/.config/opencode/mcp-telegram-server
+   uv run python -c "import telegram_mcp; print('import ok')"
+   mv .env .env.hold && uv run --with pytest pytest tests/ -q 2>&1 | tail -2; mv .env.hold .env
+   ```
+   ⚠️ **Tests FAIL (~26 failures) if `.env` is present** — the multi-account env leaks into test configuration. ALWAYS hold `.env` aside during the test run and restore immediately after. Expected result: all tests pass (335 passed on 2026-08-25).
+4. **Smoke:** server startup requires valid sessions. `AuthKeyDuplicatedError` on ANY account blocks the whole MCP handshake (retry backoff before stdio loop starts → OpenCode shows spawn timeout). Fix = regenerate that session (`uv run session_string_generator.py --qr`) or remove its `TELEGRAM_SESSION_STRING_<LABEL>` from `.env`. Never `pip install telegram-mcp` / `uvx telegram-mcp` from PyPI (credential-theft lookalike — see `docs/telegram-setup.md` §8).
+
 ## Key Facts
 
 - The `lint` MCP server gains new tools when updated (e.g. `lint_system_prompt_sync`) — check `grep -c "lint_system_prompt_sync" ~/.config/opencode/mcp-lint-server/server.py` after sync (≥1).
@@ -75,4 +105,5 @@ Updates the machine-global installations of the Cognitive Lead AI HQ (MCP server
 - Agent ports: `.md` for OpenCode (`agents/`), `.ts` for Freebuff (`freebuff/agents/`).
 - `opencode.json` permission `bundle_tasks: allow` is required for the `bundle_tasks` MCP tool (added Task 110).
 - **Project vs Global `opencode.json` (Option A 2026-08-25):** Repo `opencode.json` uses **relative** `mcp-context-server/server.py` etc for 3 core — `opencode mcp list` inside clone shows `✓ connected`; literal `$HOME/...` in repo's `command` breaks (`uv run $HOME/...` → `No such file or directory`). Global `~/.config/opencode/opencode.json` must use **absolute** `$HOME/.config/opencode/...` (e.g., `/home/<user>/.config/opencode/...`) for all 5. `blowsh`/`telegram` stay `enabled:false` in repo (require global install) vs `enabled:true` in global. `diff opencode.json` will always differ — verify shape, not identity.
-- Last run: 2026-08-25 — drift was `mcp-context-server/server.py`, `mcp-memory-server/server.py` (relative fix), `mcp-lint-server/server.py`, `system-prompt.md`, `task-generator` + all skills sync, `telegram-mcp` hidden `.env`/`*.session` copy, global `opencode.json` absolute 5 MCPs + `~/.agents/mcp.json`. All 30 skills ×2, all 4 agents, context+memory servers, shell-strategy, and `~/.AGENTS.md` identical. `opencode mcp list` now `✓ connected` for 3 core, `52 tests passed`.
+  - **Update 2026-08-25 (Manager-approved):** repo now OMITS the `blowsh`/`telegram` blocks entirely so they inherit the working global definitions in-project (verified: `opencode mcp list` inside repo lists 5 servers, blowsh ✓ connected). The old "disabled in repo" override is gone.
+- Last run: 2026-08-25 — core audit clean (all skills ×2, agents, servers, shell-strategy, `~/.AGENTS.md` identical; 52 tests passed). Telegram MCP upgraded to upstream HEAD `52cca20` (peer-photos/contact-sheet/singleton features): backup `/tmp/opencode/telegram-backup-20260825-170955`, rsync overlay + `uv sync`, 335/335 upstream tests pass (`.env` held aside). KNOWN PENDING (Manager fixes manually): WORK session `AUTH_KEY_DUPLICATED` — blocks telegram MCP startup until regenerated or removed from `.env`; personal session healthy.
