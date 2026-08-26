@@ -1,9 +1,9 @@
 # Task 115: Full Persona Coverage + Brainstorming Protocol in Loop Engine
 
-**File:** `tasks/qa/115-loop-engine-personas-and-brainstorming.md`
+**File:** `tasks/completed/115-loop-engine-personas-and-brainstorming.md`
 **Source:** manager
 **Type:** improvement
-**Status:** open
+**Status:** closed
 
 ## Goal
 
