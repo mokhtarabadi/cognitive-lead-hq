@@ -82,9 +82,12 @@ cp .env.example .env
 Edit `.env`:
 ```bash
 TELEGRAM_BOT_TOKEN=123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11
-TELEGRAM_CHAT_ID=123456789
 GEMINI_API_KEY=AIzaSy...
 ```
+
+> **Note:** The engine reads environment variables via `os.environ` — it does
+> NOT auto-load `.env`. Export the variables in your shell (`set -a; source .env; set +a`)
+> or use your process manager's env file support.
 
 ### 9. Configure Loop Engine
 
@@ -97,6 +100,9 @@ Edit `loop-engine/loop-engine.jsonc`:
 }
 ```
 
+> The Manager chat ID comes from this config field (`approval.chat_id`) — there
+> is no `TELEGRAM_CHAT_ID` environment variable.
+
 ### 10. Start the Daemon
 
 ```bash
@@ -105,7 +111,11 @@ source .venv/bin/activate
 python daemon.py
 ```
 
-You should see:
+You can launch `daemon.py` from any working directory — all relative paths
+(config, state DB, `tasks/`, evidence dir) are anchored to the repository root
+automatically at startup.
+
+Expected output:
 ```
 ============================================================
   Cognitive Loop Engine — Starting...

@@ -158,8 +158,7 @@ Each category supports:
 
 | Variable | Required | Description |
 |---|---|---|
-| `TELEGRAM_BOT_TOKEN` | Yes | Telegram bot token from BotFather |
-| `TELEGRAM_CHAT_ID` | Yes | Your Telegram chat ID |
+| `TELEGRAM_BOT_TOKEN` | Yes | Telegram bot token from BotFather (name configurable via `approval.bot_token_env`) |
 | `GEMINI_API_KEY` | No* | Google Gemini API key |
 | `KIMI_API_KEY` | No* | Kimi API key |
 | `OPENAI_API_KEY` | No* | OpenAI API key |
@@ -167,10 +166,29 @@ Each category supports:
 
 *At least one LLM provider key is required.
 
+> **Note:** There is no `TELEGRAM_CHAT_ID` environment variable — the Manager
+> chat ID is configured via `approval.chat_id` in this file. The engine reads
+> `os.environ` directly and does not auto-load a `.env` file.
+
+## Provider Extensibility
+
+Adding a new LLM provider requires no code changes:
+
+1. Add models to any category's `models` list as `"provider/model"` strings
+   (litellm resolves the provider prefix).
+2. Export the provider key as `{PROVIDER}_API_KEY` (e.g. `provider/deepseek-x`
+   → `DEEPSEEK_API_KEY`) — the router auto-detects available providers per call.
+3. Optionally add a concurrency cap to `provider_concurrency`
+   (`zai` currently relies on its Pydantic default of 10 when omitted).
+
+Hardcoded limits: `ProviderConcurrency` in `models.py` declares fixed fields —
+a brand-new provider without a field falls back to litellm's own rate limiting
+until the model is extended.
+
 ## JSONC Format
 
 The config file uses JSONC (JSON with Comments):
-- `//` line comments
-- `/* */` block comments
+- `//` line comments and `/* */` block comments are stripped quote-aware, so
+  string values containing `//` (e.g. `https://` URLs) are preserved
 - Trailing commas allowed
 - Environment variable references: `${VAR_NAME}`

@@ -22,43 +22,124 @@ from router import LLMRouter
 from gateway import ApprovalGateway
 from executor import HandsExecutor
 from qa_engine import QAEngine
+from brainstorm import BrainstormStage
+
+# Repo root = parent of loop-engine/. All relative paths in the config
+# (state db, evidence dir, tasks/, system-prompt.md) are anchored here so the
+# daemon behaves identically no matter which directory it is launched from.
+REPO_ROOT = Path(__file__).resolve().parent.parent
+
+
+def strip_jsonc(raw: str) -> str:
+    """Strip JSONC comments (quote-aware), trailing commas, and resolve ${VAR} refs.
+
+    Quote-aware comment stripping prevents corruption of string values that
+    contain '//' (e.g. https:// URLs).
+    """
+    import re
+
+    # 1. Remove /* */ block comments (quote-aware scan)
+    out = []
+    i, n = 0, len(raw)
+    in_string = False
+    while i < n:
+        c = raw[i]
+        if in_string:
+            out.append(c)
+            if c == "\\" and i + 1 < n:
+                out.append(raw[i + 1])
+                i += 2
+                continue
+            if c == '"':
+                in_string = False
+            i += 1
+            continue
+        if c == '"':
+            in_string = True
+            out.append(c)
+            i += 1
+            continue
+        if c == "/" and i + 1 < n and raw[i + 1] == "*":
+            end = raw.find("*/", i + 2)
+            i = n if end == -1 else end + 2
+            continue
+        if c == "/" and i + 1 < n and raw[i + 1] == "/":
+            end = raw.find("\n", i)
+            i = n if end == -1 else end
+            continue
+        out.append(c)
+        i += 1
+    stripped = "".join(out)
+
+    # 2. Strip trailing commas
+    stripped = re.sub(r',\s*([}\]])', r'\1', stripped)
+    # 3. Resolve env var refs: ${VAR_NAME} -> os.environ
+    stripped = re.sub(r'\$\{(\w+)\}', lambda m: os.environ.get(m.group(1), ''), stripped)
+    return stripped
 
 
 def load_config(config_path: str = "loop-engine/loop-engine.jsonc") -> LoopEngineConfig:
     """Load config from JSONC file (strip comments)."""
     p = Path(config_path)
+    if not p.is_absolute():
+        p = REPO_ROOT / config_path
     if not p.exists():
         # Use defaults
         return LoopEngineConfig(approval={"chat_id": 0})
 
-    raw = p.read_text(encoding="utf-8")
-    # Strip // and /* */ comments for JSONC compatibility
-    import re
-    raw = re.sub(r'//.*$', '', raw, flags=re.MULTILINE)
-    raw = re.sub(r'/\*.*?\*/', '', raw, flags=re.DOTALL)
-    # Strip trailing commas
-    raw = re.sub(r',\s*([}\]])', r'\1', raw)
-    # Strip env var refs: ${VAR_NAME} -> os.environ
-    raw = re.sub(r'\$\{(\w+)\}', lambda m: os.environ.get(m.group(1), ''), raw)
-
-    data = json.loads(raw)
+    data = json.loads(strip_jsonc(p.read_text(encoding="utf-8")))
     return LoopEngineConfig(**data)
+
+
+# Executor statuses that mean the Hands session did NOT produce work.
+# Anything outside EXEC_OK / EXEC_BLOCKED must crash the task, never reach QA.
+EXEC_OK = "complete"
+EXEC_BLOCKED = "blocked"
 
 
 async def process_task(task_id: int, task_file: str, config: LoopEngineConfig,
                        state: StateMachine, router: LLMRouter,
                        gateway: ApprovalGateway, executor: HandsExecutor,
-                       qa: QAEngine):
+                       qa: QAEngine, brainstorm: BrainstormStage):
     """Full pipeline for one task."""
     print(f"\n[pipeline] Processing task #{task_id}: {task_file}")
 
+    try:
+        await _process_task(task_id, task_file, config, state, router,
+                            gateway, executor, qa, brainstorm)
+    except Exception as e:
+        state.update_state(task_id, TaskState.CRASHED)
+        print(f"[pipeline] Task #{task_id} crashed with unexpected error: {e}")
+
+
+async def _process_task(task_id: int, task_file: str, config: LoopEngineConfig,
+                        state: StateMachine, router: LLMRouter,
+                        gateway: ApprovalGateway, executor: HandsExecutor,
+                        qa: QAEngine, brainstorm: BrainstormStage):
+    """Inner pipeline — exceptions propagate to process_task's guard."""
     task_path = Path(task_file)
     task_content = task_path.read_text(encoding="utf-8")
+
+    # 0. BRAINSTORMING (Phase 1.5) — optional pre-planning stage
+    extra_context = ""
+    if brainstorm.should_trigger(task_content):
+        state.update_state(task_id, TaskState.PLANNING)
+        print(f"[pipeline] Brainstorming triggered for task #{task_id} "
+              f"(six-persona swarm)...")
+        session = await brainstorm.run(task_content)
+        approved = await gateway.request_approval(
+            task_id, "Brainstorm Review", session["session"])
+        if not approved:
+            state.update_state(task_id, TaskState.BACKLOG)
+            print(f"[pipeline] Brainstorm rejected for task #{task_id}. "
+                  f"Back to backlog.")
+            return
+        extra_context = session["session"]
 
     # 1. PLANNING
     state.update_state(task_id, TaskState.PLANNING)
     print(f"[pipeline] Planning task #{task_id}...")
-    routing = router.route_plan(task_content)
+    routing = router.route_plan(task_content, extra_context=extra_context)
     plan = router.call_llm(routing)
     state.set_plan(task_id, plan)
 
@@ -76,9 +157,16 @@ async def process_task(task_id: int, task_file: str, config: LoopEngineConfig,
     result = await executor.execute(task_id, task_file, task_content)
     print(f"[pipeline] Execution result: {result['status']}")
 
-    if result["status"] in ("blocked", "no_progress", "idle_stuck", "budget_exceeded"):
+    if result["status"] == EXEC_BLOCKED:
         state.update_state(task_id, TaskState.CRASHED)
         print(f"[pipeline] Task #{task_id} crashed: {result['status']}")
+        return
+
+    if result["status"] != EXEC_OK:
+        # timeout / error / transport_error — no usable output, never send to QA
+        state.update_state(task_id, TaskState.CRASHED)
+        print(f"[pipeline] Task #{task_id} crashed: executor status "
+              f"'{result['status']}': {result.get('error', '')[:200]}")
         return
 
     # 4. QA
@@ -96,7 +184,7 @@ async def process_task(task_id: int, task_file: str, config: LoopEngineConfig,
         # Stay in QA — same task file, re-execute with feedback
         state.update_state(task_id, TaskState.IMPLEMENTING)
         return await process_task(task_id, task_file, config, state, router,
-                                  gateway, executor, qa)
+                                  gateway, executor, qa, brainstorm)
 
     # 5. REVIEW
     state.update_state(task_id, TaskState.REVIEW)
@@ -120,6 +208,9 @@ async def process_task(task_id: int, task_file: str, config: LoopEngineConfig,
 
 async def main():
     """Main loop: watch -> process -> repeat."""
+    # Anchor all relative paths (config, state db, tasks/, evidence) to repo root
+    os.chdir(REPO_ROOT)
+
     print("=" * 60)
     print("  Cognitive Loop Engine — Starting...")
     print("=" * 60)
@@ -130,11 +221,16 @@ async def main():
     gateway = ApprovalGateway(config)
     executor = HandsExecutor(config, state)
     qa = QAEngine(config, state, router)
+    brainstorm = BrainstormStage(config, router, workspace_root=str(REPO_ROOT))
+
+    # The watchdog observer fires callbacks from a background thread;
+    # schedule coroutines on the main event loop explicitly.
+    loop = asyncio.get_running_loop()
 
     def on_task_detected(task_id: int, task_file: str):
-        asyncio.ensure_future(
+        asyncio.run_coroutine_threadsafe(
             process_task(task_id, task_file, config, state, router,
-                         gateway, executor, qa))
+                         gateway, executor, qa, brainstorm), loop)
 
     watcher = KanbanWatcher(state, on_task_detected=on_task_detected)
     existing = watcher.scan_existing()

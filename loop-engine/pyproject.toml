@@ -18,3 +18,7 @@ dev = [
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+# Flat scripts layout (no import package) — bypass hatchling auto-detection.
+[tool.hatch.build.targets.wheel]
+bypass-selection = true

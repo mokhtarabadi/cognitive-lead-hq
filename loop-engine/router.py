@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Optional
 
 from models import LoopEngineConfig
+from personas import load_personas
 
 
 def _load_file_if_exists(path: str) -> str:
@@ -24,60 +25,24 @@ def _load_file_if_exists(path: str) -> str:
     return ""
 
 
-# Persona-specific instructions — the "what to do" for each role
-PERSONA_INSTRUCTIONS = {
-    "architect": """You are the Architect persona for the Cognitive Lead AI system.
-
-Your job is to:
-1. Read the task file and understand the requirements
-2. Generate a detailed implementation plan (Architect's Blueprint)
-3. Break down into specific file changes with acceptance criteria
-4. Output a <hands_implementation_task> XML block for execution
-
-Be specific. Every file path, every function name, every change.
-Follow the project's AGENTS.md rules and conventions exactly.
-Output format: XML block starting with <hands_implementation_task>.""",
-
-    "qa_engineer": """You are the QA Engineer persona for the Cognitive Lead AI system.
-
-Your job is to:
-1. Read the task file and the code changes
-2. Run tests if applicable
-3. Check acceptance criteria
-4. Output either PASSED or FAILED with specific feedback
-5. If FAILED, describe exactly what needs to change
-
-Be adversarial. Try to break the code. Find edge cases.
-Follow the project's AGENTS.md rules and conventions exactly.
-Output format: Start with PASSED or FAILED, then detailed feedback.""",
-
-    "code_reviewer": """You are the Code Reviewer persona for the Cognitive Lead AI system.
-
-Your job is to:
-1. Review the architectural decisions
-2. Check SOLID principles, naming conventions, code quality
-3. Output either APPROVED or REJECTED with specific reasons
-4. Focus on long-term maintainability, not just "it works"
-
-Think like a senior engineer reviewing a PR.
-Follow the project's AGENTS.md rules and conventions exactly.
-Output format: Start with APPROVED or REJECTED, then detailed review.""",
-
-    "po_closure": """You are the PO Closure persona for the Cognitive Lead AI system.
-
-Your job is to:
-1. Summarize what was accomplished
-2. Verify all acceptance criteria are met
-3. Generate the closure summary
-4. Output READY_FOR_CLOSURE or NEEDS_WORK
-
-Be concise and factual.
-Output format: Start with READY_FOR_CLOSURE or NEEDS_WORK, then summary.""",
+# Pipeline stage → Manager-defined persona (prompts/fragments/12-personas.md).
+# PO Closure is NOT a separate persona (G1 resolution): closure review reuses
+# the Code Reviewer persona, whose behavior defines the PO-review step.
+STAGE_PERSONAS = {
+    "architect": "Software Architect",
+    "qa_engineer": "QA Engineer",
+    "code_reviewer": "Code Reviewer",
+    "po_closure": "Code Reviewer",
 }
 
 
 class LLMRouter:
-    """Routes LLM calls to the right model based on task category."""
+    """Routes LLM calls to the right model based on task category.
+
+    Persona instructions are derived at runtime from the Manager's prompt
+    fragments — zero hardcoded persona bodies in this file. Editing a fragment
+    changes engine behavior on next start.
+    """
 
     def __init__(self, config: LoopEngineConfig, workspace_root: str = "."):
         self.config = config
@@ -89,6 +54,8 @@ class LLMRouter:
             str(self.workspace_root / config.agmd_path))
         self.conventions = _load_file_if_exists(
             str(self.workspace_root / config.conventions_path))
+        # All 7 operational personas from prompts/fragments/12-personas.md
+        self.personas = load_personas(str(self.workspace_root))
 
     def _resolve_model(self, category: str) -> tuple[str, Optional[str]]:
         cat_config = self.config.categories.get(category)
@@ -102,26 +69,32 @@ class LLMRouter:
         return self.config.default_provider, None
 
     def _build_system_context(self, persona: str = "architect") -> str:
-        """Build XML-structured system prompt following LLM best practices.
+        """Build XML-structured system prompt.
 
-        Structure:
-        - <role>: Who the AI is (persona identity)
-        - <project_rules>: Full AGENTS.md (project-specific rules)
-        - <conventions>: Full conventions (coding standards)
-        - <context>: System prompt excerpt (manager profile, operating principles)
-        - <instructions>: What to do for this specific persona
+        Persona identity + instructions come verbatim from the Manager's
+        fragments; this method only supplies structural glue.
         """
-        parts = []
+        persona_name = STAGE_PERSONAS.get(persona, persona)
+        data = self.personas.get(persona_name)
 
-        # Role: who the AI is
-        role_map = {
-            "architect": "the Architect — a senior software architect who generates implementation plans",
-            "qa_engineer": "the QA Engineer — an adversarial tester who tries to break code",
-            "code_reviewer": "the Code Reviewer — a senior engineer who checks architecture and quality",
-            "po_closure": "the PO Closure — a product owner who summarizes and verifies completion",
-        }
-        role = role_map.get(persona, role_map["architect"])
-        parts.append(f"<role>You are {role} for the Cognitive Lead AI system.</role>")
+        if data:
+            role = (
+                f"You are {persona_name} for the Cognitive Lead AI system, "
+                f"operating under the Manager's system prompt."
+            )
+            instructions = (
+                f"<trigger>{data['trigger']}</trigger>\n"
+                f"<duty>{data['duty']}</duty>\n"
+                f"<behavior>{data['behavior']}</behavior>"
+            )
+        else:
+            # Unknown persona requested — fail loudly rather than impersonate.
+            raise ValueError(
+                f"Persona '{persona_name}' not found in "
+                f"prompts/fragments/12-personas.md. Available: "
+                f"{sorted(self.personas)}")
+
+        parts = [f"<role>{role}</role>"]
 
         # Project rules: FULL AGENTS.md
         if self.agents_md:
@@ -135,18 +108,33 @@ class LLMRouter:
         if self.system_prompt:
             parts.append(f"<context>\n{self.system_prompt}\n</context>")
 
-        # Instructions: persona-specific
-        instructions = PERSONA_INSTRUCTIONS.get(persona, PERSONA_INSTRUCTIONS["architect"])
+        # Instructions: persona definition verbatim from the fragment
         parts.append(f"<instructions>\n{instructions}\n</instructions>")
 
         return "\n\n".join(parts)
 
-    def route_plan(self, task_content: str, category: str = "unspecified") -> dict:
+    def route_with_persona(self, persona_name: str, user_content: str,
+                           temperature: float = 0.3,
+                           category: str = "deep") -> dict:
+        """Route a call as ANY Manager-defined persona (all 7 invocable)."""
+        model, reasoning = self._resolve_model(category)
+        return {
+            "model": model, "reasoning": reasoning,
+            "system": self._build_system_context(persona_name),
+            "user": user_content,
+            "temperature": temperature,
+        }
+
+    def route_plan(self, task_content: str, category: str = "unspecified",
+                   extra_context: str = "") -> dict:
+        user = f"Generate implementation blueprint:\n\n{task_content}"
+        if extra_context:
+            user += f"\n\nIncorporate this brainstorming session output:\n\n{extra_context}"
         model, reasoning = self._resolve_model(category)
         return {
             "model": model, "reasoning": reasoning,
             "system": self._build_system_context("architect"),
-            "user": f"Generate implementation plan:\n\n{task_content}",
+            "user": user,
             "temperature": 0.3,
         }
 
@@ -169,20 +157,31 @@ class LLMRouter:
         }
 
     def call_llm(self, routing: dict) -> str:
-        """Call LLM via litellm with fallback chain."""
+        """Call LLM via litellm with fallback chain.
+
+        Raises RuntimeError on failure — an error string returned as a plan
+        would flow downstream and get approved/reviewed as if it were real
+        output. Callers (pipeline guard) convert the exception into CRASHED.
+        """
         try:
             import litellm
-            response = litellm.completion(
-                model=routing["model"],
-                messages=[
+            kwargs = {
+                "model": routing["model"],
+                "messages": [
                     {"role": "system", "content": routing["system"]},
                     {"role": "user", "content": routing["user"]},
                 ],
-                temperature=routing.get("temperature", 0.3),
-                max_tokens=4096,
-            )
+                "temperature": routing.get("temperature", 0.3),
+                "max_tokens": 4096,
+            }
+            reasoning = routing.get("reasoning")
+            if reasoning:
+                kwargs["reasoning_effort"] = reasoning
+            response = litellm.completion(**kwargs)
             return response.choices[0].message.content
-        except ImportError:
-            return f"[LLM ERROR] litellm not installed. Run: pip install litellm"
+        except ImportError as e:
+            raise RuntimeError(
+                f"litellm not installed. Run: pip install litellm ({e})") from e
         except Exception as e:
-            return f"[LLM ERROR] {str(e)}"
+            raise RuntimeError(f"LLM call failed for model "
+                               f"{routing.get('model')}: {e}") from e
