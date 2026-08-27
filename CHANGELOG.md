@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [8.9.0] - 2026-08-27
+
 ### Changed
 
 - **System Prompt Hardening RFC-001 (Task 119)** — v8.7.0 → v8.8.0. Four structural enhancements to the system prompt: (A) **9-Step SOP Formalization** — `<execution_workflow>` replaced with a strict 9-step production line (Smart Context Discovery → Multi-Persona Brainstorming → Blueprint → PO Approval Gate → TDD Implementation → Adversarial QA → Code Review → Final PO Acceptance & Atomic Commit → Next Task Transition) with sub-rules (1.5, 2.5, 2.7) preserved; (B) **Immutable Financial Ledger Mandate** — new `<immutable_financial_ledger_mandate>` fragment enforcing snapshot-on-write, `$ifNull` precedence, discrepancy alerting, and deep config merging for financial settings; (C) **Buffer Isolation** — shared validation phase gains a mandatory buffer-flush directive requiring Hands to treat every task as contextually independent; (D) **Defensive Shell Protocol** — new `<defensive_shell_protocol>` in `<constraints>` mandating `set -euo pipefail`, banning `2>/dev/null` on data commands, and requiring sidecar isolation for Docker backups. QA iteration: (13) `assemble_system_prompt.py` fixed to strip trailing `\n` from fragments before joining (matches splitter extraction); (14) `skill-templates/audit-agents/SKILL.md` updated with RFC-001 governance criteria (Financial Ledger, DSP, Buffer Isolation audit checks). Verified: pytest 49/50 passed (1 pre-existing failure), round-trip test passes.

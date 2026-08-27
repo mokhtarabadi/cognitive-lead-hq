@@ -11,7 +11,7 @@
       "task"
     ]
   },
-  "last_processed_message_id": 484,
+  "last_processed_message_id": 516,
   "processed_ids": [
     458,
     465,
@@ -33,7 +33,16 @@
     481,
     482,
     483,
-    484
+    484,
+    508,
+    509,
+    510,
+    511,
+    512,
+    513,
+    514,
+    515,
+    516
   ],
   "sync_registry": {
     "466": {
@@ -55,6 +64,28 @@
       "task_file": "tasks/backlog/114-loop-engine-pre-production-audit.md",
       "gh_issue": "Not created (skipped)",
       "type": "IMPROVE"
+    },
+    "508": {
+      "task_file": "tasks/backlog/118-loop-engine-task-entry-trigger-review.md",
+      "gh_issue": "Not created (skipped)",
+      "type": "IMPROVE"
+    },
+    "509": {
+      "task_file": "tasks/completed/119-system-prompt-hardening-rfc-implementation.md",
+      "gh_issue": "Not created (skipped)",
+      "type": "IMPROVE",
+      "status": "closed",
+      "closed_at": "2026-08-27"
+    },
+    "514": {
+      "task_file": "tasks/backlog/120-install-opentmux-and-update-docs.md",
+      "gh_issue": "Not created (skipped)",
+      "type": "FEATURE"
+    },
+    "515": {
+      "task_file": "tasks/backlog/121-install-github-cli-and-integrate.md",
+      "gh_issue": "Not created (skipped)",
+      "type": "FEATURE"
     }
   }
 }
