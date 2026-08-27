@@ -86,7 +86,7 @@ The AI will process your inline feedback, generate a revised plan, and wait for 
 
 ### System Prompt V9 Architecture (Separation of Concerns)
 
-The `system-prompt.md` is restructured in V9.0.0 with a clear separation of concerns:
+The `system-prompt.md` is restructured in V9.1.0 with a clear separation of concerns:
 
 - **No coaching profile embedded in the system prompt.** The Manager's identity, background, and coaching preferences are NOT part of the system prompt — they belong in project-specific `AGENTS.md` files or Manager-authored config.
 - **Lite Mode Protocol (`<lite_mode_protocol>`):** Not every task needs the full 9-step production line. Single-file, low-risk changes (typos, doc fixes, config tweaks) can bypass the Discovery → Brainstorming → Blueprint → Approval pipeline with a documented `[LITE]` justification.
@@ -504,6 +504,13 @@ opencode --agent cognitive-executor
 - **Decision Logging Mandate (`<decision_logging_mandate>`):** New fragment requiring all non-trivial architectural, design, and strategic decisions to be logged under `## Manager Decisions` in the active task file, creating an auditable trail with rationale, alternatives, and impact.
 - **Sprint Strategist Refactored:** The Sprint Strategist persona has been refactored from a coaching-style gatekeeper to a technical capacity assessor using MoSCoW prioritization, estimated complexity (S/M/L/XL), dependency chain analysis, and WIP limits.
 - **Restructured to 19 Fragments:** The system prompt has been restructured from 22 fragments to 19 clean fragments, each representing a single concern. The fragment numbering has been re-sequenced to reflect the new architecture.
+
+## Key V9.1 Changes
+
+- **Clarification Halt Mandate:** If the Manager's input (English, Persian, or mixed) is ambiguous, fragmented, or unclear, the Orchestrator and Hands MUST HALT immediately, output a clarification request, and ask targeted questions. Guessing intent from unclear input is strictly forbidden.
+- **Goal-Oriented Task Treatment:** Software Architect and Senior Programmer personas now explicitly instruct Hands to load all relevant skills from `<agent_skills_registry>` and treat multi-step/large tasks as Goal units with explicit verification gates.
+- **Parallel Agent Execution Mandate:** Hands MUST actively utilize parallel subagent execution (up to 4 concurrent agents) for any task involving 2+ independent file scans, signature extractions, or decoupled module changes. Serial execution of independent workstreams is a performance violation.
+- **Input Validation Reinforced:** The `<user_input_processing>` fragment's Input Validation Gate, Bilingual Translation, and Clarification steps have been strengthened with explicit Ambiguity Mandate, Clarification Halt Mandate, and translation-before-execution rules.
 
 ## Key V8 Changes
 

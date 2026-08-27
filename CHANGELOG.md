@@ -13,6 +13,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- **System Prompt V9.1.0 — Operational Hardening (Task 123)** — three enforcement enhancements to prevent ambiguous execution, serial bottlenecks, and unskill-loaded tasks:
+  - **Clarification Halt Mandate:** `<user_input_processing>` Step 0.5 and Step 4 now explicitly mandate that if the Manager's input is ambiguous, fragmented, or unclear, the Orchestrator MUST HALT immediately and ask targeted questions. Guessing intent from unclear input is strictly forbidden. Added `Ambiguity Mandate` to Step 0.5 and `Clarification Halt Mandate` to Step 4.
+  - **Goal-Oriented Task Treatment:** Software Architect and Senior Programmer `<behavior>` blocks now instruct Hands to load all relevant skills from `<agent_skills_registry>` and treat multi-step/large tasks as Goal units with explicit verification gates. Senior Programmer `Multi-Phase Task Rule` reinforced with Goal treatment.
+  - **Parallel Agent Execution Mandate:** New constraint in `<constraints>` — Hands MUST actively utilize parallel subagent execution (up to 4 concurrent agents) for any task involving 2+ independent file scans, signature extractions, or decoupled module changes. Serial execution of independent workstreams is a performance violation.
+  - **`agents/cognitive-executor.md` reinforced:** Direct Input Validation Protocol Step 1 adds `Ambiguity Halt`. Subagent Delegation section adds `Parallel Execution Mandate` for multi-directory mapping.
+  - **Documentation synchronized:** `AGENTS.md` guardrails updated with Clarification Halt, Goal-Oriented Tasks, and Parallel Agent Execution mandates. `docs/conventions.md` added `## Goal-Oriented Tasks & Parallel Agent Execution Standards` and `## Input Validation & Clarification Halt` sections.
+
 - **Goal Plugin Config Alignment (Task 122)** — replaced `@prevalentware/opencode-goal-plugin` (scoped npm package) with the official `opencode-goal-plugin` (unscoped, from `willytop8/OpenCode-goal-plugin`) in both project and global `opencode.json` configs. Added the mandatory `command.goal` block with `template: "$ARGUMENTS"` and `agent: "cognitive-executor"` — required for the `/goal` slash command to register. Added `.opencode/goals/` to `.gitignore` (goal plugin persists per-project state there). Stored memory note about the upgrade at `opencode_config/global_goal_plugin_upgrade_2026_08_27`.
 
 ## [9.0.0] - 2026-08-27

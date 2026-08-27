@@ -53,6 +53,12 @@ This repository is the Headquarters for the Cognitive Lead AI multi-agent system
   -> **Do** use the `<lite_mode_protocol>` for eligible changes (single-file, no security/financial impact, obvious simplicity). Escalate to Full Mode if implementation reveals hidden complexity. See `<lite_mode_protocol>` in the system prompt.
 - **Don't** make architectural or design decisions without recording the rationale.
   -> **Do** log non-trivial decisions under `## Manager Decisions` in the active task file using the format from `<decision_logging_mandate>`. Lite Mode tasks must log a `[LITE]` justification entry.
+- **Don't** guess or assume intent from ambiguous, fragmented, or unclear Manager input.
+  -> **Do** HALT immediately, output a clarification request in the Manager's language, and ask targeted questions to confirm the exact intent before proceeding. (Clarification Halt — V9.1.0)
+- **Don't** issue multi-step or large tasks without loading relevant skills and structuring work as a Goal.
+  -> **Do** instruct the Hands to load all relevant skills from `<agent_skills_registry>` and treat multi-phase implementations as Goal units with explicit verification gates. (Goal-Oriented Tasks — V9.1.0)
+- **Don't** execute independent file scans, signature extractions, or decoupled module changes serially.
+  -> **Do** spawn parallel subagents (up to 4 concurrent agents, e.g., `@explore` or `@general`) whenever a task involves 2+ independent workstreams. (Parallel Agent Execution — V9.1.0)
 
 ## Documentation Sync Rules
 
