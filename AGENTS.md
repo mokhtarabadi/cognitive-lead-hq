@@ -106,3 +106,7 @@ When finishing a task, you MUST execute these exact steps in order:
 5. **Kanban Metadata Synchronization (mandatory after ANY authorized `git mv`):** After the move, you MUST update the task file's `**File:**` metadata header to the new path. If the move happened AFTER staging, you MUST also re-run `lint_task_file` and call `custom_context_stage_and_inject_diff` again using the NEW task path before notifying the Manager — the re-stage keeps the injected diff and the staging state in sync with the final path. Never notify the Manager with a stale `**File:**` header.
 6. **Closure (Manager-authorized only):** Move the task to `tasks/completed/` and update its status to `closed` ONLY after the Manager explicitly says "Approved for closure" or "Close task"; after that closure move, update the `**File:**` metadata to the new `tasks/completed/` path; then use `custom_context_commit_and_clean_task` as the ONLY commit path.
 7. **Notify Manager:** Output exactly: "Task ready. Manager, please copy the contents of `tasks/qa/XX-task-name.md` and send it back to the Orchestrator Brain for review."
+
+## Project-Specific Skill Auto-Load (this repo only)
+
+When the context involves editing Freebuff knowledge documents, roles, or the Cognitive Executive Role definition, auto-load `/skill:freebuff-documents`. This skill is specific to the Cognitive Lead AI HQ repository and is intentionally NOT in the global Skill Auto-Loading Matrix.
