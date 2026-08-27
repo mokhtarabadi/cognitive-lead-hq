@@ -52,6 +52,17 @@
   "max_qa_retries": 3,
   "evidence_dir": "loop-engine/evidence",
 
+  // --- Task Entry Trigger Gate ---
+  // Controls how tasks enter the execution loop.
+  // "telegram_button" = admin taps [🚀 Start Execution] in Telegram (default)
+  // "command_only"    = admin runs /run <task_id> in Telegram
+  // "auto"            = legacy: auto-pickup on file detection (no admin gate)
+  "trigger_mode": "telegram_button",
+
+  // If true, existing backlog tasks run immediately on daemon boot.
+  // If false (default), they are registered as PENDING_TRIGGER and await admin action.
+  "auto_start_on_boot": false,
+
   "system_prompt_path": "system-prompt.md",
   "tasks_dir": "tasks",
   "agmd_path": "AGENTS.md",

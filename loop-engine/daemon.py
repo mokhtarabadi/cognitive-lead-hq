@@ -3,6 +3,12 @@ Cognitive Loop Engine — Main Daemon Entry Point.
 
 Orchestrates: Watcher -> Router -> Gateway -> Executor -> QA -> State
 Runs as: uv run loop-engine/daemon.py
+
+Task Entry Trigger Gate:
+- trigger_mode="auto": legacy auto-pickup (no admin gate).
+- trigger_mode="telegram_button"|"command_only": tasks register as PENDING_TRIGGER.
+- auto_start_on_boot: if True, existing backlog tasks run immediately on boot.
+- CLI: python daemon.py --run <task_id> to trigger a specific staged task.
 """
 
 import asyncio
@@ -112,6 +118,78 @@ async def process_task(task_id: int, task_file: str, config: LoopEngineConfig,
         print(f"[pipeline] Task #{task_id} crashed with unexpected error: {e}")
 
 
+class LoopEngineDaemon:
+    """Encapsulates daemon state and provides trigger_task() for the gateway."""
+
+    def __init__(self, config, state, router, gateway, executor, qa, brainstorm):
+        self.config = config
+        self.state = state
+        self.router = router
+        self.gateway = gateway
+        self.executor = executor
+        self.qa = qa
+        self.brainstorm = brainstorm
+
+    async def trigger_task(self, task_id: int) -> None:
+        """Trigger execution of a PENDING_TRIGGER task.
+
+        Fresh Read Guarantee: re-reads the task file from disk so any
+        manual edits/refinements are captured before processing.
+        """
+        task_record = self.state.get_task(task_id)
+        if not task_record:
+            print(f"[daemon] Task #{task_id} not found in state machine.")
+            return
+
+        task_file = task_record["task_file"]
+
+        # Fresh read from disk
+        from pathlib import Path
+        task_path = Path(task_file)
+        if not task_path.exists():
+            print(f"[daemon] Task file not found: {task_file}")
+            self.state.update_state(task_id, TaskState.CRASHED)
+            return
+
+        # Transition PENDING_TRIGGER -> PLANNING
+        self.state.update_state(task_id, TaskState.PLANNING)
+        print(f"[daemon] Task #{task_id} triggered, transitioning to PLANNING...")
+
+        # Launch processing
+        asyncio.create_task(
+            process_task(task_id, task_file, self.config, self.state,
+                         self.router, self.gateway, self.executor,
+                         self.qa, self.brainstorm))
+
+    async def boot_scan(self) -> list[dict]:
+        """Scan existing backlog tasks on boot.
+
+        If auto_start_on_boot=True: register as BACKLOG and auto-process.
+        If auto_start_on_boot=False: register as PENDING_TRIGGER.
+        """
+        from watcher import KanbanWatcher
+        watcher = KanbanWatcher(self.state, self.config, self.gateway)
+
+        if self.config.auto_start_on_boot:
+            # Legacy: auto-process existing tasks
+            existing = watcher.scan_existing()
+            for t in existing:
+                asyncio.create_task(
+                    process_task(t["task_id"], t["file"], self.config,
+                                 self.state, self.router, self.gateway,
+                                 self.executor, self.qa, self.brainstorm))
+            return existing
+        else:
+            # Trigger gate: register as PENDING_TRIGGER, send trigger cards
+            existing = watcher.scan_existing()
+            for t in existing:
+                from pathlib import Path
+                title = Path(t["file"]).stem
+                await self.gateway.send_task_trigger_card(
+                    t["task_id"], title, t["file"])
+            return existing
+
+
 async def _process_task(task_id: int, task_file: str, config: LoopEngineConfig,
                         state: StateMachine, router: LLMRouter,
                         gateway: ApprovalGateway, executor: HandsExecutor,
@@ -208,6 +286,14 @@ async def _process_task(task_id: int, task_file: str, config: LoopEngineConfig,
 
 async def main():
     """Main loop: watch -> process -> repeat."""
+    import argparse
+
+    # CLI argument parsing
+    parser = argparse.ArgumentParser(description="Cognitive Loop Engine Daemon")
+    parser.add_argument("--run", type=int, metavar="TASK_ID",
+                        help="Trigger and run a specific staged task by ID")
+    args = parser.parse_args()
+
     # Anchor all relative paths (config, state db, tasks/, evidence) to repo root
     os.chdir(REPO_ROOT)
 
@@ -223,20 +309,45 @@ async def main():
     qa = QAEngine(config, state, router)
     brainstorm = BrainstormStage(config, router, workspace_root=str(REPO_ROOT))
 
-    # The watchdog observer fires callbacks from a background thread;
-    # schedule coroutines on the main event loop explicitly.
+    # Create daemon instance
+    daemon = LoopEngineDaemon(config, state, router, gateway, executor, qa, brainstorm)
+
+    # Wire up gateway <-> daemon and gateway <-> state
+    gateway.set_daemon(daemon)
+    gateway.set_state(state)
+
+    # CLI --run mode: trigger a specific task and exit
+    if args.run is not None:
+        print(f"[daemon] CLI trigger: task #{args.run}")
+        await daemon.trigger_task(args.run)
+        # Keep alive briefly for the task to start
+        await asyncio.sleep(2)
+        return
+
+    # Normal daemon mode: boot scan + watch
+    existing = await daemon.boot_scan()
+    print(f"[daemon] Found {len(existing)} existing tasks in backlog "
+          f"(trigger_mode={config.trigger_mode}, "
+          f"auto_start_on_boot={config.auto_start_on_boot}).")
+
+    # Start filesystem watcher
     loop = asyncio.get_running_loop()
 
     def on_task_detected(task_id: int, task_file: str):
-        asyncio.run_coroutine_threadsafe(
-            process_task(task_id, task_file, config, state, router,
-                         gateway, executor, qa, brainstorm), loop)
+        if config.trigger_mode == "auto":
+            asyncio.run_coroutine_threadsafe(
+                process_task(task_id, task_file, config, state, router,
+                             gateway, executor, qa, brainstorm), loop)
+        else:
+            # Register as PENDING_TRIGGER and send card
+            state.update_state(task_id, TaskState.PENDING_TRIGGER)
+            asyncio.run_coroutine_threadsafe(
+                gateway.send_task_trigger_card(task_id, task_file.split("/")[-1], task_file),
+                loop)
 
-    watcher = KanbanWatcher(state, on_task_detected=on_task_detected)
-    existing = watcher.scan_existing()
+    watcher = KanbanWatcher(state, config, gateway, on_task_detected=on_task_detected)
     watcher.start()
 
-    print(f"[daemon] Found {len(existing)} existing tasks in backlog.")
     print("[daemon] Watching for new tasks... Press Ctrl+C to stop.")
 
     try:

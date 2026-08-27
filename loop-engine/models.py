@@ -6,7 +6,7 @@ Inspired by OMO's Zod schema system (36 schema files) but using Pydantic for Pyt
 """
 
 from enum import Enum
-from typing import Optional
+from typing import Literal, Optional
 from pydantic import BaseModel, Field
 
 
@@ -15,6 +15,7 @@ from pydantic import BaseModel, Field
 class TaskState(str, Enum):
     """Pipeline states for a task. Mirrors the state machine in AGENTS.md."""
     BACKLOG = "backlog"
+    PENDING_TRIGGER = "pending_trigger"
     PLANNING = "planning"
     AWAITING_APPROVAL = "awaiting_approval"
     IMPLEMENTING = "implementing"
@@ -24,6 +25,7 @@ class TaskState(str, Enum):
     CLOSED = "closed"
     QA_REJECTED = "qa_rejected"
     CRASHED = "crashed"
+    ABORTED = "aborted"
 
 
 class ProviderPriority(BaseModel):
@@ -101,6 +103,20 @@ class LoopEngineConfig(BaseModel):
     # QA
     max_qa_retries: int = Field(3, ge=1, le=10)
     evidence_dir: str = "loop-engine/evidence"
+
+    # Task Entry Trigger Gate
+    trigger_mode: Literal["telegram_button", "command_only", "auto"] = Field(
+        "telegram_button",
+        description="How tasks enter the execution loop: "
+                    "'telegram_button' = admin taps Start in Telegram; "
+                    "'command_only' = admin runs /run <id>; "
+                    "'auto' = legacy auto-pickup on file detection."
+    )
+    auto_start_on_boot: bool = Field(
+        False,
+        description="If True, existing backlog tasks run immediately on daemon boot. "
+                    "If False, they are registered as PENDING_TRIGGER and await admin action."
+    )
 
     # Paths
     system_prompt_path: str = "system-prompt.md"

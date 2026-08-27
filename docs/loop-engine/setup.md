@@ -96,12 +96,23 @@ Edit `loop-engine/loop-engine.jsonc`:
 {
   "approval": {
     "chat_id": 123456789
-  }
+  },
+  "trigger_mode": "telegram_button",
+  "auto_start_on_boot": false
 }
 ```
 
 > The Manager chat ID comes from this config field (`approval.chat_id`) — there
 > is no `TELEGRAM_CHAT_ID` environment variable.
+
+**Trigger modes:**
+- `"telegram_button"` (default): Tasks wait for admin to tap [🚀 Start Execution] in Telegram.
+- `"command_only"`: Tasks wait for admin to run `/run <task_id>` in Telegram.
+- `"auto"`: Legacy — tasks auto-enter the pipeline immediately.
+
+**Boot behavior:**
+- `auto_start_on_boot: false` (default): Existing backlog tasks register as `PENDING_TRIGGER` and wait for admin action.
+- `auto_start_on_boot: true`: Existing backlog tasks run immediately on daemon boot.
 
 ### 10. Start the Daemon
 
@@ -120,9 +131,16 @@ Expected output:
 ============================================================
   Cognitive Loop Engine — Starting...
 ============================================================
-[watcher] Watching tasks/backlog for new tasks...
-[daemon] Found 0 existing tasks in backlog.
+[watcher] Watching tasks/backlog for new tasks (trigger_mode=telegram_button)...
+[daemon] Found 0 existing tasks in backlog (trigger_mode=telegram_button, auto_start_on_boot=False).
 [daemon] Watching for new tasks... Press Ctrl+C to stop.
+```
+
+### CLI Options
+
+```bash
+# Trigger a specific staged task directly
+python daemon.py --run <task_id>
 ```
 
 ## Testing
@@ -136,6 +154,7 @@ python test_models.py
 python test_state.py
 python test_router.py
 python test_executor.py
+python test_trigger_entry.py
 ```
 
 Expected output:
@@ -144,6 +163,7 @@ Expected output:
 10 passed, 0 failed
 9 passed, 0 failed
 8 passed, 0 failed
+9 passed, 0 failed
 ```
 
 ### Smoke Test

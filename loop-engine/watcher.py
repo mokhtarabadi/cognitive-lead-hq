@@ -5,9 +5,9 @@ Uses Python watchdog filesystem observer.
 Read-only: never modifies task files.
 Triggers the pipeline by registering the task in StateMachine.
 
-Inspired by OMO's rules-engine but minimal:
-- Only watches tasks/backlog/
-- Ignores tasks/archive/, loop-engine/, .git/
+Respects trigger_mode from LoopEngineConfig:
+- "auto": legacy behavior — immediately invokes on_task_detected (starts processing).
+- "telegram_button" / "command_only": registers as PENDING_TRIGGER, sends trigger card.
 """
 
 import re
@@ -18,7 +18,7 @@ from typing import Callable, Optional
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler, FileCreatedEvent
 
-from models import TaskState
+from models import TaskState, LoopEngineConfig
 from state import StateMachine
 
 
@@ -50,8 +50,11 @@ def _parse_task_metadata(file_path: str) -> Optional[dict]:
 class BacklogHandler(FileSystemEventHandler):
     """Watches for new .md files in tasks/backlog/."""
 
-    def __init__(self, state: StateMachine, on_task_detected: Optional[Callable] = None):
+    def __init__(self, state: StateMachine, config: LoopEngineConfig,
+                 gateway=None, on_task_detected: Optional[Callable] = None):
         self.state = state
+        self.config = config
+        self.gateway = gateway
         self.on_task_detected = on_task_detected
 
     def on_created(self, event):
@@ -79,9 +82,14 @@ class BacklogHandler(FileSystemEventHandler):
         # Register in state machine
         task_record = self.state.get_task_by_file(file_path)
         if not task_record:
-            task_id = self.state.register_task(file_path, TaskState.BACKLOG)
-            print(f"[watcher] New task detected: {file_path} (ID: {task_id})")
+            initial_state = (TaskState.BACKLOG if self.config.trigger_mode == "auto"
+                             else TaskState.PENDING_TRIGGER)
+            task_id = self.state.register_task(file_path, initial_state)
+            print(f"[watcher] New task detected ({initial_state.value}): "
+                  f"{file_path} (ID: {task_id})")
 
+            # Always dispatch via callback — the daemon handles async scheduling
+            # on the main event loop. Never call asyncio from this background thread.
             if self.on_task_detected:
                 self.on_task_detected(task_id, file_path)
 
@@ -89,27 +97,34 @@ class BacklogHandler(FileSystemEventHandler):
 class KanbanWatcher:
     """Filesystem observer for tasks/backlog/."""
 
-    def __init__(self, state: StateMachine, tasks_dir: str = "tasks",
+    def __init__(self, state: StateMachine, config: LoopEngineConfig,
+                 gateway=None, tasks_dir: str = "tasks",
                  on_task_detected: Optional[Callable] = None):
         self.state = state
+        self.config = config
+        self.gateway = gateway
         self.tasks_dir = Path(tasks_dir)
         self.backlog_dir = self.tasks_dir / "backlog"
         self.observer = Observer()
-        self.handler = BacklogHandler(state, on_task_detected)
+        self.handler = BacklogHandler(state, config, gateway, on_task_detected)
 
     def start(self):
         """Start watching tasks/backlog/ for new files."""
         self.backlog_dir.mkdir(parents=True, exist_ok=True)
         self.observer.schedule(self.handler, str(self.backlog_dir), recursive=False)
         self.observer.start()
-        print(f"[watcher] Watching {self.backlog_dir} for new tasks...")
+        print(f"[watcher] Watching {self.backlog_dir} for new tasks "
+              f"(trigger_mode={self.config.trigger_mode})...")
 
     def stop(self):
         self.observer.stop()
         self.observer.join()
 
     def scan_existing(self) -> list[dict]:
-        """Scan tasks/backlog/ for existing unregistered tasks."""
+        """Scan tasks/backlog/ for existing unregistered tasks.
+
+        Respects trigger_mode: auto → BACKLOG, else → PENDING_TRIGGER.
+        """
         detected = []
         if not self.backlog_dir.exists():
             return detected
@@ -121,7 +136,10 @@ class KanbanWatcher:
 
             task_record = self.state.get_task_by_file(str(md_file))
             if not task_record:
-                task_id = self.state.register_task(str(md_file), TaskState.BACKLOG)
+                if self.config.trigger_mode == "auto":
+                    task_id = self.state.register_task(str(md_file), TaskState.BACKLOG)
+                else:
+                    task_id = self.state.register_task(str(md_file), TaskState.PENDING_TRIGGER)
                 detected.append({"task_id": task_id, "file": str(md_file)})
                 print(f"[watcher] Existing task registered: {md_file.name} (ID: {task_id})")
 

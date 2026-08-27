@@ -63,6 +63,11 @@ All configuration lives in `loop-engine/loop-engine.jsonc`.
   "max_qa_retries": 3,
   "evidence_dir": "loop-engine/evidence",
 
+  // Task Entry Trigger Gate
+  // Controls how tasks enter the execution loop
+  "trigger_mode": "telegram_button",  // "telegram_button" | "command_only" | "auto"
+  "auto_start_on_boot": false,        // if true, existing backlog tasks run immediately
+
   // File paths (relative to workspace root)
   "system_prompt_path": "system-prompt.md",
   "tasks_dir": "tasks",
@@ -144,6 +149,25 @@ Each category supports:
 - **Type:** `string`
 - **Default:** `"loop-engine/evidence"`
 - **Description:** Directory for QA evidence files.
+
+### `trigger_mode`
+
+- **Type:** `string`
+- **Default:** `"telegram_button"`
+- **Enum:** `"telegram_button"`, `"command_only"`, `"auto"`
+- **Description:** Controls how tasks enter the execution loop.
+
+| Mode | Behavior |
+|---|---|
+| `telegram_button` | Tasks register as `PENDING_TRIGGER`. Gateway sends a Telegram card with [🚀 Start Execution] / [⏸️ Hold] buttons. Admin taps to trigger. |
+| `command_only` | Tasks register as `PENDING_TRIGGER`. Admin uses `/run <task_id>` or `/start <task_id>` in Telegram to trigger. |
+| `auto` | Legacy behavior — tasks auto-enter the pipeline immediately on file detection. No admin gate. |
+
+### `auto_start_on_boot`
+
+- **Type:** `boolean`
+- **Default:** `false`
+- **Description:** If `true`, existing backlog tasks found during daemon boot run immediately (legacy behavior). If `false`, they are registered as `PENDING_TRIGGER` and wait for admin action.
 
 ### File Paths
 

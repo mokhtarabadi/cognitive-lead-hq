@@ -13,7 +13,9 @@ def test_task_state_values():
     assert TaskState.IMPLEMENTING.value == "implementing"
     assert TaskState.CLOSED.value == "closed"
     assert TaskState.CRASHED.value == "crashed"
-    assert len(TaskState) == 10
+    assert TaskState.PENDING_TRIGGER.value == "pending_trigger"
+    assert TaskState.ABORTED.value == "aborted"
+    assert len(TaskState) == 12
 
 
 def test_category_config():

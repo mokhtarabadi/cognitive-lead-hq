@@ -137,6 +137,10 @@ class StateMachine:
         ).fetchall()
         return [dict(r) for r in rows]
 
+    def get_pending_trigger_tasks(self) -> list[dict]:
+        """Get all tasks waiting for admin trigger (PENDING_TRIGGER status)."""
+        return self.get_tasks_in_state(TaskState.PENDING_TRIGGER)
+
     # --- Todo Operations (Todo Enforcer) ---
 
     def add_todo(self, task_id: int, description: str) -> int:

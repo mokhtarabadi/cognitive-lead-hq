@@ -5,9 +5,12 @@ The Cognitive Loop Engine is a local orchestration daemon that eliminates the ma
 ## What It Does
 
 ```
-Manager creates task → Daemon detects → AI plans → Telegram approval →
-OpenCode executes → QA reviews → Telegram closure → Done
+Manager creates task → Daemon detects → [Trigger Gate] →
+AI plans → Telegram approval → OpenCode executes →
+QA reviews → Telegram closure → Done
 ```
+
+The **Trigger Gate** decouples task creation from execution. Tasks register as `PENDING_TRIGGER` and wait for an explicit admin action (Telegram button or `/run` command) before entering the pipeline. This prevents auto-execution of incomplete or unedited task files.
 
 The Manager transitions from "data entry operator copying XML blocks" to "executive approving decisions via buttons."
 
@@ -113,8 +116,11 @@ Add email/password login to the app
 EOF
 ```
 
-### 2. Auto-Detection
-Kanban Watcher detects the new file and registers it in SQLite state machine.
+### 2. Detection & Trigger Gate
+Kanban Watcher detects the new file. Based on `trigger_mode`:
+- **`telegram_button` (default):** Task registers as `PENDING_TRIGGER`. Gateway sends a Telegram card with [🚀 Start Execution] / [⏸️ Hold] buttons.
+- **`command_only`:** Task registers as `PENDING_TRIGGER`. Admin uses `/run <task_id>` to trigger.
+- **`auto`:** Legacy behavior — task auto-enters the pipeline immediately.
 
 ### 3. Planning
 LLM Router sends task to AI with Architect persona. AI generates implementation plan.
@@ -135,6 +141,7 @@ Gateway sends closure summary to Telegram. Manager approves. Task moves to `task
 
 | Decision | Rationale |
 |---|---|
+| **Trigger Gate decouples creation from execution** | Prevents auto-execution of incomplete tasks; admin reviews before triggering |
 | **QA failure stays in same task** | No task proliferation, single audit trail |
 | **Goal Plugin for auto-continue** | More reliable than custom timeout (event-driven, re-entrancy guard, compaction survival) |
 | **SQLite from day one** | OMO boulder-state validated this approach |
