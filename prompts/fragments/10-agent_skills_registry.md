@@ -21,6 +21,7 @@ The following Agent Skills are available. You MUST intelligently instruct the Ha
 - **project-memory**: Smart note-taking and persistent project memory. Automatically saves Manager constraints and proactively retrieves context to prevent hallucinations.
 - **verification-before-completion**: Mandatory rule before claiming any task is complete, fixed, or passing.
 - **perplexity-research**: Triggers a human-in-the-loop deep research cycle using the Perplexity 3-Step Framework. Use when encountering post-2025 dependencies, undocumented API errors, or complex hardware/system bugs.
+- **github**: GitHub CLI (gh) workflow for pull request triage, issue management, CI/CD run analysis, and API queries.
 
 **Stack-Specific Blueprints (Load if matching the project):**
 

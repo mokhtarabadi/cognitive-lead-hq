@@ -1060,8 +1060,8 @@ def test_workflow_skills_have_no_opencode_execution_log():
     repo_root = Path(__file__).parent.parent
     target_files = list((repo_root / "skill-templates").glob("*/SKILL.md"))
     target_files.append(repo_root / "agents" / "cognitive-executor.md")
-    assert len(target_files) >= 29, (
-        f"Expected the 29 skill templates + executor agent, got {len(target_files)} files"
+    assert len(target_files) >= 32, (
+        f"Expected the 32 skill templates + executor agent, got {len(target_files)} files"
     )
     for skill_file in target_files:
         content = skill_file.read_text(encoding="utf-8")

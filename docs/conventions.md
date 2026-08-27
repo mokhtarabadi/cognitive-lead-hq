@@ -41,6 +41,10 @@ rm -f /tmp/gh-issue-body.md
 - Always include `rm -f /tmp/gh-issue-body.md` cleanup after the `gh` command.
 - This applies to all files: SKILL.md templates, task files, and scripts.
 
+### Canonical Reference
+
+The [`github` skill](../skill-templates/github/SKILL.md) is the canonical reference for all GitHub CLI workflows — pull request triage, issue management, CI/CD run analysis, and API queries. Load it via the `skill` tool whenever a task involves GitHub operations.
+
 ## Universal DateTime Standard
 
 All projects in this ecosystem MUST follow these datetime rules:

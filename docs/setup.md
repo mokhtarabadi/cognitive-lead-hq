@@ -7,6 +7,43 @@ This document covers installation and setup for all platform tools and dependenc
 - [Node.js](https://nodejs.org/) (v18+) and npm
 - [OpenCode](https://opencode.ai) (latest version)
 - [uv](https://docs.astral.sh/uv/) (for Python-based MCP servers)
+- [GitHub CLI](https://cli.github.com/) (`gh`) — for GitHub operations
+
+## GitHub CLI (gh)
+
+The [GitHub CLI](https://cli.github.com/) (`gh`) is required for GitHub operations — pull request triage, issue management, CI/CD run analysis, and API queries. See the [`github` skill](../skill-templates/github/SKILL.md) for the canonical workflow reference.
+
+### Verify Installation
+
+```bash
+gh --version
+gh auth status
+```
+
+### Install (if missing)
+
+**Debian/Ubuntu:**
+```bash
+(type -p wget >/dev/null || (sudo apt update && sudo apt-get install wget -y)) \
+&& sudo mkdir -p -m 755 /etc/apt/keyrings \
+&& out=$(mktemp) && wget -nv -O$out https://cli.github.com/packages/githubcli-archive-keyring.gpg \
+&& cat $out | sudo tee /etc/apt/keyrings/githubcli-archive-keyring.gpg > /dev/null \
+&& sudo chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg \
+&& echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
+&& sudo apt update \
+&& sudo apt install gh -y
+```
+
+**macOS:**
+```bash
+brew install gh
+```
+
+### Authenticate
+
+```bash
+gh auth login
+```
 
 ## opentmux — Smart Tmux Integration
 

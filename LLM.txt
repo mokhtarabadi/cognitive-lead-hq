@@ -14,6 +14,7 @@ Check that the following tools are installed:
 
 - **Git** — to clone the repository
 - **Node.js (v20+ LTS)** and **npm** — required for opentmux and other npm-based tools
+- **GitHub CLI (`gh`)** — for GitHub operations (issues, PRs, CI runs, API queries)
 - **uv** — fast Python package manager (required by the MCP servers)
 
 ### Installing Node.js (if missing)
@@ -115,7 +116,7 @@ Copy all reusable skills from `skill-templates/` into the global OpenCode skills
 cp -r /tmp/cognitive-lead-hq/skill-templates/* ~/.config/opencode/skills/
 ```
 
-After this, the skills will be available via `/help` from any directory. `skill-templates/` contains **30 skills** (`bundle-tasks` since Task 110).
+After this, the skills will be available via `/help` from any directory. `skill-templates/` contains **31 skills** (`bundle-tasks` since Task 110, `github` since Task 121).
 
 ### 6.1. (Optional) Bundle CLI Script — Only If You Want `uv run scripts/bundle-tasks.py`
 
@@ -317,10 +318,12 @@ After completing all steps, verify:
 - [ ] `npm` is installed (`npm --version`)
 - [ ] `uv` is installed and available (`uv --version`)
 - [ ] `opentmux` is installed globally (`opentmux --version`)
+- [ ] `gh` is installed (`gh --version`)
+- [ ] `gh` is authenticated (`gh auth status`)
 - [ ] `~/.config/opencode/mcp-context-server/server.py` exists and is executable
 - [ ] `~/.config/opencode/mcp-memory-server/server.py` exists and is executable
 - [ ] `~/.config/opencode/mcp-lint-server/server.py` exists and is executable
-- [ ] Skills are installed under `~/.config/opencode/skills/` (at least one subfolder exists) — should include `bundle-tasks` (30 skills total)
+- [ ] Skills are installed under `~/.config/opencode/skills/` (at least one subfolder exists) — should include `bundle-tasks` (31 skills total)
 - [ ] `~/.config/opencode/agents/cognitive-executor.md` exists
 - [ ] `~/.config/opencode/agents/cognitive-discovery.md` exists
 - [ ] `~/.config/opencode/opencode.json` exists with **absolute paths** (not `~` or relative paths) and 5 `mcp` entries (`custom_context`, `project_memory`, `lint`, `blowsh`, `telegram`) + `blowsh_*`/`telegram_*` permissions, no former browser entry
