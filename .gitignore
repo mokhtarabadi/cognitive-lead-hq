@@ -38,3 +38,6 @@ context-reports/
 
 # Telegram Downloads
 downloads/
+
+# Goal plugin state (per-project)
+.opencode/goals/
