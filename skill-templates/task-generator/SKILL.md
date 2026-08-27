@@ -131,6 +131,10 @@ If the output is non-empty, HALT and report duplicate task IDs. Do NOT overwrite
    - [ ] `CHANGELOG.md` updated via Parse-Then-Append
    - [ ] `verification-before-completion` applied and evidence recorded
 
+   ## Manager Decisions
+
+   _(Log non-trivial architectural, design, or strategic decisions here using the format from `<decision_logging_mandate>`. For Lite Mode tasks, log a `[LITE]` justification entry.)_
+
    ## Risk & Rollback
 
    - **Risk:** [what could go wrong]
@@ -187,6 +191,10 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 - [ ] `lint_task_file` passes on the active task file
 - [ ] `CHANGELOG.md` updated via Parse-Then-Append
 - [ ] `verification-before-completion` applied and evidence recorded
+
+## Manager Decisions
+
+_(Log non-trivial architectural, design, or strategic decisions here using the format from `<decision_logging_mandate>`. For Lite Mode tasks, log a `[LITE]` justification entry.)_
 
 ## Risk & Rollback
 

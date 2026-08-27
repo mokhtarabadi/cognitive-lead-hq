@@ -37,4 +37,4 @@ The following Agent Skills are available. You MUST intelligently instruct the Ha
 - **react-vite**: React 18+ SPA architecture, hooks, and Vite configuration
 - **spring-boot**: DDD, hexagonal style, and naming conventions for Spring Boot
 - **vue-nuxt**: Vue 3 Composition API, Nuxt 3 routing, and state management
-  </agent_skills_registry>
+</agent_skills_registry>

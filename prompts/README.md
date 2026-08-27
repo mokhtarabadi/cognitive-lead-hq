@@ -10,27 +10,26 @@
 prompts/
 ├── README.md                   # This file — the authoring workflow guide
 ├── manifest.txt                # Ordered list of fragment filenames (assembly order)
-├── fragments/                  # One file per top-level XML tag in system-prompt.md
+├── fragments/                  # One file per top-level XML tag in system-prompt.md (V9.0.0: 19 tags)
 │   ├── 01-system_version.md
 │   ├── 02-role.md
 │   ├── 03-system_context.md
-│   ├── 04-manager_profile.md
-│   ├── 05-ai_objective.md
-│   ├── 06-operating_principles.md
-│   ├── 07-delegation_strategy.md
-│   ├── 08-challenge_policy.md
-│   ├── 09-leadership_and_language_protocol.md
-│   ├── 10-agent_skills_registry.md
-│   ├── 11-user_input_processing.md
-│   ├── 12-personas.md
-│   ├── 13-agentic_reasoning.md
-│   ├── 14-hands_protocols.md     # Contains <!--INCLUDE:--> markers
-│   ├── 15-execution_workflow.md
-│   ├── 16-brainstorming_protocol.md
-│   ├── 17-constraints.md
-│   ├── 18-solid_programming_mandate.md
-│   ├── 19-universal_datetime_rules.md
-│   └── 20-initialization.md
+│   ├── 04-ai_objective.md
+│   ├── 05-user_input_processing.md
+│   ├── 06-personas.md
+│   ├── 07-agent_skills_registry.md
+│   ├── 08-agentic_reasoning.md
+│   ├── 09-hands_protocols.md     # Contains <!--INCLUDE:--> markers
+│   ├── 10-lite_mode_protocol.md
+│   ├── 11-execution_workflow.md
+│   ├── 12-brainstorming_protocol.md
+│   ├── 13-constraints.md
+│   ├── 14-solid_programming_mandate.md
+│   ├── 15-universal_datetime_rules.md
+│   ├── 16-immutable_financial_ledger_mandate.md
+│   ├── 17-decision_logging_mandate.md
+│   ├── 18-initialization.md
+│   └── 19-communication_examples.md
 └── shared/                     # Shared partials referenced by include markers
     └── validation-phase.md     # The byte-identical <validation_phase> block
 ```
@@ -73,7 +72,7 @@ prompts/
 ## How It Works
 
 - **`scripts/prompt-build/split_system_prompt.py`** — the disassembler. Reads
-  `system-prompt.md` and splits it into the 20 top-level tags. The
+  `system-prompt.md` and splits it into the 19 top-level tags (V9.0.0). The
   `<validation_phase>` block (duplicated 3× inside the `hands_protocols`
   templates) is extracted to `prompts/shared/validation-phase.md` and each
   occurrence is replaced with an `<!--INCLUDE:...-->` marker.

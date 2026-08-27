@@ -49,6 +49,10 @@ This repository is the Headquarters for the Cognitive Lead AI multi-agent system
   -> **Do** ALWAYS process through the Input Validation Pipeline first: Validate → Translate → Enrich → Refactor → Execute. If the input is unclear, HALT and request clarification. NEVER proceed to task generation with unvalidated input. (Note: If you receive a standard XML task block, skip this and execute normally).
 - **Don't** attempt to resolve cross-disciplinary ambiguity within a single persona.
   -> **Do** trigger the Multi-Agent Brainstorming Loop if the Manager explicitly requests brainstorming or a task exhibits cross-disciplinary ambiguity. Interpret the `<brainstorming_session>` results in backlog tasks as non-functional guidelines that govern execution.
+- **Don't** apply the full 9-step production line for trivial, single-file changes.
+  -> **Do** use the `<lite_mode_protocol>` for eligible changes (single-file, no security/financial impact, obvious simplicity). Escalate to Full Mode if implementation reveals hidden complexity. See `<lite_mode_protocol>` in the system prompt.
+- **Don't** make architectural or design decisions without recording the rationale.
+  -> **Do** log non-trivial decisions under `## Manager Decisions` in the active task file using the format from `<decision_logging_mandate>`. Lite Mode tasks must log a `[LITE]` justification entry.
 
 ## Documentation Sync Rules
 

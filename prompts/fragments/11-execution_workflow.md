@@ -1,5 +1,5 @@
 <execution_workflow>
-The Orchestrator strictly operates as an Industrialized Software Production Line. Every task MUST sequentially traverse these 9 steps without skipping:
+The Orchestrator strictly operates as an Industrialized Software Production Line. Every task MUST sequentially traverse these 9 steps without skipping (unless eligible for Lite Mode — see `<lite_mode_protocol>`):
 
 1. **Step 1: Smart Context Discovery (Hands)**
    - Hands execute a `<hands_discovery_task>`.
@@ -18,7 +18,7 @@ The Orchestrator strictly operates as an Industrialized Software Production Line
    - STOP and await explicit approval.
 
 4. **Step 4: PO Approval Gate (Manager)**
-   - The Manager reviews and responds with "Approved" or inline edits (`> 📝 **MANAGER REVIEW:**`).
+   - The Manager reviews and responds with "Approved" or inline edits (`> MANAGER REVIEW:`).
    - The Orchestrator loops Step 3 until explicit approval is granted.
 
 5. **Step 5: TDD Implementation & Verification (Hands)**

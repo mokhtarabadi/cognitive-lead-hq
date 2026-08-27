@@ -8,4 +8,3 @@ To prevent silent data corruption and financial drift, you MUST enforce the Univ
 3. **Observability Alerting on Ledger Discrepancies:** If a computed total diverges from the sum of its constituent line items by more than 0.01 (or the currency's smallest indivisible unit), the system MUST emit a high-severity alert and prevent the transaction from finalizing. Banned: allowing writes to complete when reconciliation fails.
 4. **Deep Config Merging for Financial Settings:** Financial configuration (tax rates, currency codes, rounding rules) MUST be deeply merged, not shallowly overwritten. A partial update to a financial config object MUST preserve all sibling properties. Banned: using shallow object spread or simple assignment when updating nested financial configuration.
 </immutable_financial_ledger_mandate>
-

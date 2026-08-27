@@ -10,6 +10,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - **Goal Plugin Config Alignment (Task 122)** — replaced `@prevalentware/opencode-goal-plugin` (scoped npm package) with the official `opencode-goal-plugin` (unscoped, from `willytop8/OpenCode-goal-plugin`) in both project and global `opencode.json` configs. Added the mandatory `command.goal` block with `template: "$ARGUMENTS"` and `agent: "cognitive-executor"` — required for the `/goal` slash command to register. Added `.opencode/goals/` to `.gitignore` (goal plugin persists per-project state there). Stored memory note about the upgrade at `opencode_config/global_goal_plugin_upgrade_2026_08_27`.
 
+## [9.0.0] - 2026-08-27
+
+### Changed
+
+- **System Prompt V9.0.0 Architecture — Separation of Concerns (Task 122)** — major restructuring of the system prompt from 22 fragments to 19 clean fragments, removing the embedded coaching/profile system and adding operational scaling features:
+  - **Removed fragments:** `<manager_profile>` (147-line Founder Operating System), `<operating_principles>` (company operating rules), `<delegation_strategy>` (delegation strategy), `<challenge_policy>` (challenge policy), `<leadership_and_language_protocol>` (executive coaching, vocabulary assistance, English pronunciation guides, ruthless soft-skills feedback). These 5 fragments contained ~170 lines of Manager-specific coaching content that is now project-specific (belongs in `AGENTS.md`).
+  - **Added `<lite_mode_protocol>`:** Process scaling to risk — single-file, low-risk changes (typos, doc fixes, config tweaks) can bypass the full 9-step production line with a documented `[LITE]` justification. Includes eligibility criteria (3 conditions), workflow (bypass Steps 1–4), escalation rules, and anti-abuse guard.
+  - **Added `<decision_logging_mandate>`:** Non-trivial architectural, design, and strategic decisions must be logged under `## Manager Decisions` in the active task file using a structured format (DECISION_ID, rationale, alternatives, impact). Creates an auditable trail preventing repeated debates.
+  - **Sprint Strategist refactored:** Replaced coaching-style gatekeeping (references to `<decision_framework>`, `<operating_principles>`, `<cognitive_biases>`, `<challenge_policy>`) with technical capacity assessment using MoSCoW prioritization, estimated complexity (S/M/L/XL), dependency chain analysis, and WIP limits.
+  - **`<ai_objective>` refactored:** Changed from "maximize the Manager's long-term success" to "maximize the successful, high-quality delivery of the current project" with explicit process-to-risk scaling reference.
+  - **`<role>` simplified:** Removed reference to `<manager_profile>` — role is now a pure Software Agency Orchestrator.
+  - **`<user_input_processing>` enhanced:** Added Step 5 (Lite Mode Check) with eligibility criteria and escalation rules.
+  - **`<initialization>` simplified:** Removed reference to "[Cognitive Lead AI], the Manager's long-term co-founder and executive advisor" — now simply "Cognitive Lead AI".
+  - **Documentation sync:** `AGENTS.md` updated with Lite Mode and Decision Logging guardrails; `docs/conventions.md` gained Decision Logging Standard and Lite Mode Protocol sections; `skill-templates/task-generator/SKILL.md` gained `## Manager Decisions` section; `skill-templates/audit-agents/SKILL.md` updated Mode 1/2 audit checks; `README.md` updated with V9 Changes section and removed Manager Profile & AI Coaching section; `LLM.txt` Section 9 updated; `prompts/README.md` updated with V9 layout.
+  - **Tooling:** `split_system_prompt.py` TOP_LEVEL_TAGS updated to 19 tags; `prompts/manifest.txt` updated with 19 fragment names.
+  - **Verified:** py_compile passes, assembler generates 70554-byte `system-prompt.md` with `<system_version>9.0.0</system_version>`, all deprecated tags removed (0 occurrences), new tags present.
+
 ## [8.9.0] - 2026-08-27
 
 ### Changed

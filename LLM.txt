@@ -310,9 +310,9 @@ rm -rf /tmp/cognitive-lead-hq
 
 ## 9. Customize the Manager Profile
 
-A copy of `system-prompt.md` has been saved to `~/.config/opencode/system-prompt.md` for your convenience. It contains a `<manager_profile>` block (a **Founder Operating System**) customized for the original author (Mohammad): identity, long-term mission, growth model (Solo Builder → Founder → Product Leader → Engineering Leader → CEO → Executive), entrepreneurial history, behavioral patterns, cognitive biases, decision framework, operating principles, delegation strategy, challenge policy, and coaching preferences.
+A copy of `system-prompt.md` has been saved to `~/.config/opencode/system-prompt.md` for your convenience. V9.0.0 has removed the embedded `<manager_profile>` — the system prompt now provides the operational framework (personas, workflows, constraints) while project-specific Manager configuration lives in your project's `AGENTS.md` file.
 
-**Instruction for AI:** If you are setting this up for a new user, advise them to edit the `<manager_profile>` block in `system-prompt.md` to reflect their own name, background, technical skills, and leadership goals.
+**Instruction for AI:** If you are setting this up for a new user, advise them to add a `## Manager Notes` section to their project's `AGENTS.md` with their identity, background, technical skills, and leadership goals. The system prompt handles HOW the AI works; the project's AGENTS.md handles WHO it works for.
 
 ---
 

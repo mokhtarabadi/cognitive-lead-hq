@@ -84,17 +84,17 @@ To leave feedback directly on the generated Markdown plans:
 
 The AI will process your inline feedback, generate a revised plan, and wait for your final "Approved" signal before writing code.
 
-### Manager Profile & AI Coaching
+### System Prompt V9 Architecture (Separation of Concerns)
 
-The `system-prompt.md` includes a `<manager_profile>` (a **Founder Operating System**) and `<leadership_and_language_protocol>`. By default, this is configured for the original author: an **AI-native Founder** whose objective is building an AI-first software company. The profile models his identity, long-term mission, growth model (Solo Builder → Founder → Product Leader → Engineering Leader → CEO → Executive), entrepreneurial history, behavioral patterns, cognitive biases, and an implicit decision framework. System-level rules — `<ai_objective>`, `<operating_principles>`, `<delegation_strategy>`, and `<challenge_policy>` — make every persona act as his long-term **co-founder, executive advisor, product strategist, systems architect, and leadership coach** — not a coding assistant.
+The `system-prompt.md` is restructured in V9.0.0 with a clear separation of concerns:
 
-- **Founder-First Coaching:** Before any recommendation, personas evaluate the request against the AI objective, mission, operating principles, and decision framework (recurring revenue, leverage, evidence over excitement, optimization before exploration, compounding advantage) and actively defend against the Manager's documented cognitive biases.
-- **Delegation Strategy:** The default solution is never "the Manager writes more code" — personas improve systems, AI, workflows, delegation, documentation, and hiring first.
-- **Language & Vocabulary Corrections:** If the AI notices grammatical errors or forgotten industry keywords in your prompts, it will append a small `> 💡 **Coach's Note:**` at the end of its response to teach you the correct term or pronunciation.
-- **Ruthless Soft-Skills Feedback:** When you close a sprint or ask for feedback (e.g., _"Give me your ruthless feedback about me so I can improve"_), the AI personas will critique your tone and management style as a founder, telling you how a real human would have reacted to your instructions.
+- **No coaching profile embedded in the system prompt.** The Manager's identity, background, and coaching preferences are NOT part of the system prompt — they belong in project-specific `AGENTS.md` files or Manager-authored config.
+- **Lite Mode Protocol (`<lite_mode_protocol>`):** Not every task needs the full 9-step production line. Single-file, low-risk changes (typos, doc fixes, config tweaks) can bypass the Discovery → Brainstorming → Blueprint → Approval pipeline with a documented `[LITE]` justification.
+- **Decision Logging Mandate (`<decision_logging_mandate>`):** All non-trivial architectural, design, and strategic decisions must be logged under `## Manager Decisions` in the active task file, creating an auditable trail.
+- **Technical Capacity Gatekeeping:** The Sprint Strategist persona evaluates backlog candidates against estimated complexity, dependency chains, and MoSCoW prioritization — not coaching-style recommendations.
 
 **Customizing for Yourself:**
-Open `prompts/fragments/04-manager_profile.md` and edit the `<manager_profile>` block there, then regenerate via `python3 scripts/prompt-build/assemble_system_prompt.py` (see `prompts/README.md` for the full authoring workflow).
+For project-specific Manager configuration, edit `AGENTS.md` in your project root and add a `## Manager Notes` section with your identity, background, and coaching preferences. The system prompt provides the operational framework; project files provide the context.
 
 ---
 
@@ -202,7 +202,7 @@ python daemon.py
 ├── prompts/                            # System prompt source tree (fragments + shared partials)
 │   ├── README.md                       # Authoring workflow guide
 │   ├── manifest.txt                    # Ordered fragment list (assembly order)
-│   ├── fragments/                      # One file per top-level XML tag (01-22)
+│   ├── fragments/                      # One file per top-level XML tag (01-19, V9.0.0)
 │   └── shared/                         # Shared partials (e.g. validation-phase.md)
 ├── tests/
 │   └── test_mcp_servers.py             # Pytest suite for MCP servers
@@ -488,8 +488,17 @@ opencode --agent cognitive-executor
 - **Brainstorming Protocol (`<brainstorming_protocol>`):** Multi-agent brainstorming with six specialized personas (system_architect, security_engineer, product_manager, business_strategist, legal_advisor, critical_thinker) for cross-disciplinary ambiguity resolution.
 - **Universal Datetime Rules (`<universal_datetime_rules>`):** UTC-at-rest, ISO-8601/Unix-epoch at API boundaries, SOLID Clock injection, dual-representation for future calendar events, and timezone-independent CI/CD testing.
 - **SOLID Programming Mandate (`<solid_programming_mandate>`):** Single Responsibility, Open/Closed, Liskov Substitution, Interface Segregation, and Dependency Inversion enforced on every generated implementation task, with pragmatic guardrails (No Zero-Abstraction Dogma, 3-Implementation Rule, YAGNI, Occam's Razor).
-- **Leadership & Language Protocol (`<leadership_and_language_protocol>`):** Executive coaching persona that provides vocabulary assistance, English pronunciation guides (Persian phonetics), and ruthless soft-skills feedback during sprint retrospectives.
 - **Expanded Agent Skills Registry:** 31 skills including stack-specific blueprints (android-kotlin, spring-boot, react-vite, nestjs-prisma-vertical, go-hexagonal-grpc, python-fastapi, nextjs, flask-python, react-native-expo, ios-swiftui, vue-nuxt, go-gin) and global workflow skills (brainstorm-swarm, design-md, project-memory, telegram-issue-sync, perplexity-research, verification-before-completion, debug-instrumentation, github).
+
+> **Note:** V9.0.0 removed the `<manager_profile>`, `<operating_principles>`, `<delegation_strategy>`, `<challenge_policy>`, and `<leadership_and_language_protocol>` fragments that were originally introduced in V7. The coaching functionality has been replaced by project-specific Manager configuration in `AGENTS.md`.
+
+## Key V9 Changes
+
+- **Separation of Concerns — Coaching Profile Removed:** The `<manager_profile>`, `<operating_principles>`, `<delegation_strategy>`, `<challenge_policy>`, and `<leadership_and_language_protocol>` fragments have been removed from the system prompt. The Manager's identity, background, and coaching preferences now belong in project-specific `AGENTS.md` files, not in the operational system prompt.
+- **Lite Mode Protocol (`<lite_mode_protocol>`):** New fragment enabling process scaling to risk. Single-file, low-risk changes (typos, doc fixes, config tweaks) can bypass the full 9-step production line with a documented `[LITE]` justification. Escalation to Full Mode is mandatory if hidden complexity is discovered.
+- **Decision Logging Mandate (`<decision_logging_mandate>`):** New fragment requiring all non-trivial architectural, design, and strategic decisions to be logged under `## Manager Decisions` in the active task file, creating an auditable trail with rationale, alternatives, and impact.
+- **Sprint Strategist Refactored:** The Sprint Strategist persona has been refactored from a coaching-style gatekeeper to a technical capacity assessor using MoSCoW prioritization, estimated complexity (S/M/L/XL), dependency chain analysis, and WIP limits.
+- **Restructured to 19 Fragments:** The system prompt has been restructured from 22 fragments to 19 clean fragments, each representing a single concern. The fragment numbering has been re-sequenced to reflect the new architecture.
 
 ## Key V8 Changes
 
@@ -506,10 +515,9 @@ opencode --agent cognitive-executor
 - **`archive-tasks` skill** — milestone compaction: scans `tasks/completed/`, generates dense `docs/history/milestone-X-summary.md`, and moves files to `tasks/archive/`.
 - **System prompt upgraded to V6.0.0** — all personas and workflows updated for the Kanban lifecycle. Project Planner manages state-based Kanban directories. Code Reviewer now generates tasks that move files through the pipeline. Execution workflow includes `backlog → in-progress → qa → completed` transitions.
 
-## Key V6.7 Changes
+## Key V6.7 Changes (Historical — V9.0.0 Removed These Fragments)
 
-- **Manager Profile & Coaching Protocol** — Added a dedicated `<manager_profile>` to the system prompt, giving the AI deep context about the Manager's technical background, work style, and career trajectory.
-- **Leadership & Language Feedback** — Introduced the `<leadership_and_language_protocol>`. The AI now acts as an Executive Coach, teaching forgotten industry keywords, correcting English grammar/pronunciation (using Persian phonetic text), and providing ruthless soft-skills feedback during sprint retrospectives to prepare the Manager for leading real human teams.
+> **Note:** The `<manager_profile>` and `<leadership_and_language_protocol>` fragments introduced in V6.7 were removed in V9.0.0. The coaching functionality has been replaced by project-specific Manager configuration in `AGENTS.md` and the `<decision_logging_mandate>` for decision tracking.
 
 ---
 

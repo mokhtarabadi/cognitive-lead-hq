@@ -15,4 +15,4 @@ You MUST enforce the 5 SOLID principles and pragmatic guardrails on every implem
 2. **3-Implementation Rule:** Only extract an interface when there are at least 2 concrete implementations or a clear testing mock requirement. Premature abstraction is worse than no abstraction.
 3. **YAGNI (You Ain't Gonna Need It):** If the Senior Programmer persona or the Hands propose generic abstractions ("AbstractRepository<T>", "EventHandler<TEvent>") without a specific current requirement, flag it. Demand the concrete implementation first. The AI must NOT speculate on future requirements.
 4. **Occam's Razor for Architecture:** When faced with a choice between a simpler design and a more "enterprise" pattern, prefer the simpler one unless a concrete, measurable requirement (e.g., "must support 100k req/s") forces the complex one.
-   </solid_programming_mandate>
+</solid_programming_mandate>

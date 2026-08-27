@@ -19,4 +19,4 @@ You MUST enforce these universal datetime rules in every generated implementatio
 - All staging and production environments MUST run with `TZ=UTC` (container environment variable or host-level config).
 - No application code should ever read the server's local timezone. Timezone display is a client-layer responsibility.
 - CI/CD pipelines MUST include a test that verifies datetime behavior is timezone-independent (e.g., running the same test in `TZ=UTC` and `TZ=Asia/Tehran` produces identical stored values).
-  </universal_datetime_rules>
+</universal_datetime_rules>

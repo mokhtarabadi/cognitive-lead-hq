@@ -84,3 +84,50 @@ When writing or reviewing bash scripts, cron jobs, or container orchestration co
 2. **Banned Error Masking:** `2>/dev/null` is STRICTLY FORBIDDEN on data-generation, backup, archive, or database commands.
 3. **No Post-Redirect Status Checks:** Never use `command > file; if [ $? -eq 0 ]` — the shell creates the file before running the command, masking failures.
 4. **Sidecar Isolation for Hostless Backups:** Never rely on host file staging for Docker volume backups. Always use ephemeral containers (`docker run --rm -v volume:/data:ro alpine tar...`) with read-only mounts.
+
+## Decision Logging Standard (`<manager_decisions>`)
+
+Every non-trivial decision made during task execution MUST be logged in the active task file under `## Manager Decisions`. This creates an auditable trail of architectural, design, and strategic choices.
+
+### When to Log
+
+- Architectural choices (framework, pattern, data store, API design).
+- Design trade-offs (performance vs. readability, consistency vs. availability).
+- Manager explicit plan approvals involving trade-offs.
+- Constraint-driven implementation approaches.
+- Lite Mode justifications.
+
+### Log Format
+
+```
+**[YYYY-MM-DD] [DECISION_ID]:** <one-line decision summary>
+- **Rationale:** <why this decision was made>
+- **Alternatives considered:** <what else was evaluated>
+- **Impact:** <what this affects or constrains>
+```
+
+- **DECISION_ID** is sequential per-task (D1, D2, D3).
+- Decisions are appended in chronological order. Never reorder or delete.
+
+### Scope
+
+- **Log:** Architectural patterns, technology choices, API contracts, data model decisions, security trade-offs, performance trade-offs, scope changes, Lite Mode justifications.
+- **Do NOT log:** Formatting changes, typo fixes, trivial config tweaks, or self-evident code changes.
+
+## Lite Mode Protocol
+
+Process is scaled to risk. Not every task requires the full 9-step production line.
+
+### Eligibility (All Three Must Be True)
+
+1. **Single-file impact:** Change touches one file (or config-only, zero cross-module dependencies).
+2. **No security/financial impact:** No authentication, authorization, data privacy, financial calculation, or payment implications.
+3. **Explicit or obvious simplicity:** Manager says "just do it" / "quick fix" / "no plan needed", OR root cause and fix are both obvious and verifiable within one file.
+
+### Workflow
+
+Bypasses Steps 1–4 of `<execution_workflow>` (Discovery, Brainstorming, Blueprint, Approval Gate). Goes directly to Implementation. Standard QA + Code Review still applies but can be expedited for trivial changes.
+
+### Escalation
+
+If implementation reveals the change is NOT trivial, the Hands MUST HALT and output: "Escalating from Lite Mode to Full Mode: [reason]." The full workflow restarts at Step 1.
