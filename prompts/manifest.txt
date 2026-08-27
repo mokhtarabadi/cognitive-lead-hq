@@ -17,5 +17,6 @@
 17-constraints.md
 18-solid_programming_mandate.md
 19-universal_datetime_rules.md
-20-initialization.md
-21-communication_examples.md
+20-immutable_financial_ledger_mandate.md
+21-initialization.md
+22-communication_examples.md

@@ -190,7 +190,7 @@ python daemon.py
 ├── prompts/                            # System prompt source tree (fragments + shared partials)
 │   ├── README.md                       # Authoring workflow guide
 │   ├── manifest.txt                    # Ordered fragment list (assembly order)
-│   ├── fragments/                      # One file per top-level XML tag (01-20)
+│   ├── fragments/                      # One file per top-level XML tag (01-22)
 │   └── shared/                         # Shared partials (e.g. validation-phase.md)
 ├── tests/
 │   └── test_mcp_servers.py             # Pytest suite for MCP servers
@@ -475,6 +475,13 @@ opencode --agent cognitive-executor
 - **SOLID Programming Mandate (`<solid_programming_mandate>`):** Single Responsibility, Open/Closed, Liskov Substitution, Interface Segregation, and Dependency Inversion enforced on every generated implementation task, with pragmatic guardrails (No Zero-Abstraction Dogma, 3-Implementation Rule, YAGNI, Occam's Razor).
 - **Leadership & Language Protocol (`<leadership_and_language_protocol>`):** Executive coaching persona that provides vocabulary assistance, English pronunciation guides (Persian phonetics), and ruthless soft-skills feedback during sprint retrospectives.
 - **Expanded Agent Skills Registry:** 30 skills including stack-specific blueprints (android-kotlin, spring-boot, react-vite, nestjs-prisma-vertical, go-hexagonal-grpc, python-fastapi, nextjs, flask-python, react-native-expo, ios-swiftui, vue-nuxt, go-gin) and global workflow skills (brainstorm-swarm, design-md, project-memory, telegram-issue-sync, perplexity-research, verification-before-completion, debug-instrumentation).
+
+## Key V8 Changes
+
+- **9-Step SOP Formalization (`<execution_workflow>`):** Replaced ad-hoc sprint workflow with a strict 9-step production line: Smart Context Discovery → Multi-Persona Brainstorming → Blueprint → Approval Gate → TDD Implementation → Adversarial QA → Code Review → PO Acceptance & Atomic Commit → Next Task Transition.
+- **Immutable Financial Ledger Mandate (`<immutable_financial_ledger_mandate>`):** New fragment enforcing snapshot-on-write, `$ifNull` precedence, observability alerting on discrepancies, and deep config merging for financial settings.
+- **Buffer Isolation (Validation Phase):** Added buffer-flush directive to the shared validation phase — Hands MUST treat every task as contextually independent, preventing cross-task context leakage.
+- **Defensive Shell Protocol (`<defensive_shell_protocol>`):** New constraint block mandating `set -euo pipefail`, banning `2>/dev/null` on data commands, and requiring sidecar isolation for Docker volume backups.
 
 ## Key V6 Changes
 

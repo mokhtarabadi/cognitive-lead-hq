@@ -312,7 +312,13 @@ def assemble(
                 f"Unresolved placeholder {unresolved.group(0)} in fragment {filename} "
                 f"— an include marker is missing a required PARAM."
             )
-        parts.append(fragment)
+        # Strip trailing whitespace from each fragment to match the
+        # splitter's extraction: split_system_prompt.py produces fragments
+        # without trailing newlines (lines[start:end+1] joined with '\n').
+        # The Write tool adds trailing newlines to fragment files, so we
+        # must strip them before joining to avoid extra blank lines in the
+        # assembled output.
+        parts.append(fragment.rstrip("\n"))
 
     # Join with one blank line between fragments, terminate with a single
     # trailing newline — this reproduces the pristine file's structure.

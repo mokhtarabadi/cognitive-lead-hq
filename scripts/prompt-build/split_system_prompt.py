@@ -58,9 +58,9 @@ from typing import List, Tuple
 # Configuration
 # ---------------------------------------------------------------------------
 
-# The 21 top-level XML tags in system-prompt.md, in document order.
+# The 22 top-level XML tags in system-prompt.md, in document order.
 # This explicit ordered list is the authoritative contract for the split: the
-# script verifies that these (and only these) 21 tags appear at the top level,
+# script verifies that these (and only these) 22 tags appear at the top level,
 # in this exact order. Nested tags (e.g. <identity> inside <manager_profile>,
 # or <phase>/<workflow>/<personas> inside <brainstorming_protocol>) are part of
 # their parent block's content and are NOT split out separately.
@@ -84,6 +84,7 @@ TOP_LEVEL_TAGS: List[str] = [
     "constraints",
     "solid_programming_mandate",
     "universal_datetime_rules",
+    "immutable_financial_ledger_mandate",
     "initialization",
     "communication_examples",
 ]
@@ -271,7 +272,7 @@ def split_system_prompt(
 ) -> List[str]:
     """Split system-prompt.md into per-tag fragment files.
 
-    Reads the monolithic system-prompt.md, extracts the 20 top-level XML tags in
+    Reads the monolithic system-prompt.md, extracts the 22 top-level XML tags in
     document order as verbatim fragment files, extracts the duplicated
     <validation_phase> block into a shared partial with include markers, and
     writes a manifest listing the fragment filenames in assembly order.
@@ -290,7 +291,7 @@ def split_system_prompt(
     content = src.read_text(encoding="utf-8")
     lines = content.split("\n")
 
-    # --- 1. Locate the 21 top-level block ranges ---
+    # --- 1. Locate the 22 top-level block ranges ---
     ranges = _find_block_ranges(lines)
     if len(ranges) != len(TOP_LEVEL_TAGS):
         _halt(
