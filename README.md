@@ -283,10 +283,15 @@ python daemon.py
 │   └── vue-nuxt/                       # Vue 3 Composition API + Nuxt 3
 │       └── SKILL.md
 └── user-prompts/                       # Reusable copy-paste prompt templates
+    ├── founder-coaching-chat.md        # Founder coaching system prompt (AI Studio / Claude / ChatGPT)
+    ├── daily-english-coach-chat.md     # Daily English practice system prompt (AI Studio / Claude / ChatGPT)
     ├── cold-start-context.md
     ├── session-compactor.md
     ├── voice-to-text-enhancer.md
     ├── persian-to-english-dictation.md
+    ├── multi-agent-brainstorming.md
+    ├── perplexity-deep-research.md
+    ├── input-validation-test.md
     └── agile-pm-state-manager.md
 ```
 
