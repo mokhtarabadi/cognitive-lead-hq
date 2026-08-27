@@ -1007,39 +1007,6 @@ def test_stage_and_inject_diff_with_ignored_context_reports():
         assert "context_report_x.md" not in staged, "Report content must not be staged"
 
 
-def test_freebuff_agents_have_no_model_key():
-    """Verify both Freebuff agent ports omit the `model` field entirely.
-
-    Regression guard (Task 98 v1.1.0 fix): pinning an explicit `model`
-    (e.g. `deepseek/deepseek-v4-flash`) made the Freebuff free tier reject the
-    custom agent with HTTP 403 `free_mode_invalid_agent_model`. Omitting the
-    field lets the runtime fall back to its free-mode default model. This test
-    fails-first: any future edit that re-introduces a `model:` key on either
-    port would silently break the free-tier spawn path, so a line-level regex
-    asserts that no assignment of the form `model:` exists in either file.
-
-    The regex is anchored so header comments such as "// model OMITTED ..."
-    or "`model` field OMITTED ..." do NOT match — only an actual `model:`
-    property assignment (with optional leading whitespace) trips it.
-    """
-    import re
-
-    repo_root = Path(__file__).parent.parent
-    agents_dir = repo_root / "freebuff" / "agents"
-    ts_files = sorted(agents_dir.glob("*.ts"))
-    assert len(ts_files) >= 2, (
-        f"Expected the two Freebuff agent ports under freebuff/agents/, got: {ts_files}"
-    )
-    for ts_file in ts_files:
-        for lineno, line in enumerate(ts_file.read_text(encoding="utf-8").splitlines(), 1):
-            assert not re.match(r"^\s*model\s*:", line), (
-                f"{ts_file.name}:{lineno} declares a pinned `model:` field — "
-                "Freebuff free-tier custom agents MUST omit `model` so the "
-                "runtime falls back to the free-mode default model (HTTP 403 "
-                "free_mode_invalid_agent_model regression)."
-            )
-
-
 def test_system_prompt_has_no_opencode_tags():
     """Verify system-prompt.md (v8.4.5+) contains no `<opencode_` prefixed tags.
 
@@ -1048,15 +1015,14 @@ def test_system_prompt_has_no_opencode_tags():
     `<opencode_implementation_task>`, `<opencode_combined_task>`), which only
     OpenCode understood. Since v8.4.5 the system prompt is runtime-agnostic
     ("the Hands") and emits `<hands_*_task>` blocks, so the same prompt
-    drives Freebuff and OpenCode.
+    drives OpenCode.
 
     This broader guard asserts that NO line contains the case-sensitive prefix
     `<opencode_` at all — not just the three historical tag spellings — so any
     future OpenCode-only tag variant (e.g. a re-added `<opencode_protocols>`
     or a new `<opencode_review_task>`) fails this test immediately instead of
-    silently breaking Freebuff sessions that receive the Orchestrator's
-    output. The intentional "OpenCode vs Freebuff" parentheticals in prose
-    never contain the tag prefix, so this cannot false-positive.
+    silently breaking sessions that receive the Orchestrator's
+    output.
     """
     repo_root = Path(__file__).parent.parent
     system_prompt = repo_root / "system-prompt.md"
@@ -1077,7 +1043,7 @@ def test_workflow_skills_have_no_opencode_execution_log():
     & Reasoning`, and the workflow skill templates (`skill-templates/*/SKILL.md`)
     plus the OpenCode executor agent (`agents/cognitive-executor.md`) must not
     regress to the OpenCode-only wording — the same skills drive the Hands in
-    both OpenCode and Freebuff.
+    OpenCode.
 
     Scope of the guard:
     - ALL `skill-templates/*/SKILL.md` files are scanned (glob), so a NEW skill
@@ -1105,46 +1071,6 @@ def test_workflow_skills_have_no_opencode_execution_log():
         assert "OpenCode Execution Log" not in content, (
             f"{skill_file} still contains OpenCode Execution Log wording"
         )
-
-
-def test_system_prompt_contains_freebuff_skill_alternative():
-    """Verify system-prompt.md documents the Freebuff `/skill:<name>` skill-loading path.
-
-    Regression guard (Task 98, QA round 7 + 8): the Freebuff runtime cannot
-    whitelist the `skill` tool (it is not part of the 17-tool platform
-    whitelist), so the system prompt must teach the Hands the `/skill:<name>`
-    slash-command alternative wherever it instructs skill loading. The guard
-    asserts the alternative appears in BOTH the `<agent_skills_registry>`
-    block and the `<hands_implementation_task_template>` context phase, and at
-    least twice overall, so a future edit that documents it in only one place
-    fails immediately.
-    """
-    repo_root = Path(__file__).parent.parent
-    system_prompt = (repo_root / "system-prompt.md").read_text(encoding="utf-8")
-
-    assert "/skill:<name>" in system_prompt, "system-prompt.md must mention `/skill:<name>`"
-
-    # Skill registry block must document the Freebuff alternative.
-    registry_start = system_prompt.index("<agent_skills_registry>")
-    registry_end = system_prompt.index("</agent_skills_registry>")
-    registry_block = system_prompt[registry_start:registry_end]
-    assert "/skill:<name>" in registry_block, (
-        "The <agent_skills_registry> block must document the `/skill:<name>` alternative"
-    )
-
-    # The implementation-task template context phase must too.
-    impl_start = system_prompt.index("<hands_implementation_task_template>")
-    impl_end = system_prompt.index("</hands_implementation_task_template>")
-    impl_block = system_prompt[impl_start:impl_end]
-    assert "/skill:<name>" in impl_block, (
-        "The <hands_implementation_task_template> context phase must document "
-        "the `/skill:<name>` alternative"
-    )
-
-    # At least two occurrences overall (registry + template).
-    assert system_prompt.count("/skill:<name>") >= 2, (
-        "`/skill:<name>` must appear at least twice in system-prompt.md"
-    )
 
 
 def test_lint_task_file_rejects_duplicate_factual_git_diff_heading():

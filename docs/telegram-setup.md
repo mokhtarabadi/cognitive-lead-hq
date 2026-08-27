@@ -1,6 +1,6 @@
 # Telegram MCP — Work/Personal Setup & Skill Usage
 
-> **Source:** https://github.com/chigwell/telegram-mcp (v2.0.1, Apache-2.0, 1.5k stars, Telethon). Local checkout used by this HQ: `$HOME/.config/opencode/mcp-telegram-server` (`uv --directory ... run main.py` over stdio). For global OpenCode install see `LLM.txt` Steps 7/7.6; for Freebuff see `docs/freebuff-support.md`.
+> **Source:** https://github.com/chigwell/telegram-mcp (v2.0.1, Apache-2.0, 1.5k stars, Telethon). Local checkout used by this HQ: `$HOME/.config/opencode/mcp-telegram-server` (`uv --directory ... run main.py` over stdio). For global OpenCode install see `LLM.txt` Steps 7/7.6.
 
 ## 1. What the Telegram MCP Does (80+ tools)
 
@@ -23,7 +23,7 @@ All Telegram-controlled strings are sanitized (`sanitize_user_content`) and retu
 
 1. Python 3.10+ and `uv` (`curl -LsSf https://astral.sh/uv/install.sh | sh`)
 2. Telegram API credentials from https://my.telegram.org/apps → `API_ID` + `API_HASH`
-3. MCP client (OpenCode, Claude Desktop, Cursor, Freebuff via `~/.agents/mcp.json`)
+3. MCP client (OpenCode, Claude Desktop, Cursor)
 4. Optional: `python-socks` for proxy (`uv sync --extra proxy`)
 
 ## 3. Generate a Session String (per account)
@@ -189,7 +189,7 @@ codex mcp add telegram --url http://127.0.0.1:8765/mcp
 
 **Memory quirks that apply:**
 - `workflows/telegram-file-delivery` — send whole file as attachment to General topic (id 1), never chunk into text; `send_file` has no `reply_to` so General is default; chat `-1003993323129`.
-- `workflows/global-install-upgrade` — all MCP servers now live under `~/.config/opencode/` (`mcp-context-server`, `mcp-memory-server`, `mcp-lint-server`, `mcp-telegram-server`; `blowsh` is Docker). `~/.agents/mcp.json` points at the same absolute opencode paths (no separate copies).
+- `workflows/global-install-upgrade` — all MCP servers now live under `~/.config/opencode/` (`mcp-context-server`, `mcp-memory-server`, `mcp-lint-server`, `mcp-telegram-server`; `blowsh` is Docker).
 
 ## 7. Account Choice in Practice
 
@@ -214,4 +214,3 @@ The server prompts the LLM when `account` ambiguous ("unknown / resembles one / 
 - `skill-templates/telegram-issue-sync/SKILL.md` — full sync SOP (zero-summarization, bilingual task files)
 - `skill-templates/telegram-message-export/SKILL.md` — export SOP (reply hierarchy + zip)
 - `LLM.txt` Steps 7, 7.6, 10 — global auto-install including telegram
-- `docs/freebuff-support.md` §3 — Freebuff MCP mapping (same absolute paths)

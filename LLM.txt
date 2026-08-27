@@ -98,7 +98,7 @@ Copy all reusable skills from `skill-templates/` into the global OpenCode skills
 cp -r /tmp/cognitive-lead-hq/skill-templates/* ~/.config/opencode/skills/
 ```
 
-After this, the skills will be available via `/help` from any directory. `skill-templates/` contains **31 skills** (`bundle-tasks` since Task 110, `freebuff-documents` added 2026-08-26).
+After this, the skills will be available via `/help` from any directory. `skill-templates/` contains **30 skills** (`bundle-tasks` since Task 110).
 
 ### 6.1. (Optional) Bundle CLI Script — Only If You Want `uv run scripts/bundle-tasks.py`
 
@@ -257,81 +257,6 @@ Telemetry-free cache/SSRF defaults (`CACHE_TTL_MS=300000`, `ALLOW_PRIVATE_URLS=f
 
 ---
 
-## 7.5. (Optional) Freebuff Support
-
-> **Dual-runtime support.** Since v8.4.5 `system-prompt.md` is runtime-agnostic ("the Hands", `<hands_*_task>` blocks), so this step makes the same tooling — MCP servers, Skills, custom agents, and global rules — work in Freebuff sessions. It does NOT alter the OpenCode workflow.
-
-Freebuff (freebuff.com, vendor: **CodebuffAI** — the `~/.config/manicode/` binary path is a legacy config-root name, not the vendor) does not read `opencode.json`. It discovers MCP servers, Skills, and custom agents from `.agents/` folders (global: `~/.agents/`) and reads home-directory **knowledge files** — `~/.AGENTS.md` / `~/.CLAUDE.md` (global) and `AGENTS.md` / `CLAUDE.md` / `*.knowledge.md` (per project); `~/.knowledge.md` and bare `knowledge.md` are **NO LONGER loaded** (they left the priority list in 0.0.156). Freebuff has no role/persona feature — roles are defined as always-loaded knowledge-file sections (e.g. the **Cognitive Executive Role** in `~/.AGENTS.md`, source `freebuff/AGENTS.global.md`); maintain them via the `freebuff-documents` skill (see `docs/freebuff-documents.md`). **CLI binary:** Freebuff is a self-contained binary downloaded from freebuff.com (installed here at `~/.config/manicode/freebuff`) — there is NO versioned release channel on GitHub (its Releases page holds only unrelated "Codecane" staging builds). Verified latest 2026-08-26: `0.0.156`. Check with `~/.config/manicode/freebuff --version`; re-download from freebuff.com when a newer version is announced. Ask the user whether they want this optional step; if they decline, skip it.
-
-Create the global Freebuff directory and write the MCP config (absolute paths only):
-
-```bash
-mkdir -p ~/.agents/skills
-
-cat > ~/.agents/mcp.json <<'EOF'
-{
-  "mcpServers": {
-    "custom_context": {
-      "type": "stdio",
-      "command": "uv",
-      "args": ["run", "$HOME/.config/opencode/mcp-context-server/server.py"]
-    },
-    "project_memory": {
-      "type": "stdio",
-      "command": "uv",
-      "args": ["run", "$HOME/.config/opencode/mcp-memory-server/server.py"]
-    },
-    "lint": {
-      "type": "stdio",
-      "command": "uv",
-      "args": ["run", "$HOME/.config/opencode/mcp-lint-server/server.py"]
-    },
-    "blowsh": {
-      "type": "stdio",
-      "command": "docker",
-      "args": ["run", "--rm", "-i", "ghcr.io/mokhtarabadi/blowsh-mcp:latest"]
-    },
-    "telegram": {
-      "type": "stdio",
-      "command": "uv",
-      "args": ["--directory", "$HOME/.config/opencode/mcp-telegram-server", "run", "main.py", "/tmp/telegram-mcp", "$HOME/.config/opencode/mcp-telegram-server/downloads"]
-    }
-  }
-}
-EOF
-```
-
-**Important:** Replace `$HOME` with the actual absolute path discovered in Step 3 — Freebuff resolves these paths from any working directory, so `~` is not safe here.
-
-> **Blowsh/Telegram parity:** Blowsh is Docker-only (same image as OpenCode) so Freebuff gets it for free; telegram is installed once in the opencode config dir (`~/.config/opencode/mcp-telegram-server`) and reused by both OpenCode and Freebuff via absolute paths — a single checkout satisfies both runtimes (no separate copy).
-
-Install all 31 Agent Skills globally for Freebuff:
-
-```bash
-cp -r /tmp/cognitive-lead-hq/skill-templates/* ~/.agents/skills/
-```
-
-Install the custom agent ports (model-free, free-tier compatible) and the global rules file:
-
-```bash
-cp /tmp/cognitive-lead-hq/freebuff/agents/cognitive-executor.ts ~/.agents/cognitive-executor.ts
-cp /tmp/cognitive-lead-hq/freebuff/agents/cognitive-discovery.ts ~/.agents/cognitive-discovery.ts
-cp /tmp/cognitive-lead-hq/freebuff/AGENTS.global.md ~/.AGENTS.md
-```
-
-> **Custom agents are schema-validated and model-free (v1.2.0), but NOT spawnable on the free tier**
-> (verified 2026-08-13 — see `docs/freebuff-support.md` §5). The ports are validated against the Codebuff
-> 17-tool platform whitelist (`toolNames` pruned to valid platform tools, `spawnableAgents` in
-> `publisher/name@version` format) and **model-free** (`model` omitted, fixing the earlier HTTP 403
-> `free_mode_invalid_agent_model`) — but Freebuff's free tier only whitelists its **built-in** subagents
-> (via the `base2-free-*` "Free Orchestrator" agents); custom local agents require a credits/paid tier.
-> On the free tier, paste `<hands_*_task>` blocks into the base chat (all MCP tools + skills + `~/.AGENTS.md`
-> are loaded) or spawn Freebuff's built-in subagents via a `base2-free-*` agent. The system prompt is used
-> manually — paste `system-prompt.md` into any Freebuff chat as the Orchestrator Brain; it emits
-> `<hands_*_task>` blocks that run in Freebuff or OpenCode.
-
----
-
 ## 8. Clean Up Temporary Clone
 
 Remove the cloned repository from `/tmp/`:
@@ -359,13 +284,11 @@ After completing all steps, verify:
 - [ ] `~/.config/opencode/mcp-context-server/server.py` exists and is executable
 - [ ] `~/.config/opencode/mcp-memory-server/server.py` exists and is executable
 - [ ] `~/.config/opencode/mcp-lint-server/server.py` exists and is executable
-- [ ] Skills are installed under `~/.config/opencode/skills/` (at least one subfolder exists) — should include `bundle-tasks` + `freebuff-documents` (31 skills total)
+- [ ] Skills are installed under `~/.config/opencode/skills/` (at least one subfolder exists) — should include `bundle-tasks` (30 skills total)
 - [ ] `~/.config/opencode/agents/cognitive-executor.md` exists
 - [ ] `~/.config/opencode/agents/cognitive-discovery.md` exists
 - [ ] `~/.config/opencode/opencode.json` exists with **absolute paths** (not `~` or relative paths) and 5 `mcp` entries (`custom_context`, `project_memory`, `lint`, `blowsh`, `telegram`) + `blowsh_*`/`telegram_*` permissions, no former browser entry
-- [ ] Freebuff CLI present and current: `~/.config/manicode/freebuff --version` → **0.0.156** (latest verified 2026-08-26; re-download from freebuff.com when a newer version is announced)
 - [ ] `~/.config/opencode/opencode.json` `blowsh` uses `docker run --rm -i ghcr.io/mokhtarabadi/blowsh-mcp:latest` (120s timeout) and `telegram` uses `uv --directory $HOME/.config/opencode/mcp-telegram-server run main.py` with allowed roots (`/tmp/telegram-mcp` + config dir downloads)
-- [ ] `~/.agents/mcp.json` mirrors the 5 servers (same absolute opencode paths: `~/.config/opencode/mcp-*` + `mcp-telegram-server`) when Freebuff step was taken
 - [ ] `~/.config/opencode/opencode-shell-strategy.md` exists (instructions file referenced by the `instructions` key)
 - [ ] `/tmp/cognitive-lead-hq` no longer exists
 - [ ] `docker pull ghcr.io/mokhtarabadi/blowsh-mcp:latest` succeeds (or `docker` not installed → blowsh stays disabled, document it)

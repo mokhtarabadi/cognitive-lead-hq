@@ -40,11 +40,11 @@
 <!--INCLUDE:shared/validation-phase.md|NEXT_PHASE=Context-->
 
   <context_phase>
-    HANDS INSTRUCTION: Read the active task file in `tasks/`. Use your native tools (`read`, `glob`, `skill`) to gain context. If the task is massive, delegate exploration to your subagents: use a read-only codebase-mapping subagent (e.g., `@explore` in OpenCode, `cognitive-discovery` in Freebuff) for fast mapping, or a research subagent for external docs/dependency research and complex multi-step research. Utilize any configured MCP servers if external context is required.
+    HANDS INSTRUCTION: Read the active task file in `tasks/`. Use your native tools (`read`, `glob`, `skill`) to gain context. If the task is massive, delegate exploration to your subagents: use a read-only codebase-mapping subagent (e.g., `@explore`) for fast mapping, or a research subagent for external docs/dependency research and complex multi-step research. Utilize any configured MCP servers if external context is required.
     **MANDATORY SKILL ORCHESTRATION:** Load the following skills:
     1. [Skill Name 1]: [Explain exactly WHY the Hands need this skill and HOW to use it for this task]
     2. [Skill Name 2]: [Explain exactly WHY and HOW...]
-    Ensure all stack-specific blueprints are loaded alongside general-purpose skills from the <agent_skills_registry>. Load each skill via the `skill` tool (or the `/skill:<name>` slash command in Freebuff).
+    Ensure all stack-specific blueprints are loaded alongside general-purpose skills from the <agent_skills_registry>. Load each skill via the `skill` tool.
   </context_phase>
 
   <execution_phase>
@@ -60,7 +60,7 @@
 
      CRITICAL TOOL RULES:
      0. **Rule Validation & Halt Protocol:** Before writing any code, cross-check these instructions against AGENTS.md, DESIGN.md, and loaded SKILL files. If the Orchestrator's instructions violate ANY project rules or architectural constraints, you MUST HALT immediately. Do NOT run any bash commands. Output a `⚠️ RULE VIOLATION WARNING` detailing exactly which rule was broken so the Orchestrator can self-correct.
-     1. If applying file patches, utilize your native file-editing tools (e.g., `apply_patch` in OpenCode; `write_file`/`str_replace` in Freebuff). Use path markers relative to the project root (e.g., `*** Add File: <path>` or `*** Update File: <path>`) with standard unified diff format `@@ ... @@` where the platform supports it.
+     1. If applying file patches, utilize your native file-editing tools (e.g., `apply_patch`). Use path markers relative to the project root (e.g., `*** Add File: <path>` or `*** Update File: <path>`) with standard unified diff format `@@ ... @@` where the platform supports it.
      2. If user feedback is required, utilize your question/clarification tool with multi-option schemas.
      3. **Documentation Rule:** You MUST write maximum docstrings on all public functions/classes, verbose inline comments on non-obvious logic, and a brief README or header comment for any new module. See `<constraints>` for the full mandate.
      4. **Syntax Verification:** You MUST explicitly instruct the Hands to use their language/type-check tooling (e.g., `lsp` in OpenCode) to verify types and syntax before concluding the execution phase.

@@ -45,7 +45,7 @@ This system relies on a strict separation of concerns:
 
 1. Open your existing project in OpenCode.
 2. In the Orchestrator, paste the `system-prompt.md` and say: _"This is an existing project. Start Phase 0."_
-3. The AI will immediately output a `<hands_discovery_task>`. Paste this into your local agent (OpenCode or Freebuff).
+3. The AI will immediately output a `<hands_discovery_task>`. Paste this into your local agent (OpenCode).
 4. OpenCode will use its MCP tools to map the directory tree and read core files into a `context-reports/` markdown file.
 5. Copy the contents of that report and paste it back into the Orchestrator.
 6. The AI will analyze your existing architecture and design, then generate an implementation task to create `AGENTS.md` (<150 lines), `DESIGN.md` (if UI exists), `opencode.json`, and the `tasks/` directory, locking in your current conventions.
@@ -295,8 +295,6 @@ python daemon.py
 | `telegram-issue-sync`     | Syncs Telegram supergroup topics into local task files and GitHub issues, using embedded Python scripts for deterministic JSON state management.                                                                                          |
 | `telegram-message-export` | Intelligently exports a range of Telegram messages (text, media, voice notes) into a numbered folder, capturing reply hierarchies, and packing them into a ZIP archive.                                                                   |
 | `versioning-and-release`  | Standardizes Semantic Versioning (SemVer), Keep a Changelog formats, Conventional Commits, and Safe Push Protocols across all repositories.                                                                                               |
-| `freebuff-documents`      | SOP for creating and editing Freebuff knowledge documents (AGENTS.md, CLAUDE.md, *.knowledge.md, ~/.AGENTS.md) and defining always-loaded roles. Project-specific to this HQ repo — NOT in the global Skill Auto-Loading Matrix.          |
-
 ### Stack-Specific Blueprints
 
 | Stack                  | Architecture Enforced                                                                                      |
@@ -462,31 +460,6 @@ opencode --agent cognitive-executor
 
 ---
 
-## Freebuff Support (Dual-Runtime)
-
-> **Dual-runtime support.** Since v8.4.5 the system prompt (`system-prompt.md`) is **runtime-agnostic** — it addresses "the Hands" (the local execution agent) and emits `<hands_*_task>` blocks that work in both OpenCode and Freebuff.
-
-[Freebuff](https://freebuff.com) (vendor: **CodebuffAI**, formerly Codebuff-based — the `~/.config/manicode/` binary path is a legacy config-root name) is a free, ad-funded terminal AI coding agent. It does **not** read `opencode.json`; it uses its own `.agents/` extension points plus a home-directory global rules file. As of 2026-08-26 (Freebuff CLI `0.0.156`, source audit of [`github.com/CodebuffAI/freebuff`](https://github.com/CodebuffAI/freebuff)) the following Cognitive Lead AI HQ components were ported and verified (schema-validated in-repo; the custom agents' free-tier spawn is **VERIFIED BLOCKED** — server-side allowlist, paid/credits tier required, see `docs/freebuff-support.md` §5):
-
-| Component                                                                      | Freebuff status      | Notes                                                                                                                                                                                                                                                                  |
-| ------------------------------------------------------------------------------ | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| MCP servers (`custom_context`, `project_memory`, `lint`, `blowsh`, `telegram`) | ✅ FULL              | `~/.agents/mcp.json`, 18+ tools core + blowsh (4) + telegram (80+) verified; `blowsh` Docker, `telegram` Telethon                                                                                                                                                      |
-| Skills (31)                                                                    | ✅ FULL              | `~/.agents/skills/`, verified loading (31 since 2026-08-26)                                                                                                                                                                                                            |
-| Custom agents (`cognitive-executor`, `cognitive-discovery`)                    | ✅ FULL (REPO-LEVEL) | `~/.agents/*.ts` (v1.2.0) — schema-validated 17-tool whitelist + `publisher/name@version` spawnables; `model` omitted — ❌ free-tier spawn **VERIFIED BLOCKED** (paid tier required); free tier can spawn Freebuff built-in subagents via `base2-free-*` orchestrators |
-| Global rules ("The Hands" + Cognitive Executive Role)                          | ✅ FULL              | `~/.AGENTS.md` — baseline constraints + the **Cognitive Executive Role** in every session (free tier included); source: `freebuff/AGENTS.global.md`                                                                                                                    |
-| `system-prompt.md` Orchestrator Brain                                          | 📄 MANUAL            | Runtime-agnostic since v8.4.5 — paste into Freebuff or OpenCode                                                                                                                                                                                                        |
-| `user-prompts/` templates                                                      | 📄 MANUAL            | Runtime-agnostic copy-paste templates                                                                                                                                                                                                                                  |
-
-**For users who want to run the Cognitive Lead workflow with Freebuff instead of OpenCode**, see the full guide: [`docs/freebuff-support.md`](docs/freebuff-support.md) — it documents the extension points (mcp.json / skills / TS agents / global rules), the port record, verification commands, and the verified free-tier limitation (custom agents require a paid/credits tier; on free tier paste `<hands_*_task>` blocks into the base chat or spawn Freebuff's built-in subagents via a `base2-free-*` "Free Orchestrator" agent).
-
-**Installing:** the `LLM.txt` auto-configuration includes an **optional** Freebuff step (Step 7.5) that installs the MCP servers + 31 skills + custom agents + global rules under `~/.agents/` and `~/.AGENTS.md`.
-
-**Freebuff documents & roles:** Freebuff has no role/persona feature — the always-loaded **knowledge-file** system is the sanctioned way to define agents-as-roles, and the **Cognitive Executive Role** ships in `freebuff/AGENTS.global.md` (installed as `~/.AGENTS.md`). Maintain Freebuff's knowledge documents via the [`freebuff-documents` skill](skill-templates/freebuff-documents/SKILL.md) and see [`docs/freebuff-documents.md`](docs/freebuff-documents.md) for the full document system + role reference. Blowsh (`docker run --rm -i ghcr.io/mokhtarabadi/blowsh-mcp:latest`, 4 tools) provides JS-capable browsing; Telegram (`uv --directory $HOME/.config/opencode/mcp-telegram-server run main.py` over absolute path, 80+ tools) is configured in Step 7.6 with work/personal `account` routing, installed in opencode config dir (`~/.config/opencode/mcp-telegram-server/`) — see `docs/telegram-setup.md`.
-
-**Upgrading an existing project** to the v8.4.5 runtime-agnostic workflow (non-breaking, legacy headers still lint): see [`docs/workflow-upgrade-v8.4.5.md`](docs/workflow-upgrade-v8.4.5.md).
-
----
-
 ## Key V5 Changes
 
 - **Decentralized task architecture** — global `STATE.md` and `TODO.md` replaced by isolated task files in `tasks/` directory.
@@ -501,7 +474,7 @@ opencode --agent cognitive-executor
 - **Universal Datetime Rules (`<universal_datetime_rules>`):** UTC-at-rest, ISO-8601/Unix-epoch at API boundaries, SOLID Clock injection, dual-representation for future calendar events, and timezone-independent CI/CD testing.
 - **SOLID Programming Mandate (`<solid_programming_mandate>`):** Single Responsibility, Open/Closed, Liskov Substitution, Interface Segregation, and Dependency Inversion enforced on every generated implementation task, with pragmatic guardrails (No Zero-Abstraction Dogma, 3-Implementation Rule, YAGNI, Occam's Razor).
 - **Leadership & Language Protocol (`<leadership_and_language_protocol>`):** Executive coaching persona that provides vocabulary assistance, English pronunciation guides (Persian phonetics), and ruthless soft-skills feedback during sprint retrospectives.
-- **Expanded Agent Skills Registry:** 31 skills including stack-specific blueprints (android-kotlin, spring-boot, react-vite, nestjs-prisma-vertical, go-hexagonal-grpc, python-fastapi, nextjs, flask-python, react-native-expo, ios-swiftui, vue-nuxt, go-gin) and global workflow skills (brainstorm-swarm, design-md, project-memory, telegram-issue-sync, perplexity-research, verification-before-completion, debug-instrumentation, freebuff-documents).
+- **Expanded Agent Skills Registry:** 30 skills including stack-specific blueprints (android-kotlin, spring-boot, react-vite, nestjs-prisma-vertical, go-hexagonal-grpc, python-fastapi, nextjs, flask-python, react-native-expo, ios-swiftui, vue-nuxt, go-gin) and global workflow skills (brainstorm-swarm, design-md, project-memory, telegram-issue-sync, perplexity-research, verification-before-completion, debug-instrumentation).
 
 ## Key V6 Changes
 

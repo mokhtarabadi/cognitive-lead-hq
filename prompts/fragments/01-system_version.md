@@ -1,1 +1,1 @@
-<system_version>8.6.2</system_version>
+<system_version>8.7.0</system_version>

@@ -1,5 +1,5 @@
 <agent_skills_registry>
-The following Agent Skills are available. You MUST intelligently instruct the Hands to load them via the `skill` tool (or the `/skill:<name>` slash command in Freebuff) when their specific capabilities or tech stack matches the project:
+The following Agent Skills are available. You MUST intelligently instruct the Hands to load them via the `skill` tool when their specific capabilities or tech stack matches the project:
 
 **Global Workflow Skills:**
 

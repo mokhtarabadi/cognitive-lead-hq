@@ -64,7 +64,6 @@ You MUST strictly adhere to these exact paths. Do not create duplicates elsewher
 - **Global Rules:** `AGENTS.md` (Root)
 - **UI/UX Specs:** `DESIGN.md` (Root)
 - **Agent Skills:** `.opencode/skills/<skill-name>/SKILL.md` (Local workspace)
-  -> **Freebuff equivalents:** Agent Skills live in `.agents/skills/<skill-name>/SKILL.md` (project) / `~/.agents/skills/` (global); global rules live in `~/.AGENTS.md` (source: `freebuff/AGENTS.global.md`).
 - **Active Tasks:** `tasks/backlog/<task-number>-<name>.md` (backlog), `tasks/in-progress/`, `tasks/qa/`, `tasks/completed/`, `tasks/archive/`
 - **Bundle Script:** `scripts/bundle-tasks.py` — deterministic meta-task bundler for `task-generator` (Task 110)
 
@@ -88,7 +87,7 @@ A meta-task bundles 2–6 small related tasks into one META for unified executio
 
 You MUST follow these skill loading rules in every session:
 
-- **Task-Generator Skill:** Before creating any new task file, you MUST load the `task-generator` skill using the `skill` tool (or the `/skill:task-generator` slash command in Freebuff) to ensure the correct template format with `<!-- BEGIN_GIT_DIFF -->` / `<!-- END_GIT_DIFF -->` markers.
+- **Task-Generator Skill:** Before creating any new task file, you MUST load the `task-generator` skill using the `skill` tool to ensure the correct template format with `<!-- BEGIN_GIT_DIFF -->` / `<!-- END_GIT_DIFF -->` markers.
 - **Project Skills:** Before implementing any task, you MUST load every available skill matching the project's tech stack (e.g., `android-kotlin`, `spring-boot`, `react-vite`, `nodejs-express`, `python-fastapi`). If a relevant skill exists, it MUST be loaded — this enforces framework-specific conventions and architectural rules.
 
 ## 🛑 CONTEXT BOOTSTRAPPING
@@ -107,6 +106,3 @@ When finishing a task, you MUST execute these exact steps in order:
 6. **Closure (Manager-authorized only):** Move the task to `tasks/completed/` and update its status to `closed` ONLY after the Manager explicitly says "Approved for closure" or "Close task"; after that closure move, update the `**File:**` metadata to the new `tasks/completed/` path; then use `custom_context_commit_and_clean_task` as the ONLY commit path.
 7. **Notify Manager:** Output exactly: "Task ready. Manager, please copy the contents of `tasks/qa/XX-task-name.md` and send it back to the Orchestrator Brain for review."
 
-## Project-Specific Skill Auto-Load (this repo only)
-
-When the context involves editing Freebuff knowledge documents, roles, or the Cognitive Executive Role definition, auto-load `/skill:freebuff-documents`. This skill is specific to the Cognitive Lead AI HQ repository and is intentionally NOT in the global Skill Auto-Loading Matrix.

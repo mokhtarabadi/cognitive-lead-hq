@@ -99,7 +99,6 @@ Load this skill when you handle bundling:
 
 ```bash
 skill("bundle-tasks")
-# or in Freebuff: /skill:bundle-tasks
 ```
 
 If you also need ID discovery or template generation, also load `task-generator` (this skill complements it, not replaces it). For lint, load `task-lint`; for context gathering before bundling, load `code-search` to ensure sources are in the expected Kanban dirs.
