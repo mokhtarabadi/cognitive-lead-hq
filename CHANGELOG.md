@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
-- **Goal Plugin Config Alignment (Task 122)** — replaced `@prevalentware/opencode-goal-plugin` (scoped npm package) with the official `opencode-goal-plugin` (unscoped, from `willytop8/OpenCode-goal-plugin`) in both project and global `opencode.json` configs. Added the mandatory `command.goal` block with `template: "$ARGUMENTS"` and `agent: "build"` — required for the `/goal` slash command to register. Added `.opencode/goals/` to `.gitignore` (goal plugin persists per-project state there). Stored memory note about the upgrade at `opencode_config/global_goal_plugin_upgrade_2026_08_27`.
+- **Goal Plugin Config Alignment (Task 122)** — replaced `@prevalentware/opencode-goal-plugin` (scoped npm package) with the official `opencode-goal-plugin` (unscoped, from `willytop8/OpenCode-goal-plugin`) in both project and global `opencode.json` configs. Added the mandatory `command.goal` block with `template: "$ARGUMENTS"` and `agent: "cognitive-executor"` — required for the `/goal` slash command to register. Added `.opencode/goals/` to `.gitignore` (goal plugin persists per-project state there). Stored memory note about the upgrade at `opencode_config/global_goal_plugin_upgrade_2026_08_27`.
 
 ## [8.9.0] - 2026-08-27
 

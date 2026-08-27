@@ -175,7 +175,14 @@ Write the following JSON (replace `$HOME` with the actual home directory path, a
   "$schema": "https://opencode.ai/config.json",
   "default_agent": "cognitive-executor",
   "instructions": ["$HOME/.config/opencode/opencode-shell-strategy.md"],
-  "plugin": ["@prevalentware/opencode-goal-plugin"],
+  "plugin": ["opencode-goal-plugin"],
+  "command": {
+    "goal": {
+      "description": "Set a session-scoped goal and auto-continue until complete.",
+      "template": "$ARGUMENTS",
+      "agent": "cognitive-executor"
+    }
+  },
   "mcp": {
     "custom_context": {
       "type": "local",
