@@ -13,7 +13,24 @@ You MUST execute the following steps in order. Do NOT skip any step.
 Check that the following tools are installed:
 
 - **Git** — to clone the repository
+- **Node.js (v20+ LTS)** and **npm** — required for opentmux and other npm-based tools
 - **uv** — fast Python package manager (required by the MCP servers)
+
+### Installing Node.js (if missing)
+
+If `node` is not found, install the LTS version:
+
+**Debian/Ubuntu:**
+```bash
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash - && sudo apt-get install -y nodejs
+```
+
+**macOS:**
+```bash
+brew install node
+```
+
+**Other platforms:** Download from https://nodejs.org/ (LTS version recommended).
 
 ### Installing uv (if missing)
 
@@ -113,6 +130,22 @@ chmod +x scripts/bundle-tasks.py
 ```
 
 > **Is the script redundant?** No — CLI is for the Manager, MCP is for the Hands. For cross-project reuse, MCP is sufficient. Keep both if you want `uv run` one-offs and AI-driven bundling.
+
+### 6.2. Install opentmux Globally (Tmux Integration)
+
+[opentmux](https://github.com/AnganSamadder/opentmux) provides real-time tmux panes for viewing OpenCode agent execution. It wraps `opencode` with automatic tmux pane spawning, output streaming, and terminal workspace management.
+
+```bash
+npm install -g opentmux
+```
+
+After installation, verify:
+
+```bash
+opentmux --version
+```
+
+**Usage:** Run `opentmux` instead of `opencode` to start with tmux integration. All standard OpenCode flags work (e.g., `opentmux --agent cognitive-executor`).
 
 ---
 
@@ -280,7 +313,10 @@ A copy of `system-prompt.md` has been saved to `~/.config/opencode/system-prompt
 After completing all steps, verify:
 
 - [ ] `git` is installed (`git --version`)
+- [ ] `node` is installed (`node --version`)
+- [ ] `npm` is installed (`npm --version`)
 - [ ] `uv` is installed and available (`uv --version`)
+- [ ] `opentmux` is installed globally (`opentmux --version`)
 - [ ] `~/.config/opencode/mcp-context-server/server.py` exists and is executable
 - [ ] `~/.config/opencode/mcp-memory-server/server.py` exists and is executable
 - [ ] `~/.config/opencode/mcp-lint-server/server.py` exists and is executable
