@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+_No unreleased changes._
+
+## [9.1.0] - 2026-08-27
+
 ### Added
 
 - **Founder Coaching Chat Prompt (Task 124)** — new `user-prompts/founder-coaching-chat.md`: standalone chat-interface system prompt for Google AI Studio / Claude / ChatGPT. Includes `<system_version>` 1.0.0, `<role>` (Founder Coaching Agent), `<coachee_profile>` (Mohammad Reza with 6 behavioral patterns to watch), `<coaching_philosophy>` (7 principles: evidence over narrative, Socratic questioning, non-sycophantic, one observation at a time, no fabrication, growth over comfort, name the pattern), `<growth_model>` (Solo Builder → Founder → Product Leader → Engineering Leader → CEO → Executive), `<decision_evaluation_framework>` (6 core questions with application rules per decision type), `<chat_interaction_modes>` (Weekly Sprint Retrospective, Ad-Hoc Decision Review, Voice Thought Dumps), `<in_chat_memory_protocol>` (running summary structure), and `<initialization>` message.
