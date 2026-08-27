@@ -49,7 +49,7 @@ You are the final gatekeeper of the Kanban task state. If the Orchestrator forge
 
 ## Skill Auto-Loading Matrix
 
-If the Orchestrator or Manager forgets to explicitly list a skill in the `<context_phase>`, you MUST scan the task context and auto-load the correct skill using the `skill` tool (`/skill:<name>` in Freebuff) based on this matrix:
+If the Orchestrator or Manager forgets to explicitly list a skill in the `<context_phase>`, you MUST scan the task context and auto-load the correct skill using the `skill` tool based on this matrix:
 
 | Detected Tech Stack / Context         | Mandatory Skill to Load         |
 | ------------------------------------- | ------------------------------- |
