@@ -38,9 +38,14 @@ Updates the machine-global installations of the Cognitive Lead AI HQ (MCP server
    diff -q docs/opencode-shell-strategy.md ~/.config/opencode/opencode-shell-strategy.md || echo "DRIFT: shell-strategy"
    diff -q system-prompt.md ~/.config/opencode/system-prompt.md || echo "DRIFT: system-prompt"
    for d in skill-templates/*/; do n=$(basename "$d"); diff -rq "$d" ~/.config/opencode/skills/"$n" >/dev/null 2>&1 || echo "DRIFT: opencode skill $n"; done
-   # opencode.json: repo uses relative mcp-*-server/server.py for 3 core while global uses absolute /home/... — they will ALWAYS differ by design.
-   diff -q opencode.json ~/.config/opencode/opencode.json && echo "UNEXPECTED: opencode.json identical (should differ relative vs absolute)" || echo "EXPECTED DRIFT: opencode.json relative vs absolute (check shape separately)"
-   ```
+    # opencode.json: repo uses relative mcp-*-server/server.py for 3 core while global uses absolute /home/... — they will ALWAYS differ by design.
+    diff -q opencode.json ~/.config/opencode/opencode.json && echo "UNEXPECTED: opencode.json identical (should differ relative vs absolute)" || echo "EXPECTED DRIFT: opencode.json relative vs absolute (check shape separately)"
+    # tui.json parity (OpenCode 1 goal plugin): both repo tui.json and global ~/.config/opencode/tui.json must contain {"plugin":["@prevalentware/opencode-goal-plugin"]} — identical by design (no relative/absolute split)
+    diff -q tui.json ~/.config/opencode/tui.json && echo "tui.json in sync ✓" || echo "DRIFT: tui.json"
+    # goal plugin parity: both opencode.json + tui.json (global + project) must use @prevalentware/opencode-goal-plugin (not opencode-goal-plugin)
+    grep -q "@prevalentware/opencode-goal-plugin" opencode.json && echo "project opencode.json plugin ✓" || echo "DRIFT: project opencode.json plugin"
+    grep -q "@prevalentware/opencode-goal-plugin" ~/.config/opencode/opencode.json && echo "global opencode.json plugin ✓" || echo "DRIFT: global opencode.json plugin"
+    ```
 2. **Copy drifted files** with `cp` + `chmod +x` (only those that differ). For `opencode.json` do NOT blind copy — regenerate global with absolute paths (see `LLM.txt:7` template):
    ```bash
    cp mcp-lint-server/server.py ~/.config/opencode/mcp-lint-server/server.py && chmod +x ~/.config/opencode/mcp-lint-server/server.py

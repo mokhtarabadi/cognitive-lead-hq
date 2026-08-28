@@ -159,14 +159,7 @@ Write the following JSON (replace `$HOME` with the actual home directory path, a
   "$schema": "https://opencode.ai/config.json",
   "default_agent": "cognitive-executor",
   "instructions": ["$HOME/.config/opencode/opencode-shell-strategy.md"],
-  "plugin": ["opencode-goal-plugin"],
-  "command": {
-    "goal": {
-      "description": "Set a session-scoped goal and auto-continue until complete.",
-      "template": "$ARGUMENTS",
-      "agent": "cognitive-executor"
-    }
-  },
+  "plugin": ["@prevalentware/opencode-goal-plugin"],
   "mcp": {
     "custom_context": {
       "type": "local",
@@ -224,9 +217,22 @@ Write the following JSON (replace `$HOME` with the actual home directory path, a
 }
 ```
 
+Also create the TUI parity file for OpenCode 1 stable (required for the goal sidebar/palette — prevalentware docs):
+
+```bash
+cat > ~/.config/opencode/tui.json <<'JSON'
+{
+  "plugin": ["@prevalentware/opencode-goal-plugin"]
+}
+JSON
+cat tui.json  # project root — same content {"plugin":["@prevalentware/opencode-goal-plugin"]}
+```
+
+OpenCode 1 reads `plugin` from **both** `opencode.json` (server/tools) and `tui.json` (sidebar/palette). Without the `tui.json` entry the `/goal` command works but the TUI goal indicator stays hidden.
+
 **Important:** Replace `$HOME` with the actual absolute path resolved in Step 3 (e.g., `/home/alice` or `/Users/alice`). This is critical — MCP servers will NOT work with relative paths or `~` in the global config because OpenCode may be invoked from any working directory.
 
-> **Project vs Global `opencode.json` (Option A fix 2026-08-25):** The **repo's** `opencode.json` (committed) intentionally uses **relative** paths for the 3 core servers — `mcp-context-server/server.py`, `mcp-memory-server/server.py`, `mcp-lint-server/server.py` — so `opencode mcp list` inside the clone shows `✓ connected` without shell expansion (verified `uv run $HOME/...` fails with `No such file or directory`). Using literal `$HOME` in the repo's `command` array breaks local launches because OpenCode does not expand env vars. The **global** `~/.config/opencode/opencode.json` (created here) **must** use absolute paths as in the JSON above. `blowsh` (docker) and `telegram` stay `enabled:false` with `$HOME` placeholders in the repo (they require the global install at `~/.config/opencode/mcp-telegram-server/`), while the global enables them `true` with absolute roots. New installations and `global-install-upgrade` (Step 5 in `.opencode/memory/workflows/global-install-upgrade.md`) must keep this split — `diff -q opencode.json ~/.config/opencode/opencode.json` will always differ (relative vs absolute) by design; verify project shows `uv run mcp-*-server/server.py` and global shows `/home/...`.
+> **Project vs Global `opencode.json` + `tui.json` (Option A fix 2026-08-25, updated 2026-08-28 for @prevalentware):** The **repo's** `opencode.json` (committed) intentionally uses **relative** paths for the 3 core servers — `mcp-context-server/server.py`, `mcp-memory-server/server.py`, `mcp-lint-server/server.py` — so `opencode mcp list` inside the clone shows `✓ connected` without shell expansion (verified `uv run $HOME/...` fails with `No such file or directory`). Using literal `$HOME` in the repo's `command` array breaks local launches because OpenCode does not expand env vars. The **global** `~/.config/opencode/opencode.json` (created here) **must** use absolute paths as in the JSON above. `blowsh` (docker) and `telegram` stay `enabled:false` with `$HOME` placeholders in the repo (they require the global install at `~/.config/opencode/mcp-telegram-server/`), while the global enables them `true` with absolute roots. New installations and `global-install-upgrade` (Step 5 in `.opencode/memory/workflows/global-install-upgrade.md`) must keep this split — `diff -q opencode.json ~/.config/opencode/opencode.json` will always differ (relative vs absolute) by design; verify project shows `uv run mcp-*-server/server.py` and global shows `/home/...`.
 
 **Telegram is optional but auto-configured:** the entry above points at `~/.config/opencode/mcp-telegram-server` (installed in the opencode config dir per global-install-upgrade, absolute path required) with two allowed roots (`/tmp/telegram-mcp` for temp state + `~/.config/opencode/mcp-telegram-server/downloads` for exported media). If you cloned elsewhere, update the `--directory` and the trailing roots — keep them inside `$HOME` or `/tmp` and ensure `telegram_download_media` can write there. The server is installed in Step 7.6 even before you have API credentials; it stays idle (no `TELEGRAM_SESSION_STRING`) until you finish 7.6. For Docker blowsh no host binary is needed — `docker pull ghcr.io/mokhtarabadi/blowsh-mcp:latest` on first `fetch_web` run.
 
