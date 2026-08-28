@@ -21,15 +21,6 @@ Give the prompt above to OpenCode and it will auto-configure itself globally usi
 
 For full platform-specific instructions (Windows, macOS, Linux), see [`LLM.txt`](LLM.txt).
 
-### Optional: opentmux (Tmux Integration)
-
-Install [opentmux](https://github.com/AnganSamadder/opentmux) for real-time tmux panes showing agent execution:
-
-```bash
-npm install -g opentmux
-opentmux  # starts OpenCode with tmux integration
-```
-
 See [`docs/setup.md`](docs/setup.md) for full setup instructions and all platform tools.
 
 ---

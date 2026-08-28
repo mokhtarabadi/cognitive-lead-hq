@@ -45,51 +45,6 @@ brew install gh
 gh auth login
 ```
 
-## opentmux — Smart Tmux Integration
-
-[opentmux](https://github.com/AnganSamadder/opentmux) provides real-time tmux panes for viewing agent execution. It wraps `opencode` with automatic tmux pane spawning, output streaming, and terminal workspace management.
-
-### Installation
-
-```bash
-npm install -g opentmux
-```
-
-### Verify
-
-```bash
-opentmux --version
-```
-
-### Usage
-
-```bash
-# Start OpenCode with tmux integration (default)
-opentmux
-
-# Start in a specific project directory
-opentmux /path/to/project
-
-# All standard OpenCode flags work
-opentmux --agent cognitive-executor
-opentmux --model openrouter/xiaomi/mimo-v2.5
-```
-
-### Features
-
-- **Agent-Agnostic** — Works with any OpenCode agent (cognitive-executor, oh-my-opencode, vanilla)
-- **Cross-Platform** — macOS, Linux, and Windows (via PowerShell or WSL)
-- **Auto-Pane Spawning** — Automatically creates tmux panes for subagent execution
-- **Live Output Streaming** — Watch agent work in real-time across multiple panes
-
-### Shell Configuration
-
-opentmux auto-configures your shell (Bash/Zsh/Fish/PowerShell) during installation. If the wrapper isn't working, re-run:
-
-```bash
-npm install -g --allow-scripts=opentmux
-```
-
 ## MCP Servers
 
 The project uses three FastMCP Python servers, all run via `uv`:

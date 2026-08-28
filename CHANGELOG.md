@@ -6,7 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
-_No unreleased changes._
+### Removed
+
+- **Remove opentmux and opencode-agent-tmux — keep tmux (Task 125)** — fully removed the OpenCode tmux wrapper layer per manager directive: uninstalled global npm packages `opentmux@1.5.7` and `opencode-agent-tmux@1.3.0` (`npm uninstall -g opentmux opencode-agent-tmux`), removed `"opentmux"` from `~/.config/opencode/opencode.json` plugin array (now `["opencode-goal-plugin"]` only; project `opencode.json` already clean), deleted `README.md` `### Optional: opentmux` section, deleted `docs/setup.md` `## opentmux — Smart Tmux Integration` section (Installation/Verify/Usage/Features/Shell Configuration), and cleaned `LLM.txt` (Node.js prerequisite reworded without opentmux, deleted `### 6.2. Install opentmux Globally` section, removed `opentmux --version` verification checklist item). System `tmux` (`/usr/bin/tmux` 3.6, apt `3.6a-2ubuntu0.1`) is retained. Historical records preserved: `CHANGELOG.md` Task 120 entry, `docs/history/milestone-14-summary.md`, `tasks/archive/120-*.md`. Verified: `which tmux && tmux -V` → 3.6, `which opentmux` fails, `npm list -g` shows no tmux plugins, `grep -r opentmux` over active docs returns 0.
 
 ## [9.1.0] - 2026-08-27
 

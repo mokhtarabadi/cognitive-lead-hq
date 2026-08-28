@@ -13,7 +13,7 @@ You MUST execute the following steps in order. Do NOT skip any step.
 Check that the following tools are installed:
 
 - **Git** — to clone the repository
-- **Node.js (v20+ LTS)** and **npm** — required for opentmux and other npm-based tools
+- **Node.js (v20+ LTS)** and **npm** — required for npm-based tools and other dependencies
 - **GitHub CLI (`gh`)** — for GitHub operations (issues, PRs, CI runs, API queries)
 - **uv** — fast Python package manager (required by the MCP servers)
 
@@ -131,22 +131,6 @@ chmod +x scripts/bundle-tasks.py
 ```
 
 > **Is the script redundant?** No — CLI is for the Manager, MCP is for the Hands. For cross-project reuse, MCP is sufficient. Keep both if you want `uv run` one-offs and AI-driven bundling.
-
-### 6.2. Install opentmux Globally (Tmux Integration)
-
-[opentmux](https://github.com/AnganSamadder/opentmux) provides real-time tmux panes for viewing OpenCode agent execution. It wraps `opencode` with automatic tmux pane spawning, output streaming, and terminal workspace management.
-
-```bash
-npm install -g opentmux
-```
-
-After installation, verify:
-
-```bash
-opentmux --version
-```
-
-**Usage:** Run `opentmux` instead of `opencode` to start with tmux integration. All standard OpenCode flags work (e.g., `opentmux --agent cognitive-executor`).
 
 ---
 
@@ -324,7 +308,6 @@ After completing all steps, verify:
 - [ ] `node` is installed (`node --version`)
 - [ ] `npm` is installed (`npm --version`)
 - [ ] `uv` is installed and available (`uv --version`)
-- [ ] `opentmux` is installed globally (`opentmux --version`)
 - [ ] `gh` is installed (`gh --version`)
 - [ ] `gh` is authenticated (`gh auth status`)
 - [ ] `~/.config/opencode/mcp-context-server/server.py` exists and is executable
