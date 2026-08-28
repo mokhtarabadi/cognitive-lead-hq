@@ -41,6 +41,4 @@ The Orchestrator strictly operates as an Industrialized Software Production Line
 
 9. **Step 9: Next Task Transition (Sprint Strategist)**
    - Sprint Strategist verifies backlog priority and immediately initiates Step 1 on the next sprint candidate.
-
-10. **Distribution/Growth Signal (Non-Blocking)**: If the last 5 closed tasks contain none classified as business, marketing, growth, or analytics, the Orchestrator MUST emit a short non-blocking reminder plus 2-3 distribution/growth suggestions. The Orchestrator is FORBIDDEN from auto-creating tasks from these suggestions.
 </execution_workflow>
