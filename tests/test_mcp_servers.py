@@ -1941,3 +1941,180 @@ def test_lint_system_prompt_sync_handles_assembler_load_failure(monkeypatch):
     assert "synthetic assembler load failure" in msg, (
         f"Expected message to identify the load failure, got: {msg[:200]}"
     )
+
+
+def test_memory_server_build_index_on_store():
+    """Verify store_memory generates index.md with table headers and stored row."""
+    import importlib
+    import os
+    import tempfile
+    from pathlib import Path
+
+    repo_root = Path(__file__).parent.parent
+    server_path = repo_root / "mcp-memory-server" / "server.py"
+    spec = importlib.util.spec_from_file_location("memory_server_build_store", server_path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        repo = Path(tmpdir)
+        old_cwd = os.getcwd()
+        os.chdir(repo)
+        try:
+            # Fresh index should not exist
+            assert not (repo / ".opencode" / "memory" / "index.md").exists()
+            # Store a memory shard
+            result = mod.store_memory("testns", "testkey", "Hello world | with pipe\nSecond line", overwrite=True)
+            assert "successfully stored" in result.lower(), result
+            # Index must now exist and contain table headers and the row
+            index_path = repo / ".opencode" / "memory" / "index.md"
+            assert index_path.is_file(), "index.md should be generated after store_memory"
+            content = index_path.read_text(encoding="utf-8")
+            assert "# Project Memory Index" in content, content[:200]
+            assert "| Namespace | Key | Summary | Tags |" in content
+            assert "| testns | testkey |" in content
+            # Summary should be first non-empty line, clamped and pipe-escaped
+            assert "Hello world \\| with pipe" in content, f"Pipe not escaped: {content}"
+            assert "Second line" not in content  # only first line is summary
+        finally:
+            os.chdir(old_cwd)
+
+
+def test_memory_server_update_index_on_delete():
+    """Verify delete_memory removes the row from index.md."""
+    import importlib
+    import os
+    import tempfile
+    from pathlib import Path
+
+    repo_root = Path(__file__).parent.parent
+    server_path = repo_root / "mcp-memory-server" / "server.py"
+    spec = importlib.util.spec_from_file_location("memory_server_build_delete", server_path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        repo = Path(tmpdir)
+        old_cwd = os.getcwd()
+        os.chdir(repo)
+        try:
+            mod.store_memory("ns1", "k1", "First", overwrite=True)
+            mod.store_memory("ns1", "k2", "Second", overwrite=True)
+            index_path = repo / ".opencode" / "memory" / "index.md"
+            content_before = index_path.read_text(encoding="utf-8")
+            assert "k1" in content_before and "k2" in content_before
+            # Delete k1
+            del_result = mod.delete_memory("ns1", "k1")
+            assert "successfully deleted" in del_result.lower(), del_result
+            content_after = index_path.read_text(encoding="utf-8")
+            assert "k1" not in content_after, f"k1 should be removed: {content_after}"
+            assert "k2" in content_after, "k2 should remain"
+        finally:
+            os.chdir(old_cwd)
+
+
+def test_memory_server_index_empty_store():
+    """Verify build_memory_index on empty bank outputs No memories recorded yet."""
+    import importlib
+    import os
+    import tempfile
+    from pathlib import Path
+
+    repo_root = Path(__file__).parent.parent
+    server_path = repo_root / "mcp-memory-server" / "server.py"
+    spec = importlib.util.spec_from_file_location("memory_server_empty", server_path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        repo = Path(tmpdir)
+        old_cwd = os.getcwd()
+        os.chdir(repo)
+        try:
+            # Ensure no memories exist
+            result = mod.build_memory_index()
+            assert "0 memories" in result.lower() or "empty" in result.lower(), result
+            index_path = repo / ".opencode" / "memory" / "index.md"
+            assert index_path.is_file()
+            content = index_path.read_text(encoding="utf-8")
+            assert "No memories recorded yet" in content
+            assert "| Namespace | Key | Summary | Tags |" not in content  # empty should not have table
+        finally:
+            os.chdir(old_cwd)
+
+
+def test_memory_server_index_sanitizes_pipes():
+    """Verify pipe characters in summary/tags do not break Markdown table."""
+    import importlib
+    import os
+    import tempfile
+    from pathlib import Path
+
+    repo_root = Path(__file__).parent.parent
+    server_path = repo_root / "mcp-memory-server" / "server.py"
+    spec = importlib.util.spec_from_file_location("memory_server_pipes", server_path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        repo = Path(tmpdir)
+        old_cwd = os.getcwd()
+        os.chdir(repo)
+        try:
+            # Content with pipes and tags with pipes (via frontmatter)
+            content_with_pipe = "Summary with | pipe | chars\nMore"
+            # Store with frontmatter that includes tags containing pipe via manual content
+            fm_content = "---\ncreated_at: '2026-08-28T00:00:00+00:00'\nupdated_at: '2026-08-28T00:00:00+00:00'\nstatus: active\ntags: ['a|b', 'c']\n---\n\n" + content_with_pipe
+            mod.store_memory("ns", "pipekey", fm_content, overwrite=True)
+            index_path = repo / ".opencode" / "memory" / "index.md"
+            idx = index_path.read_text(encoding="utf-8")
+            # Pipes in summary must be escaped as \|
+            assert "Summary with \\| pipe \\| chars" in idx, f"Pipe not escaped in summary: {idx}"
+            # Pipes in tags must be escaped
+            assert "a\\|b" in idx, f"Pipe not escaped in tags: {idx}"
+            # Verify table still has exactly 4 columns per data row (pipes not splitting columns)
+            for line in idx.splitlines():
+                if line.startswith("| ns | pipekey |"):
+                    # Count unescaped pipes: should be 5 (including leading/trailing)
+                    # Escaped pipes are \|, not counted as column delimiters.
+                    # Simple check: line should start and end with | and contain escaped pipes
+                    assert "\\|" in line
+                    break
+            else:
+                assert False, "Row for pipekey not found"
+        finally:
+            os.chdir(old_cwd)
+
+
+def test_memory_server_rebuild_tool():
+    """Verify direct rebuild_memory_index tool generates the index."""
+    import importlib
+    import os
+    import tempfile
+    from pathlib import Path
+
+    repo_root = Path(__file__).parent.parent
+    server_path = repo_root / "mcp-memory-server" / "server.py"
+    spec = importlib.util.spec_from_file_location("memory_server_rebuild", server_path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        repo = Path(tmpdir)
+        old_cwd = os.getcwd()
+        os.chdir(repo)
+        try:
+            mod.store_memory("rns", "rk1", "Alpha", overwrite=True)
+            # Delete index manually to simulate stale state
+            idx_path = repo / ".opencode" / "memory" / "index.md"
+            idx_path.unlink()
+            assert not idx_path.exists()
+            # Rebuild via tool
+            result = mod.rebuild_memory_index()
+            assert "memories indexed" in result.lower() or "built" in result.lower(), result
+            assert idx_path.is_file()
+            content = idx_path.read_text(encoding="utf-8")
+            assert "rk1" in content
+            assert "Alpha" in content
+        finally:
+            os.chdir(old_cwd)
