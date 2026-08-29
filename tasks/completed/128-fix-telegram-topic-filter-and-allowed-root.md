@@ -1,9 +1,9 @@
 # Task 128: Fix Telegram Topic Filter Leak and Allowed Root Auto-Mkdir
 
-**File:** `tasks/qa/128-fix-telegram-topic-filter-and-allowed-root.md`
+**File:** `tasks/completed/128-fix-telegram-topic-filter-and-allowed-root.md`
 **Source:** manager
 **Type:** bug
-**Status:** open
+**Status:** closed
 
 ## Goal
 
@@ -86,67 +86,5 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
-```diff
-diff --git a/CHANGELOG.md b/CHANGELOG.md
-index f625038..941fc38 100644
---- a/CHANGELOG.md
-+++ b/CHANGELOG.md
-@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
- ### Added
- 
- - **Auto-Generate Memory Index via MCP Memory Server (Task 127)** — implemented `build_memory_index()` and `rebuild_memory_index` MCP tool in `mcp-memory-server/server.py` — scans `MEMORY_DIR` for `*.md`, excludes `index.md`, parses frontmatter `tags` and first non-empty line as summary (clamped 120, pipe-escaped), builds sorted Markdown table `| Namespace | Key | Summary | Tags |`, writes atomically via `mkstemp` + `os.replace` + `fsync` dir, handles empty store, hooked into `store_memory`/`delete_memory` success paths; auto-generates `.opencode/memory/index.md` Phase 0 discovery integration; updated `skill-templates/project-memory/SKILL.md` (and mirrors `.opencode/skills/` + `~/.config/opencode/skills/`) with canonical index location and two-step workflow (read index → `read_memory`/`search_memory`); updated `agents/cognitive-executor.md` Context Bootstrapping to mandate reading `.opencode/memory/index.md` alongside `AGENTS.md`; updated `prompts/shared/validation-phase.md` to include `.opencode/memory/index.md` (graceful skip) and reassembled `system-prompt.md` (73242 bytes, 3 index references); added 5 tests in `tests/test_mcp_servers.py` (build on store, update on delete, empty, pipe-sanitize, rebuild tool) — 55 passed; generated initial `.opencode/memory/index.md` with 11 memories indexed; restored `docs/workflow-upgrade-v8.4.5.md` to fix pre-existing test failure.
-+- **Fix Telegram Topic Filter Leak and Allowed Root Auto-Mkdir (Task 128)** — restored topic-scoped filtering in `skill-templates/telegram-issue-sync/SKILL.md` Phase 1 (client-filter `reply_to == config.topic_id` with chain walk via `telegram_get_message_context`, re-added `Forum Topic Targeting (Critical)` section, `458=Cognitive Lead` only), updated `docs/telegram-setup.md` §6 and §4.4 to document topic filter and auto-mkdir behavior; patched upstream `chigwell/telegram-mcp` `telegram_mcp/runtime.py:1813` to auto-`mkdir(parents=True, exist_ok=True)` missing allowed roots instead of `SystemExit` (fixes reboot crash `Allowed root does not exist: /tmp/telegram-mcp`, verified `rm -rf /tmp/telegram-mcp` → auto-creates and `Starting 2 Telegram client(s)`), and `telegram_mcp/tools/messages.py:1571` to add optional `topic_id` param to `get_history` for server-side `reply_to == topic_id` filtering (backwards compatible); forked to `mokhtarabadi/telegram-mcp` branch `fix/allowed-root-automkdir-and-topic-filter` (commit `f87cb08`), auto-created upstream issue https://github.com/chigwell/telegram-mcp/issues/200 and PR https://github.com/chigwell/telegram-mcp/pull/201; verified `grep -n reply_to.*topic_id` in skill, `grep -n Allowed root` shows mkdir fallback, and manual auto-mkdir test passes.
- 
- ### Changed
- 
-diff --git a/docs/telegram-setup.md b/docs/telegram-setup.md
-index 4b5bbcf..118a97b 100644
---- a/docs/telegram-setup.md
-+++ b/docs/telegram-setup.md
-@@ -35,6 +35,8 @@ uv sync
- 
- # Create the two allowed roots — file tools (send_file/download_media) fail with
- # "Path rejected" on first use if these do not exist:
-+# Note: patched server (≥ fix/allowed-root-automkdir) auto-creates missing roots
-+# with mkdir -p instead of SystemExit, but manual mkdir remains recommended for first install:
- mkdir -p /tmp/telegram-mcp
- mkdir -p $HOME/.config/opencode/mcp-telegram-server/downloads
- 
-@@ -183,7 +185,7 @@ codex mcp add telegram --url http://127.0.0.1:8765/mcp
- 
- | HQ Skill / Workflow | Telegram MCP tools it calls | Config file mapping | Typical flow |
- |---------------------|----------------------------|---------------------|--------------|
--| **`telegram-issue-sync`** (`skill-templates/telegram-issue-sync/SKILL.md`) | `telegram_get_history` (filter `id > last_processed_message_id`), `telegram_get_message_context` (parent thread), `telegram_send_message` (reply), optionally GitHub issue create | `telegram-sync.json` at repo root: `config.chat_id`, `config.topic_id`, `config.account`, `target_hashtags` (`bug`, `feature`, `improve`), `last_processed_message_id`, `processed_ids`, `sync_registry` | Phase 1 fetch → Phase 2 manager approval (question tool) → Phase 3 per-candidate: verbatim `RAW_TEXT` → translate → `prompt-refactor` → codebase `grep/glob` → task file + optional GH issue → telegram reply |
-+| **`telegram-issue-sync`** (`skill-templates/telegram-issue-sync/SKILL.md`) | `telegram_get_history` (filter `reply_to == config.topic_id` then `id > last_processed_message_id`), `telegram_get_message_context` (parent chain walk to topic root), `telegram_reply_to_message` (topic-targeted reply), optionally GitHub issue create | `telegram-sync.json` at repo root: `config.chat_id`, `config.topic_id` (**topic-scoped — ONLY this topic syncs**), `config.account`, `target_hashtags` (`bug`, `feature`, `improve`), `last_processed_message_id`, `processed_ids`, `sync_registry` | Phase 1 fetch + client-filter by `reply_to` → Phase 2 manager approval → Phase 3 per-candidate: verbatim `RAW_TEXT` → translate → `prompt-refactor` → codebase `grep/glob` → task file + optional GH issue → topic-targeted reply |
- | **`telegram-message-export`** (`skill-templates/telegram-message-export/SKILL.md`) | `telegram_get_history` (range `[from_id,to_id]`), `telegram_get_media_info`, `telegram_download_media` | No `telegram-sync.json`; takes `[from_id,to_id]` or snippet/link `t.me/c/CHAT/MSG` | Phase 1 fetch & sort → Phase 2 write `{n}.txt` sidecars + `reply_to_message_id` + media download → Phase 3 `zip -r telegram-exports/export-{ts}.zip` → Phase 4 notification |
- | **Direct ad-hoc use** | `send_file` (file attachments to General topic `chat_id=-1003993323129`), `send_message`/`reply_to_message` | `account="personal"` per memory `workflows/telegram-file-delivery` | `telegram_send_file(chat_id, file_path, caption, account="personal")` → verifies via `telegram_get_messages` |
- 
-diff --git a/skill-templates/telegram-issue-sync/SKILL.md b/skill-templates/telegram-issue-sync/SKILL.md
-index e5aaeca..7cf051c 100644
---- a/skill-templates/telegram-issue-sync/SKILL.md
-+++ b/skill-templates/telegram-issue-sync/SKILL.md
-@@ -60,12 +60,20 @@ Use the `skill` tool for each. If loading fails, HALT and report the error.
- ### Phase 1: Context Fetch & Deep Crawling
- 
- 1. Read `telegram-sync.json` at the project root to get `config.chat_id`, `config.topic_id`, `config.account`, and `last_processed_message_id`.
--2. Call `telegram_get_history` (with `account` if set, limit=100) and filter for messages where `id > last_processed_message_id`.
--3. **Candidate Selection:** Identify messages containing `target_hashtags`. Also identify messages without hashtags that strongly resemble bug reports or feature requests.
-+2. Call `telegram_get_history` (with `account` if set, limit=100). This returns messages from ALL forum topics — Telegram has no server-side topic filter. **You MUST client-filter** to `reply_to == config.topic_id` OR walk the `reply_to` chain via `telegram_get_message_context` until you reach the topic root `config.topic_id`. Only messages whose `reply_to` chain terminates at `config.topic_id` belong to this project. Then additionally filter for `id > last_processed_message_id`.
-+3. **Candidate Selection:** Identify messages containing `target_hashtags` from the *topic-filtered* set. Also identify messages without hashtags that strongly resemble bug reports or feature requests.
- 4. **Deep Context:** For every selected candidate, check `reply_to_message_id`. If it exists, call `telegram_get_message_context` to fetch the parent message. Merge the parent message (the "what") with the child message (the "intent").
- 
- **CRITICAL — Message Integrity Rule:** Store the raw message text in a variable `RAW_TEXT` immediately after fetching. You MUST NOT modify, trim, or summarize this value at any point. Use it verbatim in Phase 3.
- 
-+### Forum Topic Targeting (Critical)
-+
-+This MCP implementation does **NOT** expose a `topic_id` parameter. Forum topics are identified by the `reply_to` field:
-+
-+- **Reading messages from a specific topic:** Call `telegram_get_history(chat_id=config.chat_id, limit=100, account=config.account)`. It returns messages from all topics. **Filter results by `reply_to`** — direct replies have `reply_to == config.topic_id` (e.g., `458` = Cognitive Lead, `455` = other project, `1` = General). For nested replies, walk the chain via `telegram_get_message_context` recursively until you hit the topic root `MessageActionTopicCreate`; discard messages whose chain terminates at `455`/`1`/`null`.
-+- **Sending a message to a specific topic:** You MUST use `telegram_reply_to_message` with `message_id` set to `config.topic_id`. Never post topic confirmations to General.
-+- **MANDATORY per `.opencode/memory/telegram-sync/topic-scoped-sync-workflow.md`:** `config.topic_id` defines the ONLY channel to sync. NEVER fetch/scan group-wide history.
-+
- ### Phase 2: Manager Approval
- 
- 1. Use the `question` tool to present the identified candidates to the Manager.
-```
+**Factual Git Diff:** Stored in Commit Hash: `ccd3c8d469468edb3412f2eb2c2e9b316ae9633c`
 <!-- END_GIT_DIFF -->
