@@ -60,11 +60,19 @@ Use the `skill` tool for each. If loading fails, HALT and report the error.
 ### Phase 1: Context Fetch & Deep Crawling
 
 1. Read `telegram-sync.json` at the project root to get `config.chat_id`, `config.topic_id`, `config.account`, and `last_processed_message_id`.
-2. Call `telegram_get_history` (with `account` if set, limit=100) and filter for messages where `id > last_processed_message_id`.
-3. **Candidate Selection:** Identify messages containing `target_hashtags`. Also identify messages without hashtags that strongly resemble bug reports or feature requests.
+2. Call `telegram_get_history` (with `account` if set, limit=100). This returns messages from ALL forum topics — Telegram has no server-side topic filter. **You MUST client-filter** to `reply_to == config.topic_id` OR walk the `reply_to` chain via `telegram_get_message_context` until you reach the topic root `config.topic_id`. Only messages whose `reply_to` chain terminates at `config.topic_id` belong to this project. Then additionally filter for `id > last_processed_message_id`.
+3. **Candidate Selection:** Identify messages containing `target_hashtags` from the *topic-filtered* set. Also identify messages without hashtags that strongly resemble bug reports or feature requests.
 4. **Deep Context:** For every selected candidate, check `reply_to_message_id`. If it exists, call `telegram_get_message_context` to fetch the parent message. Merge the parent message (the "what") with the child message (the "intent").
 
 **CRITICAL — Message Integrity Rule:** Store the raw message text in a variable `RAW_TEXT` immediately after fetching. You MUST NOT modify, trim, or summarize this value at any point. Use it verbatim in Phase 3.
+
+### Forum Topic Targeting (Critical)
+
+This MCP implementation does **NOT** expose a `topic_id` parameter. Forum topics are identified by the `reply_to` field:
+
+- **Reading messages from a specific topic:** Call `telegram_get_history(chat_id=config.chat_id, limit=100, account=config.account)`. It returns messages from all topics. **Filter results by `reply_to`** — direct replies have `reply_to == config.topic_id` (e.g., `458` = Cognitive Lead, `455` = other project, `1` = General). For nested replies, walk the chain via `telegram_get_message_context` recursively until you hit the topic root `MessageActionTopicCreate`; discard messages whose chain terminates at `455`/`1`/`null`.
+- **Sending a message to a specific topic:** You MUST use `telegram_reply_to_message` with `message_id` set to `config.topic_id`. Never post topic confirmations to General.
+- **MANDATORY per `.opencode/memory/telegram-sync/topic-scoped-sync-workflow.md`:** `config.topic_id` defines the ONLY channel to sync. NEVER fetch/scan group-wide history.
 
 ### Phase 2: Manager Approval
 

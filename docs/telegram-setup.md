@@ -35,6 +35,8 @@ uv sync
 
 # Create the two allowed roots — file tools (send_file/download_media) fail with
 # "Path rejected" on first use if these do not exist:
+# Note: patched server (≥ fix/allowed-root-automkdir) auto-creates missing roots
+# with mkdir -p instead of SystemExit, but manual mkdir remains recommended for first install:
 mkdir -p /tmp/telegram-mcp
 mkdir -p $HOME/.config/opencode/mcp-telegram-server/downloads
 
@@ -183,7 +185,7 @@ codex mcp add telegram --url http://127.0.0.1:8765/mcp
 
 | HQ Skill / Workflow | Telegram MCP tools it calls | Config file mapping | Typical flow |
 |---------------------|----------------------------|---------------------|--------------|
-| **`telegram-issue-sync`** (`skill-templates/telegram-issue-sync/SKILL.md`) | `telegram_get_history` (filter `id > last_processed_message_id`), `telegram_get_message_context` (parent thread), `telegram_send_message` (reply), optionally GitHub issue create | `telegram-sync.json` at repo root: `config.chat_id`, `config.topic_id`, `config.account`, `target_hashtags` (`bug`, `feature`, `improve`), `last_processed_message_id`, `processed_ids`, `sync_registry` | Phase 1 fetch → Phase 2 manager approval (question tool) → Phase 3 per-candidate: verbatim `RAW_TEXT` → translate → `prompt-refactor` → codebase `grep/glob` → task file + optional GH issue → telegram reply |
+| **`telegram-issue-sync`** (`skill-templates/telegram-issue-sync/SKILL.md`) | `telegram_get_history` (filter `reply_to == config.topic_id` then `id > last_processed_message_id`), `telegram_get_message_context` (parent chain walk to topic root), `telegram_reply_to_message` (topic-targeted reply), optionally GitHub issue create | `telegram-sync.json` at repo root: `config.chat_id`, `config.topic_id` (**topic-scoped — ONLY this topic syncs**), `config.account`, `target_hashtags` (`bug`, `feature`, `improve`), `last_processed_message_id`, `processed_ids`, `sync_registry` | Phase 1 fetch + client-filter by `reply_to` → Phase 2 manager approval → Phase 3 per-candidate: verbatim `RAW_TEXT` → translate → `prompt-refactor` → codebase `grep/glob` → task file + optional GH issue → topic-targeted reply |
 | **`telegram-message-export`** (`skill-templates/telegram-message-export/SKILL.md`) | `telegram_get_history` (range `[from_id,to_id]`), `telegram_get_media_info`, `telegram_download_media` | No `telegram-sync.json`; takes `[from_id,to_id]` or snippet/link `t.me/c/CHAT/MSG` | Phase 1 fetch & sort → Phase 2 write `{n}.txt` sidecars + `reply_to_message_id` + media download → Phase 3 `zip -r telegram-exports/export-{ts}.zip` → Phase 4 notification |
 | **Direct ad-hoc use** | `send_file` (file attachments to General topic `chat_id=-1003993323129`), `send_message`/`reply_to_message` | `account="personal"` per memory `workflows/telegram-file-delivery` | `telegram_send_file(chat_id, file_path, caption, account="personal")` → verifies via `telegram_get_messages` |
 
