@@ -19,6 +19,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - **Remove opentmux and opencode-agent-tmux — keep tmux (Task 125)** — fully removed the OpenCode tmux wrapper layer per manager directive: uninstalled global npm packages `opentmux@1.5.7` and `opencode-agent-tmux@1.3.0` (`npm uninstall -g opentmux opencode-agent-tmux`), removed `"opentmux"` from `~/.config/opencode/opencode.json` plugin array (now `["@prevalentware/opencode-goal-plugin"]` after Task 126; was `["opencode-goal-plugin"]` before), deleted `README.md` `### Optional: opentmux` section, deleted `docs/setup.md` `## opentmux — Smart Tmux Integration` section (Installation/Verify/Usage/Features/Shell Configuration), and cleaned `LLM.txt` (Node.js prerequisite reworded without opentmux, deleted `### 6.2. Install opentmux Globally` section, removed `opentmux --version` verification checklist item). System `tmux` (`/usr/bin/tmux` 3.6, apt `3.6a-2ubuntu0.1`) is retained. Historical records preserved: `CHANGELOG.md` Task 120 entry, `docs/history/milestone-14-summary.md`, `tasks/archive/120-*.md`. Verified: `which tmux && tmux -V` → 3.6, `which opentmux` fails, `npm list -g` shows no tmux plugins, `grep -r opentmux` over active docs returns 0.
 
+## [9.2.1] - 2026-08-30
+
+### Fixed
+
+- **Task ID Discovery Hallucination (Task 130)** — removed the truncated/ambiguous inline task-ID command from `<execution_workflow>` Step 1.5 that was causing the Hands to occasionally hallucinate a year-based task number instead of the correct next sequential ID; now mandates loading the `task-generator` skill as single source of truth. Updated `prompts/fragments/11-execution_workflow.md` (Step 1.5 replaced inline `find tasks/ -type f -name '*.md' ...` with skill-load mandate, "STRICTLY FORBIDDEN from guessing" sentence preserved), `<system_version>` bumped **9.2.0 → 9.2.1** and `system-prompt.md` reassembled (75364 bytes). Verified: `grep -n "find tasks/" system-prompt.md prompts/fragments/11-execution_workflow.md` → zero matches; `grep -n "task-generator" prompts/fragments/11-execution_workflow.md` → match; version sync confirmed; zero out-of-scope changes.
+
 ## [9.2.0] - 2026-08-30
 
 ### Added
