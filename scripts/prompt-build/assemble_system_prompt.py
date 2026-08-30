@@ -324,6 +324,35 @@ def assemble(
     # trailing newline — this reproduces the pristine file's structure.
     assembled = "\n\n".join(parts) + "\n"
 
+    # Normalize closing-tag indentation (Task 131): Prettier passes on the
+    # source fragments can indent pure closing tags (e.g. "  </constraints>")
+    # which would otherwise drift into the generated artifact. This single
+    # normalization point strips leading/trailing whitespace from any line
+    # that consists ONLY of a closing tag, so the artifact is correct
+    # regardless of whatever indentation the source fragments carry.
+    _CLOSING_TAG_ONLY_RE = re.compile(r"^\s*(</[a-zA-Z_][a-zA-Z0-9_]*>)\s*$")
+    normalized_lines = []
+    for line in assembled.splitlines():
+        match = _CLOSING_TAG_ONLY_RE.match(line)
+        if match:
+            normalized_lines.append(match.group(1))
+        else:
+            normalized_lines.append(line)
+    assembled = "\n".join(normalized_lines) + "\n"
+
+    # Self-check (Task 131): after normalization, any remaining line that is
+    # an indented pure closing tag means the regex above missed a case (e.g.
+    # a tag with unusual characters). Fail loudly instead of silently writing
+    # a still-drifted artifact.
+    _DRIFTED_CLOSING_TAG_RE = re.compile(r"^\s+</[a-zA-Z_][a-zA-Z0-9_]*>\s*$")
+    for line in assembled.splitlines():
+        if _DRIFTED_CLOSING_TAG_RE.match(line):
+            raise ValueError(
+                f"Drifted closing tag detected after normalization: {line!r}. "
+                f"The closing-tag normalization regex in assemble() missed this "
+                f"case — fix the regex before writing system-prompt.md."
+            )
+
     # Write the assembled output.
     out = Path(output_path)
     out.parent.mkdir(parents=True, exist_ok=True)

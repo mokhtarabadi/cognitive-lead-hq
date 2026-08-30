@@ -180,8 +180,13 @@ def _find_block_ranges(lines: List[str]) -> List[Tuple[str, int, int]]:
 # templates). The content is captured verbatim so it can be written to the shared
 # partial with zero text changes — guaranteeing byte-identity after include
 # resolution.
+#
+# The closing tag is matched at ANY indentation (\s*) because the assembler
+# (Task 131) normalizes pure closing-tag lines to column 0 in the generated
+# artifact — the splitter must accept both the pre-normalization (indented)
+# and post-normalization (column-0) forms to keep the round-trip lossless.
 _VP_BLOCK_RE = re.compile(
-    r"(  <validation_phase>\n.*?\n  </validation_phase>)",
+    r"(  <validation_phase>\n.*?\n\s*</validation_phase>)",
     re.DOTALL,
 )
 # Extracts the phase name from the final line of a block, e.g. "Context" or
