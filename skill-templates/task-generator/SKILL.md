@@ -133,7 +133,7 @@ If the output is non-empty, HALT and report duplicate task IDs. Do NOT overwrite
 
    ## Manager Decisions
 
-   _(Log non-trivial architectural, design, or strategic decisions here using the format from `<decision_logging_mandate>`. For Lite Mode tasks, log a `[LITE]` justification entry.)_
+   _(Log non-trivial architectural, design, or strategic decisions here using the format from `<decision_logging_mandate>`: `**[YYYY-MM-DD] [DECISION_ID] [SOURCE]:** <summary>` where SOURCE is ORCHESTRATOR-DETECTED, EXECUTOR-DETECTED, or EXECUTION-DETECTED. The Orchestrator is expected to pre-seed this section with `[ORCHESTRATOR-DETECTED]` entries during task generation when applicable. For Lite Mode tasks, log a `[LITE]` justification entry.)_
 
    ## Risk & Rollback
 
@@ -194,7 +194,7 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 
 ## Manager Decisions
 
-_(Log non-trivial architectural, design, or strategic decisions here using the format from `<decision_logging_mandate>`. For Lite Mode tasks, log a `[LITE]` justification entry.)_
+_(Log non-trivial architectural, design, or strategic decisions here using the format from `<decision_logging_mandate>`: `**[YYYY-MM-DD] [DECISION_ID] [SOURCE]:** <summary>` where SOURCE is ORCHESTRATOR-DETECTED, EXECUTOR-DETECTED, or EXECUTION-DETECTED. The Orchestrator is expected to pre-seed this section with `[ORCHESTRATOR-DETECTED]` entries during task generation when applicable. For Lite Mode tasks, log a `[LITE]` justification entry.)_
 
 ## Risk & Rollback
 
@@ -272,7 +272,7 @@ uv run scripts/bundle-tasks.py 1 2 3 4 5 6 7 --title "mega-bundle" --force  # by
    - `**Status:** superseded`
    - `**Superseded-By:** <META_ID>-<slug>` + `**Superseded-At:** YYYY-MM-DD`
    - Superseded footer before `## Execution Log` with `git log --follow` hint
-   History remains reachable: `git log --oneline --follow -- tasks/archive/<file>`
+     History remains reachable: `git log --oneline --follow -- tasks/archive/<file>`
 
 ### Guardrails
 

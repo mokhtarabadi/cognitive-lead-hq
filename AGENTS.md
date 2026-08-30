@@ -52,7 +52,7 @@ This repository is the Headquarters for the Cognitive Lead AI multi-agent system
 - **Don't** apply the full 9-step production line for trivial, single-file changes.
   -> **Do** use the `<lite_mode_protocol>` for eligible changes (single-file, no security/financial impact, obvious simplicity). Escalate to Full Mode if implementation reveals hidden complexity. See `<lite_mode_protocol>` in the system prompt.
 - **Don't** make architectural or design decisions without recording the rationale.
-  -> **Do** log non-trivial decisions under `## Manager Decisions` in the active task file using the format from `<decision_logging_mandate>`. Lite Mode tasks must log a `[LITE]` justification entry.
+  -> **Do** log non-trivial decisions under `## Manager Decisions` in the active task file using the format from `<decision_logging_mandate>`, each entry tagged `[SOURCE]` (`ORCHESTRATOR-DETECTED` / `EXECUTOR-DETECTED` / `EXECUTION-DETECTED`). Lite Mode tasks must log a `[LITE]` justification entry.
 - **Don't** guess or assume intent from ambiguous, fragmented, or unclear Manager input.
   -> **Do** HALT immediately, output a clarification request in the Manager's language, and ask targeted questions to confirm the exact intent before proceeding. (Clarification Halt — V9.1.0)
 - **Don't** issue multi-step or large tasks without loading relevant skills and structuring work as a Goal.
@@ -121,4 +121,3 @@ When finishing a task, you MUST execute these exact steps in order:
 5. **Kanban Metadata Synchronization (mandatory after ANY authorized `git mv`):** After the move, you MUST update the task file's `**File:**` metadata header to the new path. If the move happened AFTER staging, you MUST also re-run `lint_task_file` and call `custom_context_stage_and_inject_diff` again using the NEW task path before notifying the Manager — the re-stage keeps the injected diff and the staging state in sync with the final path. Never notify the Manager with a stale `**File:**` header.
 6. **Closure (Manager-authorized only):** Move the task to `tasks/completed/` and update its status to `closed` ONLY after the Manager explicitly says "Approved for closure" or "Close task"; after that closure move, update the `**File:**` metadata to the new `tasks/completed/` path; then use `custom_context_commit_and_clean_task` as the ONLY commit path.
 7. **Notify Manager:** Output exactly: "Task ready. Manager, please copy the contents of `tasks/qa/XX-task-name.md` and send it back to the Orchestrator Brain for review."
-

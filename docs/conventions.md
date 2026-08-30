@@ -89,6 +89,8 @@ When writing or reviewing bash scripts, cron jobs, or container orchestration co
 
 Every non-trivial decision made during task execution MUST be logged in the active task file under `## Manager Decisions`. This creates an auditable trail of architectural, design, and strategic choices.
 
+Decision detection is a three-tier responsibility: the **Orchestrator** pre-seeds Manager decisions from chat conversations (tagged `[ORCHESTRATOR-DETECTED]`), the **Cognitive Executor** detects decisions from direct Manager ↔ Hands/OpenCode conversations (tagged `[EXECUTOR-DETECTED]`), and the **Hands** log execution-time decisions (tagged `[EXECUTION-DETECTED]`). Each entry carries a `[SOURCE]` tag so a weekly/monthly coach review can distinguish stated Manager intent from technical necessity. The single source of truth for the full mandate is `prompts/fragments/17-decision_logging_mandate.md` — this section is a summary only.
+
 ### When to Log
 
 - Architectural choices (framework, pattern, data store, API design).
