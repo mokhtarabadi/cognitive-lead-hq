@@ -7,6 +7,7 @@
 | architecture | brain-hands-architecture-2026-08-21 | # Brain + Hands Architecture Decision — 2026-08-21 |  |
 | opencode_config | global_goal_plugin_upgrade_2026_08_27 | # Global Goal Plugin Upgrade — 2026-08-27 |  |
 | project | absent-file-policy | Absent-File Policy: If a referenced core file does not exist (e.g., DESIGN.md, docs/architecture.md, docs/data_model.... |  |
+| project | fragment-edit-regenerate-workflow | # Fragment-Edit → Regenerate Workflow (Task 129, 2026-08-30) |  |
 | project | repo-details | # Repository Details |  |
 | project | system-prompt-build-process | system-prompt.md is a GENERATED build artifact, NOT a hand-edited source file. |  |
 | quirks | code_search_skill_sync_pattern | **Pattern (2026-08-21, updated 2026-08-27):** The `code-search` skill has two copies that must stay in sync: `skill-t... |  |

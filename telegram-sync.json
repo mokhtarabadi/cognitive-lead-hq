@@ -11,7 +11,7 @@
       "task"
     ]
   },
-  "last_processed_message_id": 524,
+  "last_processed_message_id": 536,
   "processed_ids": [
     458,
     465,
@@ -47,7 +47,8 @@
     521,
     522,
     523,
-    524
+    524,
+    536
   ],
   "sync_registry": {
     "466": {
@@ -99,6 +100,11 @@
     },
     "522": {
       "task_file": "tasks/backlog/127-memory-index-auto-generation.md",
+      "gh_issue": "Not created (skipped)",
+      "type": "IMPROVE"
+    },
+    "536": {
+      "task_file": "tasks/backlog/129-orchestrator-decision-detection-for-coach-review.md",
       "gh_issue": "Not created (skipped)",
       "type": "IMPROVE"
     }
