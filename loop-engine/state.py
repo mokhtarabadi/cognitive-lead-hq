@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS tasks (
     qa_feedback TEXT DEFAULT NULL,
     qa_retry_count INTEGER DEFAULT 0,
     evidence_dir TEXT DEFAULT NULL,
+    spec_artifacts TEXT DEFAULT NULL,
     created_at REAL NOT NULL,
     updated_at REAL NOT NULL,
     closed_at REAL DEFAULT NULL
@@ -59,6 +60,15 @@ class StateMachine:
         self.conn.row_factory = sqlite3.Row
         self.conn.executescript(_SCHEMA)
         self.conn.commit()
+        # Safe column migration for databases created before the spec-first gate
+        # (LE-8): newer schemas already declare spec_artifacts, so the ALTER is a
+        # no-op that raises sqlite3.OperationalError("duplicate column name") and
+        # is deliberately swallowed. Additive + non-destructive.
+        try:
+            self.conn.execute("ALTER TABLE tasks ADD COLUMN spec_artifacts TEXT DEFAULT NULL")
+            self.conn.commit()
+        except sqlite3.OperationalError:
+            pass
 
     def close(self):
         self.conn.close()
@@ -123,6 +133,27 @@ class StateMachine:
         self.conn.execute("UPDATE tasks SET evidence_dir = ?, updated_at = ? WHERE task_id = ?",
                           (evidence_dir, time.time(), task_id))
         self.conn.commit()
+
+    # --- Spec-First Artifact Tracking (LE-8) ---
+
+    def set_spec_artifacts(self, task_id: int, artifacts: list[str]):
+        """Persist the verified spec artifact paths for a task as a JSON array."""
+        self.conn.execute(
+            "UPDATE tasks SET spec_artifacts = ?, updated_at = ? WHERE task_id = ?",
+            (json.dumps(artifacts), time.time(), task_id))
+        self.conn.commit()
+
+    def get_spec_artifacts(self, task_id: int) -> list[str]:
+        """Return the verified spec artifact paths for a task, or ``[]`` when unset/corrupt."""
+        row = self.conn.execute(
+            "SELECT spec_artifacts FROM tasks WHERE task_id = ?", (task_id,)).fetchone()
+        if not row or not row[0]:
+            return []
+        try:
+            parsed = json.loads(str(row[0]))
+        except (ValueError, TypeError):
+            return []
+        return parsed if isinstance(parsed, list) else []
 
     def get_active_tasks(self) -> list[dict]:
         """Get all tasks not in terminal states."""

@@ -178,6 +178,63 @@ def _default_contract_rules() -> list["ContractRuleConfig"]:
     ]
 
 
+class SpecArtifactType(str, Enum):
+    """Spec artifact kinds governed by the Spec-First Gate (LE-8)."""
+    ADR = "adr"
+    PRD = "prd"
+    CONTRACT = "contract"
+    DATA_MODEL = "data_model"
+
+
+class SpecRequirementRule(BaseModel):
+    """Declarative spec requirement rule — maps triggering keywords to required artifacts.
+
+    A rule fires when any ``keywords`` substring appears in the (lowercased) task
+    content or approved plan. When fired, the Spec-First Gate (LE-8) requires at
+    least one matching artifact under ``target_directories`` to exist in the
+    workspace or staged diff before implementation may proceed.
+    """
+    name: str = Field(..., description="Rule name, e.g. 'architecture-decision', 'api-contract'")
+    keywords: list[str] = Field(default_factory=list, description="Keywords in task or plan triggering this spec requirement")
+    required_artifacts: list[SpecArtifactType] = Field(default_factory=list, description="Artifact types required by this rule")
+    target_directories: list[str] = Field(default_factory=list, description="Directory globs where artifacts are expected, e.g. ['docs/adr/**', 'contracts/**']")
+
+
+class SpecGateConfig(BaseModel):
+    """Spec-First Gate configuration (LE-8)."""
+    enabled: bool = Field(True, description="Whether the spec-first gate is enforced")
+    rules: list[SpecRequirementRule] = Field(default_factory=list, description="Configured spec requirement rules")
+
+
+def _default_spec_rules() -> list[SpecRequirementRule]:
+    """Sensible default spec requirement rules (LE-8).
+
+    Kept as a free function (mirroring ``_default_contract_rules``) so callers can
+    wire the defaults explicitly into ``SpecGateConfig.rules`` — the schema default
+    is an empty list so the gate is inert until configured.
+    """
+    return [
+        SpecRequirementRule(
+            name="architecture-decision",
+            keywords=["architecture", "architectural", "redesign", "adr"],
+            required_artifacts=[SpecArtifactType.ADR],
+            target_directories=["docs/adr/**", "docs/architecture.md"],
+        ),
+        SpecRequirementRule(
+            name="api-contract",
+            keywords=["api contract", "openapi", "new endpoint", "graphql schema", "grpc proto"],
+            required_artifacts=[SpecArtifactType.CONTRACT],
+            target_directories=["contracts/**", "openapi/**", "proto/**"],
+        ),
+        SpecRequirementRule(
+            name="database-schema",
+            keywords=["database schema", "prisma migration", "sql migration", "new table", "data model"],
+            required_artifacts=[SpecArtifactType.DATA_MODEL],
+            target_directories=["docs/data_model.md", "prisma/**", "migrations/**"],
+        ),
+    ]
+
+
 class LoopEngineConfig(BaseModel):
     """Root configuration — loop-engine.jsonc."""
     # Providers
@@ -243,4 +300,10 @@ class LoopEngineConfig(BaseModel):
     contract_rules: list[ContractRuleConfig] = Field(
         default_factory=_default_contract_rules,
         description="Declarative rules mapping contract file mutations to downstream task generators",
+    )
+
+    # Spec-First Artifact Gate (LE-8)
+    spec_gate: SpecGateConfig = Field(
+        default_factory=SpecGateConfig,
+        description="Spec-first artifact governance: fail-fast gate requiring spec artifacts before implementation",
     )

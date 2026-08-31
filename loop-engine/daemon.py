@@ -41,6 +41,11 @@ try:
 except ImportError:
     ContractPropagationEngine = None  # type: ignore
 
+try:
+    from specs import SpecGateEngine
+except ImportError:
+    SpecGateEngine = None  # type: ignore
+
 # Repo root = parent of loop-engine/. All relative paths in the config
 # (state db, evidence dir, tasks/, system-prompt.md) are anchored here so the
 # daemon behaves identically no matter which directory it is launched from.
@@ -516,6 +521,32 @@ async def _process_task(task_id: int, task_file: str, config: LoopEngineConfig,
         state.update_state(task_id, TaskState.BACKLOG)
         print(f"[pipeline] Plan rejected for task #{task_id}. Back to backlog.")
         return
+
+    # 2.5 SPEC-FIRST GATE (LE-8) — after Plan Approval, before IMPLEMENTING.
+    # Architectural / contract / schema tasks must have verified spec artifacts
+    # (ADR, PRD, Contract, Data Model) in the workspace or staged diff, otherwise
+    # the task crashes BEFORE any code is generated.
+    if SpecGateEngine is not None and config.spec_gate.enabled:
+        spec_engine = SpecGateEngine(config.spec_gate)
+        rules = spec_engine.evaluate_requirements(task_content, plan)
+        if rules:
+            spec_res = spec_engine.validate_artifacts(rules, REPO_ROOT, diff_text="")
+            if not spec_res.passed:
+                state.update_state(task_id, TaskState.CRASHED)
+                try:
+                    state.set_qa_feedback(task_id, spec_res.report_md)
+                except Exception:
+                    pass
+                print(
+                    f"[pipeline] Spec Gate FAILED for task #{task_id}: "
+                    f"{'; '.join(spec_res.errors)} — crashing"
+                )
+                return
+            state.set_spec_artifacts(task_id, spec_res.found_artifacts)
+            print(
+                f"[pipeline] Spec Gate PASSED for task #{task_id}: verified "
+                f"{len(spec_res.found_artifacts)} artifact(s)"
+            )
 
     # 3. IMPLEMENTING — preflight (profile already detected at pipeline start)
     state.update_state(task_id, TaskState.IMPLEMENTING)

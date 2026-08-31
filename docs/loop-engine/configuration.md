@@ -514,6 +514,100 @@ an explicit `drift-ignore` comment is the only bypass.
 on the diff text already extracted by the daemon. Custom consumer/allowed globs are
 supported at construction time for callers that need to extend the default pattern sets.
 
+### Spec-First Artifact Governance (LE-8 / Task 140)
+
+`loop-engine/specs.py` (`SpecGateEngine`) enforces a **fail-fast spec-first state gate**:
+tasks whose content or approved plan introduces architectural changes, API contracts, or
+database schema mutations must have **verified spec artifacts** (ADR, PRD, Contract,
+Data Model) present in the workspace or the staged diff BEFORE code implementation begins.
+
+**Pipeline position:**
+
+1. `daemon._process_task` reads the task, plans via the router, and sends the plan to
+   `AWAITING_APPROVAL`.
+2. **Immediately after Plan Approval** and **before** `TaskState.IMPLEMENTING` (step 2.5),
+   the gate runs:
+   - `SpecGateEngine(config.spec_gate).evaluate_requirements(task_content, plan)` scans the
+     lowercased task+plan text for rule keywords → matched `SpecRequirementRule`s (empty for
+     routine tasks / bugfixes).
+   - For matched rules, `validate_artifacts(rules, REPO_ROOT, diff_text="")` scans the
+     workspace (`rglob` + `fnmatch` full-relative-path globs) and any staged diff paths
+     (`diff --git` b-side headers) for the rule's `target_directories` patterns.
+   - **Failure** → `TaskState.CRASHED` + `state.set_qa_feedback(report_md)` + early return:
+     no code is generated, no executor is launched.
+   - **Success** → `state.set_spec_artifacts(task_id, found_artifacts)` persists the verified
+     artifact paths as JSON in SQLite, and the pipeline proceeds to step 3.
+3. The gate is inert when `config.spec_gate.enabled` is `false` or no rules match.
+
+**Migration:** `StateMachine.__init__` adds `spec_artifacts TEXT DEFAULT NULL` to the
+`tasks` table via a safe `ALTER TABLE ... ADD COLUMN` (caught `sqlite3.OperationalError`
+when the column already exists) — existing databases upgrade non-destructively.
+`set_spec_artifacts`/`get_spec_artifacts` persist/retrieve the JSON array (`[]` on unset
+or corrupt JSON).
+
+**`spec_gate` configuration schema** (`LoopEngineConfig.spec_gate`):
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `enabled` | `boolean` | `true` | Whether the spec-first gate is enforced |
+| `rules` | `SpecRequirementRule[]` | `[]` | Configured spec requirement rules (`_default_spec_rules()` provides the defaults below) |
+
+Each `SpecRequirementRule`:
+
+| Field | Type | Description |
+|---|---|---|
+| `name` | `string` | Rule name, e.g. `architecture-decision`, `api-contract` |
+| `keywords` | `string[]` | Substrings in task or plan that trigger this rule (lowercased) |
+| `required_artifacts` | `SpecArtifactType[]` | `adr` / `prd` / `contract` / `data_model` |
+| `target_directories` | `string[]` | Directory globs where artifacts are expected, e.g. `["docs/adr/**", "contracts/**"]` |
+
+**Default rules** (`models._default_spec_rules()` — wire them explicitly, since `rules`
+defaults to `[]`):
+
+| Rule | Trigger keywords | Required artifact | Target globs |
+|---|---|---|---|
+| `architecture-decision` | `architecture`, `architectural`, `redesign`, `adr` | `adr` | `docs/adr/**`, `docs/architecture.md` |
+| `api-contract` | `api contract`, `openapi`, `new endpoint`, `graphql schema`, `grpc proto` | `contract` | `contracts/**`, `openapi/**`, `proto/**` |
+| `database-schema` | `database schema`, `prisma migration`, `sql migration`, `new table`, `data model` | `data_model` | `docs/data_model.md`, `prisma/**`, `migrations/**` |
+
+**Example override** (`loop-engine/loop-engine.jsonc`):
+
+```jsonc
+"spec_gate": {
+  "enabled": true,
+  "rules": [
+    {
+      "name": "architecture-decision",
+      "keywords": ["architecture", "architectural", "redesign", "adr"],
+      "required_artifacts": ["adr"],
+      "target_directories": ["docs/adr/**", "docs/architecture.md"]
+    },
+    {
+      "name": "api-contract",
+      "keywords": ["api contract", "openapi", "new endpoint", "graphql schema", "grpc proto"],
+      "required_artifacts": ["contract"],
+      "target_directories": ["contracts/**", "openapi/**", "proto/**"]
+    },
+    {
+      "name": "database-schema",
+      "keywords": ["database schema", "prisma migration", "sql migration", "new table", "data model"],
+      "required_artifacts": ["data_model"],
+      "target_directories": ["docs/data_model.md", "prisma/**", "migrations/**"]
+    }
+  ]
+}
+```
+
+**Report shape:** `SpecValidationResult` carries `passed`, `required_artifacts`,
+`found_artifacts`, `errors`, and a structured `report_md` (`# Spec-First Gate Report` with
+`Verified Artifacts`, `Missing Spec Artifacts`, and `Resolution` sections). The daemon
+stores the report as `qa_feedback` on a crashed task so the failure is auditable.
+
+**Guardrails:** empty `rules` pass immediately; the engine is fully disabled if `specs.py`
+cannot be imported (`ImportError` fallback in `daemon.py`); routine tasks never trigger the
+gate; the gate runs **before** any executor/LLM call, so un-specified tasks never burn
+tokens.
+
 ## Environment Variables
 
 | Variable | Required | Description |
