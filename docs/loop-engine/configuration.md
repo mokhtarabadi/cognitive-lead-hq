@@ -291,6 +291,34 @@ and plain dicts (`{"model_preferences": {...}}`) are accepted.
 - **Evidence outputs:** If `task_id` is provided, the runner writes `<evidence_base_dir>/<task_id>/toolchain_report.md` (structured Markdown with summary table `| Type | Command | Result | Duration | Return Code |` and `## Failures` logs for non-zero/timeout) and `<evidence_base_dir>/<task_id>/toolchain_result.txt` (`PASSED` or `FAILED`). `QAEngine.run_qa` also accepts `toolchain_evidence` and injects it into `router.route_qa(..., toolchain_evidence=...)` → `<## Toolchain Verification>` block in the LLM prompt.
 - **Shell semantics:** Toolchain commands are shell strings (so `||` fallbacks like `pnpm test || npm test` work). `stdout`/`stderr` are captured and truncated to 2000 chars in the report.
 
+### Executor Stack Context Injection & Goal Plugin Guardrails (LE-4)
+
+`loop-engine/executor.py` (`HandsExecutor`) launches the local OpenCode agent as a subprocess and monitors its output for Goal Plugin termination tokens.
+
+**Structured XML prompt (`_build_prompt`):** The executor builds the agent prompt from clean XML-delimited sections, emitted only when relevant:
+
+| Section | Emitted when | Content |
+|---|---|---|
+| `<task_instructions>` | always | Read the task file at `<path>` and implement it; follow AGENTS.md rules exactly |
+| `<stack_context name="..." display_name="...">` | `stack_profile` present | `MANDATORY: Load required skills via the native skill tool: <skills>`; preflight commands; `Run toolchain verification before completion: test='...', build='...', lint='...'` |
+| `<blueprint_context>` | `blueprint_context` non-empty | Approved Architect plan (LE-0.1) |
+| `<qa_feedback>` | `qa_feedback` non-empty | QA rejection feedback + `Address the above QA feedback explicitly. Do NOT treat this as a new architectural plan.` |
+| `<goal_rules>` | always | `When finished and verified, output [goal:complete]. If stuck, output [goal:blocked: <reason>].` |
+
+**Goal Plugin termination tokens:** The executor parses agent output with case-insensitive regexes:
+
+- `TERM_COMPLETE = [goal:complete]` → `{"status": "complete", ...}`
+- `TERM_BLOCKED = [goal:blocked]` or `[goal:blocked: <reason>]` → `{"status": "blocked", ..., "reason": <extracted reason or "Agent signaled blocked">}`
+- `TRANSPORT_ERROR` (stream disconnected / ECONNRESET / ETIMEDOUT / EPIPE / timeout / connection reset) → retried up to `MAX_RETRIES=3` with `RETRY_DELAY=5s`
+
+A `proc.returncode == 0` exit also maps to `complete`.
+
+**Process group isolation:** On POSIX systems the subprocess is launched with `start_new_session=True`, placing it in its own process group. On `asyncio.TimeoutError` the executor kills the **entire process group** with `os.killpg(os.getpgid(proc.pid), signal.SIGKILL)` (suppressing `ProcessLookupError`/`AttributeError`/`PermissionError`), drains with `proc.wait(timeout=2.0)`, and returns `{"status": "timeout", "error": "Exceeded <timeout>s timeout"}`. This prevents orphaned agent processes.
+
+**Timeout:** The subprocess timeout comes from `idle.executing_timeout_seconds` (default `900`), falling back to `900.0` if unset — the same budget as the rest of the pipeline.
+
+**Concurrency semaphore:** `HandsExecutor.__init__` creates `asyncio.Semaphore(config.max_parallel_tasks)`; `execute()` wraps the entire run (including transport retries) in `async with self._semaphore:`, guaranteeing the daemon never exceeds the configured concurrent Hands sessions.
+
 ## Environment Variables
 
 | Variable | Required | Description |

@@ -28,7 +28,7 @@ def test_executor_blueprint_context_injected():
     # Check prompt injection by inspecting source
     src = Path(__file__).parent.joinpath("executor.py").read_text(encoding="utf-8")
     assert "blueprint_context" in src
-    assert "Approved Blueprint Context" in src
+    assert "<blueprint_context>" in src
 
 
 def test_executor_qa_feedback_distinct():
@@ -38,7 +38,7 @@ def test_executor_qa_feedback_distinct():
     assert "qa_feedback" in sig.parameters
     assert sig.parameters["qa_feedback"].default == ""
     src = Path(__file__).parent.joinpath("executor.py").read_text(encoding="utf-8")
-    assert "QA Feedback to Address" in src
+    assert "<qa_feedback>" in src
     # Ensure blueprint_context and qa_feedback are distinct params, not overloaded
     assert "blueprint_context" in src and "qa_feedback" in src
     # Prompt must label QA feedback distinctly from blueprint (allow line split)
@@ -73,17 +73,17 @@ def test_executor_prompt_build_with_both_contexts():
                               blueprint_context="## Plan\n1. do X",
                               qa_feedback="Fix bug on line 42")
             p = captured["prompt"]
-            assert "Approved Blueprint Context" in p
+            assert "<blueprint_context>" in p
             assert "## Plan\n1. do X" in p
-            assert "QA Feedback to Address" in p
+            assert "<qa_feedback>" in p
             assert "Fix bug on line 42" in p
             # Empty case
             captured.clear()
             await exe.execute(1, "tasks/backlog/01.md", "content",
                               blueprint_context="", qa_feedback="")
             p2 = captured["prompt"]
-            assert "Approved Blueprint Context" not in p2
-            assert "QA Feedback to Address" not in p2
+            assert "<blueprint_context>" not in p2
+            assert "<qa_feedback>" not in p2
 
         asyncio.run(run())
         exe._run_once = original

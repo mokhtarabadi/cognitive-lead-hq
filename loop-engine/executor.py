@@ -15,7 +15,9 @@ ZAC intact: executor NEVER commits.
 """
 
 import asyncio
+import os
 import re
+import signal
 import time
 from pathlib import Path
 from typing import Optional, Any
@@ -24,8 +26,8 @@ from models import LoopEngineConfig
 from state import StateMachine
 
 
-TERM_COMPLETE = re.compile(r'\[goal:complete\]')
-TERM_BLOCKED = re.compile(r'\[goal:blocked\]')
+TERM_COMPLETE = re.compile(r'\[goal:complete\]', re.IGNORECASE)
+TERM_BLOCKED = re.compile(r'\[goal:blocked(?::\s*([^\]]+))?\]', re.IGNORECASE)
 TRANSPORT_ERROR = re.compile(r'stream disconnected|ECONNRESET|ETIMEDOUT|EPIPE|timeout|connection reset', re.IGNORECASE)
 
 MAX_RETRIES = 3
@@ -38,6 +40,71 @@ class HandsExecutor:
     def __init__(self, config: LoopEngineConfig, state: StateMachine):
         self.config = config
         self.state = state
+        self._semaphore = asyncio.Semaphore(config.max_parallel_tasks)
+
+    def _build_prompt(self, task_file: str, blueprint_context: str = "",
+                      qa_feedback: str = "", stack_profile: Optional[Any] = None) -> str:
+        """Construct the structured XML prompt for the local OpenCode agent.
+
+        Sections (emitted only when relevant):
+          1. <task_instructions> — read the task file, follow AGENTS.md.
+          2. <stack_context> — when a stack profile is present: mandate skill
+             loading via the native skill tool and list toolchain commands.
+          3. <blueprint_context> — approved Architect plan (LE-0.1).
+          4. <qa_feedback> — QA rejection feedback to address (LE-0.1).
+          5. <goal_rules> — Goal Plugin termination tokens.
+        """
+        parts = [
+            "<task_instructions>\n"
+            f"Read the task file at {task_file} and implement it.\n"
+            "Follow AGENTS.md rules exactly.\n"
+            "</task_instructions>",
+        ]
+
+        if stack_profile is not None:
+            try:
+                skills = getattr(stack_profile, "skills", []) or []
+                skills_str = ", ".join(skills) if skills else "none"
+                toolchain = getattr(stack_profile, "toolchain", None)
+                test_cmd = getattr(toolchain, "test_cmd", None) if toolchain else None
+                build_cmd = getattr(toolchain, "build_cmd", None) if toolchain else None
+                lint_cmd = getattr(toolchain, "lint_cmd", None) if toolchain else None
+                preflight = getattr(stack_profile, "preflight", []) or []
+                preflight_str = ", ".join(preflight) if preflight else "none"
+                name = getattr(stack_profile, "name", "unknown")
+                display_name = getattr(stack_profile, "display_name", name)
+                parts.append(
+                    f'<stack_context name="{name}" display_name="{display_name}">\n'
+                    f"MANDATORY: Load required skills via the native skill tool: {skills_str}\n"
+                    f"Preflight commands: {preflight_str}\n"
+                    f"Run toolchain verification before completion: "
+                    f"test='{test_cmd}', build='{build_cmd}', lint='{lint_cmd}'\n"
+                    "</stack_context>"
+                )
+            except Exception:
+                pass
+
+        if blueprint_context and blueprint_context.strip():
+            parts.append(
+                f"<blueprint_context>\n{blueprint_context.strip()}\n</blueprint_context>"
+            )
+
+        if qa_feedback and qa_feedback.strip():
+            parts.append(
+                f"<qa_feedback>\n{qa_feedback.strip()}\n\n"
+                "Address the above QA feedback explicitly. Do NOT treat this "
+                "as a new architectural plan.\n"
+                "</qa_feedback>"
+            )
+
+        parts.append(
+            "<goal_rules>\n"
+            "When finished and verified, output [goal:complete]. "
+            "If stuck, output [goal:blocked: <reason>].\n"
+            "</goal_rules>"
+        )
+
+        return "\n\n".join(parts)
 
     async def execute(self, task_id: int, task_file: str, task_content: str,
                     blueprint_context: str = "", qa_feedback: str = "",
@@ -57,74 +124,49 @@ class HandsExecutor:
             stack_profile: Optional StackProfile detected for this task — skills and
                 toolchain commands are injected into the prompt.
         """
-        prompt_parts = [
-            f"Read the task file at {task_file} and implement it.",
-            "Follow AGENTS.md rules exactly.",
-            "Output [goal:complete] when done, [goal:blocked] if stuck.",
-        ]
-        if stack_profile is not None:
-            try:
-                skills_str = ", ".join(stack_profile.skills) if getattr(stack_profile, "skills", []) else "none"
-                test_cmd = getattr(getattr(stack_profile, "toolchain", None), "test_cmd", None)
-                build_cmd = getattr(getattr(stack_profile, "toolchain", None), "build_cmd", None)
-                lint_cmd = getattr(getattr(stack_profile, "toolchain", None), "lint_cmd", None)
-                preflight_str = ", ".join(stack_profile.preflight) if getattr(stack_profile, "preflight", []) else "none"
-                prompt_parts.append(
-                    f"## Stack Context: {stack_profile.name} ({stack_profile.display_name})\n"
-                    f"- Skills to load: {skills_str}\n"
-                    f"- Preflight: {preflight_str}\n"
-                    f"- Toolchain: test=`{test_cmd}`, build=`{build_cmd}`, lint=`{lint_cmd}`\n"
-                    f"Automatically load the listed skills and use the toolchain commands for verification."
-                )
-            except Exception:
-                pass
-        if blueprint_context and blueprint_context.strip():
-            prompt_parts.append(
-                f"## Approved Blueprint Context\n{blueprint_context.strip()}"
-            )
-        if qa_feedback and qa_feedback.strip():
-            prompt_parts.append(
-                f"## QA Feedback to Address\n{qa_feedback.strip()}\n\n"
-                f"Address the above QA feedback explicitly. Do NOT treat this "
-                f"as a new architectural plan — it is a correction request for "
-                f"the previous implementation."
-            )
-        prompt = "\n\n".join(prompt_parts)
+        prompt = self._build_prompt(
+            task_file, blueprint_context=blueprint_context,
+            qa_feedback=qa_feedback, stack_profile=stack_profile)
 
-        for attempt in range(MAX_RETRIES):
-            result = await self._run_once(task_file, prompt)
+        async with self._semaphore:
+            for attempt in range(MAX_RETRIES):
+                result = await self._run_once(task_file, prompt)
 
-            # Success or terminal failure — no retry
-            if result["status"] in ("complete", "blocked", "timeout"):
+                # Success or terminal failure — no retry
+                if result["status"] in ("complete", "blocked", "timeout"):
+                    return result
+
+                # Transport error — retry
+                if result["status"] == "transport_error" and attempt < MAX_RETRIES - 1:
+                    print(f"[executor] Transport error (attempt {attempt + 1}/{MAX_RETRIES}), retrying in {RETRY_DELAY}s...")
+                    await asyncio.sleep(RETRY_DELAY)
+                    continue
+
+                # Non-transport error or final attempt
                 return result
 
-            # Transport error — retry
-            if result["status"] == "transport_error" and attempt < MAX_RETRIES - 1:
-                print(f"[executor] Transport error (attempt {attempt + 1}/{MAX_RETRIES}), retrying in {RETRY_DELAY}s...")
-                await asyncio.sleep(RETRY_DELAY)
-                continue
-
-            # Non-transport error or final attempt
-            return result
-
-        return result  # last attempt result
+            return result  # last attempt result
 
     async def _run_once(self, task_file: str, prompt: str) -> dict:
         """Run one OpenCode turn via subprocess."""
         start = time.time()
-        max_duration = 7200  # 2 hours safety cap
+        timeout = float(getattr(self.config.idle, "executing_timeout_seconds", None) or 900.0)
 
         try:
+            kwargs = {}
+            if os.name == "posix":
+                kwargs["start_new_session"] = True
             proc = await asyncio.create_subprocess_exec(
                 "opencode", "run", "--format", "json",
                 stdin=asyncio.subprocess.PIPE,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
+                **kwargs,
             )
 
             stdout, stderr = await asyncio.wait_for(
                 proc.communicate(input=prompt.encode()),
-                timeout=max_duration
+                timeout=timeout
             )
 
             output = stdout.decode(errors="replace")
@@ -135,8 +177,10 @@ class HandsExecutor:
             if TERM_COMPLETE.search(output):
                 return {"status": "complete", "output": output, "error": error, "elapsed": elapsed}
 
-            if TERM_BLOCKED.search(output):
-                return {"status": "blocked", "output": output, "error": error, "elapsed": elapsed}
+            m = TERM_BLOCKED.search(output)
+            if m:
+                reason = m.group(1).strip() if m.group(1) else "Agent signaled blocked"
+                return {"status": "blocked", "output": output, "error": error, "reason": reason, "elapsed": elapsed}
 
             # Process exited — check return code
             if proc.returncode == 0:
@@ -149,7 +193,16 @@ class HandsExecutor:
             return {"status": "error", "output": output, "error": error, "returncode": proc.returncode, "elapsed": elapsed}
 
         except asyncio.TimeoutError:
-            return {"status": "timeout", "output": "", "error": f"Exceeded {max_duration}s timeout", "elapsed": time.time() - start}
+            # Cleanly terminate the entire process group (start_new_session=True)
+            try:
+                os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+            except (ProcessLookupError, AttributeError, PermissionError):
+                pass
+            try:
+                await asyncio.wait_for(proc.wait(), timeout=2.0)
+            except (asyncio.TimeoutError, ProcessLookupError):
+                pass
+            return {"status": "timeout", "output": "", "error": f"Exceeded {timeout}s timeout", "elapsed": time.time() - start}
 
         except FileNotFoundError:
             return {"status": "error", "output": "", "error": "opencode CLI not found in PATH", "elapsed": time.time() - start}
