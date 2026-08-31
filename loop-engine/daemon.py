@@ -36,6 +36,11 @@ try:
 except ImportError:
     ToolchainRunner = None  # type: ignore
 
+try:
+    from contracts import ContractPropagationEngine
+except ImportError:
+    ContractPropagationEngine = None  # type: ignore
+
 # Repo root = parent of loop-engine/. All relative paths in the config
 # (state db, evidence dir, tasks/, system-prompt.md) are anchored here so the
 # daemon behaves identically no matter which directory it is launched from.
@@ -346,6 +351,20 @@ async def _reimplement_task(
         if approved:
             state.update_state(task_id, TaskState.CLOSED)
             print(f"[reimplement] Task #{task_id} CLOSED after retry.")
+
+            # --- Contract Propagation (LE-6) — dispatch downstream tasks ---
+            diff = extract_task_diff(task_path) or ""
+            if ContractPropagationEngine is not None:
+                propagation_engine = ContractPropagationEngine(
+                    config.contract_rules, tasks_dir=config.tasks_dir
+                )
+                dispatched = propagation_engine.process_task_closure(
+                    task_id, task_file, diff, REPO_ROOT, state
+                )
+                if dispatched:
+                    print(f"[pipeline] Contract propagation dispatched {len(dispatched)} downstream task(s):")
+                    for d in dispatched:
+                        print(f"  - Task #{d['task_id']}: {d['title']} ({d['file']})")
         else:
             print(
                 f"[reimplement] Closure rejected for task #{task_id} after retry. Stays in review."
@@ -380,6 +399,11 @@ class LoopEngineDaemon:
         self.qa = qa
         self.brainstorm = brainstorm
         self.stack_registry = StackRegistry(config.stacks_dir, repo_root=REPO_ROOT)
+        self.propagation_engine = (
+            ContractPropagationEngine(config.contract_rules, tasks_dir=config.tasks_dir)
+            if ContractPropagationEngine is not None
+            else None
+        )
 
     async def trigger_task(self, task_id: int) -> None:
         """Trigger execution of a PENDING_TRIGGER task.
@@ -535,6 +559,20 @@ async def _process_task(task_id: int, task_file: str, config: LoopEngineConfig,
     if approved:
         state.update_state(task_id, TaskState.CLOSED)
         print(f"[pipeline] Task #{task_id} CLOSED.")
+
+        # --- Contract Propagation (LE-6) — dispatch downstream tasks ---
+        diff = extract_task_diff(task_path) or ""
+        if ContractPropagationEngine is not None:
+            propagation_engine = ContractPropagationEngine(
+                config.contract_rules, tasks_dir=config.tasks_dir
+            )
+            dispatched = propagation_engine.process_task_closure(
+                task_id, task_file, diff, REPO_ROOT, state
+            )
+            if dispatched:
+                print(f"[pipeline] Contract propagation dispatched {len(dispatched)} downstream task(s):")
+                for d in dispatched:
+                    print(f"  - Task #{d['task_id']}: {d['title']} ({d['file']})")
     else:
         print(f"[pipeline] Closure rejected for task #{task_id}. Stays in review.")
 

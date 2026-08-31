@@ -358,6 +358,108 @@ blocked-reason extraction, empty-diff crash, retry recovery to `CLOSED`, max-ret
 header-over-marker precedence, plan/review rejection paths, QA-feedback threading, and
 daemon boot-scan `PENDING_TRIGGER` registration.
 
+### Contract Propagation & Downstream Task Dispatcher (LE-6 / Task 138)
+
+`loop-engine/contracts.py` (`ContractPropagationEngine`) watches for **contract file
+mutations** in closed task diffs and automatically dispatches downstream tasks into
+`tasks/backlog/` — eliminating contract drift across multi-service monorepos.
+
+**Pipeline:**
+
+1. The daemon closure hooks (`_process_task`, `_reimplement_task`) run immediately after
+   `state.update_state(task_id, TaskState.CLOSED)`: they extract the task's git diff via
+   `extract_task_diff()` and call `ContractPropagationEngine.process_task_closure(...)`.
+2. `extract_modified_paths(diff_text)` parses `diff --git a/… b/…` headers (regex
+   `^diff --git a/(.+?) b/(.+?)\n`, multiline) and returns deduplicated relative paths.
+3. `match_contract_rules(paths, rules)` evaluates each path against every rule pattern
+   with `fnmatch` (full-relative-path globbing: `packages/shared-schema/**` matches nested
+   files, `*.prisma` matches `prisma/schema.prisma`, `openapi/*.yaml` matches
+   `openapi/petstore.yaml`).
+4. For each matched rule × downstream template, the engine computes
+   `discover_next_task_id(tasks_dir)` (max numeric prefix across
+   `backlog|in-progress|qa|completed|archive` + 1), writes a canonical task file, and
+   registers it in the StateMachine as `BACKLOG` via `state.register_task(...)`.
+5. IDs increment per generated task so a single closure can dispatch a sequential batch.
+   Non-contract diffs produce **zero** tasks (no-op).
+
+**Generated task shape** (mirrors the canonical `task-generator` template):
+
+```markdown
+# Task {N}: {title}
+**File:** tasks/backlog/{N:02d}-{slug}.md
+**Source:** contract-propagation
+**Triggered-By:** Task {closed_task_id}
+**Stack:** {template.stack}
+**Type:** feature
+**Status:** open
+
+## Goal
+{goal}
+
+## Source Context
+Generated automatically via Contract Propagation Engine following contract mutations in Task {closed_task_id}.
+Modified contract files:
+- {file1}
+- {file2}
+
+## Acceptance Criteria
+- [ ] {criteria}
+
+## Factual Git Diff
+<!-- BEGIN_GIT_DIFF -->
+<!-- END_GIT_DIFF -->
+```
+
+**`contract_rules` configuration schema** (`LoopEngineConfig`):
+
+| Field | Type | Description |
+|---|---|---|
+| `name` | `string` | Canonical rule name, e.g. `openapi-spec`, `prisma-schema` |
+| `patterns` | `string[]` | Glob patterns for contract files, e.g. `["openapi/**", "contracts/*.yaml"]` |
+| `downstream_tasks` | `object[]` | `DownstreamTaskTemplate`s to generate upon mutation |
+
+Each `DownstreamTaskTemplate`:
+
+| Field | Type | Description |
+|---|---|---|
+| `title_template` | `string` | Title template; supports `{contract_name}`, `{triggering_task_id}` |
+| `stack` | `string` | Stack profile for the downstream task (default `generic`) |
+| `goal_template` | `string` | Goal template; supports `{contract_name}`, `{triggering_task_id}`, `{files}` |
+| `acceptance_criteria` | `string[]` | Standard AC checkboxes for the task |
+
+**Default rules** (applied when `contract_rules` is omitted):
+
+| Rule | Patterns | Default downstream template |
+|---|---|---|
+| `openapi-spec` | `openapi/**`, `contracts/*.yaml`, `contracts/*.json` | Regenerate API client (`node-ts`) |
+| `prisma-schema` | `*.prisma`, `prisma/**` | Sync Prisma schema migration (`node-ts`) |
+| `protobuf` | `proto/**`, `*.proto` | Regenerate gRPC stubs (`generic`) |
+| `shared-schema` | `packages/shared-schema/**`, `shared/schemas/**` | Propagate shared schema (`generic`) |
+
+**Example override** (`loop-engine/loop-engine.jsonc`):
+
+```jsonc
+"contract_rules": [
+  {
+    "name": "openapi-spec",
+    "patterns": ["openapi/**", "contracts/*.yaml", "contracts/*.json"],
+    "downstream_tasks": [
+      {
+        "title_template": "Sync TypeScript SDK with updated {contract_name}",
+        "stack": "node-ts",
+        "goal_template": "Regenerate the TypeScript SDK to match {contract_name}. Files: {files}",
+        "acceptance_criteria": ["SDK regenerated", "TypeScript types updated", "Tests pass"]
+      }
+    ]
+  }
+]
+```
+
+**Guardrails:** downstream tasks are only generated on **closure** (`CLOSED`), so rejected,
+crashed, or retried tasks never spawn duplicates; `discover_next_task_id` is collision-free
+across all task folders; and the engine is fully disabled if `contracts.py` cannot be
+imported (`ImportError` fallback in `daemon.py`).
+
 ## Environment Variables
 
 | Variable | Required | Description |
