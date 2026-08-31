@@ -67,6 +67,17 @@ Enforce these SOLID principles and pragmatic guardrails in every implementation:
 
 **Pragmatic Guardrails:** No abstraction for <3 trivial operations. Only extract interfaces with 2+ implementations. Apply YAGNI strictly. Prefer simpler designs unless a measurable requirement forces complexity.
 
+## No-Manual-DTO & Type Drift Standard
+
+All projects in this ecosystem MUST treat source-of-truth contracts and shared schemas (`packages/shared-schema/`, OpenAPI specs, Prisma schemas, Protobuf definitions) as the **only** place a governed type may be defined:
+
+1. **No hand-authored duplicates** — Consumer applications (`apps/**`, `services/**`, `client/**`, `frontend/**`, `mobile/**`, `src/**`) MUST NOT hand-author duplicate interface models, request/response DTOs, or data classes for types already governed by a contract.
+2. **Import or generate** — When a governed type is needed, either import it directly from the shared package (`@repo/shared-schema`, `packages/shared-schema`) or execute the stack's code-generation toolchain (`pnpm generate`, `prisma generate`, `protoc`, `./gradlew generateProto`).
+3. **SOLID reconciliation** — Single-source-of-truth prevents type drift (DRY/SRP) and does not conflict with YAGNI or the 3-Implementation Rule: extract or generate only when a contract or cross-service dependency already exists.
+4. **Deterministic enforcement** — `TypeDriftSentinel` (`loop-engine/sentinel.py`) scans task diffs during toolchain verification (pre-QA) and fails fast when a consumer path introduces a hand-written DTO while a governing contract pattern applies. Bypass with an explicit `drift-ignore` comment only when a justified exception exists.
+
+The single source of truth for the full mandate is `prompts/fragments/20-no_manual_dto_mandate.md` — this section is a summary only.
+
 ## Universal Financial Ledger Standard
 
 All financial, transactional, and countable data operations MUST enforce these mandates:

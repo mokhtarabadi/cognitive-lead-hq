@@ -220,7 +220,9 @@ async def _execute_and_qa(
                 effective_profile = stack_profile
         try:
             runner = ToolchainRunner(timeout_per_command=120.0, evidence_base_dir=evidence_base_dir)
-            toolchain_result = await runner.run(effective_profile, task_id=task_id, cwd=REPO_ROOT)
+            toolchain_result = await runner.run(
+                effective_profile, task_id=task_id, cwd=REPO_ROOT, diff_text=diff
+            )
             if not toolchain_result.passed:
                 # Fail-fast: record feedback, bypass LLM QA, return FAILED for retry logic
                 try:

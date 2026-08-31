@@ -460,6 +460,60 @@ crashed, or retried tasks never spawn duplicates; `discover_next_task_id` is col
 across all task folders; and the engine is fully disabled if `contracts.py` cannot be
 imported (`ImportError` fallback in `daemon.py`).
 
+### Type Drift Sentinel (LE-7 / Task 139)
+
+`loop-engine/sentinel.py` (`TypeDriftSentinel`) deterministically scans task diffs for
+**hand-authored duplicate DTO/interface/model declarations** in consumer paths while a
+source-of-truth contract or shared schema governs those types. It enforces the
+No-Manual-DTO Mandate (`prompts/fragments/20-no_manual_dto_mandate.md`) at the
+verification layer — before LLM QA — so broken duplicates fail fast and route to
+`_reimplement_task` instead of wasting tokens.
+
+**Pipeline:**
+
+1. `daemon._execute_and_qa` passes the extracted task diff into
+   `ToolchainRunner.run(..., diff_text=diff)`.
+2. Before any lint/build/test command, `TypeDriftSentinel().check_diff(diff_text)` parses
+   each `diff --git a/… b/…` file (with `@@ -a,b +c,d @@` hunk line numbers), skips paths
+   matching `allowed_patterns` (contract definitions + generated artifacts), and scans added
+   (`+`) lines in paths matching `consumer_patterns`.
+3. Declaration regexes per language family:
+   - **TypeScript/JavaScript:** `(?:export\s+)?(?:interface|type)\s+<name>` where the name
+     ends in `Dto|DTO|Request|Response|Payload|Model|Schema`.
+   - **Kotlin:** `(?:data\s+)?class\s+<name>` ending in `Dto|DTO|Request|Response|Payload|Model`.
+   - **Python:** `class\s+<name>(BaseModel|BaseDTO|dict)?` ending in
+     `Dto|DTO|Request|Response|Payload|Schema`.
+   Detection is dispatched by file extension (`.py`, `.kt/.kts`, `.ts/.tsx/.js/.jsx/…`),
+   with a specificity-ordered cascade for unknown extensions.
+4. Comment-only lines and lines carrying an explicit `drift-ignore` bypass comment are
+   ignored. On violation the sentinel records
+   `CommandResult(command="type-drift-sentinel", cmd_type="lint", passed=False,
+   stderr=<report>)` and the toolchain fails immediately — **no toolchain commands run**.
+
+**Default patterns** (overridable via `TypeDriftSentinel(consumer_patterns=..., allowed_patterns=...)`):
+
+| Pattern set | Defaults |
+|---|---|
+| `consumer_patterns` | `apps/**`, `services/**`, `client/**`, `frontend/**`, `mobile/**`, `src/**` |
+| `allowed_patterns` | `packages/shared-schema/**`, `contracts/**`, `openapi/**`, `proto/**`, `**/generated/**`, `**/build/**`, `**/dist/**`, `**/*.gen.*` |
+
+**Fail-fast semantics:** the sentinel runs first inside `ToolchainRunner.run`. A drift
+failure returns `ToolchainResult(passed=False)` with the sentinel as the only recorded
+command, so `daemon._execute_and_qa` records `qa_feedback` and returns `FAILED` without
+calling `qa.run_qa`. A clean diff passes silently (no sentinel command is recorded) and the
+normal lint → build → test sequence proceeds. Sentinel infrastructure errors are tolerated
+(logged, toolchain proceeds) to avoid blocking otherwise valid pipelines.
+
+**Report shape:** the failure report names each offending file + type + added line number and
+instructs the agent to either import the type from the shared/contract package
+(`@repo/shared-schema`, `packages/shared-schema`) or run the stack's codegen toolchain
+(`pnpm generate`, `prisma generate`, `protoc`, `./gradlew generateProto`), with a note that
+an explicit `drift-ignore` comment is the only bypass.
+
+**Config options:** the sentinel is not config-driven in `loop-engine.jsonc` — it operates
+on the diff text already extracted by the daemon. Custom consumer/allowed globs are
+supported at construction time for callers that need to extend the default pattern sets.
+
 ## Environment Variables
 
 | Variable | Required | Description |

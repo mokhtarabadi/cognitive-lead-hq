@@ -11,6 +11,8 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from sentinel import TypeDriftSentinel
+
 
 @dataclass
 class CommandResult:
@@ -53,12 +55,38 @@ class ToolchainRunner:
         profile,  # StackProfile
         task_id: int | None = None,
         cwd: str | Path | None = None,
+        diff_text: str = "",
     ) -> ToolchainResult:
         """Run toolchain commands sequentially.
 
-        Order: lint, build, test. Null/whitespace commands are skipped as
-        passed+skipped. Non-zero exit or timeout → passed=False.
+        Order: Type Drift Sentinel (LE-7) -> lint, build, test. Null/whitespace
+        commands are skipped as passed+skipped. Non-zero exit or timeout →
+        passed=False.
         """
+        # --- Type Drift Sentinel (LE-7) — fail-fast before any toolchain command ---
+        # A hand-authored duplicate DTO/interface/model in a consumer path is a
+        # hard violation: the toolchain fails immediately and the actionable
+        # report is recorded as stderr so it reaches QA feedback, preventing
+        # broken duplicate types from reaching LLM QA.
+        if diff_text and str(diff_text).strip():
+            try:
+                sentinel_result = TypeDriftSentinel().check_diff(str(diff_text))
+                if not sentinel_result.passed:
+                    sentinel_cmd = CommandResult(
+                        command="type-drift-sentinel",
+                        cmd_type="lint",
+                        passed=False,
+                        skipped=False,
+                        returncode=None,
+                        stdout="",
+                        stderr=sentinel_result.report_md,
+                    )
+                    return self._finalize([sentinel_cmd], task_id)
+            except Exception as e:
+                # Sentinel infra error must not block the toolchain (mirrors the
+                # daemon's toolchain-infra-error tolerance). Log to the result.
+                print(f"[verifier] Type Drift Sentinel error (proceeding): {e}")
+
         # Defensive: profile may lack toolchain attr in mocks
         toolchain = getattr(profile, "toolchain", None)
         if toolchain is None:
@@ -273,6 +301,7 @@ class ToolchainRunner:
         profile,
         task_id: int | None = None,
         cwd: str | Path | None = None,
+        diff_text: str = "",
     ) -> ToolchainResult:
         """Synchronous wrapper for tests and sync callers."""
-        return asyncio.run(self.run(profile, task_id=task_id, cwd=cwd))
+        return asyncio.run(self.run(profile, task_id=task_id, cwd=cwd, diff_text=diff_text))
