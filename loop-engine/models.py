@@ -67,6 +67,31 @@ class IdleConfig(BaseModel):
     min_delay_seconds: float = 2.0  # cooldown between continue attempts
 
 
+class StackDetectionConfig(BaseModel):
+    """Heuristics for auto-detecting a stack profile."""
+    marker_files: list[str] = Field(default_factory=list, description="Files whose presence implies this stack")
+    extensions: list[str] = Field(default_factory=list, description="File extensions implying this stack (e.g. .py)")
+    task_keywords: list[str] = Field(default_factory=list, description="Keywords in task content implying this stack")
+
+
+class StackToolchainConfig(BaseModel):
+    """Toolchain commands for a stack."""
+    test_cmd: str | None = Field(None, description="Command to run tests for this stack")
+    build_cmd: str | None = Field(None, description="Command to build this stack")
+    lint_cmd: str | None = Field(None, description="Command to lint this stack")
+
+
+class StackProfileConfig(BaseModel):
+    """Declarative profile for a tech stack."""
+    name: str = Field(..., description="Canonical stack name (matches filename without extension)")
+    display_name: str = Field(..., description="Human-readable name")
+    detection: StackDetectionConfig = Field(default_factory=StackDetectionConfig)
+    skills: list[str] = Field(default_factory=list, description="Skill names to load for this stack")
+    preflight: list[str] = Field(default_factory=list, description="Shell commands to validate toolchain before execution")
+    toolchain: StackToolchainConfig = Field(default_factory=StackToolchainConfig)
+    model_preferences: dict[str, list[str]] = Field(default_factory=dict, description="Optional per-category model overrides")
+
+
 class LoopEngineConfig(BaseModel):
     """Root configuration — loop-engine.jsonc."""
     # Providers
@@ -123,3 +148,7 @@ class LoopEngineConfig(BaseModel):
     tasks_dir: str = "tasks"
     agmd_path: str = "AGENTS.md"
     conventions_path: str = "docs/conventions.md"
+
+    # Stack Profiles
+    stacks_dir: str = Field("stacks", description="Directory containing stack profile YAML/JSON definitions")
+    default_stack: str = Field("generic", description="Fallback stack when detection finds no match")

@@ -1,0 +1,13 @@
+name: generic
+display_name: Generic (Fallback)
+detection:
+  marker_files: []
+  extensions: []
+  task_keywords: []
+skills: []
+preflight: []
+toolchain:
+  test_cmd: null
+  build_cmd: null
+  lint_cmd: null
+model_preferences: {}

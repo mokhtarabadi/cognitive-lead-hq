@@ -29,6 +29,7 @@ from gateway import ApprovalGateway
 from executor import HandsExecutor
 from qa_engine import QAEngine
 from brainstorm import BrainstormStage
+from stacks import StackRegistry, StackDetector, PreflightRunner
 
 # Repo root = parent of loop-engine/. All relative paths in the config
 # (state db, evidence dir, tasks/, system-prompt.md) are anchored here so the
@@ -138,6 +139,7 @@ async def _execute_and_qa(
     blueprint_context: str = "",
     qa_feedback: str = "",
     log_prefix: str = "pipeline",
+    stack_profile=None,
 ) -> dict | None:
     """Shared helper for execute → status check → diff extract → QA.
 
@@ -147,10 +149,24 @@ async def _execute_and_qa(
     CRASHED (executor blocked/error or empty diff). Caller decides FAILED retry vs
     PASSED progression. No behavior change, pure deduplication.
     """
-    result = await executor.execute(
-        task_id, task_file, task_content,
-        blueprint_context=blueprint_context, qa_feedback=qa_feedback,
-    )
+    kwargs = {}
+    if stack_profile is not None:
+        kwargs["stack_profile"] = stack_profile
+    try:
+        result = await executor.execute(
+            task_id, task_file, task_content,
+            blueprint_context=blueprint_context, qa_feedback=qa_feedback,
+            **kwargs,
+        )
+    except TypeError as e:
+        if "stack_profile" in str(e) and kwargs:
+            # Fallback for legacy executors / stubs that don't yet accept stack_profile
+            result = await executor.execute(
+                task_id, task_file, task_content,
+                blueprint_context=blueprint_context, qa_feedback=qa_feedback,
+            )
+        else:
+            raise
     print(f"[{log_prefix}] Execution result: {result['status']}")
 
     if result["status"] == EXEC_BLOCKED:
@@ -231,9 +247,25 @@ async def _reimplement_task(
             f"(retry {retries + 1}/{config.max_qa_retries})..."
         )
 
+        # Stack detection + preflight (LE-1)
+        registry = StackRegistry(config.stacks_dir, repo_root=REPO_ROOT)
+        profile = StackDetector.detect(task_content, REPO_ROOT, registry, default_stack=config.default_stack)
+        print(f"[reimplement] Detected stack: {profile.name} ({profile.display_name})")
+        runner = PreflightRunner(timeout_seconds=30.0)
+        preflight = await runner.run(profile, cwd=REPO_ROOT)
+        if not preflight.passed:
+            state.update_state(task_id, TaskState.CRASHED)
+            diag = "; ".join(preflight.errors)
+            print(f"[reimplement] Preflight failed for stack {profile.name}: {diag} — crashing")
+            try:
+                state.set_qa_feedback(task_id, f"Preflight failed for stack {profile.name}: {diag}")
+            except Exception:
+                pass
+            return
+
         qa_result = await _execute_and_qa(
             task_id, task_file, task_content, task_path, state, executor, qa,
-            qa_feedback=current_feedback, log_prefix="reimplement"
+            qa_feedback=current_feedback, log_prefix="reimplement", stack_profile=profile
         )
         if qa_result is None:
             return
@@ -294,6 +326,7 @@ class LoopEngineDaemon:
         self.executor = executor
         self.qa = qa
         self.brainstorm = brainstorm
+        self.stack_registry = StackRegistry(config.stacks_dir, repo_root=REPO_ROOT)
 
     async def trigger_task(self, task_id: int) -> None:
         """Trigger execution of a PENDING_TRIGGER task.
@@ -394,12 +427,26 @@ async def _process_task(task_id: int, task_file: str, config: LoopEngineConfig,
         print(f"[pipeline] Plan rejected for task #{task_id}. Back to backlog.")
         return
 
-    # 3. IMPLEMENTING
+    # 3. IMPLEMENTING — stack detection + preflight
     state.update_state(task_id, TaskState.IMPLEMENTING)
     print(f"[pipeline] Implementing task #{task_id}...")
+    registry = StackRegistry(config.stacks_dir, repo_root=REPO_ROOT)
+    profile = StackDetector.detect(task_content, REPO_ROOT, registry, default_stack=config.default_stack)
+    print(f"[pipeline] Detected stack: {profile.name} ({profile.display_name})")
+    runner = PreflightRunner(timeout_seconds=30.0)
+    preflight = await runner.run(profile, cwd=REPO_ROOT)
+    if not preflight.passed:
+        state.update_state(task_id, TaskState.CRASHED)
+        diag = "; ".join(preflight.errors)
+        print(f"[pipeline] Preflight failed for stack {profile.name}: {diag} — crashing")
+        try:
+            state.set_qa_feedback(task_id, f"Preflight failed for stack {profile.name}: {diag}")
+        except Exception:
+            pass
+        return
     qa_result = await _execute_and_qa(
         task_id, task_file, task_content, task_path, state, executor, qa,
-        blueprint_context=plan, log_prefix="pipeline"
+        blueprint_context=plan, log_prefix="pipeline", stack_profile=profile
     )
     if qa_result is None:
         return

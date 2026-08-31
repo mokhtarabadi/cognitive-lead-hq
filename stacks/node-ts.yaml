@@ -1,0 +1,15 @@
+name: node-ts
+display_name: Node.js / TypeScript
+detection:
+  marker_files: ["package.json", "tsconfig.json"]
+  extensions: [".ts", ".tsx", ".js"]
+  task_keywords: ["node", "typescript", "nextjs", "react"]
+skills: ["nextjs", "react-vite"]
+preflight:
+  - "node --version"
+  - "pnpm --version || npm --version"
+toolchain:
+  test_cmd: "pnpm test || npm test"
+  build_cmd: "pnpm build || npm run build"
+  lint_cmd: "pnpm lint || npm run lint"
+model_preferences: {}

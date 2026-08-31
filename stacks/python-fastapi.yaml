@@ -1,0 +1,15 @@
+name: python-fastapi
+display_name: Python / FastAPI
+detection:
+  marker_files: ["pyproject.toml", "requirements.txt", "Pipfile"]
+  extensions: [".py"]
+  task_keywords: ["python", "fastapi", "pydantic", "pytest"]
+skills: ["python-fastapi"]
+preflight:
+  - "python3 --version"
+  - "uv --version || pytest --version"
+toolchain:
+  test_cmd: "pytest -q"
+  build_cmd: null
+  lint_cmd: "ruff check . || flake8 ."
+model_preferences: {}

@@ -1,0 +1,14 @@
+name: go-gin
+display_name: Go / Gin
+detection:
+  marker_files: ["go.mod", "go.sum"]
+  extensions: [".go"]
+  task_keywords: ["go", "gin", "golang", "grpc"]
+skills: ["go-gin", "go-hexagonal-grpc"]
+preflight:
+  - "go version"
+toolchain:
+  test_cmd: "go test ./..."
+  build_cmd: "go build ./..."
+  lint_cmd: "golangci-lint run || go vet ./..."
+model_preferences: {}

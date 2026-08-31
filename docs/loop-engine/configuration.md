@@ -72,7 +72,11 @@ All configuration lives in `loop-engine/loop-engine.jsonc`.
   "system_prompt_path": "system-prompt.md",
   "tasks_dir": "tasks",
   "agmd_path": "AGENTS.md",
-  "conventions_path": "docs/conventions.md"
+  "conventions_path": "docs/conventions.md",
+
+  // Stack Profiles
+  "stacks_dir": "stacks",
+  "default_stack": "generic"
 }
 ```
 
@@ -177,6 +181,61 @@ Each category supports:
 | `tasks_dir` | `"tasks"` | Path to tasks directory |
 | `agmd_path` | `"AGENTS.md"` | Path to project rules |
 | `conventions_path` | `"docs/conventions.md"` | Path to conventions doc |
+
+### `stacks_dir`
+
+- **Type:** `string`
+- **Default:** `"stacks"`
+- **Description:** Directory containing stack profile YAML/JSON definitions (relative to workspace root, or absolute). Each file defines one `StackProfileConfig`.
+
+### `default_stack`
+
+- **Type:** `string`
+- **Default:** `"generic"`
+- **Description:** Fallback stack name when detection finds no match. Must correspond to a file in `stacks_dir` (e.g., `generic.yaml`).
+
+### Stack Profile Schema
+
+Each file in `stacks_dir` (e.g., `python-fastapi.yaml`) validates against `StackProfileConfig`:
+
+```yaml
+name: python-fastapi           # canonical name (matches filename)
+display_name: Python / FastAPI
+detection:
+  marker_files: ["pyproject.toml", "requirements.txt"]  # presence implies this stack
+  extensions: [".py"]           # file extensions implying this stack
+  task_keywords: ["python", "fastapi"]  # substring match in task content
+skills: ["python-fastapi"]     # skills to auto-load for this stack
+preflight:                     # shell commands validated before execution (empty = pass)
+  - "python3 --version"
+  - "uv --version || pytest --version"
+toolchain:
+  test_cmd: "pytest -q"
+  build_cmd: null
+  lint_cmd: "ruff check . || flake8 ."
+model_preferences: {}          # optional per-category model overrides
+```
+
+**Detection precedence (StackDetector):**
+
+1. Explicit `**Stack:** <name>` header in task file (case-insensitive)
+2. `marker_files` existence or matching `extensions` scan in workspace root
+3. `task_keywords` substring search in task content (case-insensitive)
+4. Fallback to `default_stack` (`generic`)
+
+**Preflight:** All `preflight` commands run sequentially via shell with 30s timeout each. Non-zero exit or timeout → `PreflightResult(passed=False)` → daemon transitions task to `CRASHED` with diagnostics (`state.set_qa_feedback`).
+
+**Registry:** `StackRegistry` scans `stacks_dir` on first access, supports both `.yaml`/`.yml` (via PyYAML) and `.json`, caches results, exposes `get_profile(name)` and `list_profiles()`.
+
+**Available default profiles:**
+
+| Profile | Detection | Skills | Toolchain |
+|---|---|---|---|
+| `generic` | fallback only | none | none |
+| `node-ts` | `package.json`, `.ts/.tsx/.js`, keywords `node/typescript` | `nextjs`, `react-vite` | `pnpm test \|\| npm test` |
+| `kotlin-android` | `build.gradle.kts`, `.kt/.kts`, keywords `kotlin/android` | `android-kotlin` | `./gradlew test` |
+| `python-fastapi` | `pyproject.toml`, `.py`, keywords `python/fastapi` | `python-fastapi` | `pytest -q` |
+| `go-gin` | `go.mod`, `.go`, keywords `go/gin` | `go-gin`, `go-hexagonal-grpc` | `go test ./...` |
 
 ## Environment Variables
 

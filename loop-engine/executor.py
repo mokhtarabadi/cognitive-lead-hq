@@ -18,6 +18,7 @@ import asyncio
 import re
 import time
 from pathlib import Path
+from typing import Optional, Any
 
 from models import LoopEngineConfig
 from state import StateMachine
@@ -39,7 +40,8 @@ class HandsExecutor:
         self.state = state
 
     async def execute(self, task_id: int, task_file: str, task_content: str,
-                    blueprint_context: str = "", qa_feedback: str = "") -> dict:
+                    blueprint_context: str = "", qa_feedback: str = "",
+                    stack_profile: Optional[Any] = None) -> dict:
         """Execute a task via OpenCode CLI with transport error retry.
 
         Args:
@@ -52,12 +54,30 @@ class HandsExecutor:
             qa_feedback: QA rejection feedback to address (on retry). Injected as
                 distinct delimited section when non-empty, never overloaded with
                 blueprint_context.
+            stack_profile: Optional StackProfile detected for this task — skills and
+                toolchain commands are injected into the prompt.
         """
         prompt_parts = [
             f"Read the task file at {task_file} and implement it.",
             "Follow AGENTS.md rules exactly.",
             "Output [goal:complete] when done, [goal:blocked] if stuck.",
         ]
+        if stack_profile is not None:
+            try:
+                skills_str = ", ".join(stack_profile.skills) if getattr(stack_profile, "skills", []) else "none"
+                test_cmd = getattr(getattr(stack_profile, "toolchain", None), "test_cmd", None)
+                build_cmd = getattr(getattr(stack_profile, "toolchain", None), "build_cmd", None)
+                lint_cmd = getattr(getattr(stack_profile, "toolchain", None), "lint_cmd", None)
+                preflight_str = ", ".join(stack_profile.preflight) if getattr(stack_profile, "preflight", []) else "none"
+                prompt_parts.append(
+                    f"## Stack Context: {stack_profile.name} ({stack_profile.display_name})\n"
+                    f"- Skills to load: {skills_str}\n"
+                    f"- Preflight: {preflight_str}\n"
+                    f"- Toolchain: test=`{test_cmd}`, build=`{build_cmd}`, lint=`{lint_cmd}`\n"
+                    f"Automatically load the listed skills and use the toolchain commands for verification."
+                )
+            except Exception:
+                pass
         if blueprint_context and blueprint_context.strip():
             prompt_parts.append(
                 f"## Approved Blueprint Context\n{blueprint_context.strip()}"

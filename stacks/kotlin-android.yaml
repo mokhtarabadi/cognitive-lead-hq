@@ -1,0 +1,15 @@
+name: kotlin-android
+display_name: Kotlin / Android
+detection:
+  marker_files: ["build.gradle.kts", "build.gradle", "settings.gradle.kts"]
+  extensions: [".kt", ".kts"]
+  task_keywords: ["kotlin", "android", "compose", "gradle"]
+skills: ["android-kotlin"]
+preflight:
+  - "java -version"
+  - "./gradlew -version || gradle -version"
+toolchain:
+  test_cmd: "./gradlew test"
+  build_cmd: "./gradlew assembleDebug"
+  lint_cmd: "./gradlew ktlintCheck"
+model_preferences: {}
