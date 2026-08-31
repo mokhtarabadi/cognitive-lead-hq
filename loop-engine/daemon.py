@@ -331,7 +331,8 @@ async def _reimplement_task(
 
         # QA PASSED — proceed to REVIEW and CLOSURE (mirrors main pipeline steps 5-6)
         state.update_state(task_id, TaskState.REVIEW)
-        review = qa.run_review(task_id, task_content, qa_result.get("report", ""))
+        review = qa.run_review(task_id, task_content, qa_result.get("report", ""),
+                               stack_profile=profile)
         print(f"[reimplement] Review result: {review['result']}")
 
         if review["result"] == "REJECTED":
@@ -448,6 +449,12 @@ async def _process_task(task_id: int, task_file: str, config: LoopEngineConfig,
     task_path = Path(task_file)
     task_content = task_path.read_text(encoding="utf-8")
 
+    # Stack detection (LE-1) — detect once at the start so planning, QA, and
+    # review all share the same profile for stack-aware model routing (LE-3).
+    registry = StackRegistry(config.stacks_dir, repo_root=REPO_ROOT)
+    profile = StackDetector.detect(task_content, REPO_ROOT, registry, default_stack=config.default_stack)
+    print(f"[pipeline] Detected stack: {profile.name} ({profile.display_name})")
+
     # 0. BRAINSTORMING (Phase 1.5) — optional pre-planning stage
     extra_context = ""
     if brainstorm.should_trigger(task_content):
@@ -467,7 +474,12 @@ async def _process_task(task_id: int, task_file: str, config: LoopEngineConfig,
     # 1. PLANNING
     state.update_state(task_id, TaskState.PLANNING)
     print(f"[pipeline] Planning task #{task_id}...")
-    routing = router.route_plan(task_content, extra_context=extra_context)
+    try:
+        routing = router.route_plan(task_content, extra_context=extra_context,
+                                    stack_profile=profile)
+    except TypeError:
+        # Fallback for legacy routers/stubs without stack_profile param
+        routing = router.route_plan(task_content, extra_context=extra_context)
     plan = router.call_llm(routing)
     state.set_plan(task_id, plan)
 
@@ -479,12 +491,9 @@ async def _process_task(task_id: int, task_file: str, config: LoopEngineConfig,
         print(f"[pipeline] Plan rejected for task #{task_id}. Back to backlog.")
         return
 
-    # 3. IMPLEMENTING — stack detection + preflight
+    # 3. IMPLEMENTING — preflight (profile already detected at pipeline start)
     state.update_state(task_id, TaskState.IMPLEMENTING)
     print(f"[pipeline] Implementing task #{task_id}...")
-    registry = StackRegistry(config.stacks_dir, repo_root=REPO_ROOT)
-    profile = StackDetector.detect(task_content, REPO_ROOT, registry, default_stack=config.default_stack)
-    print(f"[pipeline] Detected stack: {profile.name} ({profile.display_name})")
     runner = PreflightRunner(timeout_seconds=30.0)
     preflight = await runner.run(profile, cwd=REPO_ROOT)
     if not preflight.passed:
@@ -511,7 +520,8 @@ async def _process_task(task_id: int, task_file: str, config: LoopEngineConfig,
 
     # 5. REVIEW
     state.update_state(task_id, TaskState.REVIEW)
-    review = qa.run_review(task_id, task_content, qa_result.get("report", ""))
+    review = qa.run_review(task_id, task_content, qa_result.get("report", ""),
+                           stack_profile=profile)
     print(f"[pipeline] Review result: {review['result']}")
 
     if review["result"] == "REJECTED":

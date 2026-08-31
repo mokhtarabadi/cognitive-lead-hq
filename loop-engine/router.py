@@ -12,7 +12,7 @@ Reads system-prompt.md + AGENTS.md + docs/conventions.md on every invocation.
 
 import os
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 from models import LoopEngineConfig
 from personas import load_personas
@@ -57,7 +57,37 @@ class LLMRouter:
         # All 7 operational personas from prompts/fragments/06-personas.md
         self.personas = load_personas(str(self.workspace_root))
 
-    def _resolve_model(self, category: str) -> tuple[str, Optional[str]]:
+    def _resolve_model(self, category: str,
+                       stack_profile: Optional[Any] = None) -> tuple[str, Optional[str]]:
+        """Resolve a model for a category via the 3-tier hierarchy (LE-3).
+
+        Tier 1 — Stack-Preferred Models: consult ``stack_profile.model_preferences``
+        (or a dict's ``"model_preferences"`` key). Match the exact category first,
+        then the wildcard ``"*"``. The first model whose ``{PROVIDER}_API_KEY`` env
+        var is present wins; reasoning level comes from the global category config.
+        Tier 2 — Global Category Models: existing category fallback chain.
+        Tier 3 — Global Default: ``(default_provider, None)``.
+        """
+        # Tier 1: Stack-Preferred Models
+        prefs: dict = {}
+        if stack_profile is not None:
+            if isinstance(stack_profile, dict):
+                prefs = stack_profile.get("model_preferences", {}) or {}
+            else:
+                prefs = getattr(stack_profile, "model_preferences", {}) or {}
+        if prefs:
+            candidate_models = prefs.get(category) or prefs.get("*") or []
+            for model in candidate_models:
+                provider = model.split("/")[0]
+                env_key = f"{provider.upper()}_API_KEY"
+                if os.environ.get(env_key):
+                    cat_config = self.config.categories.get(category)
+                    if not cat_config:
+                        cat_config = self.config.categories.get("unspecified")
+                    reasoning = cat_config.reasoning if cat_config else None
+                    return model, reasoning
+
+        # Tier 2: Global Category Models
         cat_config = self.config.categories.get(category)
         if not cat_config:
             cat_config = self.config.categories.get("unspecified")
@@ -66,6 +96,8 @@ class LLMRouter:
             env_key = f"{provider.upper()}_API_KEY"
             if os.environ.get(env_key):
                 return model, cat_config.reasoning
+
+        # Tier 3: Global Default
         return self.config.default_provider, None
 
     def _load_memory_context(self) -> str:
@@ -151,9 +183,10 @@ class LLMRouter:
 
     def route_with_persona(self, persona_name: str, user_content: str,
                            temperature: float = 0.3,
-                           category: str = "deep") -> dict:
+                           category: str = "deep",
+                           stack_profile: Optional[Any] = None) -> dict:
         """Route a call as ANY Manager-defined persona (all 7 invocable)."""
-        model, reasoning = self._resolve_model(category)
+        model, reasoning = self._resolve_model(category, stack_profile=stack_profile)
         return {
             "model": model, "reasoning": reasoning,
             "system": self._build_system_context(persona_name),
@@ -162,11 +195,12 @@ class LLMRouter:
         }
 
     def route_plan(self, task_content: str, category: str = "unspecified",
-                   extra_context: str = "") -> dict:
+                   extra_context: str = "",
+                   stack_profile: Optional[Any] = None) -> dict:
         user = f"Generate implementation blueprint:\n\n{task_content}"
         if extra_context:
             user += f"\n\nIncorporate this brainstorming session output:\n\n{extra_context}"
-        model, reasoning = self._resolve_model(category)
+        model, reasoning = self._resolve_model(category, stack_profile=stack_profile)
         return {
             "model": model, "reasoning": reasoning,
             "system": self._build_system_context("architect"),
@@ -174,8 +208,9 @@ class LLMRouter:
             "temperature": 0.3,
         }
 
-    def route_qa(self, task_content: str, diff: str = "", toolchain_evidence: str = "") -> dict:
-        model, reasoning = self._resolve_model("deep")
+    def route_qa(self, task_content: str, diff: str = "", toolchain_evidence: str = "",
+                 stack_profile: Optional[Any] = None) -> dict:
+        model, reasoning = self._resolve_model("deep", stack_profile=stack_profile)
         user = f"Review this task and changes:\n\n{task_content}\n\n## Diff\n\n{diff}"
         if toolchain_evidence:
             user += f"\n\n## Toolchain Verification\n\n{toolchain_evidence}"
@@ -186,8 +221,9 @@ class LLMRouter:
             "temperature": 0.1,
         }
 
-    def route_review(self, task_content: str, qa_report: str = "") -> dict:
-        model, reasoning = self._resolve_model("deep")
+    def route_review(self, task_content: str, qa_report: str = "",
+                     stack_profile: Optional[Any] = None) -> dict:
+        model, reasoning = self._resolve_model("deep", stack_profile=stack_profile)
         return {
             "model": model, "reasoning": reasoning,
             "system": self._build_system_context("code_reviewer"),

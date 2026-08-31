@@ -213,7 +213,9 @@ toolchain:
   test_cmd: "pytest -q"
   build_cmd: null
   lint_cmd: "ruff check . || flake8 ."
-model_preferences: {}          # optional per-category model overrides
+model_preferences:          # optional per-category model overrides (LE-3)
+  deep: ["openai/gpt-5.6-sol", "gemini/gemini-2.5-pro"]
+  quick: ["gemini/gemini-2.5-flash"]
 ```
 
 **Detection precedence (StackDetector):**
@@ -236,6 +238,47 @@ model_preferences: {}          # optional per-category model overrides
 | `kotlin-android` | `build.gradle.kts`, `.kt/.kts`, keywords `kotlin/android` | `android-kotlin` | `./gradlew test` |
 | `python-fastapi` | `pyproject.toml`, `.py`, keywords `python/fastapi` | `python-fastapi` | `pytest -q` |
 | `go-gin` | `go.mod`, `.go`, keywords `go/gin` | `go-gin`, `go-hexagonal-grpc` | `go test ./...` |
+
+### Stack-Aware Model Routing (LE-3)
+
+`LLMRouter._resolve_model(category, stack_profile=None)` resolves the model for a
+call through a **3-tier hierarchy** — stack preferences win when their provider
+key is present, otherwise the global category chain applies, and
+`default_provider` is the terminal fallback:
+
+1. **Tier 1 — Stack-Preferred Models:** If a `stack_profile` is provided, its
+   `model_preferences` dict is consulted. The exact `category` key is matched
+   first, then the wildcard `"*"` key. For each candidate `provider/model` in
+   order, the router checks `os.environ["{PROVIDER}_API_KEY"]`; the first model
+   whose key is present wins. The reasoning level comes from the global category
+   config (`categories[category].reasoning`), not the stack.
+2. **Tier 2 — Global Category Models:** If no stack-preferred model is keyed
+   (empty preferences, no category/wildcard match, or no provider key), the
+   existing `categories[category].models` fallback chain is used.
+3. **Tier 3 — Global Default:** If no category model is keyed either, the router
+   returns `(default_provider, None)`.
+
+**Propagation:** The daemon detects the stack **once** at the start of
+`_process_task` (before planning) and forwards the resulting `StackProfile` into
+`router.route_plan(..., stack_profile=profile)`, `_execute_and_qa(...,
+stack_profile=profile)`, and `qa.run_review(..., stack_profile=profile)`.
+`_reimplement_task` forwards it into `qa.run_review` as well. `QAEngine.run_qa`
+and `QAEngine.run_review` accept `stack_profile` and forward it to the router
+(with `TypeError` fallbacks for legacy router signatures).
+
+**Backward compatibility:** `stack_profile` is optional everywhere
+(`Optional[Any] = None`). When omitted, resolution behaves exactly as before
+(Tier 2 → Tier 3). Both `StackProfile` objects (`.model_preferences` attribute)
+and plain dicts (`{"model_preferences": {...}}`) are accepted.
+
+**Default stack preferences:**
+
+| Stack | `deep` | `quick` |
+|---|---|---|
+| `kotlin-android` | `anthropic/claude-3-7-sonnet`, `openai/gpt-5.6-sol` | `gemini/gemini-2.5-flash` |
+| `node-ts` | `openai/gpt-5.6-sol`, `anthropic/claude-3-7-sonnet` | `kimi/kimi-k3` |
+| `python-fastapi` | `openai/gpt-5.6-sol`, `gemini/gemini-2.5-pro` | `gemini/gemini-2.5-flash` |
+| `go-gin` | `openai/gpt-5.6-sol`, `anthropic/claude-3-7-sonnet` | `gemini/gemini-2.5-flash` |
 
 ### Toolchain Verification (LE-2)
 

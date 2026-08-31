@@ -8,6 +8,7 @@ Writes to loop-engine/evidence/<task-id>/.
 import re
 import time
 from pathlib import Path
+from typing import Any, Optional
 
 from models import LoopEngineConfig, TaskState
 from state import StateMachine
@@ -45,17 +46,26 @@ class QAEngine:
         self.router = router
         self.evidence_dir = Path(config.evidence_dir)
 
-    def run_qa(self, task_id: int, task_content: str, diff: str = "", toolchain_evidence: str = "") -> dict:
+    def run_qa(self, task_id: int, task_content: str, diff: str = "",
+               toolchain_evidence: str = "",
+               stack_profile: Optional[Any] = None) -> dict:
         """Run QA Engineer review. Returns PASSED or FAILED."""
         self.evidence_dir.mkdir(parents=True, exist_ok=True)
         evidence_path = self.evidence_dir / f"{task_id}"
         evidence_path.mkdir(exist_ok=True)
 
         try:
-            routing = self.router.route_qa(task_content, diff, toolchain_evidence=toolchain_evidence)
+            routing = self.router.route_qa(
+                task_content, diff, toolchain_evidence=toolchain_evidence,
+                stack_profile=stack_profile)
         except TypeError:
-            # Fallback for legacy routers/stubs without toolchain_evidence param
-            routing = self.router.route_qa(task_content, diff)
+            # Fallback for legacy routers/stubs without stack_profile param
+            try:
+                routing = self.router.route_qa(
+                    task_content, diff, toolchain_evidence=toolchain_evidence)
+            except TypeError:
+                # Fallback for legacy routers/stubs without toolchain_evidence param
+                routing = self.router.route_qa(task_content, diff)
         qa_report = self.router.call_llm(routing)
 
         # Write evidence
@@ -71,12 +81,18 @@ class QAEngine:
         (evidence_path / "result.txt").write_text(result, encoding="utf-8")
         return {"result": result, "report": qa_report, "evidence_dir": str(evidence_path)}
 
-    def run_review(self, task_id: int, task_content: str, qa_report: str = "") -> dict:
+    def run_review(self, task_id: int, task_content: str, qa_report: str = "",
+                   stack_profile: Optional[Any] = None) -> dict:
         """Run Code Reviewer. Returns APPROVED or REJECTED."""
         evidence_path = self.evidence_dir / f"{task_id}"
         evidence_path.mkdir(parents=True, exist_ok=True)
 
-        routing = self.router.route_review(task_content, qa_report)
+        try:
+            routing = self.router.route_review(
+                task_content, qa_report, stack_profile=stack_profile)
+        except TypeError:
+            # Fallback for legacy routers/stubs without stack_profile param
+            routing = self.router.route_review(task_content, qa_report)
         review = self.router.call_llm(routing)
 
         (evidence_path / "review.md").write_text(review, encoding="utf-8")
