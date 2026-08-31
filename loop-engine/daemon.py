@@ -444,11 +444,14 @@ class LoopEngineDaemon:
                          self.qa, self.brainstorm))
 
     async def boot_scan(self) -> list[dict]:
-        """Scan existing backlog tasks on boot.
+        """Scan backlog and resend trigger cards for pending tasks on boot.
 
         If auto_start_on_boot=True: register as BACKLOG and auto-process.
-        If auto_start_on_boot=False: register as PENDING_TRIGGER.
+        If auto_start_on_boot=False: register as PENDING_TRIGGER and send
+        trigger cards for BOTH newly detected backlog files AND any tasks
+        already registered in PENDING_TRIGGER state (survives daemon restarts).
         """
+        self.gateway._ensure_poller()
         from watcher import KanbanWatcher
         watcher = KanbanWatcher(self.state, self.config, self.gateway)
 
@@ -462,14 +465,27 @@ class LoopEngineDaemon:
                                  self.executor, self.qa, self.brainstorm))
             return existing
         else:
-            # Trigger gate: register as PENDING_TRIGGER, send trigger cards
+            # 1. Register newly detected backlog files (PENDING_TRIGGER + cards)
             existing = watcher.scan_existing()
+            sent_ids = set()
             for t in existing:
                 from pathlib import Path
                 title = Path(t["file"]).stem
                 await self.gateway.send_task_trigger_card(
                     t["task_id"], title, t["file"])
-            return existing
+                sent_ids.add(t["task_id"])
+            # 2. Resend cards for any tasks already in PENDING_TRIGGER state.
+            # Dedup by task_id: scan_existing() JUST registered the fresh files,
+            # so a blind re-query would double-send every card on every boot.
+            pending_in_db = self.state.get_pending_trigger_tasks()
+            for t in pending_in_db:
+                if t["task_id"] in sent_ids:
+                    continue
+                from pathlib import Path
+                title = Path(t["task_file"]).stem
+                await self.gateway.send_task_trigger_card(
+                    t["task_id"], title, t["task_file"])
+            return existing or pending_in_db
 
 
 async def _process_task(task_id: int, task_file: str, config: LoopEngineConfig,
@@ -650,7 +666,11 @@ async def main():
         await asyncio.sleep(2)
         return
 
-    # Normal daemon mode: boot scan + watch
+    # Normal daemon mode: boot scan + watch.
+    # Ensure Telegram polling is actively listening (for /start and button
+    # clicks) BEFORE boot_scan sends the trigger cards — otherwise the first
+    # cards can be sent while no updater/poller is running (HOTFIX-01).
+    gateway._ensure_poller()
     existing = await daemon.boot_scan()
     print(f"[daemon] Found {len(existing)} existing tasks in backlog "
           f"(trigger_mode={config.trigger_mode}, "

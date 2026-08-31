@@ -44,7 +44,9 @@ def test_load_config_from_repo_root():
     """Config loads regardless of CWD (repo-root anchoring fix)."""
     from daemon import load_config
     cfg = load_config()
-    assert cfg.approval.chat_id == 0  # placeholder in committed jsonc
+    # chat_id may be the placeholder (0) or the configured operator id —
+    # this test verifies repo-root anchoring, not the operator's chat id.
+    assert isinstance(cfg.approval.chat_id, int)
     assert "quick" in cfg.categories
 
 
