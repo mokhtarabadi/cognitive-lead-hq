@@ -25,7 +25,7 @@ def _load_file_if_exists(path: str) -> str:
     return ""
 
 
-# Pipeline stage → Manager-defined persona (prompts/fragments/12-personas.md).
+# Pipeline stage → Manager-defined persona (prompts/fragments/06-personas.md).
 # PO Closure is NOT a separate persona (G1 resolution): closure review reuses
 # the Code Reviewer persona, whose behavior defines the PO-review step.
 STAGE_PERSONAS = {
@@ -54,7 +54,7 @@ class LLMRouter:
             str(self.workspace_root / config.agmd_path))
         self.conventions = _load_file_if_exists(
             str(self.workspace_root / config.conventions_path))
-        # All 7 operational personas from prompts/fragments/12-personas.md
+        # All 7 operational personas from prompts/fragments/06-personas.md
         self.personas = load_personas(str(self.workspace_root))
 
     def _resolve_model(self, category: str) -> tuple[str, Optional[str]]:
@@ -67,6 +67,36 @@ class LLMRouter:
             if os.environ.get(env_key):
                 return model, cat_config.reasoning
         return self.config.default_provider, None
+
+    def _load_memory_context(self) -> str:
+        """Load project memory shards via direct file read.
+
+        Replicates agents/cognitive-executor.md 'Context Bootstrapping & Memory Protocol':
+        - scans .opencode/memory/{namespace}/{key}.md (mirrors mcp-memory-server shards)
+        - uses index.md implicitly via glob (index is derived state)
+        - returns XML-serialized entries for system context injection
+        - caps per-entry at 3000 chars to avoid token bloat
+        """
+        memory_dir = self.workspace_root / ".opencode" / "memory"
+        if not memory_dir.exists():
+            return ""
+        parts: list[str] = []
+        for mem_file in memory_dir.rglob("*.md"):
+            if mem_file.name == "index.md":
+                continue
+            try:
+                content = mem_file.read_text(encoding="utf-8").strip()
+                if not content:
+                    continue
+                rel = mem_file.relative_to(memory_dir)
+                namespace = rel.parent.name if len(rel.parts) > 1 else "unknown"
+                key = mem_file.stem
+                if len(content) > 3000:
+                    content = content[:3000] + "\n...[truncated]"
+                parts.append(f'<memory namespace="{namespace}" key="{key}">\n{content}\n</memory>')
+            except Exception:
+                continue
+        return "\n\n".join(parts)
 
     def _build_system_context(self, persona: str = "architect") -> str:
         """Build XML-structured system prompt.
@@ -91,7 +121,7 @@ class LLMRouter:
             # Unknown persona requested — fail loudly rather than impersonate.
             raise ValueError(
                 f"Persona '{persona_name}' not found in "
-                f"prompts/fragments/12-personas.md. Available: "
+                f"prompts/fragments/06-personas.md. Available: "
                 f"{sorted(self.personas)}")
 
         parts = [f"<role>{role}</role>"]
@@ -107,6 +137,12 @@ class LLMRouter:
         # Context: system prompt (full — no truncation)
         if self.system_prompt:
             parts.append(f"<context>\n{self.system_prompt}\n</context>")
+
+        # Memory: project-mandatory context from .opencode/memory
+        # Replicates Context Bootstrapping & Memory Protocol in agents/cognitive-executor.md
+        memory_context = self._load_memory_context()
+        if memory_context:
+            parts.append(f"<memory_context>\n{memory_context}\n</memory_context>")
 
         # Instructions: persona definition verbatim from the fragment
         parts.append(f"<instructions>\n{instructions}\n</instructions>")

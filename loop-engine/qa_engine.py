@@ -14,7 +14,7 @@ from state import StateMachine
 from router import LLMRouter
 
 # Decision tokens — aligned with the Manager's persona definitions
-# (12-personas.md): QA Engineer emits QA_PASSED/QA_REJECTED, Code Reviewer
+# (06-personas.md): QA Engineer emits QA_PASSED/QA_REJECTED, Code Reviewer
 # emits APPROVED/APPROVED_WITH_CHANGES/REJECTED_NEEDS_FIXES/PO_REVIEW_PENDING.
 # Engine shorthand (PASSED/FAILED/READY_FOR_CLOSURE/NEEDS_WORK) stays accepted.
 # First occurrence in the report wins: naive substring matching false-positives

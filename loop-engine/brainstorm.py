@@ -1,7 +1,7 @@
 """
 BrainstormStage — first-class Phase 1.5 Multi-Agent Brainstorming Loop.
 
-Implements prompts/fragments/16-brainstorming_protocol.md + the brainstorm-swarm
+Implements prompts/fragments/12-brainstorming_protocol.md + the brainstorm-swarm
 skill execution rules:
 1. Independent analysis — six parallel persona calls, zero cross-contamination.
 2. Conflict resolution — synthesis MUST document contradictions explicitly.

@@ -103,6 +103,171 @@ EXEC_OK = "complete"
 EXEC_BLOCKED = "blocked"
 
 
+def extract_task_diff(task_file: Path) -> str | None:
+    """Extract ONLY the content between <!-- BEGIN_GIT_DIFF --> and <!-- END_GIT_DIFF -->.
+
+    Reads the updated task file post-execution. Returns stripped diff content,
+    or None if markers are missing/malformed. Empty stripped content is treated
+    as missing evidence by the caller.
+    """
+    try:
+        text = task_file.read_text(encoding="utf-8")
+    except Exception:
+        return None
+    begin = "<!-- BEGIN_GIT_DIFF -->"
+    end = "<!-- END_GIT_DIFF -->"
+    if begin not in text or end not in text:
+        return None
+    start = text.index(begin) + len(begin)
+    stop = text.index(end, start)
+    if stop < start:
+        return None
+    diff = text[start:stop].strip()
+    return diff
+
+
+async def _execute_and_qa(
+    task_id: int,
+    task_file: str,
+    task_content: str,
+    task_path: Path,
+    state: StateMachine,
+    executor: HandsExecutor,
+    qa: QAEngine,
+    *,
+    blueprint_context: str = "",
+    qa_feedback: str = "",
+    log_prefix: str = "pipeline",
+) -> dict | None:
+    """Shared helper for execute → status check → diff extract → QA.
+
+    DRY extraction of the sequence duplicated in _process_task and _reimplement_task.
+    Uses existing retry counter, no parallel counter. Returns qa_result dict on
+    success (whether PASSED or FAILED), or None if the task was transitioned to
+    CRASHED (executor blocked/error or empty diff). Caller decides FAILED retry vs
+    PASSED progression. No behavior change, pure deduplication.
+    """
+    result = await executor.execute(
+        task_id, task_file, task_content,
+        blueprint_context=blueprint_context, qa_feedback=qa_feedback,
+    )
+    print(f"[{log_prefix}] Execution result: {result['status']}")
+
+    if result["status"] == EXEC_BLOCKED:
+        state.update_state(task_id, TaskState.CRASHED)
+        print(f"[{log_prefix}] Task #{task_id} crashed: {result['status']}")
+        return None
+
+    if result["status"] != EXEC_OK:
+        state.update_state(task_id, TaskState.CRASHED)
+        print(
+            f"[{log_prefix}] Task #{task_id} crashed: executor status "
+            f"'{result['status']}': {result.get('error', '')[:200]}"
+        )
+        return None
+
+    diff = extract_task_diff(task_path)
+    if not diff or not diff.strip():
+        state.update_state(task_id, TaskState.CRASHED)
+        print(
+            f"[{log_prefix}] Empty or missing diff for task #{task_id} "
+            f"(markers missing/malformed or diff empty) — crashing, no evidence"
+        )
+        return None
+
+    state.update_state(task_id, TaskState.QA)
+    print(f"[{log_prefix}] Running QA for task #{task_id}...")
+    qa_result = qa.run_qa(task_id, task_content, diff)
+    print(f"[{log_prefix}] QA result: {qa_result['result']}")
+    return qa_result
+
+
+async def _reimplement_task(
+    task_id: int,
+    task_file: str,
+    initial_qa_feedback: str,
+    config: LoopEngineConfig,
+    state: StateMachine,
+    router: LLMRouter,
+    gateway: ApprovalGateway,
+    executor: HandsExecutor,
+    qa: QAEngine,
+) -> None:
+    """Scoped retry loop — implementation-only, no brainstorm or plan re-approval.
+
+    Called after an initial QA FAILED. Loops up to config.max_qa_retries,
+    using state.get_qa_retry_count() as the single source of truth (no parallel
+    counter). Each iteration:
+      1. executor.execute() with qa_feedback as DISTINCT param (never blueprint_context)
+      2. extract_task_diff() per LE-0.2 logic
+      3. qa.run_qa()
+    On QA PASSED, proceeds to REVIEW → AWAITING_CLOSURE (same as main pipeline).
+    On QA FAILED, loops again or CRASHED when limit hit. Never sends a new
+    Telegram plan-approval message.
+    """
+    current_feedback = initial_qa_feedback
+    while True:
+        retries = state.get_qa_retry_count(task_id)
+        if retries >= config.max_qa_retries:
+            state.update_state(task_id, TaskState.CRASHED)
+            print(
+                f"[reimplement] Max QA retries ({config.max_qa_retries}) "
+                f"reached for task #{task_id} — crashing"
+            )
+            return
+
+        # Fresh read — captures prior Hands edits and QA feedback appended to file
+        try:
+            task_content = Path(task_file).read_text(encoding="utf-8")
+        except Exception as e:
+            state.update_state(task_id, TaskState.CRASHED)
+            print(f"[reimplement] Failed to re-read task file for #{task_id}: {e}")
+            return
+
+        task_path = Path(task_file)
+        state.update_state(task_id, TaskState.IMPLEMENTING)
+        print(
+            f"[reimplement] Retrying implementation for task #{task_id} "
+            f"(retry {retries + 1}/{config.max_qa_retries})..."
+        )
+
+        qa_result = await _execute_and_qa(
+            task_id, task_file, task_content, task_path, state, executor, qa,
+            qa_feedback=current_feedback, log_prefix="reimplement"
+        )
+        if qa_result is None:
+            return
+
+        if qa_result["result"] == "FAILED":
+            # qa.run_qa already incremented retry count via set_qa_feedback
+            current_feedback = (
+                qa_result.get("report", "") or qa_result.get("feedback", "") or current_feedback
+            )
+            continue
+
+        # QA PASSED — proceed to REVIEW and CLOSURE (mirrors main pipeline steps 5-6)
+        state.update_state(task_id, TaskState.REVIEW)
+        review = qa.run_review(task_id, task_content, qa_result.get("report", ""))
+        print(f"[reimplement] Review result: {review['result']}")
+
+        if review["result"] == "REJECTED":
+            state.update_state(task_id, TaskState.CRASHED)
+            return
+
+        state.update_state(task_id, TaskState.AWAITING_CLOSURE)
+        approved = await gateway.request_approval(
+            task_id, "Closure Approval", f"Task #{task_id} complete. Approve closure?"
+        )
+        if approved:
+            state.update_state(task_id, TaskState.CLOSED)
+            print(f"[reimplement] Task #{task_id} CLOSED after retry.")
+        else:
+            print(
+                f"[reimplement] Closure rejected for task #{task_id} after retry. Stays in review."
+            )
+        return
+
+
 async def process_task(task_id: int, task_file: str, config: LoopEngineConfig,
                        state: StateMachine, router: LLMRouter,
                        gateway: ApprovalGateway, executor: HandsExecutor,
@@ -232,37 +397,18 @@ async def _process_task(task_id: int, task_file: str, config: LoopEngineConfig,
     # 3. IMPLEMENTING
     state.update_state(task_id, TaskState.IMPLEMENTING)
     print(f"[pipeline] Implementing task #{task_id}...")
-    result = await executor.execute(task_id, task_file, task_content)
-    print(f"[pipeline] Execution result: {result['status']}")
-
-    if result["status"] == EXEC_BLOCKED:
-        state.update_state(task_id, TaskState.CRASHED)
-        print(f"[pipeline] Task #{task_id} crashed: {result['status']}")
+    qa_result = await _execute_and_qa(
+        task_id, task_file, task_content, task_path, state, executor, qa,
+        blueprint_context=plan, log_prefix="pipeline"
+    )
+    if qa_result is None:
         return
-
-    if result["status"] != EXEC_OK:
-        # timeout / error / transport_error — no usable output, never send to QA
-        state.update_state(task_id, TaskState.CRASHED)
-        print(f"[pipeline] Task #{task_id} crashed: executor status "
-              f"'{result['status']}': {result.get('error', '')[:200]}")
-        return
-
-    # 4. QA
-    state.update_state(task_id, TaskState.QA)
-    print(f"[pipeline] Running QA for task #{task_id}...")
-    qa_result = qa.run_qa(task_id, task_content, result.get("output", ""))
-    print(f"[pipeline] QA result: {qa_result['result']}")
 
     if qa_result["result"] == "FAILED":
-        retries = state.get_qa_retry_count(task_id)
-        if retries >= config.max_qa_retries:
-            state.update_state(task_id, TaskState.CRASHED)
-            print(f"[pipeline] Max QA retries reached for task #{task_id}")
-            return
-        # Stay in QA — same task file, re-execute with feedback
-        state.update_state(task_id, TaskState.IMPLEMENTING)
-        return await process_task(task_id, task_file, config, state, router,
-                                  gateway, executor, qa, brainstorm)
+        qa_feedback = qa_result.get("report", "") or ""
+        return await _reimplement_task(
+            task_id, task_file, qa_feedback, config, state, router, gateway, executor, qa
+        )
 
     # 5. REVIEW
     state.update_state(task_id, TaskState.REVIEW)

@@ -5,15 +5,15 @@ Single source of truth: prompts/fragments/*.md (compiled into system-prompt.md).
 Editing a fragment changes engine behavior on next start — no code edits needed.
 
 Parses:
-- 12-personas.md            → operational personas (<trigger>/<duty>/<behavior>)
-- 16-brainstorming_protocol.md → six swarm personas (<focus>/<output>) + output schema
+- 06-personas.md            → operational personas (<trigger>/<duty>/<behavior>)
+- 12-brainstorming_protocol.md → six swarm personas (<focus>/<output>) + output schema
 """
 
 import re
 from pathlib import Path
 
-PERSONAS_FRAGMENT = "prompts/fragments/12-personas.md"
-BRAINSTORM_FRAGMENT = "prompts/fragments/16-brainstorming_protocol.md"
+PERSONAS_FRAGMENT = "prompts/fragments/06-personas.md"
+BRAINSTORM_FRAGMENT = "prompts/fragments/12-brainstorming_protocol.md"
 
 _PERSONA_RE = re.compile(r'<persona\s+name="([^"]+)">\s*(.*?)</persona>', re.DOTALL)
 

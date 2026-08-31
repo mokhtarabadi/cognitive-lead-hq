@@ -38,13 +38,38 @@ class HandsExecutor:
         self.config = config
         self.state = state
 
-    async def execute(self, task_id: int, task_file: str, task_content: str) -> dict:
-        """Execute a task via OpenCode CLI with transport error retry."""
-        prompt = (
-            f"Read the task file at {task_file} and implement it.\n"
-            f"Follow AGENTS.md rules exactly.\n"
-            f"Output [goal:complete] when done, [goal:blocked] if stuck."
-        )
+    async def execute(self, task_id: int, task_file: str, task_content: str,
+                    blueprint_context: str = "", qa_feedback: str = "") -> dict:
+        """Execute a task via OpenCode CLI with transport error retry.
+
+        Args:
+            task_id: Task identifier.
+            task_file: Path to task file.
+            task_content: Content of task file (may be stale; executor re-reads file).
+            blueprint_context: Approved architectural blueprint/plan (from Architect).
+                Injected as delimited section when non-empty. Named to avoid collision
+                with qa_feedback.
+            qa_feedback: QA rejection feedback to address (on retry). Injected as
+                distinct delimited section when non-empty, never overloaded with
+                blueprint_context.
+        """
+        prompt_parts = [
+            f"Read the task file at {task_file} and implement it.",
+            "Follow AGENTS.md rules exactly.",
+            "Output [goal:complete] when done, [goal:blocked] if stuck.",
+        ]
+        if blueprint_context and blueprint_context.strip():
+            prompt_parts.append(
+                f"## Approved Blueprint Context\n{blueprint_context.strip()}"
+            )
+        if qa_feedback and qa_feedback.strip():
+            prompt_parts.append(
+                f"## QA Feedback to Address\n{qa_feedback.strip()}\n\n"
+                f"Address the above QA feedback explicitly. Do NOT treat this "
+                f"as a new architectural plan — it is a correction request for "
+                f"the previous implementation."
+            )
+        prompt = "\n\n".join(prompt_parts)
 
         for attempt in range(MAX_RETRIES):
             result = await self._run_once(task_file, prompt)
