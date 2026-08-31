@@ -153,6 +153,41 @@ Gateway sends closure summary to Telegram. Manager approves. Task moves to `task
 
 See [Configuration Reference](configuration.md) for all options.
 
+## Verification & Smoke Gate (Phase A Certified)
+
+Phase A (Polyglot Toolchain & Execution Sandboxing) is certified by the end-to-end
+smoke suite in `loop-engine/test_polyglot_smoke.py` — the **canonical verification gate**
+for the loop engine. It drives the real pipeline components (`StateMachine`, `LLMRouter`,
+`QAEngine`, `HandsExecutor`, `ApprovalGateway`, `LoopEngineDaemon`) anchored to an isolated
+temporary workspace and proves:
+
+- **Happy path (5 stacks):** Node-TS, Python-FastAPI, Kotlin-Android, Go-Gin, and the
+  Generic fallback all progress through detection → plan → approval → preflight →
+  execution → toolchain verification → QA → review → closure, ending `CLOSED`.
+- **Hard fail-fast gates (7):** preflight failure crashes before execution; toolchain
+  failure bypasses LLM QA and retries; `[goal:blocked: <reason>]` extraction crashes;
+  empty diff crashes without toolchain/QA; retry recovery to `CLOSED`; max retries →
+  `CRASHED`; explicit `**Stack:**` header overrides marker detection.
+- **Supplementary (4):** plan rejection → `BACKLOG`; review rejection → `CRASHED`;
+  QA-feedback retry recovery; daemon boot-scan registers `PENDING_TRIGGER`.
+
+Run the gate:
+
+```bash
+uv run --project loop-engine --with pytest pytest loop-engine/test_polyglot_smoke.py -v
+```
+
+Full-suite certification bar (baseline 163 → ≥ 178 passing, 0 failures):
+
+```bash
+uv run --project loop-engine --with pytest pytest loop-engine/ -q
+```
+
+The suite is hermetic: every test builds its own workspace under `tmp_path`, patches
+`daemon.REPO_ROOT` to that workspace, and sandboxes stack preflight/toolchain commands to
+portable no-ops — so it passes on any CI machine without installed toolchains and never
+touches the real repository.
+
 ## Setup
 
 See [Setup Guide](setup.md) for installation instructions.

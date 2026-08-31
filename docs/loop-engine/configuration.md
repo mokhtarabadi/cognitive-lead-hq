@@ -319,6 +319,45 @@ A `proc.returncode == 0` exit also maps to `complete`.
 
 **Concurrency semaphore:** `HandsExecutor.__init__` creates `asyncio.Semaphore(config.max_parallel_tasks)`; `execute()` wraps the entire run (including transport retries) in `async with self._semaphore:`, guaranteeing the daemon never exceeds the configured concurrent Hands sessions.
 
+### End-to-End Smoke Test Gate (LE-5 / Task 137)
+
+Phase A is certified by the canonical end-to-end smoke suite:
+`loop-engine/test_polyglot_smoke.py` (16 tests, 5 happy-path stacks + 7 hard fail-fast
+gates + 4 supplementary edge cases). The full suite bar is **≥ 178 passing, 0 failures**
+(baseline 163 + 16 smoke).
+
+```bash
+uv run --project loop-engine --with pytest pytest loop-engine/test_polyglot_smoke.py -v
+uv run --project loop-engine --with pytest pytest loop-engine/ -q   # full gate
+```
+
+**Test-harness guarantees:**
+
+- **Hermetic workspace:** every test builds an isolated `tmp_path` workspace with
+  `stacks/`, `tasks/{backlog,in-progress,qa,completed}/`, `loop-engine/{evidence,state}/`,
+  and dummy `AGENTS.md`, `system-prompt.md`, `docs/conventions.md`, `loop-engine.jsonc`.
+- **Real components, scripted I/O seams:** real `StateMachine`, `LLMRouter`, `QAEngine`,
+  `HandsExecutor`, `ApprovalGateway`, `LoopEngineDaemon` instances are wired to the
+  workspace. Only process boundaries are scripted: `call_llm` (deterministic per-stage
+  responses), `executor._run_once` (simulates the Hands agent writing the diff block and
+  emitting `[goal:complete]` / `[goal:blocked: <reason>]` tokens processed by the real
+  TERM_* regexes), and `gateway.request_approval` (auto-approve or scripted denial).
+- **REPO_ROOT anchoring:** `daemon.REPO_ROOT` is patched to the workspace for each
+  pipeline run, so stack detection, preflight/toolchain `cwd`, and evidence writes never
+  escape the sandbox.
+- **Sandboxed commands:** workspace stack YAMLs mirror repository defaults (detection
+  markers/extensions/keywords, skills, model_preferences) but preflight/toolchain commands
+  are portable no-ops (`true`) or deterministic failures (`false`, fail-first marker
+  files). Sandbox deviations are documented inline: bare `"go"` and `"gin"` keywords are
+  dropped from the go-gin profile because they substring-match `## Goal` and the canonical
+  `<!-- BEGIN_GIT_DIFF -->` markers, which would make the generic fallback unreachable.
+
+**What the gate proves:** multi-stack ingestion/detection, preflight fail-fast before
+execution, toolchain verification bypassing LLM QA on failure with evidence written, goal
+blocked-reason extraction, empty-diff crash, retry recovery to `CLOSED`, max-retry crash,
+header-over-marker precedence, plan/review rejection paths, QA-feedback threading, and
+daemon boot-scan `PENDING_TRIGGER` registration.
+
 ## Environment Variables
 
 | Variable | Required | Description |
