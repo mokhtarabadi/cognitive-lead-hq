@@ -45,13 +45,17 @@ class QAEngine:
         self.router = router
         self.evidence_dir = Path(config.evidence_dir)
 
-    def run_qa(self, task_id: int, task_content: str, diff: str = "") -> dict:
+    def run_qa(self, task_id: int, task_content: str, diff: str = "", toolchain_evidence: str = "") -> dict:
         """Run QA Engineer review. Returns PASSED or FAILED."""
         self.evidence_dir.mkdir(parents=True, exist_ok=True)
         evidence_path = self.evidence_dir / f"{task_id}"
         evidence_path.mkdir(exist_ok=True)
 
-        routing = self.router.route_qa(task_content, diff)
+        try:
+            routing = self.router.route_qa(task_content, diff, toolchain_evidence=toolchain_evidence)
+        except TypeError:
+            # Fallback for legacy routers/stubs without toolchain_evidence param
+            routing = self.router.route_qa(task_content, diff)
         qa_report = self.router.call_llm(routing)
 
         # Write evidence

@@ -31,6 +31,11 @@ from qa_engine import QAEngine
 from brainstorm import BrainstormStage
 from stacks import StackRegistry, StackDetector, PreflightRunner
 
+try:
+    from verifier import ToolchainRunner
+except ImportError:
+    ToolchainRunner = None  # type: ignore
+
 # Repo root = parent of loop-engine/. All relative paths in the config
 # (state db, evidence dir, tasks/, system-prompt.md) are anchored here so the
 # daemon behaves identically no matter which directory it is launched from.
@@ -191,9 +196,56 @@ async def _execute_and_qa(
         )
         return None
 
+    # --- Toolchain verification (LE-2) — deterministic lint/build/test before LLM QA ---
+    if ToolchainRunner is not None:
+        # Resolve evidence base from QA engine config if available
+        try:
+            evidence_base_dir = qa.config.evidence_dir if hasattr(qa, "config") and hasattr(qa.config, "evidence_dir") else str(qa.evidence_dir) if hasattr(qa, "evidence_dir") else "loop-engine/evidence"
+        except Exception:
+            evidence_base_dir = "loop-engine/evidence"
+        # Determine profile: use provided stack_profile or fallback to generic no-op
+        effective_profile = stack_profile
+        if effective_profile is None:
+            # Try to create a synthetic generic profile (all toolchain null) to avoid None errors
+            try:
+                from models import StackProfileConfig
+                from stacks import StackProfile as _SP
+                effective_profile = _SP(StackProfileConfig(name="generic", display_name="Generic"))
+            except Exception:
+                effective_profile = stack_profile
+        try:
+            runner = ToolchainRunner(timeout_per_command=120.0, evidence_base_dir=evidence_base_dir)
+            toolchain_result = await runner.run(effective_profile, task_id=task_id, cwd=REPO_ROOT)
+            if not toolchain_result.passed:
+                # Fail-fast: record feedback, bypass LLM QA, return FAILED for retry logic
+                try:
+                    state.set_qa_feedback(task_id, toolchain_result.report_md)
+                except Exception:
+                    pass
+                print(f"[{log_prefix}] Toolchain verification FAILED for task #{task_id}")
+                print(toolchain_result.summary)
+                return {
+                    "result": "FAILED",
+                    "report": toolchain_result.report_md,
+                    "evidence_dir": str(Path(evidence_base_dir) / str(task_id)),
+                }
+            # Success: forward summary as evidence to QA
+            toolchain_evidence = toolchain_result.summary
+        except Exception as e:
+            # Toolchain infra error — treat as CRASHED? For now, log and proceed to QA to avoid blocking
+            print(f"[{log_prefix}] Toolchain runner error (proceeding to QA): {e}")
+            toolchain_evidence = ""
+    else:
+        toolchain_evidence = ""
+
     state.update_state(task_id, TaskState.QA)
     print(f"[{log_prefix}] Running QA for task #{task_id}...")
-    qa_result = qa.run_qa(task_id, task_content, diff)
+    # Forward toolchain evidence if available (LE-2 enrichment)
+    try:
+        qa_result = qa.run_qa(task_id, task_content, diff, toolchain_evidence=toolchain_evidence)
+    except TypeError:
+        # Fallback for legacy QA stubs without toolchain_evidence param
+        qa_result = qa.run_qa(task_id, task_content, diff)
     print(f"[{log_prefix}] QA result: {qa_result['result']}")
     return qa_result
 

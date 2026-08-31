@@ -332,8 +332,12 @@ def test_router_without_memory_still_works():
 
 def test_reimplement_task_retry_loop_terminates():
     """Step 2: FAILED, FAILED, PASSED with max=3 → CLOSED, retry count increases, 1 Closure, 0 Plan."""
+    from unittest.mock import patch
     from daemon import _reimplement_task
     from state import StateMachine
+    # Mock toolchain to avoid real lint/test execution interfering with QA retry counting
+    patcher = patch('daemon.ToolchainRunner', None)
+    patcher.start()
 
     with tempfile.TemporaryDirectory() as tmp:
         task_file = Path(tmp) / "02-retry.md"
@@ -411,12 +415,17 @@ def test_reimplement_task_retry_loop_terminates():
         task = sm.get_task(tid)
         assert task["state"] == "closed", f"expected closed, got {task['state']}"
         sm.close()
+    patcher.stop()
 
 
 def test_reimplement_task_max_one_crashes_with_timeout():
     """Step 3: max=1 always FAILED → CRASHED, with hard wall-clock timeout guard."""
+    from unittest.mock import patch
     from daemon import _reimplement_task
     from state import StateMachine
+    # Mock toolchain to avoid real lint/test execution interfering with retry-loop test
+    patcher = patch('daemon.ToolchainRunner', None)
+    patcher.start()
 
     with tempfile.TemporaryDirectory() as tmp:
         task_file = Path(tmp) / "03-max1.md"
@@ -465,6 +474,7 @@ def test_reimplement_task_max_one_crashes_with_timeout():
         task = sm.get_task(tid)
         assert task["state"] == "crashed", f"expected crashed with max=1, got {task['state']}"
         sm.close()
+    patcher.stop()
 
 
 if __name__ == "__main__":

@@ -347,6 +347,7 @@ dependencies = [
     { name = "litellm" },
     { name = "pydantic" },
     { name = "python-telegram-bot" },
+    { name = "pyyaml" },
     { name = "watchdog" },
 ]
 
@@ -361,6 +362,7 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
     { name = "python-telegram-bot", specifier = ">=21.0" },
+    { name = "pyyaml", specifier = ">=6.0" },
     { name = "watchdog", specifier = ">=4.0" },
 ]
 provides-extras = ["dev"]

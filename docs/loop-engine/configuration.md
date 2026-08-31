@@ -237,6 +237,17 @@ model_preferences: {}          # optional per-category model overrides
 | `python-fastapi` | `pyproject.toml`, `.py`, keywords `python/fastapi` | `python-fastapi` | `pytest -q` |
 | `go-gin` | `go.mod`, `.go`, keywords `go/gin` | `go-gin`, `go-hexagonal-grpc` | `go test ./...` |
 
+### Toolchain Verification (LE-2)
+
+`loop-engine/verifier.py` executes each profile's `toolchain` deterministically **after** Hands produce a git diff and **before** LLM QA, providing fail-fast short-circuiting and factual evidence.
+
+**Runner:** `ToolchainRunner(timeout_per_command=120.0, evidence_base_dir=config.evidence_dir)` iterates sequentially `lint → build → test`. Each command runs via `asyncio.create_subprocess_shell` with `asyncio.wait_for(timeout)`. Null or whitespace-only commands are recorded as `skipped=True` and `passed=True` (e.g., `generic` with all `null` → overall `PASSED` with 3× SKIPPED).
+
+- **Default timeout:** `120s` per command (vs `30s` preflight). Covers slow toolchains like `./gradlew test` while staying inside `idle.executing_timeout_seconds=900`. Timeout kills via `proc.kill()` (suppresses `ProcessLookupError`) and records `passed=False` with diagnostic `Toolchain timeout (120s): <cmd>`.
+- **Fail-fast semantics:** In `daemon.py:_execute_and_qa`, immediately after `extract_task_diff` non-empty check, the runner is invoked with `stack_profile` and `task_id`. If `not toolchain_result.passed`: `state.set_qa_feedback(task_id, report_md)` is called (increments `qa_retry_count`), the function returns `{"result": "FAILED", "report": report_md, "evidence_dir": "<evidence_dir>/<task_id>"}` **without calling `qa.run_qa`** — saving LLM tokens and routing to `_reimplement_task` retry loop up to `max_qa_retries`. If `passed`: summary is forwarded as `qa.run_qa(..., toolchain_evidence=summary)` to enrich the LLM prompt.
+- **Evidence outputs:** If `task_id` is provided, the runner writes `<evidence_base_dir>/<task_id>/toolchain_report.md` (structured Markdown with summary table `| Type | Command | Result | Duration | Return Code |` and `## Failures` logs for non-zero/timeout) and `<evidence_base_dir>/<task_id>/toolchain_result.txt` (`PASSED` or `FAILED`). `QAEngine.run_qa` also accepts `toolchain_evidence` and injects it into `router.route_qa(..., toolchain_evidence=...)` → `<## Toolchain Verification>` block in the LLM prompt.
+- **Shell semantics:** Toolchain commands are shell strings (so `||` fallbacks like `pnpm test || npm test` work). `stdout`/`stderr` are captured and truncated to 2000 chars in the report.
+
 ## Environment Variables
 
 | Variable | Required | Description |

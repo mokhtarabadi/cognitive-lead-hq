@@ -174,12 +174,15 @@ class LLMRouter:
             "temperature": 0.3,
         }
 
-    def route_qa(self, task_content: str, diff: str = "") -> dict:
+    def route_qa(self, task_content: str, diff: str = "", toolchain_evidence: str = "") -> dict:
         model, reasoning = self._resolve_model("deep")
+        user = f"Review this task and changes:\n\n{task_content}\n\n## Diff\n\n{diff}"
+        if toolchain_evidence:
+            user += f"\n\n## Toolchain Verification\n\n{toolchain_evidence}"
         return {
             "model": model, "reasoning": reasoning,
             "system": self._build_system_context("qa_engineer"),
-            "user": f"Review this task and changes:\n\n{task_content}\n\n## Diff\n\n{diff}",
+            "user": user,
             "temperature": 0.1,
         }
 
