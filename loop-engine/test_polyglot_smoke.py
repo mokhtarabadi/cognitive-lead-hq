@@ -472,6 +472,7 @@ class AutoApproveGateway(ApprovalGateway):
         self.plan_approvals = 0
         self.closure_approvals = 0
         self.trigger_cards = []
+        self.trigger_summaries = []
 
     async def request_approval(self, task_id, stage, content):
         if stage == "Plan Approval":
@@ -484,6 +485,11 @@ class AutoApproveGateway(ApprovalGateway):
 
     async def send_task_trigger_card(self, task_id, title, file_path):
         self.trigger_cards.append((task_id, title, file_path))
+        return True
+
+    async def send_boot_scan_summary(self, tasks, top_n=4):
+        self.trigger_summaries.append(
+            (len(tasks), [t["task_id"] for t in tasks]))
         return True
 
 
@@ -808,12 +814,13 @@ def test_smoke_qa_failure_retries_with_feedback(tmp_path):
 
 
 def test_smoke_boot_scan_registers_pending_trigger(tmp_path):
-    """Daemon boot_scan registers backlog tasks as PENDING_TRIGGER + sends trigger cards.
+    """Daemon boot_scan registers backlog tasks as PENDING_TRIGGER + sends ONE
+    consolidated trigger summary (HOTFIX-02 anti-flood: no per-task cards).
 
-    daemon.boot_scan constructs KanbanWatcher without an explicit tasks_dir (it defaults
-    to CWD-relative "tasks/backlog"). For hermeticity we patch the class with a factory
-    that forwards config.tasks_dir, so boot_scan scans the temp workspace and never
-    registers unrelated real-repo backlog files.
+    daemon.boot_scan constructs KanbanWatcher without an explicit tasks_dir (it
+    defaults to CWD-relative "tasks/backlog"). For hermeticity we patch the
+    class with a factory that forwards config.tasks_dir, so boot_scan scans the
+    temp workspace and never registers unrelated real-repo backlog files.
     """
     from watcher import KanbanWatcher as RealKanbanWatcher
     import watcher as watcher_module
@@ -837,8 +844,12 @@ def test_smoke_boot_scan_registers_pending_trigger(tmp_path):
         tid = existing[0]["task_id"]
         rec = ws.state.get_task(tid)
         assert rec["state"] == "pending_trigger"
-        assert len(ws.gateway.trigger_cards) == 1
-        assert ws.gateway.trigger_cards[0][0] == tid
+        # HOTFIX-02: boot scan sends ONE consolidated summary, never per-task cards.
+        assert len(ws.gateway.trigger_cards) == 0
+        assert len(ws.gateway.trigger_summaries) == 1
+        count, ids = ws.gateway.trigger_summaries[0]
+        assert count == 1
+        assert ids == [tid]
     finally:
         ws.close()
 

@@ -19,6 +19,7 @@ import os
 import re
 import signal
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional, Any
 
@@ -148,6 +149,40 @@ class HandsExecutor:
             return result  # last attempt result
 
     async def _run_once(self, task_file: str, prompt: str) -> dict:
+        """Run one OpenCode turn via subprocess, with debug telemetry (HOTFIX-03).
+
+        Wraps the real implementation so every result path (complete, blocked,
+        transport_error, timeout, error) is captured by the same debug log hook.
+        """
+        result = await self._run_once_impl(task_file, prompt)
+        if os.environ.get("LOOP_ENGINE_DEBUG") == "1":
+            self._log_executor_debug(task_file, prompt, result)
+        return result
+
+    def _log_executor_debug(self, task_file: str, prompt: str, result: dict) -> None:
+        """Append the executor session to loop-engine/logs/executor_sessions.log.
+
+        Opt-in ONLY via LOOP_ENGINE_DEBUG=1. Never raises: telemetry must not
+        affect pipeline execution.
+        """
+        try:
+            log_dir = Path(__file__).resolve().parent / "logs"
+            log_dir.mkdir(parents=True, exist_ok=True)
+            entry = (
+                f"\n===== [{datetime.now(timezone.utc).isoformat(timespec='seconds')}Z] "
+                f"task_file={task_file} status={result.get('status')} "
+                f"returncode={result.get('returncode')} elapsed={result.get('elapsed', 0):.1f}s =====\n"
+                f"--- PROMPT ---\n{prompt}\n"
+                f"--- STDOUT ---\n{result.get('output', '')}\n"
+                f"--- STDERR ---\n{result.get('error', '')}\n"
+                f"===== END =====\n"
+            )
+            with open(log_dir / "executor_sessions.log", "a", encoding="utf-8") as f:
+                f.write(entry)
+        except Exception as e:
+            print(f"[executor] debug telemetry log error: {e}")
+
+    async def _run_once_impl(self, task_file: str, prompt: str) -> dict:
         """Run one OpenCode turn via subprocess."""
         start = time.time()
         timeout = float(getattr(self.config.idle, "executing_timeout_seconds", None) or 900.0)

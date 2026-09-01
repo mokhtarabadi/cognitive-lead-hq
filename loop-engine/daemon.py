@@ -119,6 +119,24 @@ EXEC_OK = "complete"
 EXEC_BLOCKED = "blocked"
 
 
+def resolve_actual_task_path(task_file: str, repo_root: Path) -> tuple[Path, str]:
+    """Dynamically find a task file across all Kanban folders if it was moved."""
+    p = Path(task_file)
+    if not p.is_absolute():
+        p = repo_root / task_file
+    if p.exists():
+        return p, task_file
+
+    # If not found at recorded path, search across all standard Kanban directories
+    filename = Path(task_file).name
+    for folder in ("in-progress", "qa", "backlog", "completed"):
+        candidate = repo_root / "tasks" / folder / filename
+        if candidate.exists():
+            rel_path = str(candidate.relative_to(repo_root))
+            return candidate, rel_path
+    return p, task_file
+
+
 def extract_task_diff(task_file: Path) -> str | None:
     """Extract ONLY the content between <!-- BEGIN_GIT_DIFF --> and <!-- END_GIT_DIFF -->.
 
@@ -386,12 +404,42 @@ async def process_task(task_id: int, task_file: str, config: LoopEngineConfig,
     """Full pipeline for one task."""
     print(f"\n[pipeline] Processing task #{task_id}: {task_file}")
 
+    # Dynamic path resolution (HOTFIX-04): the task may have moved across
+    # Kanban folders since registration. Re-sync the state DB best-effort and
+    # process from the actual on-disk path.
+    actual_path, actual_rel_path = resolve_actual_task_path(task_file, REPO_ROOT)
+    resolved_task_file = task_file
+    if actual_path.exists() and actual_rel_path != task_file:
+        try:
+            state.conn.execute("UPDATE tasks SET task_file = ? WHERE task_id = ?", (actual_rel_path, task_id))
+            state.conn.commit()
+        except Exception:
+            pass
+        resolved_task_file = actual_rel_path
+
+    # In-flight concurrency lock (HOTFIX-06): re-check before executing so
+    # duplicate dispatches (button spam, repeated /run, watcher+boot) never
+    # run the same task twice concurrently. The daemon instance is resolved
+    # from the gateway's registered reference; legacy/unregistered callers
+    # simply skip the lock (single-shot paths).
+    daemon_instance = getattr(gateway, "_daemon", None)
+    if (
+        daemon_instance is not None
+        and task_id in daemon_instance._in_flight_tasks
+    ):
+        print(f"[daemon] Task #{task_id} is already running in background. Ignoring duplicate trigger.")
+        return
+    if daemon_instance is not None:
+        daemon_instance._in_flight_tasks.add(task_id)
     try:
-        await _process_task(task_id, task_file, config, state, router,
+        await _process_task(task_id, resolved_task_file, config, state, router,
                             gateway, executor, qa, brainstorm)
     except Exception as e:
         state.update_state(task_id, TaskState.CRASHED)
         print(f"[pipeline] Task #{task_id} crashed with unexpected error: {e}")
+    finally:
+        if daemon_instance is not None:
+            daemon_instance._in_flight_tasks.discard(task_id)
 
 
 class LoopEngineDaemon:
@@ -406,6 +454,10 @@ class LoopEngineDaemon:
         self.qa = qa
         self.brainstorm = brainstorm
         self.stack_registry = StackRegistry(config.stacks_dir, repo_root=REPO_ROOT)
+        # In-flight concurrency lock (HOTFIX-06): task ids currently executing.
+        # Prevents duplicate concurrent execution from button spam, repeated
+        # /run commands, or watcher+boot double-dispatch.
+        self._in_flight_tasks: set[int] = set()
         self.propagation_engine = (
             ContractPropagationEngine(config.contract_rules, tasks_dir=config.tasks_dir)
             if ContractPropagationEngine is not None
@@ -423,15 +475,30 @@ class LoopEngineDaemon:
             print(f"[daemon] Task #{task_id} not found in state machine.")
             return
 
+        # In-flight concurrency lock (HOTFIX-06): ignore duplicate triggers for
+        # a task that is already executing in the background.
+        if task_id in self._in_flight_tasks:
+            print(f"[daemon] Task #{task_id} is already running in background. Ignoring duplicate trigger.")
+            return
+
         task_file = task_record["task_file"]
 
-        # Fresh read from disk
-        from pathlib import Path
-        task_path = Path(task_file)
+        # Fresh read from disk with dynamic path resolution (HOTFIX-04): the
+        # task may have been moved across Kanban folders after registration.
+        task_path, actual_rel_path = resolve_actual_task_path(task_file, REPO_ROOT)
         if not task_path.exists():
             print(f"[daemon] Task file not found: {task_file}")
             self.state.update_state(task_id, TaskState.CRASHED)
             return
+
+        # Sync state DB if the file was moved across Kanban folders
+        if actual_rel_path != task_file:
+            try:
+                self.state.conn.execute("UPDATE tasks SET task_file = ? WHERE task_id = ?", (actual_rel_path, task_id))
+                self.state.conn.commit()
+            except Exception:
+                pass
+            task_file = actual_rel_path
 
         # Transition PENDING_TRIGGER -> PLANNING
         self.state.update_state(task_id, TaskState.PLANNING)
@@ -448,8 +515,9 @@ class LoopEngineDaemon:
 
         If auto_start_on_boot=True: register as BACKLOG and auto-process.
         If auto_start_on_boot=False: register as PENDING_TRIGGER and send
-        trigger cards for BOTH newly detected backlog files AND any tasks
-        already registered in PENDING_TRIGGER state (survives daemon restarts).
+        ONE consolidated trigger summary (anti-flood, HOTFIX-02) covering BOTH
+        newly detected backlog files AND any tasks already registered in
+        PENDING_TRIGGER state (survives daemon restarts).
         """
         self.gateway._ensure_poller()
         from watcher import KanbanWatcher
@@ -465,26 +533,43 @@ class LoopEngineDaemon:
                                  self.executor, self.qa, self.brainstorm))
             return existing
         else:
-            # 1. Register newly detected backlog files (PENDING_TRIGGER + cards)
+            # 1. Register newly detected backlog files (PENDING_TRIGGER).
             existing = watcher.scan_existing()
-            sent_ids = set()
-            for t in existing:
-                from pathlib import Path
-                title = Path(t["file"]).stem
-                await self.gateway.send_task_trigger_card(
-                    t["task_id"], title, t["file"])
-                sent_ids.add(t["task_id"])
-            # 2. Resend cards for any tasks already in PENDING_TRIGGER state.
-            # Dedup by task_id: scan_existing() JUST registered the fresh files,
-            # so a blind re-query would double-send every card on every boot.
+            # 2. Include tasks already in PENDING_TRIGGER state (restart survival).
             pending_in_db = self.state.get_pending_trigger_tasks()
-            for t in pending_in_db:
-                if t["task_id"] in sent_ids:
+
+            # Normalize both sources into one deduped, ordered task list.
+            # scan_existing() yields {"task_id", "file"}; the DB yields
+            # {"task_id", "task_file", ...}. New files come first (scan order),
+            # then DB-only leftovers. Dedup by task_id so a fresh boot with a
+            # partially registered DB does not list any task twice.
+            seen: set[int] = set()
+            summary_tasks: list[dict] = []
+            for t in existing:
+                sid = t["task_id"]
+                if sid in seen:
                     continue
-                from pathlib import Path
-                title = Path(t["task_file"]).stem
-                await self.gateway.send_task_trigger_card(
-                    t["task_id"], title, t["task_file"])
+                seen.add(sid)
+                summary_tasks.append({
+                    "task_id": sid,
+                    "title": Path(t["file"]).stem,
+                    "file": t["file"],
+                })
+            for t in pending_in_db:
+                sid = t["task_id"]
+                if sid in seen:
+                    continue
+                seen.add(sid)
+                summary_tasks.append({
+                    "task_id": sid,
+                    "title": Path(t["task_file"]).stem,
+                    "file": t["task_file"],
+                })
+
+            # Anti-flood: ONE consolidated message with Start buttons for the
+            # top pending tasks — never one card per task on boot.
+            if summary_tasks:
+                await self.gateway.send_boot_scan_summary(summary_tasks)
             return existing or pending_in_db
 
 
@@ -493,7 +578,11 @@ async def _process_task(task_id: int, task_file: str, config: LoopEngineConfig,
                         gateway: ApprovalGateway, executor: HandsExecutor,
                         qa: QAEngine, brainstorm: BrainstormStage):
     """Inner pipeline — exceptions propagate to process_task's guard."""
-    task_path = Path(task_file)
+    # Dynamic path resolution (HOTFIX-04): resolve the actual on-disk path so
+    # the fresh read below never fails on a stale recorded path after a Kanban
+    # move. Callers (process_task / trigger_task) already re-synced the DB.
+    task_file_path, _ = resolve_actual_task_path(task_file, REPO_ROOT)
+    task_path = task_file_path
     task_content = task_path.read_text(encoding="utf-8")
 
     # Stack detection (LE-1) — detect once at the start so planning, QA, and

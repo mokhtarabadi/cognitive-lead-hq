@@ -67,6 +67,7 @@ Choose at least one provider:
 
 | Provider | How to Get | Environment Variable |
 |---|---|---|
+| OpenRouter | [openrouter.ai](https://openrouter.ai/) | `OPENROUTER_API_KEY` |
 | Google Gemini | [AI Studio](https://aistudio.google.com/) | `GEMINI_API_KEY` |
 | Kimi | [Kimi Code](https://www.kimi.com/code) | `KIMI_API_KEY` |
 | OpenAI | [Platform](https://platform.openai.com/) | `OPENAI_API_KEY` |
@@ -142,6 +143,29 @@ Expected output:
 # Trigger a specific staged task directly
 python daemon.py --run <task_id>
 ```
+
+## Debug Telemetry
+
+For diagnosing routing, execution, and Telegram issues, the Loop Engine can
+write opt-in raw logs under `loop-engine/logs/`:
+
+1. Copy `.env.example` and set:
+
+   ```bash
+   LOOP_ENGINE_DEBUG=1
+   ```
+
+2. Restart the daemon. While enabled it appends:
+
+   | Log file | Contents |
+   |---|---|
+   | `llm_requests.log` | Each LLM call: timestamp, target model, system prompt, user prompt, raw response |
+   | `executor_sessions.log` | Each OpenCode subprocess: timestamp, task file, generated XML prompt, returncode, stdout, stderr |
+   | `telegram_events.log` | Gateway events: sent trigger cards, boot summaries, approval requests, received callbacks |
+
+3. When done, unset `LOOP_ENGINE_DEBUG` (or set it to anything other than `1`)
+   and restart — logging is completely off by default. The `logs/` directory is
+   created automatically on first debug write and is safe to delete.
 
 ## Testing
 

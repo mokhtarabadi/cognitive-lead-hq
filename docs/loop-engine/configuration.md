@@ -613,16 +613,34 @@ tokens.
 | Variable | Required | Description |
 |---|---|---|
 | `TELEGRAM_BOT_TOKEN` | Yes | Telegram bot token from BotFather (name configurable via `approval.bot_token_env`) |
+| `OPENROUTER_API_KEY` | No* | Unified OpenRouter API key |
 | `GEMINI_API_KEY` | No* | Google Gemini API key |
 | `KIMI_API_KEY` | No* | Kimi API key |
 | `OPENAI_API_KEY` | No* | OpenAI API key |
 | `ANTHROPIC_API_KEY` | No* | Anthropic API key |
+| `LOOP_ENGINE_DEBUG` | No | Set to `1` to enable opt-in debug telemetry under `loop-engine/logs/` (see below) |
 
 *At least one LLM provider key is required.
 
 > **Note:** There is no `TELEGRAM_CHAT_ID` environment variable — the Manager
 > chat ID is configured via `approval.chat_id` in this file. The engine reads
 > `os.environ` directly and does not auto-load a `.env` file.
+
+## Debug Telemetry (`LOOP_ENGINE_DEBUG`)
+
+Set `LOOP_ENGINE_DEBUG=1` to enable opt-in raw request/response logging. The
+`loop-engine/logs/` directory is created automatically on first write; every
+log entry is timestamped (UTC ISO-8601). When unset (or not exactly `1`), no
+debug logging happens and no log directory is created.
+
+| Log file | Written from | Fields |
+|---|---|---|
+| `llm_requests.log` | `router.call_llm` | timestamp, target model, system prompt, user prompt, raw LLM response |
+| `executor_sessions.log` | `executor._run_once` | timestamp, task file, generated XML prompt, subprocess returncode, stdout, stderr |
+| `telegram_events.log` | `gateway` | sent trigger cards, boot scan summaries, approval requests (stage/task/content length/delivery method), received callbacks |
+
+The reference variables live in the root `.env.example` (Telegram token,
+`OPENROUTER_API_KEY`, optional provider keys, `LOOP_ENGINE_DEBUG=1`).
 
 ## Provider Extensibility
 

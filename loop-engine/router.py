@@ -11,6 +11,7 @@ Reads system-prompt.md + AGENTS.md + docs/conventions.md on every invocation.
 """
 
 import os
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
@@ -197,13 +198,30 @@ class LLMRouter:
     def route_plan(self, task_content: str, category: str = "unspecified",
                    extra_context: str = "",
                    stack_profile: Optional[Any] = None) -> dict:
-        user = f"Generate implementation blueprint:\n\n{task_content}"
+        user = (
+            f"Generate the DIRECT, complete implementation blueprint for this task.\n"
+            f"RULES:\n"
+            f"- Keep reasoning log brief (< 150 words).\n"
+            f"- Provide concrete, file-level implementation steps with exact code/commands.\n"
+            f"- Do not exceed token limits or output placeholder stubs.\n\n"
+            f"## Task Content:\n{task_content}"
+        )
         if extra_context:
             user += f"\n\nIncorporate this brainstorming session output:\n\n{extra_context}"
         model, reasoning = self._resolve_model(category, stack_profile=stack_profile)
+        system = self._build_system_context("architect")
+        system += (
+            "\n\n<deliverable>\n"
+            "PLANNING output MUST be the direct implementation blueprint: "
+            "concrete file-level steps, exact symbols, and verification "
+            "commands. Never respond with meta-requests for discovery or "
+            "clarification questions to the caller — produce the blueprint "
+            "itself.\n"
+            "</deliverable>"
+        )
         return {
             "model": model, "reasoning": reasoning,
-            "system": self._build_system_context("architect"),
+            "system": system,
             "user": user,
             "temperature": 0.3,
         }
@@ -247,13 +265,43 @@ class LLMRouter:
                     {"role": "user", "content": routing["user"]},
                 ],
                 "temperature": routing.get("temperature", 0.3),
-                "max_tokens": 4096,
+                "max_tokens": 8192,
             }
             reasoning = routing.get("reasoning")
             if reasoning:
                 kwargs["reasoning_effort"] = reasoning
             response = litellm.completion(**kwargs)
-            return response.choices[0].message.content
+            msg = response.choices[0].message
+            # Extract content or fallback to reasoning_content for thinking models
+            content = getattr(msg, "content", None) or ""
+            if not content:
+                reasoning = getattr(msg, "reasoning_content", None) or getattr(msg, "reasoning", None)
+                if reasoning:
+                    content = str(reasoning)
+                else:
+                    content = str(msg)
+            content = content.strip()
+
+            # Debug telemetry (HOTFIX-03): raw request/response logging.
+            # Opt-in ONLY via LOOP_ENGINE_DEBUG=1 — zero impact in normal runs.
+            if os.environ.get("LOOP_ENGINE_DEBUG") == "1":
+                try:
+                    log_dir = Path(__file__).resolve().parent / "logs"
+                    log_dir.mkdir(parents=True, exist_ok=True)
+                    entry = (
+                        f"\n===== [{datetime.now(timezone.utc).isoformat(timespec='seconds')}Z] "
+                        f"model={routing.get('model')} =====\n"
+                        f"--- SYSTEM ---\n{routing.get('system')}\n"
+                        f"--- USER ---\n{routing.get('user')}\n"
+                        f"--- RESPONSE ---\n{content}\n"
+                        f"===== END =====\n"
+                    )
+                    with open(log_dir / "llm_requests.log", "a", encoding="utf-8") as f:
+                        f.write(entry)
+                except Exception as log_e:
+                    print(f"[router] debug telemetry log error: {log_e}")
+
+            return content
         except ImportError as e:
             raise RuntimeError(
                 f"litellm not installed. Run: pip install litellm ({e})") from e
