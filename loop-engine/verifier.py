@@ -12,6 +12,16 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from sentinel import TypeDriftSentinel
+from blast_radius import (
+    calculate_affected_paths,
+    extract_modified_paths,
+    find_owning_package,
+)
+
+try:
+    from models import BlastRadiusConfig
+except Exception:
+    BlastRadiusConfig = None  # type: ignore
 
 
 @dataclass
@@ -46,9 +56,39 @@ class ToolchainRunner:
         self,
         timeout_per_command: float = 120.0,
         evidence_base_dir: str | Path = "loop-engine/evidence",
+        workspace_root: str | Path | None = None,
+        skip_unaffected: bool = True,
+        blast_radius_config: "BlastRadiusConfig | None" = None,
     ):
         self.timeout_per_command = timeout_per_command
         self.evidence_base_dir = Path(evidence_base_dir)
+        # Blast-radius scoping (LE-9 / Task 141): workspace_root defaults to
+        # the repo root (parent of loop-engine/). skip_unaffected is the
+        # legacy rollback flag — set False to always run full toolchain verification.
+        # blast_radius_config is the spec-compliant config (enabled, workspace_globs, conservative_root_fallback).
+        self.workspace_root = (
+            Path(workspace_root)
+            if workspace_root is not None
+            else Path(__file__).resolve().parent.parent
+        )
+        self.skip_unaffected = skip_unaffected
+        if blast_radius_config is not None:
+            self.blast_radius_config = blast_radius_config
+        elif BlastRadiusConfig is not None:
+            # Default config when not provided — enabled with standard globs
+            try:
+                self.blast_radius_config = BlastRadiusConfig()
+            except Exception:
+                self.blast_radius_config = None
+        else:
+            self.blast_radius_config = None
+        # Sync legacy flag with spec config for backward compat
+        if self.blast_radius_config is not None and not self.skip_unaffected:
+            # Legacy flag disables spec config as well (rollback)
+            try:
+                self.blast_radius_config.enabled = False
+            except Exception:
+                pass
 
     async def run(
         self,
@@ -86,6 +126,52 @@ class ToolchainRunner:
                 # Sentinel infra error must not block the toolchain (mirrors the
                 # daemon's toolchain-infra-error tolerance). Log to the result.
                 print(f"[verifier] Type Drift Sentinel error (proceeding): {e}")
+
+        # --- Blast-Radius Global Scoping (LE-9 / Task 141 — Spec) ---
+        # Spec path: if monorepo and 0 packages affected, skip entire toolchain.
+        if diff_text and str(diff_text).strip():
+            try:
+                cfg = getattr(self, "blast_radius_config", None)
+                if cfg is not None and getattr(cfg, "enabled", False):
+                    modified_paths = extract_modified_paths(str(diff_text))
+                    # cwd or REPO_ROOT per spec; use workspace_root as repo root fallback
+                    effective_root = Path(cwd) if cwd is not None else self.workspace_root
+                    # If cwd is a file path inside workspace, use its parent? Use workspace_root for matrix
+                    # Spec says: calculate_affected_paths(modified_paths, cwd or REPO_ROOT, config)
+                    matrix = calculate_affected_paths(modified_paths, self.workspace_root, cfg)
+                    if getattr(matrix, "is_monorepo", False) and getattr(matrix, "is_empty", False):
+                        note = "Blast-Radius: 0 packages affected"
+                        skipped_commands: list[CommandResult] = [
+                            CommandResult(command="none", cmd_type=t, passed=True, skipped=True)
+                            for t in ("lint", "build", "test")
+                        ]
+                        # Append note to report_md via _finalize
+                        return ToolchainResult(
+                            passed=True,
+                            commands=skipped_commands,
+                            summary="Toolchain PASSED (Blast-Radius: 0 packages affected)",
+                            report_md=f"# Toolchain Verification Report\n\nToolchain PASSED (Blast-Radius: 0 packages affected)\n\n**Blast-radius scoping:** {note}\n",
+                        )
+            except Exception as e:
+                print(f"[verifier] Blast-radius global scoping error (proceeding): {e}")
+
+        # --- Blast-Radius Workspace Scoping (LE-9 / Task 141 — Legacy per-workspace) ---
+        # When the task diff touches only a subset of monorepo workspaces, a
+        # completely unaffected workspace skips its lint/build/test (all
+        # commands reported SKIPPED, result passes). The analyzer is
+        # deliberately conservative: it only skips when it can PROVE the
+        # verified workspace is unaffected, so affected modules are never
+        # silently missed (Task 141 Risk & Rollback).
+        if self.skip_unaffected and diff_text and str(diff_text).strip():
+            blast_note = self._blast_radius_note(diff_text, cwd)
+            if blast_note:
+                skipped_commands: list[CommandResult] = [
+                    CommandResult(command="none", cmd_type=t, passed=True, skipped=True)
+                    for t in ("lint", "build", "test")
+                ]
+                return self._finalize(
+                    skipped_commands, task_id, blast_radius_note=blast_note
+                )
 
         # Defensive: profile may lack toolchain attr in mocks
         toolchain = getattr(profile, "toolchain", None)
@@ -207,7 +293,10 @@ class ToolchainRunner:
         return self._finalize(results, task_id)
 
     def _finalize(
-        self, commands: list[CommandResult], task_id: int | None
+        self,
+        commands: list[CommandResult],
+        task_id: int | None,
+        blast_radius_note: str = "",
     ) -> ToolchainResult:
         passed = all(c.passed for c in commands)
         # Summary: single line
@@ -220,9 +309,11 @@ class ToolchainRunner:
             else:
                 summary_parts.append(f"{c.cmd_type}: FAILED")
         summary = "Toolchain " + ("PASSED" if passed else "FAILED") + " | " + ", ".join(summary_parts)
+        if blast_radius_note:
+            summary += f" | {blast_radius_note}"
 
         # Markdown report with summary table and error logs
-        report_md = self._build_report_md(commands, passed, summary)
+        report_md = self._build_report_md(commands, passed, summary, blast_radius_note)
 
         result = ToolchainResult(
             passed=passed, commands=commands, summary=summary, report_md=report_md
@@ -246,13 +337,20 @@ class ToolchainRunner:
         return result
 
     def _build_report_md(
-        self, commands: list[CommandResult], passed: bool, summary: str
+        self,
+        commands: list[CommandResult],
+        passed: bool,
+        summary: str,
+        blast_radius_note: str = "",
     ) -> str:
         lines: list[str] = []
         lines.append("# Toolchain Verification Report")
         lines.append("")
         lines.append(summary)
         lines.append("")
+        if blast_radius_note:
+            lines.append(f"**Blast-radius scoping:** {blast_radius_note}")
+            lines.append("")
         lines.append(f"**Overall:** {'PASSED' if passed else 'FAILED'}")
         lines.append("")
         lines.append("| Type | Command | Result | Duration | Return Code |")
@@ -295,6 +393,61 @@ class ToolchainRunner:
                 lines.append("All toolchain commands passed.")
                 lines.append("")
         return "\n".join(lines)
+
+    def is_workspace_affected(
+        self, diff_text: str, cwd: str | Path | None = None
+    ) -> bool:
+        """True when verification must run for the workspace at ``cwd``.
+
+        Returns False only when blast-radius analysis PROVES the workspace
+        (a discovered monorepo package, or the root package) is completely
+        unaffected by the diff. Conservative bias: any uncertainty — no cwd,
+        a non-monorepo layout, root-owned files, or a cwd outside the
+        package graph — returns True so the toolchain always runs.
+        """
+        return self._blast_radius_note(diff_text, cwd) == ""
+
+    def _blast_radius_note(self, diff_text: str, cwd: str | Path | None) -> str:
+        """Return a skip note when ``cwd`` is provably unaffected, else "".
+
+        The empty string means "run verification". A non-empty note is a
+        human-readable explanation appended to the summary/report so skipped
+        workspaces are observable in QA evidence.
+        """
+        if not cwd:
+            return ""
+        try:
+            cwd_path = Path(cwd).resolve()
+        except OSError:
+            return ""
+        try:
+            root = Path(self.workspace_root).resolve()
+        except OSError:
+            return ""
+        modified = extract_modified_paths(str(diff_text))
+        if not modified:
+            return ""
+        try:
+            matrix = calculate_affected_paths(modified, root)
+        except OSError:
+            return ""  # analyzer failure must never skip
+        if not matrix.packages:
+            return ""  # not a proven monorepo → conservative full verification
+        if matrix.root_owned_files:
+            return ""  # change outside the package graph → conservative
+        try:
+            cwd_rel = cwd_path.relative_to(root).as_posix()
+        except ValueError:
+            return ""  # cwd outside the workspace root → cannot scope
+        owner = find_owning_package(cwd_rel, matrix.packages)
+        if owner is None:
+            return ""  # cwd not inside any discovered package → conservative
+        if owner.name in matrix.affected_packages:
+            return ""
+        return (
+            f"Blast-radius scoping: workspace `{owner.name}` ({owner.path}) "
+            f"is unaffected by this diff — skipping unrelated toolchain verification"
+        )
 
     def run_sync(
         self,

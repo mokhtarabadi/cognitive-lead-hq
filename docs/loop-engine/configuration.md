@@ -608,6 +608,69 @@ cannot be imported (`ImportError` fallback in `daemon.py`); routine tasks never 
 gate; the gate runs **before** any executor/LLM call, so un-specified tasks never burn
 tokens.
 
+### Monorepo Blast-Radius Analyzer (LE-9 / Task 141)
+
+The Monorepo Blast-Radius Analyzer inspects the task diff against intra-monorepo
+dependency graphs to scope toolchain verification strictly to impacted packages,
+skipping unrelated test suites while guaranteeing transitive coverage for shared
+contract mutations.
+
+**Pipeline position:** ToolchainRunner → Type Drift Sentinel (LE-7) → **Blast-Radius Scoping (LE-9)** → lint → build → test.
+The analyzer is deterministic, side-effect-free, and conservative: it only
+skips when it can **prove** a workspace is unaffected, preventing false-negative
+regressions in dependent consumer apps (see Risk & Rollback of Task 141).
+
+**Configuration (`LoopEngineConfig.blast_radius`):**
+
+```jsonc
+{
+  "blast_radius": {
+    "enabled": true,                       // Enable blast-radius scoping
+    "workspace_globs": [                   // Glob patterns for workspace discovery
+      "packages/*", "apps/*", "services/*", "modules/*", "libs/*"
+    ],
+    "conservative_root_fallback": true     // Mark all packages affected if root files change
+  }
+}
+```
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `enabled` | `bool` | `true` | Enable blast-radius verification scoping |
+| `workspace_globs` | `list[str]` | `["packages/*", "apps/*", "services/*", "modules/*", "libs/*"]` | Glob patterns for workspace discovery |
+| `conservative_root_fallback` | `bool` | `true` | Mark all packages affected if root files change (outside all packages) |
+
+**Schemas (`loop-engine/models.py`):**
+
+- `PackageDependency(BaseModel)`: `name`, `path`, `dependencies` (legacy aliases: `package`, `depends_on`)
+- `BlastRadiusMatrix(BaseModel)`: `modified_files`, `affected_packages` (topologically ordered), `affected_paths`, `unaffected_packages`, `is_monorepo`, `is_empty` (plus `packages`, `dependency_map`, `root_owned_files` for transparency)
+- `BlastRadiusConfig(BaseModel)`: `enabled`, `workspace_globs`, `conservative_root_fallback`
+- `LoopEngineConfig.blast_radius: BlastRadiusConfig`
+
+**API (`loop-engine/blast_radius.py`):**
+
+- `discover_packages(workspace_root, globs=None) -> dict[str, PackageDependency] | list[PackageInfo]` — scans for manifests (`package.json` with `dependencies`/`devDependencies`/`peerDependencies`, `pyproject.toml` with workspace deps, `go.mod` with `replace`, `build.gradle.kts`/`build.gradle` boundaries) while pruning noise dirs (`.git`, `node_modules`, `.venv`, etc.) and resolving root `workspaces` globs.
+- `build_dependency_graph(packages) -> dict[str, set[str]]` — inverts `PackageDependency.dependencies` to a reverse map `package -> set of consumers` for transitive traversal.
+- `calculate_affected_paths(modified_files, workspace_root, config=None) -> BlastRadiusMatrix` — maps each modified file to its owning package via longest prefix, applies conservative root fallback (all affected if any root file and `conservative_root_fallback` true), otherwise BFS over reverse graph to compute transitive closure; sets `is_monorepo = len(packages) >= 2`, `is_empty = len(affected) == 0`.
+
+**ToolchainRunner integration (`loop-engine/verifier.py`):**
+
+- `ToolchainRunner.__init__(..., blast_radius_config: BlastRadiusConfig | None = None)` — stores `blast_radius_config` (defaults to `BlastRadiusConfig()`) and legacy `skip_unaffected` rollback flag (False disables spec config).
+- `ToolchainRunner.run(..., diff_text="")` — if `diff_text` non-empty and `blast_radius_config.enabled` true: `matrix = calculate_affected_paths(modified_paths, workspace_root, config)`; if `matrix.is_monorepo and matrix.is_empty`: skip remaining toolchain subprocesses and return `ToolchainResult(passed=True, summary="Toolchain PASSED (Blast-Radius: 0 packages affected)")`. Legacy per-workspace scoping (`skip_unaffected` + `_blast_radius_note`) remains for `is_workspace_affected` checks (completely unaffected workspace skips lint/build/test with `Blast-radius scoping` note).
+
+**Matrix fields:**
+
+| Field | Description |
+|---|---|
+| `modified_files` | Normalized modified file paths analyzed |
+| `affected_packages` | Topologically ordered affected package names (direct + transitive) |
+| `affected_paths` | Relative paths of affected packages |
+| `unaffected_packages` | Packages unaffected by changes |
+| `is_monorepo` | True if workspace contains multiple packages |
+| `is_empty` | True if monorepo changes affect zero packages (triggers global skip) |
+
+**Guardrails:** Analyzer is conservative — root-owned files, non-monorepo layouts, or missing `cwd` never skip (full verification). `is_empty` global skip only when `is_monorepo` true. Disable via `blast_radius.enabled=false` or legacy `skip_unaffected=False` rollback.
+
 ## Environment Variables
 
 | Variable | Required | Description |

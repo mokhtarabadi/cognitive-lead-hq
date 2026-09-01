@@ -5,9 +5,11 @@ Validates all configuration and runtime data structures.
 Inspired by OMO's Zod schema system (36 schema files) but using Pydantic for Python.
 """
 
+from __future__ import annotations
+
 from enum import Enum
 from typing import Literal, Optional
-from pydantic import BaseModel, Field
+from pydantic import AliasChoices, BaseModel, Field
 
 
 # --- Enums ---
@@ -307,3 +309,94 @@ class LoopEngineConfig(BaseModel):
         default_factory=SpecGateConfig,
         description="Spec-first artifact governance: fail-fast gate requiring spec artifacts before implementation",
     )
+
+    # Blast-Radius Analyzer (LE-9)
+    blast_radius: "BlastRadiusConfig" = Field(
+        default_factory=lambda: BlastRadiusConfig(),
+        description="Monorepo blast-radius verification scoping",
+    )
+
+
+# --- Blast-Radius Analyzer (LE-9 / Task 141) ---
+
+
+class PackageInfo(BaseModel):
+    """A discovered monorepo package/workspace.
+
+    ``path`` is the package directory relative to the workspace root (posix,
+    ``"."`` for the root package itself when the root carries a manifest).
+    """
+
+    name: str = Field(..., description="Package name from its manifest, or the relative path when unnamed")
+    path: str = Field(..., description="Package directory relative to workspace root (posix), '.' for the root package")
+    manifest: str = Field(..., description="Manifest filename that defined the package, e.g. 'package.json'")
+
+
+class PackageDependency(BaseModel):
+    """One discovered package plus the local packages it depends on (LE-9).
+
+    Supports both spec naming (name/dependencies) and legacy naming (package/depends_on)
+    via aliases for backward compatibility with existing tests.
+    """
+
+    model_config = {"populate_by_name": True}
+
+    name: str = Field(
+        ..., description="Package name from manifest", validation_alias=AliasChoices("name", "package")
+    )
+    path: str = Field(..., description="Relative directory path to package root")
+    dependencies: list[str] = Field(
+        default_factory=list,
+        description="List of internal package dependencies",
+        validation_alias=AliasChoices("dependencies", "depends_on"),
+    )
+
+    # Legacy aliases for backward compat — populated via validation_alias above
+    # Provide properties so both access patterns work
+    @property
+    def package(self) -> str:
+        return self.name
+
+    @property
+    def depends_on(self) -> list[str]:
+        return self.dependencies
+
+    @package.setter
+    def package(self, value: str) -> None:
+        self.name = value
+
+    @depends_on.setter
+    def depends_on(self, value: list[str]) -> None:
+        self.dependencies = value
+
+
+class BlastRadiusMatrix(BaseModel):
+    """Result of ``calculate_affected_paths`` — the affected dependency matrix.
+
+    ``affected_packages``/``affected_paths`` include the directly modified
+    packages PLUS every package that transitively depends on them (reverse
+    dependency closure). ``unaffected_packages`` are the discovered packages
+    with no path to any modified file. ``root_owned_files`` are modified files
+    that belong to no discovered package (repo-root configs, docs, etc.).
+    """
+
+    modified_files: list[str] = Field(default_factory=list, description="Normalized modified file paths analyzed")
+    packages: list[PackageInfo] = Field(default_factory=list, description="All discovered monorepo packages")
+    dependency_map: list[PackageDependency] = Field(default_factory=list, description="Local dependency edges per package")
+    affected_packages: list[str] = Field(default_factory=list, description="Topologically ordered affected package names")
+    affected_paths: list[str] = Field(default_factory=list, description="Relative paths of affected packages")
+    unaffected_packages: list[str] = Field(default_factory=list, description="Packages unaffected by changes")
+    root_owned_files: list[str] = Field(default_factory=list, description="Modified files not owned by any package")
+    is_monorepo: bool = Field(False, description="True if workspace contains multiple packages")
+    is_empty: bool = Field(False, description="True if monorepo changes affect zero packages")
+
+
+class BlastRadiusConfig(BaseModel):
+    """Blast-radius verification scoping configuration (LE-9)."""
+
+    enabled: bool = Field(True, description="Enable blast-radius verification scoping")
+    workspace_globs: list[str] = Field(
+        default_factory=lambda: ["packages/*", "apps/*", "services/*", "modules/*", "libs/*"],
+        description="Glob patterns for workspace discovery",
+    )
+    conservative_root_fallback: bool = Field(True, description="Mark all packages affected if root files change")
