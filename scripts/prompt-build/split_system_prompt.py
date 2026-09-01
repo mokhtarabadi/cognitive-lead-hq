@@ -40,10 +40,10 @@ Why a stack-free explicit-tag-list approach is used for parsing:
     (<workflow>, <personas>, <output_schema>, <brainstorming_session>, etc.)
     and the <personas> tag name recurs at column 0 both as a top-level tag and
     nested inside brainstorming_protocol. Instead this script uses the
-    EXPLICITLY ordered list of 19 expected top-level tag names and, for each,
+    EXPLICITLY ordered list of 20 expected top-level tag names and, for each,
     finds the first column-0 opening line <tag> and the first closing line
     </tag> (at any indentation, since some nested closers are indented) after
-    the previous block. This     deterministically isolates the 19 top-level blocks
+    the previous block. This     deterministically isolates the 20 top-level blocks
     without a full XML parser, and verifies their order matches the contract.
 """
 
@@ -58,9 +58,9 @@ from typing import List, Tuple
 # Configuration
 # ---------------------------------------------------------------------------
 
-# The 19 top-level XML tags in system-prompt.md (V9.0.0), in document order.
+# The 20 top-level XML tags in system-prompt.md (V9.3.0), in document order.
 # This explicit ordered list is the authoritative contract for the split: the
-# script verifies that these (and only these) 19 tags appear at the top level,
+# script verifies that these (and only these) 20 tags appear at the top level,
 # in this exact order. Nested tags (e.g. <phase>/<workflow>/<personas> inside
 # <brainstorming_protocol>) are part of their parent block's content and are
 # NOT split out separately.
@@ -82,6 +82,7 @@ TOP_LEVEL_TAGS: List[str] = [
     "universal_datetime_rules",
     "immutable_financial_ledger_mandate",
     "decision_logging_mandate",
+    "no_manual_dto_mandate",
     "initialization",
     "communication_examples",
 ]
@@ -115,7 +116,7 @@ def _halt(msg: str) -> None:
 def _find_block_ranges(lines: List[str]) -> List[Tuple[str, int, int]]:
     """Locate the (tag_name, start_index, end_index) for each top-level tag.
 
-    Uses the explicit TOP_LEVEL_TAGS list in document order (V9.0.0: 19 tags). For each tag it
+    Uses the explicit TOP_LEVEL_TAGS list in document order (V9.3.0: 20 tags). For each tag it
     finds the first column-0 opening line `<tag>` after the previous tag's
     closing line, then the first closing line `</tag>` (at any indentation)
     after that opening. This correctly handles tags whose closing lines are
@@ -274,7 +275,7 @@ def split_system_prompt(
 ) -> List[str]:
     """Split system-prompt.md into per-tag fragment files.
 
-    Reads the monolithic system-prompt.md, extracts the 19 top-level XML tags (V9.0.0) in
+    Reads the monolithic system-prompt.md, extracts the 20 top-level XML tags (V9.3.0) in
     document order as verbatim fragment files, extracts the duplicated
     <validation_phase> block into a shared partial with include markers, and
     writes a manifest listing the fragment filenames in assembly order.
@@ -293,11 +294,11 @@ def split_system_prompt(
     content = src.read_text(encoding="utf-8")
     lines = content.split("\n")
 
-    # --- 1. Locate the 19 top-level block ranges ---
+    # --- 1. Locate the 20 top-level block ranges ---
     ranges = _find_block_ranges(lines)
     if len(ranges) != len(TOP_LEVEL_TAGS):
         _halt(
-            f"Expected {len(TOP_LEVEL_TAGS)} top-level blocks, found {len(ranges)}."  # V9.0.0: 19 tags
+            f"Expected {len(TOP_LEVEL_TAGS)} top-level blocks, found {len(ranges)}."  # V9.3.0: 20 tags
         )
 
     # --- 2. Extract block text for each tag ---
