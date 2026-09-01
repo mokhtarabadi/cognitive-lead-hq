@@ -188,6 +188,38 @@ The suite is hermetic: every test builds its own workspace under `tmp_path`, pat
 portable no-ops — so it passes on any CI machine without installed toolchains and never
 touches the real repository.
 
+## Verification & Smoke Gate (Phase B Certified — Contract-First Monorepo Governance)
+
+Phase B (Contract-First Monorepo Governance & Shared Schema Propagation) is certified
+by the end-to-end smoke suite in `loop-engine/test_contract_smoke.py` — the
+**canonical Phase B verification gate** for contract governance. It extends the Phase A
+hermetic pattern with a contract-centric monorepo (`packages/shared-schema`,
+`services/api`, `apps/web`, `docs/adr`) and proves:
+
+- **Contract mutation dispatch (2):** `packages/shared-schema/types.ts` mutation dispatches downstream tasks in `tasks/backlog/` with `**Triggered-By:** Task <id>` and sequential IDs registered as `BACKLOG` in SQLite; generated downstream task touching `apps/web/src/app.tsx` (non-schema) produces 0 cascades (no duplicate loop).
+- **TypeDriftSentinel fail-fast (1):** manual `export interface UserDTO` in `apps/web/src/user.ts` fails `ToolchainRunner` gate before `qa.run_qa()`, triggers `_reimplement_task` retry.
+- **Spec-First gating (2):** architecture keywords without ADR crash at Step 2.5 before `IMPLEMENTING`; verified ADR in `docs/adr/` passes and proceeds.
+- **Blast-Radius scoping (1):** `apps/web` mutation runs verification for `apps/web` while unaffected `services/api` is skipped (per-workspace `Blast-radius scoping` note).
+- **Full unified lifecycle (1):** Spec Gate → Clean Code → Sentinel Pass → Blast-Radius Scope → QA → Closure → Contract Propagation in one daemon run.
+- **Non-contract no-propagation (1):** closing a task touching only application logic produces 0 downstream tasks.
+- **Additional gates (6):** rule matching (`shared-schema`/`openapi`/`prisma`/`proto`), sentinel allowed patterns (`packages/shared-schema` DTOs pass), spec multiple-rule handling, blast root fallback (all affected), sequential ID generation, and SQLite `BACKLOG` registration.
+
+Run the Phase B gate:
+
+```bash
+uv run --project loop-engine --with pytest pytest loop-engine/test_contract_smoke.py -v
+```
+
+Full-suite certification bar (baseline 271 → ≥ 285 passing, 0 failures):
+
+```bash
+uv run --project loop-engine --with pytest pytest loop-engine/ -q
+```
+
+Both smoke suites are hermetic: each test builds its own workspace under `tmp_path`, patches
+`daemon.REPO_ROOT`, and uses scripted I/O seams (`call_llm`, `_run_once`, `request_approval`) —
+so they pass on any CI machine without installed toolchains and never touch the real repository.
+
 ## Setup
 
 See [Setup Guide](setup.md) for installation instructions.

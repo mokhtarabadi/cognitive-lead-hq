@@ -671,6 +671,23 @@ regressions in dependent consumer apps (see Risk & Rollback of Task 141).
 
 **Guardrails:** Analyzer is conservative — root-owned files, non-monorepo layouts, or missing `cwd` never skip (full verification). `is_empty` global skip only when `is_monorepo` true. Disable via `blast_radius.enabled=false` or legacy `skip_unaffected=False` rollback.
 
+### Phase B Certification — Contract-First Monorepo Governance (Task 142)
+
+Phase B is certified by `loop-engine/test_contract_smoke.py` (14 tests, 285 passing baseline) — the **canonical Phase B verification gate**. It proves the full contract governance lifecycle in hermetic daemon runs:
+
+- **Contract mutation → dispatch:** `packages/shared-schema/types.ts` → `ContractPropagationEngine` writes `tasks/backlog/{id}-{slug}.md` with `**Triggered-By:**` and registers `BACKLOG` in `StateMachine`
+- **No cascade loop:** downstream task touching `apps/web` (non-schema) → 0 new dispatches
+- **Sentinel fail-fast:** `export interface UserDTO` in `apps/web` → `ToolchainRunner` `type-drift-sentinel` fails before `qa.run_qa()`
+- **Spec gate:** architecture keywords without ADR → `CRASHED` at Step 2.5; with `docs/adr/0001-init.md` → passes
+- **Blast-radius:** `apps/web` mutation skips `services/api` workspace (`Blast-radius scoping` note) while `apps/web` runs
+- **Unified lifecycle:** Spec → Sentinel Pass → Blast Scope → QA → Closure → Propagation in one `daemon.process_task` run
+
+Run the Phase B gate:
+
+```bash
+uv run --project loop-engine --with pytest pytest loop-engine/test_contract_smoke.py -v
+```
+
 ## Environment Variables
 
 | Variable | Required | Description |
