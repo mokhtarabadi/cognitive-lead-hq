@@ -110,7 +110,7 @@ index ede5327..e85d0be 100644
 -# Cognitive Loop Engine — Required API Keys
 -# Copy this to .env and fill in your keys
 +# Telegram Approval Bot (from @BotFather)
-+TELEGRAM_BOT_TOKEN=8757616768:AAEEVst2V5clIoG33dzIWWqCzYX4RpzkAAA
++TELEGRAM_BOT_TOKEN=your_bot_token_here
  
 -# Telegram Bot (for approval gateway)
 -TELEGRAM_BOT_TOKEN=

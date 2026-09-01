@@ -1,70 +1,71 @@
 {
-  // Cognitive Loop Engine Configuration
-  // API keys are loaded from environment variables (never stored here)
+  // مدل پیش‌فرض: DeepSeek V4 Flash (سریع، ارزان و قدرتمند)
+  "default_provider": "openrouter/deepseek/deepseek-v4-flash-0731",
 
-  "default_provider": "gemini/gemini-2.5-flash",
-
+  // روتینگ مدل‌های نسل جدید ۲۰۲۶ از درگاه OpenRouter
   "categories": {
     "quick": {
-      "models": ["kimi/kimi-k3"],
-      "description": "Single-file changes, typos, quick fixes"
+      "models": [
+        "openrouter/deepseek/deepseek-v4-flash-0731",
+        "openrouter/qwen/qwen3.7-flash",
+        "openrouter/z-ai/glm-5.3-flash"
+      ],
+      "description": "Ultra-cheap, fast single-file edits, typos, and formatting"
     },
     "deep": {
-      "models": ["openai/gpt-5.6-sol", "gemini/gemini-2.5-pro"],
+      "models": [
+        "openrouter/google/gemini-3.7-flash",
+        "openrouter/z-ai/glm-5.3-flash",
+        "openrouter/deepseek/deepseek-v4-flash-0731"
+      ],
       "reasoning": "medium",
-      "description": "Autonomous research + execution"
+      "description": "High-reasoning architecture, planning, and QA review"
     },
     "visual": {
-      "models": ["anthropic/claude-opus-5", "kimi/kimi-k3"],
-      "reasoning": "max",
-      "description": "Frontend, UI/UX, design"
+      "models": [
+        "openrouter/google/gemini-3.7-flash",
+        "openrouter/qwen/qwen3.7-flash"
+      ],
+      "description": "Frontend, UI/UX, and multimodal validation"
     },
     "unspecified": {
-      "models": ["gemini/gemini-2.5-flash", "kimi/kimi-k3"],
-      "description": "Default fallback"
+      "models": [
+        "openrouter/deepseek/deepseek-v4-flash-0731",
+        "openrouter/google/gemini-3.7-flash"
+      ],
+      "description": "Default fallback tier"
     }
   },
 
+  // محدودیت هم‌زمانی درخواست‌ها
   "provider_concurrency": {
-    "anthropic": 3,
-    "openai": 3,
-    "opencode": 10,
-    "kimi": 5
+    "openrouter": 10,
+    "google": 5,
+    "deepseek": 5,
+    "qwen": 5,
+    "z-ai": 5,
+    "opencode": 10
   },
 
-  "max_parallel_tasks": 1,
-
-  "idle": {
-    "thinking_timeout_seconds": 60,
-    "executing_timeout_seconds": 900,
-    "max_retries": 5,
-    "no_progress_threshold": 50,
-    "no_progress_turns_before_pause": 2,
-    "min_delay_seconds": 2.0
-  },
-
+  // تنظیمات ربات تلگرام و Chat ID شما
   "approval": {
     "bot_token_env": "TELEGRAM_BOT_TOKEN",
-    "chat_id": 0,
+    "chat_id": 1247026399,
     "timeout_seconds": 3600
   },
 
+  "max_parallel_tasks": 1,
   "max_qa_retries": 3,
   "evidence_dir": "loop-engine/evidence",
 
-  // --- Task Entry Trigger Gate ---
-  // Controls how tasks enter the execution loop.
-  // "telegram_button" = admin taps [🚀 Start Execution] in Telegram (default)
-  // "command_only"    = admin runs /run <task_id> in Telegram
-  // "auto"            = legacy: auto-pickup on file detection (no admin gate)
+  // حالت شروع با تایید در تلگرام
   "trigger_mode": "telegram_button",
-
-  // If true, existing backlog tasks run immediately on daemon boot.
-  // If false (default), they are registered as PENDING_TRIGGER and await admin action.
   "auto_start_on_boot": false,
 
   "system_prompt_path": "system-prompt.md",
   "tasks_dir": "tasks",
   "agmd_path": "AGENTS.md",
-  "conventions_path": "docs/conventions.md"
+  "conventions_path": "docs/conventions.md",
+  "stacks_dir": "stacks",
+  "default_stack": "generic"
 }

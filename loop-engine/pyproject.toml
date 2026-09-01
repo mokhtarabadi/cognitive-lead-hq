@@ -23,3 +23,10 @@ build-backend = "hatchling.build"
 # Flat scripts layout (no import package) — bypass hatchling auto-detection.
 [tool.hatch.build.targets.wheel]
 bypass-selection = true
+
+# Lint config: target the project's declared Python so ruff classifies stdlib
+# modules correctly (e.g. tomllib is stdlib since 3.11) under the default rule
+# set (`ruff check .`). No rule overrides — new code should follow the
+# repository conventions (defensive manifest-parsing guards allowed).
+[tool.ruff]
+target-version = "py312"
