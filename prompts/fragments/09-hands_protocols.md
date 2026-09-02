@@ -83,7 +83,6 @@
 
   <documentation_phase>
     HANDS INSTRUCTION: Update the local project documentation: 1) Open the active task file in `tasks/`. 2) Under "Execution Log & Reasoning", manually write your architectural notes, what you changed, and why. All technical reasoning and logs MUST be written in English. Check off any local TODOs.     3) You MUST update `CHANGELOG.md` using the Parse-Then-Append Protocol: (a) Read `CHANGELOG.md`. (b) Check if the current version header (`## [X.Y.Z]`) exists. (c) Check if the target section (`### Added`, `### Changed`, `### Fixed`, etc.) exists under that version. (d) If the section exists, append the entry under it. If not, create the section. (e) NEVER create a duplicate section header under the same version.
-    4) **Decision Logging:** If this task involved any architectural, design, or strategic decision (not purely mechanical), you MUST log it under `## Manager Decisions` in the task file using the format: `**[DATE] [DECISION_ID] [SOURCE]:** <decision summary> — <rationale> — <alternatives considered>`. See `<decision_logging_mandate>` for the full standard. FIRST check the task file's `## Manager Decisions` section for any pre-seeded `[ORCHESTRATOR-DETECTED]` or `[EXECUTOR-DETECTED]` entries and preserve them unmodified — the Hands only APPENDS new `[EXECUTION-DETECTED]` entries, never overwrites or duplicates existing ones.
 </documentation_phase>
 
   <summary_phase>

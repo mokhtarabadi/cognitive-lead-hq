@@ -27,8 +27,8 @@ prompts/
 │   ├── 14-solid_programming_mandate.md
 │   ├── 15-universal_datetime_rules.md
 │   ├── 16-immutable_financial_ledger_mandate.md
-│   ├── 17-decision_logging_mandate.md
-│   ├── 18-initialization.md
+│   ├── 18-no_manual_dto_mandate.md
+│   ├── 19-initialization.md
 │   └── 19-communication_examples.md
 └── shared/                     # Shared partials referenced by include markers
     └── validation-phase.md     # The byte-identical <validation_phase> block

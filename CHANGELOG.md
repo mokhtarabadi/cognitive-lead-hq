@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [9.4.0] - 2026-09-02
+
+### Removed
+
+- **Decision Logging Pipeline:** Removed decision logging mandate, prompt fragment 17, and task template sections across the workspace to eliminate AI rationalization and hallucinated Manager intent (Task 151).
+
 ### Added
 
 - **Phase B Contract Governance Smoke Test Suite & Hard Gate (Task 142)** — Added Phase B Contract Governance Smoke Test Suite & Hard Gate (`loop-engine/test_contract_smoke.py`) certifying contract mutation dispatching, cascade loop prevention, TypeDriftSentinel fail-fast blocking, Spec-First gate enforcement, and Blast-Radius scoping in full daemon lifecycles. `setup_contract_workspace(tmp_path)` builds hermetic monorepo (`packages/shared-schema` + `services/api` + `apps/web` + `docs/adr` + `stacks/` + `tasks/` + `loop-engine/{evidence,state}`) with `LoopEngineConfig` (contract_rules/spec_gate/blast_radius enabled, trigger_mode auto) and real `StateMachine`/`LLMRouter`/`QAEngine`/`HandsExecutor`/`ApprovalGateway`/`LoopEngineDaemon` with `daemon.REPO_ROOT` patched; 14 tests: contract mutation dispatches downstream tasks in `tasks/backlog/` with `**Triggered-By:**` and sequential IDs registered as `BACKLOG` in SQLite, no duplicate cascades (apps/web non-schema → 0), sentinel blocks manual `UserDTO` before QA, spec gate blocks unspecified architecture (no ADR → CRASHED) and allows verified ADR, blast-radius scopes (apps/web → skips services/api), full unified lifecycle (Spec → Sentinel → Blast → QA → Closure → Propagation), non-contract no propagation, plus 6 extra (rule matching, sentinel allowed, spec multiple rules, blast root fallback, sequential IDs, state registration); documented Phase B certification in `docs/loop-engine/README.md` and `docs/loop-engine/configuration.md` (Phase B section with lifecycle and run commands); verified **285 passed, 0 failed** (baseline 271, +14 new, 0 regressions).

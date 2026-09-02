@@ -96,37 +96,6 @@ When writing or reviewing bash scripts, cron jobs, or container orchestration co
 3. **No Post-Redirect Status Checks:** Never use `command > file; if [ $? -eq 0 ]` — the shell creates the file before running the command, masking failures.
 4. **Sidecar Isolation for Hostless Backups:** Never rely on host file staging for Docker volume backups. Always use ephemeral containers (`docker run --rm -v volume:/data:ro alpine tar...`) with read-only mounts.
 
-## Decision Logging Standard (`<manager_decisions>`)
-
-Every non-trivial decision made during task execution MUST be logged in the active task file under `## Manager Decisions`. This creates an auditable trail of architectural, design, and strategic choices.
-
-Decision detection is a three-tier responsibility: the **Orchestrator** pre-seeds Manager decisions from chat conversations (tagged `[ORCHESTRATOR-DETECTED]`), the **Cognitive Executor** detects decisions from direct Manager ↔ Hands/OpenCode conversations (tagged `[EXECUTOR-DETECTED]`), and the **Hands** log execution-time decisions (tagged `[EXECUTION-DETECTED]`). Each entry carries a `[SOURCE]` tag so a weekly/monthly coach review can distinguish stated Manager intent from technical necessity. The single source of truth for the full mandate is `prompts/fragments/17-decision_logging_mandate.md` — this section is a summary only.
-
-### When to Log
-
-- Architectural choices (framework, pattern, data store, API design).
-- Design trade-offs (performance vs. readability, consistency vs. availability).
-- Manager explicit plan approvals involving trade-offs.
-- Constraint-driven implementation approaches.
-- Lite Mode justifications.
-
-### Log Format
-
-```
-**[YYYY-MM-DD] [DECISION_ID]:** <one-line decision summary>
-- **Rationale:** <why this decision was made>
-- **Alternatives considered:** <what else was evaluated>
-- **Impact:** <what this affects or constrains>
-```
-
-- **DECISION_ID** is sequential per-task (D1, D2, D3).
-- Decisions are appended in chronological order. Never reorder or delete.
-
-### Scope
-
-- **Log:** Architectural patterns, technology choices, API contracts, data model decisions, security trade-offs, performance trade-offs, scope changes, Lite Mode justifications.
-- **Do NOT log:** Formatting changes, typo fixes, trivial config tweaks, or self-evident code changes.
-
 ## Lite Mode Protocol
 
 Process is scaled to risk. Not every task requires the full 9-step production line.
