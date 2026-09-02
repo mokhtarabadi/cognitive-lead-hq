@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [9.6.0] - 2026-09-02
+
+### Added
+
+- **Atomic QA Transition Tooling:** Added `custom_context_qa_transition` MCP tool in `mcp-context-server/server.py` and CLI helper `scripts/qa-transition.py` with updated protocols in `09-hands_protocols.md` (Task 154).
+
 ## [9.5.0] - 2026-09-02
 
 ### Added

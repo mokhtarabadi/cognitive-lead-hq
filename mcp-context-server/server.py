@@ -18,6 +18,7 @@
 import importlib
 import os
 import re
+import shutil
 import subprocess
 import sys
 import time
@@ -554,6 +555,152 @@ def stage_and_inject_diff(task_file_path: str, modified_files: list[str] = []) -
 
     except Exception as e:
         return f"❌ Error staging or updating task file: {str(e)}"
+
+@mcp.tool()
+def qa_transition(task_file_path: str, modified_files: list[str] = []) -> str:
+    """
+    Atomically transitions a task from tasks/in-progress/ to tasks/qa/:
+    1. Validates path and ensures task resides in tasks/in-progress/
+    2. Moves task file to tasks/qa/ via git mv (fallback to shutil.move + git add)
+    3. Rewrites the **File:** metadata header to tasks/qa/<filename>
+    4. Stages modified_files + destination task file (explicit staging)
+    5. Extracts staged diff excluding tasks/ (:!tasks/)
+    6. Injects diff block between <!-- BEGIN_GIT_DIFF --> and <!-- END_GIT_DIFF -->
+    7. Validates header consistency and returns confirmation
+    """
+    try:
+        workspace_root = Path.cwd().resolve()
+        src = Path(task_file_path)
+
+        # Path traversal guard: must be within workspace
+        try:
+            src_resolved = src.resolve()
+            src_resolved.relative_to(workspace_root)
+        except ValueError:
+            return f"❌ Error: task path escapes workspace: {task_file_path}"
+        except Exception as e:
+            return f"❌ Error resolving task path: {e}"
+
+        # Validate source is inside tasks/in-progress/
+        try:
+            rel_check = src_resolved.relative_to(workspace_root).as_posix()
+        except ValueError:
+            rel_check = task_file_path
+        # Also handle relative string input that hasn't been resolved via exists check
+        if not rel_check.startswith("tasks/in-progress/"):
+            # Try with original string if resolved path was absolute but file missing
+            if not task_file_path.startswith("tasks/in-progress/"):
+                return f"❌ Error: task path must be inside tasks/in-progress/, got: {task_file_path}"
+
+        if not src_resolved.exists():
+            return f"❌ Error: task file not found: {src_resolved}"
+
+        task_name = src_resolved.name
+        if not task_name.endswith(".md"):
+            return f"❌ Error: task file must be a Markdown file (*.md), got: {task_name}"
+
+        dest = workspace_root / "tasks" / "qa" / task_name
+        expected_header = f"tasks/qa/{task_name}"
+        dest.parent.mkdir(parents=True, exist_ok=True)
+
+        # 2. Move task file to tasks/qa/ via git mv (fallback to shutil.move + git add)
+        try:
+            result = subprocess.run(["git", "mv", str(src_resolved), str(dest)], capture_output=True, text=True)
+            if result.returncode != 0:
+                raise RuntimeError(result.stderr.strip() or result.stdout.strip() or "git mv failed")
+        except Exception as e:
+            # Fallback for untracked files or git mv failure
+            if not src_resolved.exists():
+                # If src was moved via git mv partially, check dest
+                if dest.exists():
+                    pass
+                else:
+                    return f"❌ Error: Source task file not found after git mv failure: {src_resolved} ({e})"
+            try:
+                # If src still exists, move via filesystem
+                if src_resolved.exists():
+                    shutil.move(str(src_resolved), str(dest))
+                # Stage the moved file
+                subprocess.run(["git", "add", "--", str(dest)], check=True, capture_output=True)
+            except Exception as move_err:
+                return f"❌ Error: Fallback move failed: {src_resolved} → {dest}: {move_err}"
+
+        # 3. Rewrites the **File:** metadata header to tasks/qa/<filename>
+        try:
+            content = dest.read_text(encoding="utf-8")
+        except Exception as e:
+            return f"❌ Error reading moved task file {dest}: {e}"
+        header_pattern = re.compile(r"\*\*File:\*\*\s*`[^`]+`")
+        if not header_pattern.search(content):
+            return f"❌ Error: Could not find **File:** header in {dest}"
+        new_content_header = header_pattern.sub(f"**File:** `{expected_header}`", content, count=1)
+        try:
+            dest.write_text(new_content_header, encoding="utf-8")
+        except Exception as e:
+            return f"❌ Error writing header update to {dest}: {e}"
+
+        # 4. Stages modified_files + destination task file (explicit staging)
+        files_to_stage = list(modified_files) + [str(dest)]
+        try:
+            subprocess.run(["git", "add", "--"] + files_to_stage, check=True, capture_output=True)
+        except subprocess.CalledProcessError as e:
+            return f"❌ Error staging files {files_to_stage}: {e.stderr.decode() if hasattr(e.stderr, 'decode') else e.stderr}"
+
+        # 5. Extracts staged diff excluding tasks/ (:!tasks/)
+        try:
+            diff_proc = subprocess.run(["git", "diff", "--staged", "--", ".", ":!tasks/"], capture_output=True, text=True)
+            diff_text = diff_proc.stdout.strip()
+        except Exception as e:
+            return f"❌ Error extracting staged diff: {e}"
+        if not diff_text:
+            diff_text = "No code changes detected or staged."
+        diff_block = f"\n```diff\n{diff_text}\n```\n"
+
+        # 6. Injects diff block between <!-- BEGIN_GIT_DIFF --> and <!-- END_GIT_DIFF -->
+        try:
+            content_after_header = dest.read_text(encoding="utf-8")
+        except Exception as e:
+            return f"❌ Error re-reading task file for diff injection: {e}"
+        diff_pattern = re.compile(r"<!-- BEGIN_GIT_DIFF -->.*<!-- END_GIT_DIFF -->", re.DOTALL)
+        if not diff_pattern.search(content_after_header):
+            return f"❌ Error: Could not find <!-- BEGIN_GIT_DIFF --> markers in {dest}"
+        new_content_final = diff_pattern.sub(lambda m: f"<!-- BEGIN_GIT_DIFF -->{diff_block}<!-- END_GIT_DIFF -->", content_after_header)
+        try:
+            dest.write_text(new_content_final, encoding="utf-8")
+        except Exception as e:
+            return f"❌ Error writing diff injection to {dest}: {e}"
+        # Re-stage the task file after injection so final QA state is staged (header + diff)
+        try:
+            subprocess.run(["git", "add", "--", str(dest)], check=True, capture_output=True)
+        except Exception as e:
+            return f"❌ Error re-staging QA task file after injection: {e}"
+
+        # 7. Validates header consistency and returns confirmation
+        try:
+            final_content = dest.read_text(encoding="utf-8")
+            m = re.search(r"\*\*File:\*\*\s*`([^`]+)`", final_content)
+            if not m:
+                return f"❌ Error: **File:** header missing after injection in {dest}"
+            actual = m.group(1).strip()
+            if actual != expected_header:
+                # Resolve comparison like linter
+                try:
+                    if Path(actual).resolve() != Path(expected_header).resolve():
+                        return f"❌ Error: File header mismatch: header says '{actual}' but expected '{expected_header}'"
+                except Exception:
+                    return f"❌ Error: File header mismatch: header says '{actual}' but expected '{expected_header}'"
+        except Exception as e:
+            return f"❌ Error validating header: {e}"
+
+        files_str = ", ".join(modified_files) if modified_files else "(no code files — diff will be sentinel)"
+        return (
+            f"✅ QA transition complete: {task_file_path} → {expected_header}\n"
+            f"   Staged files: {files_str}\n"
+            f"   Header synced and diff injected into {expected_header}"
+        )
+
+    except Exception as e:
+        return f"❌ Unexpected error in qa_transition: {str(e)}"
 
 def _derive_task_slug(task_file_path: str) -> str:
     """Derives a 'task <NN> - <slug>' label from a task file name (e.g. '78-fix-bug.md' -> 'task 78 - fix bug')."""
