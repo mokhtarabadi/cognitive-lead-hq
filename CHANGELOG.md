@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [9.5.0] - 2026-09-02
+
+### Added
+
+- **Self-Improvement Protocol:** Added evidence-bound retrospective protocol fragment (`21-self_improvement_protocol.md`) triggered via `/reflect` or `self-improve` to synthesize session friction into actionable backlog upgrades (Task 152).
+
 ## [9.4.0] - 2026-09-02
 
 ### Removed

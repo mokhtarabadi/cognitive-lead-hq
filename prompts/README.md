@@ -29,7 +29,8 @@ prompts/
 │   ├── 16-immutable_financial_ledger_mandate.md
 │   ├── 18-no_manual_dto_mandate.md
 │   ├── 19-initialization.md
-│   └── 19-communication_examples.md
+│   ├── 20-communication_examples.md
+│   └── 21-self_improvement_protocol.md
 └── shared/                     # Shared partials referenced by include markers
     └── validation-phase.md     # The byte-identical <validation_phase> block
 ```
