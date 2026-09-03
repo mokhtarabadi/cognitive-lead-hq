@@ -1,8 +1,8 @@
-# Reusable User Prompt: Session Context Compactor & Restoration Generator
+# Reusable Prompt: Session Context Compactor & Restoration Generator
 
-**How to use:** When your Orchestrator context window becomes heavily loaded (e.g., approaching 1M tokens), copy the entire text below this block, paste it into the active chat, and let the AI generate your compact restoration report. Then, copy that generated report, open a brand-new blank Orchestrator session, and paste it to resume work with 0% context loss and a 99% reduction in active token load.
+**How to use:** Copy the block below and paste directly into your AI chat. Replace any `[PLACEHOLDER]` values as needed.
 
---- COPY BELOW THIS LINE TO COMPACT SESSIONS ---
+--- COPY BELOW THIS LINE ---
 
 <role>
 You are an elite Context Compaction Specialist and Systems Archivist. Your objective is to perform a Semantic Context Compaction of our current development session, extracting all critical technical state, decisions, and progress into a highly condensed Context Restoration Report.

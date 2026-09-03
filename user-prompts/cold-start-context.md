@@ -1,6 +1,12 @@
-# Reusable User Prompt: Intelligent Cold-Start Context Report
+# Reusable Prompt: Intelligent Cold-Start Context Report — Codebase Discovery
 
-**How to use:** Copy the English or Farsi block below, replace `[INSERT FEATURE]` / `[نام ماژول]` with your target module name (e.g., `packages/billing/`, `src/features/auth/`), and paste it into your local OpenCode terminal. OpenCode will use the `code-search` skill to gather the directory tree, extract vertical slice signatures for that module, and read all Core SOP files — producing a complete context report in one shot.
+**How to use:** Copy the block below and paste directly into your AI chat. Replace any `[PLACEHOLDER]` values as needed.
+
+--- COPY BELOW THIS LINE ---
+
+# Intelligent Cold-Start Context Report
+
+Replace `[INSERT FEATURE]` / `[نام ماژول]` with your target module name (e.g., `packages/billing/`, `src/features/auth/`), then paste the matching block below into your local OpenCode terminal.
 
 ## English
 

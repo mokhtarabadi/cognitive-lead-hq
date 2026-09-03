@@ -1,8 +1,8 @@
-# Input Validation Pipeline Test
+# Reusable Prompt: Input Validation Pipeline Test
 
-**How to use:** Copy the block below and paste it into your Orchestrator session to test the input processing pipeline with a sample raw input.
+**How to use:** Copy the block below and paste directly into your AI chat. Replace any `[PLACEHOLDER]` values as needed.
 
-## Test Prompt
+--- COPY BELOW THIS LINE ---
 
 ```
 Process the following raw input through the complete Input Validation Pipeline:
@@ -16,7 +16,7 @@ RAW INPUT:
 [PASTE YOUR RAW FARSI/ENGLISH INPUT HERE]
 ```
 
-## Expected Behavior
+Expected Behavior:
 
 - If the input is clear: The pipeline should translate, enrich, refactor, and present for approval.
 - If the input is unclear: The pipeline should HALT and ask for clarification.

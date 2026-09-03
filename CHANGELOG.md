@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- **Coach Prompt Alignment, User Prompts Standardization & README Overhaul (Task 156):** Retargeted Founder Coaching intent audit from retired `## Manager Decisions` to `## Original Message (Persian)` / `## English Translation` (graceful fallback to `## Goal` / `## Manager's Notes`), added `<intent_fidelity_audit>` with hallucination check to `user-prompts/founder-coaching-chat.md`; standardized all 10 `user-prompts/*.md` to uniform manual-mode wrapper (`# Reusable Prompt: [Title] — [Purpose]` + `**How to use:**` + `--- COPY BELOW THIS LINE ---`); overhauled `README.md` for pure-MCP architecture (removed `scripts/bundle-tasks.py` from Repository Structure, replaced CLI `uv run scripts/...` with `custom_context_qa_transition` / `bundle_tasks` / `custom_context_commit_and_clean_task`, rewrote Meta-Task Bundling to Pure MCP, added Manual Mode Workflow 6-step subsection).
 - **Pure MCP Tooling & Script Removal:** Updated Hands protocols, AGENTS.md, and skills registry to reference pure MCP tools (`custom_context_qa_transition`, `bundle_tasks`) exclusively; bumped `<system_version>` to 9.7.0 and reassembled `system-prompt.md` (Task 155).
 
 ## [9.6.0] - 2026-09-02

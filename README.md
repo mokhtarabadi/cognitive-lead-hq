@@ -75,6 +75,19 @@ To leave feedback directly on the generated Markdown plans:
 
 The AI will process your inline feedback, generate a revised plan, and wait for your final "Approved" signal before writing code.
 
+### Manual Mode Workflow (Pure-MCP Human-in-the-Loop)
+
+For teams that prefer manual copy/paste over the Loop Engine daemon, this is the canonical pure-MCP cycle:
+
+1. **Manager inputs raw thought / Telegram message** — raw bilingual draft or structured task file in `tasks/backlog/`.
+2. **Orchestrator issues architectural blueprint & awaits approval** — Brain reviews context, proposes plan, and halts for explicit Manager `Approved`.
+3. **Manager copies Senior Programmer `<hands_implementation_task>` block into OpenCode Hands** — Hands runs locally with ZAC enforcement.
+4. **Hands executes code, runs tests, and invokes `custom_context_qa_transition`** — stages `modified_files`, injects factual diff, and moves task `tasks/in-progress/` → `tasks/qa/` via pure MCP.
+5. **Manager pastes QA task file to QA Engineer & Code Reviewer** — Orchestrator performs adversarial testing and architectural review via pasted `tasks/qa/` file.
+6. **Manager approves closure and Hands commits atomically via `custom_context_commit_and_clean_task`** — commits staged diff, replaces raw diff with hash reference, and moves task to `tasks/completed/` — the only commit path.
+
+All transitions use pure FastMCP tools (`custom_context_qa_transition`, `bundle_tasks`, `custom_context_commit_and_clean_task`) — no `uv run scripts/...` CLI required.
+
 ### System Prompt V9 Architecture (Separation of Concerns)
 
 The `system-prompt.md` is restructured in V9.1.0 with a clear separation of concerns:
@@ -202,7 +215,6 @@ python daemon.py
 │       └── sop-maintenance/
 │           └── SKILL.md                # Native OpenCode skill for repo rules
 ├── scripts/
-│   ├── bundle-tasks.py                # Deterministic meta-task bundler (Task 110) — CLI for `bundle_tasks` MCP
 │   └── prompt-build/
 │       ├── split_system_prompt.py     # Disassembler: system-prompt.md → fragments/
 │       └── assemble_system_prompt.py  # Assembler: fragments/ → system-prompt.md
@@ -292,20 +304,21 @@ python daemon.py
 
 ### General & Workflow Skills
 
-| Skill Name                | Purpose                                                                                                                                                                                                                                   |
-| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `audit-agents`            | Enforces Zero-Autonomous-Commit (ZAC) workflows and generates/audits `AGENTS.md` for new and existing projects.                                                                                                                           |
-| `code-search`             | Mandatory for discovery. Uses MCP tools (`get_directory_tree`, `read_source_files`, `extract_signatures`) to explore the codebase without token bloat.                                                                                    |
-| `debug-instrumentation`   | Diagnoses complex runtime bugs, deadlocks, race conditions, and silent failures via strategic temporary logging and tracing.                                                                                                              |
-| `design-md`               | Extracts a comprehensive design system (`DESIGN.md`) directly from frontend source code — React, Vue, Svelte, Angular, plain HTML/CSS, or any web framework.                                                                              |
-| `doc-coauthoring`         | Guides users through a structured 3-stage workflow (Context Gathering, Refinement & Structure, Reader Testing) for co-authoring documentation with AI.                                                                                    |
-| `github`                  | GitHub CLI (gh) workflow for pull request triage, issue management, CI/CD run analysis, and API queries.                                                                                                                                 |
-| `prompt-refactor`         | Meta-cognitive skill that refactors basic human prompts into elite, highly constrained, XML-tagged instructions optimized for AI agent reasoning.                                                                                         |
-| `bundle-tasks`            | Deterministic meta-task bundling — bundles 2–6 small related tasks into one META for unified execution with verbatim preservation and auto-archive. Exposed as both `scripts/bundle-tasks.py` CLI and `bundle_tasks` MCP tool (Task 110). |
-| `task-generator`          | Automatically generates decentralized task files based on Manager instructions, with correct `<!-- BEGIN_GIT_DIFF -->` / `<!-- END_GIT_DIFF -->` markers.                                                                                 |
-| `telegram-issue-sync`     | Syncs Telegram supergroup topics into local task files and GitHub issues, using embedded Python scripts for deterministic JSON state management.                                                                                          |
-| `telegram-message-export` | Intelligently exports a range of Telegram messages (text, media, voice notes) into a numbered folder, capturing reply hierarchies, and packing them into a ZIP archive.                                                                   |
-| `versioning-and-release`  | Standardizes Semantic Versioning (SemVer), Keep a Changelog formats, Conventional Commits, and Safe Push Protocols across all repositories.                                                                                               |
+| Skill Name                | Purpose                                                                                                                                                                                                                                    |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `audit-agents`            | Enforces Zero-Autonomous-Commit (ZAC) workflows and generates/audits `AGENTS.md` for new and existing projects.                                                                                                                            |
+| `code-search`             | Mandatory for discovery. Uses MCP tools (`get_directory_tree`, `read_source_files`, `extract_signatures`) to explore the codebase without token bloat.                                                                                     |
+| `debug-instrumentation`   | Diagnoses complex runtime bugs, deadlocks, race conditions, and silent failures via strategic temporary logging and tracing.                                                                                                               |
+| `design-md`               | Extracts a comprehensive design system (`DESIGN.md`) directly from frontend source code — React, Vue, Svelte, Angular, plain HTML/CSS, or any web framework.                                                                               |
+| `doc-coauthoring`         | Guides users through a structured 3-stage workflow (Context Gathering, Refinement & Structure, Reader Testing) for co-authoring documentation with AI.                                                                                     |
+| `github`                  | GitHub CLI (gh) workflow for pull request triage, issue management, CI/CD run analysis, and API queries.                                                                                                                                   |
+| `prompt-refactor`         | Meta-cognitive skill that refactors basic human prompts into elite, highly constrained, XML-tagged instructions optimized for AI agent reasoning.                                                                                          |
+| `bundle-tasks`            | Deterministic meta-task bundling — bundles 2–6 small related tasks into one META for unified execution with verbatim preservation and auto-archive. Pure-MCP tool `bundle_tasks` (Task 110) — see `skill-templates/bundle-tasks/SKILL.md`. |
+| `task-generator`          | Automatically generates decentralized task files based on Manager instructions, with correct `<!-- BEGIN_GIT_DIFF -->` / `<!-- END_GIT_DIFF -->` markers.                                                                                  |
+| `telegram-issue-sync`     | Syncs Telegram supergroup topics into local task files and GitHub issues, using embedded Python scripts for deterministic JSON state management.                                                                                           |
+| `telegram-message-export` | Intelligently exports a range of Telegram messages (text, media, voice notes) into a numbered folder, capturing reply hierarchies, and packing them into a ZIP archive.                                                                    |
+| `versioning-and-release`  | Standardizes Semantic Versioning (SemVer), Keep a Changelog formats, Conventional Commits, and Safe Push Protocols across all repositories.                                                                                                |
+
 ### Stack-Specific Blueprints
 
 | Stack                  | Architecture Enforced                                                                                      |
@@ -409,22 +422,25 @@ _(Note: Replace `/Users/<YOUR_USER>` with your actual home directory path)._
 - `create_tree_report` — Saves a persistent `.gitignore`-aware directory tree of any path (default: the entire project) as `context-reports/tree_report_<timestamp>_<uuid>.md`, mirroring the context report convention. Trigger phrase: "create a tree of the project".
 - `read_source_files` — Reads multiple source files or directories and saves their contents into a local Markdown report inside the `context-reports/` directory, returning the file path to prevent context bloat.
 - `extract_signatures` — Extracts structural signatures (classes, functions, methods) via tree-sitter (fallback to regex) and saves to `context-reports/signatures_report_<timestamp>_<uuid>.md`.
-- `bundle_tasks` — **Meta-task bundler (Task 110, self-contained).** Bundles 2–6 small related tasks into one META for unified execution (`tasks/backlog/<NEXT_ID>-<slug>.md` + `**Supersedes:** [ids]` + verbatim appendices, `git mv` to `tasks/archive/` with `superseded` patch). CLI `uv run scripts/bundle-tasks.py <id> ... --title "<title>" [--dry-run] [--force]` and MCP `bundle_tasks(task_ids, title, dry_run, force)` are identical and self-contained — other projects that only have this MCP server (no `scripts/` copy) can still bundle via the Hands. Guardrails: cap 6, LOC >400 warning, missing-ID and collision checks. See `skill-templates/bundle-tasks/SKILL.md` and `AGENTS.md` `## 🛑 META-TASK BUNDLE LIFECYCLE`.
+- `bundle_tasks` — **Meta-task bundler (Task 110, pure-MCP).** Bundles 2–6 small related tasks into one META for unified execution (`tasks/backlog/<NEXT_ID>-<slug>.md` + `**Supersedes:** [ids]` + verbatim appendices, `git mv` to `tasks/archive/` with `superseded` patch) via pure FastMCP tool `bundle_tasks(task_ids, title, dry_run, force)`. No `uv run scripts/...` CLI required — use `custom_context` MCP. Guardrails: cap 6, LOC >400 warning, missing-ID and collision checks. See `skill-templates/bundle-tasks/SKILL.md` and `AGENTS.md` `## 🛑 META-TASK BUNDLE LIFECYCLE`.
+- `custom_context_qa_transition` — Transitions a task from `tasks/in-progress/` → `tasks/qa/` via pure MCP (stages modified files and injects factual diff). Replaces the legacy qa-transition script.
+- `custom_context_commit_and_clean_task` — Atomically commits staged changes and cleans the task file (replaces raw diff with hash reference) via pure MCP. Replaces manual `git commit`.
 
 **Optional — auto-installed via `LLM.txt` Step 7.6:**
 
 - `blowsh` (Docker `ghcr.io/mokhtarabadi/blowsh-mcp:latest`, 4 tools) — **JS-capable browsing (retired browser MCP replacement).** `fetch_web` (plain/html/markdown/pdf + selector/max_chars/wait_ms), `search_web` (DuckDuckGo+Bing), `extract_links`, `fetch_web_batch` (10 URLs). SSRF guard, TTL cache. Timeout 120s. See https://github.com/mokhtarabadi/blowsh-mcp and `docs/telegram-setup.md` (setup maps to same global install).
 - `telegram` (Telethon, 80+ tools, `uv --directory $HOME/.config/opencode/mcp-telegram-server run main.py` over absolute path in opencode config dir) — Accounts (`list_accounts`, multi-account `account` param), chats/groups, messages (`send_message`/`reply_to_message` with `account="personal"`/`"work"`), contacts/aliases, media (`send_file`/`download_media`), events (`wait_for_settled_message`, `enable_incoming_feed`). File roots required for media tools (`/tmp/telegram-mcp` + `$HOME/.config/opencode/mcp-telegram-server/downloads`). Used by `skill-templates/telegram-issue-sync/SKILL.md` (supergroup → tasks) and `telegram-message-export/SKILL.md` (range → ZIP) — see `docs/telegram-setup.md` §6 for the full skill→tool→config table. Single vs work/personal setup documented there plus `LLM.txt` 7.6 (absolute paths, installed in `~/.config/opencode/`).
 
-### Meta-Task Bundling — CLI vs MCP (When to Copy the Script)
+### Meta-Task Bundling — Pure MCP (No CLI Required)
 
-| Scenario                                                             | What to copy                                                                                                                                             | How to bundle                                                                                        |
-| -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| **You have shell (Manager runs `uv run`)**                           | Copy `scripts/bundle-tasks.py` to your project's `scripts/` (or keep it from the HQ template)                                                            | `uv run scripts/bundle-tasks.py 12 15 20 --title "android-polish" [--dry-run]`                       |
-| **You only have the MCP server (Hands in other projects, no shell)** | **No script copy needed** — `mcp-context-server/server.py:bundle_tasks` is self-contained (helpers duplicated from the script, no `scripts/` dependency) | Hands calls MCP tool `bundle_tasks(task_ids=["12","15","20"], title="android-polish", dry_run=true)` |
-| **Both**                                                             | Keep both — they are kept in sync and produce identical `tasks/backlog/<NEXT_ID>-<slug>.md` + archive patching                                           | Use CLI for Manager one-offs, MCP for AI-driven bundling                                             |
+This project uses **pure-MCP** bundling — no `scripts/` copy needed. The `bundle_tasks` tool is self-contained in `mcp-context-server/server.py` (helpers duplicated from the legacy script).
 
-> **Is the script redundant?** No — CLI is for the Manager (`uv run`), MCP is for the Hands (AI). For cross-project reuse, **MCP is sufficient**: other projects that vendor this HQ's MCP servers (`~/.config/opencode/mcp-context-server/server.py`) can bundle without copying `scripts/`. If those projects also want CLI, copy `scripts/bundle-tasks.py` to `scripts/` (one file, `chmod +x`).
+| Scenario                                        | What to do                                                                                       | How to bundle                                                                                        |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------- |
+| **Pure MCP (recommended)**                      | No file copy — `mcp-context-server/server.py:bundle_tasks` is self-contained                     | Hands calls MCP tool `bundle_tasks(task_ids=["12","15","20"], title="android-polish", dry_run=true)` |
+| **Legacy CLI (deprecated, pure-MCP preferred)** | Legacy CLI retained only for reference; do not rely on legacy script invocation in new workflows | `bundle_tasks` MCP is the canonical path                                                             |
+
+> **Pure-MCP architecture:** All bundling, QA transition (`custom_context_qa_transition`), and commit-and-clean (`custom_context_commit_and_clean_task`) run via FastMCP. Legacy CLI paths are retired — kept only in git history for backwards reference.
 
 ---
 
