@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [9.7.0] - 2026-09-03
+
+### Removed
+
+- **Pure MCP Tooling & Script Removal:** Retired standalone CLI scripts `scripts/bundle-tasks.py` and `scripts/qa-transition.py` in favor of native MCP tools (Task 155).
+
+### Changed
+
+- **Pure MCP Tooling & Script Removal:** Updated Hands protocols, AGENTS.md, and skills registry to reference pure MCP tools (`custom_context_qa_transition`, `bundle_tasks`) exclusively; bumped `<system_version>` to 9.7.0 and reassembled `system-prompt.md` (Task 155).
+
 ## [9.6.0] - 2026-09-02
 
 ### Added

@@ -1,6 +1,6 @@
 ---
 name: bundle-tasks
-description: Deterministic meta-task bundling — bundles 2–6 small related tasks into one META for unified execution with verbatim preservation and auto-archive. Exposed as both CLI script and MCP tool for cross-project reuse.
+description: Deterministic meta-task bundling — bundles 2–6 small related tasks into one META for unified execution with verbatim preservation and auto-archive. Exposed as the bundle_tasks MCP tool (Task 155).
 ---
 
 # Bundle Tasks Skill — Meta-Task Bundling (Task 110)
@@ -11,7 +11,7 @@ Use this skill when the Manager wants to execute 4–6 small related tasks toget
 
 - Manager says: "bundle tasks 1, 2, 5, 10, 15, 20", "create a meta-task from 12 15 20", "combine these polish tasks", or any note about "meta-task", "bundle", "supersede", "archive and bundle"
 - Tasks are small, same stack/domain (e.g., all `android-kotlin`, all `react-vite`, all docs), and would be inefficient to run one-by-one
-- You are in any project that has the `mcp-context-server` MCP server — the bundler is available as `bundle_tasks` MCP tool even when `scripts/bundle-tasks.py` is not on the Manager's local shell
+- You are in any project that has the `mcp-context-server` MCP server — the bundler is available as the `bundle_tasks` MCP tool (pure MCP, Task 155)
 
 **Do NOT use for:** large refactors, tasks with conflicting files that would cause merge conflicts in one diff, or tasks >6 without explicit `--force`.
 
@@ -22,23 +22,9 @@ Use this skill when the Manager wants to execute 4–6 small related tasks toget
 3. **Archive, Not Purge (with Transactional Rollback):** Sources are moved via `git mv` to `tasks/archive/` with `**Superseded-By:** <META_ID>-<slug>` until META is `completed`. History stays reachable via `git log --follow`. If ANY archive operation fails, ALL previously archived files are rolled back to their original locations, the META file is deleted, and the operation aborts cleanly.
 4. **Guardrails:** `MAX_BUNDLE_SIZE=6` (reject >6 without `--force`), combined LOC >400 warning, missing-ID and duplicate-ID checks (hard halt on duplicate active IDs), stack conflict detection (warn or require `--force`), SHA verbatim checksum validation, atomic Next-ID creation with retry loop for concurrent safety.
 
-## Two Invocation Paths (Pick One)
+## Invocation — Pure MCP Tool (Task 155)
 
-### Path A — CLI Script (preferred when you have shell)
-
-This is the canonical, repo-local path. The script is the source of truth; the MCP tool wraps it.
-
-```bash
-uv run scripts/bundle-tasks.py <id> <id> ... --title "<kebab-or-human-title>" [--dry-run] [--force]
-# Examples
-uv run scripts/bundle-tasks.py 12 15 20 --title "android-polish-bundle"
-uv run scripts/bundle-tasks.py 12 15 20 --title "android-polish-bundle" --dry-run
-uv run scripts/bundle-tasks.py 1 2 3 4 5 6 7 --title "mega" --force   # bypass cap
-```
-
-### Path B — MCP Tool (preferred when you only have the MCP server)
-
-The `mcp-context-server/server.py:bundle_tasks` tool is **fully self-contained** — it does NOT require `scripts/bundle-tasks.py` to exist. All helpers (kebab_case, discover_next_id, find_task_file, extract_section, build_meta_content, git_mv_or_fallback, patch_archived_file) are duplicated inside the MCP tool function. Other projects that vendor this HQ's MCP servers (without copying `scripts/`) can bundle via the Hands:
+The `mcp-context-server/server.py:bundle_tasks` tool is **fully self-contained** — it does NOT require `scripts/bundle-tasks.py`. All helpers (kebab_case, discover_next_id, find_task_file, extract_section, build_meta_content, git_mv_or_fallback, patch_archived_file) are inlined inside the MCP tool function. Invoke via the Hands' MCP interface:
 
 ```json
 {
@@ -52,9 +38,7 @@ The `mcp-context-server/server.py:bundle_tasks` tool is **fully self-contained**
 }
 ```
 
-**Tool name:** `bundle_tasks` on `mcp-context-server` (`custom_context` FastMCP server). It validates IDs, resolves `scripts/bundle-tasks.py` against the workspace root (path-traversal safe), runs it via `uv run` (or `python3` fallback), and returns the stdout/stderr. Dry-run prints preview without file creation. The MCP wrapper is thin — it reuses the script's logic for DRY.
-
-**When to choose B:** You are in a project that was bootstrapped from this HQ but only has the MCP servers (e.g., `mcp-context-server`, `mcp-lint-server`, `mcp-memory-server`) and the Hands' MCP tool list — not a shell. Use `bundle_tasks` directly. If you have shell, prefer A (faster, same result).
+**Tool name:** `bundle_tasks` on `mcp-context-server` (`custom_context` FastMCP server). It validates IDs, discovers NEXT_ID, slugifies title, generates META with verbatim preservation, and auto-archives sources. Dry-run prints preview without file creation. Pure MCP — no external script dependency.
 
 ## What Happens (Deterministic Steps)
 
@@ -79,14 +63,14 @@ The `mcp-context-server/server.py:bundle_tasks` tool is **fully self-contained**
 ## Verification (Must Pass Before QA)
 
 ```bash
-uv run scripts/bundle-tasks.py 12 15 20 --title "test-bundle" --dry-run
-# or via MCP: bundle_tasks(task_ids=["12","15","20"], title="test-bundle", dry_run=true)
+# via MCP (pure MCP, Task 155):
+bundle_tasks(task_ids=["12","15","20"], title="test-bundle", dry_run=true)
 
 # then after real bundle (if not dry_run):
 lint_task_file tasks/backlog/<NEXT_ID>-<slug>.md
 lint_task_file tasks/archive/12-*.md
 git log --oneline --follow -- tasks/archive/12-*.md | head
-py_compile: python3 -m py_compile scripts/bundle-tasks.py mcp-context-server/server.py
+py_compile: python3 -m py_compile mcp-context-server/server.py
 ```
 
 - META must contain `**Supersedes:**` + every source `### Source Task` block + `## Bundled Checklist` with `[XX]` prefixes.
@@ -117,8 +101,7 @@ No HQ code beyond the bundler is affected. If META already reached `tasks/comple
 
 ## Reference
 
-- **Script:** `scripts/bundle-tasks.py` (694 lines, `py_compile` clean, handles untracked `git mv` fallback, `---\n\n` fix, cap 6)
-- **MCP:** `mcp-context-server/server.py:bundle_tasks` (thin `uv run` wrapper, path-traversal safe, 30s timeout, `task_ids: list[str], title: str, dry_run, force`)
-- **Docs:** `AGENTS.md` `## 🛑 META-TASK BUNDLE LIFECYCLE` + `**Bundle Script:**`, `CHANGELOG.md` `[Unreleased]`
+- **MCP:** `mcp-context-server/server.py:bundle_tasks` (self-contained, verbatim helpers inlined, `task_ids: list[str], title: str, dry_run, force`, path-traversal safe, cap 6)
+- **Docs:** `AGENTS.md` `## 🛑 META-TASK BUNDLE LIFECYCLE` + `**Bundle Tool:**`, `CHANGELOG.md` `[Unreleased]`
 - **Lint:** `mcp-lint-server/server.py` Type regex now `...|meta`
-- **Registry:** `prompts/fragments/10-agent_skills_registry.md` lists `bundle-tasks`
+- **Registry:** `prompts/fragments/07-agent_skills_registry.md` lists `bundle-tasks`

@@ -1090,7 +1090,7 @@ def bundle_tasks(task_ids: list[str], title: str, dry_run: bool = False, force: 
             f"**Next ID:** {meta_id} (discovered via `find tasks -name \"*.md\" | sort -n | tail -1 +1`)\n"
             f"**Archive Policy:** Source files will be moved to `tasks/archive/` with `superseded-by: {meta_id}-{meta_slug}` and remain reachable via `git log --follow` (never purged until META is completed).\n\n"
             f"## Manager's Notes\n\n"
-            f"**Bundle Decision (2026-08-21):** Manager requested fully automatic bundling with archive (not purge). This META was generated deterministically by `scripts/bundle-tasks.py` (and `bundle_tasks` MCP tool) to execute {len(source_data)} small related tasks together and speed up turnaround.\n\n"
+            f"**Bundle Decision (2026-08-21):** Manager requested fully automatic bundling with archive (not purge). This META was generated deterministically by the `bundle_tasks` MCP tool to execute {len(source_data)} small related tasks together and speed up turnaround.\n\n"
             f"**Traceability:**\n"
             f"- Supersedes {_format_task_id_list(source_ids)} — see per-source verbatim blocks below\n"
             f"- Archive: each source moved via `git mv` to `tasks/archive/` with `**Superseded-By:** {meta_id_str}-{meta_slug}` header + superseded footer\n"

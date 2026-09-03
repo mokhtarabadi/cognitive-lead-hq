@@ -226,7 +226,7 @@ _(Git diff will be automatically injected here by the MCP tool. Do not edit this
 
 5. **Halt and Handover:** DO NOT execute the task. Print the exact message: "✅ The task file has been created at `tasks/backlog/[filename]` and is ready to be sent to the Orchestrator." and STOP.
 
-## Bundle Workflow (Meta-Tasks) — Task 110
+## Bundle Workflow (Meta-Tasks) — Task 110/155 (Pure MCP)
 
 Use this when the Manager has 4–6 small related tasks that should be executed together instead of sequentially. The bundler preserves every requirement verbatim and archives the sources.
 
@@ -236,19 +236,27 @@ Use this when the Manager has 4–6 small related tasks that should be executed 
 - Tasks are small, same stack/domain (e.g., all Android polish), and would be inefficient to run one-by-one
 - Goal is one branch, one `Factual Git Diff`, one QA gate (all-or-nothing)
 
-### Canonical Command
+### Canonical Invocation — Pure MCP Tool (Task 155)
 
-```bash
-uv run scripts/bundle-tasks.py <id> <id> ... --title "<kebab-or-human-title>" [--dry-run] [--force]
+Invoke the `bundle_tasks` MCP tool via the Hands:
+
+```json
+{
+  "tool": "bundle_tasks",
+  "arguments": {
+    "task_ids": ["12", "15", "20"],
+    "title": "android-polish-bundle",
+    "dry_run": false,
+    "force": false
+  }
+}
 ```
 
-Examples:
+Examples (MCP arguments):
 
-```bash
-uv run scripts/bundle-tasks.py 12 15 20 --title "android-polish-bundle"
-uv run scripts/bundle-tasks.py 12 15 20 --title "android-polish-bundle" --dry-run
-uv run scripts/bundle-tasks.py 1 2 3 4 5 6 7 --title "mega-bundle" --force  # bypass 6-cap
-```
+- `task_ids: ["12","15","20"], title: "android-polish-bundle"`
+- `task_ids: ["12","15","20"], title: "android-polish-bundle", dry_run: true`
+- `task_ids: ["1","2","3","4","5","6","7"], title: "mega-bundle", force: true  // bypass 6-cap`
 
 ### What the Script Does (Deterministic, No LLM)
 
@@ -285,7 +293,7 @@ uv run scripts/bundle-tasks.py 1 2 3 4 5 6 7 --title "mega-bundle" --force  # by
 ### Verification
 
 ```bash
-uv run scripts/bundle-tasks.py 12 15 20 --title "test" --dry-run
+bundle_tasks(task_ids=["12","15","20"], title="test", dry_run=true)
 lint_task_file tasks/backlog/<META_FILE>
 git log --oneline --follow -- tasks/archive/12-*.md | head
 ```
