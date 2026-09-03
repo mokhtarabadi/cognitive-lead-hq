@@ -1,6 +1,6 @@
 # Telegram MCP — Work/Personal Setup & Skill Usage
 
-> **Source:** https://github.com/chigwell/telegram-mcp (v2.0.1, Apache-2.0, 1.5k stars, Telethon). Local checkout used by this HQ: `$HOME/.config/opencode/mcp-telegram-server` (`uv --directory ... run main.py` over stdio). For global OpenCode install see `LLM.txt` Steps 7/7.6.
+> **Source:** Fork https://github.com/mokhtarabadi/telegram-mcp (tracks upstream https://github.com/chigwell/telegram-mcp v2.0.1+; fork adds `fix/allowed-root-automkdir-and-topic-filter` — auto-mkdir for allowed roots + `topic_id` filter on `get_history`, merged to `main`). Local checkout used by this HQ: `$HOME/.config/opencode/mcp-telegram-server` (`uv --directory ... run main.py` over stdio; `origin` = chigwell, `fork` = mokhtarabadi, active branch `main` = fork patched). For global OpenCode install see `LLM.txt` Steps 7/7.6.
 
 ## 1. What the Telegram MCP Does (80+ tools)
 
@@ -29,8 +29,10 @@ All Telegram-controlled strings are sanitized (`sanitize_user_content`) and retu
 ## 3. Generate a Session String (per account)
 
 ```bash
-git clone https://github.com/chigwell/telegram-mcp.git $HOME/.config/opencode/mcp-telegram-server
+git clone https://github.com/mokhtarabadi/telegram-mcp.git $HOME/.config/opencode/mcp-telegram-server
 cd $HOME/.config/opencode/mcp-telegram-server
+# remotes: origin = chigwell upstream (read-only), fork = mokhtarabadi (patched)
+# fork main = upstream main + fix/allowed-root-automkdir-and-topic-filter
 uv sync
 
 # Create the two allowed roots — file tools (send_file/download_media) fail with
@@ -207,7 +209,7 @@ The server prompts the LLM when `account` ambiguous ("unknown / resembles one / 
 ## 8. Security & Troubleshooting
 
 - Never commit `.env` / session strings / `*.session` / `aliases.json`.
-- `telegram-mcp` on PyPI is **not** this repo — do not `uvx telegram-mcp` (credential theft risk); always clone `chigwell/telegram-mcp` or `pip install git+https://github.com/chigwell/telegram-mcp.git@<tag>`.
+- `telegram-mcp` on PyPI is **not** this repo — do not `uvx telegram-mcp` (credential theft risk); always clone `mokhtarabadi/telegram-mcp` (our patched fork) or `pip install git+https://github.com/mokhtarabadi/telegram-mcp.git@<tag>` (upstream is `chigwell/telegram-mcp`).
 - Startup guard `assert_safe_distribution()` refuses an unsafe installed distribution without source checkout.
 - Common failures: `No Telegram session configured` → set `TELEGRAM_SESSION_STRING[_LABEL]`; `Session is not authorized` → regenerate via `session_string_generator.py --qr`; `AuthKeyDuplicatedError` → use session pool + `TELEGRAM_LOCK_GRACE_SECONDS`; `File tools are disabled` / `Path rejected` → set allowed roots and keep path inside root; check `mcp_errors.log`.
 

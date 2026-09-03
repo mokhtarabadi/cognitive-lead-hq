@@ -2,7 +2,7 @@
 created_at: "2026-08-25T19:15:30.411061+00:00"
 status: active
 tags: []
-updated_at: "2026-08-27T09:30:00.000000+00:00"
+updated_at: "2026-09-03T08:45:00.000000+00:00"
 ---
 
 # Global Install Upgrade Workflow (OpenCode)
@@ -16,7 +16,7 @@ Updates the machine-global installations of the Cognitive Lead AI HQ (MCP server
 | Component      | OpenCode                                                                                                       |
 | -------------- | -------------------------------------------------------------------------------------------------------------- |
 | MCP servers    | `~/.config/opencode/mcp-{context,memory,lint}-server/server.py`                                                |
-| Telegram MCP   | `~/.config/opencode/mcp-telegram-server/` (upstream clone of chigwell/telegram-mcp)                            |
+| Telegram MCP   | `~/.config/opencode/mcp-telegram-server/` (fork clone of mokhtarabadi/telegram-mcp — tracks chigwell/telegram-mcp + patches) |
 | Skills (30)    | `~/.config/opencode/skills/<name>/SKILL.md`                                                                    |
 | Custom agents  | `~/.config/opencode/agents/{cognitive-executor,cognitive-discovery}.md`                                        |
 | Shell strategy | `~/.config/opencode/opencode-shell-strategy.md`                                                                |
@@ -60,31 +60,33 @@ Updates the machine-global installations of the Cognitive Lead AI HQ (MCP server
    uv run --with pytest --with 'mcp[cli]>=1.0,<2.0' --with pathspec --with pyyaml --with tree-sitter --with tree-sitter-python --with tree-sitter-javascript --with tree-sitter-typescript --with tree-sitter-go --with tree-sitter-java --with tree-sitter-rust --with tree-sitter-kotlin pytest tests/ -q
    ```
 
-## Telegram MCP Auto-Upgrade (chigwell/telegram-mcp)
+## Telegram MCP Auto-Upgrade (mokhtarabadi/telegram-mcp fork — tracks chigwell/telegram-mcp)
 
-The installed copy at `~/.config/opencode/mcp-telegram-server` may or may not carry `.git` depending on how it was last installed. Either way: upgrade = shallow clone to `/tmp` + rsync overlay, preserving local secrets/state. Run this as an additional step of every upgrade cycle (Step 2.5).
+The installed copy at `~/.config/opencode/mcp-telegram-server` is a git clone of **mokhtarabadi/telegram-mcp** (fork), not chigwell directly. Fork `main` = chigwell `main` + `fix/allowed-root-automkdir-and-topic-filter` (auto-mkdir for allowed roots + `topic_id` on `get_history`, plus test fix). Remotes: `origin` = https://github.com/chigwell/telegram-mcp.git (upstream, read-only), `fork` = git@github.com:mokhtarabadi/telegram-mcp.git (patched, push). Either way: upgrade = shallow clone from **fork** to `/tmp` + rsync overlay, preserving local secrets/state. Run this as an additional step of every upgrade cycle (Step 2.5).
 
-1. **Audit drift vs upstream:**
+1. **Audit drift vs fork:**
    ```bash
    rm -rf /tmp/opencode/telegram-mcp-upstream
-   GIT_TERMINAL_PROMPT=0 git clone --depth 30 https://github.com/chigwell/telegram-mcp.git /tmp/opencode/telegram-mcp-upstream
+   GIT_TERMINAL_PROMPT=0 git clone --depth 30 https://github.com/mokhtarabadi/telegram-mcp.git /tmp/opencode/telegram-mcp-upstream
    diff -rq --exclude=.git --exclude=.env --exclude='*.session' --exclude=downloads --exclude=.venv --exclude=__pycache__ --exclude='*.egg-info' --exclude=mcp_errors.log --exclude=claude_desktop_config.json \
      /tmp/opencode/telegram-mcp-upstream ~/.config/opencode/mcp-telegram-server
    ```
-2. **Backup, then upgrade:**
+   To check upstream lag: `git -C ~/.config/opencode/mcp-telegram-server fetch origin && git log --oneline fork/main..origin/main` — if upstream ahead, sync fork first (see Step 2).
+2. **Backup, then upgrade (via fork):**
    ```bash
    cp -a ~/.config/opencode/mcp-telegram-server "/tmp/opencode/telegram-backup-$(date +%Y%m%d-%H%M%S)"
    rsync -a --exclude=.git --exclude=.env --exclude='*.session' --exclude=downloads --exclude=.venv --exclude=__pycache__ --exclude='*.egg-info' --exclude=mcp_errors.log --exclude=claude_desktop_config.json \
      /tmp/opencode/telegram-mcp-upstream/ ~/.config/opencode/mcp-telegram-server/
    cd ~/.config/opencode/mcp-telegram-server && uv sync
    ```
+   **Syncing fork with upstream** (when `origin/main` ahead of `fork/main`): rebase `fix/allowed-root-automkdir-and-topic-filter` onto new upstream, merge to `fork/main`, push both. See Task 128 notes and `~/.config/opencode/mcp-telegram-server` git log. After sync, re-run rsync from fork.
 3. **Verify:**
    ```bash
    cd ~/.config/opencode/mcp-telegram-server
    uv run python -c "import telegram_mcp; print('import ok')"
    mv .env .env.hold && uv run --with pytest pytest tests/ -q 2>&1 | tail -2; mv .env.hold .env
    ```
-   ⚠️ **Tests FAIL (~26 failures) if `.env` is present** — ALWAYS hold `.env` aside during the test run.
+   ⚠️ **Tests FAIL (~26 failures) if `.env` is present** — ALWAYS hold `.env` aside during the test run. Fork test `test_configure_allowed_roots_from_cli` expects auto-mkdir (not SystemExit) — fork's `tests/test_runtime.py` patched accordingly.
 4. **Smoke:** server startup requires valid sessions. `AuthKeyDuplicatedError` on ANY account blocks the whole MCP handshake. Fix = regenerate that session or remove its `TELEGRAM_SESSION_STRING_<LABEL>` from `.env`. Never `pip install telegram-mcp` / `uvx telegram-mcp` from PyPI (credential-theft lookalike).
 5. **Startup failure triage:** reproduce with `timeout 45 uv --directory ~/.config/opencode/mcp-telegram-server run main.py /tmp/telegram-mcp ~/.config/opencode/mcp-telegram-server/downloads </dev/null >/tmp/opencode/tg-test.log 2>&1; echo $?` and read the log.
 
@@ -96,3 +98,5 @@ The installed copy at `~/.config/opencode/mcp-telegram-server` may or may not ca
 - `opencode.json` permission `bundle_tasks: allow` is required for the `bundle_tasks` MCP tool (added Task 110).
 - **Project vs Global `opencode.json` (Option A 2026-08-25):** Repo `opencode.json` uses **relative** `mcp-context-server/server.py` etc for 3 core — `opencode mcp list` inside clone shows `✓ connected`; literal `$HOME/...` in repo's `command` breaks. Global `~/.config/opencode/opencode.json` must use **absolute** `$HOME/.config/opencode/...` for all 5. `blowsh`/`telegram` stay `enabled:false` in repo (require global install) vs `enabled:true` in global. `diff opencode.json` will always differ — verify shape, not identity.
   - **Update 2026-08-25 (Manager-approved):** repo now OMITS the `blowsh`/`telegram` blocks entirely so they inherit the working global definitions in-project.
+  - **Update 2026-09-03:** Telegram MCP now uses **mokhtarabadi/telegram-mcp fork** (`fork` remote) for HQ install. Fork `main` = upstream chigwell `main` (7842b91 as of 2026-09-03) + `fix/allowed-root-automkdir-and-topic-filter` (runtime auto-mkdir + messages topic_id + test fix, commit c83a54e). Upstream sync via `git fetch origin && git merge --ff-only origin/main` on `main`, rebase fix branch, merge back, push to `fork`. Installed clone at `~/.config/opencode/mcp-telegram-server` tracks `fork/main`.
+

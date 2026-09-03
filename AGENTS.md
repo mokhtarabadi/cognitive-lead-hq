@@ -76,7 +76,8 @@ You (the Hands) are the final gatekeeper. Before executing any implementation ta
 You MUST strictly adhere to these exact paths. Do not create duplicates elsewhere:
 
 - **Global Rules:** `AGENTS.md` (Root)
-- **UI/UX Specs:** `DESIGN.md` (Root)
+- **UI/UX Specs:** `DESIGN.md` (Root) — if absent, skip gracefully per Absent-File Policy
+- **Conventions:** `docs/conventions.md` (syntax, datetime, SOLID, financial, DSP)
 - **Agent Skills:** `.opencode/skills/<skill-name>/SKILL.md` (Local workspace)
 - **Active Tasks:** `tasks/backlog/<task-number>-<name>.md` (backlog), `tasks/in-progress/`, `tasks/qa/`, `tasks/completed/`, `tasks/archive/`
 - **Bundle Tool:** `bundle_tasks` MCP tool (`mcp-context-server/server.py`) — deterministic meta-task bundler for `task-generator` (Task 110/155)
