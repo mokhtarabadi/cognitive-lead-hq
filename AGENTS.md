@@ -82,6 +82,14 @@ You MUST strictly adhere to these exact paths. Do not create duplicates elsewher
 - **Active Tasks:** `tasks/backlog/<task-number>-<name>.md` (backlog), `tasks/in-progress/`, `tasks/qa/`, `tasks/completed/`, `tasks/archive/`
 - **Bundle Tool:** `bundle_tasks` MCP tool (`mcp-context-server/server.py`) — deterministic meta-task bundler for `task-generator` (Task 110/155)
 
+## 🛑 HQ-ONLY RULES (cognitive-lead-hq — Local, NOT part of global audit-agents)
+
+These extensions apply ONLY inside this Headquarters repository. They are intentionally NOT enforced by the global `skill-templates/audit-agents` skill (which is project-agnostic) and MUST NOT be audited or scaffolded in third-party projects.
+
+- **AC/DoD Box-Checking at Implementation Time**: `prompts/fragments/09-hands_protocols.md` MUST instruct the Hands to check AC/DoD boxes (`- [x]`) during the implementation `<summary_phase>`, not defer to a closure task. The global audit skill never creates or audits this file — it is HQ-only.
+- **HQ Prompt Fragment System**: The `prompts/fragments/*` directory (including `09-hands_protocols.md`), `agents/cognitive-executor.md`, `skill-templates/*`, and `09-hands_*.md` are HQ-only scaffolding. They MUST NOT be created, audited, or referenced when the audit-agents skill runs outside this repository. Inside HQ they are the source of truth for Hands protocols; outside HQ they are `OPTIONAL — HQ-ONLY, SKIPPED`.
+- **Enforcement Location**: These rules live ONLY in this `AGENTS.md`. Do NOT add them to `skill-templates/audit-agents/SKILL.md` — that template must remain fully project-agnostic.
+
 ## 🛑 META-TASK BUNDLE LIFECYCLE (Task 110)
 
 A meta-task bundles 2–6 small related tasks into one META for unified execution. This is a **fully automatic, MCP-driven** workflow (never manual copy-paste).

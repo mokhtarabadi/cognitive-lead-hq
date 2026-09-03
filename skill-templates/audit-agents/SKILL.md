@@ -8,9 +8,9 @@ description: Enforces decentralized task management, UI/UX design strictness, an
 ## 🛑 SCOPE CONFINEMENT (Priority 0)
 
 - All file enumeration, inspection, and patch operations MUST be strictly confined to the caller's current working directory (`[PROJECT_ROOT]`).
-- You are STRICTLY FORBIDDEN from traversing outside `[PROJECT_ROOT]`, searching for `cognitive-lead-hq`, or referencing parent directories. Use generic placeholders like `[PROJECT_ROOT]/AGENTS.md`.
+- You are STRICTLY FORBIDDEN from traversing outside `[PROJECT_ROOT]` or referencing parent directories. Use generic placeholders like `[PROJECT_ROOT]/AGENTS.md`.
 - **Absent-File Policy**: If optional architectural files (`DESIGN.md`, `docs/architecture.md`, `docs/data_model.md`) do NOT exist in `[PROJECT_ROOT]`, SKIP them gracefully with an explicit note. DO NOT HALT. DO NOT HALLUCINATE their contents. DO NOT scaffold or create them unless explicitly instructed.
-- **OpenCode Isolation**: You are STRICTLY FORBIDDEN from creating `.opencode/` scaffolding, `agents/cognitive-executor.md`, `prompts/fragments/*`, or `skill-templates/*` inside third-party projects. Only inspect `.opencode/` if `[PROJECT_ROOT]/.opencode/` ALREADY exists OR if the user passes `with_opencode: true`.
+- **OpenCode Isolation**: You are STRICTLY FORBIDDEN from creating `.opencode/` scaffolding inside third-party projects. Only inspect `.opencode/` if `[PROJECT_ROOT]/.opencode/` ALREADY exists OR if the user passes `with_opencode: true`.
 
 ## Target Audit Criteria
 
@@ -35,7 +35,6 @@ The `AGENTS.md` file MUST explicitly contain the following operational constrain
 - **Defensive Shell Protocol (DSP)**: `AGENTS.md` MUST include a guardrail forbidding bash scripts without `set -euo pipefail` and banning `2>/dev/null` on data commands. `docs/conventions.md` MUST contain a `## Defensive Shell Protocol (DSP)` section.
 - **Universal Financial Ledger Standard**: `AGENTS.md` MUST include a guardrail requiring snapshot-on-write for financial mutations and `$ifNull` precedence for monetary aggregations. `docs/conventions.md` MUST contain a `## Universal Financial Ledger Standard` section.
 - **Lite Mode Protocol**: `AGENTS.md` MUST document the `<lite_mode_protocol>` — when eligible (single-file, no security/financial impact, obvious simplicity), the full 9-step production line can be bypassed with a `[LITE]` justification in the task's `## Manager Decisions` section. Escalation to Full Mode is mandatory if hidden complexity is discovered.
-- **AC/DoD Box-Checking at Implementation Time**: `prompts/fragments/09-hands_protocols.md` MUST instruct the Hands to check AC/DoD boxes during the implementation `<summary_phase>`, not defer to a closure task.
 
 ---
 
@@ -376,7 +375,6 @@ Additionally, the `docs/conventions.md` file MUST exist and contain:
 - **Defensive Shell Protocol (DSP)**: `AGENTS.md` MUST include a guardrail forbidding bash scripts without `set -euo pipefail` and banning `2>/dev/null` on data commands. `docs/conventions.md` MUST contain a `## Defensive Shell Protocol (DSP)` section.
 - **Universal Financial Ledger Standard**: `AGENTS.md` MUST include a guardrail requiring snapshot-on-write for financial mutations and `$ifNull` precedence for monetary aggregations. `docs/conventions.md` MUST contain a `## Universal Financial Ledger Standard` section.
 - **Lite Mode Protocol**: `AGENTS.md` MUST document the `<lite_mode_protocol>` — when eligible (single-file, no security/financial impact, obvious simplicity), the full 9-step production line can be bypassed with a `[LITE]` justification in the task's `## Manager Decisions` section. Escalation to Full Mode is mandatory if hidden complexity is discovered.
-- **AC/DoD Box-Checking at Implementation Time**: `prompts/fragments/09-hands_protocols.md` MUST instruct the Hands to check AC/DoD boxes during the implementation `<summary_phase>`, not defer to a closure task.
 
 ### Resolution Protocol
 
