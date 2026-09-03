@@ -2,7 +2,7 @@
 created_at: '2026-08-17T09:55:12.993426+00:00'
 status: active
 tags: []
-updated_at: '2026-08-17T09:55:12.993444+00:00'
+updated_at: '2026-09-03T08:15:00.000000+00:00'
 ---
 
 Release workflow for cognitive-lead-hq.
@@ -42,6 +42,12 @@ ZAC-safe commit rules:
 - Hands stage only via custom_context_stage_and_inject_diff.
 - Hands commit only via custom_context_commit_and_clean_task after explicit Manager closure approval.
 - Public tag/release publication is a separate manual Manager step after closure.
+
+Push-script generation (since v9.8.0 — Task 157):
+- On every future `create release` request, Hands MUST also create an executable push script at `/tmp/cognitive-lead-push-release.sh` for manual Manager execution.
+- Script MUST start with `set -euo pipefail`, detect repo root via `git rev-parse --show-toplevel`, define `VERSION="vX.Y.Z"` for the release, verify clean working tree and `gh auth status`, create annotated tag if missing (`git tag -a vX.Y.Z -m "release vX.Y.Z"`), push commits (`git push origin <branch>`) and tags (`git push origin --tags`), then create or verify GitHub Release (`gh release view vX.Y.Z` check → `gh release create vX.Y.Z --title "Cognitive Lead AI HQ vX.Y.Z" --generate-notes`), and print verification (`git ls-remote --tags origin` + `gh release view` URL).
+- Script MUST be `chmod +x` and documented in the release task's Acceptance Criteria and CHANGELOG entry.
+- This workflow is ZAC-compliant: Hands generate the script but never execute `git push`/`gh release create` themselves; Manager runs `/tmp/cognitive-lead-push-release.sh` manually after closure.
 
 Memory rule:
 - This memory lives at release/release-workflow.

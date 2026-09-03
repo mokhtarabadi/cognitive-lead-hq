@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [9.8.0] - 2026-09-03
+
+### Added
+
+- **Release Push Script + Global Upgrade Automation (Task 157):** Added manual release push script generator at `/tmp/cognitive-lead-push-release.sh` (`set -euo pipefail`, `git push origin main` + `git push --tags` + `gh release create v9.8.0 --generate-notes`) for Manager manual execution and hardened the global install upgrade workflow (drift audit → copy → re-verify → smoke for MCP `context/memory/lint`, `system-prompt.md`, `agents/*`, `skill-templates/*` → `~/.config/opencode/skills/*`). Updated `release/release-workflow` memory to mandate push-script creation on every future `create release` request. Bumped `<system_version>` **9.7.0 → 9.8.0** and reassembled `system-prompt.md` (75689 bytes).
+
+### Changed
+
+- **Global installation synced:** `mcp-context-server/server.py` (`qa_transition` MCP tool), `system-prompt.md`, `agents/cognitive-executor.md`, and skill templates (`audit-agents`, `bundle-tasks`, `task-generator` + full skill set) now byte-identical to repo sources; `tui.json` and goal plugin parity verified (`@prevalentware/opencode-goal-plugin` in both `opencode.json` and `tui.json`).
+
 ## [9.7.0] - 2026-09-03
 
 ### Removed
