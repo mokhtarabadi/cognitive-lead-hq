@@ -1,9 +1,9 @@
 # Task 157: Release v9.8.0 — Global Upgrade and Push Script
 
-**File:** `tasks/qa/157-release-v980-global-upgrade-and-push-script.md`
+**File:** `tasks/completed/157-release-v980-global-upgrade-and-push-script.md`
 **Source:** manager
 **Type:** feature
-**Status:** open
+**Status:** closed
 
 ## Goal
 
@@ -97,72 +97,5 @@ _(Log non-trivial architectural, design, or strategic decisions here using the f
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
-```diff
-diff --git a/.opencode/memory/release/release-workflow.md b/.opencode/memory/release/release-workflow.md
-index 9abca80..ca17376 100644
---- a/.opencode/memory/release/release-workflow.md
-+++ b/.opencode/memory/release/release-workflow.md
-@@ -2,7 +2,7 @@
- created_at: '2026-08-17T09:55:12.993426+00:00'
- status: active
- tags: []
--updated_at: '2026-08-17T09:55:12.993444+00:00'
-+updated_at: '2026-09-03T08:15:00.000000+00:00'
- ---
- 
- Release workflow for cognitive-lead-hq.
-@@ -43,6 +43,12 @@ ZAC-safe commit rules:
- - Hands commit only via custom_context_commit_and_clean_task after explicit Manager closure approval.
- - Public tag/release publication is a separate manual Manager step after closure.
- 
-+Push-script generation (since v9.8.0 — Task 157):
-+- On every future `create release` request, Hands MUST also create an executable push script at `/tmp/cognitive-lead-push-release.sh` for manual Manager execution.
-+- Script MUST start with `set -euo pipefail`, detect repo root via `git rev-parse --show-toplevel`, define `VERSION="vX.Y.Z"` for the release, verify clean working tree and `gh auth status`, create annotated tag if missing (`git tag -a vX.Y.Z -m "release vX.Y.Z"`), push commits (`git push origin <branch>`) and tags (`git push origin --tags`), then create or verify GitHub Release (`gh release view vX.Y.Z` check → `gh release create vX.Y.Z --title "Cognitive Lead AI HQ vX.Y.Z" --generate-notes`), and print verification (`git ls-remote --tags origin` + `gh release view` URL).
-+- Script MUST be `chmod +x` and documented in the release task's Acceptance Criteria and CHANGELOG entry.
-+- This workflow is ZAC-compliant: Hands generate the script but never execute `git push`/`gh release create` themselves; Manager runs `/tmp/cognitive-lead-push-release.sh` manually after closure.
-+
- Memory rule:
- - This memory lives at release/release-workflow.
--- Future release tasks must retrieve and follow this memory before making release decisions.
-\ No newline at end of file
-+- Future release tasks must retrieve and follow this memory before making release decisions.
-diff --git a/CHANGELOG.md b/CHANGELOG.md
-index e94d170..70cf52b 100644
---- a/CHANGELOG.md
-+++ b/CHANGELOG.md
-@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
- 
- ## [Unreleased]
- 
-+## [9.8.0] - 2026-09-03
-+
-+### Added
-+
-+- **Release Push Script + Global Upgrade Automation (Task 157):** Added manual release push script generator at `/tmp/cognitive-lead-push-release.sh` (`set -euo pipefail`, `git push origin main` + `git push --tags` + `gh release create v9.8.0 --generate-notes`) for Manager manual execution and hardened the global install upgrade workflow (drift audit → copy → re-verify → smoke for MCP `context/memory/lint`, `system-prompt.md`, `agents/*`, `skill-templates/*` → `~/.config/opencode/skills/*`). Updated `release/release-workflow` memory to mandate push-script creation on every future `create release` request. Bumped `<system_version>` **9.7.0 → 9.8.0** and reassembled `system-prompt.md` (75689 bytes).
-+
-+### Changed
-+
-+- **Global installation synced:** `mcp-context-server/server.py` (`qa_transition` MCP tool), `system-prompt.md`, `agents/cognitive-executor.md`, and skill templates (`audit-agents`, `bundle-tasks`, `task-generator` + full skill set) now byte-identical to repo sources; `tui.json` and goal plugin parity verified (`@prevalentware/opencode-goal-plugin` in both `opencode.json` and `tui.json`).
-+
- ## [9.7.0] - 2026-09-03
- 
- ### Removed
-diff --git a/prompts/fragments/01-system_version.md b/prompts/fragments/01-system_version.md
-index 7336708..90ed3ae 100644
---- a/prompts/fragments/01-system_version.md
-+++ b/prompts/fragments/01-system_version.md
-@@ -1 +1 @@
--<system_version>9.7.0</system_version>
-+<system_version>9.8.0</system_version>
-diff --git a/system-prompt.md b/system-prompt.md
-index dc40716..7bbc074 100644
---- a/system-prompt.md
-+++ b/system-prompt.md
-@@ -1,4 +1,4 @@
--<system_version>9.7.0</system_version>
-+<system_version>9.8.0</system_version>
- 
- <role>
- You are the Cognitive Lead AI running inside the Orchestrator platform, acting as an elite software agency orchestrator.
-```
+**Factual Git Diff:** Stored in Commit Hash: `33aabbf07784f267515bfd7c57ddefc8ab50355f`
 <!-- END_GIT_DIFF -->
