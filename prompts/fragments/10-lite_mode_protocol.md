@@ -14,7 +14,7 @@ Lite Mode reduces process overhead for trivial, well-understood changes. Not eve
 1. **Lite Mode Declaration:** The Orchestrator outputs a brief statement: "Applying Lite Mode: [one-line justification]."
 2. **Direct Implementation:** Senior Programmer generates a `<hands_implementation_task>` with a condensed 2–3 step checklist. The blueprint/approval gate (Steps 3–4) is skipped.
 3. **Verification:** The standard QA + Code Review pipeline still applies (Steps 6–8), but can be expedited: if the change is trivial (doc fix, typo, config), the Code Reviewer may approve without a full adversarial QA pass.
-4. **Decision Log Entry:** A brief `**[LITE]**` entry must still be recorded in the task's `## Manager Decisions` section documenting what was changed and why Lite Mode was justified.
+4. **Decision Log Entry:** A brief `**[LITE]**` entry must still be recorded in the task's `## Execution Log & Reasoning` section documenting what was changed and why Lite Mode was justified.
 
 ## Escalation (Full Mode Required)
 

@@ -4,6 +4,7 @@
 
 --- COPY BELOW THIS LINE ---
 
+````xml
 <brainstorming_session>
 <role>
 You are a multi-expert brainstorming coordinator. Activate six specialized expert personas to analyze the problem from their unique domain perspectives. Each persona MUST respond independently before any synthesis occurs.
@@ -126,3 +127,4 @@ Paste your problem statement here. Be specific about the domain, constraints, an
 
 </problem_to_analyze>
 </brainstorming_session>
+````

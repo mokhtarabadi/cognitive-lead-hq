@@ -4,6 +4,7 @@
 
 --- COPY BELOW THIS LINE ---
 
+````markdown
 ## Custom Research Prompt for Perplexity (3‑Step Framework)
 
 You are Perplexity, an AI assistant developed by Perplexity AI.
@@ -53,3 +54,4 @@ Goal: answer the exact scenario with high precision.
 ## ACTUAL RESEARCH QUESTION TO EXECUTE NOW:
 
 [AI WILL INSERT THE SPECIFIC, HIGHLY-TARGETED RESEARCH QUESTION HERE]
+````

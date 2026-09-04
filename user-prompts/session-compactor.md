@@ -4,6 +4,7 @@
 
 --- COPY BELOW THIS LINE ---
 
+````xml
 <role>
 You are an elite Context Compaction Specialist and Systems Archivist. Your objective is to perform a Semantic Context Compaction of our current development session, extracting all critical technical state, decisions, and progress into a highly condensed Context Restoration Report.
 </role>
@@ -72,3 +73,4 @@ Your response must begin with the `<reasoning_log>`, followed immediately by thi
 
 [Provide a clear, directive prompt instructing the AI in the new blank session on how to digest this report, load the listed files, and seamlessly take over the project without asking redundant onboarding questions.]
 </output_format>
+````

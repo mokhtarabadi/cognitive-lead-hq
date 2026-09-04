@@ -1,8 +1,12 @@
-# Cognitive Lead AI HQ
+# Cognitive Lead AI HQ 🧠⚡
+
+Autonomous Multi-Agent Orchestration Platform • Industrial 9-Step Production Line • FastMCP Tooling for OpenCode & Claude
 
 [![Version](https://img.shields.io/github/v/release/mokhtarabadi/cognitive-lead-hq?style=flat-square)](https://github.com/mokhtarabadi/cognitive-lead-hq/releases)
 [![License](https://img.shields.io/github/license/mokhtarabadi/cognitive-lead-hq?style=flat-square)](LICENSE)
 [![OpenCode](https://img.shields.io/badge/OpenCode-ready-6C47FF?style=flat-square)](https://opencode.ai)
+[![FastMCP](https://img.shields.io/badge/FastMCP-powered-00C853?style=flat-square)](mcp-context-server/server.py)
+[![ZAC](https://img.shields.io/badge/Zero--Autonomous--Commit-enforced-red?style=flat-square)](AGENTS.md)
 [![PRs](https://img.shields.io/badge/PRs-welcome-brightgreen?style=flat-square)](https://github.com/mokhtarabadi/cognitive-lead-hq/pulls)
 
 The centralized **Headquarters** for the Cognitive Lead AI multi-agent system — a collection of hallucination-resistant system prompts, MCP servers, and strict Agent Skills (SKILL.md) built for [OpenCode](https://opencode.ai).
@@ -15,7 +19,7 @@ The centralized **Headquarters** for the Cognitive Lead AI multi-agent system �
 
 ---
 
-## Quick Start
+## 🚀 Quick Start
 
 Give the prompt above to OpenCode and it will auto-configure itself globally using [`LLM.txt`](LLM.txt) — the canonical auto-setup source. No manual steps required.
 
@@ -25,7 +29,7 @@ See [`docs/setup.md`](docs/setup.md) for full setup instructions and all platfor
 
 ---
 
-## How to Operate: The Brain & The Hands
+## 🧠 How to Operate: The Brain & 🛠️ The Hands
 
 This system relies on a strict separation of concerns:
 
@@ -75,7 +79,7 @@ To leave feedback directly on the generated Markdown plans:
 
 The AI will process your inline feedback, generate a revised plan, and wait for your final "Approved" signal before writing code.
 
-### Manual Mode Workflow (Pure-MCP Human-in-the-Loop)
+## ⚡ Manual Mode Workflow (Pure-MCP Human-in-the-Loop)
 
 For teams that prefer manual copy/paste over the Loop Engine daemon, this is the canonical pure-MCP cycle:
 
@@ -94,7 +98,7 @@ The `system-prompt.md` is restructured in V9.1.0 with a clear separation of conc
 
 - **No coaching profile embedded in the system prompt.** The Manager's identity, background, and coaching preferences are NOT part of the system prompt — they belong in project-specific `AGENTS.md` files or Manager-authored config.
 - **Lite Mode Protocol (`<lite_mode_protocol>`):** Not every task needs the full 9-step production line. Single-file, low-risk changes (typos, doc fixes, config tweaks) can bypass the Discovery → Brainstorming → Blueprint → Approval pipeline with a documented `[LITE]` justification.
-- **Decision Logging Mandate (`<decision_logging_mandate>`):** All non-trivial architectural, design, and strategic decisions must be logged under `## Manager Decisions` in the active task file, creating an auditable trail.
+- **Context Restoration Protocols:** Session checkpoints and restoration protocols for seamless state preservation across context windows without information loss.
 - **Technical Capacity Gatekeeping:** The Sprint Strategist persona evaluates backlog candidates against estimated complexity, dependency chains, and MoSCoW prioritization — not coaching-style recommendations.
 
 **Customizing for Yourself:**
@@ -119,7 +123,7 @@ The repository includes a standalone web tool at `tools/prompt-composer/index.ht
 
 ---
 
-## Cognitive Loop Engine
+## 🤖 Cognitive Loop Engine
 
 The **Cognitive Loop Engine** is a local orchestration daemon that eliminates the manual copy-paste workflow between the Orchestrator (Brain) and OpenCode (Hands). It routes tasks to LLM APIs, invokes execution programmatically, and maintains Manager approval gates via Telegram.
 
@@ -165,7 +169,7 @@ python daemon.py
 
 ---
 
-## Repository Structure
+## 📂 Repository Structure
 
 ```
 /
@@ -300,7 +304,7 @@ python daemon.py
 
 ---
 
-## Agent Skills Registry
+## 📦 Agent Skills Registry
 
 ### General & Workflow Skills
 
@@ -338,7 +342,7 @@ python daemon.py
 
 ---
 
-## Custom Code Context MCP
+## 🔌 Custom Code Context FastMCP
 
 This system uses a local **FastMCP** Python server (`mcp-context-server/server.py`) that runs via `uv run` with zero-install dependency management. It provides deterministic, `.gitignore`-aware file reading and directory tree exploration, using far fewer tokens than raw `grep`/`glob` operations.
 
@@ -487,28 +491,10 @@ opencode --agent cognitive-executor
 
 ---
 
-## Key V5 Changes
-
-- **Decentralized task architecture** — global `STATE.md` and `TODO.md` replaced by isolated task files in `tasks/` directory.
-- **Brain/Hands separation codified** — `system-prompt.md` explicitly declares the Orchestrator as the text-only Brain and OpenCode as the local execution agent.
-- **New Agent Skills** — `task-generator` for creating numbered task files and `audit-agents` for enforcing `AGENTS.md` workflows.
-- **Phase 0 UI/UX traversal** — Project Planner now instructs OpenCode to perform deep source code analysis for `DESIGN.md` generation.
-- **Runtime model updated** — Model identifier cleaned up for platform-agnostic use.
-
-## Key V7 Changes
-
-- **Brainstorming Protocol (`<brainstorming_protocol>`):** Multi-agent brainstorming with six specialized personas (system_architect, security_engineer, product_manager, business_strategist, legal_advisor, critical_thinker) for cross-disciplinary ambiguity resolution.
-- **Universal Datetime Rules (`<universal_datetime_rules>`):** UTC-at-rest, ISO-8601/Unix-epoch at API boundaries, SOLID Clock injection, dual-representation for future calendar events, and timezone-independent CI/CD testing.
-- **SOLID Programming Mandate (`<solid_programming_mandate>`):** Single Responsibility, Open/Closed, Liskov Substitution, Interface Segregation, and Dependency Inversion enforced on every generated implementation task, with pragmatic guardrails (No Zero-Abstraction Dogma, 3-Implementation Rule, YAGNI, Occam's Razor).
-- **Expanded Agent Skills Registry:** 31 skills including stack-specific blueprints (android-kotlin, spring-boot, react-vite, nestjs-prisma-vertical, go-hexagonal-grpc, python-fastapi, nextjs, flask-python, react-native-expo, ios-swiftui, vue-nuxt, go-gin) and global workflow skills (brainstorm-swarm, design-md, project-memory, telegram-issue-sync, perplexity-research, verification-before-completion, debug-instrumentation, github).
-
-> **Note:** V9.0.0 removed the `<manager_profile>`, `<operating_principles>`, `<delegation_strategy>`, `<challenge_policy>`, and `<leadership_and_language_protocol>` fragments that were originally introduced in V7. The coaching functionality has been replaced by project-specific Manager configuration in `AGENTS.md`.
-
 ## Key V9 Changes
 
 - **Separation of Concerns — Coaching Profile Removed:** The `<manager_profile>`, `<operating_principles>`, `<delegation_strategy>`, `<challenge_policy>`, and `<leadership_and_language_protocol>` fragments have been removed from the system prompt. The Manager's identity, background, and coaching preferences now belong in project-specific `AGENTS.md` files, not in the operational system prompt.
 - **Lite Mode Protocol (`<lite_mode_protocol>`):** New fragment enabling process scaling to risk. Single-file, low-risk changes (typos, doc fixes, config tweaks) can bypass the full 9-step production line with a documented `[LITE]` justification. Escalation to Full Mode is mandatory if hidden complexity is discovered.
-- **Decision Logging Mandate (`<decision_logging_mandate>`):** New fragment requiring all non-trivial architectural, design, and strategic decisions to be logged under `## Manager Decisions` in the active task file, creating an auditable trail with rationale, alternatives, and impact.
 - **Sprint Strategist Refactored:** The Sprint Strategist persona has been refactored from a coaching-style gatekeeper to a technical capacity assessor using MoSCoW prioritization, estimated complexity (S/M/L/XL), dependency chain analysis, and WIP limits.
 - **Restructured to 19 Fragments:** The system prompt has been restructured from 22 fragments to 19 clean fragments, each representing a single concern. The fragment numbering has been re-sequenced to reflect the new architecture.
 
@@ -519,24 +505,15 @@ opencode --agent cognitive-executor
 - **Parallel Agent Execution Mandate:** Hands MUST actively utilize parallel subagent execution (up to 4 concurrent agents) for any task involving 2+ independent file scans, signature extractions, or decoupled module changes. Serial execution of independent workstreams is a performance violation.
 - **Input Validation Reinforced:** The `<user_input_processing>` fragment's Input Validation Gate, Bilingual Translation, and Clarification steps have been strengthened with explicit Ambiguity Mandate, Clarification Halt Mandate, and translation-before-execution rules.
 
-## Key V8 Changes
+## 📜 Release Milestones
 
-- **9-Step SOP Formalization (`<execution_workflow>`):** Replaced ad-hoc sprint workflow with a strict 9-step production line: Smart Context Discovery → Multi-Persona Brainstorming → Blueprint → Approval Gate → TDD Implementation → Adversarial QA → Code Review → PO Acceptance & Atomic Commit → Next Task Transition.
-- **Immutable Financial Ledger Mandate (`<immutable_financial_ledger_mandate>`):** New fragment enforcing snapshot-on-write, `$ifNull` precedence, observability alerting on discrepancies, and deep config merging for financial settings.
-- **Buffer Isolation (Validation Phase):** Added buffer-flush directive to the shared validation phase — Hands MUST treat every task as contextually independent, preventing cross-task context leakage.
-- **Defensive Shell Protocol (`<defensive_shell_protocol>`):** New constraint block mandating `set -euo pipefail`, banning `2>/dev/null` on data commands, and requiring sidecar isolation for Docker volume backups.
-
-## Key V6 Changes
-
-- **Kanban lifecycle architecture** — flat `tasks/` directory replaced by state-based folders: `tasks/backlog/`, `tasks/in-progress/`, `tasks/qa/`, `tasks/completed/`, `tasks/archive/`.
-- **`commit_and_clean_task` MCP tool** — new tool on the custom context server that commits staged changes, strips the raw git diff from the task file, and replaces it with a commit hash reference, keeping task files lean.
-- **`migrate-kanban` skill** — automated migration of existing flat `tasks/` files into the Kanban structure by reading status metadata.
-- **`archive-tasks` skill** — milestone compaction: scans `tasks/completed/`, generates dense `docs/history/milestone-X-summary.md`, and moves files to `tasks/archive/`.
-- **System prompt upgraded to V6.0.0** — all personas and workflows updated for the Kanban lifecycle. Project Planner manages state-based Kanban directories. Code Reviewer now generates tasks that move files through the pipeline. Execution workflow includes `backlog → in-progress → qa → completed` transitions.
-
-## Key V6.7 Changes (Historical — V9.0.0 Removed These Fragments)
-
-> **Note:** The `<manager_profile>` and `<leadership_and_language_protocol>` fragments introduced in V6.7 were removed in V9.0.0. The coaching functionality has been replaced by project-specific Manager configuration in `AGENTS.md` and the `<decision_logging_mandate>` for decision tracking.
+| Milestone | Key Architectural Evolutions |
+| --------- | ---------------------------- |
+| V5 | Decentralized `tasks/` architecture (retired `STATE.md`/`TODO.md`); Brain/Hands separation codified; `task-generator` + `audit-agents` skills introduced; Phase 0 UI/UX traversal for `DESIGN.md` generation. |
+| V6 | Kanban lifecycle (`backlog → in-progress → qa → completed → archive`); `commit_and_clean_task` MCP tool; `migrate-kanban` + `archive-tasks` skills; system prompt upgraded for Kanban state tracking. |
+| V6.7 | Manager profile and coaching fragments introduced (removed in V9.0.0; configuration moved to project-specific `AGENTS.md`). |
+| V7 | Multi-persona brainstorming protocol; Universal Datetime Rules (UTC-at-rest); SOLID programming mandate; Agent Skills Registry expanded to 31 skills. |
+| V8 | 9-step production line formalized; Immutable Financial Ledger mandate; Buffer Isolation validation phase; Defensive Shell Protocol. |
 
 ---
 

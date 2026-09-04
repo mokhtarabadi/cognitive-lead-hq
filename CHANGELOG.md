@@ -6,6 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [9.9.0] - 2026-09-04
+
+### Added
+
+- **Deprecated-Section Purge rule in `audit-agents` skill (Task 158):** Added Deprecated-Section Purge rule to automatically strip legacy `## Manager Decisions` and `## Admin Decision` sections during audits.
+- **Standardized 1-click prompt fences + coaching upgrades (Task 158 extension):** Wrapped all 10 `user-prompts/` payloads in quad-backtick fences for 1-click copying; elevated `founder-coaching-chat.md` to an elite executive-coach persona (Campbell/Grove/Mochary lenses: Bottleneck Diagnosis, Energy & Leverage Audits, Socratic Decision Challenges) and `daily-english-coach-chat.md` to a high-impact fluency partner for high-stakes founder communication.
+
+### Changed
+
+- **Lite Mode justification retarget (Task 158):** Retargeted Lite Mode justification from `## Manager Decisions` to `## Execution Log & Reasoning` across `prompts/fragments/10-lite_mode_protocol.md`, `system-prompt.md` (v9.9.0), and `audit-agents` skill template. Synced template to `~/.config/opencode/skills/audit-agents/SKILL.md`.
+- **`README.md` overhaul (Task 158 extension):** SEO-optimized header (`🧠⚡` title, platform subtitle, FastMCP/ZAC badges), emoji taxonomy across section headers, and simplified milestone history (`📜 Release Milestones` table replacing verbose V5–V8 bullet lists).
+
+### Fixed
+
+- **Backlog orphan purge (Task 158):** Purged legacy `## Manager Decisions` placeholder headers from pending backlog tasks (143–148).
+- **Residual reference purge (Task 158 extension):** Removed remaining `## Manager Decisions` references from `README.md` (V9 architecture section, V9 changelog, V6.7 note) and `user-prompts/founder-coaching-chat.md` (retired Task 151 guard banners, reframed around direct intent audit).
+
 ## [9.8.0] - 2026-09-03
 
 ### Added

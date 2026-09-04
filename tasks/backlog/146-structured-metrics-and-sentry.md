@@ -43,10 +43,6 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 
 > **Box-checking mandate:** During the implementation `<summary_phase>`, the Hands MUST check every `## Acceptance Criteria` and `## Definition of Done` box that is genuinely satisfied by the recorded `## Verification Evidence` — do NOT defer box-checking to a closure task. See `<hands_protocols>` for the authoritative instruction.
 
-## Manager Decisions
-
-_(Log non-trivial architectural, design, or strategic decisions here using the format from `<decision_logging_mandate>`: `**[YYYY-MM-DD] [DECISION_ID] [SOURCE]:** <summary>`.)_
-
 ## Risk & Rollback
 
 - **Risk:** Sentry SDK may introduce dependency bloat or network errors in air-gapped envs.
