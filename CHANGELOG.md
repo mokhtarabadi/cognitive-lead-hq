@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- **Stale test-suite repair (Task 160):** Promoted `bundle_tasks` pure helpers (`_kebab_case`, `_find_task_file`, `_extract_section`, `_build_meta_content`, etc.) from nested closures to module level in `mcp-context-server/server.py` (AST-verified identical, zero behavior change) and retargeted `tests/test_bundle_tasks.py` to import them from the MCP server instead of retired `scripts/bundle-tasks.py` (Task 155); updated `scripts/prompt-build/split_system_prompt.py` `TOP_LEVEL_TAGS` (dropped retired `<decision_logging_mandate>` from Task 151, added `<self_improvement_protocol>` from Task 152). Full suite: **55 passed, 0 failed**. system-prompt.md version unchanged.
+
 ## [9.9.0] - 2026-09-04
 
 ### Added

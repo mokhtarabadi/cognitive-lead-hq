@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
-Automated test suite for the meta-task bundler (scripts/bundle-tasks.py).
+Automated test suite for the meta-task bundler (bundle_tasks MCP tool in
+mcp-context-server/server.py; helpers promoted to module level in Task 160).
 
 Covers: T1-T6 (multiline checklist, duplicate ID halt, transactional rollback,
 Persian unicode slug, stack conflict guardrail, verbatim SHA validation).
@@ -23,24 +24,24 @@ import pytest
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 _bundler_spec = importlib.util.spec_from_file_location(
-    "bundle_tasks_bundler",
-    PROJECT_ROOT / "scripts" / "bundle-tasks.py",
+    "context_server_bundler",
+    PROJECT_ROOT / "mcp-context-server" / "server.py",
 )
 _bundler = importlib.util.module_from_spec(_bundler_spec)
 _bundler_spec.loader.exec_module(_bundler)
 
-# Re-export the functions we need
-kebab_case = _bundler.kebab_case
-find_task_file = _bundler.find_task_file
-extract_section = _bundler.extract_section
-extract_title = _bundler.extract_title
-_build_meta_content = _bundler.build_meta_content
-_verify_verbatim_checksums = _bundler.verify_verbatim_checksums
-git_mv_or_fallback = _bundler.git_mv_or_fallback
+# Re-export the functions we need (module-level helpers in mcp-context-server/server.py)
+kebab_case = _bundler._kebab_case
+find_task_file = _bundler._find_task_file
+extract_section = _bundler._extract_section
+extract_title = _bundler._extract_title
+_build_meta_content = _bundler._build_meta_content
+_verify_verbatim_checksums = _bundler._verify_verbatim_checksums
+git_mv_or_fallback = _bundler._git_mv_or_fallback
 ACTIVE_KANBAN_DIRS = _bundler.ACTIVE_KANBAN_DIRS
 
-# detect_stack may not exist in older versions — guard
-detect_stack = getattr(_bundler, "detect_stack", None)
+# _detect_stack is guaranteed in the MCP implementation (no CLI fallback needed)
+detect_stack = _bundler._detect_stack
 
 
 # ---------------------------------------------------------------------------
@@ -259,9 +260,9 @@ def test_partial_archive_failure_rollback(tmp_tasks: Path, monkeypatch):
             return original_git_mv(src, dst)
         return False
 
-    monkeypatch.setattr(_bundler, "git_mv_or_fallback", mock_git_mv)
+    monkeypatch.setattr(_bundler, "_git_mv_or_fallback", mock_git_mv)
 
-    assert hasattr(_bundler, "_unpatch_archived_file"), "Rollback helper must exist"
+    assert hasattr(_bundler, "_patch_archived_file"), "Archive patch helper must exist"
 
     source_data = []
     for tid in ["01", "02"]:
@@ -302,9 +303,6 @@ def test_persian_unicode_slug(tmp_tasks: Path):
 
 def test_stack_conflict_guardrail(tmp_tasks: Path):
     """M1: Verify conflicting stack detection without --force."""
-    if detect_stack is None:
-        pytest.skip("detect_stack not available in bundler")
-
     assert detect_stack("Task for Jetpack Compose + Hilt + SQLDelight") == "android"
     assert detect_stack("Task for React 18 + Vite + TSX") == "react"
     assert detect_stack("Fix the documentation") is None

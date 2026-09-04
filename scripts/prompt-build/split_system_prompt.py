@@ -58,7 +58,7 @@ from typing import List, Tuple
 # Configuration
 # ---------------------------------------------------------------------------
 
-# The 20 top-level XML tags in system-prompt.md (V9.3.0), in document order.
+# The 20 top-level XML tags in system-prompt.md (v9.9.0), in document order.
 # This explicit ordered list is the authoritative contract for the split: the
 # script verifies that these (and only these) 20 tags appear at the top level,
 # in this exact order. Nested tags (e.g. <phase>/<workflow>/<personas> inside
@@ -81,10 +81,10 @@ TOP_LEVEL_TAGS: List[str] = [
     "solid_programming_mandate",
     "universal_datetime_rules",
     "immutable_financial_ledger_mandate",
-    "decision_logging_mandate",
     "no_manual_dto_mandate",
     "initialization",
     "communication_examples",
+    "self_improvement_protocol",
 ]
 
 # Regex patterns for locating top-level tag boundaries.
@@ -116,7 +116,7 @@ def _halt(msg: str) -> None:
 def _find_block_ranges(lines: List[str]) -> List[Tuple[str, int, int]]:
     """Locate the (tag_name, start_index, end_index) for each top-level tag.
 
-    Uses the explicit TOP_LEVEL_TAGS list in document order (V9.3.0: 20 tags). For each tag it
+    Uses the explicit TOP_LEVEL_TAGS list in document order (20 tags). For each tag it
     finds the first column-0 opening line `<tag>` after the previous tag's
     closing line, then the first closing line `</tag>` (at any indentation)
     after that opening. This correctly handles tags whose closing lines are
@@ -275,7 +275,7 @@ def split_system_prompt(
 ) -> List[str]:
     """Split system-prompt.md into per-tag fragment files.
 
-    Reads the monolithic system-prompt.md, extracts the 20 top-level XML tags (V9.3.0) in
+    Reads the monolithic system-prompt.md, extracts the 20 top-level XML tags in
     document order as verbatim fragment files, extracts the duplicated
     <validation_phase> block into a shared partial with include markers, and
     writes a manifest listing the fragment filenames in assembly order.
