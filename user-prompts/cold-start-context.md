@@ -4,6 +4,7 @@
 
 --- COPY BELOW THIS LINE ---
 
+````markdown
 # Intelligent Cold-Start Context Report
 
 Replace `[INSERT FEATURE]` / `[نام ماژول]` with your target module name (e.g., `packages/billing/`, `src/features/auth/`), then paste the matching block below into your local OpenCode terminal.
@@ -29,3 +30,4 @@ skill code-search رو لود کن.
 4. همه رو در یک فایل گزارش کانتکست جمع کن.
 خودت گزارش رو نخون. فقط مسیر فایل رو به من بده.
 ```
+````

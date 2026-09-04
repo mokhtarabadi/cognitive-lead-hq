@@ -4,6 +4,7 @@
 
 --- COPY BELOW THIS LINE ---
 
+````markdown
 ```
 Process the following raw input through the complete Input Validation Pipeline:
 1. Validate (typos, clarity, completeness)
@@ -21,3 +22,4 @@ Expected Behavior:
 - If the input is clear: The pipeline should translate, enrich, refactor, and present for approval.
 - If the input is unclear: The pipeline should HALT and ask for clarification.
 - If the input has typos: The pipeline should correct them and note the corrections.
+````

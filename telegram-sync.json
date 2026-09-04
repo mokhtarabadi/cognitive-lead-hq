@@ -11,7 +11,7 @@
       "task"
     ]
   },
-  "last_processed_message_id": 555,
+  "last_processed_message_id": 570,
   "processed_ids": [
     458,
     465,
@@ -62,7 +62,22 @@
     552,
     553,
     554,
-    555
+    555,
+    556,
+    557,
+    558,
+    559,
+    560,
+    561,
+    562,
+    563,
+    564,
+    565,
+    566,
+    567,
+    568,
+    569,
+    570
   ],
   "sync_registry": {
     "466": {
@@ -139,6 +154,16 @@
       "type": "TASK",
       "note": "Manager follow-up appended to Task 151 per message 555; no new task created as requested",
       "supplemental_to": "151"
+    },
+    "564": {
+      "task_file": "tasks/backlog/158-purge-deprecated-manager-decision-and-harden-audit-agent.md",
+      "gh_issue": "Not created (skipped)",
+      "type": "BUG"
+    },
+    "565": {
+      "task_file": "tasks/backlog/158-purge-deprecated-manager-decision-and-harden-audit-agent.md",
+      "gh_issue": "Not created (skipped - bundled with 564, continuation)",
+      "type": "TASK"
     }
   }
 }
