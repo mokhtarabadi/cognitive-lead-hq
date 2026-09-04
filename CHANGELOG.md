@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - **Deprecated-Section Purge rule in `audit-agents` skill (Task 158):** Added Deprecated-Section Purge rule to automatically strip legacy `## Manager Decisions` and `## Admin Decision` sections during audits.
 - **Standardized 1-click prompt fences + coaching upgrades (Task 158 extension):** Wrapped all 10 `user-prompts/` payloads in quad-backtick fences for 1-click copying; elevated `founder-coaching-chat.md` to an elite executive-coach persona (Campbell/Grove/Mochary lenses: Bottleneck Diagnosis, Energy & Leverage Audits, Socratic Decision Challenges) and `daily-english-coach-chat.md` to a high-impact fluency partner for high-stakes founder communication.
+- **Release publication push script (Task 159):** Added manual release push script at `/tmp/cognitive-lead-push-release.sh` for `v9.9.0` (`set -euo pipefail`, clean-tree + `gh auth status` checks, annotated tag if missing, `git push origin main` + `git push origin --tags`, `gh release create v9.9.0 --generate-notes`). system-prompt.md version unchanged (still 9.9.0).
 
 ### Changed
 
