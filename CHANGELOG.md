@@ -6,9 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [9.10.0] - 2026-09-04
+
 ### Added
 
 - **Production-readiness bundle (Task 161, supersedes 143–148):** Multi-project topic routing (`ProjectTopicConfig` + `MultiProjectRouter` + gateway `message_thread_id`); resilient gateway (`_send_with_retry` exponential backoff wired into `request_approval`/`send_task_trigger_card`, `InvalidToken` fail-fast, SQLite `dead_letter_queue` + `enqueue/get/clear`); observability (`MetricsCollector` token/cost/latency, `JSONLogFormatter`, `init_sentry` no-op); SemVer engine (`ReleaseEngine` major/minor/patch, Keep-a-Changelog format, Parse-Then-Append insert, ZAC-safe dry-run tags); deployment (`deploy/Dockerfile` multi-stage, `deploy/docker-compose.yml` healthcheck, `deploy/cognitive-loop.service` systemd, `loop-engine/healthcheck.py` CLI, `docs/loop-engine/deployment.md`); Phase C capstone (`loop-engine/test_vertical_slice.py` hermetic monorepo proving simultaneous `node-ts` + `kotlin-android` builds, README certification). New suites: **24 passed** (`test_multi_project` 7, `test_gateway_resilience` 6, `test_metrics` 4, `test_release` 6, `test_vertical_slice` 1); full suite **309 passed, 0 failed**; healthcheck `--dry-run` exit 0. QA remediation: repaired `test_sentinel` version/manifest drift (dynamic version assert, `18-no_manual_dto_mandate`/`19-initialization`) and wired gateway retry into approval sends.
+- **Milestone-16 archive (Task 162):** Compacted 31 completed tasks (125-161 + HOTFIX-01) into `docs/history/milestone-16-summary.md` (source 12 manager / 6 telegram / 13 orchestrator; 14 feature / 11 improvement / 6 bug) and moved them to `tasks/archive/`. system-prompt.md version unchanged (still 9.9.0).
+- **Release publication push script (Task 162):** Added manual release push script at `/tmp/cognitive-lead-push-release.sh` for `v9.10.0` (`set -euo pipefail`, clean-tree + `gh auth status` checks, annotated tag if missing, `git push origin main` + `git push origin --tags`, `gh release create v9.10.0 --generate-notes`). system-prompt.md version unchanged (still 9.9.0).
 
 ### Fixed
 

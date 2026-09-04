@@ -1,9 +1,11 @@
 # Task 147: Automated SemVer Bump & Keep-a-Changelog Engine
 
-**File:** `tasks/backlog/147-automated-semver-and-changelog.md`
+**File:** `tasks/archive/147-automated-semver-and-changelog.md`
 **Source:** orchestrator
 **Type:** feature
-**Status:** open
+**Status:** superseded
+**Superseded-By:** `161-production-readiness-bundle`
+**Superseded-At:** `2026-09-04`
 
 ## Goal
 
@@ -48,6 +50,8 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 - **Rollback plan:** Keep tag creation opt-in behind a config flag and log the intended tag instead.
 
 ---
+
+> **Superseded:** This task was bundled into META task `161-production-readiness-bundle` and archived on 2026-09-04. See `tasks/backlog/161-production-readiness-bundle.md` (or its Kanban successor) for the unified execution. History preserved via `git log --follow -- tasks/archive/147-automated-semver-and-changelog.md`.
 
 ## Execution Log & Reasoning
 

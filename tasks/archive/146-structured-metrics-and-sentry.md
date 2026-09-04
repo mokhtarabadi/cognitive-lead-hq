@@ -1,9 +1,11 @@
 # Task 146: Structured Metrics, Token Cost Tracking & Error Logging
 
-**File:** `tasks/backlog/146-structured-metrics-and-sentry.md`
+**File:** `tasks/archive/146-structured-metrics-and-sentry.md`
 **Source:** orchestrator
 **Type:** feature
-**Status:** open
+**Status:** superseded
+**Superseded-By:** `161-production-readiness-bundle`
+**Superseded-At:** `2026-09-04`
 
 ## Goal
 
@@ -49,6 +51,8 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 - **Rollback plan:** Make Sentry optional via config and no-op when not configured.
 
 ---
+
+> **Superseded:** This task was bundled into META task `161-production-readiness-bundle` and archived on 2026-09-04. See `tasks/backlog/161-production-readiness-bundle.md` (or its Kanban successor) for the unified execution. History preserved via `git log --follow -- tasks/archive/146-structured-metrics-and-sentry.md`.
 
 ## Execution Log & Reasoning
 

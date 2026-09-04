@@ -1,9 +1,11 @@
 # Task 148: Production Daemon Deployment (Systemd & Docker Compose)
 
-**File:** `tasks/backlog/148-production-deployment-and-systemd.md`
+**File:** `tasks/archive/148-production-deployment-and-systemd.md`
 **Source:** orchestrator
 **Type:** feature
-**Status:** open
+**Status:** superseded
+**Superseded-By:** `161-production-readiness-bundle`
+**Superseded-At:** `2026-09-04`
 
 ## Goal
 
@@ -51,6 +53,8 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 - **Rollback plan:** Document all required env vars and provide a `.env.example`; keep the daemon runnable without containers.
 
 ---
+
+> **Superseded:** This task was bundled into META task `161-production-readiness-bundle` and archived on 2026-09-04. See `tasks/backlog/161-production-readiness-bundle.md` (or its Kanban successor) for the unified execution. History preserved via `git log --follow -- tasks/archive/148-production-deployment-and-systemd.md`.
 
 ## Execution Log & Reasoning
 

@@ -1,9 +1,11 @@
 # Task 145: End-to-End Monorepo Multi-Platform Vertical Slice (Phase C Capstone)
 
-**File:** `tasks/backlog/145-monorepo-vertical-slice-integration.md`
+**File:** `tasks/archive/145-monorepo-vertical-slice-integration.md`
 **Source:** orchestrator
 **Type:** feature
-**Status:** open
+**Status:** superseded
+**Superseded-By:** `161-production-readiness-bundle`
+**Superseded-At:** `2026-09-04`
 
 ## Goal
 
@@ -48,6 +50,8 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 - **Rollback plan:** Mark it slow with a pytest marker so it can be excluded in fast CI runs.
 
 ---
+
+> **Superseded:** This task was bundled into META task `161-production-readiness-bundle` and archived on 2026-09-04. See `tasks/backlog/161-production-readiness-bundle.md` (or its Kanban successor) for the unified execution. History preserved via `git log --follow -- tasks/archive/145-monorepo-vertical-slice-integration.md`.
 
 ## Execution Log & Reasoning
 

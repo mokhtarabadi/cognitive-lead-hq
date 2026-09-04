@@ -1,9 +1,11 @@
 # Task 144: Resilient Telegram Gateway with Auto-Reconnect & Dead-Letter Queue
 
-**File:** `tasks/backlog/144-resilient-telegram-gateway.md`
+**File:** `tasks/archive/144-resilient-telegram-gateway.md`
 **Source:** orchestrator
 **Type:** feature
-**Status:** open
+**Status:** superseded
+**Superseded-By:** `161-production-readiness-bundle`
+**Superseded-At:** `2026-09-04`
 
 ## Goal
 
@@ -49,6 +51,8 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 - **Rollback plan:** Fail fast after N consecutive errors and surface the daemon as CRASHED with diagnostics.
 
 ---
+
+> **Superseded:** This task was bundled into META task `161-production-readiness-bundle` and archived on 2026-09-04. See `tasks/backlog/161-production-readiness-bundle.md` (or its Kanban successor) for the unified execution. History preserved via `git log --follow -- tasks/archive/144-resilient-telegram-gateway.md`.
 
 ## Execution Log & Reasoning
 
