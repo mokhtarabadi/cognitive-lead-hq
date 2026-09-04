@@ -208,6 +208,14 @@ class SpecGateConfig(BaseModel):
     rules: list[SpecRequirementRule] = Field(default_factory=list, description="Configured spec requirement rules")
 
 
+class ProjectTopicConfig(BaseModel):
+    """Multi-project forum topic mapping (Task 143)."""
+    topic_id: int = Field(..., description="Telegram forum topic ID")
+    project_name: str = Field(..., description="Name of the project")
+    workspace_root: str = Field(..., description="Relative or absolute path to project workspace")
+    target_hashtags: list[str] = Field(default_factory=lambda: ["bug", "feature"], description="Hashtags mapped to this project")
+
+
 def _default_spec_rules() -> list[SpecRequirementRule]:
     """Sensible default spec requirement rules (LE-8).
 
@@ -314,6 +322,12 @@ class LoopEngineConfig(BaseModel):
     blast_radius: "BlastRadiusConfig" = Field(
         default_factory=lambda: BlastRadiusConfig(),
         description="Monorepo blast-radius verification scoping",
+    )
+
+    # Multi-Project Topic Routing (Task 143)
+    multi_project: list[ProjectTopicConfig] = Field(
+        default_factory=list,
+        description="Multi-project forum topic mappings",
     )
 
 

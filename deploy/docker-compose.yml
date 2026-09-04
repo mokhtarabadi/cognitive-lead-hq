@@ -1,0 +1,22 @@
+services:
+  cognitive-loop:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    restart: unless-stopped
+    env_file:
+      - ../.env
+    volumes:
+      - ../.env:/app/.env:ro
+      - ../tasks:/app/tasks
+      - ../loop-engine/state:/app/loop-engine/state
+      - ../loop-engine/logs:/app/loop-engine/logs
+    environment:
+      TZ: UTC
+      PYTHONUNBUFFERED: "1"
+    healthcheck:
+      test: ["CMD", "python3", "loop-engine/healthcheck.py"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s

@@ -227,3 +227,15 @@ See [Setup Guide](setup.md) for installation instructions.
 ## Multi-Project Support
 
 See [Multi-Project Guide](multi-project.md) for managing multiple projects with Telegram topics.
+
+## Verification & Smoke Gate (Phase C Certified — Production Readiness & Multi-Platform Capstone)
+
+Phase C certifies production readiness and multi-platform execution in one unified pipeline run.
+
+- `loop-engine/test_vertical_slice.py` builds an isolated monorepo (`packages/shared-schema/`, `apps/web/`, `apps/mobile/`) and proves simultaneous TypeScript (`node-ts`) and Kotlin (`kotlin-android`) toolchain builds.
+- Covers contract update → propagation → dual verification → QA → closure.
+- Production subsystems certified: multi-project routing (143), resilient gateway + DLQ (144), metrics/Sentry (146), SemVer release (147), Docker/systemd + healthcheck (148).
+
+```bash
+uv run --project loop-engine --with pytest pytest loop-engine/test_vertical_slice.py -v
+```

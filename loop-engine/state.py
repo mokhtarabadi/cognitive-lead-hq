@@ -47,6 +47,17 @@ CREATE TABLE IF NOT EXISTS todos (
 CREATE INDEX IF NOT EXISTS idx_tasks_state ON tasks(state);
 CREATE INDEX IF NOT EXISTS idx_tasks_file ON tasks(task_file);
 CREATE INDEX IF NOT EXISTS idx_todos_task ON todos(task_id);
+
+CREATE TABLE IF NOT EXISTS dead_letter_queue (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL,
+    stage TEXT NOT NULL,
+    payload TEXT NOT NULL,
+    error_reason TEXT NOT NULL,
+    created_at REAL NOT NULL,
+    retry_count INTEGER DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_dlq_task ON dead_letter_queue(task_id);
 """
 
 
@@ -190,3 +201,26 @@ class StateMachine:
             "SELECT * FROM todos WHERE task_id = ? AND status = 'pending' ORDER BY created_at",
             (task_id,)).fetchall()
         return [dict(r) for r in rows]
+
+    # --- Dead-Letter Queue (Task 144) ---
+
+    def enqueue_dead_letter(self, task_id: int, stage: str, payload: str, error_reason: str) -> int:
+        cursor = self.conn.execute(
+            "INSERT INTO dead_letter_queue (task_id, stage, payload, error_reason, created_at) VALUES (?, ?, ?, ?, ?)",
+            (task_id, stage, payload, error_reason, time.time()))
+        self.conn.commit()
+        return cursor.lastrowid
+
+    def get_dead_letters(self, task_id: Optional[int] = None) -> list[dict]:
+        if task_id is None:
+            rows = self.conn.execute(
+                "SELECT * FROM dead_letter_queue ORDER BY created_at").fetchall()
+        else:
+            rows = self.conn.execute(
+                "SELECT * FROM dead_letter_queue WHERE task_id = ? ORDER BY created_at",
+                (task_id,)).fetchall()
+        return [dict(r) for r in rows]
+
+    def clear_dead_letter(self, dlq_id: int) -> None:
+        self.conn.execute("DELETE FROM dead_letter_queue WHERE id = ?", (dlq_id,))
+        self.conn.commit()

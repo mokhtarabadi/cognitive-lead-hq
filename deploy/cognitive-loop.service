@@ -1,0 +1,19 @@
+[Unit]
+Description=Cognitive Loop Engine Daemon
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=cognitive
+WorkingDirectory=/opt/cognitive-lead-hq
+EnvironmentFile=/etc/cognitive-loop/env
+ExecStart=/opt/cognitive-lead-hq/.venv/bin/python loop-engine/daemon.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+# Log rotation via journald; see docs/loop-engine/deployment.md for limits.
+
+[Install]
+WantedBy=multi-user.target

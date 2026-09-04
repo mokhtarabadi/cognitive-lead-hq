@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- **Production-readiness bundle (Task 161, supersedes 143–148):** Multi-project topic routing (`ProjectTopicConfig` + `MultiProjectRouter` + gateway `message_thread_id`); resilient gateway (`_send_with_retry` exponential backoff wired into `request_approval`/`send_task_trigger_card`, `InvalidToken` fail-fast, SQLite `dead_letter_queue` + `enqueue/get/clear`); observability (`MetricsCollector` token/cost/latency, `JSONLogFormatter`, `init_sentry` no-op); SemVer engine (`ReleaseEngine` major/minor/patch, Keep-a-Changelog format, Parse-Then-Append insert, ZAC-safe dry-run tags); deployment (`deploy/Dockerfile` multi-stage, `deploy/docker-compose.yml` healthcheck, `deploy/cognitive-loop.service` systemd, `loop-engine/healthcheck.py` CLI, `docs/loop-engine/deployment.md`); Phase C capstone (`loop-engine/test_vertical_slice.py` hermetic monorepo proving simultaneous `node-ts` + `kotlin-android` builds, README certification). New suites: **24 passed** (`test_multi_project` 7, `test_gateway_resilience` 6, `test_metrics` 4, `test_release` 6, `test_vertical_slice` 1); full suite **309 passed, 0 failed**; healthcheck `--dry-run` exit 0. QA remediation: repaired `test_sentinel` version/manifest drift (dynamic version assert, `18-no_manual_dto_mandate`/`19-initialization`) and wired gateway retry into approval sends.
+
 ### Fixed
 
 - **Stale test-suite repair (Task 160):** Promoted `bundle_tasks` pure helpers (`_kebab_case`, `_find_task_file`, `_extract_section`, `_build_meta_content`, etc.) from nested closures to module level in `mcp-context-server/server.py` (AST-verified identical, zero behavior change) and retargeted `tests/test_bundle_tasks.py` to import them from the MCP server instead of retired `scripts/bundle-tasks.py` (Task 155); updated `scripts/prompt-build/split_system_prompt.py` `TOP_LEVEL_TAGS` (dropped retired `<decision_logging_mandate>` from Task 151, added `<self_improvement_protocol>` from Task 152). Full suite: **55 passed, 0 failed**. system-prompt.md version unchanged.

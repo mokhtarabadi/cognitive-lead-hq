@@ -42,6 +42,54 @@ class ApprovalGateway:
         """Register the state machine for /tasks queries."""
         self._state = state
 
+    async def _send_with_retry(self, send_coroutine_fn, max_retries: int = 3,
+                               base_delay: float = 1.0, task_id=None,
+                               stage: str = "", content: str = "") -> bool:
+        """Exponential backoff retry for Telegram sends (Task 144).
+
+        Transient: NetworkError, TimedOut, RetryAfter (incl. asyncio.TimeoutError)
+        -> sleep base_delay*(2**attempt) and retry.
+        Fatal: InvalidToken -> fail fast, no retry, no DLQ.
+        Exhausted: enqueue DLQ via self._state when task_id is provided.
+        """
+        last_err: Exception | None = None
+        for attempt in range(max_retries + 1):
+            try:
+                await send_coroutine_fn()
+                return True
+            except Exception as e:  # noqa: BLE001 - telegram error surface is broad
+                last_err = e
+                err_name = type(e).__name__
+                if "InvalidToken" in err_name:
+                    return False
+                is_transient = (
+                    any(k in err_name for k in (
+                        "NetworkError", "TimedOut", "RetryAfter",
+                        "Timeout", "Network", "TimeoutError"))
+                    or isinstance(e, (TimeoutError, asyncio.TimeoutError))
+                )
+                # Unknown errors are retried as transient to survive flaky
+                # transports, except auth which already returned above.
+                _ = is_transient
+                if attempt >= max_retries:
+                    if task_id is not None and self._state is not None:
+                        enqueue = getattr(self._state, "enqueue_dead_letter", None)
+                        if callable(enqueue):
+                            try:
+                                enqueue(int(task_id), str(stage), str(content), str(e))
+                            except Exception:
+                                pass
+                    return False
+                await asyncio.sleep(base_delay * (2 ** attempt))
+        if last_err is not None and task_id is not None and self._state is not None:
+            enqueue = getattr(self._state, "enqueue_dead_letter", None)
+            if callable(enqueue):
+                try:
+                    enqueue(int(task_id), str(stage), str(content), str(last_err))
+                except Exception:
+                    pass
+        return False
+
     def _log_event(self, event: str) -> None:
         """Append a Telegram event to loop-engine/logs/telegram_events.log.
 
@@ -122,7 +170,8 @@ class ApprovalGateway:
         if self._poller_task is None or self._poller_task.done():
             self._poller_task = asyncio.get_running_loop().create_task(self._poll_loop())
 
-    async def request_approval(self, task_id: int, stage: str, content: str) -> bool:
+    async def request_approval(self, task_id: int, stage: str, content: str,
+                               message_thread_id: Optional[int] = None) -> bool:
         """Send approval request with inline keyboard. Blocks until response."""
         # Defensive string guard (HOTFIX-05): LLM/other callers may pass None or
         # blank content — never let a NoneType reach len()/format paths.
@@ -149,20 +198,26 @@ class ApprovalGateway:
                 # plus the same Approve/Reject buttons.
                 tmp_path = Path(f"/tmp/plan_task_{task_id}.md")
                 send_method = "document"
+                tmp_path.write_text(content_str, encoding="utf-8")
                 try:
-                    tmp_path.write_text(content_str, encoding="utf-8")
                     # No parse_mode for the caption: keep it plain (consistent
                     # with the inline path — LLM content breaks Markdown parsing).
-                    await bot.send_document(
-                        chat_id=self.config.approval.chat_id,
-                        document=str(tmp_path),
-                        caption=(
-                            f"{stage} — Task #{task_id} "
-                            f"(plan attached as file)\n\n"
-                            f"Approve or Reject?"
-                        ),
-                        reply_markup=keyboard,
-                    )
+                    async def _send_doc():
+                        await bot.send_document(
+                            chat_id=self.config.approval.chat_id,
+                            document=str(tmp_path),
+                            caption=(
+                                f"{stage} — Task #{task_id} "
+                                f"(plan attached as file)\n\n"
+                                f"Approve or Reject?"
+                            ),
+                            reply_markup=keyboard,
+                            message_thread_id=message_thread_id,
+                        )
+                    ok = await self._send_with_retry(
+                        _send_doc, task_id=task_id, stage=stage, content=content_str)
+                    if not ok:
+                        return False
                 finally:
                     tmp_path.unlink(missing_ok=True)
             else:
@@ -175,11 +230,17 @@ class ApprovalGateway:
 
                 # No parse_mode: LLM-generated content routinely breaks Markdown
                 # entity parsing, which would fail the whole approval request.
-                await bot.send_message(
-                    chat_id=self.config.approval.chat_id,
-                    text=msg,
-                    reply_markup=keyboard,
-                )
+                async def _send_msg():
+                    await bot.send_message(
+                        chat_id=self.config.approval.chat_id,
+                        text=msg,
+                        reply_markup=keyboard,
+                        message_thread_id=message_thread_id,
+                    )
+                ok = await self._send_with_retry(
+                    _send_msg, task_id=task_id, stage=stage, content=content_str)
+                if not ok:
+                    return False
 
             self._log_event(
                 f"approval_request stage={stage!r} task={task_id} "
@@ -193,6 +254,13 @@ class ApprovalGateway:
         except Exception as e:
             print(f"[gateway] Telegram error: {e}")
             print(f"[gateway] SECURITY: Approval for task {task_id} DENIED (no auto-grant)")
+            if self._state is not None:
+                enqueue = getattr(self._state, "enqueue_dead_letter", None)
+                if callable(enqueue):
+                    try:
+                        enqueue(int(task_id), str(stage), str(content_str), str(e))
+                    except Exception:
+                        pass
             return False
 
         # Wait for Manager response
@@ -247,7 +315,8 @@ class ApprovalGateway:
     # --- Task Entry Trigger Gate ---
 
     async def send_task_trigger_card(self, task_id: int, title: str,
-                                     file_path: str) -> bool:
+                                     file_path: str,
+                                     message_thread_id: Optional[int] = None) -> bool:
         """Send a Telegram message with [🚀 Start Execution] / [⏸️ Hold] buttons."""
         try:
             bot = self._get_bot()
@@ -270,11 +339,18 @@ class ApprovalGateway:
                 f"Edit or refine the task in backlog, then tap below when ready."
             )
 
-            await bot.send_message(
-                chat_id=self.config.approval.chat_id,
-                text=msg,
-                reply_markup=keyboard,
-            )
+            async def _send_card():
+                await bot.send_message(
+                    chat_id=self.config.approval.chat_id,
+                    text=msg,
+                    reply_markup=keyboard,
+                    message_thread_id=message_thread_id,
+                )
+            ok = await self._send_with_retry(
+                _send_card, task_id=task_id, stage="trigger",
+                content=f"{title} {file_path}")
+            if not ok:
+                return False
             self._log_event(
                 f"trigger_card_sent task={task_id} title={title!r} file={file_path}")
             return True
@@ -287,7 +363,8 @@ class ApprovalGateway:
             print(f"[gateway] Trigger card error: {e}")
             return False
 
-    async def send_progress(self, task_id: int, message: str) -> bool:
+    async def send_progress(self, task_id: int, message: str,
+                              message_thread_id: Optional[int] = None) -> bool:
         """Send a brief real-time status update for a task to the Telegram chat.
 
         Non-fatal by design: pipeline progress notifications must never crash
@@ -298,6 +375,7 @@ class ApprovalGateway:
             await bot.send_message(
                 chat_id=self.config.approval.chat_id,
                 text=f"⏳ Task #{task_id}: {message}",
+                message_thread_id=message_thread_id,
             )
             return True
         except (ImportError, ValueError) as e:
@@ -307,7 +385,8 @@ class ApprovalGateway:
             print(f"[gateway] Progress notification error: {e}")
             return False
 
-    async def send_boot_scan_summary(self, tasks: list[dict], top_n: int = 4) -> bool:
+    async def send_boot_scan_summary(self, tasks: list[dict], top_n: int = 4,
+                                       message_thread_id: Optional[int] = None) -> bool:
         """Send ONE consolidated trigger summary for all pending backlog tasks.
 
         Anti-flood replacement (HOTFIX-02) for the per-task trigger-card
@@ -339,6 +418,7 @@ class ApprovalGateway:
                 chat_id=self.config.approval.chat_id,
                 text="\n".join(lines),
                 reply_markup=keyboard,
+                message_thread_id=message_thread_id,
             )
             self._log_event(
                 f"boot_summary_sent tasks={len(tasks)} "

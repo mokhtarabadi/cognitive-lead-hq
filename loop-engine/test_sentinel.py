@@ -110,12 +110,17 @@ def test_assembler_includes_no_manual_dto_mandate_with_version_930(tmp_path):
     assert "<no_manual_dto_mandate>" in result
     assert "</no_manual_dto_mandate>" in result
 
-    # Version fragment bumped to 9.3.0 and reflected in the artifact.
+    # Version fragment reflected in the artifact (dynamic: reads active version
+    # from prompts/fragments/01-system_version.md so the gate survives bumps).
+    import re
     version_frag = (REPO_ROOT / "prompts/fragments/01-system_version.md").read_text(
         encoding="utf-8"
     )
-    assert "9.3.0" in version_frag
-    assert "<system_version>9.3.0</system_version>" in result
+    m = re.search(r"<system_version>([^<]+)</system_version>", version_frag)
+    assert m, "system_version fragment missing <system_version> tag"
+    active_version = m.group(1).strip()
+    assert active_version in version_frag
+    assert f"<system_version>{active_version}</system_version>" in result
 
     # Closing-tag normalization: no indented pure closing tags survive.
     drifted = [
@@ -128,9 +133,9 @@ def test_assembler_includes_no_manual_dto_mandate_with_version_930(tmp_path):
 
 def test_manifest_registers_mandate_before_initialization():
     manifest = (REPO_ROOT / "prompts/manifest.txt").read_text(encoding="utf-8").splitlines()
-    assert "20-no_manual_dto_mandate.md" in manifest
-    assert manifest.index("20-no_manual_dto_mandate.md") < manifest.index(
-        "18-initialization.md"
+    assert "18-no_manual_dto_mandate.md" in manifest
+    assert manifest.index("18-no_manual_dto_mandate.md") < manifest.index(
+        "19-initialization.md"
     )
 
 
