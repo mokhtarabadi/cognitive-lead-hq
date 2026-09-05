@@ -1,9 +1,9 @@
 # Task 164: owt Worktree Plugin Integration (Project + Global)
 
-**File:** `tasks/qa/164-opencode-worktree-integration.md`
+**File:** `tasks/completed/164-opencode-worktree-integration.md`
 **Source:** manager
 **Type:** feature
-**Status:** open
+**Status:** closed
 
 ## Goal
 
@@ -73,76 +73,5 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
-```diff
-diff --git a/.gitignore b/.gitignore
-index 929ad0c..af0c0a1 100644
---- a/.gitignore
-+++ b/.gitignore
-@@ -40,4 +40,8 @@ context-reports/
- downloads/
- 
- # Goal plugin state (per-project)
--.opencode/goals/
-\ No newline at end of file
-+.opencode/goals/
-+
-+# owt worktree plugin state (per-project, Task 164)
-+.opencode/worktrees/
-+.opencode/worktree-sessions.json
-\ No newline at end of file
-diff --git a/CHANGELOG.md b/CHANGELOG.md
-index 510a983..3ee6eaf 100644
---- a/CHANGELOG.md
-+++ b/CHANGELOG.md
-@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
- ### Added
- 
- - **DCP dynamic context pruning like goal plugin (Task 163):** Added `@tarquinen/opencode-dcp` to `plugin` arrays in project `opencode.json` + `tui.json` (parity with global, mirrors `@prevalentware/opencode-goal-plugin` pattern from Task 126); extended `LLM.txt` §7 JSON example + TUI parity block + Option A note, new §7.7 DCP install/config/commands (`opencode plugin @tarquinen/opencode-dcp@latest --global`, `dcp.jsonc` global + `.opencode/dcp.jsonc` override, `/dcp` + `/dcp-compress`), verification checklist DCP checks. Installed globally + verified 4-way parity.
-+- **owt worktree plugin (Task 164):** Installed `@nano-step/opencode-worktree-plugin` globally (`npm i -g` + `owt-setup install` → `~/.config/opencode/plugins/worktree-plugin.js` + 7 slash commands incl. `/init-worktree`, `/list-worktrees`, `/open-worktree`; file-based loading kept, `opencode.json`/`tui.json` untouched by design — npm spec resolves from project `node_modules` which this docs-only repo has none of, and owt is not a TUI panel plugin). Chose owt over `kdcokenny/opencode-worktree` (OCX-only, OCX not allowed) and `arturosdg/opencode-worktree` (standalone TUI). Project side: `.gitignore` guards (`.opencode/worktrees/`, `worktree-sessions.json`), new `LLM.txt` §7.8 install/commands/verify docs. Optional `owt hook --global` left disabled.
- 
- ## [9.10.0] - 2026-09-04
- 
-diff --git a/LLM.txt b/LLM.txt
-index e0b2cf1..99cba3e 100644
---- a/LLM.txt
-+++ b/LLM.txt
-@@ -326,6 +326,29 @@ Defaults are applied automatically (enabled, autoUpdate, pruneNotification detai
- 
- ---
- 
-+## 7.8. Install owt Worktree Plugin
-+
-+owt (`@nano-step/opencode-worktree-plugin`, npm, MIT) manages git worktrees across parallel OpenCode sessions: plugin tools (`createworktree`/`deleteworktree`/`listworktrees` + system-prompt injection) + slash commands (`/init-worktree`, `/list-worktrees`, `/open-worktree`) + `owt` shell CLI (`status`/`diff`/`log`/`merge`/`commit`, terminal auto-detect, `node_modules` symlink). Chosen over `kdcokenny/opencode-worktree` (OCX-registry only — OCX is not allowed here) and `arturosdg/opencode-worktree` (standalone TUI, not a plugin).
-+
-+```bash
-+npm install -g @nano-step/opencode-worktree-plugin
-+owt-setup install
-+```
-+
-+`owt-setup install` copies the plugin to `~/.config/opencode/plugins/worktree-plugin.js` and slash commands to `~/.config/opencode/command/` (file-based loading — kept deliberately). The installer's config-based Option B (`"plugin": ["opencode-worktree-plugin"]` in `opencode.json`) is NOT adopted: it resolves from project `node_modules`, which this docs-only repo has none of, and the global file copy already covers every project session. `tui.json` is unchanged (owt is not a TUI panel plugin). Restart OpenCode after install (plugins + commands load at startup). Optional, not enabled: `owt hook --global` strips AI `Co-authored-by:` via a global `commit-msg` hook.
-+
-+Verify (project + global):
-+
-+```bash
-+owt help && echo "owt CLI ✓"
-+ls ~/.config/opencode/plugins/worktree-plugin.js && echo "global plugin ✓"
-+ls ~/.config/opencode/command/init-worktree.md && echo "global commands ✓"
-+```
-+
-+Worktree state lives in the project (gitignored): worktrees under `.opencode/worktrees/`, session names in `.opencode/worktree-sessions.json`.
-+
-+---
-+
- ## 8. Clean Up Temporary Clone
- 
- Remove the cloned repository from `/tmp/`:
-@@ -363,6 +386,7 @@ After completing all steps, verify:
- - [ ] `~/.config/opencode/opencode.json` exists with **absolute paths** (not `~` or relative paths) and 5 `mcp` entries (`custom_context`, `project_memory`, `lint`, `blowsh`, `telegram`) + `blowsh_*`/`telegram_*` permissions, no former browser entry
- - [ ] `~/.config/opencode/opencode.json` + `tui.json` `plugin` arrays contain both `@prevalentware/opencode-goal-plugin` and `@tarquinen/opencode-dcp` (`grep -q "@tarquinen/opencode-dcp" ~/.config/opencode/opencode.json && grep -q "@tarquinen/opencode-dcp" ~/.config/opencode/tui.json`); project `opencode.json` + `tui.json` match (`diff -q tui.json ~/.config/opencode/tui.json`)
- - [ ] DCP loads: `opencode plugin list` shows `@tarquinen/opencode-dcp`, `/dcp` panel opens, `~/.config/opencode/dcp.jsonc` created on first run (project `.opencode/dcp.jsonc` overrides if present)
-+- [ ] owt loads: `owt help` prints usage, `~/.config/opencode/plugins/worktree-plugin.js` + `~/.config/opencode/command/init-worktree.md` exist, `/init-worktree` recognised after restart
- - [ ] `~/.config/opencode/opencode.json` `blowsh` uses `docker run --rm -i ghcr.io/mokhtarabadi/blowsh-mcp:latest` (120s timeout) and `telegram` uses `uv --directory $HOME/.config/opencode/mcp-telegram-server run main.py` with allowed roots (`/tmp/telegram-mcp` + config dir downloads)
- - [ ] `~/.config/opencode/opencode-shell-strategy.md` exists (instructions file referenced by the `instructions` key)
- - [ ] `/tmp/cognitive-lead-hq` no longer exists
-```
+**Factual Git Diff:** Stored in Commit Hash: `e39f08cc26d3c7476d7a106904dcb78ee6d7b11b`
 <!-- END_GIT_DIFF -->
