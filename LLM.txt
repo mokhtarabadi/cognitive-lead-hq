@@ -326,6 +326,29 @@ Defaults are applied automatically (enabled, autoUpdate, pruneNotification detai
 
 ---
 
+## 7.8. Install owt Worktree Plugin
+
+owt (`@nano-step/opencode-worktree-plugin`, npm, MIT) manages git worktrees across parallel OpenCode sessions: plugin tools (`createworktree`/`deleteworktree`/`listworktrees` + system-prompt injection) + slash commands (`/init-worktree`, `/list-worktrees`, `/open-worktree`) + `owt` shell CLI (`status`/`diff`/`log`/`merge`/`commit`, terminal auto-detect, `node_modules` symlink). Chosen over `kdcokenny/opencode-worktree` (OCX-registry only — OCX is not allowed here) and `arturosdg/opencode-worktree` (standalone TUI, not a plugin).
+
+```bash
+npm install -g @nano-step/opencode-worktree-plugin
+owt-setup install
+```
+
+`owt-setup install` copies the plugin to `~/.config/opencode/plugins/worktree-plugin.js` and slash commands to `~/.config/opencode/command/` (file-based loading — kept deliberately). The installer's config-based Option B (`"plugin": ["opencode-worktree-plugin"]` in `opencode.json`) is NOT adopted: it resolves from project `node_modules`, which this docs-only repo has none of, and the global file copy already covers every project session. `tui.json` is unchanged (owt is not a TUI panel plugin). Restart OpenCode after install (plugins + commands load at startup). Optional, not enabled: `owt hook --global` strips AI `Co-authored-by:` via a global `commit-msg` hook.
+
+Verify (project + global):
+
+```bash
+owt help && echo "owt CLI ✓"
+ls ~/.config/opencode/plugins/worktree-plugin.js && echo "global plugin ✓"
+ls ~/.config/opencode/command/init-worktree.md && echo "global commands ✓"
+```
+
+Worktree state lives in the project (gitignored): worktrees under `.opencode/worktrees/`, session names in `.opencode/worktree-sessions.json`.
+
+---
+
 ## 8. Clean Up Temporary Clone
 
 Remove the cloned repository from `/tmp/`:
@@ -363,6 +386,7 @@ After completing all steps, verify:
 - [ ] `~/.config/opencode/opencode.json` exists with **absolute paths** (not `~` or relative paths) and 5 `mcp` entries (`custom_context`, `project_memory`, `lint`, `blowsh`, `telegram`) + `blowsh_*`/`telegram_*` permissions, no former browser entry
 - [ ] `~/.config/opencode/opencode.json` + `tui.json` `plugin` arrays contain both `@prevalentware/opencode-goal-plugin` and `@tarquinen/opencode-dcp` (`grep -q "@tarquinen/opencode-dcp" ~/.config/opencode/opencode.json && grep -q "@tarquinen/opencode-dcp" ~/.config/opencode/tui.json`); project `opencode.json` + `tui.json` match (`diff -q tui.json ~/.config/opencode/tui.json`)
 - [ ] DCP loads: `opencode plugin list` shows `@tarquinen/opencode-dcp`, `/dcp` panel opens, `~/.config/opencode/dcp.jsonc` created on first run (project `.opencode/dcp.jsonc` overrides if present)
+- [ ] owt loads: `owt help` prints usage, `~/.config/opencode/plugins/worktree-plugin.js` + `~/.config/opencode/command/init-worktree.md` exist, `/init-worktree` recognised after restart
 - [ ] `~/.config/opencode/opencode.json` `blowsh` uses `docker run --rm -i ghcr.io/mokhtarabadi/blowsh-mcp:latest` (120s timeout) and `telegram` uses `uv --directory $HOME/.config/opencode/mcp-telegram-server run main.py` with allowed roots (`/tmp/telegram-mcp` + config dir downloads)
 - [ ] `~/.config/opencode/opencode-shell-strategy.md` exists (instructions file referenced by the `instructions` key)
 - [ ] `/tmp/cognitive-lead-hq` no longer exists

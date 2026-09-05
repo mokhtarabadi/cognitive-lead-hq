@@ -41,3 +41,7 @@ downloads/
 
 # Goal plugin state (per-project)
 .opencode/goals/
+
+# owt worktree plugin state (per-project, Task 164)
+.opencode/worktrees/
+.opencode/worktree-sessions.json
