@@ -2,7 +2,10 @@
   "$schema": "https://opencode.ai/config.json",
   "default_agent": "cognitive-executor",
   "instructions": ["docs/opencode-shell-strategy.md"],
-  "plugin": ["@prevalentware/opencode-goal-plugin"],
+  "plugin": [
+    "@prevalentware/opencode-goal-plugin",
+    "@tarquinen/opencode-dcp@latest"
+  ],
   "mcp": {
     "custom_context": {
       "type": "local",
