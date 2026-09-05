@@ -1,8 +1,8 @@
 ---
-created_at: "2026-08-25T19:15:30.411061+00:00"
+created_at: '2026-09-05T19:29:36.505824+00:00'
 status: active
 tags: []
-updated_at: "2026-09-03T08:45:00.000000+00:00"
+updated_at: '2026-09-05T19:29:36.505851+00:00'
 ---
 
 # Global Install Upgrade Workflow (OpenCode)
@@ -17,7 +17,7 @@ Updates the machine-global installations of the Cognitive Lead AI HQ (MCP server
 | -------------- | -------------------------------------------------------------------------------------------------------------- |
 | MCP servers    | `~/.config/opencode/mcp-{context,memory,lint}-server/server.py`                                                |
 | Telegram MCP   | `~/.config/opencode/mcp-telegram-server/` (fork clone of mokhtarabadi/telegram-mcp — tracks chigwell/telegram-mcp + patches) |
-| Skills (30)    | `~/.config/opencode/skills/<name>/SKILL.md`                                                                    |
+| Skills (31)    | `~/.config/opencode/skills/<name>/SKILL.md`                                                                    |
 | Custom agents  | `~/.config/opencode/agents/{cognitive-executor,cognitive-discovery}.md`                                        |
 | Shell strategy | `~/.config/opencode/opencode-shell-strategy.md`                                                                |
 | System prompt  | `~/.config/opencode/system-prompt.md`                                                                          |
@@ -25,7 +25,7 @@ Updates the machine-global installations of the Cognitive Lead AI HQ (MCP server
 ## Source Files (repo)
 
 - `mcp-context-server/server.py`, `mcp-memory-server/server.py`, `mcp-lint-server/server.py`
-- `skill-templates/*/` (all 30 skills — `bundle-tasks` since Task 110)
+- `skill-templates/*/` (all 31 skills — `bundle-tasks` since Task 110)
 - `agents/cognitive-executor.md`, `agents/cognitive-discovery.md`
 - `docs/opencode-shell-strategy.md`, `system-prompt.md`
 
@@ -79,7 +79,7 @@ The installed copy at `~/.config/opencode/mcp-telegram-server` is a git clone of
      /tmp/opencode/telegram-mcp-upstream/ ~/.config/opencode/mcp-telegram-server/
    cd ~/.config/opencode/mcp-telegram-server && uv sync
    ```
-   **Syncing fork with upstream** (when `origin/main` ahead of `fork/main`): rebase `fix/allowed-root-automkdir-and-topic-filter` onto new upstream, merge to `fork/main`, push both. See Task 128 notes and `~/.config/opencode/mcp-telegram-server` git log. After sync, re-run rsync from fork.
+   **Syncing fork with upstream** (when `origin/main` ahead of `fork/main`): rebase `fix/allowed-root-automkdir-and-topic-filter` onto new upstream, merge to `fork/main`, push both. See Task 128 notes and `~/.config/opencode/mcp-telegram-server` git log. After sync, re-run rsync from fork. **Shortcut when fork patch already upstream (e.g. 2026-09-05: PR #201 ancestor of origin/main):** `git merge --ff-only origin/main` in installed clone + `git push fork main` — no rebase needed. Verify with `git merge-base --is-ancestor fork/main origin/main`.
 3. **Verify:**
    ```bash
    cd ~/.config/opencode/mcp-telegram-server
@@ -88,7 +88,7 @@ The installed copy at `~/.config/opencode/mcp-telegram-server` is a git clone of
    ```
    ⚠️ **Tests FAIL (~26 failures) if `.env` is present** — ALWAYS hold `.env` aside during the test run. Fork test `test_configure_allowed_roots_from_cli` expects auto-mkdir (not SystemExit) — fork's `tests/test_runtime.py` patched accordingly.
 4. **Smoke:** server startup requires valid sessions. `AuthKeyDuplicatedError` on ANY account blocks the whole MCP handshake. Fix = regenerate that session or remove its `TELEGRAM_SESSION_STRING_<LABEL>` from `.env`. Never `pip install telegram-mcp` / `uvx telegram-mcp` from PyPI (credential-theft lookalike).
-5. **Startup failure triage:** reproduce with `timeout 45 uv --directory ~/.config/opencode/mcp-telegram-server run main.py /tmp/telegram-mcp ~/.config/opencode/mcp-telegram-server/downloads </dev/null >/tmp/opencode/tg-test.log 2>&1; echo $?` and read the log.
+5. **Startup failure triage:** reproduce with `timeout 45 uv --directory ~/.config/opencode/mcp-telegram-server run main.py /tmp/telegram-mcp ~/.config/opencode/mcp-telegram-server/downloads </dev/null >/tmp/opencode/tg-test.log 2>&1; echo $?` and read the log. **Lock-held exit (code 1, `Another telegram-mcp process is already connected`) is healthy** when the live opencode server holds the session — not an auth failure. `opencode mcp list` probe will timeout on telegram while the main instance holds the lock; core 4/5 connected is still a pass.
 
 ## Key Facts
 
@@ -99,4 +99,4 @@ The installed copy at `~/.config/opencode/mcp-telegram-server` is a git clone of
 - **Project vs Global `opencode.json` (Option A 2026-08-25):** Repo `opencode.json` uses **relative** `mcp-context-server/server.py` etc for 3 core — `opencode mcp list` inside clone shows `✓ connected`; literal `$HOME/...` in repo's `command` breaks. Global `~/.config/opencode/opencode.json` must use **absolute** `$HOME/.config/opencode/...` for all 5. `blowsh`/`telegram` stay `enabled:false` in repo (require global install) vs `enabled:true` in global. `diff opencode.json` will always differ — verify shape, not identity.
   - **Update 2026-08-25 (Manager-approved):** repo now OMITS the `blowsh`/`telegram` blocks entirely so they inherit the working global definitions in-project.
   - **Update 2026-09-03:** Telegram MCP now uses **mokhtarabadi/telegram-mcp fork** (`fork` remote) for HQ install. Fork `main` = upstream chigwell `main` (7842b91 as of 2026-09-03) + `fix/allowed-root-automkdir-and-topic-filter` (runtime auto-mkdir + messages topic_id + test fix, commit c83a54e). Upstream sync via `git fetch origin && git merge --ff-only origin/main` on `main`, rebase fix branch, merge back, push to `fork`. Installed clone at `~/.config/opencode/mcp-telegram-server` tracks `fork/main`.
-
+  - **Update 2026-09-05:** Telegram MCP fast-forwarded `3c37edb` (v3.2.28) → `7623e6b` (v3.2.31). Upstream PRs #206 (bounded media downloads), #207 (redact sensitive logs), #210 (rich message text). PR #201 already in upstream history — `merge --ff-only` + `push fork main`, no rebase. Tests: 476 passed (`.env` held aside), HQ suite 55 passed. `opencode mcp list` 4/5 connected (telegram probe timeouts while live server holds lock — healthy).
