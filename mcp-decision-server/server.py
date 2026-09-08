@@ -11,8 +11,8 @@
 
 Learning half of the persona pipeline: per-session manager trade-offs and
 rulings are extracted (LiteLLM, default Gemini Flash), redacted, and
-persisted append-only into the decision repo
-(`packages/cognitive-lead-decisions/`, overridable via DECISION_REPO_PATH).
+persisted append-only into the decision store (per-project
+`.opencode/decisions/`, overridable via DECISION_REPO_PATH).
 Stored decisions feed `query_manager_decisions` (consultation) and
 `propose_profile_evolution` (gated sample updates — the script drafts, a
 human approves; this server never rewrites the sample itself).
@@ -36,23 +36,94 @@ from mcp.server.fastmcp import FastMCP
 
 from redactor import sanitize_text, verify_clean
 
-# Decision repo root: standalone checkout via env, else the in-repo package.
-REPO_ROOT = Path(
-    os.environ.get("DECISION_REPO_PATH", Path(__file__).resolve().parent.parent
-                   / "packages" / "cognitive-lead-decisions")
-)
+# Shared env loader lives in mcp-common (Task 170). Prefer the installed
+# package; fall back to the sibling source tree so plain `uv run <path>`
+# and direct test imports keep working without a workspace install.
+# NOTE: file.parent = server dir, so parent.parent = install root (repo root
+# for repo installs, ~/.config/opencode for global installs). Correct.
+try:
+    from mcp_common.env import load_env_files as _shared_load_env_files
+except ImportError:  # pragma: no cover - workspace/normal path first
+    _COMMON_SRC = Path(__file__).resolve().parent.parent / "mcp-common" / "src"
+    if _COMMON_SRC.is_dir():
+        sys.path.insert(0, str(_COMMON_SRC))
+    from mcp_common.env import load_env_files as _shared_load_env_files
+
+
+def _load_env_files(server_dir: Optional[Path] = None) -> Optional[str]:
+    """Load `.env` files via the shared loader (thin wrapper, stable entry point).
+    Empty env values count as unset, so blank `{env:…}` injections never
+    shadow file values."""
+    return _shared_load_env_files(
+        server_dir if server_dir is not None else Path(__file__).resolve().parent
+    )
+
+
+_loaded_from = _load_env_files()
+if _loaded_from is not None:
+    print(f"decision-server: loaded env from {_loaded_from}", file=sys.stderr)
+
+# Install root: repo root for repo installs, ~/.config/opencode globally.
+INSTALL_ROOT = Path(__file__).resolve().parent.parent
+
+
+def _repo_root() -> Path:
+    """Resolve (creating) the decision store — project-aware.
+
+    Order: explicit ``DECISION_REPO_PATH`` env, then
+    ``<cwd>/.opencode/decisions`` (each project keeps its OWN manager
+    notes — opencode launches servers with the project as cwd), then
+    ``<install-root>/.opencode/decisions`` as fallback. Creation failures
+    (e.g. read-only cwd) fall through to the next candidate.
+    """
+    explicit = os.environ.get("DECISION_REPO_PATH", "").strip()
+    if explicit:
+        root = Path(explicit)
+        root.mkdir(parents=True, exist_ok=True)
+        return root
+    for base in (Path.cwd(), INSTALL_ROOT):
+        candidate = base / ".opencode" / "decisions"
+        try:
+            candidate.mkdir(parents=True, exist_ok=True)
+            return candidate
+        except OSError:
+            continue
+    raise RuntimeError("cannot create a decision store: no writable location found")
 
 mcp = FastMCP("ManagerDecisions")
 
 # Free-text fields that must pass verify_clean before any write.
 _SCRUB_FIELDS = ("original", "english_translation", "summary", "rationale", "tradeoffs")
 
+#: Built-in extraction model when neither DECISION_MODEL nor PERSONA_MODEL is set.
+DEFAULT_DECISION_MODEL = "openrouter/deepseek/deepseek-v4-flash-0731"
 
-def _repo_root() -> Path:
-    """Resolve (creating) the decision repo root."""
-    root = Path(os.environ.get("DECISION_REPO_PATH", str(REPO_ROOT)))
-    root.mkdir(parents=True, exist_ok=True)
-    return root
+
+def _get_decision_temperature() -> float:
+    """Extraction sampling temperature; override via ``DECISION_TEMPERATURE``.
+
+    Defaults to 1.0 (matches the house temperature policy; the old hardcoded
+    0.2 was a Gemini-era leftover). Out-of-range or unparsable values clamp
+    to 1.0 instead of crashing a live turn.
+    """
+    try:
+        value = float(os.environ.get("DECISION_TEMPERATURE", "1.0") or 1.0)
+    except ValueError:
+        return 1.0
+    return value if 0.0 <= value <= 2.0 else 1.0
+
+
+def _get_decision_model() -> str:
+    """Extraction LLM: ``DECISION_MODEL``, else ``PERSONA_MODEL`` fallback.
+
+    Lets operators run a stronger (or cheaper) model for ruling extraction
+    than for persona turns. Empty/unset DECISION_MODEL falls back to
+    PERSONA_MODEL so existing setups keep working unchanged.
+    """
+    explicit = os.environ.get("DECISION_MODEL", "").strip()
+    if explicit:
+        return explicit
+    return os.environ.get("PERSONA_MODEL", DEFAULT_DECISION_MODEL).strip() or DEFAULT_DECISION_MODEL
 
 
 def _utc_today() -> str:
@@ -172,6 +243,11 @@ def extract_session_decisions(
 ) -> list[dict[str, Any]]:
     """Extract manager trade-offs/rulings from a session transcript.
 
+    WHEN TO CALL (automatic): at the end of every session in which the
+    manager ruled, chose, or constrained something — before closing the
+    task. Feed its output into `record_manager_decision` (never persist
+    raw output: it is UNSCRUBBED and UNVALIDATED).
+
     Reads `transcript.jsonl` from `tasks/.sessions/{task_id}/` (or the given
     path) and prompts the light LLM (PERSONA_MODEL) to isolate manager
     decisions as structured objects. Raw output is returned UNSCRUBBED and
@@ -215,9 +291,9 @@ def extract_session_decisions(
         "Empty array when the session holds no manager rulings.\n\n" + "\n".join(turns)
     )
     response = litellm.completion(
-        model=os.environ.get("PERSONA_MODEL", "openrouter/google/gemini-3.8-flash"),
+        model=_get_decision_model(),
         messages=[{"role": "user", "content": prompt}],
-        temperature=0.2,
+        temperature=_get_decision_temperature(),
         drop_params=True,
     )
     text = str(response.choices[0].message.content or "").strip()
@@ -235,6 +311,11 @@ def extract_session_decisions(
 @mcp.tool()
 def record_manager_decision(decision: dict[str, Any]) -> str:
     """Redact, validate, and persist one manager decision; return its id.
+
+    WHEN TO CALL (automatic): immediately after `extract_session_decisions`
+    returns candidates, or whenever the manager states a ruling mid-session
+    (don't wait for session end — capture rulings while verbatim). This is
+    the ONLY write path into the learning repo.
 
     Pipeline: `sanitize_text` every free-text field → `verify_clean` gate →
     schema validation → write `decisions/YYYY/MM/DEC-*.json` + matching `.md`
@@ -286,6 +367,11 @@ def record_manager_decision(decision: dict[str, Any]) -> str:
 def query_manager_decisions(query: str, category: Optional[str] = None) -> str:
     """Search stored decisions by keyword (+ optional category).
 
+    WHEN TO CALL (automatic): BEFORE paging the human manager with a
+    question — if a past ruling covers it, decide from the record instead.
+    Also call it during discovery when the task touches architecture,
+    process, scope, or quality gates.
+
     Case-insensitive substring match over summaries, rationales, trade-offs,
     and both verbatim-quote languages. Returns formatted summaries with
     verbatim quotes, or a no-match message (never an error) when empty.
@@ -328,6 +414,11 @@ def query_manager_decisions(query: str, category: Optional[str] = None) -> str:
 def get_manager_profile() -> str:
     """Return `samples/manager_profile.md` for agent context injection.
 
+    WHEN TO CALL (automatic): inject its output into your reasoning whenever
+    resolving an architectural ambiguity or applying a house rule — the
+    profile IS the manager's standing judgment. Cheap, read-only, no
+    side effects.
+
     The baseline section is curated; the generated aggregate (if any) comes
     from reviewed compilations only — this tool never synthesizes guidance.
     Returns an explanatory message (not an error) when the sample is absent.
@@ -341,6 +432,11 @@ def get_manager_profile() -> str:
 @mcp.tool()
 def propose_profile_evolution() -> dict[str, Any]:
     """Draft a profile update for MANAGER approval (review gate enforced).
+
+    WHEN TO CALL (automatic): only when new recorded decisions exist that
+    the current sample does not reflect — roughly once per sprint, never
+    per session. Present the DRAFT_READY payload to the manager; merge
+    nothing without an explicit approve.
 
     Executes `scripts/compile_profile.py` in a subprocess and returns the
     draft as a staged diff-like payload. NOTHING is written to the sample:

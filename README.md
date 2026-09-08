@@ -123,49 +123,47 @@ The repository includes a standalone web tool at `tools/prompt-composer/index.ht
 
 ---
 
-## 🤖 Cognitive Loop Engine
+## 🤖 Persona Engine + Decision Learning
 
-The **Cognitive Loop Engine** is a local orchestration daemon that eliminates the manual copy-paste workflow between the Orchestrator (Brain) and OpenCode (Hands). It routes tasks to LLM APIs, invokes execution programmatically, and maintains Manager approval gates via Telegram.
+The **Persona Engine** (Tasks 167–168) replaced the retired loop-engine daemon with on-demand persona turns: OpenCode itself calls personas (`/qa`, `/reviewer`, `/manager`, `/brainstorm`) backed by a light LLM holding the full system prompt, with Telegram Approve/Reject hard gates. The **Decision Learning** side captures per-session manager rulings into a separate append-only repo that evolves the manager-AI sample behind human review.
 
 ### What It Does
 
 ```
-Manager creates task → Daemon detects → AI plans → Telegram approval →
-OpenCode executes → QA reviews → Telegram closure → Done
+Manager creates task → Executor implements → /qa adversarial review →
+/reviewer standards audit → Telegram approval → Closure →
+Decisions extracted → Learning repo → Sample evolves (review-gated)
 ```
 
 ### Quick Start
 
 ```bash
-# 1. Install dependencies
-cd loop-engine
-uv venv .venv
-source .venv/bin/activate
-uv pip install pydantic litellm watchdog python-telegram-bot
+# 1. Configure
+cp .env.example .env
+# Edit .env with your keys (OPENROUTER_API_KEY, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID)
 
-# 2. Configure
-cp ../.env.example ../.env
-# Edit .env with your API keys
+# 2. Register servers (global install, absolute paths) or use the repo opencode.json locally
+# mcp-persona-server + mcp-decision-server run via `uv run` stdio FastMCP, zero-install deps
 
-# 3. Start
-python daemon.py
+# 3. Invoke in OpenCode
+# /qa → adversarial testing → /reviewer → audit → /manager → approval gate
 ```
 
 ### Features
 
-- **Category-based model routing** — quick→kimi, deep→gpt-5.6, visual→opus-5
-- **Telegram approval gateway** — Inline keyboard Approve/Reject
+- **Persona slash commands** — `/qa`, `/reviewer`, `/manager`, `/brainstorm`, each with Dual Dispatch classification (`XML_EXTRACTED` / `QUESTION` / `REPORT`)
+- **Telegram approval gateway** — task/stage-scoped inline keyboard Approve/Reject with stale-press discard
 - **Auto-continue** — Goal Plugin handles idle detection and continuation
 - **Evidence-bound QA** — No evidence = no commit
-- **SQLite state machine** — Crash recovery, task tracking
-- **Multi-project support** — One bot, Topics per project
+- **Append-only session transcripts** — `tasks/.sessions/{id}/transcript.jsonl`, the audit trail behind every gate
+- **Manager-decision learning repo** — verbatim quotes + redaction + review-gated sample evolution
 
 ### Documentation
 
-- [Architecture Overview](docs/loop-engine/README.md)
-- [Setup Guide](docs/loop-engine/setup.md)
-- [Configuration Reference](docs/loop-engine/configuration.md)
-- [Multi-Project Guide](docs/loop-engine/multi-project.md)
+- [Manager-Decision Skill](skill-templates/manager-decision/SKILL.md)
+- [Cognitive Executor Agent](agents/cognitive-executor.md) (Persona Loop section)
+- [Setup Guide](docs/setup.md)
+- Historical loop-engine docs remain under `docs/loop-engine/` for reference (daemon retired in Task 167).
 
 ---
 
@@ -196,17 +194,15 @@ python daemon.py
 │   └── server.py                       # FastMCP server for task file linting
 ├── mcp-memory-server/
 │   └── server.py                       # FastMCP server for persistent project memory
-├── loop-engine/                         # Cognitive Loop Engine daemon
-│   ├── daemon.py                        # Main entry point
-│   ├── models.py                        # Pydantic config validation
-│   ├── state.py                         # SQLite state machine
-│   ├── watcher.py                       # Kanban filesystem observer
-│   ├── router.py                        # LLM category routing
-│   ├── executor.py                      # Goal Plugin delegation
-│   ├── gateway.py                       # Telegram approval gateway
-│   ├── qa_engine.py                     # Evidence-bound QA
-│   ├── loop-engine.jsonc                # Configuration file
-│   └── pyproject.toml                   # Python dependencies
+├── mcp-persona-server/                 # Persona dispatch engine (Task 167)
+│   ├── server.py                       # FastMCP `PersonaServer`: dispatch/summary/approval tools
+│   ├── dual_dispatch.py                # XML vs question classifier
+│   ├── session.py                      # Append-only JSONL transcripts + lineage projection
+│   └── telegram.py                     # Scoped Approve/Reject gates over Bot API
+├── mcp-decision-server/                # Manager-decision learning (Task 168)
+│   ├── server.py                       # FastMCP `ManagerDecisions`: extract/record/query/profile/propose
+│   └── redactor.py                     # Secret scrubbing + verify gate
+├── .opencode/decisions/                  # Per-project learning store (DEC-*.json, profile sample, scripts)
 ├── prompts/                            # System prompt source tree (fragments + shared partials)
 │   ├── README.md                       # Authoring workflow guide
 │   ├── manifest.txt                    # Ordered fragment list (assembly order)
@@ -410,6 +406,8 @@ Best if you want this codebase exploration tool available in _every_ terminal di
 ```
 
 _(Note: Replace `/Users/<YOUR_USER>` with your actual home directory path)._
+
+> Full HQ install (all 7 MCP servers — context, memory, lint, persona, decisions, blowsh, telegram — plus 32 skills and both agents) is documented in `LLM.txt` §4–§7 and the `global-install-upgrade` memory workflow, not here; the steps above cover only the standalone context server for third-party projects.
 
 ### How It Works
 

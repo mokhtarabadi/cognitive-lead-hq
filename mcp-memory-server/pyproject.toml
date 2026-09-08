@@ -1,0 +1,9 @@
+[project]
+name = "mcp-memory-server"
+version = "1.0.0"
+description = "Project memory MCP server: namespaced persistent notes"
+requires-python = ">=3.10"
+dependencies = [
+    "mcp[cli]>=1.0,<2.0",
+    "pyyaml",
+]

@@ -7,7 +7,7 @@ description: Capture per-session manager decisions into a separate learning repo
 
 ## Purpose
 
-Turns each session's manager judgment into training data. Whenever the manager makes a trade-off, ruling, or system-design call, this skill extracts it (verbatim quote + structured decision), redacts secrets, and persists it append-only in the decision repo (`packages/cognitive-lead-decisions/`, or any checkout pointed to by `DECISION_REPO_PATH`). Aggregated decisions evolve `samples/manager_profile.md` — the manager-AI sample — one reviewed promotion at a time, until micro-decisions no longer need the real manager.
+Turns each session's manager judgment into training data. Whenever the manager makes a trade-off, ruling, or system-design call, this skill extracts it (verbatim quote + structured decision), redacts secrets, and persists it append-only in the decision store (`.opencode/decisions/` of the current project — every project keeps its OWN manager notes — or any checkout pointed to by `DECISION_REPO_PATH`). Aggregated decisions evolve `samples/manager_profile.md` — the manager-AI sample — one reviewed promotion at a time, until micro-decisions no longer need the real manager.
 
 ## When to Invoke (Trigger)
 

@@ -17,6 +17,7 @@ Run: ``pytest tests/test_persona_server.py -v`` (repo root).
 
 import importlib
 import json
+import os
 import sys
 import types
 from pathlib import Path
@@ -241,9 +242,9 @@ def test_env_fallback_defaults(server_mod, monkeypatch):
         "PERSONA_MAX_TOKENS",
     ):
         monkeypatch.delenv(var, raising=False)
-    assert server_mod._get_persona_model() == "openrouter/google/gemini-3.8-flash"
+    assert server_mod._get_persona_model() == "openrouter/deepseek/deepseek-v4-flash-0731"
     assert server_mod._get_reasoning_effort() == "high"
-    assert server_mod._get_temperature() == 0.2
+    assert server_mod._get_temperature() == 1.0
     assert server_mod._get_max_tokens() == 16384
 
 
@@ -261,7 +262,7 @@ def test_env_overrides_respected(server_mod, monkeypatch):
 def test_env_invalid_numeric_falls_back(server_mod, monkeypatch):
     monkeypatch.setenv("PERSONA_TEMPERATURE", "not-a-float")
     monkeypatch.setenv("PERSONA_MAX_TOKENS", "not-an-int")
-    assert server_mod._get_temperature() == 0.2
+    assert server_mod._get_temperature() == 1.0
     assert server_mod._get_max_tokens() == 16384
 
 
@@ -378,13 +379,69 @@ def test_telegram_approval_approve_flow(server_mod, monkeypatch):
 
     telegram = sys.modules["telegram"]
     result = telegram.send_approval_request(
-        175, "QA", "All green.", transport=staged
+        175, "QA", "All green.", transport=staged, ask_note=False
     )
     assert result["sent"] is True
     assert result["decision"] == "approve"
+    assert result["note"] is None
     assert result["update_id"] == 7
     methods = [m for m, _ in calls]
     assert "sendMessage" in methods and "getUpdates" in methods
+
+
+def test_telegram_approval_with_manager_note(server_mod, monkeypatch):
+    # Manager approves, then types a note at the force-reply prompt.
+    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "test-token")
+    monkeypatch.setenv("TELEGRAM_CHAT_ID", "12345")
+    monkeypatch.setenv("TELEGRAM_APPROVAL_TIMEOUT_SECONDS", "10")
+    queue = []
+    calls = []
+    base = _queue_transport(queue, calls)
+    sends = []
+
+    def staged(method, payload):
+        if method == "sendMessage":
+            sends.append(payload)
+            if len(sends) == 1:  # Gate message → decision press.
+                queue.append(_approval_update(7, 12345, "approve:175:QA"))
+            elif len(sends) == 2:  # Note prompt → typed note.
+                queue.append({
+                    "update_id": 8,
+                    "message": {"chat": {"id": 12345}, "text": "ship it, then tag"},
+                })
+        return base(method, payload)
+
+    telegram = sys.modules["telegram"]
+    result = telegram.send_approval_request(175, "QA", "All green.", transport=staged)
+    assert result["sent"] is True
+    assert result["decision"] == "approve"
+    assert result["note"] == "ship it, then tag"
+    # The note prompt used a force-reply keyboard.
+    assert sends[1].get("reply_markup", {}).get("force_reply") is True
+
+
+def test_telegram_approval_note_silence_never_blocks(server_mod, monkeypatch):
+    # Manager decides, then goes silent: gate still resolves, note is None.
+    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "test-token")
+    monkeypatch.setenv("TELEGRAM_CHAT_ID", "12345")
+    monkeypatch.setenv("TELEGRAM_APPROVAL_TIMEOUT_SECONDS", "10")
+    queue = []
+    calls = []
+    base = _queue_transport(queue, calls)
+
+    def staged(method, payload):
+        if method == "sendMessage" and not queue:
+            # Only the decision ever arrives; the note prompt goes unanswered.
+            queue.append(_approval_update(7, 12345, "reject:175:QA"))
+        return base(method, payload)
+
+    telegram = sys.modules["telegram"]
+    result = telegram.send_approval_request(
+        175, "QA", "All green.", transport=staged, note_timeout_s=0
+    )
+    assert result["sent"] is True
+    assert result["decision"] == "reject"
+    assert result["note"] is None
 
 
 def test_telegram_approval_scopes_callback_and_answers_query(server_mod, monkeypatch):
@@ -411,7 +468,7 @@ def test_telegram_approval_scopes_callback_and_answers_query(server_mod, monkeyp
             queue.append(_approval_update(9, 12345, "approve:175:QA"))
         return orig_fake(method, payload)
     result = telegram.send_approval_request(
-        175, "QA", "All green.", transport=staged
+        175, "QA", "All green.", transport=staged, ask_note=False
     )
     # Stale approve:100:OLD (id 3) was discarded by the offset=-1 probe;
     # only the scoped approve:175:QA (id 9) resolved the gate.
@@ -459,7 +516,7 @@ def test_telegram_long_summary_chunked_not_truncated(server_mod, monkeypatch):
         return base(method, payload)
 
     result = telegram.send_approval_request(
-        176, "closure", long_summary, transport=staged
+        176, "closure", long_summary, transport=staged, ask_note=False
     )
     assert result["sent"] is True
     assert result["decision"] == "reject"
@@ -483,3 +540,157 @@ def test_session_lineage_no_duplicate_instruction(sess, tmp_path):
         180, "QA Engineer", "do the other thing", None, repo_root=tmp_path
     )
     assert messages2[-1] == {"role": "user", "content": "do the other thing"}
+
+
+def test_load_env_files_from_cwd_and_never_overrides(server_mod, tmp_path, monkeypatch):
+    (tmp_path / ".env").write_text(
+        "# comment\nPERSONA_TEST_PROBE=probe-value-123\n"
+        "QUOTED='spaced value'\nMALFORMED-LINE\n",
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("PERSONA_TEST_PROBE", raising=False)
+    monkeypatch.delenv("QUOTED", raising=False)
+    server_mod._load_env_files()
+    assert os.environ.get("PERSONA_TEST_PROBE") == "probe-value-123"
+    assert os.environ.get("QUOTED") == "spaced value"
+    # Real process env always wins: files never override it.
+    monkeypatch.setenv("PERSONA_TEST_PROBE", "keep-me")
+    server_mod._load_env_files()
+    assert os.environ.get("PERSONA_TEST_PROBE") == "keep-me"
+
+
+def test_load_env_files_parent_fallback_without_cwd(server_mod, tmp_path, monkeypatch):
+    # Regression: opencode may launch servers with a cwd that holds no .env
+    # (this exact gap caused the post-restart 401). The file next to the
+    # install root (<server-dir>/../.env) must still be found.
+    fake_root = tmp_path / "install"
+    fake_server = fake_root / "mcp-persona-server"
+    fake_server.mkdir(parents=True)
+    (fake_root / ".env").write_text("PERSONA_PARENT_PROBE=from-parent\n", encoding="utf-8")
+    empty_cwd = tmp_path / "elsewhere"
+    empty_cwd.mkdir()
+    monkeypatch.chdir(empty_cwd)
+    monkeypatch.delenv("PERSONA_PARENT_PROBE", raising=False)
+    loaded = server_mod._load_env_files(server_dir=fake_server)
+    assert loaded is not None and loaded.endswith(".env")
+    assert os.environ.get("PERSONA_PARENT_PROBE") == "from-parent"
+
+
+def test_load_env_files_empty_env_loses_to_file(server_mod, tmp_path, monkeypatch):
+    # Regression: OpenCode {env:} blocks inject EMPTY strings when the parent
+    # env lacks the var — those must not shadow real file values (the 401).
+    (tmp_path / ".env").write_text("PERSONA_EMPTY_PROBE=file-value\n", encoding="utf-8")
+    empty_cwd = tmp_path / "empty"
+    empty_cwd.mkdir()
+    monkeypatch.chdir(empty_cwd)
+    monkeypatch.setenv("PERSONA_EMPTY_PROBE", "")
+    server_mod._load_env_files(server_dir=tmp_path)
+    assert os.environ.get("PERSONA_EMPTY_PROBE") == "file-value"
+
+
+def test_dispatch_task_file_not_duplicated_in_transcript(server_mod, tmp_path, monkeypatch):
+    # Regression: dispatch must NOT append full task bodies to the transcript
+    # (unbounded growth → 1.5M-token requests → endpoint 400s). The body goes
+    # to the LLM messages once; the transcript keeps the instruction only.
+    # NOTE: server.py binds the top-level `session` module (== mcp-persona-server
+    # via sys.path), so patch SESSIONS_ROOT on THAT object, not the fixture's.
+    import session as real_session
+
+    monkeypatch.setitem(
+        sys.modules, "litellm",
+        _stub_litellm("All checks pass. No blocking findings."),
+    )
+    monkeypatch.setattr(real_session, "SESSIONS_ROOT", tmp_path / "sessions")
+    task_file = tmp_path / "task-171.md"
+    task_file.write_text("# Task 171\n\n" + "BODY-LINE\n" * 200, encoding="utf-8")
+    call = server_mod.dispatch_session_turn
+    target = call.fn if hasattr(call, "fn") else call
+    result = target(177, "QA Engineer", "review this", task_file_path=str(task_file))
+    assert result["status"] == "REPORT"
+    turns = real_session.read_transcript(177)
+    assert len(turns) == 2  # instruction + assistant reply, nothing else
+    assert turns[0]["content"] == "review this"
+    assert "BODY-LINE" not in turns[0]["content"]
+
+
+def test_env_loader_bom_crlf_and_literal_hash(server_mod, tmp_path, monkeypatch):
+    # BOM stripped; CRLF tolerated; inline '#' stays literal (values with
+    # hashes are kept whole — we never shell-split values).
+    (tmp_path / ".env").write_bytes(
+        '﻿BOM_KEY=bom-value\r\nCRLF_KEY=crlf-value\r\nHASH_KEY=abc#def\n'.encode("utf-8")
+    )
+    empty_cwd = tmp_path / "empty"
+    empty_cwd.mkdir()
+    monkeypatch.chdir(empty_cwd)
+    for var in ("BOM_KEY", "CRLF_KEY", "HASH_KEY"):
+        monkeypatch.delenv(var, raising=False)
+    server_mod._load_env_files(server_dir=tmp_path)
+    assert os.environ.get("BOM_KEY") == "bom-value"
+    assert os.environ.get("CRLF_KEY") == "crlf-value"
+    assert os.environ.get("HASH_KEY") == "abc#def"
+
+
+def test_tool_docstrings_carry_when_to_call(server_mod):
+    # F8 guard: every MCP tool description must tell OpenCode when to call it,
+    # or the triggers degrade silently with each edit.
+    tools = [
+        server_mod.dispatch_session_turn, server_mod.get_session_summary,
+        server_mod.escalate_to_admin, server_mod.request_admin_approval,
+    ]
+    for tool in tools:
+        fn = tool.fn if hasattr(tool, "fn") else tool
+        assert "WHEN TO CALL" in (fn.__doc__ or ""), getattr(fn, "__name__", tool)
+
+
+def test_telegram_empty_note_resolves_none(server_mod, monkeypatch):
+    # Empty-string replies are not notes (whitespace-only included).
+    telegram = sys.modules["telegram"]
+    assert telegram._extract_answer({"message": {"chat": {"id": 1}, "text": "   "}}).strip() == ""
+
+
+def test_env_loader_export_spaced_equals_unclosed_quote(server_mod, tmp_path, monkeypatch):
+    # B7 coverage: export prefix, whitespace around '=', unclosed quote stays literal.
+    (tmp_path / ".env").write_text(
+        'export EXPORTED=exported-value\nSPACED = spaced-value\nUNCLOSED="oops\n',
+        encoding="utf-8",
+    )
+    empty_cwd = tmp_path / "empty2"
+    empty_cwd.mkdir()
+    monkeypatch.chdir(empty_cwd)
+    for var in ("EXPORTED", "SPACED", "UNCLOSED"):
+        monkeypatch.delenv(var, raising=False)
+    server_mod._load_env_files(server_dir=tmp_path)
+    assert os.environ.get("EXPORTED") == "exported-value"
+    assert os.environ.get("SPACED") == "spaced-value"
+    assert os.environ.get("UNCLOSED") == '"oops'  # Unclosed: literal, deterministic.
+
+
+def test_telegram_explicit_skip_resolves_none(server_mod, monkeypatch):
+    # /skip is an explicit no-note (same None outcome as silence, by design —
+    # the note is garnish; the decision is the gate).
+    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "test-token")
+    monkeypatch.setenv("TELEGRAM_CHAT_ID", "12345")
+    monkeypatch.setenv("TELEGRAM_APPROVAL_TIMEOUT_SECONDS", "10")
+    queue = []
+    calls = []
+    base = _queue_transport(queue, calls)
+    sends = []
+
+    def staged(method, payload):
+        if method == "sendMessage":
+            sends.append(payload)
+            if len(sends) == 1:
+                queue.append(_approval_update(7, 12345, "reject:175:QA"))
+            elif len(sends) == 2:
+                queue.append({
+                    "update_id": 8,
+                    "message": {"chat": {"id": 12345}, "text": "/skip"},
+                })
+        return base(method, payload)
+
+    telegram = sys.modules["telegram"]
+    result = telegram.send_approval_request(175, "QA", "All green.", transport=staged)
+    assert result["sent"] is True
+    assert result["decision"] == "reject"
+    assert result["note"] is None

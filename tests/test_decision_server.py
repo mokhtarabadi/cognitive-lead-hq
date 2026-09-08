@@ -16,6 +16,7 @@ Run: `pytest tests/test_decision_server.py -v` (repo root).
 
 import importlib
 import json
+import os
 import shutil
 import sys
 import types
@@ -26,7 +27,7 @@ import pytest
 DECISION_DIR = Path(__file__).parent.parent / "mcp-decision-server"
 REAL_SCRIPTS = (
     Path(__file__).parent.parent
-    / "packages" / "cognitive-lead-decisions" / "scripts"
+    / ".opencode" / "decisions" / "scripts"
 )
 sys.path.insert(0, str(DECISION_DIR))
 
@@ -241,3 +242,97 @@ def test_extract_parses_stubbed_llm_json(srv, tmp_path, monkeypatch):
     call = srv.extract_session_decisions
     target = call.fn if hasattr(call, "fn") else call
     assert target(1, transcript_path=str(transcript)) == candidates
+
+
+def test_load_env_files_from_cwd_and_never_overrides(srv, tmp_path, monkeypatch):
+    (tmp_path / ".env").write_text(
+        "DECISION_TEST_PROBE=probe-value-456\n", encoding="utf-8"
+    )
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("DECISION_TEST_PROBE", raising=False)
+    srv._load_env_files()
+    assert os.environ.get("DECISION_TEST_PROBE") == "probe-value-456"
+    monkeypatch.setenv("DECISION_TEST_PROBE", "keep-me")
+    srv._load_env_files()
+    assert os.environ.get("DECISION_TEST_PROBE") == "keep-me"
+
+
+def test_load_env_files_parent_fallback_without_cwd(srv, tmp_path, monkeypatch):
+    # Same regression as persona server: no cwd .env → install-root .env.
+    fake_root = tmp_path / "install"
+    fake_server = fake_root / "mcp-decision-server"
+    fake_server.mkdir(parents=True)
+    (fake_root / ".env").write_text("DECISION_PARENT_PROBE=from-parent\n", encoding="utf-8")
+    empty_cwd = tmp_path / "elsewhere"
+    empty_cwd.mkdir()
+    monkeypatch.chdir(empty_cwd)
+    monkeypatch.delenv("DECISION_PARENT_PROBE", raising=False)
+    loaded = srv._load_env_files(server_dir=fake_server)
+    assert loaded is not None and loaded.endswith(".env")
+    assert os.environ.get("DECISION_PARENT_PROBE") == "from-parent"
+
+
+def test_decision_model_split_and_fallback(srv, monkeypatch):
+    call = srv._get_decision_model
+    monkeypatch.delenv("DECISION_MODEL", raising=False)
+    monkeypatch.delenv("PERSONA_MODEL", raising=False)
+    assert call() == "openrouter/deepseek/deepseek-v4-flash-0731"
+    monkeypatch.setenv("PERSONA_MODEL", "openrouter/custom/persona")
+    assert call() == "openrouter/custom/persona"
+    monkeypatch.setenv("DECISION_MODEL", "openrouter/custom/extractor")
+    assert call() == "openrouter/custom/extractor"
+    monkeypatch.setenv("DECISION_MODEL", "   ")
+    assert call() == "openrouter/custom/persona"  # Blank means unset.
+
+
+def test_repo_root_prefers_cwd_project_store(srv, tmp_path, monkeypatch):
+    # Project-aware resolution: <cwd>/.opencode/decisions wins without any env.
+    monkeypatch.delenv("DECISION_REPO_PATH", raising=False)
+    monkeypatch.chdir(tmp_path)
+    root = srv._repo_root()
+    assert root == tmp_path / ".opencode" / "decisions"
+    assert root.is_dir()
+
+
+def test_repo_root_explicit_override_wins(srv, tmp_path, monkeypatch):
+    # Explicit DECISION_REPO_PATH beats the cwd convention.
+    custom = tmp_path / "shared-store"
+    monkeypatch.setenv("DECISION_REPO_PATH", str(custom))
+    monkeypatch.chdir(tmp_path)
+    assert srv._repo_root() == custom
+    assert custom.is_dir()
+
+
+def test_decision_temperature_default_and_overrides(srv, monkeypatch):
+    monkeypatch.delenv("DECISION_TEMPERATURE", raising=False)
+    assert srv._get_decision_temperature() == 1.0
+    monkeypatch.setenv("DECISION_TEMPERATURE", "0.2")
+    assert srv._get_decision_temperature() == 0.2
+    monkeypatch.setenv("DECISION_TEMPERATURE", "not-a-float")
+    assert srv._get_decision_temperature() == 1.0
+    monkeypatch.setenv("DECISION_TEMPERATURE", "9.9")
+    assert srv._get_decision_temperature() == 1.0  # Clamped, never crashes.
+
+
+def test_repo_root_falls_back_when_cwd_blocked(srv, tmp_path, monkeypatch):
+    # A FILE masquerading as .opencode makes mkdir raise (OSError subclass)
+    # deterministically — resolution must fall through, not crash.
+    (tmp_path / ".opencode").write_text("not a dir\n", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("DECISION_REPO_PATH", raising=False)
+    root = srv._repo_root()
+    assert root != tmp_path / ".opencode" / "decisions"
+    assert root.is_dir()
+
+
+def test_tool_docstrings_carry_when_to_call(srv):
+    # F8 guard (decision side): every MCP tool description must tell
+    # OpenCode when to call it.
+    tools = [
+        srv.extract_session_decisions, srv.record_manager_decision,
+        srv.query_manager_decisions, srv.get_manager_profile,
+        srv.propose_profile_evolution,
+    ]
+    for tool in tools:
+        fn = tool.fn if hasattr(tool, "fn") else tool
+        assert "WHEN TO CALL" in (fn.__doc__ or ""), getattr(fn, "__name__", tool)

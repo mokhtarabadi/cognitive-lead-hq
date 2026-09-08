@@ -161,3 +161,11 @@ Guessing intent from ambiguous, fragmented, or unclear input is strictly forbidd
 ### Persian/Non-English Translation
 
 All Persian/non-English input MUST first be translated into technical English before any prompt refactoring, task generation, or execution planning proceeds. No execution may occur on non-English input until the translation step is complete.
+
+## MCP Environment Loading & Blank-Means-Unset Convention
+
+All MCP servers load `.env` files explicitly at import via `mcp_common.env.load_env_files` (stdlib parser, no dependency). Search order: `<server-dir>/.env` → `<server-dir>/../.env` (repo root, or the global `~/.config/opencode/.env` backup) → `<cwd>/.env`.
+
+**Blank-means-unset (binding convention):** an empty value — whether from a bare `KEY=` line or an empty-string process variable (e.g. OpenCode `{env:…}` blocks inject `""` when the parent env lacks the var) — counts as UNSET. File values fill gaps; real non-empty process values always win. This is deliberate and load-bearing: `DECISION_MODEL=` (blank) means "fall back to `PERSONA_MODEL`". Do NOT "fix" this into standard-dotenv empty-overrides semantics without a manager-approved task — doing so silently disables the model fallback chain and reintroduces blank-auth 401s.
+
+Parser rules (locked by tests): `#` comments and blank/malformed lines skipped; `export KEY=` prefix stripped; quotes stripped only when wrapping; inline `#` stays literal; `KEY = value` whitespace trimmed; CRLF tolerated; BOM stripped (`utf-8-sig`).

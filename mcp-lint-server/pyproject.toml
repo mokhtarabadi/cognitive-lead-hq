@@ -1,0 +1,8 @@
+[project]
+name = "mcp-lint-server"
+version = "1.0.0"
+description = "Lint MCP server: task-file and Markdown validation"
+requires-python = ">=3.10"
+dependencies = [
+    "mcp[cli]>=1.0,<2.0",
+]

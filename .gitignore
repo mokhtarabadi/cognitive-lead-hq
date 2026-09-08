@@ -45,3 +45,6 @@ downloads/
 # worktree state (owt removed 2026-09-08 — keep guards if owt reinstalled; OpenChamber worktrees are SDK-managed)
 .opencode/worktrees/
 .opencode/worktree-sessions.json
+
+# Persona session transcripts (runtime audit trail, never committed)
+tasks/.sessions/

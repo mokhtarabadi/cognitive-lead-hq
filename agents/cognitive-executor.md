@@ -252,3 +252,21 @@ Every `dispatch_session_turn` reply carries a `status`:
 - Session transcripts persist append-only under
   `tasks/.sessions/{task_id}/transcript.jsonl` — the audit trail behind every
   gate decision.
+
+### Decision Learning Loop (automatic — manager_decisions MCP)
+
+Fold these into every session without being asked:
+
+1. **Before paging the manager**, call `query_manager_decisions` with the
+   topic keywords. A hit decides the matter — do not bother the human twice.
+2. **When the manager rules** (trade-off, constraint, approval with
+   conditions, rejection with a note), capture it the same session:
+   `extract_session_decisions(task_id)` → `record_manager_decision(...)`.
+   Raw extraction output is never persisted directly.
+3. **When resolving architectural ambiguity**, inject `get_manager_profile()`
+   output into your reasoning alongside memory shards.
+4. **Record the gate note.** Every `request_admin_approval` reply may carry
+   `note` — write it into `## Execution Log & Reasoning`, especially on
+   `reject` (the note is the fix specification).
+5. **Never auto-evolve the sample.** `propose_profile_evolution` output is a
+   draft for the manager; merging without explicit approval is forbidden.

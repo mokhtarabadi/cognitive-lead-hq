@@ -1,0 +1,13 @@
+[project]
+name = "mcp-decision-server"
+version = "1.0.0"
+description = "Manager-decision learning MCP server (Task 168): extract/redact/store/query"
+requires-python = ">=3.10"
+dependencies = [
+    "mcp[cli]>=1.0,<2.0",
+    "litellm",
+    "mcp-common",
+]
+
+[tool.uv.sources]
+mcp-common = { path = "../mcp-common", editable = true }

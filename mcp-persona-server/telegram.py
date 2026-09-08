@@ -211,6 +211,8 @@ def send_approval_request(
     summary: str,
     task_file_path: str = "",
     transport: Optional[Callable[..., dict[str, Any]]] = None,
+    ask_note: bool = True,
+    note_timeout_s: int = 300,
 ) -> dict[str, Any]:
     """Post an approval gate to the manager and await Approve/Reject.
 
@@ -222,12 +224,16 @@ def send_approval_request(
             never silently truncates context.
         task_file_path: Optional task file reference echoed in the message.
         transport: Test hook forwarded to ``_api``/``_wait_for_update``.
+        ask_note: When True (default), follow a decision with one force-reply
+            prompt inviting a manager note (reject reasons, conditions).
+        note_timeout_s: Window for the note reply. Expiry (or ``/skip``)
+            resolves ``note`` to None — the GATE NEVER blocks on a note.
 
     Returns:
         Dict with ``sent`` (bool), ``decision`` (``"approve"``/``"reject"``
-        or raw text), ``update_id``, and on failure ``reason`` instead of a
-        decision. Never raises for missing credentials — returns
-        ``{"sent": False, "reason": "missing Telegram credentials"}``.
+        or raw text), ``note`` (str or None), ``update_id``, and on failure
+        ``reason`` instead of a decision. Never raises for missing
+        credentials — returns ``{"sent": False, "reason": ...}``.
     """
     token = _env("TELEGRAM_BOT_TOKEN")
     chat_id = _env("TELEGRAM_CHAT_ID")
@@ -266,13 +272,54 @@ def send_approval_request(
             expected_action_prefix=f":{task_id}:{stage}",
             start_offset=start_offset,
         )
+        decision = _extract_answer(update)
+        note = _collect_note(
+            token, chat_id, decision, ask_note, note_timeout_s, transport
+        )
         return {
             "sent": True,
-            "decision": _extract_answer(update),
+            "decision": decision,
+            "note": note,
             "update_id": update.get("update_id"),
         }
     except (RuntimeError, TimeoutError) as exc:
         return {"sent": False, "reason": str(exc)}
+
+
+def _collect_note(
+    token: str,
+    chat_id: str,
+    decision: str,
+    ask_note: bool,
+    note_timeout_s: int,
+    transport: Optional[Callable[..., dict[str, Any]]] = None,
+) -> Optional[str]:
+    """Invite one optional manager note after a gate decision.
+
+    Sends a force-reply prompt and waits up to ``note_timeout_s``. Silence,
+    ``/skip``, or a disabled ``ask_note`` resolves to None — callers must
+    treat the gate as already decided regardless of the note outcome.
+    """
+    if not ask_note:
+        return None
+    _api(
+        token,
+        "sendMessage",
+        {
+            "chat_id": chat_id,
+            "text": f"Decision recorded: {decision}. Reply with a note (why / conditions), or /skip.",
+            "reply_markup": {"force_reply": True},
+        },
+        transport,
+    )
+    try:
+        update = _wait_for_update(token, chat_id, note_timeout_s, transport)
+    except TimeoutError:
+        return None  # Silence is consent to proceed without a note.
+    note = _extract_answer(update).strip()
+    if not note or note.lower() == "/skip":
+        return None
+    return note
 
 
 def send_admin_question(

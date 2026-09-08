@@ -1,7 +1,9 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "default_agent": "cognitive-executor",
-  "instructions": ["docs/opencode-shell-strategy.md"],
+  "instructions": [
+    "docs/opencode-shell-strategy.md"
+  ],
   "plugin": [
     "@prevalentware/opencode-goal-plugin",
     "@tarquinen/opencode-dcp@latest"
@@ -9,33 +11,79 @@
   "mcp": {
     "custom_context": {
       "type": "local",
-      "command": ["uv", "run", "mcp-context-server/server.py"],
+      "command": [
+        "uv",
+        "run",
+        "--project",
+        "mcp-context-server",
+        "mcp-context-server/server.py"
+      ],
       "enabled": true,
       "timeout": 15000
     },
     "project_memory": {
       "type": "local",
-      "command": ["uv", "run", "mcp-memory-server/server.py"],
+      "command": [
+        "uv",
+        "run",
+        "--project",
+        "mcp-memory-server",
+        "mcp-memory-server/server.py"
+      ],
       "enabled": true,
       "timeout": 15000
     },
     "lint": {
       "type": "local",
-      "command": ["uv", "run", "mcp-lint-server/server.py"],
+      "command": [
+        "uv",
+        "run",
+        "--project",
+        "mcp-lint-server",
+        "mcp-lint-server/server.py"
+      ],
       "enabled": true,
       "timeout": 15000
     },
     "persona": {
       "type": "local",
-      "command": ["uv", "run", "mcp-persona-server/server.py"],
+      "command": [
+        "uv",
+        "run",
+        "--project",
+        "mcp-persona-server",
+        "mcp-persona-server/server.py"
+      ],
       "enabled": true,
-      "timeout": 120000
+      "timeout": 600000,
+      "environment": {
+        "OPENROUTER_API_KEY": "{env:OPENROUTER_API_KEY}",
+        "PERSONA_MODEL": "{env:PERSONA_MODEL}",
+        "PERSONA_REASONING_EFFORT": "{env:PERSONA_REASONING_EFFORT}",
+        "PERSONA_TEMPERATURE": "{env:PERSONA_TEMPERATURE}",
+        "PERSONA_MAX_TOKENS": "{env:PERSONA_MAX_TOKENS}",
+        "TELEGRAM_BOT_TOKEN": "{env:TELEGRAM_BOT_TOKEN}",
+        "TELEGRAM_CHAT_ID": "{env:TELEGRAM_CHAT_ID}",
+        "TELEGRAM_APPROVAL_TIMEOUT_SECONDS": "{env:TELEGRAM_APPROVAL_TIMEOUT_SECONDS}"
+      }
     },
     "manager_decisions": {
       "type": "local",
-      "command": ["uv", "run", "mcp-decision-server/server.py"],
+      "command": [
+        "uv",
+        "run",
+        "--project",
+        "mcp-decision-server",
+        "mcp-decision-server/server.py"
+      ],
       "enabled": true,
-      "timeout": 120000
+      "timeout": 600000,
+      "environment": {
+        "OPENROUTER_API_KEY": "{env:OPENROUTER_API_KEY}",
+        "PERSONA_MODEL": "{env:PERSONA_MODEL}",
+        "DECISION_MODEL": "{env:DECISION_MODEL}",
+        "DECISION_TEMPERATURE": "{env:DECISION_TEMPERATURE}"
+      }
     }
   },
   "permission": {

@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://cognitive-lead-hq/packages/cognitive-lead-decisions/schema/decision.schema.json",
+  "$id": "https://cognitive-lead-hq/.opencode/decisions/schema/decision.schema.json",
   "title": "ManagerDecision",
   "description": "Append-only record of one manager decision extracted from a session (Task 168). Raw manager statements are preserved verbatim; redaction runs before persistence and redaction_verified attests the stored text is clean.",
   "type": "object",

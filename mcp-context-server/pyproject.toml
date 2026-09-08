@@ -1,0 +1,17 @@
+[project]
+name = "mcp-context-server"
+version = "1.0.0"
+description = "Custom context MCP server: .gitignore-aware trees, signatures, diffs, bundling"
+requires-python = ">=3.10"
+dependencies = [
+    "pathspec",
+    "mcp[cli]>=1.0,<2.0",
+    "tree-sitter",
+    "tree-sitter-python",
+    "tree-sitter-javascript",
+    "tree-sitter-typescript",
+    "tree-sitter-go",
+    "tree-sitter-java",
+    "tree-sitter-rust",
+    "tree-sitter-kotlin",
+]
