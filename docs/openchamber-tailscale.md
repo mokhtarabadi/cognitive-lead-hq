@@ -6,24 +6,34 @@
 ## 1. What is running
 
 - **OpenChamber 1.22.2** (global npm: `@openchamber/web`), daemon PID varies — check with `openchamber status`.
-  - Web UI: `0.0.0.0:3005` (LAN mode, so Tailscale interfaces serve it too).
+  - Web UI: `100.82.29.19:3005` (Tailscale-only bind `--host 100.82.29.19`; public `194.76.154.73:3005` is **refused** — not `0.0.0.0`).
   - Managed OpenCode: auto-started by OpenChamber on a loopback-only port (e.g. `127.0.0.1:44133`, allocated dynamically) — never exposed directly.
   - UI password: enabled. Secret lives ONLY in `~/.secrets/openchamber-ui-password` (`chmod 600`). Never committed.
+  - Auto-start at boot: `systemctl --user is-enabled openchamber` → `enabled`, `loginctl show-user mohammad | grep Linger` → `Linger=yes`, `Restart=always` (`RestartSec=5`). Survives reboot & logout; crash → restart in 5s. Check with `openchamber startup status` + `systemctl --user is-active openchamber`.
 - **Default :3000 is NOT OpenChamber** — it is the pre-existing Next.js (fa/en) app. **:8080 is code-server.** Do not move OpenChamber onto either.
-- **Plugins:** opencode `plugin` arrays (global `~/.config/opencode/opencode.json` + `tui.json`, repo `opencode.json` + `tui.json`) are **dcp-only** (`@tarquinen/opencode-dcp@latest`). Goal plugin removed (overlaps OpenChamber Session Goals); worktree loader `~/.config/opencode/plugins/worktree-plugin.js` renamed to `.disabled` (its `/init-worktree` etc. slash commands are dormant, not deleted). Re-enable: restore the goal line in the 4 JSONs; `mv worktree-plugin.js.disabled worktree-plugin.js`.
+- **Plugins:** opencode `plugin` arrays (global `~/.config/opencode/opencode.json` + `tui.json`, repo `opencode.json` + `tui.json`) are **dcp-only** (`@tarquinen/opencode-dcp@latest`). Goal plugin removed (overlaps OpenChamber Session Goals); **worktree plugin `owt` (`@nano-step/opencode-worktree-plugin`) fully removed 2026-09-08** (`npm uninstall -g` + deleted `plugins/worktree-plugin.js` + 7 `command/*.md`; was `*.disabled` in Task 165). Reason: OpenChamber provides native worktrees (https://docs.openchamber.dev/worktrees/ + https://docs.openchamber.dev/multi-run/ — UI new-worktree dialog, isolate runs ≤5, Fusion, Git view → Integrate) — owt is redundant when OpenChamber is running. Reinstall only for CLI/headless without OpenChamber: `npm install -g @nano-step/opencode-worktree-plugin && owt-setup install` (see `LLM.txt §7.8`).
 
 ## 2. Daily commands (on the server, as `mohammad`)
 
 ```bash
 openchamber status                        # running runtimes (expect: port 3005, password: yes)
-curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:3005/        # expect 200
-curl -s -o /dev/null -w "%{http_code}\n" http://100.82.29.19:3005/     # expect 200 (Tailscale IP)
+curl -s -o /dev/null -w "%{http_code}\n" http://100.82.29.19:3005/     # expect 200 (Tailscale IP; use this locally too)
+curl -s -m 5 -o /dev/null -w "%{http_code}\n" http://194.76.154.73:3005/ && echo "PUBLIC STILL OPEN" || echo "public refused (good)"
+# note: http://127.0.0.1:3005/ is refused when bound to Tailscale IP — expected
 timeout 8 openchamber logs -p 3005 | head -n 30   # recent log (logs cmd follows; always wrap in timeout)
-openchamber --lan --port 3005 --server http://100.82.29.19:3005   # (re)start daemon after a stop
 export OPENCHAMBER_UI_PASSWORD="$(cat ~/.secrets/openchamber-ui-password)"  # password via env, avoids ps exposure
-openchamber stop --port 3005              # stop this instance
+openchamber startup status                # startup enabled, service active, lingering enabled
+systemctl --user is-active openchamber   # should be active
+openchamber stop --port 3005              # stop this instance (systemd will restart in 5s due to Restart=always)
 openchamber update                        # update OpenChamber later
 ```
+
+### 2b. Auto-start at boot (systemd user service)
+
+- Enabled via `export OPENCHAMBER_UI_PASSWORD="$(cat ~/.secrets/openchamber-ui-password)" && openchamber startup enable --port 3005 --host 100.82.29.19` → writes `~/.config/systemd/user/openchamber.service` (`ExecStart=... serve --foreground --port 3005 --host 100.82.29.19`, `Restart=always`, `RestartSec=5`).
+- Lingering via `sudo loginctl enable-linger mohammad` → `loginctl show-user mohammad` shows `Linger=yes`, `State=active` — user manager starts at boot even without login.
+- Verification: `openchamber startup status` → `startup enabled`, `service active`, `user lingering enabled`; `systemctl --user is-enabled openchamber` → `enabled`; `systemctl --user is-active openchamber` → `active`; `ss -tlnp | grep 3005` → `100.82.29.19:3005` LISTEN; reboot → auto-starts, crash → restarts in 5s (`NRestarts` stays 0 when stable).
+- Re-enable after password change: repeat the `startup enable` command (it rewrites `startup.env` with the new password) — do **not** hand-edit `startup.env`/`jwt-secret` (both `600`).
 
 ## 3. Connect from a PC (mohammad-pc-1 / cando — Tailscale)
 
@@ -52,13 +62,17 @@ openchamber update                        # update OpenChamber later
 | Symptom | Check |
 |---|---|
 | Browser gets 307 → `/fa` on :3000 | You hit the Next.js app, not OpenChamber — use **:3005**. |
-| `curl` to :3005 hangs/refused | `openchamber status`; `ss -tlnp \| grep 3005`; restart per §2. |
+| `curl` to :3005 hangs/refused | `openchamber status`; `ss -tlnp \| grep 3005` should show `100.82.29.19:3005` LISTEN; `curl http://100.82.29.19:3005/` → 200; public IP → refused is expected. |
+| `curl http://127.0.0.1:3005/` refused | Expected — bound to Tailscale IP only, not `0.0.0.0`/`127.0.0.1`. Use `http://100.82.29.19:3005/` locally too. |
+| Startup not starting at boot | `systemctl --user is-enabled openchamber` → `enabled`; `loginctl show-user mohammad | grep Linger` → `yes`; `systemctl --user status openchamber`; `journalctl --user -u openchamber -n 30`. Re-enable: `export OPENCHAMBER_UI_PASSWORD="$(cat ~/.secrets/openchamber-ui-password)" && openchamber startup enable --port 3005 --host 100.82.29.19` + `sudo loginctl enable-linger mohammad`. |
 | Tailscale IP unreachable from phone/PC | `tailscale status` both ends; `tailscale ping 100.82.29.19`; ensure Tailscale is up (not logged out). |
 | Chat/notifications stall | Check `timeout 8 openchamber logs -p 3005`; managed OpenCode port (44133-ish) must stay loopback; restart instance. |
 | High RAM (7.8GB host) | `free -h`; `docker stats`; stop idle OpenChamber sessions; blowsh MCP pulls a Docker image per use. |
-| `/init-worktree` does nothing | Expected — worktree plugin is disabled (see §1). |
+| `/init-worktree` does nothing | Expected — worktree plugin `owt` was removed 2026-09-08 (OpenChamber native worktrees via UI; see §1 + `LLM.txt §7.8`). Reinstall only if you need CLI/headless without OpenChamber. |
 
 ## 7. Security notes
 
-- Tailscale tailnet = private irrespective of `--lan`; nothing here is on the public internet. Still: UI password stays ON, pairing links stay single-use, secrets never enter git/shell history (use the env-var form in §2).
+- Tailscale-only bind `--host 100.82.29.19`: `ss -tlnp` shows `100.82.29.19:3005` not `0.0.0.0:3005`; public IP `194.76.154.73:3005` → refused, loopback `127.0.0.1:3005` → refused — only tailnet peers (`mmokhtarabadi@gmail.com` tailnet, 5 peers) can reach it. Prior `0.0.0.0` bind was publicly reachable and has been hardened.
+- Secrets: `~/.secrets/openchamber-ui-password` (`600`), `~/.config/openchamber/jwt-secret` (`600`), `~/.config/openchamber/startup.env` (`600`, contains password for systemd — never committed). UI password stays ON, pairing links stay single-use and expire, passkeys clear on password change.
+- Auto-start: `openchamber.service` `enabled` + `Linger=yes` + `Restart=always` — survives reboot/logout/crash; verify with `openchamber startup status` and `systemctl --user is-active openchamber`.
 - Next step (separate task): Cloudflare Tunnel `managed-remote` with your domain + account token for public URLs. Do NOT run a Quick tunnel with the real password for anything but a smoke test.

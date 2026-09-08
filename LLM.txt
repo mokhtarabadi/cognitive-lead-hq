@@ -326,26 +326,88 @@ Defaults are applied automatically (enabled, autoUpdate, pruneNotification detai
 
 ---
 
-## 7.8. Install owt Worktree Plugin
+## 7.8. Worktree Support — OpenChamber Native (owt Removed 2026-09-08)
 
-owt (`@nano-step/opencode-worktree-plugin`, npm, MIT) manages git worktrees across parallel OpenCode sessions: plugin tools (`createworktree`/`deleteworktree`/`listworktrees` + system-prompt injection) + slash commands (`/init-worktree`, `/list-worktrees`, `/open-worktree`) + `owt` shell CLI (`status`/`diff`/`log`/`merge`/`commit`, terminal auto-detect, `node_modules` symlink). Chosen over `kdcokenny/opencode-worktree` (OCX-registry only — OCX is not allowed here) and `arturosdg/opencode-worktree` (standalone TUI, not a plugin).
+owt (`@nano-step/opencode-worktree-plugin`, npm, MIT) was installed in Task 164 (`npm install -g @nano-step/opencode-worktree-plugin` + `owt-setup install` → `~/.config/opencode/plugins/worktree-plugin.js` + 7 slash commands `/init-worktree` etc., `.gitignore` guards) and disabled in Task 165 (`.disabled`). **On 2026-09-08 it was fully removed** (`npm uninstall -g @nano-step/opencode-worktree-plugin` + `rm` plugin + 7 `command/*.md`) because **OpenChamber 1.22.2 provides first-class worktrees natively**: [Worktree Sessions](https://docs.openchamber.dev/worktrees/) (new-worktree dialog: new/existing branch, `OpenChamber makes the branch, sets up the folder, and starts a session in it`), [Multi-run](https://docs.openchamber.dev/multi-run/) (`isolate runs` → each run its own worktree/branch, up to 5 models), Fusion, and Git view → Integrate (merge worktree commits onto main). Use OpenChamber sidebar/dialogs for worktrees — owt is redundant when OpenChamber is running (confirmed via `packages/ui/src/lib/worktreeSessionCreator.ts`, `packages/docs/content/docs/worktrees.mdx`). No `openchamber --worktree` CLI flag exists — worktrees are GUI-driven.
+
+If you need CLI/headless worktrees **without** OpenChamber (SSH/CI), reinstall owt:
 
 ```bash
 npm install -g @nano-step/opencode-worktree-plugin
-owt-setup install
+owt-setup install  # restores plugin + 7 commands; restart OpenCode
+# optional: owt hook --global  # strips Co-authored-by via commit-msg hook (left disabled originally)
 ```
 
-`owt-setup install` copies the plugin to `~/.config/opencode/plugins/worktree-plugin.js` and slash commands to `~/.config/opencode/command/` (file-based loading — kept deliberately). The installer's config-based Option B (`"plugin": ["opencode-worktree-plugin"]` in `opencode.json`) is NOT adopted: it resolves from project `node_modules`, which this docs-only repo has none of, and the global file copy already covers every project session. `tui.json` is unchanged (owt is not a TUI panel plugin). Restart OpenCode after install (plugins + commands load at startup). Optional, not enabled: `owt hook --global` strips AI `Co-authored-by:` via a global `commit-msg` hook.
+Worktree state (owt, now removed): was under `.opencode/worktrees/` + `.opencode/worktree-sessions.json` (gitignored). OpenChamber worktrees are SDK-managed (probed via `git worktree list`, not that path).
 
-Verify (project + global):
+---
+
+## 7.9. (Optional) Install OpenChamber — Multi-Device Remote Access (Ask User First)
+
+OpenChamber (`@openchamber/web` 1.22.2, MIT, Node≥22) is the web/mobile/ desktop workspace that runs **on top of OpenCode** (this repo's agent harness). It gives you phone/PC remote access to the same OpenCode sessions via Tailscale, LAN, or Cloudflare Tunnel, plus native worktrees (see §7.8), Session Goals, Multi-run + Fusion, and GitHub integration. **You MUST ask the user before installing:**
+
+> "OpenChamber adds multi-device remote access (phone/PC) via Tailscale or Cloudflare Tunnel. Do you need multi-device remote access? If yes I will install it on a Tailscale-only port; if not, skip this section."
+
+Skip entirely if the user says no — the core OpenCode + MCP servers already work without it.
+
+### When to install
+
+- User wants to steer/review coding sessions from phone or a second PC (tailscale `100.x` or LAN IP).
+- User needs the OpenChamber UI (worktrees dialog, Multi-run ≤5, Fusion, walkthroughs) rather than bare `opencode` CLI.
+
+### Prerequisites (verify, do not assume)
+
+- `node --version` ≥22 (`lts/*`), `opencode --version` works, `tailscale status` shows peers if using Tailscale.
+- Default `:3000` is the Next.js (fa/en) app and `:8080` is code-server in this HQ setup — **do NOT use 3000** for OpenChamber; pick an alt port (recommended `:3005`).
+
+### Install + first run (Tailscale-only hardened)
 
 ```bash
-owt help && echo "owt CLI ✓"
-ls ~/.config/opencode/plugins/worktree-plugin.js && echo "global plugin ✓"
-ls ~/.config/opencode/command/init-worktree.md && echo "global commands ✓"
+# 1. Install globally (Node≥22 required)
+npm install -g @openchamber/web
+openchamber --version   # expect 1.22.2
+
+# 2. UI password — never commit, chmod 600, pass via env to avoid ps exposure
+mkdir -p ~/.secrets
+openssl rand -base64 24 > ~/.secrets/openchamber-ui-password
+chmod 600 ~/.secrets/openchamber-ui-password
+export OPENCHAMBER_UI_PASSWORD="$(cat ~/.secrets/openchamber-ui-password)"
+
+# 3. Pick Tailscale IP and start daemon — bind ONLY to the tailnet (not 0.0.0.0)
+#    ss -tlnp must later show 100.82.29.19:3005, not 0.0.0.0:3005; public IP → refused is correct
+tailscale ip -4   # e.g. 100.82.29.19 — use this as --host
+openchamber status   # check nothing on :3005
+openchamber --lan --port 3005 --host 100.82.29.19 --server http://100.82.29.19:3005
+# alternative foreground form that startup uses:
+# openchamber serve --foreground --port 3005 --host 100.82.29.19 --ui-password "$OPENCHAMBER_UI_PASSWORD"
+
+# 4. Verify: Tailscale 200, public refused, loopback refused (when tailscale-bound)
+curl -s -o /dev/null -w "%{http_code}\n" http://100.82.29.19:3005/   # 200
+curl -s -m 5 -o /dev/null -w "%{http_code}\n" http://194.76.154.73:3005/ && echo "PUBLIC OPEN" || echo "public refused (good)"
+curl -s -m 2 -o /dev/null -w "%{http_code}\n" http://127.0.0.1:3005/ || echo "loopback refused when tailscale-bound (expected)"
+openchamber status   # mode + password: yes
+ss -tlnp | grep 3005   # 100.82.29.19:3005 LISTEN
+
+# 5. Auto-start at boot (systemd user service, survives reboot/logout/crash)
+export OPENCHAMBER_UI_PASSWORD="$(cat ~/.secrets/openchamber-ui-password)"
+openchamber startup enable --port 3005 --host 100.82.29.19
+sudo loginctl enable-linger $USER
+openchamber startup status   # startup enabled, service active, lingering enabled
+systemctl --user is-enabled openchamber   # enabled
+systemctl --user is-active openchamber    # active
+# restart test: openchamber stop --port 3005; sleep 6; systemctl --user is-active openchamber → active
+
+# 6. Pair a PC/phone (single-use expiring QR, revoke-able)
+openchamber connect-url --port 3005 --host 100.82.29.19 --qr   # or Settings → Remote Instances → Add device → Scope Anywhere/Home network only
+# PC on same tailnet: open http://100.82.29.19:3005 (Tailscale must show vm15996266)
+# Phone: Tailscale app joined to same tailnet, then open the same URL or scan QR in OpenChamber mobile/PWA
 ```
 
-Worktree state lives in the project (gitignored): worktrees under `.opencode/worktrees/`, session names in `.opencode/worktree-sessions.json`.
+Full runbook (daily commands, §2b auto-start, troubleshooting, security notes): `docs/openchamber-tailscale.md` — auto-generated after install and kept in repo.
+
+### Cloudflare Tunnel (deferred)
+
+Cloudflare Tunnel (`managed-remote` with your domain + account token) is the next step for public URLs without Tailscale. **Do NOT run a Quick tunnel with the real UI password for anything beyond a smoke test.** That step is intentionally deferred to a follow-up task — finish Tailscale first.
 
 ---
 
@@ -386,7 +448,8 @@ After completing all steps, verify:
 - [ ] `~/.config/opencode/opencode.json` exists with **absolute paths** (not `~` or relative paths) and 5 `mcp` entries (`custom_context`, `project_memory`, `lint`, `blowsh`, `telegram`) + `blowsh_*`/`telegram_*` permissions, no former browser entry
 - [ ] `~/.config/opencode/opencode.json` + `tui.json` `plugin` arrays contain both `@prevalentware/opencode-goal-plugin` and `@tarquinen/opencode-dcp` (`grep -q "@tarquinen/opencode-dcp" ~/.config/opencode/opencode.json && grep -q "@tarquinen/opencode-dcp" ~/.config/opencode/tui.json`); project `opencode.json` + `tui.json` match (`diff -q tui.json ~/.config/opencode/tui.json`)
 - [ ] DCP loads: `opencode plugin list` shows `@tarquinen/opencode-dcp`, `/dcp` panel opens, `~/.config/opencode/dcp.jsonc` created on first run (project `.opencode/dcp.jsonc` overrides if present)
-- [ ] owt loads: `owt help` prints usage, `~/.config/opencode/plugins/worktree-plugin.js` + `~/.config/opencode/command/init-worktree.md` exist, `/init-worktree` recognised after restart
+- [ ] worktrees: OpenChamber native via sidebar/dialog (`https://docs.openchamber.dev/worktrees/`) — no `owt` required; if owt reinstalled, `owt help` + `~/.config/opencode/plugins/worktree-plugin.js` + `/init-worktree` after restart
+- [ ] (optional) OpenChamber: if user requested multi-device, `npm list -g @openchamber/web` shows 1.22.2, `openchamber status` password:yes, `ss -tlnp | grep 3005` shows `100.82.29.19:3005` (not 0.0.0.0), `curl http://100.82.29.19:3005/ → 200` / public `194.76.154.73:3005 → refused`, `openchamber startup status` shows enabled+active+lingering, `docs/openchamber-tailscale.md` present; if not requested, this check is N/A
 - [ ] `~/.config/opencode/opencode.json` `blowsh` uses `docker run --rm -i ghcr.io/mokhtarabadi/blowsh-mcp:latest` (120s timeout) and `telegram` uses `uv --directory $HOME/.config/opencode/mcp-telegram-server run main.py` with allowed roots (`/tmp/telegram-mcp` + config dir downloads)
 - [ ] `~/.config/opencode/opencode-shell-strategy.md` exists (instructions file referenced by the `instructions` key)
 - [ ] `/tmp/cognitive-lead-hq` no longer exists
