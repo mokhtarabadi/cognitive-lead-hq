@@ -1,9 +1,11 @@
 # Task 169: Track Post-Sprint Working Changes
 
-**File:** `tasks/in-progress/169-track-post-sprint-working-changes.md`
+**File:** `tasks/archive/169-track-post-sprint-working-changes.md`
 **Source:** manager
 **Type:** improvement
-**Status:** in-progress
+**Status:** superseded
+**Superseded-By:** `171-post-sprint-workspace-bundle`
+**Superseded-At:** `2026-09-09`
 
 ## Source Context
 
@@ -56,6 +58,8 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 - **Rollback plan:** Unstage specific paths (`git reset -- <path>`); secrets committed by mistake require history rewrite + key rotation.
 
 ---
+
+> **Superseded:** This task was bundled into META task `171-post-sprint-workspace-bundle` and archived on 2026-09-09. See `tasks/backlog/171-post-sprint-workspace-bundle.md` (or its Kanban successor) for the unified execution. History preserved via `git log --follow -- tasks/archive/169-track-post-sprint-working-changes.md`.
 
 ## Execution Log & Reasoning
 
@@ -470,26 +474,33 @@ index 354cf7e..038a27d 100644
  
  1. `opencode.json` configures the custom context server as a local MCP server.
 diff --git a/mcp-decision-server/server.py b/mcp-decision-server/server.py
-index 80cf3f5..d2d4062 100644
+index 80cf3f5..7847707 100644
 --- a/mcp-decision-server/server.py
 +++ b/mcp-decision-server/server.py
-@@ -36,6 +36,49 @@ from mcp.server.fastmcp import FastMCP
+@@ -36,6 +36,61 @@ from mcp.server.fastmcp import FastMCP
  
  from redactor import sanitize_text, verify_clean
  
 +
-+def _load_env_files() -> None:
++def _load_env_files(server_dir: Optional[Path] = None) -> Optional[str]:
 +    """Load `.env` files explicitly (stdlib parser, no dependency).
 +
 +    Must run BEFORE `REPO_ROOT` is computed below, since `DECISION_REPO_PATH`
-+    itself may come from a file. Precedence: `<server-dir>/.env`, then
-+    `<server-dir>/../../.env` (repo root, or the `~/.config/opencode/.env`
-+    backup for global installs), then `<cwd>/.env`. Real process environment
-+    always wins — files never override it.
++    itself may come from a file. Search order (first file holding a key wins
++    via setdefault; real process environment always wins over every file):
++    `<server-dir>/.env`, then `<server-dir>/../.env` (repo root, or the
++    `~/.config/opencode/.env` backup for global installs), then `<cwd>/.env`.
++
++    Args:
++        server_dir: Override for tests (defaults to this file's directory).
++
++    Returns:
++        Path of the first `.env` file actually loaded, or None.
 +    """
-+    server_dir = Path(__file__).resolve().parent
-+    candidates = [server_dir / ".env", server_dir.parent.parent / ".env", Path.cwd() / ".env"]
++    base = Path(server_dir).resolve() if server_dir is not None else Path(__file__).resolve().parent
++    candidates = [base / ".env", base.parent / ".env", Path.cwd() / ".env"]
 +    seen: set[Path] = set()
++    first_loaded: Optional[str] = None
 +    for path in candidates:
 +        try:
 +            resolved = path.resolve()
@@ -515,7 +526,12 @@ index 80cf3f5..d2d4062 100644
 +            value = value.strip()
 +            if len(value) >= 2 and value[0] == value[-1] and value[0] in ("'", '"'):
 +                value = value[1:-1]
++            if first_loaded is None and key not in os.environ:
++                first_loaded = str(resolved)
 +            os.environ.setdefault(key, value)
++    if first_loaded is not None:
++        print(f"decision-server: loaded env from {first_loaded}", file=sys.stderr)
++    return first_loaded
 +
 +
 +_load_env_files()
@@ -523,7 +539,7 @@ index 80cf3f5..d2d4062 100644
  # Decision repo root: standalone checkout via env, else the in-repo package.
  REPO_ROOT = Path(
      os.environ.get("DECISION_REPO_PATH", Path(__file__).resolve().parent.parent
-@@ -215,7 +258,7 @@ def extract_session_decisions(
+@@ -215,7 +270,7 @@ def extract_session_decisions(
          "Empty array when the session holds no manager rulings.\n\n" + "\n".join(turns)
      )
      response = litellm.completion(
@@ -533,36 +549,43 @@ index 80cf3f5..d2d4062 100644
          temperature=0.2,
          drop_params=True,
 diff --git a/mcp-persona-server/server.py b/mcp-persona-server/server.py
-index 4419cf1..f6c8ebc 100644
+index 4419cf1..d4f97ee 100644
 --- a/mcp-persona-server/server.py
 +++ b/mcp-persona-server/server.py
-@@ -31,6 +31,7 @@ Transport: stdio FastMCP, mirroring mcp-context-server / mcp-memory-server.
+@@ -31,6 +31,8 @@ Transport: stdio FastMCP, mirroring mcp-context-server / mcp-memory-server.
  from __future__ import annotations
  
  import os
 +import re
++import sys
  from pathlib import Path
  from typing import Any, Optional
  
-@@ -44,13 +45,58 @@ from telegram import send_admin_question, send_approval_request
+@@ -44,13 +46,69 @@ from telegram import send_admin_question, send_approval_request
  # matter which cwd the stdio server is launched from.
  REPO_ROOT = Path(__file__).resolve().parent.parent
  
 +
-+def _load_env_files() -> None:
++def _load_env_files(server_dir: Optional[Path] = None) -> Optional[str]:
 +    """Load `.env` files explicitly (stdlib parser, no dependency).
 +
-+    Precedence (highest last wins is WRONG here — first set wins, so load
-+    lowest-priority first with setdefault semantics):
++    Search order (first file holding a key wins via setdefault; real
++    process environment always wins over every file):
 +    1. `<server-dir>/.env` (sidecar, mirrors telegram-mcp layout).
-+    2. `<server-dir>/../../.env` (repo root for repo installs;
-+       `~/.config/opencode/.env` backup for global installs).
++    2. `<server-dir>/../.env` — repo root for repo installs, or the
++       `~/.config/opencode/.env` backup for global installs.
 +    3. `<cwd>/.env` (project root when opencode launches us in a project).
-+    Real process environment always wins — files never override it.
++
++    Args:
++        server_dir: Override for tests (defaults to this file's directory).
++
++    Returns:
++        Path of the first `.env` file actually loaded, or None.
 +    """
-+    server_dir = Path(__file__).resolve().parent
-+    candidates = [server_dir / ".env", server_dir.parent.parent / ".env", Path.cwd() / ".env"]
++    base = Path(server_dir).resolve() if server_dir is not None else Path(__file__).resolve().parent
++    candidates = [base / ".env", base.parent / ".env", Path.cwd() / ".env"]
 +    seen: set[Path] = set()
++    first_loaded: Optional[str] = None
 +    for path in candidates:
 +        try:
 +            resolved = path.resolve()
@@ -588,7 +611,12 @@ index 4419cf1..f6c8ebc 100644
 +            value = value.strip()
 +            if len(value) >= 2 and value[0] == value[-1] and value[0] in ("'", '"'):
 +                value = value[1:-1]
++            if first_loaded is None and key not in os.environ:
++                first_loaded = str(resolved)
 +            os.environ.setdefault(key, value)
++    if first_loaded is not None:
++        print(f"persona-server: loaded env from {first_loaded}", file=sys.stderr)
++    return first_loaded
 +
 +
 +_load_env_files()
@@ -605,7 +633,7 @@ index 4419cf1..f6c8ebc 100644
      )
  
  
-@@ -62,11 +108,15 @@ def _get_reasoning_effort() -> str:
+@@ -62,11 +120,15 @@ def _get_reasoning_effort() -> str:
  
  
  def _get_temperature() -> float:
@@ -830,7 +858,7 @@ index 0000000..cf7bef8
 +if __name__ == "__main__":
 +    raise SystemExit(main())
 diff --git a/tests/test_decision_server.py b/tests/test_decision_server.py
-index c127bd8..d4a4a3f 100644
+index c127bd8..2dd112b 100644
 --- a/tests/test_decision_server.py
 +++ b/tests/test_decision_server.py
 @@ -16,6 +16,7 @@ Run: `pytest tests/test_decision_server.py -v` (repo root).
@@ -841,7 +869,7 @@ index c127bd8..d4a4a3f 100644
  import shutil
  import sys
  import types
-@@ -241,3 +242,16 @@ def test_extract_parses_stubbed_llm_json(srv, tmp_path, monkeypatch):
+@@ -241,3 +242,31 @@ def test_extract_parses_stubbed_llm_json(srv, tmp_path, monkeypatch):
      call = srv.extract_session_decisions
      target = call.fn if hasattr(call, "fn") else call
      assert target(1, transcript_path=str(transcript)) == candidates
@@ -858,8 +886,23 @@ index c127bd8..d4a4a3f 100644
 +    monkeypatch.setenv("DECISION_TEST_PROBE", "keep-me")
 +    srv._load_env_files()
 +    assert os.environ.get("DECISION_TEST_PROBE") == "keep-me"
++
++
++def test_load_env_files_parent_fallback_without_cwd(srv, tmp_path, monkeypatch):
++    # Same regression as persona server: no cwd .env → install-root .env.
++    fake_root = tmp_path / "install"
++    fake_server = fake_root / "mcp-decision-server"
++    fake_server.mkdir(parents=True)
++    (fake_root / ".env").write_text("DECISION_PARENT_PROBE=from-parent\n", encoding="utf-8")
++    empty_cwd = tmp_path / "elsewhere"
++    empty_cwd.mkdir()
++    monkeypatch.chdir(empty_cwd)
++    monkeypatch.delenv("DECISION_PARENT_PROBE", raising=False)
++    loaded = srv._load_env_files(server_dir=fake_server)
++    assert loaded is not None and loaded.endswith(".env")
++    assert os.environ.get("DECISION_PARENT_PROBE") == "from-parent"
 diff --git a/tests/test_persona_server.py b/tests/test_persona_server.py
-index ce8b171..ddc5347 100644
+index ce8b171..a097736 100644
 --- a/tests/test_persona_server.py
 +++ b/tests/test_persona_server.py
 @@ -17,6 +17,7 @@ Run: ``pytest tests/test_persona_server.py -v`` (repo root).
@@ -891,7 +934,7 @@ index ce8b171..ddc5347 100644
      assert server_mod._get_max_tokens() == 16384
  
  
-@@ -483,3 +484,21 @@ def test_session_lineage_no_duplicate_instruction(sess, tmp_path):
+@@ -483,3 +484,38 @@ def test_session_lineage_no_duplicate_instruction(sess, tmp_path):
          180, "QA Engineer", "do the other thing", None, repo_root=tmp_path
      )
      assert messages2[-1] == {"role": "user", "content": "do the other thing"}
@@ -913,5 +956,22 @@ index ce8b171..ddc5347 100644
 +    monkeypatch.setenv("PERSONA_TEST_PROBE", "keep-me")
 +    server_mod._load_env_files()
 +    assert os.environ.get("PERSONA_TEST_PROBE") == "keep-me"
++
++
++def test_load_env_files_parent_fallback_without_cwd(server_mod, tmp_path, monkeypatch):
++    # Regression: opencode may launch servers with a cwd that holds no .env
++    # (this exact gap caused the post-restart 401). The file next to the
++    # install root (<server-dir>/../.env) must still be found.
++    fake_root = tmp_path / "install"
++    fake_server = fake_root / "mcp-persona-server"
++    fake_server.mkdir(parents=True)
++    (fake_root / ".env").write_text("PERSONA_PARENT_PROBE=from-parent\n", encoding="utf-8")
++    empty_cwd = tmp_path / "elsewhere"
++    empty_cwd.mkdir()
++    monkeypatch.chdir(empty_cwd)
++    monkeypatch.delenv("PERSONA_PARENT_PROBE", raising=False)
++    loaded = server_mod._load_env_files(server_dir=fake_server)
++    assert loaded is not None and loaded.endswith(".env")
++    assert os.environ.get("PERSONA_PARENT_PROBE") == "from-parent"
 ```
 <!-- END_GIT_DIFF -->

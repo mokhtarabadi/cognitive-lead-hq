@@ -132,19 +132,6 @@ def _call_llm(model: str, messages: list[dict[str, str]]) -> str:
     return str(response.choices[0].message.content or "")
 
 
-def _read_task_file(task_file_path: Optional[str]) -> Optional[str]:
-    """Read the task file body for lineage injection; None when absent."""
-    if not task_file_path:
-        return None
-    candidate = Path(task_file_path)
-    if not candidate.is_absolute():
-        candidate = REPO_ROOT / task_file_path
-    try:
-        return candidate.read_text(encoding="utf-8")
-    except (OSError, UnicodeError):
-        return None
-
-
 @mcp.tool()
 def dispatch_session_turn(
     task_id: int,
@@ -184,15 +171,17 @@ def dispatch_session_turn(
         ``xml_content`` (XML_EXTRACTED), ``question`` (QUESTION),
         ``report`` (REPORT), or ``hint`` (RETRY_NEEDED).
     """
-    task_body = _read_task_file(task_file_path)
-    if task_body is not None:
-        append_turn(task_id, "user", f"Task file `{task_file_path}` injected.\n\n{task_body}")
+    # NOTE: the task file body is injected into the LLM messages by
+    # build_persona_messages below — it is deliberately NOT appended to the
+    # transcript. Appending full file bodies per turn made transcripts grow
+    # without bound (each replay re-sent every prior dump: 6MB → 1.5M-token
+    # requests → endpoint 400s). The transcript keeps turns only.
     append_turn(task_id, "user", instruction, name="executor")
 
     # Transcript replay already carries the injected task body + instruction,
     # so build messages without re-injecting the file (avoids triple context).
     messages = build_persona_messages(
-        task_id, persona_name, instruction, None, repo_root=REPO_ROOT
+        task_id, persona_name, instruction, task_file_path, repo_root=REPO_ROOT
     )
     output = _call_llm(_get_persona_model(), messages)
     append_turn(task_id, "assistant", output, name=persona_name)
