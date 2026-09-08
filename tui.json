@@ -1,6 +1,5 @@
 {
   "plugin": [
-    "@prevalentware/opencode-goal-plugin",
     "@tarquinen/opencode-dcp@latest"
   ]
 }
