@@ -1,0 +1,96 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://cognitive-lead-hq/packages/cognitive-lead-decisions/schema/decision.schema.json",
+  "title": "ManagerDecision",
+  "description": "Append-only record of one manager decision extracted from a session (Task 168). Raw manager statements are preserved verbatim; redaction runs before persistence and redaction_verified attests the stored text is clean.",
+  "type": "object",
+  "required": [
+    "decision_id",
+    "timestamp",
+    "project_name",
+    "verbatim_quote",
+    "extracted_decision",
+    "redaction_verified"
+  ],
+  "properties": {
+    "decision_id": {
+      "type": "string",
+      "pattern": "^DEC-[0-9]{8}-[0-9]{3}$",
+      "description": "Stable id, e.g. DEC-20260908-001. Date part is the record date, sequence is zero-padded per day."
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 UTC timestamp of when the decision was recorded."
+    },
+    "project_name": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Project the decision belongs to (e.g. cognitive-lead-hq)."
+    },
+    "session_id": {
+      "type": "string",
+      "description": "Owning session/task linkage, e.g. task id '167' or transcript path."
+    },
+    "verbatim_quote": {
+      "type": "object",
+      "description": "Original manager statements, NEVER summarized away.",
+      "required": ["original", "english_translation"],
+      "properties": {
+        "original": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Verbatim manager statement in its source language."
+        },
+        "english_translation": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Faithful English translation of the original."
+        }
+      },
+      "additionalProperties": false
+    },
+    "extracted_decision": {
+      "type": "object",
+      "required": ["summary", "category", "rationale"],
+      "properties": {
+        "summary": {
+          "type": "string",
+          "minLength": 1,
+          "description": "One-paragraph distilled decision."
+        },
+        "category": {
+          "type": "string",
+          "enum": [
+            "architecture",
+            "process",
+            "scope",
+            "quality-gate",
+            "tooling",
+            "release",
+            "other"
+          ]
+        },
+        "rationale": {
+          "type": "string",
+          "description": "Why the manager decided this way (as stated or inferred, marked as such)."
+        },
+        "alternatives": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "Options the manager explicitly considered and rejected."
+        },
+        "tradeoffs": {
+          "type": "string",
+          "description": "Cost/benefit the manager accepted with this decision."
+        }
+      },
+      "additionalProperties": false
+    },
+    "redaction_verified": {
+      "type": "boolean",
+      "description": "True only when verify_clean() passed on every persisted free-text field."
+    }
+  },
+  "additionalProperties": false
+}

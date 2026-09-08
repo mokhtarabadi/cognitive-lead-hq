@@ -30,6 +30,12 @@
       "command": ["uv", "run", "mcp-persona-server/server.py"],
       "enabled": true,
       "timeout": 120000
+    },
+    "manager_decisions": {
+      "type": "local",
+      "command": ["uv", "run", "mcp-decision-server/server.py"],
+      "enabled": true,
+      "timeout": 120000
     }
   },
   "permission": {
@@ -53,6 +59,11 @@
     "get_session_summary": "allow",
     "escalate_to_admin": "allow",
     "request_admin_approval": "allow",
+    "extract_session_decisions": "allow",
+    "record_manager_decision": "allow",
+    "query_manager_decisions": "allow",
+    "get_manager_profile": "allow",
+    "propose_profile_evolution": "allow",
     "external_directory": {
       "*": "ask",
       "/tmp/**": "allow"
