@@ -350,6 +350,8 @@ OpenChamber (`@openchamber/web` 1.22.2, MIT, Node≥22) is the web/mobile/ deskt
 
 Skip entirely if the user says no — the core OpenCode + MCP servers already work without it.
 
+> **Coexistence note (2026-09-08):** installing OpenChamber does NOT remove any plugin. The goal plugin (`@prevalentware/opencode-goal-plugin`) stays enabled in all 4 configs — `/goal` and OpenChamber Session Goals complement each other. Only the `owt` worktree plugin was removed (OpenChamber worktrees replace it, see §7.8).
+
 ### When to install
 
 - User wants to steer/review coding sessions from phone or a second PC (tailscale `100.x` or LAN IP).

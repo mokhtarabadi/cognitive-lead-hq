@@ -489,6 +489,15 @@ To install them globally, run the `LLM.txt` auto-configuration script. Once inst
 opencode --agent cognitive-executor
 ```
 
+### OpenCode Plugins (goal + DCP)
+
+Both the repo (`opencode.json` + `tui.json`) and global (`~/.config/opencode/`) configs load two plugins:
+
+- **`@prevalentware/opencode-goal-plugin`** — `/goal` command with sidebar indicator, persistent state, idle continuation and plan-mode safety. Restored 2026-09-08 after the OpenChamber rollout; it coexists with OpenChamber Session Goals (TUI/CLI goals + web-UI Goals complement each other).
+- **`@tarquinen/opencode-dcp@latest`** — token saving via compress tool, deduplication and purge-errors.
+
+OpenCode 1 reads `plugin` from **both** `opencode.json` (server/tools) and `tui.json` (sidebar/palette) — keep the arrays identical. Full install/verify steps live in `LLM.txt` §7.
+
 ---
 
 ## Key V9 Changes

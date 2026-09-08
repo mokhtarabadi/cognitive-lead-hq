@@ -3,6 +3,7 @@
   "default_agent": "cognitive-executor",
   "instructions": ["docs/opencode-shell-strategy.md"],
   "plugin": [
+    "@prevalentware/opencode-goal-plugin",
     "@tarquinen/opencode-dcp@latest"
   ],
   "mcp": {
