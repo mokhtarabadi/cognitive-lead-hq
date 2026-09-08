@@ -1,8 +1,0 @@
-# Loop Engine runtime data
-state/
-evidence/
-__pycache__/
-*.pyc
-.venv/
-.env
-logs/

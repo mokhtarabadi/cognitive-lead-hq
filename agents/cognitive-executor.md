@@ -203,3 +203,51 @@ Claim: "Task complete. The code looks correct."
 - Do not widen work into cleanup, refactoring, documentation, or adjacent features.
 - Do not claim completion without evidence.
 - For completed work, concisely restate it but do not overload with response detail.
+
+## Persona Loop (MCP Slash Commands)
+
+The retired `loop-engine/` daemon is replaced by on-demand persona turns via
+the `persona` MCP server (`mcp-persona-server/server.py`, stdio). You are the
+orchestrator: discover the persona tools, call them, and wait for each turn
+before continuing.
+
+### Autonomous multi-stage loop
+
+Run every implementation through this exact sequence:
+
+1. **Implementation** — execute the XML task block per the Core Protocol.
+2. **QA Loop** — invoke `/qa` (`dispatch_session_turn`, persona `"QA Engineer"`)
+   for adversarial testing. Triage every finding: fix what reproduces, dispute
+   the rest with evidence in `## Execution Log & Reasoning`. Repeat until the
+   turn returns no blocking findings.
+3. **Code Review Loop** — invoke `/reviewer` (`dispatch_session_turn`, persona
+   `"Code Reviewer"`) for the standards audit against `AGENTS.md`,
+   `docs/conventions.md`, and the loaded stack skills. Apply blocking findings.
+4. **Admin Approval Gate** — invoke `/manager` (`request_admin_approval`) with
+   the stage summary. On `approve`, continue. On `reject`, timeout, or
+   transport failure, STOP and record the outcome — never auto-continue.
+5. **Closure** — only after explicit Manager authorization, follow the Closure
+   Sequence in Task Lifecycle & Kanban State Enforcement.
+
+### Dual Dispatch pattern
+
+Every `dispatch_session_turn` reply carries a `status`:
+
+- `XML_EXTRACTED` — the persona emitted a structured `<hands_*_task>` (or
+  `<failure_report>`) block in `xml_content`. Execute it as your next
+  instruction set.
+- `QUESTION` — the persona needs missing context. Answer the `question`
+  precisely and re-dispatch; never treat a question as a pass or a report.
+- `REPORT` — free-form evaluation findings. Triage, verify, record evidence.
+- `RETRY_NEEDED` (only when you set `force_xml=true`) — re-dispatch with an
+  instruction that explicitly demands a `<hands_*_task>` block.
+
+### Tool and command reference
+
+- MCP tools: `dispatch_session_turn`, `get_session_summary`,
+  `escalate_to_admin`, `request_admin_approval` (see `opencode.json`).
+- Slash commands: `.opencode/commands/qa.md`, `reviewer.md`, `manager.md`,
+  `brainstorm.md` (the latter loads the `brainstorm-swarm` skill first).
+- Session transcripts persist append-only under
+  `tasks/.sessions/{task_id}/transcript.jsonl` — the audit trail behind every
+  gate decision.

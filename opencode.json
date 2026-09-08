@@ -24,6 +24,12 @@
       "command": ["uv", "run", "mcp-lint-server/server.py"],
       "enabled": true,
       "timeout": 15000
+    },
+    "persona": {
+      "type": "local",
+      "command": ["uv", "run", "mcp-persona-server/server.py"],
+      "enabled": true,
+      "timeout": 120000
     }
   },
   "permission": {
@@ -43,6 +49,10 @@
     "bundle_tasks": "allow",
     "blowsh_*": "allow",
     "telegram_*": "allow",
+    "dispatch_session_turn": "allow",
+    "get_session_summary": "allow",
+    "escalate_to_admin": "allow",
+    "request_admin_approval": "allow",
     "external_directory": {
       "*": "ask",
       "/tmp/**": "allow"
