@@ -226,8 +226,6 @@ cp .env.example .env
 │   │   └── SKILL.md
 │   ├── audit-agents/                   # AGENTS.md generation & ZAC audits
 │   │   └── SKILL.md
-│   ├── brainstorm-swarm/               # Multi-persona brainstorming sessions
-│   │   └── SKILL.md
 │   ├── code-search/                    # MCP-based codebase discovery
 │   │   └── SKILL.md
 │   ├── debug-instrumentation/          # Strategic logging for complex bug diagnosis

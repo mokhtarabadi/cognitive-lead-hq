@@ -23,8 +23,10 @@ without touching the network.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
+import re
 import time
 import urllib.parse
 import urllib.request
@@ -34,6 +36,9 @@ from typing import Any, Callable, Optional
 MAX_TEXT_LEN = 3500
 # Long-poll window per getUpdates call (seconds).
 POLL_WINDOW = 25
+# Telegram caps callback_data at 64 bytes ("Bad Request: BUTTON_DATA_INVALID"
+# beyond that). Stage slugs in keyboards are budgeted well under it.
+MAX_CALLBACK_LEN = 64
 
 
 def _env(name: str, default: str = "") -> str:
@@ -76,21 +81,60 @@ def _api(
     return body
 
 
+def slugify_stage(stage: str) -> str:
+    """Callback-safe slug for a gate stage name.
+
+    ``callback_data`` is capped at 64 bytes by Telegram, so the full human
+    stage text (which stays in the message body) can never ride on the
+    buttons. The slug keeps ``approve:{task}:{slug}`` / ``reject:{task}:{slug}``
+    far under the cap while remaining human-readable in update logs.
+
+    Short stages pass through unchanged (``"QA"`` -> ``"qa"``). Long or
+    degenerate stages get a content hash suffix so two DISTINCT stages can
+    never share one slug (truncated siblings and double-``gate`` fallbacks
+    would otherwise cross-route approvals between gates of one task).
+    """
+    base = re.sub(r"[^a-z0-9]+", "-", str(stage).lower()).strip("-")
+    digest = hashlib.sha1(str(stage).encode("utf-8")).hexdigest()[:6]
+    if not base:
+        # Degenerate stage names must not all share one 'gate' slug.
+        return f"gate-{digest}"
+    if len(base) <= 32:
+        return base
+    return f"{base[:25]}-{digest}"
+
+
 def _approval_keyboard(task_id: int, stage: str) -> dict[str, Any]:
     """Inline keyboard with task/stage-scoped Approve / Reject buttons.
 
-    ``callback_data`` embeds ``{task_id}:{stage}`` (e.g. ``approve:167:QA``)
-    so concurrent gates on different tasks can never cross-accept each
-    other's button presses — the waiter filters on the expected suffix.
+    ``callback_data`` embeds ``{task_id}:{stage-slug}`` (e.g.
+    ``approve:167:qa``) so concurrent gates on different tasks can never
+    cross-accept each other's button presses — the waiter filters on the
+    expected suffix. The slug (never the raw stage text) rides the buttons
+    so long stage names cannot trip Telegram's 64-byte ``callback_data``
+    cap; the full stage text is echoed in the gate message body instead.
     """
-    return {
+    slug = slugify_stage(stage)
+    keyboard = {
         "inline_keyboard": [
             [
-                {"text": "✅ Approve", "callback_data": f"approve:{task_id}:{stage}"},
-                {"text": "❌ Reject", "callback_data": f"reject:{task_id}:{stage}"},
+                {"text": "✅ Approve", "callback_data": f"approve:{task_id}:{slug}"},
+                {"text": "❌ Reject", "callback_data": f"reject:{task_id}:{slug}"},
             ]
         ]
     }
+    # Explicit runtime guard (never bare assert: asserts vanish under
+    # ``python -O``, and an oversize payload would hang the gate on a silent
+    # Telegram rejection). Measured in encoded BYTES against the 64B cap.
+    for row in keyboard["inline_keyboard"]:
+        for button in row:
+            size = len(button["callback_data"].encode("utf-8"))
+            if size > MAX_CALLBACK_LEN:
+                raise ValueError(
+                    f"callback_data exceeds Telegram 64B cap ({size}B): "
+                    f"{button['callback_data']!r}"
+                )
+    return keyboard
 
 
 def _options_keyboard(options: list[str]) -> dict[str, Any]:
@@ -139,9 +183,12 @@ def _wait_for_update(
         chat_id: Target chat id (both callbacks and messages are filtered).
         timeout_s: Give up after this many seconds.
         transport: Test hook forwarded to ``_api``.
-        expected_action_prefix: When set (e.g. ``":167:QA"``), callbacks
-            whose data does NOT contain the prefix belong to a different
-            gate and are skipped (offset still advances past them).
+        expected_action_prefix: When set (e.g. ``":167:qa"``), ONLY the two
+            exact callbacks ``"approve"+prefix`` / ``"reject"+prefix`` are
+            accepted. Bare substring matching is deliberately NOT used: one
+            stage's slug is often a prefix of another's (``planning`` vs
+            ``planning-review``), and a substring match would let a gate
+            consume a sibling stage's decision.
         start_offset: First ``update_id`` to consider — pass the value from
             ``_discard_stale_updates`` so stale history is never replayed.
 
@@ -166,7 +213,10 @@ def _wait_for_update(
             callback_chat = callback_msg.get("chat") or {}
             if str(callback_chat.get("id", "")) == str(chat_id) and callback.get("data"):
                 data = str(callback["data"])
-                if expected_action_prefix is not None and expected_action_prefix not in data:
+                if expected_action_prefix is not None and data not in (
+                    "approve" + expected_action_prefix,
+                    "reject" + expected_action_prefix,
+                ):
                     continue  # Another gate's button — skip, keep polling.
                 # Acknowledge immediately: dismisses the Telegram loading
                 # spinner on the manager's button press.
@@ -241,12 +291,47 @@ def send_approval_request(
         return {"sent": False, "reason": "missing Telegram credentials"}
     timeout_s = int(os.environ.get("TELEGRAM_APPROVAL_TIMEOUT_SECONDS", "1800") or 1800)
 
+    # NOTE: pass the RAW summary — post_approval_gate prepends its own
+    # header/ref. Passing pre-formatted text would duplicate the header.
+    post = post_approval_gate(task_id, stage, summary, task_file_path, transport)
+    if not post.get("sent"):
+        return post
+    return await_gate_decision(
+        task_id,
+        stage,
+        timeout_s,
+        ask_note=ask_note,
+        note_timeout_s=note_timeout_s,
+        transport=transport,
+        start_offset=post["start_offset"],
+    )
+
+
+def post_approval_gate(
+    task_id: int,
+    stage: str,
+    summary: str,
+    task_file_path: str = "",
+    transport: Optional[Callable[..., dict[str, Any]]] = None,
+) -> dict[str, Any]:
+    """Post a gate keyboard WITHOUT waiting (split-gate send half).
+
+    Long blocking waits always outlive the MCP tool timeout, so the waiter
+    gets killed and the manager's press lands unconsumed. Callers that
+    cannot hold a tool call open (approval gates) post with this function
+    and collect the decision with ``await_gate_decision`` in short,
+    re-callable windows instead.
+
+    Returns ``{"sent": True, "stage_slug", "start_offset"}`` (the offset to
+    resume polling from) or ``{"sent": False, "reason"}``.
+    """
+    token = _env("TELEGRAM_BOT_TOKEN")
+    chat_id = _env("TELEGRAM_CHAT_ID")
+    if not token or not chat_id:
+        return {"sent": False, "reason": "missing Telegram credentials"}
     header = f"Task {task_id} — approval requested: {stage}\n"
     ref = f"Task file: {task_file_path}\n" if task_file_path else ""
     full_text = (header + ref + "\n" + summary).strip()
-    # Chunk oversized bodies into sequential messages (Telegram caps single
-    # messages); the inline keyboard rides on the FINAL chunk so the manager
-    # decides with the complete context above. Nothing is truncated.
     chunks = [full_text[i : i + MAX_TEXT_LEN] for i in range(0, len(full_text), MAX_TEXT_LEN)]
     try:
         # Drain the queue first: a stale Approve from a previous gate must
@@ -264,12 +349,46 @@ def send_approval_request(
             },
             transport,
         )
+        return {
+            "sent": True,
+            "task_id": int(task_id),
+            "stage": str(stage),
+            "stage_slug": slugify_stage(stage),
+            "start_offset": start_offset,
+        }
+    except (RuntimeError, ValueError) as exc:
+        return {"sent": False, "reason": str(exc)}
+
+
+def await_gate_decision(
+    task_id: int,
+    stage: str,
+    wait_s: int = 90,
+    ask_note: bool = True,
+    note_timeout_s: int = 300,
+    transport: Optional[Callable[..., dict[str, Any]]] = None,
+    start_offset: int = 0,
+) -> dict[str, Any]:
+    """Poll one short window for a posted gate's decision (split-gate wait half).
+
+    Waits at most ``wait_s`` seconds (keep it under the MCP tool timeout —
+    90s default). On ``"status": "timeout"`` the caller simply calls again
+    with the returned ``start_offset``; the manager's eventual press is
+    never lost because polling always resumes past consumed updates. On a
+    decision, the optional note flow runs exactly like the blocking gate.
+    """
+    token = _env("TELEGRAM_BOT_TOKEN")
+    chat_id = _env("TELEGRAM_CHAT_ID")
+    if not token or not chat_id:
+        return {"sent": False, "reason": "missing Telegram credentials"}
+    slug = slugify_stage(stage)
+    try:
         update = _wait_for_update(
             token,
             chat_id,
-            timeout_s,
+            wait_s,
             transport,
-            expected_action_prefix=f":{task_id}:{stage}",
+            expected_action_prefix=f":{task_id}:{slug}",
             start_offset=start_offset,
         )
         decision = _extract_answer(update)
@@ -278,11 +397,21 @@ def send_approval_request(
         )
         return {
             "sent": True,
+            "status": "decided",
             "decision": decision,
             "note": note,
             "update_id": update.get("update_id"),
+            "start_offset": int(update.get("update_id", start_offset - 1)) + 1,
         }
-    except (RuntimeError, TimeoutError) as exc:
+    except TimeoutError:
+        # Re-read the newest update id so the next window resumes cleanly
+        # past anything irrelevant that arrived meanwhile.
+        try:
+            resume = _discard_stale_updates(token, transport)
+        except RuntimeError:
+            resume = start_offset
+        return {"sent": True, "status": "timeout", "start_offset": resume}
+    except RuntimeError as exc:
         return {"sent": False, "reason": str(exc)}
 
 

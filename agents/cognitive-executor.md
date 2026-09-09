@@ -239,6 +239,12 @@ Every `dispatch_session_turn` reply carries a `status`:
   instruction set.
 - `QUESTION` — the persona needs missing context. Answer the `question`
   precisely and re-dispatch; never treat a question as a pass or a report.
+- `CONTEXT_REQUEST` — the persona (planner/architect) knows it lacks
+  codebase evidence. Its `context_request` carries `scope` and `focus`: run
+  the MCP discovery tools (`custom_context_get_directory_tree` →
+  `custom_context_extract_signatures` →
+  `custom_context_read_source_files`), then re-dispatch with the generated
+  report path as the instruction. Never let it plan from assumptions.
 - `REPORT` — free-form evaluation findings. Triage, verify, record evidence.
 - `RETRY_NEEDED` (only when you set `force_xml=true`) — re-dispatch with an
   instruction that explicitly demands a `<hands_*_task>` block.
@@ -246,9 +252,15 @@ Every `dispatch_session_turn` reply carries a `status`:
 ### Tool and command reference
 
 - MCP tools: `dispatch_session_turn`, `get_session_summary`,
-  `escalate_to_admin`, `request_admin_approval` (see `opencode.json`).
+  `escalate_to_admin`, `request_admin_approval`, `open_approval_gate`,
+  `poll_approval_gate` (see `opencode.json`). Prefer the split gate
+  (`open_approval_gate` once, then `poll_approval_gate` in short windows
+  until `"status": "decided"`): a blocking wait longer than the MCP tool
+  timeout gets killed and the manager's press lands unconsumed.
 - Slash commands: `.opencode/commands/qa.md`, `reviewer.md`, `manager.md`,
-  `brainstorm.md` (the latter loads the `brainstorm-swarm` skill first).
+  `brainstorm.md`, `architect.md`, `designer.md`, `programmer.md`,
+  `planner.md`, `strategist.md` (persona turns via `dispatch_session_turn`;
+  `manager.md` opens the Telegram approval gate).
 - Session transcripts persist append-only under
   `tasks/.sessions/{task_id}/transcript.jsonl` — the audit trail behind every
   gate decision.

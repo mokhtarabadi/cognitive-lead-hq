@@ -38,14 +38,44 @@ from typing import Any, Optional
 
 from mcp.server.fastmcp import FastMCP
 
-from dual_dispatch import extract_xml, is_clarification_question
-from session import append_turn, build_persona_messages, summarize_session
-from telegram import send_admin_question, send_approval_request
+from dual_dispatch import (
+    extract_context_request,
+    extract_xml,
+    is_clarification_question,
+)
+from session import (
+    append_turn,
+    build_persona_messages,
+    load_persona_card,
+    save_persona_card,
+    summarize_session,
+)
+from telegram import (
+    await_gate_decision,
+    post_approval_gate,
+    send_admin_question,
+    send_approval_request,
+)
 
 # Repo root resolved from this file's location so path handling works no
 # matter which cwd the stdio server is launched from.
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
+# Pin the transcript root under the install root when it is still the
+# cwd-relative default ("tasks/.sessions"). Otherwise session memory
+# scatters with the launch cwd and the persona "does not exist" on the
+# next turn. Explicit overrides (absolute PERSONA_SESSIONS_DIR, tests)
+# are always respected.
+import session as _session_module  # noqa: E402
+
+
+def _pin_sessions_root() -> None:
+    """Pin the transcript root under the install root when relative."""
+    if not _session_module.SESSIONS_ROOT.is_absolute():
+        _session_module.SESSIONS_ROOT = REPO_ROOT / "tasks" / ".sessions"
+
+
+_pin_sessions_root()
 
 # Shared env loader lives in mcp-common (Task 170). Prefer the installed
 # package; fall back to the sibling source tree so plain `uv run <path>`
@@ -145,7 +175,9 @@ def dispatch_session_turn(
     WHEN TO CALL (automatic): after finishing an implementation call this
     with persona "QA Engineer"; before any approval gate call it with
     "Code Reviewer"; when a task is ambiguous or cross-disciplinary call it
-    with "Brainstorm Facilitator" (load the brainstorm-swarm skill first);
+    with "Brainstorm Facilitator" (the six-expert scheme and XML schema
+    come from <brainstorming_protocol> in the system prompt — no skill
+    preload needed);
     when stuck waiting on missing context, let the QUESTION lane guide you.
     Do NOT call this for plain file reads or deterministic checks — use
     direct tools instead.
@@ -154,10 +186,13 @@ def dispatch_session_turn(
        (progressive lineage projection via ``session.build_persona_messages``).
     2. Appends the instruction turn to ``tasks/.sessions/{task_id}/``.
     3. Calls LiteLLM (``PERSONA_MODEL``, ``PERSONA_REASONING_EFFORT``).
-    4. Dual Dispatch: XML present -> ``XML_EXTRACTED``; question -> ``QUESTION``;
-       otherwise -> ``REPORT``. With ``force_xml=True`` and no XML block, the
-       caller gets ``RETRY_NEEDED`` (re-dispatch with a stronger instruction)
-       instead of a silently unstructured answer.
+    4. Dual Dispatch: XML present -> ``XML_EXTRACTED``; context request ->
+       ``CONTEXT_REQUEST``; question -> ``QUESTION``; otherwise -> ``REPORT``.
+       With ``force_xml=True`` and no XML block, the caller gets
+       ``RETRY_NEEDED`` (re-dispatch with a stronger instruction) instead of
+       a silently unstructured answer.
+    5. Advances the persona identity card (``session.save_persona_card``)
+       so the persona persists across LiteLLM calls.
 
     Args:
         task_id: Owning task id (session scope + audit trail).
@@ -168,8 +203,9 @@ def dispatch_session_turn(
 
     Returns:
         Dict with ``status``, ``persona_name``, ``task_id``, plus either
-        ``xml_content`` (XML_EXTRACTED), ``question`` (QUESTION),
-        ``report`` (REPORT), or ``hint`` (RETRY_NEEDED).
+        ``xml_content`` (XML_EXTRACTED), ``context_request`` (CONTEXT_REQUEST),
+        ``question`` (QUESTION), ``report`` (REPORT), or ``hint``
+        (RETRY_NEEDED).
     """
     # NOTE: the task file body is injected into the LLM messages by
     # build_persona_messages below — it is deliberately NOT appended to the
@@ -188,6 +224,7 @@ def dispatch_session_turn(
 
     has_xml, xml_content, clean_text = extract_xml(output)
     if has_xml:
+        save_persona_card(task_id, persona_name, "XML_EXTRACTED")
         return {
             "status": "XML_EXTRACTED",
             "task_id": int(task_id),
@@ -195,7 +232,17 @@ def dispatch_session_turn(
             "xml_content": xml_content,
             "remainder": clean_text,
         }
+    has_ctx, ctx_payload, _ctx_clean = extract_context_request(output)
+    if has_ctx:
+        save_persona_card(task_id, persona_name, "CONTEXT_REQUEST")
+        return {
+            "status": "CONTEXT_REQUEST",
+            "task_id": int(task_id),
+            "persona_name": persona_name,
+            "context_request": ctx_payload,
+        }
     if force_xml:
+        save_persona_card(task_id, persona_name, "RETRY_NEEDED")
         return {
             "status": "RETRY_NEEDED",
             "task_id": int(task_id),
@@ -207,12 +254,21 @@ def dispatch_session_turn(
             ),
         }
     if is_clarification_question(output):
+        raw_question = (clean_text or output.strip())
+        question_cap = 2000
+        trunc_marker = "…(truncated)"
+        open_question = (
+            raw_question if len(raw_question) <= question_cap
+            else raw_question[: question_cap - len(trunc_marker)] + trunc_marker
+        )
+        save_persona_card(task_id, persona_name, "QUESTION", open_question=open_question)
         return {
             "status": "QUESTION",
             "task_id": int(task_id),
             "persona_name": persona_name,
             "question": clean_text or output.strip(),
         }
+    save_persona_card(task_id, persona_name, "REPORT")
     return {
         "status": "REPORT",
         "task_id": int(task_id),
@@ -274,6 +330,46 @@ def request_admin_approval(
     reasoning, especially on ``reject``.
     """
     result = send_approval_request(task_id, stage, summary, task_file_path, None, ask_note)
+    return {"task_id": int(task_id), "stage": stage, **result}
+
+
+@mcp.tool()
+def open_approval_gate(
+    task_id: int, stage: str, summary: str, task_file_path: str = ""
+) -> dict[str, Any]:
+    """Post a Telegram Approve/Reject gate WITHOUT waiting (split-gate send).
+
+    WHEN TO CALL (automatic): prefer this over ``request_admin_approval``
+    whenever the caller cannot hold one tool call open for the whole human
+    response window — a blocking wait longer than the MCP tool timeout gets
+    killed and the manager's press lands unconsumed. Post with this tool,
+    then collect the decision with ``poll_approval_gate`` in short,
+    re-callable windows until it reports ``"status": "decided"``.
+    """
+    result = post_approval_gate(task_id, stage, summary, task_file_path, None)
+    return {"task_id": int(task_id), "stage": stage, **result}
+
+
+@mcp.tool()
+def poll_approval_gate(
+    task_id: int,
+    stage: str,
+    wait_s: int = 90,
+    ask_note: bool = True,
+    start_offset: int = 0,
+) -> dict[str, Any]:
+    """Poll one short window for a posted gate's decision (split-gate wait).
+
+    WHEN TO CALL (automatic): after ``open_approval_gate``. Waits at most
+    ``wait_s`` seconds (keep it under the MCP tool timeout). Returns
+    ``"status": "timeout"`` with a resume ``start_offset`` when the manager
+    has not answered yet — call again with that offset. Returns
+    ``"status": "decided"`` with ``decision`` (``"approve"``/``"reject"``)
+    plus optional ``note`` once the manager presses a button.
+    """
+    result = await_gate_decision(
+        task_id, stage, wait_s, ask_note=ask_note, start_offset=start_offset
+    )
     return {"task_id": int(task_id), "stage": stage, **result}
 
 

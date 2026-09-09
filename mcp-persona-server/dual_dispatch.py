@@ -30,6 +30,20 @@ XML_BLOCK_RE = re.compile(
     re.DOTALL,
 )
 
+# Context-request block: a planner/architect persona smart enough to know it
+# lacks codebase context emits this INSTEAD OF guessing, and the executor
+# gathers the evidence (MCP discovery tools) and re-dispatches. Deliberately
+# NOT part of XML_BLOCK_RE: it routes to the CONTEXT_REQUEST lane, never to
+# the XML_EXTRACTED execution lane.
+CONTEXT_REQUEST_RE = re.compile(
+    r"<hands_context_request\b[^>]*>([\s\S]*?)</hands_context_request>",
+    re.DOTALL,
+)
+
+# Inner fields of a context request (all optional, tolerant parsing).
+_CONTEXT_SCOPE_RE = re.compile(r"<scope\b[^>]*>([\s\S]*?)</scope>", re.DOTALL)
+_CONTEXT_FOCUS_RE = re.compile(r"<focus\b[^>]*>([\s\S]*?)</focus>", re.DOTALL)
+
 # Heuristics for "the model is asking something / needs input".
 # Applied to text AFTER all XML blocks have been stripped out.
 QUESTION_RE = re.compile(
@@ -108,6 +122,36 @@ def strip_all_xml(text: str) -> str:
     if not text:
         return ""
     return XML_BLOCK_RE.sub("", text).strip()
+
+
+def extract_context_request(text: str) -> tuple[bool, Optional[dict[str, str]], str]:
+    """Detect and parse a ``<hands_context_request>`` block.
+
+    The planner/architect persona emits this when it needs codebase evidence
+    (directory tree, signatures, source bodies) before it can plan. The
+    executor MUST run the MCP discovery tools and re-dispatch with the
+    report — never treat the request itself as a final report.
+
+    Returns ``(found, payload, clean_text)`` where payload holds ``scope``
+    (directories/files of interest), ``focus`` (what to look for), and
+    ``raw`` (the full block verbatim). Malformed blocks (no closing tag)
+    return ``found=False`` and fall through to question/report lanes.
+    """
+    if not text:
+        return False, None, ""
+    match = CONTEXT_REQUEST_RE.search(text)
+    if match is None:
+        return False, None, text.strip()
+    inner = match.group(1) or ""
+    scope_match = _CONTEXT_SCOPE_RE.search(inner)
+    focus_match = _CONTEXT_FOCUS_RE.search(inner)
+    payload = {
+        "scope": scope_match.group(1).strip() if scope_match else "",
+        "focus": focus_match.group(1).strip() if focus_match else "",
+        "raw": match.group(0),
+    }
+    clean_text = (text[: match.start()] + text[match.end() :]).strip()
+    return True, payload, clean_text
 
 
 def is_clarification_question(text: str) -> bool:

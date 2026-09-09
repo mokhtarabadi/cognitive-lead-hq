@@ -374,7 +374,7 @@ def test_telegram_approval_approve_flow(server_mod, monkeypatch):
 
     def staged(method, payload):
         if method == "sendMessage":
-            queue.append(_approval_update(7, 12345, "approve:175:QA"))
+            queue.append(_approval_update(7, 12345, "approve:175:qa"))
         return base(method, payload)
 
     telegram = sys.modules["telegram"]
@@ -403,7 +403,7 @@ def test_telegram_approval_with_manager_note(server_mod, monkeypatch):
         if method == "sendMessage":
             sends.append(payload)
             if len(sends) == 1:  # Gate message → decision press.
-                queue.append(_approval_update(7, 12345, "approve:175:QA"))
+                queue.append(_approval_update(7, 12345, "approve:175:qa"))
             elif len(sends) == 2:  # Note prompt → typed note.
                 queue.append({
                     "update_id": 8,
@@ -432,7 +432,7 @@ def test_telegram_approval_note_silence_never_blocks(server_mod, monkeypatch):
     def staged(method, payload):
         if method == "sendMessage" and not queue:
             # Only the decision ever arrives; the note prompt goes unanswered.
-            queue.append(_approval_update(7, 12345, "reject:175:QA"))
+            queue.append(_approval_update(7, 12345, "reject:175:qa"))
         return base(method, payload)
 
     telegram = sys.modules["telegram"]
@@ -458,20 +458,20 @@ def test_telegram_approval_scopes_callback_and_answers_query(server_mod, monkeyp
 
     keyboard = telegram._approval_keyboard(175, "QA")
     buttons = keyboard["inline_keyboard"][0]
-    assert buttons[0]["callback_data"] == "approve:175:QA"
-    assert buttons[1]["callback_data"] == "reject:175:QA"
+    assert buttons[0]["callback_data"] == "approve:175:qa"
+    assert buttons[1]["callback_data"] == "reject:175:qa"
 
     # The fresh decision arrives after the gate message is posted.
     orig_fake = transport
     def staged(method, payload):
         if method == "sendMessage":
-            queue.append(_approval_update(9, 12345, "approve:175:QA"))
+            queue.append(_approval_update(9, 12345, "approve:175:qa"))
         return orig_fake(method, payload)
     result = telegram.send_approval_request(
         175, "QA", "All green.", transport=staged, ask_note=False
     )
     # Stale approve:100:OLD (id 3) was discarded by the offset=-1 probe;
-    # only the scoped approve:175:QA (id 9) resolved the gate.
+    # only the scoped approve:175:qa (id 9) resolved the gate.
     assert result["sent"] is True
     assert result["decision"] == "approve"
     assert result["update_id"] == 9
@@ -637,10 +637,290 @@ def test_tool_docstrings_carry_when_to_call(server_mod):
     tools = [
         server_mod.dispatch_session_turn, server_mod.get_session_summary,
         server_mod.escalate_to_admin, server_mod.request_admin_approval,
+        server_mod.open_approval_gate, server_mod.poll_approval_gate,
     ]
     for tool in tools:
         fn = tool.fn if hasattr(tool, "fn") else tool
         assert "WHEN TO CALL" in (fn.__doc__ or ""), getattr(fn, "__name__", tool)
+
+
+# --- Task 174 extension: context requests, persona cards, split gate --------
+
+CONTEXT_XML = """<hands_context_request>
+  <scope>packages/billing, src/api</scope>
+  <focus>where invoices are validated</focus>
+</hands_context_request>"""
+
+
+def test_extract_context_request_valid(dual):
+    found, payload, clean = dual.extract_context_request(
+        "Need evidence first.\n" + CONTEXT_XML + "\nWill plan after."
+    )
+    assert found is True
+    assert payload["scope"] == "packages/billing, src/api"
+    assert payload["focus"] == "where invoices are validated"
+    assert "<hands_context_request>" in payload["raw"]
+    assert "<hands_context_request>" not in clean
+
+
+def test_extract_context_request_malformed_falls_through(dual):
+    found, payload, clean = dual.extract_context_request(
+        "<hands_context_request><scope>x</scope> never closed?"
+    )
+    assert found is False
+    assert payload is None
+    # And the XML execution lane must never claim it either.
+    has_xml, _, _ = dual.extract_xml(CONTEXT_XML)
+    assert has_xml is False
+
+
+def test_dispatch_context_request_lane(server_mod, sess, monkeypatch):
+    monkeypatch.setitem(
+        sys.modules, "litellm",
+        _stub_litellm("Gathering evidence first.\n" + CONTEXT_XML),
+    )
+    call = server_mod.dispatch_session_turn
+    target = call.fn if hasattr(call, "fn") else call
+    result = target(181, "Project Planner", "plan the billing refactor")
+    assert result["status"] == "CONTEXT_REQUEST"
+    assert result["context_request"]["scope"] == "packages/billing, src/api"
+    card = sess.load_persona_card(181, "Project Planner")
+    assert card["last_status"] == "CONTEXT_REQUEST"
+    assert card["turn_count"] == 1
+
+
+def test_persona_card_round_trip(sess):
+    card = sess.save_persona_card(182, "QA Engineer", "QUESTION", open_question="Which files?")
+    assert card["turn_count"] == 1
+    assert card["open_question"] == "Which files?"
+    loaded = sess.load_persona_card(182, "QA Engineer")
+    assert loaded["turn_count"] == 1
+    # A decisive outcome clears the stale open question.
+    cleared = sess.save_persona_card(182, "QA Engineer", "REPORT")
+    assert cleared["turn_count"] == 2
+    assert cleared["open_question"] is None
+
+
+def test_build_messages_injects_persona_card(sess, tmp_path):
+    sess.save_persona_card(183, "QA Engineer", "QUESTION", open_question="Which files?")
+    messages = sess.build_persona_messages(
+        183, "QA Engineer", "continue review", None, repo_root=tmp_path
+    )
+    card_msgs = [m for m in messages if "turn #2" in m.get("content", "")]
+    assert card_msgs, "persona identity card must ride every turn"
+    assert "Which files?" in card_msgs[0]["content"]
+
+
+def test_lineage_fallback_to_global_config(sess, tmp_path, monkeypatch, capsys):
+    # repo_root AND cwd hold no lineage files; the global config dir does.
+    empty_root = tmp_path / "repo"
+    empty_root.mkdir()
+    empty_cwd = tmp_path / "cwd"
+    empty_cwd.mkdir()
+    fake_home = tmp_path / "home"
+    (fake_home / ".config" / "opencode").mkdir(parents=True)
+    (fake_home / ".config" / "opencode" / "system-prompt.md").write_text(
+        "GLOBAL-FALLBACK", encoding="utf-8"
+    )
+    monkeypatch.chdir(empty_cwd)
+    monkeypatch.setenv("HOME", str(fake_home))
+    messages = sess.build_persona_messages(
+        184, "QA Engineer", "go", None, repo_root=empty_root
+    )
+    assert any("GLOBAL-FALLBACK" in m["content"] for m in messages)
+    # AGENTS.md is missing everywhere → stderr must say so (never blind).
+    assert "AGENTS.md" in capsys.readouterr().err
+
+
+def test_replay_cap_omits_oldest(sess, monkeypatch):
+    monkeypatch.setenv("PERSONA_MAX_REPLAY_TURNS", "3")
+    for i in range(5):
+        sess.append_turn(185, "user", f"instruction-{i}")
+    messages = sess.build_persona_messages(
+        185, "QA Engineer", "new work", None, repo_root=None
+    )
+    assert any("omitted" in m["content"] for m in messages)
+    assert not any(m.get("content") == "instruction-0" for m in messages)
+    assert any(m.get("content") == "instruction-4" for m in messages)
+    assert messages[-1] == {"role": "user", "content": "new work"}
+
+
+def test_stage_slug_keeps_callback_under_cap(server_mod):
+    telegram = sys.modules["telegram"]
+    long_stage = "Task 174 closure: 5 persona commands + brainstorm-swarm removal ✨"
+    slug = telegram.slugify_stage(long_stage)
+    assert len(slug.encode("utf-8")) <= 32
+    keyboard = telegram._approval_keyboard(174, long_stage)
+    for row in keyboard["inline_keyboard"]:
+        for button in row:
+            assert len(button["callback_data"].encode("utf-8")) < 64
+    assert keyboard["inline_keyboard"][0][0]["callback_data"].startswith("approve:174:")
+
+
+def test_sibling_stage_prefix_never_cross_matches(server_mod, monkeypatch):
+    # QA half-2 (high): awaiting slug "planning" must NOT consume a press
+    # for sibling stage "planning-review" — exact approve/reject match only.
+    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "test-token")
+    monkeypatch.setenv("TELEGRAM_CHAT_ID", "12345")
+    telegram = sys.modules["telegram"]
+    queue = [
+        _approval_update(40, 12345, "approve:174:planning-review"),
+        _approval_update(41, 12345, "reject:174:planning"),
+    ]
+    calls = []
+    transport = _queue_transport(queue, calls)
+    update = telegram._wait_for_update(
+        "test-token", "12345", 10, transport,
+        expected_action_prefix=":174:planning", start_offset=0,
+    )
+    assert update["update_id"] == 41
+    assert telegram._extract_answer(update) == "reject"
+
+
+def test_distinct_long_stages_never_share_slug(server_mod):
+    telegram = sys.modules["telegram"]
+    a = telegram.slugify_stage("closure review of the persona engine loop")
+    b = telegram.slugify_stage("closure review of the persona engine docs")
+    assert a != b  # shared 32-char prefix, hash suffix disambiguates
+    assert telegram.slugify_stage("") != telegram.slugify_stage("!!!")
+    assert telegram.slugify_stage("QA") == "qa"  # short stages unchanged
+
+
+def test_second_poll_after_decision_times_out(server_mod, monkeypatch):
+    # Documented idempotency: the decision is consumed once; the caller
+    # holds it. A repeat poll with the advanced offset waits, then times out.
+    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "test-token")
+    monkeypatch.setenv("TELEGRAM_CHAT_ID", "12345")
+    telegram = sys.modules["telegram"]
+    queue = [_approval_update(50, 12345, "approve:176:closure")]
+    calls = []
+    transport = _queue_transport(queue, calls)
+    first = telegram.await_gate_decision(
+        176, "closure", wait_s=10, ask_note=False, transport=transport
+    )
+    assert first["status"] == "decided"
+    second = telegram.await_gate_decision(
+        176, "closure", wait_s=0, ask_note=False, transport=transport,
+        start_offset=first["start_offset"],
+    )
+    assert second["status"] == "timeout"
+
+
+def test_split_gate_post_then_poll(server_mod, monkeypatch):
+    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "test-token")
+    monkeypatch.setenv("TELEGRAM_CHAT_ID", "12345")
+    telegram = sys.modules["telegram"]
+    queue = []
+    calls = []
+    transport = _queue_transport(queue, calls)
+
+    post = telegram.post_approval_gate(176, "closure", "summary", transport=transport)
+    assert post["sent"] is True
+    assert post["stage_slug"] == "closure"
+
+    # Window 1: manager silent → timeout with a resume offset, nothing lost.
+    first = telegram.await_gate_decision(
+        176, "closure", wait_s=0, ask_note=False,
+        transport=transport, start_offset=post["start_offset"],
+    )
+    assert first["status"] == "timeout"
+
+    # Window 2: the press arrives → decided.
+    queue.append(_approval_update(21, 12345, "approve:176:closure"))
+    second = telegram.await_gate_decision(
+        176, "closure", wait_s=10, ask_note=False,
+        transport=transport, start_offset=first["start_offset"],
+    )
+    assert second["status"] == "decided"
+    assert second["decision"] == "approve"
+    assert second["update_id"] == 21
+
+
+def test_sessions_root_pinned_to_install_root(server_mod, sess, monkeypatch):
+    from pathlib import Path as _P
+
+    # Simulate a cwd-relative default (the launch-cwd scattering bug):
+    # the pin must resolve it under the install root. monkeypatch restores
+    # the fixture dir afterwards — never leak the real repo dir into later
+    # tests (stale cards there break turn-count assertions).
+    monkeypatch.setattr(sess, "SESSIONS_ROOT", _P("tasks/.sessions"))
+    server_mod._pin_sessions_root()
+    assert sess.SESSIONS_ROOT.is_absolute()
+    assert sess.SESSIONS_ROOT.name == ".sessions"
+    assert str(sess.SESSIONS_ROOT).startswith(str(server_mod.REPO_ROOT))
+
+
+def test_empty_lineage_file_warns_nothing(sess, tmp_path, monkeypatch, capsys):
+    # QA advisory: a file that EXISTS but is empty must not warn "not found".
+    (tmp_path / "system-prompt.md").write_text("   \n", encoding="utf-8")
+    empty_cwd = tmp_path / "cwd"
+    empty_cwd.mkdir()
+    fake_home = tmp_path / "home"
+    (fake_home / ".config" / "opencode").mkdir(parents=True)
+    monkeypatch.chdir(empty_cwd)
+    monkeypatch.setenv("HOME", str(fake_home))
+    sess.build_persona_messages(186, "QA Engineer", "go", None, repo_root=tmp_path)
+    err = capsys.readouterr().err
+    assert "system-prompt.md" not in err  # present-but-empty ≠ missing
+    assert "AGENTS.md" in err  # truly absent everywhere → still warns
+
+
+def test_context_nudge_gated_after_context_request(sess, tmp_path):
+    # QA advisory: after a CONTEXT_REQUEST turn the nudge must stand down,
+    # or a compliant persona re-requests forever.
+    sess.save_persona_card(187, "Project Planner", "CONTEXT_REQUEST")
+    messages = sess.build_persona_messages(
+        187, "Project Planner", "plan now", None, repo_root=tmp_path
+    )
+    card_msg = next(m for m in messages if "turn #2" in m.get("content", ""))
+    assert "proceed with planning" in card_msg["content"]
+    assert "emit a" not in card_msg["content"]
+
+
+def test_blocking_gate_sends_single_header(server_mod, monkeypatch):
+    # Regression (self-review of half-2 diff): send_approval_request must
+    # not double-prepend header/ref — post_approval_gate formats them.
+    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "test-token")
+    monkeypatch.setenv("TELEGRAM_CHAT_ID", "12345")
+    monkeypatch.setenv("TELEGRAM_APPROVAL_TIMEOUT_SECONDS", "10")
+    telegram = sys.modules["telegram"]
+    queue = []
+    calls = []
+    base = _queue_transport(queue, calls)
+    texts = []
+
+    def staged(method, payload):
+        if method == "sendMessage":
+            texts.append(payload["text"])
+            queue.append(_approval_update(30, 12345, "approve:176:qa2"))
+        return base(method, payload)
+
+    result = telegram.send_approval_request(
+        176, "QA2", "Body here.", transport=staged, ask_note=False
+    )
+    assert result["sent"] is True
+    assert result["decision"] == "approve"
+    full = "\n".join(texts)
+    assert full.count("approval requested") == 1
+
+
+def test_open_question_truncation_bounded(server_mod, sess, monkeypatch):
+    # QA half-2 residual: truncated open_question must stay <= 2000 chars.
+    long_q = "What about " + "x" * 3000 + "?"
+    monkeypatch.setitem(sys.modules, "litellm", _stub_litellm(long_q))
+    call = server_mod.dispatch_session_turn
+    target = call.fn if hasattr(call, "fn") else call
+    result = target(189, "QA Engineer", "probe")
+    assert result["status"] == "QUESTION"
+    card = sess.load_persona_card(189, "QA Engineer")
+    assert len(card["open_question"]) <= 2000
+    assert card["open_question"].endswith("…(truncated)")
+
+
+def test_card_write_leaves_no_tmp_residue(sess):
+    sess.save_persona_card(188, "QA Engineer", "REPORT")
+    leftovers = list(sess.session_dir(188).glob("*.tmp"))
+    assert leftovers == []
 
 
 def test_telegram_empty_note_resolves_none(server_mod, monkeypatch):
@@ -681,7 +961,7 @@ def test_telegram_explicit_skip_resolves_none(server_mod, monkeypatch):
         if method == "sendMessage":
             sends.append(payload)
             if len(sends) == 1:
-                queue.append(_approval_update(7, 12345, "reject:175:QA"))
+                queue.append(_approval_update(7, 12345, "reject:175:qa"))
             elif len(sends) == 2:
                 queue.append({
                     "update_id": 8,
