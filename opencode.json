@@ -44,46 +44,6 @@
       ],
       "enabled": true,
       "timeout": 15000
-    },
-    "persona": {
-      "type": "local",
-      "command": [
-        "uv",
-        "run",
-        "--project",
-        "mcp-persona-server",
-        "mcp-persona-server/server.py"
-      ],
-      "enabled": true,
-      "timeout": 600000,
-      "environment": {
-        "OPENROUTER_API_KEY": "{env:OPENROUTER_API_KEY}",
-        "PERSONA_MODEL": "{env:PERSONA_MODEL}",
-        "PERSONA_REASONING_EFFORT": "{env:PERSONA_REASONING_EFFORT}",
-        "PERSONA_TEMPERATURE": "{env:PERSONA_TEMPERATURE}",
-        "PERSONA_MAX_TOKENS": "{env:PERSONA_MAX_TOKENS}",
-        "TELEGRAM_BOT_TOKEN": "{env:TELEGRAM_BOT_TOKEN}",
-        "TELEGRAM_CHAT_ID": "{env:TELEGRAM_CHAT_ID}",
-        "TELEGRAM_APPROVAL_TIMEOUT_SECONDS": "{env:TELEGRAM_APPROVAL_TIMEOUT_SECONDS}"
-      }
-    },
-    "manager_decisions": {
-      "type": "local",
-      "command": [
-        "uv",
-        "run",
-        "--project",
-        "mcp-decision-server",
-        "mcp-decision-server/server.py"
-      ],
-      "enabled": true,
-      "timeout": 600000,
-      "environment": {
-        "OPENROUTER_API_KEY": "{env:OPENROUTER_API_KEY}",
-        "PERSONA_MODEL": "{env:PERSONA_MODEL}",
-        "DECISION_MODEL": "{env:DECISION_MODEL}",
-        "DECISION_TEMPERATURE": "{env:DECISION_TEMPERATURE}"
-      }
     }
   },
   "permission": {
@@ -103,15 +63,6 @@
     "bundle_tasks": "allow",
     "blowsh_*": "allow",
     "telegram_*": "allow",
-    "dispatch_session_turn": "allow",
-    "get_session_summary": "allow",
-    "escalate_to_admin": "allow",
-    "request_admin_approval": "allow",
-    "extract_session_decisions": "allow",
-    "record_manager_decision": "allow",
-    "query_manager_decisions": "allow",
-    "get_manager_profile": "allow",
-    "propose_profile_evolution": "allow",
     "external_directory": {
       "*": "ask",
       "/tmp/**": "allow"
