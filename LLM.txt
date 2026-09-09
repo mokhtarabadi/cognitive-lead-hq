@@ -348,9 +348,10 @@ DCP (`@tarquinen/opencode-dcp`, 4.2k stars, AGPL-3.0) reduces token usage via co
 
 ```bash
 opencode plugin @tarquinen/opencode-dcp@latest --global
+opencode plugin @prevalentware/opencode-goal-plugin --global
 ```
 
-This adds `@tarquinen/opencode-dcp` to `~/.config/opencode/opencode.json` + `tui.json`. Ensure the project files match (already committed in this repo):
+This adds both plugins to `~/.config/opencode/opencode.json` + `tui.json`. Ensure the project files match (already committed in this repo):
 
 ```bash
 grep -q "@tarquinen/opencode-dcp" opencode.json && echo "project opencode.json DCP ✓"
@@ -358,6 +359,14 @@ grep -q "@tarquinen/opencode-dcp" tui.json && echo "project tui.json DCP ✓"
 grep -q "@tarquinen/opencode-dcp" ~/.config/opencode/opencode.json && echo "global opencode.json DCP ✓"
 grep -q "@tarquinen/opencode-dcp" ~/.config/opencode/tui.json && echo "global tui.json DCP ✓"
 ```
+
+> **References ≠ installed (learned 2026-09-09):** config entries alone do NOT install plugins — the packages must land in `~/.cache/opencode/packages/`, and slash commands (`/goal`, `/dcp`, `/dcp-compress`) only appear after an OpenCode **restart**. Always verify:
+>
+> ```bash
+> ls -d ~/.cache/opencode/packages/@tarquinen/opencode-dcp@latest ~/.cache/opencode/packages/@prevalentware/opencode-goal-plugin@latest && echo "plugins installed ✓"
+> ```
+>
+> Then restart OpenCode before testing `/goal` or `/dcp-compress`.
 
 ### DCP configuration (dcp.jsonc)
 

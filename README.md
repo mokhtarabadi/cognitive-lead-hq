@@ -494,6 +494,14 @@ Both the repo (`opencode.json` + `tui.json`) and global (`~/.config/opencode/`) 
 
 OpenCode 1 reads `plugin` from **both** `opencode.json` (server/tools) and `tui.json` (sidebar/palette) — keep the arrays identical. Full install/verify steps live in `LLM.txt` §7.
 
+> Install both plugins globally, then verify the packages actually landed (config references alone do not install them) and restart OpenCode before using `/goal` or `/dcp-compress`:
+>
+> ```bash
+> opencode plugin @prevalentware/opencode-goal-plugin --global
+> opencode plugin @tarquinen/opencode-dcp@latest --global
+> ls -d ~/.cache/opencode/packages/@tarquinen/opencode-dcp@latest ~/.cache/opencode/packages/@prevalentware/opencode-goal-plugin@latest && echo "plugins installed ✓"
+> ```
+
 ---
 
 ## Key V9 Changes
