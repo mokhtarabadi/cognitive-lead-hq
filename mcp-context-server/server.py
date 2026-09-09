@@ -223,24 +223,65 @@ def _extract_via_tree_sitter(file_path: Path) -> Optional[str]:
 
 # --- End tree-sitter ---
 
-def generate_tree(dir_path: Path, ignore_filter: GitIgnoreFilter) -> str:
+# Runaway-traversal guards (Task 177): a single wedged request (e.g. tree of
+# "/") used to burn minutes of CPU on the single-threaded stdio server and
+# starve every later tool call. These caps bound any single walk.
+TREE_MAX_DEPTH = 8
+TREE_MAX_ENTRIES = 2000
+COLLECT_MAX_FILES = 1000
+# Directory names never descended into, at any level. Supplements .gitignore
+# (which cannot cover absolute-path walks outside any repo).
+BANNED_DIRS = frozenset(
+    {".git", ".cache", "__pycache__", "node_modules", ".venv", "venv", "proc", "sys", "dev"}
+)
+
+def _is_banned_dir(entry: Path) -> bool:
+    """True when a directory entry must never be descended into."""
+    try:
+        return entry.is_dir() and entry.name in BANNED_DIRS
+    except OSError:
+        return True  # Unstatable entries are treated as unsafe to descend.
+
+def generate_tree(
+    dir_path: Path,
+    ignore_filter: GitIgnoreFilter,
+    max_depth: int = TREE_MAX_DEPTH,
+    max_entries: int = TREE_MAX_ENTRIES,
+) -> str:
     lines = ["```text", dir_path.name or str(dir_path)]
-    def _walk(current_path: Path, prefix: str) -> None:
+    state = {"count": 0, "truncated": False}
+    def _walk(current_path: Path, prefix: str, depth: int) -> None:
+        if state["truncated"]:
+            return
+        if depth > max_depth:
+            lines.append(f"{prefix}└── [Max depth reached ({max_depth})]")
+            return
         try:
             entries = list(current_path.iterdir())
-        except PermissionError:
-            lines.append(f"{prefix}└── [Permission Denied]")
+        except (PermissionError, OSError):
+            lines.append(f"{prefix}└── [Unreadable directory]")
             return
-        valid_entries = [e for e in entries if not ignore_filter.is_ignored(e)]
+        valid_entries = [
+            e
+            for e in entries
+            if not _is_banned_dir(e) and not ignore_filter.is_ignored(e)
+        ]
         sorted_entries = sorted(valid_entries, key=lambda e: (not e.is_dir(), e.name.lower()))
         for i, entry in enumerate(sorted_entries):
+            if state["count"] >= max_entries:
+                lines.append(
+                    f"{prefix}└── [Truncated: entry limit reached ({max_entries})]"
+                )
+                state["truncated"] = True
+                return
+            state["count"] += 1
             is_last = i == (len(sorted_entries) - 1)
             connector = "└── " if is_last else "├── "
             lines.append(f"{prefix}{connector}{entry.name}")
             if entry.is_dir():
                 extension = "    " if is_last else "│   "
-                _walk(entry, prefix + extension)
-    _walk(dir_path, "")
+                _walk(entry, prefix + extension, depth + 1)
+    _walk(dir_path, "", 0)
     lines.append("```")
     return "\n".join(lines)
 
@@ -285,7 +326,11 @@ def process_source_file(file_path: Path, max_size: int, line_numbers: bool) -> s
     lines.append("```\n")
     return "\n".join(lines)
 
-def collect_files(target: str, ignore_filter: GitIgnoreFilter) -> list[Path]:
+def collect_files(
+    target: str,
+    ignore_filter: GitIgnoreFilter,
+    max_files: int = COLLECT_MAX_FILES,
+) -> list[Path]:
     p = Path(target)
     if not p.exists() or ignore_filter.is_ignored(p):
         return []
@@ -294,8 +339,15 @@ def collect_files(target: str, ignore_filter: GitIgnoreFilter) -> list[Path]:
     collected = []
     for root, dirs, files in os.walk(p):
         root_path = Path(root)
-        dirs[:] = [d for d in dirs if not ignore_filter.is_ignored(root_path / d)]
+        dirs[:] = [
+            d
+            for d in dirs
+            if (root_path / d).name not in BANNED_DIRS
+            and not ignore_filter.is_ignored(root_path / d)
+        ]
         for f in files:
+            if len(collected) >= max_files:
+                return collected
             file_path = root_path / f
             if not ignore_filter.is_ignored(file_path):
                 collected.append(file_path)
@@ -322,6 +374,17 @@ mcp = FastMCP("CustomContext")
 @mcp.tool()
 def get_directory_tree(target_path: str = ".") -> str:
     """Generates an ASCII tree representation of the directory, respecting .gitignore. Use this to discover codebase structure."""
+    # Security: mirror create_tree_report — coerce bad types, resolve against
+    # the workspace root, reject escapes. Previously a bare "/" walked the
+    # whole filesystem and wedged the single-threaded server (Task 177).
+    if not isinstance(target_path, str):
+        target_path = "."
+    workspace_root = Path.cwd().resolve()
+    tree_path = Path(target_path).resolve()
+    try:
+        tree_path.relative_to(workspace_root)
+    except ValueError:
+        return "Error: Path traversal detected. target_path must be within the project workspace."
     ignore_filter = GitIgnoreFilter()
     tree_path = Path(target_path)
     if not tree_path.is_dir():
@@ -350,10 +413,21 @@ def read_source_files(paths: list[str], max_size: int = 1048576, no_line_numbers
     if not files_to_process:
         return "No files found or all files were ignored."
 
+    started = time.monotonic()
     output_lines = ["## Source Files\n"]
     include_line_numbers = not no_line_numbers
+    skipped = 0
+    total_bytes = 0
     for _, f in sorted(files_to_process.items(), key=lambda item: str(item[1]).lower()):
-        output_lines.append(process_source_file(f, max_size, include_line_numbers))
+        try:
+            total_bytes += f.stat().st_size
+        except OSError:
+            pass
+        rendered = process_source_file(f, max_size, include_line_numbers)
+        if "> Skipped:" in rendered:
+            skipped += 1
+        output_lines.append(rendered)
+    duration_s = time.monotonic() - started
 
     result_content = "\n".join(output_lines)
 
@@ -376,6 +450,9 @@ def read_source_files(paths: list[str], max_size: int = 1048576, no_line_numbers
 
     return (
         f"✅ Success: Compiled context for {len(files_to_process)} files.\n"
+        f"📊 Report metrics: {len(files_to_process) - skipped} processed, "
+        f"{skipped} skipped, {total_bytes} bytes read in {duration_s:.2f}s "
+        f"(tree depth cap {TREE_MAX_DEPTH}, collect cap {COLLECT_MAX_FILES}).\n"
         f"📁 Generated Report: `{report_file}`\n\n"
         f"Manager: You can now open `{report_file}` in your local editor to view the codebase context or copy/paste it directly for the AI."
     )

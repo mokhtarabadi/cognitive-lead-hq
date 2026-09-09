@@ -79,9 +79,11 @@ To leave feedback directly on the generated Markdown plans:
 
 The AI will process your inline feedback, generate a revised plan, and wait for your final "Approved" signal before writing code.
 
-## ⚡ Manual Mode Workflow (Pure-MCP Human-in-the-Loop)
+## ⚡ Manual Mode Workflow (Pure-MCP Human-in-the-Loop) — ACTIVE / DEFAULT
 
-For teams that prefer manual copy/paste over the Loop Engine daemon, this is the canonical pure-MCP cycle:
+> **Automation paused (2026-09-09, Tasks 175–176):** the persona/decision automation is disabled — servers stripped from configs, commands archived under `archive/automation-paused-2026-09-09/`. This manual cycle is the active default; see `archive/automation-paused-2026-09-09/RESTORE.md` for the restore path.
+
+This is the canonical pure-MCP cycle:
 
 1. **Manager inputs raw thought / Telegram message** — raw bilingual draft or structured task file in `tasks/backlog/`.
 2. **Orchestrator issues architectural blueprint & awaits approval** — Brain reviews context, proposes plan, and halts for explicit Manager `Approved`.
@@ -123,7 +125,9 @@ The repository includes a standalone web tool at `tools/prompt-composer/index.ht
 
 ---
 
-## 🤖 Persona Engine + Decision Learning
+## 🤖 Persona Engine + Decision Learning (PAUSED 2026-09-09)
+
+> **Disabled, not deleted (Tasks 175–176):** the system below is preserved for future development but not currently enabled. Manual Mode above is the active workflow.
 
 The **Persona Engine** (Tasks 167–168) replaced the retired loop-engine daemon with on-demand persona turns: OpenCode itself calls personas (`/qa`, `/reviewer`, `/manager`, `/brainstorm`) backed by a light LLM holding the full system prompt, with Telegram Approve/Reject hard gates. The **Decision Learning** side captures per-session manager rulings into a separate append-only repo that evolves the manager-AI sample behind human review.
 
@@ -151,7 +155,7 @@ cp .env.example .env
 
 ### Features
 
-- **Persona slash commands** — `/qa`, `/reviewer`, `/manager`, `/brainstorm`, each with Dual Dispatch classification (`XML_EXTRACTED` / `QUESTION` / `REPORT`)
+- **Persona slash commands (paused)** — `/qa`, `/reviewer`, `/manager`, `/brainstorm`, each with Dual Dispatch classification (`XML_EXTRACTED` / `QUESTION` / `REPORT`)
 - **Telegram approval gateway** — task/stage-scoped inline keyboard Approve/Reject with stale-press discard
 - **Auto-continue** — Goal Plugin handles idle detection and continuation
 - **Evidence-bound QA** — No evidence = no commit
@@ -160,10 +164,11 @@ cp .env.example .env
 
 ### Documentation
 
-- [Manager-Decision Skill](skill-templates/manager-decision/SKILL.md)
+- [Manager-Decision Skill](skill-templates/manager-decision/SKILL.md) (paused — server disabled in Task 176)
+- [Blowsh Web Skill](skill-templates/blowsh/SKILL.md) — live-web search/fetch/crawl via the blowsh MCP server
 - [Cognitive Executor Agent](agents/cognitive-executor.md) (Persona Loop section)
 - [Setup Guide](docs/setup.md)
-- Historical loop-engine docs remain under `docs/loop-engine/` for reference (daemon retired in Task 167).
+- Historical loop-engine docs archived under `archive/automation-paused-2026-09-09/docs-loop-engine/` (daemon retired in Task 167, docs moved in Task 177).
 
 ---
 
@@ -312,6 +317,7 @@ cp .env.example .env
 | `github`                  | GitHub CLI (gh) workflow for pull request triage, issue management, CI/CD run analysis, and API queries.                                                                                                                                   |
 | `prompt-refactor`         | Meta-cognitive skill that refactors basic human prompts into elite, highly constrained, XML-tagged instructions optimized for AI agent reasoning.                                                                                          |
 | `bundle-tasks`            | Deterministic meta-task bundling — bundles 2–6 small related tasks into one META for unified execution with verbatim preservation and auto-archive. Pure-MCP tool `bundle_tasks` (Task 110) — see `skill-templates/bundle-tasks/SKILL.md`. |
+| `blowsh`                  | Live-web research via the blowsh MCP server (Docker): `search_web`, `fetch_web`, `fetch_web_batch`, `crawl_web`, `extract_links` — rendered engines, JS rendering, sitemap-aware crawls. See `skill-templates/blowsh/SKILL.md`.            |
 | `task-generator`          | Automatically generates decentralized task files based on Manager instructions, with correct `<!-- BEGIN_GIT_DIFF -->` / `<!-- END_GIT_DIFF -->` markers.                                                                                  |
 | `telegram-issue-sync`     | Syncs Telegram supergroup topics into local task files and GitHub issues, using embedded Python scripts for deterministic JSON state management.                                                                                           |
 | `telegram-message-export` | Intelligently exports a range of Telegram messages (text, media, voice notes) into a numbered folder, capturing reply hierarchies, and packing them into a ZIP archive.                                                                    |
@@ -405,7 +411,7 @@ Best if you want this codebase exploration tool available in _every_ terminal di
 
 _(Note: Replace `/Users/<YOUR_USER>` with your actual home directory path)._
 
-> Full HQ install (all 7 MCP servers — context, memory, lint, persona, decisions, blowsh, telegram — plus 32 skills and both agents) is documented in `LLM.txt` §4–§7 and the `global-install-upgrade` memory workflow, not here; the steps above cover only the standalone context server for third-party projects.
+> Full HQ install (all 7 MCP servers — context, memory, lint, persona, decisions, blowsh, telegram — plus 33 skills and both agents) is documented in `LLM.txt` §4–§7 and the `global-install-upgrade` memory workflow, not here; the steps above cover only the standalone context server for third-party projects.
 
 ### How It Works
 
@@ -428,7 +434,7 @@ _(Note: Replace `/Users/<YOUR_USER>` with your actual home directory path)._
 
 **Optional — auto-installed via `LLM.txt` Step 7.6:**
 
-- `blowsh` (Docker `ghcr.io/mokhtarabadi/blowsh-mcp:latest`, 4 tools) — **JS-capable browsing (retired browser MCP replacement).** `fetch_web` (plain/html/markdown/pdf + selector/max_chars/wait_ms), `search_web` (DuckDuckGo+Bing), `extract_links`, `fetch_web_batch` (10 URLs). SSRF guard, TTL cache. Timeout 120s. See https://github.com/mokhtarabadi/blowsh-mcp and `docs/telegram-setup.md` (setup maps to same global install).
+- `blowsh` (Docker `ghcr.io/mokhtarabadi/blowsh-mcp:latest`, 5 tools) — **JS-capable browsing (retired browser MCP replacement).** `fetch_web` (plain/html/markdown/pdf + selector/max_chars/wait_ms + focus/toc/must_contain/archive/stitch probes), `search_web` (DuckDuckGo+Bing+Brave+Mojeek consensus, intent verticals), `extract_links`, `fetch_web_batch` (10 URLs), `crawl_web` (sitemap-aware multi-page docs/API refs/wikis with focus/depth/char budgets). SSRF guard, TTL cache. Timeout 120s. See https://github.com/mokhtarabadi/blowsh-mcp, `skill-templates/blowsh/SKILL.md`, and `docs/telegram-setup.md` (setup maps to same global install).
 - `telegram` (Telethon, 80+ tools, `uv --directory $HOME/.config/opencode/mcp-telegram-server run main.py` over absolute path in opencode config dir) — Accounts (`list_accounts`, multi-account `account` param), chats/groups, messages (`send_message`/`reply_to_message` with `account="personal"`/`"work"`), contacts/aliases, media (`send_file`/`download_media`), events (`wait_for_settled_message`, `enable_incoming_feed`). File roots required for media tools (`/tmp/telegram-mcp` + `$HOME/.config/opencode/mcp-telegram-server/downloads`). Used by `skill-templates/telegram-issue-sync/SKILL.md` (supergroup → tasks) and `telegram-message-export/SKILL.md` (range → ZIP) — see `docs/telegram-setup.md` §6 for the full skill→tool→config table. Single vs work/personal setup documented there plus `LLM.txt` 7.6 (absolute paths, installed in `~/.config/opencode/`).
 
 ### Meta-Task Bundling — Pure MCP (No CLI Required)
@@ -520,13 +526,13 @@ OpenCode 1 reads `plugin` from **both** `opencode.json` (server/tools) and `tui.
 
 ## 📜 Release Milestones
 
-| Milestone | Key Architectural Evolutions |
-| --------- | ---------------------------- |
-| V5 | Decentralized `tasks/` architecture (retired `STATE.md`/`TODO.md`); Brain/Hands separation codified; `task-generator` + `audit-agents` skills introduced; Phase 0 UI/UX traversal for `DESIGN.md` generation. |
-| V6 | Kanban lifecycle (`backlog → in-progress → qa → completed → archive`); `commit_and_clean_task` MCP tool; `migrate-kanban` + `archive-tasks` skills; system prompt upgraded for Kanban state tracking. |
-| V6.7 | Manager profile and coaching fragments introduced (removed in V9.0.0; configuration moved to project-specific `AGENTS.md`). |
-| V7 | Multi-persona brainstorming protocol; Universal Datetime Rules (UTC-at-rest); SOLID programming mandate; Agent Skills Registry expanded to 31 skills. |
-| V8 | 9-step production line formalized; Immutable Financial Ledger mandate; Buffer Isolation validation phase; Defensive Shell Protocol. |
+| Milestone | Key Architectural Evolutions                                                                                                                                                                                  |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| V5        | Decentralized `tasks/` architecture (retired `STATE.md`/`TODO.md`); Brain/Hands separation codified; `task-generator` + `audit-agents` skills introduced; Phase 0 UI/UX traversal for `DESIGN.md` generation. |
+| V6        | Kanban lifecycle (`backlog → in-progress → qa → completed → archive`); `commit_and_clean_task` MCP tool; `migrate-kanban` + `archive-tasks` skills; system prompt upgraded for Kanban state tracking.         |
+| V6.7      | Manager profile and coaching fragments introduced (removed in V9.0.0; configuration moved to project-specific `AGENTS.md`).                                                                                   |
+| V7        | Multi-persona brainstorming protocol; Universal Datetime Rules (UTC-at-rest); SOLID programming mandate; Agent Skills Registry expanded to 31 skills.                                                         |
+| V8        | 9-step production line formalized; Immutable Financial Ledger mandate; Buffer Isolation validation phase; Defensive Shell Protocol.                                                                           |
 
 ---
 

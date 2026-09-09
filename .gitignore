@@ -48,3 +48,13 @@ downloads/
 
 # Persona session transcripts (runtime audit trail, never committed)
 tasks/.sessions/
+
+# Python/pytest runtime caches (never committed)
+.pytest_cache/
+.ruff_cache/
+.uv/
+.uv-cache/
+.mypy_cache/
+.coverage
+htmlcov/
+

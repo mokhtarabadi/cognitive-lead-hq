@@ -51,23 +51,23 @@ You are the final gatekeeper of the Kanban task state. If the Orchestrator forge
 
 If the Orchestrator or Manager forgets to explicitly list a skill in the `<context_phase>`, you MUST scan the task context and auto-load the correct skill using the `skill` tool based on this matrix:
 
-| Detected Tech Stack / Context         | Mandatory Skill to Load         |
-| ------------------------------------- | ------------------------------- |
-| Jetpack Compose, Android, Kotlin      | `android-kotlin`                |
-| Flask, SQLAlchemy, Python             | `flask-python`                  |
-| Go, Gin, Hexagonal                    | `go-gin` or `go-hexagonal-grpc` |
-| SwiftUI, iOS                          | `ios-swiftui`                   |
-| NestJS, Prisma, TypeScript            | `nestjs-prisma-vertical`        |
-| Next.js, App Router, React            | `nextjs`                        |
-| FastAPI, Pydantic                     | `python-fastapi`                |
-| React Native, Expo                    | `react-native-expo`             |
-| React, Vite                           | `react-vite`                    |
-| Spring Boot, Java                     | `spring-boot`                   |
-| Vue, Nuxt                             | `vue-nuxt`                      |
-| Creating a new task file              | `task-generator`                |
-| Closing or archiving a task           | `archive-tasks`                 |
-| Complex bug, deadlock, silent failure | `debug-instrumentation`         |
-| Manager decision capture, ruling reuse | `manager-decision`             |
+| Detected Tech Stack / Context          | Mandatory Skill to Load                                                                                                                                                                      |
+| -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Jetpack Compose, Android, Kotlin       | `android-kotlin`                                                                                                                                                                             |
+| Flask, SQLAlchemy, Python              | `flask-python`                                                                                                                                                                               |
+| Go, Gin, Hexagonal                     | `go-gin` or `go-hexagonal-grpc`                                                                                                                                                              |
+| SwiftUI, iOS                           | `ios-swiftui`                                                                                                                                                                                |
+| NestJS, Prisma, TypeScript             | `nestjs-prisma-vertical`                                                                                                                                                                     |
+| Next.js, App Router, React             | `nextjs`                                                                                                                                                                                     |
+| FastAPI, Pydantic                      | `python-fastapi`                                                                                                                                                                             |
+| React Native, Expo                     | `react-native-expo`                                                                                                                                                                          |
+| React, Vite                            | `react-vite`                                                                                                                                                                                 |
+| Spring Boot, Java                      | `spring-boot`                                                                                                                                                                                |
+| Vue, Nuxt                              | `vue-nuxt`                                                                                                                                                                                   |
+| Creating a new task file               | `task-generator`                                                                                                                                                                             |
+| Closing or archiving a task            | `archive-tasks`                                                                                                                                                                              |
+| Complex bug, deadlock, silent failure  | `debug-instrumentation`                                                                                                                                                                      |
+| Manager decision capture, ruling reuse | `manager-decision` <!-- PAUSED-2026-09-09 (Task 177): manager_decisions server disabled in Task 176 — do NOT auto-load this skill until restore. Original row kept for future re-enable. --> |
 
 ## Direct Input (Ad-Hoc) Validation Protocol
 

@@ -2118,3 +2118,164 @@ def test_memory_server_rebuild_tool():
             assert "Alpha" in content
         finally:
             os.chdir(old_cwd)
+
+
+# --- Task 177: traversal-guard + runaway-cap regression tests ---
+
+def _load_context_server_hardening():
+    """Load mcp-context-server fresh for the hardening tests."""
+    import importlib
+    from pathlib import Path
+
+    repo_root = Path(__file__).parent.parent
+    server_path = repo_root / "mcp-context-server" / "server.py"
+    spec = importlib.util.spec_from_file_location(
+        "context_server_hardening", server_path
+    )
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def test_tree_rejects_absolute_escape():
+    """get_directory_tree('/') must refuse instead of walking the filesystem."""
+    import os
+    import tempfile
+    from pathlib import Path
+
+    mod = _load_context_server_hardening()
+    with tempfile.TemporaryDirectory() as tmpdir:
+        old_cwd = os.getcwd()
+        os.chdir(tmpdir)
+        try:
+            result = mod.get_directory_tree("/")
+            assert result.startswith("Error: Path traversal detected"), result[:120]
+        finally:
+            os.chdir(old_cwd)
+
+
+def test_tree_rejects_parent_escape():
+    """get_directory_tree('..') escapes the workspace root and must be refused."""
+    import os
+    import tempfile
+
+    mod = _load_context_server_hardening()
+    with tempfile.TemporaryDirectory() as tmpdir:
+        old_cwd = os.getcwd()
+        os.chdir(tmpdir)
+        try:
+            result = mod.get_directory_tree("..")
+            assert result.startswith("Error: Path traversal detected"), result[:120]
+        finally:
+            os.chdir(old_cwd)
+
+
+def test_tree_none_defaults_to_workspace_root():
+    """Non-string target degrades gracefully to the whole-project default."""
+    import os
+    import tempfile
+    from pathlib import Path
+
+    mod = _load_context_server_hardening()
+    with tempfile.TemporaryDirectory() as tmpdir:
+        (Path(tmpdir) / "probe.txt").write_text("x", encoding="utf-8")
+        old_cwd = os.getcwd()
+        os.chdir(tmpdir)
+        try:
+            result = mod.get_directory_tree(None)
+            assert result.startswith("## Directory Tree:"), result[:120]
+            assert "probe.txt" in result
+        finally:
+            os.chdir(old_cwd)
+
+
+def test_tree_depth_cap():
+    """generate_tree stops descending past max_depth with a marker line."""
+    import tempfile
+    from pathlib import Path
+
+    mod = _load_context_server_hardening()
+    with tempfile.TemporaryDirectory() as tmpdir:
+        deep = Path(tmpdir)
+        for i in range(6):
+            deep = deep / f"lvl{i}"
+            deep.mkdir()
+        (deep / "bottom.txt").write_text("x", encoding="utf-8")
+        out = mod.generate_tree(
+            Path(tmpdir), mod.GitIgnoreFilter(), max_depth=3
+        )
+        assert "[Max depth reached (3)]" in out
+        assert "bottom.txt" not in out
+
+
+def test_tree_entry_cap_and_banned_dirs():
+    """Entry cap truncates; BANNED_DIRS never appear in tree output."""
+    import tempfile
+    from pathlib import Path
+
+    mod = _load_context_server_hardening()
+    with tempfile.TemporaryDirectory() as tmpdir:
+        root = Path(tmpdir)
+        for i in range(10):
+            (root / f"file{i:02d}.txt").write_text("x", encoding="utf-8")
+        banned = root / "__pycache__"
+        banned.mkdir()
+        (banned / "cached.pyc").write_text("x", encoding="utf-8")
+        modules = root / "node_modules"
+        modules.mkdir()
+        (modules / "dep.js").write_text("x", encoding="utf-8")
+        out = mod.generate_tree(
+            root, mod.GitIgnoreFilter(), max_entries=5
+        )
+        assert "[Truncated: entry limit reached (5)]" in out
+        assert "__pycache__" not in out
+        assert "node_modules" not in out
+        assert "cached.pyc" not in out
+
+
+def test_collect_files_cap_and_banned_dirs():
+    """collect_files caps at max_files and never descends into BANNED_DIRS."""
+    import tempfile
+    from pathlib import Path
+
+    mod = _load_context_server_hardening()
+    with tempfile.TemporaryDirectory() as tmpdir:
+        root = Path(tmpdir)
+        for i in range(5):
+            (root / f"f{i}.txt").write_text("x", encoding="utf-8")
+        venv = root / ".venv"
+        venv.mkdir()
+        (venv / "lib.py").write_text("x", encoding="utf-8")
+        got = mod.collect_files(str(root), mod.GitIgnoreFilter(), max_files=2)
+        assert len(got) == 2
+        full = mod.collect_files(str(root), mod.GitIgnoreFilter())
+        assert not any(".venv" in str(p) for p in full)
+        assert len(full) == 5
+
+
+def test_read_source_files_prepends_metrics():
+    """Report return carries processed/skipped/bytes/duration metrics."""
+    import os
+    import shutil
+    import tempfile
+    from pathlib import Path
+
+    mod = _load_context_server_hardening()
+    with tempfile.TemporaryDirectory() as tmpdir:
+        root = Path(tmpdir)
+        (root / "a.txt").write_text("hello", encoding="utf-8")
+        (root / "b.txt").write_text("world", encoding="utf-8")
+        (root / "big.txt").write_text("x" * 100, encoding="utf-8")
+        old_cwd = os.getcwd()
+        os.chdir(root)
+        try:
+            result = mod.read_source_files(
+                ["a.txt", "b.txt", "big.txt"], max_size=10
+            )
+            assert "📊 Report metrics:" in result, result[:300]
+            assert "2 processed" in result, result[:300]
+            assert "1 skipped" in result, result[:300]
+            assert "bytes read in" in result, result[:300]
+        finally:
+            os.chdir(old_cwd)
+            shutil.rmtree(root / "context-reports", ignore_errors=True)

@@ -5,6 +5,8 @@ description: Capture per-session manager decisions into a separate learning repo
 
 # Manager-Decision Skill
 
+> **PAUSED-2026-09-09 (Tasks 175/176/177):** the `manager_decisions` MCP server is DISABLED (blocks removed from repo + global `opencode.json`). This skill is inert until restore — do not invoke its tools; re-ask the human manager directly. Restore path: `archive/automation-paused-2026-09-09/RESTORE.md`.
+
 ## Purpose
 
 Turns each session's manager judgment into training data. Whenever the manager makes a trade-off, ruling, or system-design call, this skill extracts it (verbatim quote + structured decision), redacts secrets, and persists it append-only in the decision store (`.opencode/decisions/` of the current project — every project keeps its OWN manager notes — or any checkout pointed to by `DECISION_REPO_PATH`). Aggregated decisions evolve `samples/manager_profile.md` — the manager-AI sample — one reviewed promotion at a time, until micro-decisions no longer need the real manager.

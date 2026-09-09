@@ -56,7 +56,7 @@ All git commit messages MUST use lowercase prefixes followed by a colon and a sp
 
 ### Phase 1: Pre-Commit Quality Checks
 
-1. Before completing any task, ensure the local test suite and type-checkers have passed successfully (maximum of 3 consecutive repair attempts as per V5.3.0 strict guardrails).
+1. Before completing any task, ensure the local test suite and type-checkers have passed successfully (maximum of 3 consecutive repair attempts per strict guardrails).
 2. Ensure `AGENTS.md` and `DESIGN.md` conventions are fully respected.
 3. **Pre-Commit Verification Gate (Environment Verification, DevOps/Infra tasks only):** If the task involves deployment, Docker, CI/CD, or infrastructure changes, run ALL environment-specific verification commands (e.g., `docker login`, token scope validation, registry access checks) BEFORE proceeding to staging. If ANY check fails, HALT and output a failure report. Do NOT stage partial work.
 

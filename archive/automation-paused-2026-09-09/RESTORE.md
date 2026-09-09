@@ -14,7 +14,7 @@ configs, and docs are preserved for future development.
   `git mv` from `.opencode/commands/`: `qa.md`, `reviewer.md`,
   `manager.md`, `brainstorm.md`, `architect.md`, `designer.md`,
   `programmer.md`, `planner.md`, `strategist.md`.
-- The automation *rules* stay in place but neutralized:
+- The automation _rules_ stay in place but neutralized:
   - `agents/cognitive-executor.md` — `## Persona Loop` +
     `### Decision Learning Loop` wrapped in
     `AUTOMATION-PAUSED-2026-09-09 ... AUTOMATION-RESUME` HTML comments;
@@ -48,7 +48,8 @@ replay cap, lineage fallback). See `tasks/completed/` for full records.
 4. Uncomment `PERSONA_*` / `DECISION_*` in `.env.example`; ensure live
    `.env` values exist.
 5. Re-run the global-install upgrade workflow, then `opencode mcp list`
-   must show persona + manager_decisions connected.
+   must show persona + manager_decisions connected. (Restore-time
+   expectation only — while paused, 5 connected by design.)
 6. Run the persona test suite green before re-enabling.
 
 ## Appendix A — exact removed JSON (Task 176, 2026-09-09)
