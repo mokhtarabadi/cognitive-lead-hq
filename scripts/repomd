@@ -1,0 +1,363 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.9"
+# dependencies = [
+#     "pathspec>=0.11.0",
+# ]
+# ///
+
+import argparse
+import os
+import signal
+import sys
+from pathlib import Path
+from typing import Dict, List, Optional, Set, Tuple
+
+import pathspec
+
+# Handle BrokenPipe errors gracefully when piping to head, grep, etc.
+try:
+    signal.signal(signal.SIGPIPE, signal.SIG_DFL)
+except AttributeError:
+    pass  # Windows does not have SIGPIPE
+
+EXT_MAP: Dict[str, str] = {
+    ".py": "python",
+    ".js": "javascript",
+    ".mjs": "javascript",
+    ".ts": "typescript",
+    ".tsx": "typescript",
+    ".jsx": "javascript",
+    ".rs": "rust",
+    ".go": "go",
+    ".cpp": "cpp",
+    ".hpp": "cpp",
+    ".c": "c",
+    ".h": "c",
+    ".rb": "ruby",
+    ".php": "php",
+    ".cs": "csharp",
+    ".java": "java",
+    ".kt": "kotlin",
+    ".swift": "swift",
+    ".sh": "bash",
+    ".bash": "bash",
+    ".zsh": "zsh",
+    ".yml": "yaml",
+    ".yaml": "yaml",
+    ".json": "json",
+    ".toml": "toml",
+    ".sql": "sql",
+    ".html": "html",
+    ".css": "css",
+    ".scss": "scss",
+    ".md": "markdown",
+    ".dockerfile": "dockerfile",
+}
+
+
+class GitIgnoreFilter:
+    """Evaluates paths against .gitignore files dynamically and hierarchically."""
+
+    def __init__(self) -> None:
+        self._specs: Dict[Path, Optional[pathspec.PathSpec]] = {}
+
+    def _get_spec(self, dir_path: Path) -> Optional[pathspec.PathSpec]:
+        if dir_path in self._specs:
+            return self._specs[dir_path]
+
+        gitignore_file = dir_path / ".gitignore"
+        if gitignore_file.is_file():
+            try:
+                with open(gitignore_file, "r", encoding="utf-8", errors="replace") as f:
+                    spec = pathspec.PathSpec.from_lines("gitwildmatch", f)
+                    self._specs[dir_path] = spec
+                    return spec
+            except Exception as e:
+                print(f"Warning: Failed to read {gitignore_file}: {e}", file=sys.stderr)
+
+        self._specs[dir_path] = None
+        return None
+
+    def is_ignored(self, target: Path) -> bool:
+        abs_path = target.resolve()
+
+        # Always ignore .git internal files and directories
+        if ".git" in abs_path.parts:
+            return True
+
+        current = abs_path if abs_path.is_dir() else abs_path.parent
+        traversal: List[Tuple[Path, Path]] = []
+
+        # Traverse upwards collecting specs up to the git/filesystem root
+        while True:
+            traversal.append((current, abs_path))
+            if (current / ".git").exists() or current.parent == current:
+                break
+            current = current.parent
+
+        # Evaluate rules from root downwards to let child gitignores override correctly
+        for root_dir, item in reversed(traversal):
+            spec = self._get_spec(root_dir)
+            if spec:
+                try:
+                    rel_path = item.relative_to(root_dir).as_posix()
+                    if item.is_dir() and not rel_path.endswith("/"):
+                        rel_path += "/"
+                    if spec.match_file(rel_path):
+                        return True
+                except ValueError:
+                    continue
+
+        return False
+
+
+def is_binary(file_path: Path) -> bool:
+    """Check if a file appears to be binary using chunk inspection."""
+    try:
+        with open(file_path, "rb") as f:
+            chunk = f.read(4096)
+            if b"\0" in chunk:
+                return True
+            # Attempt decoding standard text
+            chunk.decode("utf-8")
+            return False
+    except UnicodeDecodeError:
+        try:
+            chunk.decode("latin-1")
+            return False
+        except Exception:
+            return True
+    except Exception:
+        return True
+
+
+def generate_tree(
+    dir_path: Path,
+    ignore_filter: GitIgnoreFilter,
+    max_depth: Optional[int] = None,
+) -> str:
+    """Generates an ASCII directory structure tree."""
+    lines = ["```text", dir_path.name or str(dir_path)]
+
+    def _walk(current: Path, prefix: str, depth: int) -> None:
+        if max_depth is not None and depth >= max_depth:
+            return
+
+        try:
+            entries = [e for e in current.iterdir() if not ignore_filter.is_ignored(e)]
+        except PermissionError:
+            lines.append(f"{prefix}└── [Permission Denied]")
+            return
+        except OSError as e:
+            lines.append(f"{prefix}└── [OS Error: {e.strerror}]")
+            return
+
+        # Sort directories first, then files alphabetically
+        sorted_entries = sorted(entries, key=lambda e: (not e.is_dir(), e.name.lower()))
+        count = len(sorted_entries)
+
+        for idx, entry in enumerate(sorted_entries):
+            is_last = idx == (count - 1)
+            connector = "└── " if is_last else "├── "
+            lines.append(f"{prefix}{connector}{entry.name}{'/' if entry.is_dir() else ''}")
+
+            if entry.is_dir():
+                sub_prefix = "    " if is_last else "│   "
+                _walk(entry, prefix + sub_prefix, depth + 1)
+
+    _walk(dir_path, "", 0)
+    lines.append("```")
+    return "\n".join(lines)
+
+
+def process_source_file(file_path: Path, max_size: int, line_numbers: bool) -> str:
+    """Wraps file contents in Markdown code fences safely."""
+    lines = [f"### `{file_path}`\n"]
+
+    if not file_path.is_file():
+        lines.append("> Skipped: (Not a file or does not exist)\n")
+        return "\n".join(lines)
+
+    try:
+        size = file_path.stat().st_size
+        if size > max_size:
+            lines.append(f"> Skipped: (File exceeds max-size limit: {size / 1024:.1f} KB)\n")
+            return "\n".join(lines)
+    except OSError as e:
+        lines.append(f"> Skipped: (Stat error: {e})\n")
+        return "\n".join(lines)
+
+    if is_binary(file_path):
+        lines.append("> Skipped: (Binary file)\n")
+        return "\n".join(lines)
+
+    # Detect language for syntax highlighting
+    ext = file_path.suffix.lower()
+    lang = EXT_MAP.get(ext, ext.lstrip("."))
+    if not lang and file_path.name.lower() == "dockerfile":
+        lang = "dockerfile"
+
+    try:
+        with open(file_path, "r", encoding="utf-8", errors="replace") as f:
+            content = f.read()
+
+        file_lines = content.splitlines()
+
+        # Format lines
+        if line_numbers:
+            padding = len(str(len(file_lines)))
+            payload = "\n".join(
+                f"{str(i).rjust(padding)} | {line}" for i, line in enumerate(file_lines, 1)
+            )
+        else:
+            payload = "\n".join(file_lines)
+
+        # Ensure fence safety: prevent nested backtick collision
+        fence = "```"
+        while fence in payload:
+            fence += "`"
+
+        lines.append(f"{fence}{lang}")
+        if payload:
+            lines.append(payload)
+        lines.append(f"{fence}\n")
+
+    except Exception as e:
+        lines.append(f"> Skipped: (Error reading file: {e})\n")
+
+    return "\n".join(lines)
+
+
+def collect_files(target: str, ignore_filter: GitIgnoreFilter) -> List[Path]:
+    """Recursively resolves valid non-ignored files."""
+    p = Path(target)
+    if not p.exists():
+        print(f"Warning: Path not found: {target}", file=sys.stderr)
+        return []
+
+    if ignore_filter.is_ignored(p):
+        return []
+
+    if p.is_file():
+        return [p]
+
+    collected: List[Path] = []
+    for root, dirs, files in os.walk(p):
+        root_path = Path(root)
+
+        # Mutate dirs in-place to prevent os.walk from entering ignored directories
+        dirs[:] = [
+            d for d in dirs
+            if not ignore_filter.is_ignored(root_path / d)
+        ]
+
+        for f in files:
+            fpath = root_path / f
+            if not ignore_filter.is_ignored(fpath):
+                collected.append(fpath)
+
+    return collected
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        prog="repomd",
+        description="Pack trees and source code into clean Markdown (optimized for LLMs and documentation).",
+    )
+    parser.add_argument(
+        "paths",
+        nargs="*",
+        default=[],
+        help="Optional positional targets to process (defaults to processing tree & sources if provided).",
+    )
+    parser.add_argument("--tree", "-t", type=str, help="Directory to generate ASCII directory tree for.")
+    parser.add_argument("--source", "-s", type=str, nargs="+", help="Files or directories to pack as source.")
+    parser.add_argument("--source-list", "-l", type=str, help="File containing list of file paths (one per line).")
+    parser.add_argument("--max-size", type=int, default=1_048_576, help="Max file size in bytes (default: 1MB).")
+    parser.add_argument("--max-depth", type=int, default=None, help="Tree directory depth limit.")
+    parser.add_argument("--output", "-o", type=str, help="Output destination file (default: stdout).")
+    parser.add_argument("--no-line-numbers", action="store_true", help="Omit line numbers from code blocks.")
+
+    args = parser.parse_args()
+
+    # Smart default fallback: `repomd .` should run both tree and source on target path
+    tree_dir = args.tree
+    source_inputs = args.source or []
+
+    if not tree_dir and not source_inputs and not args.source_list:
+        if args.paths:
+            # If positional arguments are passed, treat directories as trees & sources
+            tree_dir = args.paths[0] if Path(args.paths[0]).is_dir() else None
+            source_inputs = args.paths
+        else:
+            parser.error("No input provided. Run with `repomd .` or check `--help`.")
+
+    ignore_filter = GitIgnoreFilter()
+    output: List[str] = []
+
+    # 1. Process Directory Tree
+    if tree_dir:
+        t_path = Path(tree_dir)
+        if t_path.is_dir():
+            if not ignore_filter.is_ignored(t_path):
+                output.append(f"## Directory Tree: `{t_path}`\n")
+                output.append(generate_tree(t_path, ignore_filter, max_depth=args.max_depth))
+                output.append("")
+            else:
+                print(f"Warning: Directory is ignored by .gitignore: {t_path}", file=sys.stderr)
+        else:
+            print(f"Error: Provided tree target is not a directory: {t_path}", file=sys.stderr)
+            sys.exit(1)
+
+    # 2. Collect Source Files
+    files_to_process: Dict[Path, Path] = {}
+
+    def _register(paths: List[Path]) -> None:
+        for p in paths:
+            files_to_process[p.resolve()] = p
+
+    for src in source_inputs:
+        _register(collect_files(src, ignore_filter))
+
+    if args.source_list:
+        l_path = Path(args.source_list)
+        if l_path.is_file():
+            try:
+                with open(l_path, "r", encoding="utf-8") as f:
+                    for line in f:
+                        line_clean = line.strip()
+                        if line_clean and not line_clean.startswith("#"):
+                            _register(collect_files(line_clean, ignore_filter))
+            except Exception as e:
+                print(f"Error reading list {l_path}: {e}", file=sys.stderr)
+        else:
+            print(f"Error: Source list not found: {l_path}", file=sys.stderr)
+
+    # 3. Process Code Blocks
+    if files_to_process:
+        output.append("## Source Files\n")
+        include_lines = not args.no_line_numbers
+
+        # Sort files alphabetically for stable diffs
+        for _, file_path in sorted(files_to_process.items(), key=lambda i: str(i[1]).lower()):
+            output.append(process_source_file(file_path, args.max_size, include_lines))
+
+    # 4. Write Output
+    final_output = "\n".join(output)
+
+    if args.output:
+        try:
+            with open(args.output, "w", encoding="utf-8") as out:
+                out.write(final_output)
+            print(f"Saved repository markdown to {args.output}", file=sys.stderr)
+        except OSError as e:
+            print(f"Error writing output file: {e}", file=sys.stderr)
+            sys.exit(1)
+    else:
+        sys.stdout.write(final_output)
+
+
+if __name__ == "__main__":
+    main()
+
