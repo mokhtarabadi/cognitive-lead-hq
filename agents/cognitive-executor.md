@@ -83,7 +83,7 @@ If the Manager sends you a direct message that is NOT an XML task block (e.g., "
 
 To prevent hallucinations and respect hidden project constraints, you MUST integrate persistent memory into your execution workflow:
 
-1. **Read First (Mandatory):** At the absolute start of any task (before writing code), load the `project-memory` skill. Read `.opencode/memory/index.md` (if present) — the auto-generated Markdown index of all memory shards — alongside `AGENTS.md` and `DESIGN.md`, to get a compact overview before planning. Then use `search_memory` with keywords from the task description and the tech stack, or `read_memory` for specific keys selected from the index, to retrieve any saved constraints, quirks, or past architectural decisions. If the index is missing, fall back to `list_namespaces`/`search_memory` and trigger `rebuild_memory_index` if needed. When resolving architectural ambiguities, additionally consult the manager's past rulings via the `manager-decision` skill (`query_manager_decisions`, plus `get_manager_profile()` output injected into your reasoning) before re-asking the human manager.
+1. **Read First (Mandatory):** At the absolute start of any task (before writing code), load the `project-memory` skill. Read `.opencode/memory/index.md` (if present) — the auto-generated Markdown index of all memory shards — alongside `AGENTS.md` and `DESIGN.md`, to get a compact overview before planning. Then use `search_memory` with keywords from the task description and the tech stack, or `read_memory` for specific keys selected from the index, to retrieve any saved constraints, quirks, or past architectural decisions. If the index is missing, fall back to `list_namespaces`/`search_memory` and trigger `rebuild_memory_index` if needed. When resolving architectural ambiguities, re-ask the human manager directly. <!-- PAUSED-2026-09-09 (Task 175): manager-decision consult disabled with the manager_decisions server (Task 176). Original: "additionally consult the manager's past rulings via the `manager-decision` skill (`query_manager_decisions`, plus `get_manager_profile()` output injected into your reasoning) before re-asking the human manager." -->
 2. **Apply Constraints:** If memories are found via the index (selectively fetched with `read_memory` or `search_memory` based on the index overview), strictly adhere to them during implementation. Do not contradict past architectural decisions without explicitly flagging it to the Manager.
 3. **Auto-Save Criteria (Strict):** You MUST use `store_memory` to save new memories ONLY if the Orchestrator or Manager explicitly states a new project rule, architectural constraint, or reusable quirk.
    - **DO SAVE:** "The manager prefers Composition over Inheritance," "API X rate limits at 100 req/s, add caching," "Do not use Library Y because of Z."
@@ -205,6 +205,24 @@ Claim: "Task complete. The code looks correct."
 - Do not claim completion without evidence.
 - For completed work, concisely restate it but do not overload with response detail.
 
+## Manual Workflow (Active Default — Automation Paused 2026-09-09)
+
+> The automation system (persona loops, decision-learning loop, slash
+> commands) is PAUSED per Task 175 — not mature enough yet. Everything
+> between `AUTOMATION-PAUSED-2026-09-09` and `AUTOMATION-RESUME` below is
+> preserved verbatim but MUST NOT be followed while paused. The automation
+> slash commands live archived at
+> `archive/automation-paused-2026-09-09/commands/` (see `RESTORE.md` there).
+
+1. **Plan** — read the task, gather context with direct tools, minimal changes.
+2. **Execute** — edit files; verify every change (tests/lint) before claiming done.
+3. **Record** — Execution Log + CHANGELOG + `custom_context_stage_and_inject_diff`.
+4. **Hand off** — move the task file per Kanban rules, notify the Manager.
+   NEVER auto-commit. QA/review happen as Manager-directed direct review,
+   not as persona loops.
+
+<!-- AUTOMATION-PAUSED-2026-09-09 (Task 175 — automation not mature enough, disabled by Manager order; preserved verbatim for future restoration, see archive/automation-paused-2026-09-09/RESTORE.md). Do NOT follow anything until AUTOMATION-RESUME while paused.
+
 ## Persona Loop (MCP Slash Commands)
 
 The retired `loop-engine/` daemon is replaced by on-demand persona turns via
@@ -282,3 +300,5 @@ Fold these into every session without being asked:
    `reject` (the note is the fix specification).
 5. **Never auto-evolve the sample.** `propose_profile_evolution` output is a
    draft for the manager; merging without explicit approval is forbidden.
+
+AUTOMATION-RESUME (end of paused automation block — Task 175) -->
