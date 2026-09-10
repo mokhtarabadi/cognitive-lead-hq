@@ -1,8 +1,8 @@
 ---
-created_at: '2026-09-09T07:34:28.932673+00:00'
+created_at: '2026-09-10T19:28:03.619203+00:00'
 status: active
 tags: []
-updated_at: '2026-09-09T07:34:28.932705+00:00'
+updated_at: '2026-09-10T19:28:03.619220+00:00'
 ---
 
 # Global Install Upgrade Workflow (OpenCode)
@@ -38,7 +38,7 @@ Updates the machine-global installations of the Cognitive Lead AI HQ (MCP server
 2. **Copy drifted files** with `cp` + `chmod +x` (only those that differ). Multi-module servers copy `*.py` (never `__pycache__/`). For `opencode.json` do NOT blind copy — repo uses relative paths, global uses absolute paths; edit surgically and validate JSON after every edit.
 3. **Re-verify** with the same diff commands — expect no DRIFT output except the expected `opencode.json` relative vs absolute.
 4. **Smoke-test**: `opencode mcp list` (expect ONLY the currently-enabled servers connected) + repo persona test suite (`uv run --project mcp-persona-server --with pytest --with pathspec pytest tests/ -q`).
-5. **Telegram MCP step 2.5** (upstream chigwell/telegram-mcp): lag check via `rev-list --count HEAD..origin/main`; run backup+rsync upgrade only when lag > 0.
+5. **Telegram MCP step 2.5** (upstream chigwell/telegram-mcp): lag check via `rev-list --count HEAD..origin/main`; run backup+rsync upgrade only when lag > 0. **Update-only — do NOT run telegram's own pytest suite** (its live-network tests hang ~300s on this machine and add nothing; `opencode mcp list` 5/5 is the sufficient smoke test). Rule set 2026-09-10 per Manager.
 
 ## Key Facts
 
