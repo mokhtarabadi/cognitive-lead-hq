@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [9.13.0] - 2026-09-10
+
 ### Added
 
 - **External OpenCode server for OpenChamber stability (2026-09-10):** New systemd user unit `opencode-server.service` (`~/.config/systemd/user/`, enabled at boot) running `opencode serve --hostname 127.0.0.1 --port 4096` loopback-only (`Restart=on-failure`); OpenChamber attaches via drop-in `openchamber.service.d/external-opencode.conf` (`OPENCODE_HOST=http://127.0.0.1:4096`, `OPENCODE_SKIP_START=true`, `After=` ordering). Replaces the supervised managed server, which stalled its event loop every few hours (all 5 MCPs `server unavailable` simultaneously, 3 watchdog restarts/24h; root-caused from `opencode.log` + journal, no OOM). Community-proven path (upstream #2258: 3 days stable). Verified: unit parses, `:4096` loopback-only, `/session` → 200. Runbook `docs/openchamber-tailscale.md` gains §2c (setup/verify/restart-order/rollback) + troubleshooting rows + §7 loopback note. **Follow-up fixes same day:** (1) cold `.venv` in global `mcp-{context,memory,lint}-server/` made every spawn sync-from-network past the 15 s MCP timeout (only Docker-based blowsh survived) — ran `uv sync --project` once per server; (2) systemd user units never read `~/.bashrc`, so the new service had no `uv` at all — pinned full interactive PATH manager-wide via `~/.config/environment.d/zz-shell-path.conf` (`zz-` prefix required: `/usr/lib/environment.d/99-*`/`990-*` reset PATH afterwards) + `set-environment` for the running manager; rejected `import-environment` (reboot-loss), `bash -lc` wrappers, `PAMName=login`. Doc §2c/§6 corrected to the two-cause version (PATH first, venv second).
