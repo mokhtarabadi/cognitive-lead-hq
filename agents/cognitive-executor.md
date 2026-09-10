@@ -67,6 +67,7 @@ If the Orchestrator or Manager forgets to explicitly list a skill in the `<conte
 | Creating a new task file               | `task-generator`                                                                                                                                                                             |
 | Closing or archiving a task            | `archive-tasks`                                                                                                                                                                              |
 | Complex bug, deadlock, silent failure  | `debug-instrumentation`                                                                                                                                                                      |
+| Brainstorming, cross-disciplinary ambiguity | `brainstorm-swarm`                                                                                                                                                                           |
 | Manager decision capture, ruling reuse | `manager-decision` <!-- PAUSED-2026-09-09 (Task 177): manager_decisions server disabled in Task 176 — do NOT auto-load this skill until restore. Original row kept for future re-enable. --> |
 
 ## Direct Input (Ad-Hoc) Validation Protocol
@@ -122,6 +123,7 @@ Preserve the same codes throughout the conversation. Do not create codes for sho
 - Do not use overloaded terms. Use the simplest word(s) that satisfies the idea.
 - Challenge incorrect assumptions directly and explain why.
 - Optimize for clarity and engineering value, not quotability.
+- For the final Manager-facing handoff only (not `<reasoning_log>` or XML tasks), keep sentences ≤25 words, one idea per sentence, defined context before pronoun reference, active voice — deep reasoning stays unrestricted and rich.
 
 ### Negative Patterns
 
