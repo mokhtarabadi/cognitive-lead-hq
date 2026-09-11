@@ -1,9 +1,9 @@
 # Task 186: Spider search workflow for blowsh skill
 
-**File:** `tasks/qa/186-spider-search-workflow-blowsh.md`
+**File:** `tasks/completed/186-spider-search-workflow-blowsh.md`
 **Source:** manager
 **Type:** improvement
-**Status:** in-progress
+**Status:** closed
 
 ## Goal
 
@@ -70,59 +70,5 @@ Dogfood round (same task, manager order): loaded the new skill and ran its own w
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
-```diff
-diff --git a/CHANGELOG.md b/CHANGELOG.md
-index b7f8d4a..21c6a22 100644
---- a/CHANGELOG.md
-+++ b/CHANGELOG.md
-@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
- 
- ## [Unreleased]
- 
-+### Added
-+
-+- **Spider-search workflow for blowsh skill (Task 186):** `skill-templates/blowsh/SKILL.md` gains a `Spider-Search Workflow` deep-research mode — plan (4–6 sub-questions mapped to queries) → sweep wide (`query_variants` + `intent`) → probe cheap (`must_contain`/`toc`/`map`) → read deep (`fetch_web_batch` + `focus`) → follow chains (`extract_links`, default 2 iterations) → cite everything. Loop rules: visited-URL set, budgets on every call, stop signals as results, `respect_robots`/`same_host` defaults. Grounded in researched best practices (deep-research survey pipeline, Firecrawl search→scrape→analyze→repeat, DeepWideSearch breadth-depth balance, NVIDIA planner/researcher phases, classic best-first focused crawling). Synced to global skills.
-+
- ## [9.16.0] - 2026-09-11
- 
- ### Removed
-diff --git a/skill-templates/blowsh/SKILL.md b/skill-templates/blowsh/SKILL.md
-index 561a58d..5ce199c 100644
---- a/skill-templates/blowsh/SKILL.md
-+++ b/skill-templates/blowsh/SKILL.md
-@@ -86,3 +86,33 @@ follow site navigation without fetching full content.
-    agent loops; a `Deadline` stop is an honest signal, not a failure.
- 5. **SSRF scope:** PDF fetch and crawling are server-guarded; never
-    route `file://` or internal-host URLs through these tools.
-+
-+## Spider-Search Workflow (deep research mode)
-+
-+For open-ended research questions, run this loop instead of one-off
-+calls. It follows the standard deep-research pipeline (plan → questions
-+→ explore → report) plus classic focused-crawling practice: alternate
-+broad discovery with multi-hop depth, order the frontier best-first,
-+and never visit a URL twice.
-+
-+1. **Plan.** Split the question into 4–6 sub-questions. Map each one to
-+   a search query. Sketch the answer outline before searching.
-+2. **Sweep wide.** One `search_web` per sub-question with
-+   `query_variants` and the matching `intent` (`code` for repos,
-+   `paper` for papers, `news` for events, `entity` for background).
-+   Collect candidate URLs.
-+3. **Probe cheap.** `must_contain`, `toc`, or `crawl_web` in `map` mode
-+   first. Fetch full bodies only for pages that pass the probe.
-+4. **Read deep.** `fetch_web_batch` (up to 10) for the winners. Use
-+   `focus` on long pages to cut noise 50–80%.
-+5. **Follow chains.** `extract_links` on the best pages. Each new clue
-+   becomes a new query — go back to step 2. Default 2 iterations, more
-+   only when the frontier still yields novel URLs.
-+6. **Cite everything.** Every claim in the final answer carries its
-+   source URL. No claim without a read source.
-+
-+Loop rules: keep a visited-URL set, never fetch the same URL twice.
-+Set `deadline_ms`/`deadline_s` on every call. Stop on FrontierEmpty,
-+MaxPages, CharBudget, or Deadline — a stop is a result, not a failure.
-+`respect_robots` stays true. `same_host` stays true unless the question
-+demands crossing domains.
-```
+**Factual Git Diff:** Stored in Commit Hash: `ea224cd52468ee1632febd5dc965c6d75abd0f48`
 <!-- END_GIT_DIFF -->
