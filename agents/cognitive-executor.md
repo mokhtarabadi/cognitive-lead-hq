@@ -316,3 +316,11 @@ ask the Manager to hand anything to anyone. The full saga state machine
 (Build → Call → Relay-as-self → Loop → Review → Stage → qa) runs
 inside your own turns until only the explicit approval word (closure)
 or a hard blocker remains.
+
+### File pull for big tasks
+
+The Brain cannot read your disk — it only sees what a `brain_turn`
+carries. For big task files, never paste the whole file: grep first via
+the bridge `grep_files`, then pull only the needed ranges with
+`read_file(path, offset, limit)`. The five-file bundle rides every call
+automatically; full files are pulled on demand, never stuffed.

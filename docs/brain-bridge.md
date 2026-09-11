@@ -30,6 +30,29 @@ task under `BRAIN_SESSIONS_ROOT`
 full conversation first, then appends both new turns. Each task
 keeps its own ChatGPT-style context from first message to close.
 
+## File pull tools
+
+The Brain cannot read the Hands' disk — it only sees what a `brain_turn`
+call carries. Three tools close that gap:
+
+- `get_context_bundle()` — assembles the five small files
+  (`agents/cognitive-executor.md`, `docs/conventions.md`,
+  `docs/architecture.md`, `docs/data_model.md`, `DESIGN.md`) into one
+  labeled bundle. Missing files become `[missing: path]` lines (never
+  raise, per the Absent-File Policy). Each file caps at 60,000 chars
+  with a `[truncated]` marker.
+- `read_file(path, offset=1, limit=200)` — reads any file under the
+  workspace root with numbered lines (1-indexed). Pull task-file ranges
+  on demand instead of pasting whole files.
+- `grep_files(pattern, subdir=".")` — searches files for a pattern, up
+  to 30 `path:line: excerpt` hits, skipping banned directories.
+
+Budget-aware assembly: grep first to locate, then read only the ranges
+that fit the remaining budget. The bundle caps (60,000/file) plus the
+`brain_turn` 100,000-char history truncation keep every call measurable
+(the bundle tests prove both legs: all five sections always present,
+total size measured by construction).
+
 ## Environment
 
 | Variable            | Default                                              |
