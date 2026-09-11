@@ -74,7 +74,7 @@ All projects in this ecosystem MUST treat source-of-truth contracts and shared s
 1. **No hand-authored duplicates** — Consumer applications (`apps/**`, `services/**`, `client/**`, `frontend/**`, `mobile/**`, `src/**`) MUST NOT hand-author duplicate interface models, request/response DTOs, or data classes for types already governed by a contract.
 2. **Import or generate** — When a governed type is needed, either import it directly from the shared package (`@repo/shared-schema`, `packages/shared-schema`) or execute the stack's code-generation toolchain (`pnpm generate`, `prisma generate`, `protoc`, `./gradlew generateProto`).
 3. **SOLID reconciliation** — Single-source-of-truth prevents type drift (DRY/SRP) and does not conflict with YAGNI or the 3-Implementation Rule: extract or generate only when a contract or cross-service dependency already exists.
-4. **Deterministic enforcement (historical — loop-engine retired):** the retired `loop-engine/sentinel.py` `TypeDriftSentinel` used to scan task diffs during toolchain verification (pre-QA). With the loop-engine daemon retired (Task 167; guides archived under `archive/automation-paused-2026-09-09/docs-loop-engine/`), enforcement is manual review until a replacement lands. Bypass with an explicit `drift-ignore` comment only when a justified exception exists.
+4. **Deterministic enforcement (historical — loop-engine retired):** the retired `loop-engine/sentinel.py` `TypeDriftSentinel` used to scan task diffs during toolchain verification (pre-QA). With the loop-engine daemon retired (guides archived under `archive/automation-paused-2026-09-09/docs-loop-engine/`), enforcement is manual review until a replacement lands. Bypass with an explicit `drift-ignore` comment only when a justified exception exists.
 
 The single source of truth for the full mandate is `prompts/fragments/20-no_manual_dto_mandate.md` — this section is a summary only.
 
@@ -169,3 +169,13 @@ All MCP servers load `.env` files explicitly at import via `mcp_common.env.load_
 **Blank-means-unset (binding convention):** an empty value — whether from a bare `KEY=` line or an empty-string process variable (e.g. OpenCode `{env:…}` blocks inject `""` when the parent env lacks the var) — counts as UNSET. File values fill gaps; real non-empty process values always win. This is deliberate and load-bearing: `DECISION_MODEL=` (blank) means "fall back to `PERSONA_MODEL`". Do NOT "fix" this into standard-dotenv empty-overrides semantics without a manager-approved task — doing so silently disables the model fallback chain and reintroduces blank-auth 401s.
 
 Parser rules (locked by tests): `#` comments and blank/malformed lines skipped; `export KEY=` prefix stripped; quotes stripped only when wrapping; inline `#` stays literal; `KEY = value` whitespace trimmed; CRLF tolerated; BOM stripped (`utf-8-sig`).
+
+## Task-Number Reference Discipline
+
+Task numbers (Task 110, Task 181) are provenance for humans, not reasoning material for the model. A bare task number in visible prompt prose invites hallucination: the model treats it as load-bearing context it cannot resolve.
+
+**Allowed homes (only):** code comments (`#`, `//`), `CHANGELOG.md` entries, task files in `tasks/`, `docs/history/` archives, and HTML-comment markers (`<!-- -->`, including frozen provenance blocks which stay verbatim).
+
+**Forbidden homes:** visible prose in prompt fragments, agent instruction files, skill instructions, registry lines, section headings, and any Markdown the Brain or Hands reads as operating instructions.
+
+**Authoring rule:** when writing or editing prompt-facing Markdown, strip task-number parentheticals. Record provenance in the task file and CHANGELOG instead — never in the prompt text itself.

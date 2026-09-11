@@ -6,7 +6,7 @@ The following Agent Skills are available. You MUST intelligently instruct the Ha
 - **code-search**: Mandatory workflow for exploring the codebase and gathering context for the Orchestrator.
 - **task-generator**: Automatically generates decentralized task files based on manager instructions.
 - **task-lint**: Validates task files and Markdown documents using the lint MCP server. Run after task creation and before task closure.
-- **bundle-tasks**: Deterministic meta-task bundling — bundles 2–6 small related tasks into one META for unified execution with verbatim preservation and auto-archive. Exposed as the `bundle_tasks` MCP tool (Task 155).
+- **bundle-tasks**: Deterministic meta-task bundling — bundles 2–6 small related tasks into one META for unified execution with verbatim preservation and auto-archive. Exposed as the `bundle_tasks` MCP tool.
 - **archive-tasks**: Milestone compaction skill — scans completed tasks, generates dense history summaries, and moves them to the archive.
 - **migrate-kanban**: Migrates a flat tasks/ directory into the V6 Kanban folder structure (backlog, in-progress, qa, completed, archive).
 - **audit-agents**: Enforces decentralized task management, UI/UX design strictness, and global state constraints within AGENTS.md.

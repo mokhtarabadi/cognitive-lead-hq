@@ -36,7 +36,7 @@ find tasks/backlog tasks/in-progress tasks/qa tasks/completed -type f -name "*.m
 
 If the output is non-empty, HALT and report duplicate task IDs. Do NOT overwrite files. Archive is a historical record and MUST NOT be included in the blocking duplicate-ID check. If archive duplicates are discovered separately, report them as a warning only, never HALT task creation.
 
-3. **Name:** Create a kebab-case filename (e.g., `01-fix-login-bug.md`). Place it in `tasks/backlog/`.
+3. **Name:** Create a kebab-case filename (e.g., `01-fix-login-bug.md`). Place it in `tasks/backlog/`. Task-number discipline: the filename and `# Task [NN]` title carry the number exactly once — never repeat task numbers in template prose, headings, or notes (numbers live only in code comments, CHANGELOG, history, and HTML comments).
 
 3.5. **Collision Check:** Before writing the file, verify that `tasks/backlog/{NEXT_ID}-*.md` does NOT already exist. Run: `ls tasks/backlog/${NEXT_ID}-*.md 2>/dev/null`. If a file with that ID already exists, HALT and report: '⚠️ Task ID collision: {NEXT_ID} is already in use. Re-run ID discovery.' Do NOT overwrite existing files.
 
@@ -226,7 +226,7 @@ _(Git diff will be automatically injected here by the MCP tool. Do not edit this
 
 5. **Halt and Handover:** DO NOT execute the task. Print the exact message: "✅ The task file has been created at `tasks/backlog/[filename]` and is ready to be sent to the Orchestrator." and STOP.
 
-## Bundle Workflow (Meta-Tasks) — Task 110/155 (Pure MCP)
+## Bundle Workflow (Meta-Tasks, Pure MCP)
 
 Use this when the Manager has 4–6 small related tasks that should be executed together instead of sequentially. The bundler preserves every requirement verbatim and archives the sources.
 
@@ -236,7 +236,7 @@ Use this when the Manager has 4–6 small related tasks that should be executed 
 - Tasks are small, same stack/domain (e.g., all Android polish), and would be inefficient to run one-by-one
 - Goal is one branch, one `Factual Git Diff`, one QA gate (all-or-nothing)
 
-### Canonical Invocation — Pure MCP Tool (Task 155)
+### Canonical Invocation — Pure MCP Tool
 
 Invoke the `bundle_tasks` MCP tool via the Hands:
 

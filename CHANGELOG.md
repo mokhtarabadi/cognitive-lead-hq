@@ -6,6 +6,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+- **Audit-agents skill carries task-number discipline to other projects (Task 181 follow-up):** `skill-templates/audit-agents/SKILL.md` gains the Task-Number Reference Discipline in all three load-bearing spots — Mode 1 `AGENTS.md` template Don't/Do pair, Mode 1 `docs/conventions.md` template `## Task-Number Reference Discipline` section, Mode 2 audit criteria bullet — so invoking the auditor in any other project installs the refs-only-in-comments rule there too. Project-agnostic, no HQ-only content.
+
+## [9.20.0] - 2026-09-11
+
+### Fixed
+
+- **Originating-prompt fix for task-number refs (Task 181 extension, manager order):** the rule now lives where new Markdown gets authored, so future tasks cannot reintroduce the habit — fragment `09-hands_protocols.md` `<documentation_phase>` gains the Task-number discipline clause (Execution Logs, headings, skill instructions, registry lines stay number-free; numbers live only in code comments, CHANGELOG, history, HTML comments) and `skill-templates/task-generator/SKILL.md` step 3 carries the one-line version (filename + title carry the number exactly once). Reassembled `system-prompt.md` (sync-check byte-identical).
+
+## [9.19.0] - 2026-09-11
+
+### Fixed
+
+- **Task-number reference discipline (Task 181 extension, manager hallucination report):** Task numbers are provenance for humans, not reasoning material — a bare `(Task NN)` in visible prompt prose invites hallucination. New `docs/conventions.md` section `Task-Number Reference Discipline` (allowed homes: code comments, CHANGELOG, task files, docs/history, HTML-comment markers; forbidden: fragments, agent instructions, skill text, registry lines, headings) plus a mirror bullet in the executor Negative Patterns. Cleaned all prompt-facing hits: fragment 07 registry `(Task 155)`, executor autonomy heading `(Task 181)`, 5 refs in `skill-templates/bundle-tasks/SKILL.md`, 2 refs in `skill-templates/task-generator/SKILL.md`, 1 historical ref in `docs/conventions.md`. Untouched by design: frozen PAUSED-2026-09-09 automation block (verbatim per AGENTS.md), YAML/frontmatter `#` comments, CHANGELOG/history/task-file records. Reassembled `system-prompt.md` (sync-check byte-identical).
+
+### Added
+
+- **Hands-side execution autonomy (Task 181):** New `XML Task Execution Autonomy` section in `agents/cognitive-executor.md` — assume-first with assumption log (A1, A2), blocking-only criteria (destructive without rollback, missing secret, self-contradictory task), questions ride along in the handoff (Q1, Q2) and never block. Scoped to XML execution only; the Direct Input Clarification Halt for raw ad-hoc messages is unchanged. No system-prompt fragments touched, no version bump.
+
 ## [9.18.0] - 2026-09-11
 
 ### Changed

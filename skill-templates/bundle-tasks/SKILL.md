@@ -1,9 +1,9 @@
 ---
 name: bundle-tasks
-description: Deterministic meta-task bundling — bundles 2–6 small related tasks into one META for unified execution with verbatim preservation and auto-archive. Exposed as the bundle_tasks MCP tool (Task 155).
+description: Deterministic meta-task bundling — bundles 2–6 small related tasks into one META for unified execution with verbatim preservation and auto-archive. Exposed as the bundle_tasks MCP tool.
 ---
 
-# Bundle Tasks Skill — Meta-Task Bundling (Task 110)
+# Bundle Tasks Skill — Meta-Task Bundling
 
 Use this skill when the Manager wants to execute 4–6 small related tasks together instead of sequentially. It eliminates the `backlog → in-progress → qa → completed` round-trip overhead by bundling them into one branch, one `Factual Git Diff`, and one all-or-nothing QA gate.
 
@@ -11,7 +11,7 @@ Use this skill when the Manager wants to execute 4–6 small related tasks toget
 
 - Manager says: "bundle tasks 1, 2, 5, 10, 15, 20", "create a meta-task from 12 15 20", "combine these polish tasks", or any note about "meta-task", "bundle", "supersede", "archive and bundle"
 - Tasks are small, same stack/domain (e.g., all `android-kotlin`, all `react-vite`, all docs), and would be inefficient to run one-by-one
-- You are in any project that has the `mcp-context-server` MCP server — the bundler is available as the `bundle_tasks` MCP tool (pure MCP, Task 155)
+- You are in any project that has the `mcp-context-server` MCP server — the bundler is available as the `bundle_tasks` MCP tool (pure MCP)
 
 **Do NOT use for:** large refactors, tasks with conflicting files that would cause merge conflicts in one diff, or tasks >6 without explicit `--force`.
 
@@ -22,7 +22,7 @@ Use this skill when the Manager wants to execute 4–6 small related tasks toget
 3. **Archive, Not Purge (with Transactional Rollback):** Sources are moved via `git mv` to `tasks/archive/` with `**Superseded-By:** <META_ID>-<slug>` until META is `completed`. History stays reachable via `git log --follow`. If ANY archive operation fails, ALL previously archived files are rolled back to their original locations, the META file is deleted, and the operation aborts cleanly.
 4. **Guardrails:** `MAX_BUNDLE_SIZE=6` (reject >6 without `--force`), combined LOC >400 warning, missing-ID and duplicate-ID checks (hard halt on duplicate active IDs), stack conflict detection (warn or require `--force`), SHA verbatim checksum validation, atomic Next-ID creation with retry loop for concurrent safety.
 
-## Invocation — Pure MCP Tool (Task 155)
+## Invocation — Pure MCP Tool
 
 The `mcp-context-server/server.py:bundle_tasks` tool is **fully self-contained** — it does NOT require `scripts/bundle-tasks.py`. All helpers (kebab_case, discover_next_id, find_task_file, extract_section, build_meta_content, git_mv_or_fallback, patch_archived_file) are inlined inside the MCP tool function. Invoke via the Hands' MCP interface:
 
@@ -63,7 +63,7 @@ The `mcp-context-server/server.py:bundle_tasks` tool is **fully self-contained**
 ## Verification (Must Pass Before QA)
 
 ```bash
-# via MCP (pure MCP, Task 155):
+# via MCP (pure MCP):
 bundle_tasks(task_ids=["12","15","20"], title="test-bundle", dry_run=true)
 
 # then after real bundle (if not dry_run):

@@ -232,6 +232,14 @@ When writing or reviewing bash scripts, cron jobs, or container orchestration co
 2. **Banned Error Masking:** `2>/dev/null` is STRICTLY FORBIDDEN on data-generation, backup, archive, or database commands.
 3. **No Post-Redirect Status Checks:** Never use `command > file; if [ $? -eq 0 ]` — the shell creates the file before running the command, masking failures.
 4. **Sidecar Isolation for Hostless Backups:** Never rely on host file staging for Docker volume backups. Always use ephemeral containers (`docker run --rm -v volume:/data:ro alpine tar...`) with read-only mounts.
+
+## Task-Number Reference Discipline
+
+Task numbers are provenance for humans, not reasoning material for the model. A bare task number in visible prompt prose invites hallucination: the model treats it as load-bearing context it cannot resolve.
+
+1. **Allowed Homes (only):** code comments (`#`, `//`), `CHANGELOG.md` entries, task files, history archives, and HTML-comment markers (`<!-- -->`).
+2. **Forbidden Homes:** visible prose in prompt fragments, agent instruction files, skill instructions, registry lines, section headings, and any Markdown the Brain or Hands reads as operating instructions.
+3. **Authoring Rule:** when writing or editing prompt-facing Markdown, strip task-number parentheticals. Record provenance in the task file and CHANGELOG instead — never in the prompt text itself.
 ```
 
 ---
@@ -288,6 +296,8 @@ Use this when a project has no `AGENTS.md` yet (new project onboarding).
   -> **Do** follow the Defensive Shell Protocol: `set -euo pipefail`, ban error masking, sidecar isolation for Docker backups. See `docs/conventions.md`.
 - **Don't** perform financial mutations without snapshotting the prior state or allow nulls in monetary aggregations.
   -> **Do** follow the Universal Financial Ledger Standard: snapshot-on-write, `$ifNull` precedence, discrepancy alerting, deep config merging. See `docs/conventions.md`.
+- **Don't** leave task numbers (Task 110, Task 181) in visible prompt prose, section headings, or skill instructions.
+  -> **Do** keep task-number references in code comments, CHANGELOG entries, task files, and HTML comments only. See `docs/conventions.md`.
 - **Don't** carry over assumptions, partial results, or architectural hypotheses from a previous task.
   -> **Do** flush context and treat every task as contextually independent (Buffer Isolation directive in validation-phase).
 - **Don't** execute raw, informal, or non-English (Farsi) prompts directly.
@@ -376,6 +386,7 @@ Additionally, the `docs/conventions.md` file MUST exist and contain:
 - **Buffer Isolation**: The shared validation phase MUST include a buffer-flush directive requiring Hands to treat every task as contextually independent, preventing cross-task context leakage.
 - **Defensive Shell Protocol (DSP)**: `AGENTS.md` MUST include a guardrail forbidding bash scripts without `set -euo pipefail` and banning `2>/dev/null` on data commands. `docs/conventions.md` MUST contain a `## Defensive Shell Protocol (DSP)` section.
 - **Universal Financial Ledger Standard**: `AGENTS.md` MUST include a guardrail requiring snapshot-on-write for financial mutations and `$ifNull` precedence for monetary aggregations. `docs/conventions.md` MUST contain a `## Universal Financial Ledger Standard` section.
+- **Task-Number Reference Discipline**: `AGENTS.md` MUST include a guardrail restricting task-number references to code comments, CHANGELOG entries, task files, and HTML comments — never in visible prompt prose, headings, or skill instructions. `docs/conventions.md` MUST contain a `## Task-Number Reference Discipline` section.
 - **Lite Mode Protocol**: `AGENTS.md` MUST document the `<lite_mode_protocol>` — when eligible (single-file, no security/financial impact, obvious simplicity), the full 9-step production line can be bypassed with a `[LITE]` justification in the task's `## Execution Log & Reasoning` section. Escalation to Full Mode is mandatory if hidden complexity is discovered.
 - **Deprecated-Section Purge Rule**: Scans `AGENTS.md` and all task files across `tasks/` (excluding archive and completed history) for deprecated sections: `## Manager Decisions`, `## Admin Decision`, `Manager Decision`, `Admin Decision`. When detected, the auditor MUST purge the entire deprecated section from the target file, document the purge in the audit findings/changelog, and MUST NOT flag their absence as a missing requirement or recreate them.
 - **Plugin Runtime-State gitignore**: If the project uses OpenCode plugins that write per-project state, `.gitignore` MUST cover plugin runtime-state paths (e.g. worktree checkouts, session/state JSON, goal-state dirs) while MUST NOT ignore deliberate config overrides checked in on purpose (e.g. a project-level plugin config pinning team-shared settings). Audit `.gitignore` read-only first; patch only paths belonging to plugins actually detected in the project's `opencode.json`/`tui.json` `plugin` arrays — never speculative entries.

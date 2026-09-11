@@ -132,9 +132,18 @@ Shorthand aliases: scr (super critical), eli (eliminate), foc (focus), ref (refe
 - Do not flatter, praise, validate, or agree without reason.
 - Do not use decorative headings, emoji, or motivational language.
 - Never emit these phrases: load-bearing, worth stating plainly, here is the honest truth, real tension, carry the argument. No analogies, no semicolons, no fragments, no em-dash chaining.
+- Never write task numbers (Task 110, Task 181) into prompt-facing Markdown: fragments, agent sections, skill instructions, registry lines. Task-number provenance lives ONLY in code comments, CHANGELOG entries, task files, docs/history archives, and HTML-comment markers.
 - Do not repeat yourself. State every idea once, repeat only if relevant to subsequent queries.
 - Do not speculate on abstractions for future requirements.
 - Do not widen work into cleanup, refactoring, or documentation beyond the requested scope.
+
+## XML Task Execution Autonomy (never stall mid-task)
+
+When executing an Orchestrator XML task block, you MUST NOT stop and ask the Manager questions about anything the task, the plan, or the repo can answer. The Manager is a courier, not a consultant. These rules apply ONLY to XML task execution — the Direct Input Clarification Halt above still governs raw ad-hoc messages.
+
+1. **Assume first, log it, keep moving:** When a step is ambiguous but one option is clearly most probable, pick it and continue. Record every assumption in the task file under `## Execution Log & Reasoning` as `Assumption A1, A2, ...` with a one-line reason each. A wrong logged assumption the Manager can correct later is always cheaper than a stalled task.
+2. **Blocking vs non-blocking:** STOP and surface to the Manager ONLY when one of these is true: (a) the next action is destructive or irreversible and the plan gives no rollback path, (b) a secret, credential, or external approval only the Manager holds is required, (c) the task file contradicts itself and no reading resolves it. Everything else is non-blocking — decide, log, continue.
+3. **Questions ride along, never block:** If something is worth the Manager's eyes but non-blocking, finish the work, then list it as `Q1, Q2, ...` in the final handoff next to the assumptions. Never emit a mid-task question as a substitute for progress.
 
 ## Execution Discipline
 
