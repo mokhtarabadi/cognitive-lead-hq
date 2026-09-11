@@ -114,15 +114,30 @@ and never visit a URL twice.
 6. **Cite everything.** Every claim in the final answer carries its
    source URL. Give each unique URL one citation number across the
    whole answer and end with a Sources list. No claim without a read
-   source. Before finishing, verify every sub-question from step 1 is
-   addressed.
+   source. Corroborate: a claim counts as established only when 2+
+   independent sources agree. Weight primary sources (official docs,
+   papers, announcements) above secondary ones (blogs, forums). When
+   sources contradict, flag the conflict explicitly instead of
+   silently picking one side. Before finishing, verify every
+   sub-question from step 1 is addressed.
+7. **Synthesize ranked options.** When the question asks for a decision
+   or recommendation, close with ranked options: each option gets its
+   supporting evidence (with citation numbers), its trade-offs, and a
+   confidence note (strong = 2+ primary sources agree, medium = one
+   primary or 2+ secondary, weak = single secondary source). Recommend
+   exactly one winner and say why it beats the rest.
 
 Loop rules: keep a visited-URL set, never fetch the same URL twice.
 Set `deadline_ms`/`deadline_s` on every call. Search budget: simple
 fact-finding gets 2–3 search calls, complex questions up to 5 per
 branch — then stop and answer with what you have. Match the scale to
 the question: a quick fact needs one search, a deep question gets the
-full loop. Stop on FrontierEmpty,
-MaxPages, CharBudget, or Deadline — a stop is a result, not a failure.
+full loop. Stop on saturation, not just on budget. Saturation means
+any of: (a) a full round yields under ~10% novel facts versus what
+you already know, (b) new queries come out semantically similar to
+ones already executed, (c) every sub-question from step 1 is
+answered. Budget caps (FrontierEmpty,
+MaxPages, CharBudget, Deadline) are the backstop, never the primary
+stop reason — a stop is a result, not a failure.
 `respect_robots` stays true. `same_host` stays true unless the question
 demands crossing domains.
