@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+- **user-prompts extracted to private repo (Task 189):** Moved all 10 personal prompt files out of `user-prompts/` into the new private GitHub repo `mokhtarabadi/user-prompts` (local clone at `../user-prompts`, initial commit, remote set; push is Manager-owned per ZAC). HQ `user-prompts/` directory removed. Verified `diff -r` identical before removal; visibility `PRIVATE` confirmed via `gh repo view`.
+
 ## [9.24.0] - 2026-09-11
 
 ### Changed
