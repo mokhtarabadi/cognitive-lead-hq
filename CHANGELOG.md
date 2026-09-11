@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [9.22.0] - 2026-09-11
+
+### Added
+
+- **Explicit voice-to-text input normalization (Task 188):** New step 0.7 Voice-to-Text Normalization in `prompts/fragments/05-user_input_processing.md`, mirrored in the executor Direct Input section — fix only context-flagged words from conversation history, note alternatives in `<reasoning_log>`, untouched-error-beats-invented-fix, wording-only-never-intent. Grounded in fresh research: three-stage correct-verify pipeline (arXiv 2505.24347), over-correction danger (arXiv 2310.11532), context-augmented ranking +34% recall (COLING 2025). Ambiguity Halt unchanged.
+
 ## [9.21.0] - 2026-09-11
 
 ### Changed
