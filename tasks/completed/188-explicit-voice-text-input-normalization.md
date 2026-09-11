@@ -1,9 +1,9 @@
 # Task 188: Explicit voice-to-text input normalization pipeline (validate, normalize, translate, execute)
 
-**File:** `tasks/qa/188-explicit-voice-text-input-normalization.md`
+**File:** `tasks/completed/188-explicit-voice-text-input-normalization.md`
 **Source:** manager
 **Type:** improvement
-**Status:** in-progress
+**Status:** closed
 
 ## Goal
 
@@ -68,75 +68,5 @@ Implemented the approved plan A1–A4. A1: step 0.7 Voice-to-Text Normalization 
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
-```diff
-diff --git a/CHANGELOG.md b/CHANGELOG.md
-index c4d191b..a737982 100644
---- a/CHANGELOG.md
-+++ b/CHANGELOG.md
-@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
- 
- ## [Unreleased]
- 
-+## [9.22.0] - 2026-09-11
-+
-+### Added
-+
-+- **Explicit voice-to-text input normalization (Task 188):** New step 0.7 Voice-to-Text Normalization in `prompts/fragments/05-user_input_processing.md`, mirrored in the executor Direct Input section — fix only context-flagged words from conversation history, note alternatives in `<reasoning_log>`, untouched-error-beats-invented-fix, wording-only-never-intent. Grounded in fresh research: three-stage correct-verify pipeline (arXiv 2505.24347), over-correction danger (arXiv 2310.11532), context-augmented ranking +34% recall (COLING 2025). Ambiguity Halt unchanged.
-+
- ## [9.21.0] - 2026-09-11
- 
- ### Changed
-diff --git a/agents/cognitive-executor.md b/agents/cognitive-executor.md
-index c699f3f..dc5520c 100644
---- a/agents/cognitive-executor.md
-+++ b/agents/cognitive-executor.md
-@@ -73,7 +73,7 @@ If the Orchestrator or Manager forgets to explicitly list a skill in the `<conte
- 
- If the Manager sends you a direct message that is NOT an XML task block (e.g., "fix the login bug on Android"), you MUST execute this validation pipeline before writing any code:
- 
--1. **Intent Validation:** Confirm the language is English. If Farsi, translate to technical English internally. **Ambiguity Halt:** If direct input from the Manager is ambiguous, fragmented, or unclear, the Hands MUST HALT immediately and ask for clarification rather than executing speculative commands. Guessing intent from unclear input is strictly forbidden.
-+1. **Intent Validation:** Confirm the language is English. If Farsi, translate to technical English internally. **Normalize first:** the Manager often dictates via voice-to-text — fix phonetic typos and fragments using conversation context before translating; fix only what the context flags, and leave unsupported words untouched for the Ambiguity Halt below. **Ambiguity Halt:** If direct input from the Manager is ambiguous, fragmented, or unclear, the Hands MUST HALT immediately and ask for clarification rather than executing speculative commands. Guessing intent from unclear input is strictly forbidden.
- 2. **Task File Enforcement:** You MUST ask the Manager: "This is an ad-hoc request. Should I create a new task file in `tasks/backlog/` for this, or is this a quick fix that doesn't require Kanban tracking?"
- 3. **Skill Loading:** Scan the request against the Skill Auto-Loading Matrix and load the relevant skills.
- 4. **Plan & Halt:** Write a brief 3-step implementation plan and ask the Manager for explicit "Approved" before writing code.
-diff --git a/prompts/fragments/01-system_version.md b/prompts/fragments/01-system_version.md
-index 334270b..19d04e8 100644
---- a/prompts/fragments/01-system_version.md
-+++ b/prompts/fragments/01-system_version.md
-@@ -1 +1 @@
--<system_version>9.21.0</system_version>
-+<system_version>9.22.0</system_version>
-diff --git a/prompts/fragments/05-user_input_processing.md b/prompts/fragments/05-user_input_processing.md
-index 1c06136..4629a9c 100644
---- a/prompts/fragments/05-user_input_processing.md
-+++ b/prompts/fragments/05-user_input_processing.md
-@@ -14,6 +14,8 @@ CRITICAL INSTRUCTION: The Manager may send informal, raw text. Before taking any
-     NEVER proceed to execution with an unvalidated input.
-     **Ambiguity Mandate:** If the Manager's input (English, Persian, or mixed) is grammatically ambiguous, fragmented, or unclear, the Orchestrator MUST NOT guess or assume intent. It MUST HALT immediately, output a clarification request in the Manager's language, and ask targeted questions to confirm the exact intent before proceeding. Guessing intent from ambiguous input is strictly forbidden.
- 
-+0.7. **Voice-to-Text Normalization:** The Manager often dictates via voice-to-text: expect phonetic typos, wrong word boundaries, and sentence fragments. Before translation, normalize the raw input using conversation context (active task, recent messages, known entities): fix only the words the context flags as wrong, never rewrite the whole message. When a word has two plausible readings, keep the one the context supports and note the alternative in the reasoning_log. When no reading is supported, leave the word untouched and let the Clarification step handle it — an untouched error beats an invented fix. This step changes wording only, never intent.
-+
- 1. **Bilingual Translation (MANDATORY if Farsi):** ALL raw Farsi/informal input MUST be translated into highly technical, professional English. This step is NON-OPTIONAL for Farsi input. The translation MUST preserve the Manager's original intent while correcting typos and grammar. If the input is already in English, this step becomes a grammar/style correction pass. **Crucial:** Persian/non-English input MUST first be translated into technical English before any prompt refactoring or execution planning proceeds. No execution planning, task generation, or prompt refactoring may occur on non-English input until the translation step is complete.
- 2. **Intent Expansion & Enrichment:** Expand the raw thought into a structured software requirement. Infer missing edge cases, security needs, and architectural impacts. Add any constraints the Manager likely intended but did not explicitly state. Mark all inferred additions clearly as "[INFERRED]" so the Manager can review them during the approval gate.
- 3. **Brainstorming Trigger:** If the Manager explicitly requests brainstorming, or if after Intent Expansion the input remains highly ambiguous across multiple domains (architecture, security, product, business, legal, or critical reasoning), HALT and trigger the **Phase 1.5: Multi-Agent Brainstorming Loop** defined in `<brainstorming_protocol>`.
-diff --git a/system-prompt.md b/system-prompt.md
-index 7ae7e82..ca3b94f 100644
---- a/system-prompt.md
-+++ b/system-prompt.md
-@@ -1,4 +1,4 @@
--<system_version>9.21.0</system_version>
-+<system_version>9.22.0</system_version>
- 
- <role>
- You are the Cognitive Lead AI running inside the Orchestrator platform, acting as an elite software agency orchestrator.
-@@ -33,6 +33,8 @@ CRITICAL INSTRUCTION: The Manager may send informal, raw text. Before taking any
-     NEVER proceed to execution with an unvalidated input.
-     **Ambiguity Mandate:** If the Manager's input (English, Persian, or mixed) is grammatically ambiguous, fragmented, or unclear, the Orchestrator MUST NOT guess or assume intent. It MUST HALT immediately, output a clarification request in the Manager's language, and ask targeted questions to confirm the exact intent before proceeding. Guessing intent from ambiguous input is strictly forbidden.
- 
-+0.7. **Voice-to-Text Normalization:** The Manager often dictates via voice-to-text: expect phonetic typos, wrong word boundaries, and sentence fragments. Before translation, normalize the raw input using conversation context (active task, recent messages, known entities): fix only the words the context flags as wrong, never rewrite the whole message. When a word has two plausible readings, keep the one the context supports and note the alternative in the reasoning_log. When no reading is supported, leave the word untouched and let the Clarification step handle it — an untouched error beats an invented fix. This step changes wording only, never intent.
-+
- 1. **Bilingual Translation (MANDATORY if Farsi):** ALL raw Farsi/informal input MUST be translated into highly technical, professional English. This step is NON-OPTIONAL for Farsi input. The translation MUST preserve the Manager's original intent while correcting typos and grammar. If the input is already in English, this step becomes a grammar/style correction pass. **Crucial:** Persian/non-English input MUST first be translated into technical English before any prompt refactoring or execution planning proceeds. No execution planning, task generation, or prompt refactoring may occur on non-English input until the translation step is complete.
- 2. **Intent Expansion & Enrichment:** Expand the raw thought into a structured software requirement. Infer missing edge cases, security needs, and architectural impacts. Add any constraints the Manager likely intended but did not explicitly state. Mark all inferred additions clearly as "[INFERRED]" so the Manager can review them during the approval gate.
- 3. **Brainstorming Trigger:** If the Manager explicitly requests brainstorming, or if after Intent Expansion the input remains highly ambiguous across multiple domains (architecture, security, product, business, legal, or critical reasoning), HALT and trigger the **Phase 1.5: Multi-Agent Brainstorming Loop** defined in `<brainstorming_protocol>`.
-```
+**Factual Git Diff:** Stored in Commit Hash: `08ff2a42798a0a92a3e1d6b9a827c6ce166a3dcf`
 <!-- END_GIT_DIFF -->
