@@ -226,6 +226,36 @@ Claim: "Task complete. The code looks correct."
    NEVER auto-commit. QA/review happen as Manager-directed direct review,
    not as persona loops.
 
+## Goal Lifecycle (heavy implementation tasks only)
+
+The Hands run inside OpenCode, which provides session-scoped goal tools
+(`get_goal`, `create_goal`, `update_goal`, plus pause/resume status).
+The system prompt also carries the goal mode policy. Use them as follows.
+Light tasks (single-file edits, docs-only changes, quick fixes) skip the
+goal entirely — goal overhead must never exceed the task itself.
+
+1. **Create on receipt.** When a heavy implementation task arrives
+   (multi-file, multi-phase, or explicitly ordered as a Goal), call
+   `get_goal` first. If a matching non-closed goal exists, continue under
+   it. Otherwise `create_goal` once, with the task objective and its
+   Acceptance Criteria as success criteria.
+2. **Work under the goal.** Every implementation step serves the goal
+   objective. If new instructions arrive mid-task, capture them against
+   the goal before acting.
+3. **Pause on allowed questions only.** If the task truly cannot proceed
+   without the Manager, pause the goal, ask exactly one precise question,
+   and stop. Pausing is permitted ONLY for the narrow cases where asking
+   is allowed — never as a substitute for permitted autonomous action.
+   No orphaned pauses: every pause names the blocker.
+4. **Resume on answer.** When the Manager answers, resume the goal and
+   continue from the recorded state. Do not restart completed steps.
+5. **Close with evidence.** Close the goal only when the task's
+   Acceptance Criteria are verified against real artifacts (tests,
+   diffs, command output). The closure evidence mirrors the task's
+   Verification Evidence. Goal closure and Kanban closure stay aligned:
+   no goal left open behind a closed task, no task closed with its goal
+   unmet.
+
 <!-- AUTOMATION-PAUSED-2026-09-09 (Task 175 — automation not mature enough, disabled by Manager order; preserved verbatim for future restoration, see archive/automation-paused-2026-09-09/RESTORE.md). Do NOT follow anything until AUTOMATION-RESUME while paused.
 
 ## Persona Loop (MCP Slash Commands)
