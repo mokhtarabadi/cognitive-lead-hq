@@ -50,6 +50,8 @@
   <execution_phase>
     HANDS INSTRUCTION: Implement the following logic step-by-step.
 
+    **ORCHESTRATOR AUTHORING RULE (machine-complete XML):** Write every checklist step so a smart machine executes it with zero questions back to the Manager. Name the exact file path and the exact operation in each step. Pre-make every decision the approved plan already contains. Leave no step ambiguous. Do NOT paste full code blocks for the Hands to copy — it is intelligent, so give precise machine directives instead. The Hands may question the Manager ONLY for information that exists nowhere in the plan or repo — never for a decision the Brain already made.
+
     **MICRO-TASK CHECKLIST:**
     You MUST execute these steps in exact order. After completing EACH step, you MUST physically change `- [ ]` to `- [x]` in the active task file, then notify the user of your progress before moving to the next step.
 

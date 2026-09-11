@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [9.18.0] - 2026-09-11
+
+### Changed
+
+- **Machine-complete XML authoring rule (Task 182 extension, manager order):** `prompts/fragments/09-hands_protocols.md` `<execution_phase>` gains an ORCHESTRATOR AUTHORING RULE — every checklist step names the exact file path and exact operation, pre-makes every decision the approved plan contains, and leaves zero questions for the Manager. No full code pastes (the Hands is intelligent — precise machine directives instead). Hands may question the Manager ONLY for info existing nowhere in plan or repo, never for an already-made decision. Reassembled `system-prompt.md` (sync-check byte-identical).
+
+## [9.17.0] - 2026-09-11
+
+### Changed
+
+- **Self-driving QA/Reviewer reject loops (Task 182, manager clarification):** the Brain has no code access and the Manager ferries task files by hand, so the QA Engineer and Code Reviewer personas in `prompts/fragments/06-personas.md` no longer stop at a rejection verdict. On QA_REJECTED they now emit a 3-line Manager summary plus a hotfix `<hands_implementation_task>` XML scoped to the failing points; on REJECTED_NEEDS_FIXES or APPROVED_WITH_CHANGES the Reviewer emits the same pattern as a postfix XML. Both fix the EXISTING task file (never a new task number). Retry guard: after the 3rd rejection of the same task, stop emitting XML and escalate to the Manager with options. Reassembled `system-prompt.md` (sync-check byte-identical).
+
 ### Added
 
 - **Goal lifecycle for heavy implementation tasks (Task 184):** `agents/cognitive-executor.md` gains a `Goal Lifecycle` section — create a session goal on receipt of heavy work (AC as success criteria), work under it, pause only for allowed questions, resume on answer, close with evidence aligned to Kanban closure. Light tasks skip the goal. Grounded in the installed opencode-goal-plugin 0.8.2 (`/goal` + 11 tools, active/paused/blocked, evidence-gated completion).
