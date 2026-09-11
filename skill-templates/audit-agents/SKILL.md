@@ -300,7 +300,7 @@ Use this when a project has no `AGENTS.md` yet (new project onboarding).
   -> **Do** keep task-number references in code comments, CHANGELOG entries, task files, and HTML comments only. See `docs/conventions.md`.
 - **Don't** carry over assumptions, partial results, or architectural hypotheses from a previous task.
   -> **Do** flush context and treat every task as contextually independent (Buffer Isolation directive in validation-phase).
-- **Don't** execute raw, informal, or non-English (Farsi) prompts directly.
+- **Don't** execute raw, informal, or non-English prompts directly.
   -> **Do** load the `prompt-refactor` skill to translate and expand the intent into an elite English spec first. (Note: If you receive a standard XML task block, skip this and execute normally).
 - **Don't** attempt to resolve cross-disciplinary ambiguity within a single persona.
   -> **Do** trigger the Multi-Agent Brainstorming Loop if the Manager explicitly requests brainstorming or a task exhibits cross-disciplinary ambiguity. Interpret the `<brainstorming_session>` results in backlog tasks as non-functional guidelines that govern execution.

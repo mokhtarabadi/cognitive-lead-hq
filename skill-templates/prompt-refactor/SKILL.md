@@ -54,7 +54,7 @@ Output a brief correction note at the top of your response:
 
 ## Workflow Execution
 
-1. **Bilingual Translation & Enrichment:** Read the Manager's raw prompt. If it is in Farsi or informal English, seamlessly translate it into technical English. Identify the core goal, missing technical constraints, and desired outcome. Then ENRICH the translated intent:
+1. **Bilingual Translation & Enrichment:** Read the Manager's raw prompt. If it is in a non-English language or informal English, seamlessly translate it into technical English. Identify the core goal, missing technical constraints, and desired outcome. Then ENRICH the translated intent:
    - Add missing edge cases the Manager likely intended
    - Add security implications if applicable
    - Add architectural constraints if applicable

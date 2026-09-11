@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [9.24.0] - 2026-09-11
+
+### Changed
+
+- **Farsi → non-English generalization (Task 187 extension, manager order):** the workflow was written for a Farsi-speaking manager, but any other project reusing it may speak Chinese or any other language. Replaced every Farsi-specific mention in prompt-facing files with language-neutral wording: fragment 05 (language detection, ambiguity mandate, translation step, clarifying-question language) now says non-English throughout; fragment 13 machine-channel exemption neutralized; executor intent-validation + quote-is-evidence steps neutralized; audit-agents and prompt-refactor skills neutralized. Deliberately kept: telegram-issue-sync Persian handling (that skill's actual domain data is Persian Telegram messages) and bundle-tasks Unicode/Persian slug ranges (technical character-range facts). Reassembled `system-prompt.md` (sync-check byte-identical).
+
+## [9.23.0] - 2026-09-11
+
+### Added
+
+- **Persona auto-load with confidence threshold (Task 187):** New `<auto_load>` block in `prompts/fragments/06-personas.md` — Layer 1 explicit name/alias always wins; Layer 2 high-confidence inference declares the persona in the existing `02-role.md` bracket and proceeds (visible, correctable), low-confidence stops and asks the Manager instead of guessing (guessing identity is hallucination-prone; one question costs less than a wrong persona). No new "Speaking as" label by Manager order — the existing bracket display is the single label, no duplication. Seven-seat contract intact.
+
 ## [9.22.0] - 2026-09-11
 
 ### Added
