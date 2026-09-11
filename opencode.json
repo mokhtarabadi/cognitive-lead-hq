@@ -44,6 +44,42 @@
       ],
       "enabled": true,
       "timeout": 15000
+    },
+    "brain": {
+      "type": "local",
+      "command": [
+        "uv",
+        "run",
+        "--project",
+        "mcp-brain-bridge",
+        "mcp-brain-bridge/server.py"
+      ],
+      "enabled": true,
+      "timeout": 600000,
+      "environment": {
+        "BRAIN_API_BASE": "{env:BRAIN_API_BASE}",
+        "BRAIN_API_KEY": "{env:BRAIN_API_KEY}",
+        "BRAIN_MODEL": "{env:BRAIN_MODEL}"
+      }
+    },
+    "manager_decisions": {
+      "type": "local",
+      "command": [
+        "uv",
+        "run",
+        "--project",
+        "mcp-decision-server",
+        "mcp-decision-server/server.py"
+      ],
+      "enabled": true,
+      "timeout": 600000,
+      "environment": {
+        "BRAIN_API_BASE": "{env:BRAIN_API_BASE}",
+        "BRAIN_API_KEY": "{env:BRAIN_API_KEY}",
+        "BRAIN_MODEL": "{env:BRAIN_MODEL}",
+        "DECISION_MODEL": "{env:DECISION_MODEL}",
+        "DECISION_TEMPERATURE": "{env:DECISION_TEMPERATURE}"
+      }
     }
   },
   "permission": {
@@ -53,6 +89,12 @@
     "lint_markdown": "allow",
     "lint_task_file": "allow",
     "lint_all_tasks": "allow",
+    "brain_turn": "allow",
+    "extract_session_decisions": "allow",
+    "record_manager_decision": "allow",
+    "query_manager_decisions": "allow",
+    "get_manager_profile": "allow",
+    "propose_profile_evolution": "allow",
     "store_memory": "allow",
     "delete_memory": "ask",
     "read_memory": "allow",

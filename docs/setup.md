@@ -49,23 +49,22 @@ gh auth login
 
 ## MCP Servers
 
-The project uses three FastMCP Python servers, all run via `uv`:
+The project uses five FastMCP Python servers, all run via `uv`:
 
 | Server               | Purpose                                           | Start Command                         |
 | -------------------- | ------------------------------------------------- | ------------------------------------- |
 | `mcp-context-server` | `.gitignore`-aware file reading, tree exploration | `uv run mcp-context-server/server.py` |
+| `mcp-memory-server`  | Persistent project memory (namespaces + index)    | `uv run mcp-memory-server/server.py`  |
 | `mcp-lint-server`    | Task file linting and Markdown validation         | `uv run mcp-lint-server/server.py`    |
-| `mcp-memory-server`  | Persistent project memory bank                    | `uv run mcp-memory-server/server.py`  |
+| `mcp-decision-server` | Manager-decision capture and consultation        | `uv run mcp-decision-server/server.py` |
+| `mcp-brain-bridge` | Unified Brain bridge: `brain_turn` (system-prompt loader + LLM + XML extract) | `uv run mcp-brain-bridge/server.py` |
 
 These are configured in `opencode.json` and auto-start with OpenCode.
 
-> **Automation-paused state (2026-09-09, Tasks 175/176):** the `persona`
-> and `manager_decisions` MCP servers are DISABLED (config blocks removed;
-> code kept under `mcp-persona-server/` + `mcp-decision-server/`), and the 9
-> automation slash commands are archived under
-> `archive/automation-paused-2026-09-09/commands/`. Global installs
-> additionally run `blowsh` + `telegram`. Restore path:
-> `archive/automation-paused-2026-09-09/RESTORE.md`.
+> **Brain Bridge active:** QA/review run through one MCP
+> (`brain_turn`). The 2026-09-09 paused persona engine was deleted, not
+> restored; the decision server was restored and is live again.
+> Global installs additionally run `blowsh` + `telegram`.
 
 ## Development Tools
 

@@ -1,0 +1,587 @@
+"""Unit tests for mcp-brain-bridge (Task 190).
+
+Offline only: covers the XML extractor, the system-prompt loader, the
+Responses-API text parser, and env fallbacks. The live LLM path
+(httpx POST) is never touched.
+"""
+
+import os
+import sys
+from pathlib import Path
+
+import pytest
+
+BRIDGE_DIR = Path(__file__).parent.parent / "mcp-brain-bridge"
+sys.path.insert(0, str(BRIDGE_DIR))
+
+import server as bridge
+
+
+def test_extract_single_implementation_block():
+    out = 'Think <hands_implementation_task>{"a": 1}</hands_implementation_task> tail'
+    blocks = bridge.extract_xml_blocks(out)
+    assert len(blocks) == 1
+    assert blocks[0].startswith("<hands_implementation_task>")
+
+
+def test_extract_multiple_blocks_in_order():
+    out = (
+        "<hands_discovery_task>one</hands_discovery_task> noise "
+        "<failure_report>two</failure_report>"
+    )
+    blocks = bridge.extract_xml_blocks(out)
+    assert len(blocks) == 2
+    assert blocks[0].startswith("<hands_discovery_task>")
+    assert blocks[1].startswith("<failure_report>")
+
+
+def test_extract_no_xml_returns_empty():
+    assert bridge.extract_xml_blocks("Just a plain answer, no blocks.") == []
+
+
+def test_extract_ignores_unknown_tags():
+    out = "<reasoning_log>thinking</reasoning_log>"
+    assert bridge.extract_xml_blocks(out) == []
+
+
+def test_load_system_prompt_explicit_path(tmp_path, monkeypatch):
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+    target = tmp_path / ".config" / "opencode" / "prompt.md"
+    target.parent.mkdir(parents=True)
+    target.write_text("hello prompt", encoding="utf-8")
+    assert bridge.load_system_prompt(str(target)) == "hello prompt"
+
+
+def test_load_system_prompt_missing_raises(tmp_path, monkeypatch):
+    monkeypatch.delenv("BRAIN_SYSTEM_PROMPT", raising=False)
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+    with pytest.raises(FileNotFoundError):
+        bridge.load_system_prompt(
+            str(tmp_path / ".config" / "opencode" / "nope.md"))
+
+
+def test_load_system_prompt_prefers_env(tmp_path, monkeypatch):
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+    target = tmp_path / ".config" / "opencode" / "env-prompt.md"
+    target.parent.mkdir(parents=True)
+    target.write_text("from env", encoding="utf-8")
+    monkeypatch.setenv("BRAIN_SYSTEM_PROMPT", str(target))
+    assert bridge.load_system_prompt() == "from env"
+
+
+def test_brain_model_default_and_override(monkeypatch):
+    monkeypatch.delenv("BRAIN_MODEL", raising=False)
+    assert bridge._get_brain_model() == "muse-spark-1.3-contributor-free"
+    monkeypatch.setenv("BRAIN_MODEL", "  ")
+    assert bridge._get_brain_model() == "muse-spark-1.3-contributor-free"
+    monkeypatch.setenv("BRAIN_MODEL", "custom/model")
+    assert bridge._get_brain_model() == "custom/model"
+
+
+def test_history_missing_task_returns_empty(tmp_path, monkeypatch):
+    monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
+    assert bridge.load_history("fresh-task-1") == []
+
+
+def test_history_append_load_roundtrip(tmp_path, monkeypatch):
+    monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
+    bridge.append_turn("task-9", "user", "hello brain")
+    bridge.append_turn("task-9", "assistant", "hello hands")
+    history = bridge.load_history("task-9")
+    assert history == [
+        {"role": "user", "content": "hello brain"},
+        {"role": "assistant", "content": "hello hands"},
+    ]
+
+
+def test_history_skips_corrupt_lines(tmp_path, monkeypatch):
+    monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
+    bridge.append_turn("task-7", "user", "good line")
+    path = tmp_path / "sessions" / "task-7" / "transcript.jsonl"
+    with path.open("a", encoding="utf-8") as fh:
+        fh.write("not json at all\n")
+        fh.write('{"role": "alien", "content": "x"}\n')
+    assert bridge.load_history("task-7") == [
+        {"role": "user", "content": "good line"}
+    ]
+
+
+def test_history_limit_caps_oldest_first(tmp_path, monkeypatch):
+    monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
+    for i in range(45):
+        bridge.append_turn("task-5", "user", f"msg {i}")
+    history = bridge.load_history("task-5")
+    assert len(history) == 40
+    assert history[0] == {"role": "user", "content": "msg 5"}
+
+
+def test_task_id_sanitized_against_traversal(tmp_path, monkeypatch):
+    monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
+    with pytest.raises(ValueError):
+        bridge.append_turn("../../evil", "user", "x")
+    with pytest.raises(ValueError):
+        bridge.load_history("...")
+
+
+def test_parse_responses_text_message_items():
+    data = {
+        "output": [
+            {"type": "reasoning", "status": "completed"},
+            {
+                "type": "message",
+                "content": [
+                    {"type": "output_text", "text": "Hello"},
+                    {"type": "output_text", "text": "World"},
+                ],
+            },
+        ]
+    }
+    assert bridge.parse_responses_text(data) == "Hello\nWorld"
+
+
+def test_parse_responses_text_empty_and_malformed():
+    assert bridge.parse_responses_text({}) == ""
+    assert bridge.parse_responses_text({"output": "nope"}) == ""
+    assert bridge.parse_responses_text({"output": [{"type": "other"}]}) == ""
+
+
+def test_responses_url_default_and_override(monkeypatch):
+    monkeypatch.delenv("BRAIN_API_BASE", raising=False)
+    assert bridge._responses_url() == "http://127.0.0.1:8081/zen/resp/responses"
+    monkeypatch.setenv("BRAIN_API_BASE", "http://x:1/base/")
+    assert bridge._responses_url() == "http://x:1/base/responses"
+
+
+# --- hotfix hardening (QA_REJECTED follow-up, mocked HTTP only) ---
+
+import time as _time
+import types as _types
+
+
+class _FakeResp:
+    def __init__(self, status_code=200, text="", payload=None, ctype="application/json"):
+        self.status_code = status_code
+        self.text = text
+        self._payload = payload
+        self.headers = {"content-type": ctype}
+
+    def json(self):
+        if isinstance(self._payload, Exception):
+            raise self._payload
+        return self._payload
+
+
+class _FakeClient:
+    def __init__(self, script, **kwargs):
+        self._script = list(script)
+        self.calls = 0
+        self.last_body = None
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        return False
+
+    def post(self, url, json=None, headers=None, **kwargs):
+        self.calls += 1
+        self.last_body = json
+        item = self._script.pop(0) if len(self._script) > 1 else self._script[0]
+        if isinstance(item, Exception):
+            raise item
+        return item
+
+
+def _ok_payload(text="ok"):
+    return {"output": [{"type": "message",
+                        "content": [{"type": "output_text", "text": text}]}]}
+
+
+def _stub_httpx(monkeypatch):
+    stub = _types.ModuleType("httpx")
+    stub.TimeoutException = type("TimeoutException", (Exception,), {})
+    stub.TransportError = type("TransportError", (Exception,), {})
+
+    class _Timeout:
+        def __init__(self, *a, **k):
+            self.args, self.kwargs = a, k
+
+    stub.Timeout = _Timeout
+    monkeypatch.setitem(sys.modules, "httpx", stub)
+    return stub
+
+
+def test_api_key_empty_raises(monkeypatch):
+    monkeypatch.delenv("BRAIN_API_KEY", raising=False)
+    import pytest as _pt
+    with _pt.raises(RuntimeError, match="empty"):
+        bridge._get_api_key()
+
+
+def test_post_retry_succeeds_after_429(monkeypatch):
+    _stub_httpx(monkeypatch)
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    monkeypatch.setattr(_time, "sleep", lambda s: None)
+    script = [_FakeResp(429, "slow down"),
+              _FakeResp(200, "fine", _ok_payload())]
+    resp, attempts = bridge._post_with_retry(
+        _FakeClient(script), "http://x/responses", {})
+    assert resp.status_code == 200
+    assert attempts == 2
+
+
+def test_post_final_500_raises_without_key_leak(monkeypatch):
+    _stub_httpx(monkeypatch)
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-SECRET-XYZ")
+    monkeypatch.setattr(_time, "sleep", lambda s: None)
+    script = [_FakeResp(500, "boom")]
+    import pytest as _pt
+    with _pt.raises(RuntimeError) as exc:
+        bridge._post_with_retry(_FakeClient(script), "http://x/responses", {})
+    msg = str(exc.value)
+    assert "500" in msg
+    assert "SECRET" not in msg
+
+
+def test_resp_json_non_json_raises():
+    import pytest as _pt
+    resp = _FakeResp(200, "<html>not json</html>", ValueError("bad"), "text/html")
+    with _pt.raises(RuntimeError, match="non-JSON"):
+        bridge._resp_json(resp)
+
+
+def test_task_id_allowlist_rejects_separators(tmp_path, monkeypatch):
+    import pytest as _pt
+    monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
+    with _pt.raises(ValueError):
+        bridge.load_history("a/b")
+    with _pt.raises(ValueError):
+        bridge.load_history("")
+
+
+def test_extract_ignores_fenced_blocks():
+    fenced = "```json\n<hands_implementation_task>{\"a\": 1}</hands_implementation_task>\n```"
+    assert bridge.extract_xml_blocks(fenced) == []
+    mixed = fenced + "\n<hands_implementation_task>{\"b\": 2}</hands_implementation_task>"
+    blocks = bridge.extract_xml_blocks(mixed)
+    assert len(blocks) == 1
+    assert '"b": 2' in blocks[0]
+
+
+def test_brain_turn_truncates_oldest_history(tmp_path, monkeypatch):
+    monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+    prompt_file = tmp_path / ".config" / "opencode" / "sys.md"
+    prompt_file.parent.mkdir(parents=True)
+    prompt_file.write_text("sys", encoding="utf-8")
+    monkeypatch.setenv("BRAIN_SYSTEM_PROMPT", str(prompt_file))
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    for _ in range(10):
+        bridge.append_turn("bigtask", "user", "x" * 30000)
+    holder = {}
+    script = [_FakeResp(200, "fine", _ok_payload())]
+
+    class _CapClient(_FakeClient):
+        def post(self, url, json=None, headers=None, **kwargs):
+            holder["body"] = json
+            return super().post(url, json=json, headers=headers, **kwargs)
+
+    stub = _types.ModuleType("httpx")
+    stub.Client = lambda *a, **k: _CapClient(script)
+    stub.TimeoutException = Exception
+    stub.TransportError = Exception
+
+    class _Timeout:
+        def __init__(self, *a, **k):
+            pass
+
+    stub.Timeout = _Timeout
+    monkeypatch.setitem(sys.modules, "httpx", stub)
+    call = bridge.brain_turn
+    target = call.fn if hasattr(call, "fn") else call
+    result = target("q", task_id="bigtask")
+    assert result["status"] == "REPORT"
+    assert result["output"] == "ok"
+    big_turns = [t for t in holder["body"]["input"]
+                 if t.get("content", "").startswith("x")]
+    assert 1 <= len(big_turns) < 10
+
+
+# --- Hotfix-2 new tests (mocked httpx only) ---
+
+def _mk_bridge_client(monkeypatch, script, holder=None):
+    class _CapClient(_FakeClient):
+        def post(self, url, json=None, headers=None, **kwargs):
+            if holder is not None:
+                holder["body"] = json
+            return super().post(url, json=json, headers=headers, **kwargs)
+
+    stub = _types.ModuleType("httpx")
+    stub.Client = lambda *a, **k: _CapClient(script)
+    stub.TimeoutException = type("TimeoutException", (Exception,), {})
+    stub.TransportError = type("TransportError", (Exception,), {})
+
+    class _Timeout:
+        def __init__(self, *a, **k):
+            self.args, self.kwargs = a, k
+
+    stub.Timeout = _Timeout
+    monkeypatch.setitem(sys.modules, "httpx", stub)
+    return stub
+
+
+def _mk_sys_prompt(tmp_path, monkeypatch, text="sys"):
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+    prompt_file = tmp_path / ".config" / "opencode" / "sys.md"
+    prompt_file.parent.mkdir(parents=True, exist_ok=True)
+    prompt_file.write_text(text, encoding="utf-8")
+    monkeypatch.setenv("BRAIN_SYSTEM_PROMPT", str(prompt_file))
+
+
+def test_post_overall_deadline_fast_fail(monkeypatch):
+    _stub_httpx(monkeypatch)
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    monkeypatch.setattr(_time, "sleep", lambda s: None)
+    monkeypatch.setattr(bridge, "_OVERALL_DEADLINE_S", 0)
+    import pytest as _pt
+    with _pt.raises(RuntimeError, match="deadline"):
+        bridge._post_with_retry(
+            _FakeClient([_FakeResp(500, "boom")]), "http://x/responses", {})
+
+
+def test_post_retry_after_honored(monkeypatch):
+    _stub_httpx(monkeypatch)
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    sleeps = []
+    monkeypatch.setattr(_time, "sleep", lambda s: sleeps.append(s))
+    r429 = _FakeResp(429, "slow down")
+    r429.headers["Retry-After"] = "2"
+    script = [r429, _FakeResp(200, "fine", _ok_payload())]
+    resp, _ = bridge._post_with_retry(
+        _FakeClient(script), "http://x/responses", {})
+    assert resp.status_code == 200
+    assert sleeps and sleeps[0] >= 2
+
+
+def test_strip_quadruple_tilde_unclosed_fences():
+    quad = "````\n<hands_implementation_task>{\"a\": 1}</hands_implementation_task>\n````"
+    assert bridge.extract_xml_blocks(quad) == []
+    tilde = "~~~\n<hands_implementation_task>{\"a\": 1}</hands_implementation_task>\n~~~"
+    assert bridge.extract_xml_blocks(tilde) == []
+    unclosed = "```json\n<hands_implementation_task>{\"a\": 1}</hands_implementation_task>\n"
+    assert bridge.extract_xml_blocks(unclosed) == []
+    assert bridge._last_fence_drops, "drops must be recorded"
+
+
+def test_brain_turn_fence_only_reports_debug(tmp_path, monkeypatch):
+    monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
+    _mk_sys_prompt(tmp_path, monkeypatch)
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    monkeypatch.delenv("BRAIN_TEMPERATURE", raising=False)
+    fenced = "```json\n{\"note\": \"just docs\"}\n```"
+    _mk_bridge_client(monkeypatch, [_FakeResp(200, "fine", _ok_payload(fenced))])
+    call = bridge.brain_turn
+    target = call.fn if hasattr(call, "fn") else call
+    result = target("q")
+    assert result["status"] == "REPORT"
+    assert result["debug"]["fenced_blocks"] >= 1
+    assert any("just docs" in s for s in result["debug"]["snippets"])
+
+
+def test_brain_turn_budget_return_fields(tmp_path, monkeypatch):
+    monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
+    _mk_sys_prompt(tmp_path, monkeypatch)
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    monkeypatch.delenv("BRAIN_TEMPERATURE", raising=False)
+    for _ in range(10):
+        bridge.append_turn("fieldstask", "user", "x" * 30000)
+    _mk_bridge_client(monkeypatch, [_FakeResp(200, "fine", _ok_payload())])
+    call = bridge.brain_turn
+    target = call.fn if hasattr(call, "fn") else call
+    result = target("q", task_id="fieldstask")
+    assert set(("truncated_count", "budget_chars", "retry_count")) <= set(result)
+
+
+def test_brain_turn_temperature_omitted_unless_set(tmp_path, monkeypatch):
+    monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
+    _mk_sys_prompt(tmp_path, monkeypatch)
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    holder = {}
+    monkeypatch.delenv("BRAIN_TEMPERATURE", raising=False)
+    _mk_bridge_client(monkeypatch, [_FakeResp(200, "fine", _ok_payload())], holder)
+    call = bridge.brain_turn
+    target = call.fn if hasattr(call, "fn") else call
+    target("q")
+    assert "temperature" not in holder["body"]
+    assert "reasoning_effort" in holder["body"]
+    monkeypatch.setenv("BRAIN_TEMPERATURE", "0.7")
+    holder2 = {}
+    _mk_bridge_client(monkeypatch, [_FakeResp(200, "fine", _ok_payload())], holder2)
+    target("q2")
+    assert holder2["body"]["temperature"] == 0.7
+    assert "reasoning_effort" not in holder2["body"]
+
+
+def test_long_task_id_error_carries_migration_hint(tmp_path, monkeypatch):
+    monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
+    import pytest as _pt
+    with _pt.raises(ValueError, match="migrat"):
+        bridge.load_history("a" * 65)
+
+
+def test_invalid_effort_value_raises(monkeypatch):
+    monkeypatch.setenv("BRAIN_REASONING_EFFORT", "bad effort!!")
+    import pytest as _pt
+    with _pt.raises(ValueError):
+        bridge._get_reasoning_effort()
+
+
+# --- context bundle / file tools (mocked/offline only) ---
+
+def _unwrap(tool):
+    return tool.fn if hasattr(tool, "fn") else tool
+
+
+def _mk_workspace(tmp_path, files):
+    ws = tmp_path / "ws"
+    for rel, text in files.items():
+        target = ws / rel
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(text, encoding="utf-8")
+    return ws
+
+
+def test_bundle_skips_missing_file_with_marker(tmp_path, monkeypatch):
+    ws = _mk_workspace(tmp_path, {
+        "agents/cognitive-executor.md": "exec content",
+        "docs/conventions.md": "conv",
+    })
+    monkeypatch.setenv("BRAIN_WORKSPACE_ROOT", str(ws))
+    out = _unwrap(bridge.get_context_bundle)()
+    assert "=== agents/cognitive-executor.md ===" in out
+    assert "exec content" in out
+    assert "[missing: docs/architecture.md]" in out
+    assert "[missing: DESIGN.md]" in out
+
+
+def test_bundle_truncates_large_file(tmp_path, monkeypatch):
+    big = "x" * 65000
+    ws = _mk_workspace(tmp_path, {"DESIGN.md": big})
+    monkeypatch.setenv("BRAIN_WORKSPACE_ROOT", str(ws))
+    out = _unwrap(bridge.get_context_bundle)()
+    assert "[truncated]" in out
+    section = out.split("=== DESIGN.md ===")[1]
+    assert len(section) < len(big) + 5000
+
+
+def test_read_file_offset_limit(tmp_path, monkeypatch):
+    ws = _mk_workspace(tmp_path, {"notes.md": "a\nb\nc\nd\ne\n"})
+    monkeypatch.setenv("BRAIN_WORKSPACE_ROOT", str(ws))
+    result = _unwrap(bridge.read_file)("notes.md", offset=2, limit=2)
+    assert result["total_lines"] == 5
+    assert result["lines"] == ["2: b", "3: c"]
+
+
+def test_read_file_rejects_traversal(tmp_path, monkeypatch):
+    ws = _mk_workspace(tmp_path, {"notes.md": "hi\n"})
+    monkeypatch.setenv("BRAIN_WORKSPACE_ROOT", str(ws))
+    import pytest as _pt
+    with _pt.raises(ValueError):
+        _unwrap(bridge.read_file)("../evil.md")
+    outside = tmp_path / "outside.md"
+    outside.write_text("evil\n", encoding="utf-8")
+    with _pt.raises(ValueError):
+        _unwrap(bridge.read_file)(str(outside))
+
+
+def test_read_file_rejects_bad_extension(tmp_path, monkeypatch):
+    ws = _mk_workspace(tmp_path, {"run.py": "print(1)\n"})
+    monkeypatch.setenv("BRAIN_WORKSPACE_ROOT", str(ws))
+    import pytest as _pt
+    with _pt.raises(ValueError):
+        _unwrap(bridge.read_file)("run.py")
+
+
+def test_grep_finds_planted_string(tmp_path, monkeypatch):
+    ws = _mk_workspace(tmp_path, {
+        "docs/a.md": "hello PLANTED_NEEDLE world\nsecond line\n",
+        "notes.txt": "nothing here\n",
+    })
+    monkeypatch.setenv("BRAIN_WORKSPACE_ROOT", str(ws))
+    hits = _unwrap(bridge.grep_files)("PLANTED_NEEDLE")
+    assert any("docs/a.md:1:" in h and "PLANTED_NEEDLE" in h for h in hits)
+
+
+def test_grep_skips_git(tmp_path, monkeypatch):
+    ws = _mk_workspace(tmp_path, {
+        "notes.md": "visible SKIPME_GIT_TEST\n",
+    })
+    git_file = ws / ".git" / "hidden.md"
+    git_file.parent.mkdir(parents=True, exist_ok=True)
+    git_file.write_text("hidden SKIPME_GIT_TEST\n", encoding="utf-8")
+    monkeypatch.setenv("BRAIN_WORKSPACE_ROOT", str(ws))
+    hits = _unwrap(bridge.grep_files)("SKIPME_GIT_TEST")
+    assert any("notes.md" in h for h in hits)
+    assert not any("/.git/" in h or h.startswith(".git/") for h in hits)
+
+
+def _mk_bundle_ws(tmp_path, monkeypatch):
+    ws = _mk_workspace(tmp_path, {
+        "agents/cognitive-executor.md": "bundle-content",
+    })
+    monkeypatch.setenv("BRAIN_WORKSPACE_ROOT", str(ws))
+    monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
+    _mk_sys_prompt(tmp_path, monkeypatch)
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    monkeypatch.delenv("BRAIN_TEMPERATURE", raising=False)
+    return ws
+
+
+def test_brain_turn_include_bundle_prepends(tmp_path, monkeypatch):
+    _mk_bundle_ws(tmp_path, monkeypatch)
+    holder = {}
+    _mk_bridge_client(monkeypatch, [_FakeResp(200, "fine", _ok_payload())], holder)
+    target = _unwrap(bridge.brain_turn)
+    target("tiny question")
+    user_msgs = [t for t in holder["body"]["input"] if t.get("role") == "user"]
+    assert user_msgs
+    assert "=== agents/cognitive-executor.md ===" in user_msgs[-1]["content"]
+    assert user_msgs[-1]["content"].rstrip().endswith("tiny question")
+    # system prompt untouched by the bundle
+    assert holder["body"]["input"][0]["role"] == "system"
+    assert "=== agents/cognitive-executor.md ===" not in holder["body"]["input"][0]["content"]
+
+
+def test_brain_turn_include_bundle_false_skips(tmp_path, monkeypatch):
+    _mk_bundle_ws(tmp_path, monkeypatch)
+    holder = {}
+    _mk_bridge_client(monkeypatch, [_FakeResp(200, "fine", _ok_payload())], holder)
+    target = _unwrap(bridge.brain_turn)
+    target("tiny question", include_bundle=False)
+    user_msgs = [t for t in holder["body"]["input"] if t.get("role") == "user"]
+    assert "=== agents/cognitive-executor.md ===" not in user_msgs[-1]["content"]
+    assert user_msgs[-1]["content"] == "tiny question"
+
+
+def test_brain_turn_no_duplicate_bundle(tmp_path, monkeypatch):
+    _mk_bundle_ws(tmp_path, monkeypatch)
+    holder = {}
+    _mk_bridge_client(monkeypatch, [_FakeResp(200, "fine", _ok_payload())], holder)
+    target = _unwrap(bridge.brain_turn)
+    pre = "=== agents/cognitive-executor.md ===\nalready there\ntiny question"
+    target(pre)
+    user_msgs = [t for t in holder["body"]["input"] if t.get("role") == "user"]
+    assert user_msgs[-1]["content"].count("=== agents/cognitive-executor.md ===") == 1
+
+
+def test_load_history_skips_monster_lines(tmp_path, monkeypatch):
+    monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
+    path = bridge._transcript_path("big")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    import json as _json
+    good = _json.dumps({"role": "user", "content": "hello"})
+    path.write_text(good + "\n" + "z" * 200_001 + "\n" + good + "\n",
+                    encoding="utf-8")
+    turns = bridge.load_history("big")
+    assert [t["content"] for t in turns] == ["hello", "hello"]
+    assert bridge._last_load_stats["skipped"] >= 1

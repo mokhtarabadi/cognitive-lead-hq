@@ -172,7 +172,7 @@ Parser rules (locked by tests): `#` comments and blank/malformed lines skipped; 
 
 ## Task-Number Reference Discipline
 
-Task numbers (Task 110, Task 181) are provenance for humans, not reasoning material for the model. A bare task number in visible prompt prose invites hallucination: the model treats it as load-bearing context it cannot resolve.
+Task numbers are provenance for humans, not reasoning material for the model. A bare task number in visible prompt prose invites hallucination: the model treats it as load-bearing context it cannot resolve.
 
 **Allowed homes (only):** code comments (`#`, `//`), `CHANGELOG.md` entries, task files in `tasks/`, `docs/history/` archives, and HTML-comment markers (`<!-- -->`, including frozen provenance blocks which stay verbatim).
 

@@ -1,0 +1,9 @@
+[project]
+name = "mcp-brain-bridge"
+version = "1.0.0"
+description = "Unified Brain bridge: system-prompt loader + Responses-API call + XML extractor (Task 190)"
+requires-python = ">=3.10"
+dependencies = [
+    "mcp[cli]>=1.0,<2.0",
+    "httpx>=0.28",
+]

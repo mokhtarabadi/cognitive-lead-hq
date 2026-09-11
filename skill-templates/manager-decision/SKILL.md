@@ -5,7 +5,7 @@ description: Capture per-session manager decisions into a separate learning repo
 
 # Manager-Decision Skill
 
-> **PAUSED-2026-09-09 (Tasks 175/176/177):** the `manager_decisions` MCP server is DISABLED (blocks removed from repo + global `opencode.json`). This skill is inert until restore — do not invoke its tools; re-ask the human manager directly. Restore path: `archive/automation-paused-2026-09-09/RESTORE.md`.
+> **LIVE:** the `manager_decisions` MCP server is connected (repo + global `opencode.json`). Invoke its tools per the triggers below. Autopilot consults these stored rulings to decide as the manager would.
 
 ## Purpose
 

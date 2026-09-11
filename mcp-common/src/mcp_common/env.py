@@ -17,7 +17,7 @@ def load_env_files(server_dir: Optional[Path] = None) -> Optional[str]:
 
     Empty-string values count as UNSET (OpenCode's `environment: {env:…}`
     blocks inject empty strings when the parent env lacks the var — those
-    must not shadow real file values, otherwise litellm sends blank auth).
+    must not shadow real file values, otherwise the client sends blank auth).
     Search order (first file holding a key wins):
     1. `<server-dir>/.env` (sidecar, mirrors telegram-mcp layout).
     2. `<server-dir>/../.env` (project root for repo installs, or the

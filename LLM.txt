@@ -82,8 +82,7 @@ Create the global OpenCode directories:
 mkdir -p ~/.config/opencode/mcp-context-server
 mkdir -p ~/.config/opencode/mcp-memory-server
 mkdir -p ~/.config/opencode/mcp-lint-server
-mkdir -p ~/.config/opencode/mcp-persona-server
-mkdir -p ~/.config/opencode/mcp-decision-server
+mkdir -p ~/.config/opencode/mcp-brain-bridge
 mkdir -p ~/.config/opencode/mcp-common
 mkdir -p ~/.config/opencode/skills
 ```
@@ -92,23 +91,22 @@ mkdir -p ~/.config/opencode/skills
 
 ## 5. Copy MCP Servers and Make Them Executable
 
-Copy the MCP server scripts from the cloned repo (persona ships 4 modules, decision ships 2). Every server dir also carries `pyproject.toml` + committed `uv.lock` — copy those too so launches resolve locked deps:
+Copy the MCP server scripts from the cloned repo (brain bridge is a single module). Every server dir also carries `pyproject.toml` + committed `uv.lock` — copy those too so launches resolve locked deps:
 
 ```bash
 cp /tmp/cognitive-lead-hq/mcp-context-server/server.py ~/.config/opencode/mcp-context-server/
 cp /tmp/cognitive-lead-hq/mcp-memory-server/server.py ~/.config/opencode/mcp-memory-server/
 cp /tmp/cognitive-lead-hq/mcp-lint-server/server.py ~/.config/opencode/mcp-lint-server/
-cp /tmp/cognitive-lead-hq/mcp-persona-server/*.py ~/.config/opencode/mcp-persona-server/
-cp /tmp/cognitive-lead-hq/mcp-decision-server/*.py ~/.config/opencode/mcp-decision-server/
+cp /tmp/cognitive-lead-hq/mcp-brain-bridge/server.py ~/.config/opencode/mcp-brain-bridge/
 cp -r /tmp/cognitive-lead-hq/mcp-common ~/.config/opencode/mcp-common
-for d in context memory lint persona decision; do
-  cp /tmp/cognitive-lead-hq/mcp-$d-server/pyproject.toml /tmp/cognitive-lead-hq/mcp-$d-server/uv.lock ~/.config/opencode/mcp-$d-server/
+for d in context-server memory-server lint-server; do
+  cp /tmp/cognitive-lead-hq/mcp-$d/pyproject.toml /tmp/cognitive-lead-hq/mcp-$d/uv.lock ~/.config/opencode/mcp-$d/
 done
+cp /tmp/cognitive-lead-hq/mcp-brain-bridge/pyproject.toml /tmp/cognitive-lead-hq/mcp-brain-bridge/uv.lock ~/.config/opencode/mcp-brain-bridge/
 chmod +x ~/.config/opencode/mcp-context-server/server.py
 chmod +x ~/.config/opencode/mcp-memory-server/server.py
 chmod +x ~/.config/opencode/mcp-lint-server/server.py
-chmod +x ~/.config/opencode/mcp-persona-server/server.py
-chmod +x ~/.config/opencode/mcp-decision-server/server.py
+chmod +x ~/.config/opencode/mcp-brain-bridge/server.py
 
 # Preserve system-prompt.md globally for the user's Orchestrator
 cp /tmp/cognitive-lead-hq/system-prompt.md ~/.config/opencode/system-prompt.md
@@ -127,7 +125,7 @@ Copy all reusable skills from `skill-templates/` into the global OpenCode skills
 cp -r /tmp/cognitive-lead-hq/skill-templates/* ~/.config/opencode/skills/
 ```
 
-After this, the skills will be available via `/help` from any directory. `skill-templates/` contains **31 skills** (`bundle-tasks` since Task 110, `github` since Task 121, `manager-decision` since Task 168).
+After this, the skills will be available via `/help` from any directory. `skill-templates/` contains **31 skills** (`bundle-tasks`, `github`, and 29 more).
 
 ### 6.1. (Optional) Bundle CLI Script — Only If You Want `uv run scripts/bundle-tasks.py`
 
@@ -161,7 +159,7 @@ After this, the `cognitive-executor` will be available as a primary agent, enfor
 
 ## 7. Configure Global opencode.json (with Absolute Paths)
 
-Create or update `~/.config/opencode/opencode.json`. You MUST use **absolute paths** in the `command` array — resolve the `~` to the full home directory path discovered in Step 3. Since 2026-09-08 the project ships **7 MCP servers** (3 core + `persona` dispatch + `manager_decisions` learning + `blowsh` browsing + `telegram` account routing); the previous browser automation MCP has been retired — use `blowsh` for JS-heavy browsing.
+Create or update `~/.config/opencode/opencode.json`. You MUST use **absolute paths** in the `command` array — resolve the `~` to the full home directory path discovered in Step 3. The project ships **7 MCP servers** (3 core + `manager_decisions` + `brain` bridge + `blowsh` browsing + `telegram` account routing); the persona server and the previous browser automation MCP are retired — use `blowsh` for JS-heavy browsing.
 
 Write the following JSON (replace `$HOME` with the actual home directory path, and adjust the `telegram` `--directory` if you cloned `telegram-mcp` elsewhere):
 
@@ -190,31 +188,14 @@ Write the following JSON (replace `$HOME` with the actual home directory path, a
       "enabled": true,
       "timeout": 15000
     },
-    "persona": {
+    "brain": {
       "type": "local",
-      "command": ["uv", "run", "--project", "$HOME/.config/opencode/mcp-persona-server", "$HOME/.config/opencode/mcp-persona-server/server.py"],
+      "command": ["uv", "run", "--project", "$HOME/.config/opencode/mcp-brain-bridge", "$HOME/.config/opencode/mcp-brain-bridge/server.py"],
       "enabled": true,
-      "timeout": 600000,
+      "timeout": 120000,
       "environment": {
         "OPENROUTER_API_KEY": "{env:OPENROUTER_API_KEY}",
-        "PERSONA_MODEL": "{env:PERSONA_MODEL}",
-        "PERSONA_REASONING_EFFORT": "{env:PERSONA_REASONING_EFFORT}",
-        "PERSONA_TEMPERATURE": "{env:PERSONA_TEMPERATURE}",
-        "PERSONA_MAX_TOKENS": "{env:PERSONA_MAX_TOKENS}",
-        "TELEGRAM_BOT_TOKEN": "{env:TELEGRAM_BOT_TOKEN}",
-        "TELEGRAM_CHAT_ID": "{env:TELEGRAM_CHAT_ID}",
-        "TELEGRAM_APPROVAL_TIMEOUT_SECONDS": "{env:TELEGRAM_APPROVAL_TIMEOUT_SECONDS}"
-      }
-    },
-    "manager_decisions": {
-      "type": "local",
-      "command": ["uv", "run", "--project", "$HOME/.config/opencode/mcp-decision-server", "$HOME/.config/opencode/mcp-decision-server/server.py"],
-      "enabled": true,
-      "timeout": 600000,
-      "environment": {
-        "OPENROUTER_API_KEY": "{env:OPENROUTER_API_KEY}",
-        "PERSONA_MODEL": "{env:PERSONA_MODEL}",
-        "DECISION_MODEL": "{env:DECISION_MODEL}"
+        "BRAIN_MODEL": "{env:BRAIN_MODEL}"
       }
     },
     "blowsh": {
@@ -247,15 +228,7 @@ Write the following JSON (replace `$HOME` with the actual home directory path, a
     "bundle_tasks": "allow",
     "blowsh_*": "allow",
     "telegram_*": "allow",
-    "dispatch_session_turn": "allow",
-    "get_session_summary": "allow",
-    "escalate_to_admin": "allow",
-    "request_admin_approval": "allow",
-    "extract_session_decisions": "allow",
-    "record_manager_decision": "allow",
-    "query_manager_decisions": "allow",
-    "get_manager_profile": "allow",
-    "propose_profile_evolution": "allow",
+    "brain_turn": "allow",
     "external_directory": {
       "*": "ask",
       "/tmp/**": "allow"
@@ -282,11 +255,11 @@ OpenCode 1 reads `plugin` from **both** `opencode.json` (server/tools) and `tui.
 
 **Important:** Replace `$HOME` with the actual absolute path resolved in Step 3 (e.g., `/home/alice` or `/Users/alice`). This is critical — MCP servers will NOT work with relative paths or `~` in the global config because OpenCode may be invoked from any working directory.
 
-**Launch form + credentials (Task 170):** all five local servers launch as `uv run --project <server-dir> <server-dir>/server.py` so dependencies resolve from each server's committed `uv.lock` (reproducible installs). Persona/decision timeouts are 600000ms (10 min) — LLM reasoning turns need it. The `environment` blocks use `{env:VAR}` substitution — they forward vars from OpenCode's own process environment, so **export your `.env` before launching OpenCode** (`set -a; source ~/.config/opencode/.env; set +a`) or the persona/decision servers start keyless. Belt and suspenders: both servers also self-load `.env` files at import (`<server-dir>/.env` → install-root `.env` → `<cwd>/.env`, never overriding real env), so project runs work even when the parent env is bare.
+**Launch form + credentials:** all local servers launch as `uv run --project <server-dir> <server-dir>/server.py` so dependencies resolve from each server's committed `uv.lock` (reproducible installs). The brain bridge timeout is 600000ms (10 min) — LLM turns need it. The `environment` block uses `{env:VAR}` substitution — it forwards vars from OpenCode's own process environment, so **export your `.env` before launching OpenCode** (`set -a; source ~/.config/opencode/.env; set +a`) or the bridge starts keyless. Belt and suspenders: the server also self-loads `.env` files at import (`<server-dir>/.env` → install-root `.env` → `<cwd>/.env`, never overriding real env), so project runs work even when the parent env is bare.
 
-**Decision store is per-project:** manager notes live in `<project>/.opencode/decisions/` (auto-created per project — each repo keeps its OWN rulings), overridable via absolute `DECISION_REPO_PATH`. Templates (schema/samples/scripts) ship with the repo and the global install alike.
+**QA/review run through the bridge:** the Hands calls `brain_turn` with the instruction + task file (see the Bridge section in `agents/cognitive-executor.md`). No per-persona commands or learning stores.
 
-> **Project vs Global `opencode.json` + `tui.json` (Option A fix 2026-08-25, updated 2026-08-28 for @prevalentware, 2026-09-05 for @tarquinen/opencode-dcp, 2026-09-08 for persona + manager_decisions):** The **repo's** `opencode.json` (committed) intentionally uses **relative** paths for the 5 local servers — `mcp-context-server/server.py`, `mcp-memory-server/server.py`, `mcp-lint-server/server.py`, `mcp-persona-server/server.py`, `mcp-decision-server/server.py` — so `opencode mcp list` inside the clone shows `✓ connected` without shell expansion (verified `uv run $HOME/...` fails with `No such file or directory`). Using literal `$HOME` in the repo's `command` array breaks local launches because OpenCode does not expand env vars. The **global** `~/.config/opencode/opencode.json` (created here) **must** use absolute paths as in the JSON above. `plugin` arrays (goal + DCP) are **identical** in project and global by design — no relative/absolute split for plugins. `blowsh` (docker) and `telegram` stay `enabled:false` with `$HOME` placeholders in the repo (they require the global install at `~/.config/opencode/mcp-telegram-server/`), while the global enables them `true` with absolute roots. New installations and `global-install-upgrade` (Step 5 in `.opencode/memory/workflows/global-install-upgrade.md`) must keep this split — `diff -q opencode.json ~/.config/opencode/opencode.json` will always differ (relative vs absolute) by design; verify project shows `uv run mcp-*-server/server.py` and global shows `/home/...`. Verify parity with `diff -q tui.json ~/.config/opencode/tui.json && echo "tui.json in sync ✓"` and `grep -q "@tarquinen/opencode-dcp" opencode.json && grep -q "@tarquinen/opencode-dcp" ~/.config/opencode/opencode.json && echo "DCP plugin both ✓"`.
+> **Project vs Global `opencode.json` + `tui.json` (Option A fix 2026-08-25, updated 2026-08-28 for @prevalentware, 2026-09-05 for @tarquinen/opencode-dcp):** The **repo's** `opencode.json` (committed) intentionally uses **relative** paths for the 4 local servers — `mcp-context-server/server.py`, `mcp-memory-server/server.py`, `mcp-lint-server/server.py`, `mcp-brain-bridge/server.py` — so `opencode mcp list` inside the clone shows `✓ connected` without shell expansion (verified `uv run $HOME/...` fails with `No such file or directory`). Using literal `$HOME` in the repo's `command` array breaks local launches because OpenCode does not expand env vars. The **global** `~/.config/opencode/opencode.json` (created here) **must** use absolute paths as in the JSON above. `plugin` arrays (goal + DCP) are **identical** in project and global by design — no relative/absolute split for plugins. `blowsh` (docker) and `telegram` stay `enabled:false` with `$HOME` placeholders in the repo (they require the global install at `~/.config/opencode/mcp-telegram-server/`), while the global enables them `true` with absolute roots. New installations and `global-install-upgrade` (Step 5 in `.opencode/memory/workflows/global-install-upgrade.md`) must keep this split — `diff -q opencode.json ~/.config/opencode/opencode.json` will always differ (relative vs absolute) by design; verify project shows `uv run mcp-*-server/server.py` and global shows `/home/...`. Verify parity with `diff -q tui.json ~/.config/opencode/tui.json && echo "tui.json in sync ✓"` and `grep -q "@tarquinen/opencode-dcp" opencode.json && grep -q "@tarquinen/opencode-dcp" ~/.config/opencode/opencode.json && echo "DCP plugin both ✓"`.
 
 **Telegram is optional but auto-configured:** the entry above points at `~/.config/opencode/mcp-telegram-server` (installed in the opencode config dir per global-install-upgrade, absolute path required) with two allowed roots (`/tmp/telegram-mcp` for temp state + `~/.config/opencode/mcp-telegram-server/downloads` for exported media). If you cloned elsewhere, update the `--directory` and the trailing roots — keep them inside `$HOME` or `/tmp` and ensure `telegram_download_media` can write there. The server is installed in Step 7.6 even before you have API credentials; it stays idle (no `TELEGRAM_SESSION_STRING`) until you finish 7.6. For Docker blowsh no host binary is needed — `docker pull ghcr.io/mokhtarabadi/blowsh-mcp:latest` on first `fetch_web` run.
 
@@ -388,7 +361,7 @@ Defaults are applied automatically (enabled, autoUpdate, pruneNotification detai
 
 ## 7.8. Worktree Support — OpenChamber Native (owt Removed 2026-09-08)
 
-owt (`@nano-step/opencode-worktree-plugin`, npm, MIT) was installed in Task 164 (`npm install -g @nano-step/opencode-worktree-plugin` + `owt-setup install` → `~/.config/opencode/plugins/worktree-plugin.js` + 7 slash commands `/init-worktree` etc., `.gitignore` guards) and disabled in Task 165 (`.disabled`). **On 2026-09-08 it was fully removed** (`npm uninstall -g @nano-step/opencode-worktree-plugin` + `rm` plugin + 7 `command/*.md`) because **OpenChamber 1.22.2 provides first-class worktrees natively**: [Worktree Sessions](https://docs.openchamber.dev/worktrees/) (new-worktree dialog: new/existing branch, `OpenChamber makes the branch, sets up the folder, and starts a session in it`), [Multi-run](https://docs.openchamber.dev/multi-run/) (`isolate runs` → each run its own worktree/branch, up to 5 models), Fusion, and Git view → Integrate (merge worktree commits onto main). Use OpenChamber sidebar/dialogs for worktrees — owt is redundant when OpenChamber is running (confirmed via `packages/ui/src/lib/worktreeSessionCreator.ts`, `packages/docs/content/docs/worktrees.mdx`). No `openchamber --worktree` CLI flag exists — worktrees are GUI-driven.
+owt (`@nano-step/opencode-worktree-plugin`, npm, MIT) was installed (`npm install -g @nano-step/opencode-worktree-plugin` + `owt-setup install` → plugin + 7 slash commands, `.gitignore` guards) and later disabled (`.disabled`). **On 2026-09-08 it was fully removed** (`npm uninstall -g @nano-step/opencode-worktree-plugin` + `rm` plugin + 7 `command/*.md`) because **OpenChamber 1.22.2 provides first-class worktrees natively**: [Worktree Sessions](https://docs.openchamber.dev/worktrees/) (new-worktree dialog: new/existing branch, `OpenChamber makes the branch, sets up the folder, and starts a session in it`), [Multi-run](https://docs.openchamber.dev/multi-run/) (`isolate runs` → each run its own worktree/branch, up to 5 models), Fusion, and Git view → Integrate (merge worktree commits onto main). Use OpenChamber sidebar/dialogs for worktrees — owt is redundant when OpenChamber is running (confirmed via `packages/ui/src/lib/worktreeSessionCreator.ts`, `packages/docs/content/docs/worktrees.mdx`). No `openchamber --worktree` CLI flag exists — worktrees are GUI-driven.
 
 If you need CLI/headless worktrees **without** OpenChamber (SSH/CI), reinstall owt:
 
@@ -504,12 +477,11 @@ After completing all steps, verify:
 - [ ] `~/.config/opencode/mcp-context-server/server.py` exists and is executable
 - [ ] `~/.config/opencode/mcp-memory-server/server.py` exists and is executable
 - [ ] `~/.config/opencode/mcp-lint-server/server.py` exists and is executable
-- [ ] `~/.config/opencode/mcp-persona-server/server.py` exists and is executable (multi-file: `dual_dispatch.py`, `session.py`, `telegram.py` alongside)
-- [ ] `~/.config/opencode/mcp-decision-server/server.py` exists and is executable (`redactor.py` alongside)
-- [ ] Skills are installed under `~/.config/opencode/skills/` (at least one subfolder exists) — should include `bundle-tasks` and `manager-decision` (31 skills total)
+- [ ] `~/.config/opencode/mcp-brain-bridge/server.py` exists and is executable
+- [ ] Skills are installed under `~/.config/opencode/skills/` (at least one subfolder exists) — should include `bundle-tasks` (31 skills total)
 - [ ] `~/.config/opencode/agents/cognitive-executor.md` exists
 - [ ] `~/.config/opencode/agents/cognitive-discovery.md` exists
-- [ ] `~/.config/opencode/opencode.json` exists with **absolute paths** (not `~` or relative paths) and 7 `mcp` entries (`custom_context`, `project_memory`, `lint`, `persona`, `manager_decisions`, `blowsh`, `telegram`) + `blowsh_*`/`telegram_*`/persona/decision-tool permissions + `environment: {env:…}` blocks on `persona`/`manager_decisions`, no former browser entry
+- [ ] `~/.config/opencode/opencode.json` exists with **absolute paths** (not `~` or relative paths) and 6 `mcp` entries (`custom_context`, `project_memory`, `lint`, `brain`, `blowsh`, `telegram`) + `blowsh_*`/`telegram_*`/`brain_turn` permissions, no former browser entry
 - [ ] `~/.config/opencode/opencode.json` + `tui.json` `plugin` arrays contain both `@prevalentware/opencode-goal-plugin` and `@tarquinen/opencode-dcp` (`grep -q "@tarquinen/opencode-dcp" ~/.config/opencode/opencode.json && grep -q "@tarquinen/opencode-dcp" ~/.config/opencode/tui.json`); project `opencode.json` + `tui.json` match (`diff -q tui.json ~/.config/opencode/tui.json`)
 - [ ] DCP loads: `opencode plugin list` shows `@tarquinen/opencode-dcp`, `/dcp` panel opens, `~/.config/opencode/dcp.jsonc` created on first run (project `.opencode/dcp.jsonc` overrides if present)
 - [ ] worktrees: OpenChamber native via sidebar/dialog (`https://docs.openchamber.dev/worktrees/`) — no `owt` required; if owt reinstalled, `owt help` + `~/.config/opencode/plugins/worktree-plugin.js` + `/init-worktree` after restart
@@ -522,13 +494,12 @@ After completing all steps, verify:
 - [ ] Telegram smoke check (only if `TELEGRAM_SESSION_STRING` set): `telegram_get_messages` or `list_accounts` returns without `No Telegram session configured`
 - [ ] No former browser MCP remains in configs: `grep -R "former-browser" opencode.json LLM.txt docs/ ~/.config/opencode/opencode.json ~/.agents/mcp.json` check described here validates that removal is complete (automated check in task 111 greps for the retired browser name)
 - [ ] `docs/telegram-setup.md` exists and is linked from `README.md` and this file
-- [ ] Start each core MCP server to verify it launches without errors (locked `--project` form):
+- [ ] Start each local MCP server to verify it launches without errors (locked `--project` form):
   ```bash
   uv run --project ~/.config/opencode/mcp-context-server ~/.config/opencode/mcp-context-server/server.py &
   uv run --project ~/.config/opencode/mcp-memory-server ~/.config/opencode/mcp-memory-server/server.py &
   uv run --project ~/.config/opencode/mcp-lint-server ~/.config/opencode/mcp-lint-server/server.py &
-  uv run --project ~/.config/opencode/mcp-persona-server ~/.config/opencode/mcp-persona-server/server.py &
-  uv run --project ~/.config/opencode/mcp-decision-server ~/.config/opencode/mcp-decision-server/server.py &
+  uv run --project ~/.config/opencode/mcp-brain-bridge ~/.config/opencode/mcp-brain-bridge/server.py &
   ```
 
 ---

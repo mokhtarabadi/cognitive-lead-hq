@@ -57,6 +57,8 @@ This repository is the Headquarters for the Cognitive Lead AI multi-agent system
   -> **Do** instruct the Hands to load all relevant skills from `<agent_skills_registry>` and treat multi-phase implementations as Goal units with explicit verification gates. (Goal-Oriented Tasks — V9.1.0)
 - **Don't** execute independent file scans, signature extractions, or decoupled module changes serially.
   -> **Do** spawn parallel subagents (up to 4 concurrent agents, e.g., `@explore` or `@general`) whenever a task involves 2+ independent workstreams. (Parallel Agent Execution — V9.1.0)
+- **Don't** reference task numbers in Markdown prose (prompts, skills, docs, headings).
+  -> **Do** reference task numbers ONLY in code comments, `CHANGELOG.md`, task files, history archives, and HTML comments. See Task-Number Reference Discipline in `docs/conventions.md`.
 
 ## Documentation Sync Rules
 
@@ -80,7 +82,7 @@ You MUST strictly adhere to these exact paths. Do not create duplicates elsewher
 - **Conventions:** `docs/conventions.md` (syntax, datetime, SOLID, financial, DSP)
 - **Agent Skills:** `.opencode/skills/<skill-name>/SKILL.md` (Local workspace)
 - **Active Tasks:** `tasks/backlog/<task-number>-<name>.md` (backlog), `tasks/in-progress/`, `tasks/qa/`, `tasks/completed/`, `tasks/archive/`
-- **Bundle Tool:** `bundle_tasks` MCP tool (`mcp-context-server/server.py`) — deterministic meta-task bundler for `task-generator` (Task 110/155)
+- **Bundle Tool:** `bundle_tasks` MCP tool (`mcp-context-server/server.py`) — deterministic meta-task bundler for `task-generator`
 
 ## 🛑 HQ-ONLY RULES (cognitive-lead-hq — Local, NOT part of global audit-agents)
 
@@ -90,7 +92,7 @@ These extensions apply ONLY inside this Headquarters repository. They are intent
 - **HQ Prompt Fragment System**: The `prompts/fragments/*` directory (including `09-hands_protocols.md`), `agents/cognitive-executor.md`, `skill-templates/*`, and `09-hands_*.md` are HQ-only scaffolding. They MUST NOT be created, audited, or referenced when the audit-agents skill runs outside this repository. Inside HQ they are the source of truth for Hands protocols; outside HQ they are `OPTIONAL — HQ-ONLY, SKIPPED`.
 - **Enforcement Location**: These rules live ONLY in this `AGENTS.md`. Do NOT add them to `skill-templates/audit-agents/SKILL.md` — that template must remain fully project-agnostic.
 
-## 🛑 META-TASK BUNDLE LIFECYCLE (Task 110)
+## 🛑 META-TASK BUNDLE LIFECYCLE
 
 A meta-task bundles 2–6 small related tasks into one META for unified execution. This is a **fully automatic, MCP-driven** workflow (never manual copy-paste).
 

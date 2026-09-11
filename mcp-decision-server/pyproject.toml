@@ -5,7 +5,7 @@ description = "Manager-decision learning MCP server (Task 168): extract/redact/s
 requires-python = ">=3.10"
 dependencies = [
     "mcp[cli]>=1.0,<2.0",
-    "litellm",
+    "httpx>=0.28",
     "mcp-common",
 ]
 

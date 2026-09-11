@@ -225,20 +225,51 @@ def test_extract_missing_transcript_returns_empty(srv, tmp_path):
 def test_extract_parses_stubbed_llm_json(srv, tmp_path, monkeypatch):
     transcript = tmp_path / "transcript.jsonl"
     transcript.write_text(
-        json.dumps({"role": "user", "content": "use composition", "name": "m",
+        json.dumps({"role": "user", "content": "ship it", "name": "m",
                     "timestamp": "2026-09-08T00:00:00+00:00"}) + "\n",
         encoding="utf-8",
     )
     candidates = [{
-        "verbatim_quote": {"original": "x", "english_translation": "y"},
+        "verbatim_quote": {"original": "ship it", "english_translation": "y"},
         "extracted_decision": {"summary": "s", "category": "architecture",
                                "rationale": "r", "alternatives": [], "tradeoffs": "t"},
     }]
-    message = types.SimpleNamespace(content=json.dumps(candidates))
-    stub = types.ModuleType("litellm")
-    stub.completion = lambda **kwargs: types.SimpleNamespace(
-        choices=[types.SimpleNamespace(message=message)])
-    monkeypatch.setitem(sys.modules, "litellm", stub)
+    stub_resp = types.SimpleNamespace(
+        status_code=200, text="stub", headers={},
+        raise_for_status=lambda: None,
+        json=lambda: {
+            "output": [
+                {"type": "message",
+                 "content": [{"type": "output_text",
+                              "text": json.dumps(candidates)}]}
+            ]
+        },
+    )
+
+    class _FakeClient:
+        def __init__(self, *a, **k):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def post(self, *a, **k):
+            return stub_resp
+
+    stub = types.ModuleType("httpx")
+    stub.Client = _FakeClient
+    stub.TimeoutException = type("TimeoutException", (Exception,), {})
+    stub.TransportError = type("TransportError", (Exception,), {})
+
+    class _Timeout:
+        def __init__(self, *a, **k):
+            pass
+
+    stub.Timeout = _Timeout
+    monkeypatch.setitem(sys.modules, "httpx", stub)
     call = srv.extract_session_decisions
     target = call.fn if hasattr(call, "fn") else call
     assert target(1, transcript_path=str(transcript)) == candidates
@@ -272,17 +303,15 @@ def test_load_env_files_parent_fallback_without_cwd(srv, tmp_path, monkeypatch):
     assert os.environ.get("DECISION_PARENT_PROBE") == "from-parent"
 
 
-def test_decision_model_split_and_fallback(srv, monkeypatch):
+def test_decision_model_split_no_persona_fallback(srv, monkeypatch):
     call = srv._get_decision_model
     monkeypatch.delenv("DECISION_MODEL", raising=False)
-    monkeypatch.delenv("PERSONA_MODEL", raising=False)
-    assert call() == "openrouter/deepseek/deepseek-v4-flash-0731"
     monkeypatch.setenv("PERSONA_MODEL", "openrouter/custom/persona")
-    assert call() == "openrouter/custom/persona"
+    assert call() == "muse-spark-1.3-contributor-free"  # Stale persona value never hijacks.
     monkeypatch.setenv("DECISION_MODEL", "openrouter/custom/extractor")
     assert call() == "openrouter/custom/extractor"
     monkeypatch.setenv("DECISION_MODEL", "   ")
-    assert call() == "openrouter/custom/persona"  # Blank means unset.
+    assert call() == "muse-spark-1.3-contributor-free"  # Blank means unset.
 
 
 def test_repo_root_prefers_cwd_project_store(srv, tmp_path, monkeypatch):
@@ -336,3 +365,707 @@ def test_tool_docstrings_carry_when_to_call(srv):
     for tool in tools:
         fn = tool.fn if hasattr(tool, "fn") else tool
         assert "WHEN TO CALL" in (fn.__doc__ or ""), getattr(fn, "__name__", tool)
+
+
+# --- hotfix hardening (QA_REJECTED follow-up, mocked HTTP only) ---
+
+import time as _time
+
+
+def _write_min_transcript(path):
+    path.write_text(
+        json.dumps({"role": "user", "content": "ship it", "name": "m",
+                    "timestamp": "2026-09-08T00:00:00+00:00"}) + "\n",
+        encoding="utf-8",
+    )
+
+
+def _decision_resp(status_code=200, text="", payload=None, ctype="application/json"):
+    def _json():
+        if isinstance(payload, Exception):
+            raise payload
+        return payload
+    return types.SimpleNamespace(
+        status_code=status_code, text=text, headers={"content-type": ctype},
+        raise_for_status=lambda: None, json=_json,
+    )
+
+
+def _stub_decision_http(monkeypatch, stub_resp):
+    class _FakeClient:
+        def __init__(self, *a, **k):
+            self.kwargs = k
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def post(self, *a, **k):
+            return stub_resp
+
+    stub = types.ModuleType("httpx")
+    stub.Client = _FakeClient
+    stub.TimeoutException = type("TimeoutException", (Exception,), {})
+    stub.TransportError = type("TransportError", (Exception,), {})
+
+    class _Timeout:
+        def __init__(self, *a, **k):
+            pass
+
+    stub.Timeout = _Timeout
+    monkeypatch.setitem(sys.modules, "httpx", stub)
+
+
+def _extract(srv):
+    call = srv.extract_session_decisions
+    return call.fn if hasattr(call, "fn") else call
+
+
+def test_extract_empty_key_raises(srv, tmp_path, monkeypatch):
+    transcript = tmp_path / "transcript.jsonl"
+    _write_min_transcript(transcript)
+    monkeypatch.delenv("BRAIN_API_KEY", raising=False)
+    with pytest.raises(RuntimeError, match="empty"):
+        _extract(srv)(7, transcript_path=str(transcript))
+
+
+def test_extract_500_final_raises(srv, tmp_path, monkeypatch):
+    transcript = tmp_path / "transcript.jsonl"
+    _write_min_transcript(transcript)
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    monkeypatch.setattr(_time, "sleep", lambda s: None)
+    _stub_decision_http(monkeypatch, _decision_resp(500, "boom", {}))
+    with pytest.raises(RuntimeError, match="500"):
+        _extract(srv)(7, transcript_path=str(transcript))
+
+
+def test_extract_non_json_raises(srv, tmp_path, monkeypatch):
+    transcript = tmp_path / "transcript.jsonl"
+    _write_min_transcript(transcript)
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    _stub_decision_http(
+        monkeypatch, _decision_resp(200, "nope", ValueError("bad"), "text/plain"))
+    with pytest.raises(RuntimeError, match="non-JSON"):
+        _extract(srv)(7, transcript_path=str(transcript))
+
+
+def test_extract_dict_wrapped_in_list(srv, tmp_path, monkeypatch):
+    transcript = tmp_path / "transcript.jsonl"
+    _write_min_transcript(transcript)
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    one = {
+        "verbatim_quote": {"original": "ship it", "english_translation": "y"},
+        "extracted_decision": {"summary": "s", "category": "architecture",
+                               "rationale": "r", "alternatives": [], "tradeoffs": "t"},
+    }
+    _stub_decision_http(monkeypatch, _decision_resp(200, "fine", one))
+    assert _extract(srv)(7, transcript_path=str(transcript)) == [one]
+
+
+def test_extract_scalar_raises(srv, tmp_path, monkeypatch):
+    transcript = tmp_path / "transcript.jsonl"
+    _write_min_transcript(transcript)
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    _stub_decision_http(monkeypatch, _decision_resp(200, "42", 42))
+    with pytest.raises(RuntimeError):
+        _extract(srv)(7, transcript_path=str(transcript))
+
+
+def test_extract_fenced_envelope_parsed(srv, tmp_path, monkeypatch):
+    transcript = tmp_path / "transcript.jsonl"
+    _write_min_transcript(transcript)
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    one = {
+        "verbatim_quote": {"original": "ship it", "english_translation": "y"},
+        "extracted_decision": {"summary": "s", "category": "architecture",
+                               "rationale": "r", "alternatives": [], "tradeoffs": "t"},
+    }
+    fenced = "```json\n" + json.dumps([one]) + "\n```"
+    envelope = {"output": [{"type": "message",
+                            "content": [{"type": "output_text", "text": fenced}]}]}
+    _stub_decision_http(monkeypatch, _decision_resp(200, "fine", envelope))
+    assert _extract(srv)(7, transcript_path=str(transcript)) == [one]
+
+
+# --- Hotfix-2 new tests (mocked httpx only) ---
+
+def _script_client(script):
+    class _ScriptClient:
+        def __init__(self):
+            self.calls = 0
+
+        def post(self, *a, **k):
+            self.calls += 1
+            item = script.pop(0) if len(script) > 1 else script[0]
+            if isinstance(item, Exception):
+                raise item
+            return item
+
+    return _ScriptClient()
+
+
+def test_post_overall_deadline_fast_fail(srv, monkeypatch):
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    monkeypatch.setattr(_time, "sleep", lambda s: None)
+    monkeypatch.setattr(srv, "_OVERALL_DEADLINE_S", 0)
+    with pytest.raises(RuntimeError, match="deadline"):
+        srv._post_with_retry(
+            _script_client([_decision_resp(500, "boom", {})]),
+            "http://x/responses", {})
+
+
+def test_post_retry_after_honored(srv, monkeypatch):
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    sleeps = []
+    monkeypatch.setattr(_time, "sleep", lambda s: sleeps.append(s))
+    r429 = _decision_resp(429, "slow down", {})
+    r429.headers["Retry-After"] = "3"
+    resp, _ = srv._post_with_retry(
+        _script_client([r429, _decision_resp(200, "fine", {})]),
+        "http://x/responses", {})
+    assert resp.status_code == 200
+    assert sleeps and sleeps[0] >= 3
+
+
+def test_extract_rejects_candidates_envelope(srv, tmp_path, monkeypatch):
+    transcript = tmp_path / "transcript.jsonl"
+    _write_min_transcript(transcript)
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    envelope = {"output": [{"type": "message", "content": [
+        {"type": "output_text",
+         "text": json.dumps({"candidates": [{"verbatim_quote": {}, "extracted_decision": {}}]})}]}]}
+    _stub_decision_http(monkeypatch, _decision_resp(200, "fine", envelope))
+    with pytest.raises(RuntimeError, match="candidates"):
+        _extract(srv)(7, transcript_path=str(transcript))
+
+
+def test_extract_missing_fields_rejected_with_index(srv, tmp_path, monkeypatch):
+    transcript = tmp_path / "transcript.jsonl"
+    _write_min_transcript(transcript)
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    bad = [{"verbatim_quote": {"original": "ship it", "english_translation": "y"}}]
+    envelope = {"output": [{"type": "message", "content": [
+        {"type": "output_text", "text": json.dumps(bad)}]}]}
+    _stub_decision_http(monkeypatch, _decision_resp(200, "fine", envelope))
+    with pytest.raises(RuntimeError, match="0"):
+        _extract(srv)(7, transcript_path=str(transcript))
+
+
+def test_extract_empty_list_warns_not_errors(srv, tmp_path, monkeypatch, capsys):
+    transcript = tmp_path / "transcript.jsonl"
+    _write_min_transcript(transcript)
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    envelope = {"output": [{"type": "message", "content": [
+        {"type": "output_text", "text": "[]"}]}]}
+    _stub_decision_http(monkeypatch, _decision_resp(200, "fine", envelope))
+    assert _extract(srv)(7, transcript_path=str(transcript)) == []
+    assert "non-empty" in capsys.readouterr().err
+
+
+def test_extract_tries_each_fenced_block(srv, tmp_path, monkeypatch):
+    transcript = tmp_path / "transcript.jsonl"
+    _write_min_transcript(transcript)
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    one = {
+        "verbatim_quote": {"original": "ship it", "english_translation": "y"},
+        "extracted_decision": {"summary": "s", "category": "architecture",
+                               "rationale": "r", "alternatives": [], "tradeoffs": "t"},
+    }
+    text = ("```text\nnot json at all\n```\n"
+            "```json\n" + json.dumps([one]) + "\n```")
+    envelope = {"output": [{"type": "message", "content": [
+        {"type": "output_text", "text": text}]}]}
+    _stub_decision_http(monkeypatch, _decision_resp(200, "fine", envelope))
+    assert _extract(srv)(7, transcript_path=str(transcript)) == [one]
+
+
+def test_temperature_pinned_zero_unless_set(srv, tmp_path, monkeypatch):
+    # Task 191: the extraction call pins temperature 0 by default; an
+    # explicitly set BRAIN_TEMPERATURE still wins (explicit override).
+    transcript = tmp_path / "transcript.jsonl"
+    _write_min_transcript(transcript)
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    seen = {}
+
+    def _stub_capture(resp_holder):
+        class _FakeClient:
+            def __init__(self, *a, **k):
+                pass
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+
+            def post(self, url, json=None, headers=None, **k):
+                seen["body"] = json
+                return resp_holder
+
+        stub = types.ModuleType("httpx")
+        stub.Client = _FakeClient
+        stub.TimeoutException = type("TimeoutException", (Exception,), {})
+        stub.TransportError = type("TransportError", (Exception,), {})
+
+        class _Timeout:
+            def __init__(self, *a, **k):
+                pass
+
+        stub.Timeout = _Timeout
+        monkeypatch.setitem(sys.modules, "httpx", stub)
+
+    one = {
+        "verbatim_quote": {"original": "ship it", "english_translation": "y"},
+        "extracted_decision": {"summary": "s", "category": "architecture",
+                               "rationale": "r", "alternatives": [], "tradeoffs": "t"},
+    }
+    envelope = {"output": [{"type": "message", "content": [
+        {"type": "output_text", "text": json.dumps([one])}]}]}
+    monkeypatch.delenv("BRAIN_TEMPERATURE", raising=False)
+    monkeypatch.delenv("DECISION_TEMPERATURE", raising=False)
+    _stub_capture(_decision_resp(200, "fine", envelope))
+    _extract(srv)(7, transcript_path=str(transcript))
+    assert seen["body"]["temperature"] == 0
+    assert "reasoning_effort" not in seen["body"]
+    srv._EXTRACT_CACHE.clear()
+    monkeypatch.setenv("BRAIN_TEMPERATURE", "0.7")
+    monkeypatch.delenv("DECISION_TEMPERATURE", raising=False)
+    _stub_capture(_decision_resp(200, "fine", envelope))
+    _extract(srv)(7, transcript_path=str(transcript))
+    assert seen["body"]["temperature"] == 0.7
+    srv._EXTRACT_CACHE.clear()
+    monkeypatch.setenv("BRAIN_TEMPERATURE", "1")
+    monkeypatch.setenv("DECISION_TEMPERATURE", "0.5")
+    _stub_capture(_decision_resp(200, "fine", envelope))
+    _extract(srv)(7, transcript_path=str(transcript))
+    assert seen["body"]["temperature"] == 0.5
+    assert "reasoning_effort" not in seen["body"]
+
+
+def test_invalid_effort_value_raises(srv, monkeypatch):
+    monkeypatch.setenv("BRAIN_REASONING_EFFORT", "bad effort!!")
+    with pytest.raises(ValueError):
+        srv._get_decision_effort()
+
+
+# --- Task 191: deterministic extraction (mocked httpx only) ---
+
+@pytest.fixture(autouse=True)
+def _clear_extract_cache(srv):
+    # The extract cache is module-level by design (same transcript +
+    # same model => same key); isolate tests from each other.
+    srv._EXTRACT_CACHE.clear()
+    srv._last_cache_hits = 0
+    srv._REPAIR_COUNT = 0
+    yield
+    srv._EXTRACT_CACHE.clear()
+
+
+def _valid_one_191():
+    return {
+        "verbatim_quote": {"original": "ship it", "english_translation": "y"},
+        "extracted_decision": {"summary": "s", "category": "architecture",
+                               "rationale": "r", "alternatives": [],
+                               "tradeoffs": "t"},
+    }
+
+
+def _envelope_191(payload_text):
+    return {"output": [{"type": "message", "content": [
+        {"type": "output_text", "text": payload_text}]}]}
+
+
+def _stub_counting_http(monkeypatch, resp_factory):
+    """Fake httpx module whose client counts post() calls + bodies."""
+    calls = {"n": 0, "bodies": []}
+
+    class _FakeClient:
+        def __init__(self, *a, **k):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def post(self, url, json=None, headers=None, **k):
+            calls["n"] += 1
+            calls["bodies"].append(json)
+            return resp_factory()
+
+    stub = types.ModuleType("httpx")
+    stub.Client = _FakeClient
+    stub.TimeoutException = type("TimeoutException", (Exception,), {})
+    stub.TransportError = type("TransportError", (Exception,), {})
+
+    class _Timeout:
+        def __init__(self, *a, **k):
+            pass
+
+    stub.Timeout = _Timeout
+    monkeypatch.setitem(sys.modules, "httpx", stub)
+    return calls
+
+
+def test_extract_repeat_determinism_five_times(srv, tmp_path, monkeypatch, capsys):
+    transcript = tmp_path / "transcript.jsonl"
+    _write_min_transcript(transcript)
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    monkeypatch.delenv("BRAIN_TEMPERATURE", raising=False)
+    monkeypatch.delenv("DECISION_TEMPERATURE", raising=False)
+    one = _valid_one_191()
+    calls = _stub_counting_http(
+        monkeypatch,
+        lambda: _decision_resp(200, "fine", _envelope_191(json.dumps([one]))),
+    )
+    results = [_extract(srv)(7, transcript_path=str(transcript)) for _ in range(5)]
+    assert calls["n"] == 1  # Cache serves repeats: exactly one HTTP hit.
+    blobs = [json.dumps(r, sort_keys=True) for r in results]
+    assert all(b == blobs[0] for b in blobs)  # Byte-identical 5x.
+    assert calls["bodies"][0]["temperature"] == 0  # Temp-0 default pinned.
+    assert capsys.readouterr().err.count("cache hit") == 4
+
+
+def test_extract_cache_hit_zero_tokens(srv, tmp_path, monkeypatch, capsys):
+    transcript = tmp_path / "transcript.jsonl"
+    _write_min_transcript(transcript)
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    monkeypatch.delenv("BRAIN_TEMPERATURE", raising=False)
+    monkeypatch.delenv("DECISION_TEMPERATURE", raising=False)
+    one = _valid_one_191()
+    calls = _stub_counting_http(
+        monkeypatch,
+        lambda: _decision_resp(200, "fine", _envelope_191(json.dumps([one]))),
+    )
+    first = _extract(srv)(7, transcript_path=str(transcript))
+    second = _extract(srv)(7, transcript_path=str(transcript))
+    assert calls["n"] == 1
+    assert json.dumps(first, sort_keys=True) == json.dumps(second, sort_keys=True)
+    assert "cache hit" in capsys.readouterr().err
+
+
+def test_extract_regex_fallback_salvages_exact_lines(srv, tmp_path, monkeypatch):
+    line = "the manager ruled to prefer composition over inheritance"
+    transcript = tmp_path / "transcript.jsonl"
+    transcript.write_text(
+        json.dumps({"role": "manager", "content": line, "name": "m",
+                    "timestamp": "2026-09-08T00:00:00+00:00"}) + "\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    text = ("My take:\n- " + line + "\n"
+            "- something not in the transcript at all\n")
+    _stub_decision_http(monkeypatch, _decision_resp(200, "fine", _envelope_191(text)))
+    result = _extract(srv)(7, transcript_path=str(transcript))
+    assert len(result) == 1  # Only the exact-substring line salvages.
+    assert result[0]["verbatim_quote"]["original"] == line
+    assert line in open(transcript, encoding="utf-8").read()
+    assert set(result[0]["extracted_decision"]) >= {
+        "summary", "category", "rationale", "alternatives", "tradeoffs"}
+
+
+def test_extract_garbage_raises_loudly(srv, tmp_path, monkeypatch):
+    transcript = tmp_path / "transcript.jsonl"
+    _write_min_transcript(transcript)
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    _stub_decision_http(
+        monkeypatch,
+        _decision_resp(
+            200, "fine",
+            _envelope_191("just some rambling prose with no structure whatsoever")),
+    )
+    with pytest.raises(RuntimeError):
+        _extract(srv)(7, transcript_path=str(transcript))
+
+
+def test_extract_auto_repair_once(srv, tmp_path, monkeypatch, capsys):
+    transcript = tmp_path / "transcript.jsonl"
+    _write_min_transcript(transcript)
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    one = _valid_one_191()
+    # Fences are pre-handled: parse with no extra repair.
+    _stub_decision_http(
+        monkeypatch,
+        _decision_resp(
+            200, "fine",
+            _envelope_191("```json\n" + json.dumps([one]) + "\n```")),
+    )
+    assert _extract(srv)(7, transcript_path=str(transcript)) == [one]
+    assert capsys.readouterr().err.count("auto-repair") == 0
+    # Fixable flaw: valid JSON embedded in prose (no fences) -> repaired.
+    srv._EXTRACT_CACHE.clear()
+    embedded = ("Here are the extracted decisions:\n" + json.dumps([one])
+                + "\nThat is all.")
+    _stub_decision_http(
+        monkeypatch, _decision_resp(200, "fine", _envelope_191(embedded)))
+    assert _extract(srv)(7, transcript_path=str(transcript)) == [one]
+    assert capsys.readouterr().err.count("auto-repair") == 1
+    # Unfixable garbage -> loud error, still at most one repair.
+    srv._EXTRACT_CACHE.clear()
+    _stub_decision_http(
+        monkeypatch,
+        _decision_resp(
+            200, "fine",
+            _envelope_191("total garbage with no json at all")),
+    )
+    with pytest.raises(RuntimeError):
+        _extract(srv)(7, transcript_path=str(transcript))
+    assert capsys.readouterr().err.count("auto-repair") == 1
+
+
+def test_extract_strips_nonverbatim_evidence_links(srv, tmp_path, monkeypatch):
+    # E4: evidence keys must be verbatim in the transcript; others are stripped.
+    transcript = tmp_path / "transcript.jsonl"
+    _write_min_transcript(transcript)
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    one = {
+        "verbatim_quote": {"original": "ship it",
+                           "english_translation": "ship it"},
+        "extracted_decision": {"summary": "ship it", "category": "architecture",
+                               "rationale": "r", "alternatives": [], "tradeoffs": "t"},
+        "evidence_links": ["nowhere in transcript", "ship it"],
+    }
+    _stub_decision_http(
+        monkeypatch,
+        _decision_resp(200, "fine", _envelope_191(json.dumps([one]))),
+    )
+    out = _extract(srv)(7, transcript_path=str(transcript))
+    assert out[0]["evidence_links"] == ["ship it"]
+
+
+# --- Task-191 hotfix round 2 (QA_REJECTED V1-V5/M1-M5, mocked HTTP only) ---
+
+def _stub_capture(monkeypatch, stub_resp, seen):
+    class _CapClient:
+        def __init__(self, *a, **k):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def post(self, url, json=None, headers=None, **k):
+            seen.append(json)
+            return stub_resp
+
+    stub = types.ModuleType("httpx")
+    stub.Client = _CapClient
+    stub.TimeoutException = type("TimeoutException", (Exception,), {})
+    stub.TransportError = type("TransportError", (Exception,), {})
+
+    class _Timeout:
+        def __init__(self, *a, **k):
+            pass
+
+    stub.Timeout = _Timeout
+    monkeypatch.setitem(sys.modules, "httpx", stub)
+
+
+def _ship_candidates():
+    return [{
+        "verbatim_quote": {"original": "ship it",
+                           "english_translation": "ship it"},
+        "extracted_decision": {"summary": "ship it", "category": "architecture",
+                               "rationale": "r", "alternatives": [],
+                               "tradeoffs": "t"},
+    }]
+
+
+def test_extract_temp_wire_default_zero(srv, tmp_path, monkeypatch):
+    transcript = tmp_path / "transcript.jsonl"
+    _write_min_transcript(transcript)
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    monkeypatch.delenv("BRAIN_TEMPERATURE", raising=False)
+    monkeypatch.delenv("DECISION_TEMPERATURE", raising=False)
+    seen = []
+    _stub_capture(monkeypatch,
+                  _decision_resp(200, "fine", _envelope_191(json.dumps(_ship_candidates()))),
+                  seen)
+    _extract(srv)(21, transcript_path=str(transcript))
+    assert seen[0]["temperature"] == 0
+    assert "reasoning_effort" not in seen[0]
+
+
+def test_extract_override_wins_and_key_changes(srv, tmp_path, monkeypatch):
+    transcript = tmp_path / "transcript.jsonl"
+    _write_min_transcript(transcript)
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    monkeypatch.setenv("BRAIN_TEMPERATURE", "0.7")
+    seen = []
+    _stub_capture(monkeypatch,
+                  _decision_resp(200, "fine", _envelope_191(json.dumps(_ship_candidates()))),
+                  seen)
+    _extract(srv)(22, transcript_path=str(transcript))
+    assert seen[0]["temperature"] == 0.7
+    raw = transcript.read_bytes()
+    assert (srv._extract_cache_key(raw, "m", 0.7)
+            != srv._extract_cache_key(raw, "m", 0.0))
+
+
+def test_extract_effort_absent_both_legs(srv, tmp_path, monkeypatch):
+    transcript = tmp_path / "transcript.jsonl"
+    _write_min_transcript(transcript)
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    for temp in (None, "0.7"):
+        if temp is None:
+            monkeypatch.delenv("BRAIN_TEMPERATURE", raising=False)
+        else:
+            monkeypatch.setenv("BRAIN_TEMPERATURE", temp)
+        seen = []
+        _stub_capture(
+            monkeypatch,
+            _decision_resp(200, "fine", _envelope_191(json.dumps(_ship_candidates()))),
+            seen)
+        _extract(srv)(23, transcript_path=str(transcript))
+        body = seen[-1]
+        if temp is None:
+            assert body["temperature"] == 0
+        assert "reasoning_effort" not in body
+
+
+def test_extract_cache_hit_logs_and_zero_hits(srv, tmp_path, monkeypatch, capsys):
+    transcript = tmp_path / "transcript.jsonl"
+    _write_min_transcript(transcript)
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    posts = []
+
+    class _CountClient:
+        def __init__(self, *a, **k):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def post(self, *a, **k):
+            posts.append(1)
+            return _decision_resp(
+                200, "fine", _envelope_191(json.dumps(_ship_candidates())))
+
+    stub = types.ModuleType("httpx")
+    stub.Client = _CountClient
+    stub.TimeoutException = type("TimeoutException", (Exception,), {})
+    stub.TransportError = type("TransportError", (Exception,), {})
+
+    class _Timeout:
+        def __init__(self, *a, **k):
+            pass
+
+    stub.Timeout = _Timeout
+    monkeypatch.setitem(sys.modules, "httpx", stub)
+    _extract(srv)(24, transcript_path=str(transcript))
+    _extract(srv)(24, transcript_path=str(transcript))
+    assert len(posts) == 1
+    assert "cache hit" in capsys.readouterr().err
+
+
+def test_extract_cache_evicts_oldest(srv, tmp_path, monkeypatch):
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    posts = []
+
+    class _CountClient:
+        def __init__(self, *a, **k):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def post(self, *a, **k):
+            posts.append(1)
+            return _decision_resp(
+                200, "fine", _envelope_191(json.dumps(_ship_candidates())))
+
+    stub = types.ModuleType("httpx")
+    stub.Client = _CountClient
+    stub.TimeoutException = type("TimeoutException", (Exception,), {})
+    stub.TransportError = type("TransportError", (Exception,), {})
+
+    class _Timeout:
+        def __init__(self, *a, **k):
+            pass
+
+    stub.Timeout = _Timeout
+    monkeypatch.setitem(sys.modules, "httpx", stub)
+    first = None
+    for i in range(65):
+        path = tmp_path / f"t{i}.jsonl"
+        path.write_text(
+            json.dumps({"role": "user", "content": f"ship it batch {i}",
+                        "name": "m",
+                        "timestamp": "2026-09-08T00:00:00+00:00"}) + "\n",
+            encoding="utf-8",
+        )
+        if i == 0:
+            first = str(path)
+        _extract(srv)(25, transcript_path=str(path))
+    assert len(srv._EXTRACT_CACHE) == 64
+    _extract(srv)(25, transcript_path=first)
+    assert len(posts) == 66
+
+
+def test_extract_empty_transcript_raises(srv, tmp_path, monkeypatch):
+    transcript = tmp_path / "transcript.jsonl"
+    transcript.write_text("", encoding="utf-8")
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    with pytest.raises(RuntimeError):
+        _extract(srv)(26, transcript_path=str(transcript))
+
+
+def test_extract_multi_blob_largest_wins_repair_once(
+        srv, tmp_path, monkeypatch):
+    transcript = tmp_path / "transcript.jsonl"
+    _write_min_transcript(transcript)
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    # Case 1: invalid fence + valid fence → block-skipping suffices, no repair.
+    fence1 = "```json\n{not valid json\n```"
+    fence2 = "```json\n" + json.dumps(_ship_candidates()) + "\n```"
+    before = srv._REPAIR_COUNT
+    _stub_decision_http(
+        monkeypatch, _decision_resp(200, "fine", _envelope_191(fence1 + "\n" + fence2)))
+    out = _extract(srv)(27, transcript_path=str(transcript))
+    assert out == _ship_candidates()
+    assert srv._REPAIR_COUNT - before == 0
+    # Case 2: prose-wrapped JSON needs exactly one largest-span repair.
+    # NOTE: a fresh transcript file — same bytes would be a cache hit
+    # and skip the pipeline entirely (counter stays 0 by design).
+    transcript2 = tmp_path / "transcript2.jsonl"
+    transcript2.write_text(
+        json.dumps({"role": "user", "content": "ship it twice", "name": "m",
+                    "timestamp": "2026-09-08T00:00:00+00:00"}) + "\n",
+        encoding="utf-8",
+    )
+    wrapped = ("Here you go:\n" + json.dumps(_ship_candidates())
+               + "\nhope this helps")
+    before = srv._REPAIR_COUNT
+    _stub_decision_http(
+        monkeypatch, _decision_resp(200, "fine", _envelope_191(wrapped)))
+    out = _extract(srv)(27, transcript_path=str(transcript2))
+    assert out == _ship_candidates()
+    assert srv._REPAIR_COUNT - before == 1
+
+
+def test_extract_whitespace_only_raises(srv, tmp_path, monkeypatch):
+    transcript = tmp_path / "transcript.jsonl"
+    transcript.write_text("   \n\n  \n", encoding="utf-8")
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    with pytest.raises(RuntimeError):
+        _extract(srv)(7, transcript_path=str(transcript))
+
+
+def test_extract_invalid_temp_raises_loudly(srv, tmp_path, monkeypatch):
+    transcript = tmp_path / "transcript.jsonl"
+    _write_min_transcript(transcript)
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    monkeypatch.setenv("BRAIN_TEMPERATURE", "abc")
+    with pytest.raises(ValueError):
+        _extract(srv)(7, transcript_path=str(transcript))

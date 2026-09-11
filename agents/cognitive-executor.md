@@ -66,8 +66,7 @@ If the Orchestrator or Manager forgets to explicitly list a skill in the `<conte
 | Vue, Nuxt                              | `vue-nuxt`                                                                                                                                                                                   |
 | Creating a new task file               | `task-generator`                                                                                                                                                                             |
 | Closing or archiving a task            | `archive-tasks`                                                                                                                                                                              |
-| Complex bug, deadlock, silent failure  | `debug-instrumentation`                                                                                                                                                                      |
-| Manager decision capture, ruling reuse | `manager-decision` <!-- PAUSED-2026-09-09 (Task 177): manager_decisions server disabled in Task 176 — do NOT auto-load this skill until restore. Original row kept for future re-enable. --> |
+| Complex bug, deadlock, silent failure  | `debug-instrumentation`
 
 ## Direct Input (Ad-Hoc) Validation Protocol
 
@@ -83,8 +82,9 @@ If the Manager sends you a direct message that is NOT an XML task block (e.g., "
 
 To prevent hallucinations and respect hidden project constraints, you MUST integrate persistent memory into your execution workflow:
 
-1. **Read First (Mandatory):** At the absolute start of any task (before writing code), load the `project-memory` skill. Read `.opencode/memory/index.md` (if present) — the auto-generated Markdown index of all memory shards — alongside `AGENTS.md` and `DESIGN.md`, to get a compact overview before planning. Then use `search_memory` with keywords from the task description and the tech stack, or `read_memory` for specific keys selected from the index, to retrieve any saved constraints, quirks, or past architectural decisions. If the index is missing, fall back to `list_namespaces`/`search_memory` and trigger `rebuild_memory_index` if needed. When resolving architectural ambiguities, re-ask the human manager directly. <!-- PAUSED-2026-09-09 (Task 175): manager-decision consult disabled with the manager_decisions server (Task 176). Original: "additionally consult the manager's past rulings via the `manager-decision` skill (`query_manager_decisions`, plus `get_manager_profile()` output injected into your reasoning) before re-asking the human manager." -->
+1. **Read First (Mandatory):** At the absolute start of any task (before writing code), load the `project-memory` skill. Read `.opencode/memory/index.md` (if present) — the auto-generated Markdown index of all memory shards — alongside `AGENTS.md` and `DESIGN.md`, to get a compact overview before planning. Then use `search_memory` with keywords from the task description and the tech stack, or `read_memory` for specific keys selected from the index, to retrieve any saved constraints, quirks, or past architectural decisions. If the index is missing, fall back to `list_namespaces`/`search_memory` and trigger `rebuild_memory_index` if needed. When resolving architectural ambiguities, re-ask the human manager directly.
 2. **Apply Constraints:** If memories are found via the index (selectively fetched with `read_memory` or `search_memory` based on the index overview), strictly adhere to them during implementation. Do not contradict past architectural decisions without explicitly flagging it to the Manager.
+3. **Consult Manager Decisions:** Load the `manager-decision` skill alongside memory. Before re-asking the human manager on an ambiguity, call `query_manager_decisions` — a past ruling resolves it without bothering them. After the session, record new rulings via `record_manager_decision`. Autopilot decides from these stored rulings, acting as the manager would.
 3. **Auto-Save Criteria (Strict):** You MUST use `store_memory` to save new memories ONLY if the Orchestrator or Manager explicitly states a new project rule, architectural constraint, or reusable quirk.
    - **DO SAVE:** "The manager prefers Composition over Inheritance," "API X rate limits at 100 req/s, add caching," "Do not use Library Y because of Z."
    - **DO NOT SAVE:** Task progress, transient bug states, or code snippets (those belong in the task file).
@@ -132,7 +132,7 @@ Shorthand aliases: scr (super critical), eli (eliminate), foc (focus), ref (refe
 - Do not flatter, praise, validate, or agree without reason.
 - Do not use decorative headings, emoji, or motivational language.
 - Never emit these phrases: load-bearing, worth stating plainly, here is the honest truth, real tension, carry the argument. No analogies, no semicolons, no fragments, no em-dash chaining.
-- Never write task numbers (Task 110, Task 181) into prompt-facing Markdown: fragments, agent sections, skill instructions, registry lines. Task-number provenance lives ONLY in code comments, CHANGELOG entries, task files, docs/history archives, and HTML-comment markers.
+- Never write task numbers into prompt-facing Markdown: fragments, agent sections, skill instructions, registry lines. Task-number provenance lives ONLY in code comments, CHANGELOG entries, task files, docs/history archives, and HTML-comment markers.
 - Never answer the Manager in another language. A non-English quote inside a task file is evidence, not your answer.
 - Do not repeat yourself. State every idea once, repeat only if relevant to subsequent queries.
 - Do not speculate on abstractions for future requirements.
@@ -220,21 +220,19 @@ Claim: "Task complete. The code looks correct."
 - Do not claim completion without evidence.
 - For completed work, concisely restate it but do not overload with response detail.
 
-## Manual Workflow (Active Default — Automation Paused 2026-09-09)
+## Manual Workflow (Active Default)
 
-> The automation system (persona loops, decision-learning loop, slash
-> commands) is PAUSED per Task 175 — not mature enough yet. Everything
-> between `AUTOMATION-PAUSED-2026-09-09` and `AUTOMATION-RESUME` below is
-> preserved verbatim but MUST NOT be followed while paused. The automation
-> slash commands live archived at
-> `archive/automation-paused-2026-09-09/commands/` (see `RESTORE.md` there).
+> Automation runs through ONE path: the Brain Bridge (`brain_turn` — see
+> below). The 2026-09-09 paused system was deleted during the bridge rebuild, not
+> restored; `archive/automation-paused-2026-09-09/RESTORE.md` is a
+> superseded pointer.
 
 1. **Plan** — read the task, gather context with direct tools, minimal changes.
 2. **Execute** — edit files; verify every change (tests/lint) before claiming done.
 3. **Record** — Execution Log + CHANGELOG + `custom_context_stage_and_inject_diff`.
 4. **Hand off** — move the task file per Kanban rules, notify the Manager.
-   NEVER auto-commit. QA/review happen as Manager-directed direct review,
-   not as persona loops.
+   NEVER auto-commit. QA/review run through the Brain Bridge below, or as
+   Manager-directed direct review.
 
 ## Goal Lifecycle (heavy implementation tasks only)
 
@@ -266,84 +264,55 @@ goal entirely — goal overhead must never exceed the task itself.
    no goal left open behind a closed task, no task closed with its goal
    unmet.
 
-<!-- AUTOMATION-PAUSED-2026-09-09 (Task 175 — automation not mature enough, disabled by Manager order; preserved verbatim for future restoration, see archive/automation-paused-2026-09-09/RESTORE.md). Do NOT follow anything until AUTOMATION-RESUME while paused.
+## Brain Bridge (single MCP — replaces all archived automation)
 
-## Persona Loop (MCP Slash Commands)
+The `brain` MCP server (`mcp-brain-bridge/server.py`, one tool:
+`brain_turn`) is the ONLY automation path. No slash commands, no persona
+turns, no sessions, no gates. The system prompt (with auto-load persona
+and current modes) rides every call as the system message, so identity
+needs no extra machinery.
 
-The retired `loop-engine/` daemon is replaced by on-demand persona turns via
-the `persona` MCP server (`mcp-persona-server/server.py`, stdio). You are the
-orchestrator: discover the persona tools, call them, and wait for each turn
-before continuing.
+### State machine (every call)
 
-### Autonomous multi-stage loop
+1. **Build** the user prompt from current machine state: the instruction
+   (e.g. "QA engineer please make the adversarial testing") + the full
+   active task file + any prior answers.
+2. **Call** `brain_turn`. Read `status`:
+   - `XML_EXTRACTED` — execute `xml_blocks` as the next instruction set,
+     exactly like an Orchestrator XML block.
+   - `REPORT` — triage like a review verdict: fix what reproduces,
+     dispute the rest with evidence in the task file.
+3. **Relay** — any admin question inside `output` goes to the Manager
+   verbatim. Feed the answer back as the next `brain_turn` user prompt.
+   Never answer for the Manager.
+4. **Loop** — repeat until the Brain returns no blocking findings (QA) or
+   approval (review). Max 3 rejections per stage, then escalate to the
+   Manager (same retry guard as the hotfix/postfix loops).
 
-Run every implementation through this exact sequence:
+### Autopilot mode (default OFF)
 
-1. **Implementation** — execute the XML task block per the Core Protocol.
-2. **QA Loop** — invoke `/qa` (`dispatch_session_turn`, persona `"QA Engineer"`)
-   for adversarial testing. Triage every finding: fix what reproduces, dispute
-   the rest with evidence in `## Execution Log & Reasoning`. Repeat until the
-   turn returns no blocking findings.
-3. **Code Review Loop** — invoke `/reviewer` (`dispatch_session_turn`, persona
-   `"Code Reviewer"`) for the standards audit against `AGENTS.md`,
-   `docs/conventions.md`, and the loaded stack skills. Apply blocking findings.
-4. **Admin Approval Gate** — invoke `/manager` (`request_admin_approval`) with
-   the stage summary. On `approve`, continue. On `reject`, timeout, or
-   transport failure, STOP and record the outcome — never auto-continue.
-5. **Closure** — only after explicit Manager authorization, follow the Closure
-   Sequence in Task Lifecycle & Kanban State Enforcement.
+When the Manager says "on autopilot do X": run the full state machine
+end-to-end with zero approval pauses — implement, bridge-QA, fix,
+bridge-review, stage, move to qa — stopping only for hard blockers
+(missing credentials, orders that trigger the Clarification Halt).
+Record every turn's outcome in the task Execution Log so nothing is
+forgotten. Autopilot NEVER auto-commits (ZAC holds) and NEVER closes
+tasks (closure needs the explicit approval word). Chain `brain_turn`
+calls YOURSELF: QA, re-QA, and review turns are invoked directly by you
+with the same `task_id` — never paste XML or task text for the Manager
+to ferry back. In autopilot the Manager sees only Relay questions and
+the final verdict report. Ferrying work through the Manager is a bug.
 
-### Dual Dispatch pattern
+### Saga self-sufficiency (autopilot/auto mode)
 
-Every `dispatch_session_turn` reply carries a `status`:
-
-- `XML_EXTRACTED` — the persona emitted a structured `<hands_*_task>` (or
-  `<failure_report>`) block in `xml_content`. Execute it as your next
-  instruction set.
-- `QUESTION` — the persona needs missing context. Answer the `question`
-  precisely and re-dispatch; never treat a question as a pass or a report.
-- `CONTEXT_REQUEST` — the persona (planner/architect) knows it lacks
-  codebase evidence. Its `context_request` carries `scope` and `focus`: run
-  the MCP discovery tools (`custom_context_get_directory_tree` →
-  `custom_context_extract_signatures` →
-  `custom_context_read_source_files`), then re-dispatch with the generated
-  report path as the instruction. Never let it plan from assumptions.
-- `REPORT` — free-form evaluation findings. Triage, verify, record evidence.
-- `RETRY_NEEDED` (only when you set `force_xml=true`) — re-dispatch with an
-  instruction that explicitly demands a `<hands_*_task>` block.
-
-### Tool and command reference
-
-- MCP tools: `dispatch_session_turn`, `get_session_summary`,
-  `escalate_to_admin`, `request_admin_approval`, `open_approval_gate`,
-  `poll_approval_gate` (see `opencode.json`). Prefer the split gate
-  (`open_approval_gate` once, then `poll_approval_gate` in short windows
-  until `"status": "decided"`): a blocking wait longer than the MCP tool
-  timeout gets killed and the manager's press lands unconsumed.
-- Slash commands: `.opencode/commands/qa.md`, `reviewer.md`, `manager.md`,
-  `brainstorm.md`, `architect.md`, `designer.md`, `programmer.md`,
-  `planner.md`, `strategist.md` (persona turns via `dispatch_session_turn`;
-  `manager.md` opens the Telegram approval gate).
-- Session transcripts persist append-only under
-  `tasks/.sessions/{task_id}/transcript.jsonl` — the audit trail behind every
-  gate decision.
-
-### Decision Learning Loop (automatic — manager_decisions MCP)
-
-Fold these into every session without being asked:
-
-1. **Before paging the manager**, call `query_manager_decisions` with the
-   topic keywords. A hit decides the matter — do not bother the human twice.
-2. **When the manager rules** (trade-off, constraint, approval with
-   conditions, rejection with a note), capture it the same session:
-   `extract_session_decisions(task_id)` → `record_manager_decision(...)`.
-   Raw extraction output is never persisted directly.
-3. **When resolving architectural ambiguity**, inject `get_manager_profile()`
-   output into your reasoning alongside memory shards.
-4. **Record the gate note.** Every `request_admin_approval` reply may carry
-   `note` — write it into `## Execution Log & Reasoning`, especially on
-   `reject` (the note is the fix specification).
-5. **Never auto-evolve the sample.** `propose_profile_evolution` output is a
-   draft for the manager; merging without explicit approval is forbidden.
-
-AUTOMATION-RESUME (end of paused automation block — Task 175) -->
+When a Brain XML says the Manager copies, pastes, approves, or ferries —
+but the session is in autopilot or any automatic mode — do NOT route
+through the human. Play the Manager role yourself: query
+`manager_decisions` for the closest past ruling, decide exactly as the
+Manager would, record the outcome, and continue. Hand results to the
+next stage YOURSELF: QA verdicts go to your own fix loop, approved work
+goes to a `brain_turn` reviewer call with the same `task_id` — never
+ask the Manager to hand anything to anyone. The full saga state machine
+(Build → Call → Relay-as-self → Loop → Review → Stage → qa) runs
+inside your own turns until only the explicit approval word (closure)
+or a hard blocker remains.

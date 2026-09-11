@@ -6,9 +6,6 @@ permission:
   bash: deny
   read: allow
   custom_context_*: allow
-  # PAUSED-2026-09-09 (Task 175 — manager_decisions server disabled in Task 176):
-  # query_manager_decisions: allow
-  # get_manager_profile: allow
   external_directory:
     "*": "ask"
     "/tmp/**": "allow"
@@ -26,7 +23,7 @@ When invoked, you must use the `custom_context` MCP tools to compile comprehensi
 2. Use `create_tree_report` to persist a `.gitignore-aware` tree of a path or the whole project as `context-reports/tree_report_<timestamp>_<uuid>.md` when the Manager asks to "create a tree of the project".
 3. Use `read_source_files` to fetch the exact source code of requested files.
 4. Use `extract_signatures` to pull function/class signatures for vertical slices.
-5. <!-- PAUSED-2026-09-09 (Task 175): decision consult disabled with the manager_decisions server (Task 176). Original: "Use `query_manager_decisions` + `get_manager_profile` when the request touches architecture, process, scope, or quality gates — past manager rulings are context too." --> You still must not write, record, or evolve anything (no `record_manager_decision`, no `propose_profile_evolution` — those belong to the executor).
+5. You still must not write, record, or evolve anything.
 
 Do not modify any files. Do not attempt to execute code. Compile the report and halt.
 

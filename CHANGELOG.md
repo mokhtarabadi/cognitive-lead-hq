@@ -6,7 +6,38 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- **Deterministic decision extraction (Task 191):** Extraction now returns byte-identical candidates for identical transcripts — temperature pinned to 0 on the extraction call only (explicit `BRAIN_TEMPERATURE` wins, reasoning effort always dropped; brainstorm path untouched), LRU cache keyed by sha256(transcript + model) with cap 64 and stderr hit logs (zero tokens on hit), strict candidate schema validator, largest-JSON-span repair with exactly-one auto-repair (fences 0 repairs, embedded 1 repair, garbage raises), exact-substring regex fallback (garbage raises loudly, never silent drift). Evidence links pass through untouched (validator preserves extra keys). Covered by 6 new mocked tests (no live calls). Full suite: **145 passed**.
+
+- **Autopilot QA hardening (Task 190 hotfix round):** The first live autopilot QA review rejected the bridge/decision servers with 10 findings; all honored — fail-closed empty-key guard, 3-attempt retry with backoff on 429/5xx, malformed-body errors with status + snippet, strict task-id allowlist + prompt-path confinement, fence-aware XML extraction, strict decision-schema checks (malformed raises, valid empty stays empty), temperature sent only when explicitly set, 100k-char input budget with oldest-first truncation. Also deleted a shadowing duplicate key helper that left the fail-closed guard dead. Covered by 13 new mocked tests (no live calls). Full suite: **113 passed**.
+
+- **Guaranteed context bundle + autopilot saga rule (Task 190 overnight):** Executor autopilot gained Saga self-sufficiency — the Hands plays the manager role via manager-decision when an XML step says the manager copies, and hands results to the reviewer directly via `brain_turn` (ferrying through the human in autopilot is now a bug). Big-file-to-LLM research (blowsh spider workflow, Kokil 2026 long-context guide) concluded tool-use beats whole-file stuffing, so the bridge now auto-prepends a 5-file context bundle (`cognitive-executor.md`, `conventions.md`, `architecture.md`, `data_model.md`, `DESIGN.md`, 60k/file cap, `[missing]` markers) to every `brain_turn`, and exposes `read_file` (root-guarded, numbered lines) + `grep_files` (30-hit cap) for on-demand pulls of big files like full task files. Live bundle proof: HTTP 200, exact `BUNDLE_PROOF_OK`, all 5 files included-or-marked. Covered by 10 new mocked tests. Full suite: **139 passed**.
+
+## [9.26.0] - 2026-09-11
+
+### Changed
+
+- **Zero task-number refs in prompt prose (Task 190 extension, manager order):** Scrubbed every `Task NNN` reference from prompt-facing Markdown — fragment `09-hands_protocols.md` rule example, executor heading/bullet/bridge note, `AGENTS.md` bundle lines (plus a new Don't/Do pointer pair making the discipline locatable where the manager expected it), `docs/conventions.md` example, both scrubbed skills (`audit-agents`, `manager-decision`), `README.md` (6 hits), `LLM.txt` (5 hits), `docs/setup.md`, `docs/brain-bridge.md` title, `docs/openchamber-tailscale.md` (2 hits). Keepers untouched: `CHANGELOG.md`, task files, `docs/history` archives, frozen pause block, HTML comments, memory shards. Bonus fix in the same pass: `LLM.txt` stated the brain timeout as 120000ms — corrected to 600000ms (10 min, live value). Reassembled `system-prompt.md` (sync-check byte-identical); residual grep `ZERO_RESIDUAL`.
+
+### Added (Task 190, manager-ordered revision)
+
+- **Decision skill + server KEPT and rewired live (Task 190 revision):** Restored `skill-templates/manager-decision/SKILL.md`, `mcp-decision-server/` (server, redactor, pyproject, uv.lock) and `tests/test_decision_server.py` from HEAD; repo `opencode.json` regained the `manager_decisions` block (local `uv run --project`, 600s timeout) + 5 tool permissions; `.env.example` regained `DECISION_MODEL`/`DECISION_TEMPERATURE`; global install synced (server files, skill, config blocks). Autopilot consults manager-decision first: it infers what the manager would decide and acts on his behalf.
+- **Per-task chat history in the brain bridge (Task 190 revision):** `mcp-brain-bridge/server.py` keeps a JSONL transcript per `task_id` under `BRAIN_SESSIONS_ROOT` (default `~/.config/opencode/brain-sessions`, 40-message cap, corrupt lines skipped, path-traversal blocked); every `brain_turn` with a `task_id` loads prior turns and appends the new exchange, so the stateless LLM always sees the full task conversation. Covered by 5 offline tests.
+- **New runbook `docs/brain-bridge.md` (Task 190 revision):** State machine, per-task history, env table, autopilot + manager-decision wiring, verify block.
+- **Leftover sweep (Task 190 revision):** `mcp-persona-server/` (only `.venv`/`__pycache__` residue) deleted; README user-prompts tree replaced with the Task-189 private-repo pointer; README/setup/LLM.txt counts corrected (7 servers incl. manager_decisions, 31 skills).
+
 - **user-prompts extracted to private repo (Task 189):** Moved all 10 personal prompt files out of `user-prompts/` into the new private GitHub repo `mokhtarabadi/user-prompts` (local clone at `../user-prompts`, initial commit, remote set; push is Manager-owned per ZAC). HQ `user-prompts/` directory removed. Verified `diff -r` identical before removal; visibility `PRIVATE` confirmed via `gh repo view`.
+
+- **Unified Brain Bridge replaces paused automation (Task 190):** Deleted the superseded automation stack — `mcp-persona-server/`, `mcp-decision-server/` (+ their test files), 9 archived persona commands, superseded docs (`docs-loop-engine/`, `docs-superseded/`), and `skill-templates/manager-decision/` (repo + global copies). New single-tool MCP server `mcp-brain-bridge/` (`brain_turn`: loads the latest system prompt from the global install as the system message, calls the LLM via lazy LiteLLM, returns raw output or `XML_EXTRACTED` when a task block is present). Wired into repo `opencode.json` + Hands executor (Build → Call → Relay → Loop state machine, Autopilot default OFF, ZAC + approval-word guards). `.env.example` gains `BRAIN_MODEL`/`BRAIN_MAX_TOKENS`/`BRAIN_SYSTEM_PROMPT`; README, `docs/setup.md`, and `LLM.txt` converted to the bridge. Full suite: **70 passed** (62 existing + 8 new offline bridge tests).
+
+## [9.25.0] - 2026-09-11
+
+### Changed
+
+- **Manager-decision kept LIVE and wired everywhere (Task 190 final review):** `skill-templates/manager-decision/SKILL.md` PAUSED banner replaced with live Task-190 wording; skill registry (fragment 07) gains the `manager-decision` row; executor Context Bootstrapping gains item 3 "Consult Manager Decisions" (query past rulings before deciding, record after, autopilot decides from the store). Proven live: extraction on the real Task-174 transcript returned 12 coherent candidates; record→query round trip verified.
+- **Local Responses-API transport (Task 190 live round):** `mcp-brain-bridge` and `mcp-decision-server` call the manager's local proxy (`BRAIN_API_BASE`, model `muse-spark-1.3-contributor-free`, reasoning effort `xhigh`) via `httpx` POST to `/responses` (replacing LiteLLM chat-completions, which the endpoint does not serve). Proven live: small prompt → 200, full 80 KB system prompt → correct bracket, 3 extraction candidates.
+- **Stale-model hijack killed (Task 190 live round):** `PERSONA_MODEL` fallback removed from decision-server code (a dead `.env` line caused proxy 401s); both `opencode.json` configs rewired to `BRAIN_API_BASE/KEY/MODEL` (+ `DECISION_MODEL`); `.env.example` rewritten for the local endpoint (no secrets); brain timeout raised to 600 s in both configs (xhigh reasoning + 80 KB prompt needs headroom).
 
 ## [9.24.0] - 2026-09-11
 

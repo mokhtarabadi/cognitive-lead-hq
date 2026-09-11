@@ -81,7 +81,7 @@ The AI will process your inline feedback, generate a revised plan, and wait for 
 
 ## ⚡ Manual Mode Workflow (Pure-MCP Human-in-the-Loop) — ACTIVE / DEFAULT
 
-> **Automation paused (2026-09-09, Tasks 175–176):** the persona/decision automation is disabled — servers stripped from configs, commands archived under `archive/automation-paused-2026-09-09/`. This manual cycle is the active default; see `archive/automation-paused-2026-09-09/RESTORE.md` for the restore path.
+> **Brain Bridge active:** QA/review run through one MCP (`brain_turn`) — no manual ferrying, no per-persona commands. This manual cycle remains available; autopilot mode runs it end-to-end. The 2026-09-09 paused system was deleted, not restored.
 
 This is the canonical pure-MCP cycle:
 
@@ -125,19 +125,18 @@ The repository includes a standalone web tool at `tools/prompt-composer/index.ht
 
 ---
 
-## 🤖 Persona Engine + Decision Learning (PAUSED 2026-09-09)
+## 🌉 Brain Bridge (Active)
 
-> **Disabled, not deleted (Tasks 175–176):** the system below is preserved for future development but not currently enabled. Manual Mode above is the active workflow.
+> The 2026-09-09 paused automation was deleted, not restored. One MCP
+> server (`mcp-brain-bridge/`, tool `brain_turn`) replaces the persona
+> loops, decision-learning loop, and all 9 slash commands.
 
-The **Persona Engine** (Tasks 167–168) replaced the retired loop-engine daemon with on-demand persona turns: OpenCode itself calls personas (`/qa`, `/reviewer`, `/manager`, `/brainstorm`) backed by a light LLM holding the full system prompt, with Telegram Approve/Reject hard gates. The **Decision Learning** side captures per-session manager rulings into a separate append-only repo that evolves the manager-AI sample behind human review.
-
-### What It Does
-
-```
-Manager creates task → Executor implements → /qa adversarial review →
-/reviewer standards audit → Telegram approval → Closure →
-Decisions extracted → Learning repo → Sample evolves (review-gated)
-```
+The Hands builds the user prompt from its machine state (instruction +
+task file), the bridge prepends the latest system prompt from the global
+install, and the LLM answers. XML blocks come back extracted; plain
+answers come back whole; admin questions are relayed through the Hands.
+Autopilot mode (Manager says "on autopilot do X") runs the full loop
+with zero approvals — default OFF, never auto-commits, never closes.
 
 ### Quick Start
 
@@ -147,28 +146,18 @@ cp .env.example .env
 # Edit .env with your keys (OPENROUTER_API_KEY, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID)
 
 # 2. Register servers (global install, absolute paths) or use the repo opencode.json locally
-# mcp-persona-server + mcp-decision-server run via `uv run` stdio FastMCP, zero-install deps
+# mcp-brain-bridge runs via `uv run` stdio FastMCP, zero-install deps
 
 # 3. Invoke in OpenCode
-# /qa → adversarial testing → /reviewer → audit → /manager → approval gate
+# brain_turn → XML executes, REPORT triages, questions relay to Manager
 ```
-
-### Features
-
-- **Persona slash commands (paused)** — `/qa`, `/reviewer`, `/manager`, `/brainstorm`, each with Dual Dispatch classification (`XML_EXTRACTED` / `QUESTION` / `REPORT`)
-- **Telegram approval gateway** — task/stage-scoped inline keyboard Approve/Reject with stale-press discard
-- **Auto-continue** — Goal Plugin handles idle detection and continuation
-- **Evidence-bound QA** — No evidence = no commit
-- **Append-only session transcripts** — `tasks/.sessions/{id}/transcript.jsonl`, the audit trail behind every gate
-- **Manager-decision learning repo** — verbatim quotes + redaction + review-gated sample evolution
 
 ### Documentation
 
-- [Manager-Decision Skill](skill-templates/manager-decision/SKILL.md) (paused — server disabled in Task 176)
+- [Brain Bridge Server](mcp-brain-bridge/server.py) — one tool, system-prompt loader + Responses-API call + XML extractor
 - [Blowsh Web Skill](skill-templates/blowsh/SKILL.md) — live-web search/fetch/crawl via the blowsh MCP server
-- [Cognitive Executor Agent](agents/cognitive-executor.md) (Persona Loop section)
+- [Cognitive Executor Agent](agents/cognitive-executor.md) (Bridge + Autopilot sections)
 - [Setup Guide](docs/setup.md)
-- Historical loop-engine docs archived under `archive/automation-paused-2026-09-09/docs-loop-engine/` (daemon retired in Task 167, docs moved in Task 177).
 
 ---
 
@@ -199,15 +188,8 @@ cp .env.example .env
 │   └── server.py                       # FastMCP server for task file linting
 ├── mcp-memory-server/
 │   └── server.py                       # FastMCP server for persistent project memory
-├── mcp-persona-server/                 # Persona dispatch engine (Task 167)
-│   ├── server.py                       # FastMCP `PersonaServer`: dispatch/summary/approval tools
-│   ├── dual_dispatch.py                # XML vs question classifier
-│   ├── session.py                      # Append-only JSONL transcripts + lineage projection
-│   └── telegram.py                     # Scoped Approve/Reject gates over Bot API
-├── mcp-decision-server/                # Manager-decision learning (Task 168)
-│   ├── server.py                       # FastMCP `ManagerDecisions`: extract/record/query/profile/propose
-│   └── redactor.py                     # Secret scrubbing + verify gate
-├── .opencode/decisions/                  # Per-project learning store (DEC-*.json, profile sample, scripts)
+├── mcp-brain-bridge/                  # Unified Brain bridge
+│   └── server.py                       # FastMCP `BrainBridge`: brain_turn (prompt loader + LLM + XML extract)
 ├── prompts/                            # System prompt source tree (fragments + shared partials)
 │   ├── README.md                       # Authoring workflow guide
 │   ├── manifest.txt                    # Ordered fragment list (assembly order)
@@ -286,17 +268,7 @@ cp .env.example .env
 │   │   └── SKILL.md
 │   └── vue-nuxt/                       # Vue 3 Composition API + Nuxt 3
 │       └── SKILL.md
-└── user-prompts/                       # Reusable copy-paste prompt templates
-    ├── founder-coaching-chat.md        # Founder coaching system prompt (AI Studio / Claude / ChatGPT)
-    ├── daily-english-coach-chat.md     # Daily English practice system prompt (AI Studio / Claude / ChatGPT)
-    ├── cold-start-context.md
-    ├── session-compactor.md
-    ├── voice-to-text-enhancer.md
-    ├── persian-to-english-dictation.md
-    ├── multi-agent-brainstorming.md
-    ├── perplexity-deep-research.md
-    ├── input-validation-test.md
-    └── agile-pm-state-manager.md
+└── user-prompts/                       # Moved to private repo `user-prompts`
 ```
 
 ---
@@ -314,7 +286,7 @@ cp .env.example .env
 | `doc-coauthoring`         | Guides users through a structured 3-stage workflow (Context Gathering, Refinement & Structure, Reader Testing) for co-authoring documentation with AI.                                                                                     |
 | `github`                  | GitHub CLI (gh) workflow for pull request triage, issue management, CI/CD run analysis, and API queries.                                                                                                                                   |
 | `prompt-refactor`         | Meta-cognitive skill that refactors basic human prompts into elite, highly constrained, XML-tagged instructions optimized for AI agent reasoning.                                                                                          |
-| `bundle-tasks`            | Deterministic meta-task bundling — bundles 2–6 small related tasks into one META for unified execution with verbatim preservation and auto-archive. Pure-MCP tool `bundle_tasks` (Task 110) — see `skill-templates/bundle-tasks/SKILL.md`. |
+| `bundle-tasks`            | Deterministic meta-task bundling — bundles 2–6 small related tasks into one META for unified execution with verbatim preservation and auto-archive. Pure-MCP tool `bundle_tasks` — see `skill-templates/bundle-tasks/SKILL.md`. |
 | `blowsh`                  | Live-web research via the blowsh MCP server (Docker): `search_web`, `fetch_web`, `fetch_web_batch`, `crawl_web`, `extract_links` — rendered engines, JS rendering, sitemap-aware crawls. See `skill-templates/blowsh/SKILL.md`.            |
 | `task-generator`          | Automatically generates decentralized task files based on Manager instructions, with correct `<!-- BEGIN_GIT_DIFF -->` / `<!-- END_GIT_DIFF -->` markers.                                                                                  |
 | `telegram-issue-sync`     | Syncs Telegram supergroup topics into local task files and GitHub issues, using embedded Python scripts for deterministic JSON state management.                                                                                           |
@@ -409,7 +381,7 @@ Best if you want this codebase exploration tool available in _every_ terminal di
 
 _(Note: Replace `/Users/<YOUR_USER>` with your actual home directory path)._
 
-> Full HQ install (all 7 MCP servers — context, memory, lint, persona, decisions, blowsh, telegram — plus 31 skills and both agents) is documented in `LLM.txt` §4–§7 and the `global-install-upgrade` memory workflow, not here; the steps above cover only the standalone context server for third-party projects.
+> Full HQ install (all 7 MCP servers — context, memory, lint, brain, manager_decisions, blowsh, telegram — plus 31 skills and both agents) is documented in `LLM.txt` §4–§7 and the `global-install-upgrade` memory workflow, not here; the steps above cover only the standalone context server for third-party projects.
 
 ### How It Works
 
@@ -426,7 +398,7 @@ _(Note: Replace `/Users/<YOUR_USER>` with your actual home directory path)._
 - `create_tree_report` — Saves a persistent `.gitignore`-aware directory tree of any path (default: the entire project) as `context-reports/tree_report_<timestamp>_<uuid>.md`, mirroring the context report convention. Trigger phrase: "create a tree of the project".
 - `read_source_files` — Reads multiple source files or directories and saves their contents into a local Markdown report inside the `context-reports/` directory, returning the file path to prevent context bloat.
 - `extract_signatures` — Extracts structural signatures (classes, functions, methods) via tree-sitter (fallback to regex) and saves to `context-reports/signatures_report_<timestamp>_<uuid>.md`.
-- `bundle_tasks` — **Meta-task bundler (Task 110, pure-MCP).** Bundles 2–6 small related tasks into one META for unified execution (`tasks/backlog/<NEXT_ID>-<slug>.md` + `**Supersedes:** [ids]` + verbatim appendices, `git mv` to `tasks/archive/` with `superseded` patch) via pure FastMCP tool `bundle_tasks(task_ids, title, dry_run, force)`. No `uv run scripts/...` CLI required — use `custom_context` MCP. Guardrails: cap 6, LOC >400 warning, missing-ID and collision checks. See `skill-templates/bundle-tasks/SKILL.md` and `AGENTS.md` `## 🛑 META-TASK BUNDLE LIFECYCLE`.
+- `bundle_tasks` — **Meta-task bundler (pure-MCP).** Bundles 2–6 small related tasks into one META for unified execution (`tasks/backlog/<NEXT_ID>-<slug>.md` + `**Supersedes:** [ids]` + verbatim appendices, `git mv` to `tasks/archive/` with `superseded` patch) via pure FastMCP tool `bundle_tasks(task_ids, title, dry_run, force)`. No `uv run scripts/...` CLI required — use `custom_context` MCP. Guardrails: cap 6, LOC >400 warning, missing-ID and collision checks. See `skill-templates/bundle-tasks/SKILL.md` and `AGENTS.md` `## 🛑 META-TASK BUNDLE LIFECYCLE`.
 - `custom_context_qa_transition` — Transitions a task from `tasks/in-progress/` → `tasks/qa/` via pure MCP (stages modified files and injects factual diff). Replaces the legacy qa-transition script.
 - `custom_context_commit_and_clean_task` — Atomically commits staged changes and cleans the task file (replaces raw diff with hash reference) via pure MCP. Replaces manual `git commit`.
 
