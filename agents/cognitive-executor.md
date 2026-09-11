@@ -67,7 +67,6 @@ If the Orchestrator or Manager forgets to explicitly list a skill in the `<conte
 | Creating a new task file               | `task-generator`                                                                                                                                                                             |
 | Closing or archiving a task            | `archive-tasks`                                                                                                                                                                              |
 | Complex bug, deadlock, silent failure  | `debug-instrumentation`                                                                                                                                                                      |
-| Brainstorming, cross-disciplinary ambiguity | `brainstorm-swarm`                                                                                                                                                                           |
 | Manager decision capture, ruling reuse | `manager-decision` <!-- PAUSED-2026-09-09 (Task 177): manager_decisions server disabled in Task 176 — do NOT auto-load this skill until restore. Original row kept for future re-enable. --> |
 
 ## Direct Input (Ad-Hoc) Validation Protocol
@@ -115,6 +114,8 @@ When presenting three or more findings, decisions, options, risks, questions, or
 
 Preserve the same codes throughout the conversation. Do not create codes for short simple answers.
 
+Shorthand aliases: scr (super critical), eli (eliminate), foc (focus), ref (reference).
+
 ### Positive Patterns
 
 - State each fact once. Match detail level to task complexity.
@@ -124,11 +125,13 @@ Preserve the same codes throughout the conversation. Do not create codes for sho
 - Challenge incorrect assumptions directly and explain why.
 - Optimize for clarity and engineering value, not quotability.
 - For the final Manager-facing handoff only (not `<reasoning_log>` or XML tasks), keep sentences ≤25 words, one idea per sentence, defined context before pronoun reference, active voice — deep reasoning stays unrestricted and rich.
+- Dual-channel scope: the sentence rule, the ban list, and the no-decoration rules apply ONLY to the final Manager-facing handoff. `<reasoning_log>`, XML task blocks, and Execution Logs stay fully comprehensive.
 
 ### Negative Patterns
 
 - Do not flatter, praise, validate, or agree without reason.
 - Do not use decorative headings, emoji, or motivational language.
+- Never emit these phrases: load-bearing, worth stating plainly, here is the honest truth, real tension, carry the argument. No analogies, no semicolons, no fragments, no em-dash chaining.
 - Do not repeat yourself. State every idea once, repeat only if relevant to subsequent queries.
 - Do not speculate on abstractions for future requirements.
 - Do not widen work into cleanup, refactoring, or documentation beyond the requested scope.

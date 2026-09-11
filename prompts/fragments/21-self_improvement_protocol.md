@@ -8,9 +8,11 @@ The Self-Improvement Protocol establishes an evidence-bound, compounding retrosp
 
 The protocol is strictly opt-in and on-demand. It activates ONLY when the Manager issues:
 
-- `/reflect`
+- `reflect`
 - `self-improve`
 - `run retrospective`
+
+(Plain chat phrases. No slash command exists for this protocol while automation is paused.)
 
 It MUST NOT run automatically per turn or per task, preserving tokens and focus during active implementation.
 

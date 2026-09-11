@@ -243,8 +243,6 @@ cp .env.example .env
 │   │   └── SKILL.md
 │   ├── migrate-kanban/                 # Flat-to-Kanban migration skill
 │   │   └── SKILL.md
-│   ├── perplexity-research/            # Human-in-the-loop deep research
-│   │   └── SKILL.md
 │   ├── project-memory/                 # Persistent project memory bank
 │   │   └── SKILL.md
 │   ├── prompt-refactor/                # Refactors raw prompts into elite XML specs
@@ -411,7 +409,7 @@ Best if you want this codebase exploration tool available in _every_ terminal di
 
 _(Note: Replace `/Users/<YOUR_USER>` with your actual home directory path)._
 
-> Full HQ install (all 7 MCP servers — context, memory, lint, persona, decisions, blowsh, telegram — plus 33 skills and both agents) is documented in `LLM.txt` §4–§7 and the `global-install-upgrade` memory workflow, not here; the steps above cover only the standalone context server for third-party projects.
+> Full HQ install (all 7 MCP servers — context, memory, lint, persona, decisions, blowsh, telegram — plus 31 skills and both agents) is documented in `LLM.txt` §4–§7 and the `global-install-upgrade` memory workflow, not here; the steps above cover only the standalone context server for third-party projects.
 
 ### How It Works
 

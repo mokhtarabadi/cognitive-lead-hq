@@ -6,6 +6,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [9.16.0] - 2026-09-11
+
+### Removed
+
+- **brainstorm-swarm + perplexity-research skills dropped entirely (Task 180 round 3, manager order):** Deleted `skill-templates/brainstorm-swarm/` and `skill-templates/perplexity-research/` (repo) plus the global installs under `~/.config/opencode/skills/` — the registry (fragment 07), executor auto-load matrix, and README skill tree no longer reference them. Rationale: the skill was a separate manual Hands tool that shadowed the Brain-side protocol; research is covered by the `blowsh` skill. The `<brainstorming_protocol>` (fragment 12) is now the sole brainstorming path and says so explicitly (seven-seat panel, no skill indirection). Counts synced: 31 skills (README, `LLM.txt` ×2). Reassembled `system-prompt.md` (sync-check byte-identical).
+
+## [9.15.0] - 2026-09-11
+
+### Fixed
+
+- **Contradiction audit + brainstorming realignment (Task 180 round 2, manager order):** Audit proved the brainstorm system contradicted the declared personas — fragment 12 and the skill ran six outside personas (`system_architect`, `security_engineer`, `product_manager`, `business_strategist`, `legal_advisor`, `critical_thinker`) that exist nowhere in `<personas>`, breaking the 02-role declaration contract, and the skill pointed at a `report_schema` that was never defined. Fixes: (1) `prompts/fragments/12-brainstorming_protocol.md` rewritten — panel is exactly the seven `<personas>` seats, Brain declares each seat in brackets, sequential independent analysis, embedded `report_schema` (summary, persona_responses, tradeoffs T1/T2, conflict_resolution, options_ranked O1/O2, final_recommendation with refs, selected_path), and a `selection_rule` forcing the final plan to cite winning option id plus deciding tradeoff ids, with the full block pasted into the backlog task as reference; (2) `skill-templates/brainstorm-swarm/SKILL.md` realigned to the same seven-seat panel (devil's advocacy folded into QA Engineer, cross-domain coverage mapped to Architect/Planner/Strategist/Reviewer duties); (3) registry line in fragment 07 updated; (4) phantom `ui-system` skill alternative removed from 06-personas; (5) phantom `/reflect` slash trigger in fragment 21 corrected to plain chat phrase (no command file exists while automation is paused). Verified: zero remaining references to old persona names, `ui-system`, or `/reflect` across fragments, generated prompt, skill, and executor. Reassembled `system-prompt.md` (sync-check byte-identical).
+
+## [9.14.0] - 2026-09-11
+
+### Changed
+
+- **Dual-channel communication — concise manager, comprehensive machine (Task 180, manager self-improvement order):** Manager-facing output is now short and human-readable while XML task blocks, `<reasoning_log>`, blueprints, and Execution Logs stay fully comprehensive — zero performance impact (fewer tokens on the chat path, identical context on the machine path). Changes: (1) `prompts/fragments/20-communication_examples.md` gains the dual-channel contract, a banned-phrase list (load-bearing, worth stating plainly, here is the honest truth, real tension, carry the argument), style bans (no analogies, flattery, emoji, em-dash chaining, semicolons, fragments), reference codes D/O/F/R/Q/A with scr/eli/foc/ref aliases, and a new Example 3 status-update DO/DON'T pair; (2) `prompts/fragments/08-agentic_reasoning.md` exempts pure Manager conversation from the 9-step `<reasoning_log>` — a 3-line verdict (decision, reason, next step) replaces it, full log stays mandatory before every XML task block; (3) `agents/cognitive-executor.md` Communication Patterns gain the alias row, the dual-channel scope line, and the ban list. Patterns learned from chained research: disler `fixing-smartass-opus-5` system prompt, obra `superpowers` agent workflow, Anthropic prompt-engineering best practices (XML structuring, explicit conciseness for Opus 5). Reassembled `system-prompt.md` (sync-check byte-identical).
+
 ## [9.13.0] - 2026-09-10
 
 ### Added
