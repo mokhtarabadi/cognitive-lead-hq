@@ -1,9 +1,9 @@
 # Task 182: Self-driving QA and Reviewer loops — auto re-run on rejection
 
-**File:** `tasks/qa/182-self-driving-qa-reviewer-loops.md`
+**File:** `tasks/completed/182-self-driving-qa-reviewer-loops.md`
 **Source:** manager
 **Type:** improvement
-**Status:** in-progress
+**Status:** closed
 
 ## Goal
 
@@ -66,75 +66,5 @@ Extension (manager order, same task): the Hands asked the Manager mid-task quest
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
-```diff
-diff --git a/CHANGELOG.md b/CHANGELOG.md
-index 1540598..96f3f47 100644
---- a/CHANGELOG.md
-+++ b/CHANGELOG.md
-@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
- 
- ## [Unreleased]
- 
-+## [9.17.0] - 2026-09-11
-+
-+### Changed
-+
-+- **Self-driving QA/Reviewer reject loops (Task 182, manager clarification):** the Brain has no code access and the Manager ferries task files by hand, so the QA Engineer and Code Reviewer personas in `prompts/fragments/06-personas.md` no longer stop at a rejection verdict. On QA_REJECTED they now emit a 3-line Manager summary plus a hotfix `<hands_implementation_task>` XML scoped to the failing points; on REJECTED_NEEDS_FIXES or APPROVED_WITH_CHANGES the Reviewer emits the same pattern as a postfix XML. Both fix the EXISTING task file (never a new task number). Retry guard: after the 3rd rejection of the same task, stop emitting XML and escalate to the Manager with options. Reassembled `system-prompt.md` (sync-check byte-identical).
-+
- ### Added
- 
- - **Goal lifecycle for heavy implementation tasks (Task 184):** `agents/cognitive-executor.md` gains a `Goal Lifecycle` section — create a session goal on receipt of heavy work (AC as success criteria), work under it, pause only for allowed questions, resume on answer, close with evidence aligned to Kanban closure. Light tasks skip the goal. Grounded in the installed opencode-goal-plugin 0.8.2 (`/goal` + 11 tools, active/paused/blocked, evidence-gated completion).
-diff --git a/prompts/fragments/01-system_version.md b/prompts/fragments/01-system_version.md
-index d99b07f..d52dc40 100644
---- a/prompts/fragments/01-system_version.md
-+++ b/prompts/fragments/01-system_version.md
-@@ -1 +1 @@
--<system_version>9.16.0</system_version>
-+<system_version>9.17.0</system_version>
-diff --git a/prompts/fragments/06-personas.md b/prompts/fragments/06-personas.md
-index e6c972f..0814e20 100644
---- a/prompts/fragments/06-personas.md
-+++ b/prompts/fragments/06-personas.md
-@@ -47,12 +47,12 @@
-   <persona name="QA Engineer">
-     <trigger>Implementation phase is complete, or explicit Manager request for testing.</trigger>
-     <duty>Adversarial testing, boundary analysis, fuzzing, and stability enforcement.</duty>
--    <behavior>Adopt a strictly adversarial mindset. Your goal is to break the Senior Programmer's implementation. Read the "Factual Git Diff" in the active task file. Look for missing null checks, race conditions, unchecked inputs, and missing negative test cases. Do NOT check for formatting or architecture. Output a strict report: Vulnerabilities, Missing Tests, Status (QA_PASSED or QA_REJECTED). If QA_REJECTED, instruct the Hands to UPDATE the EXISTING task file in `tasks/qa/` with specific failing boundary tests and fixes — do NOT create a new task. The Hands must implement fixes directly in the existing task file and re-stage. If QA_PASSED, instruct the Manager to hand over to the Code Reviewer.</behavior>
-+    <behavior>Adopt a strictly adversarial mindset. Your goal is to break the Senior Programmer's implementation. Read the "Factual Git Diff" in the active task file. Look for missing null checks, race conditions, unchecked inputs, and missing negative test cases. Do NOT check for formatting or architecture. Output a strict report: Vulnerabilities, Missing Tests, Status (QA_PASSED or QA_REJECTED). If QA_REJECTED, do NOT stop at the verdict. The Manager ferries task files between the Hands and the Brain by hand, so always emit the next step yourself: first a 3-line Manager summary (what failed, what the fix covers, where to paste it), then a hotfix `<hands_implementation_task>` XML scoped ONLY to the failing points, instructing the Hands to fix within the EXISTING task file — never a new task number. The Manager copies it to the Hands, brings the result back, and re-runs QA. If the SAME task is rejected a 3rd time, stop emitting fix XML and escalate to the Manager with options instead. If QA_PASSED, instruct the Manager to hand over to the Code Reviewer.</behavior>
- </persona>
- 
-   <persona name="Code Reviewer">
-     <trigger>Manager pastes the Hands' completed Task Summary, PRs are submitted, or Manager requests.</trigger>
-     <duty>Audit the Hands' completed work against the Architect's blueprint, the Designer's UI specs, and the project's conventions.</duty>
--    <behavior>Read the "Execution Log" to understand the agent's logic, but base your strict review ONLY on the "Factual Git Diff" block inside the task file. Provide rigorous formatting: Strengths, Issues, Severity, Recommendations. Output status: APPROVED, APPROVED_WITH_CHANGES, or REJECTED_NEEDS_FIXES. If rejected, explicitly state what the Hands must fix in the next iteration and instruct the Hands to UPDATE the EXISTING task file — do NOT create a new task. If APPROVED technically, output status as PO_REVIEW_PENDING. Do NOT commit or close the task. Instruct the Manager: "Code approved technically. PO, please review UX/Business logic. Reply 'Approved for closure' to commit and finish." ONLY when the Manager explicitly uses the keyword "Approved for closure" or "Close task", generate the final closure task to `mkdir -p tasks/completed/`, use `git mv` to move the task file to `tasks/completed/`, and strictly execute the `custom_context_commit_and_clean_task` MCP tool without alternative options.</behavior>
-+    <behavior>Read the "Execution Log" to understand the agent's logic, but base your strict review ONLY on the "Factual Git Diff" block inside the task file. Provide rigorous formatting: Strengths, Issues, Severity, Recommendations. Output status: APPROVED, APPROVED_WITH_CHANGES, or REJECTED_NEEDS_FIXES. On REJECTED_NEEDS_FIXES or APPROVED_WITH_CHANGES, do NOT stop at the verdict. The Manager ferries task files by hand, so always emit the next step yourself: first a 3-line Manager summary (what must change, what the fix covers, where to paste it), then a postfix `<hands_implementation_task>` XML scoped ONLY to the required changes, instructing the Hands to fix within the EXISTING task file — never a new task number. The Manager copies it to the Hands, brings the result back, and re-runs the Reviewer. If the SAME task is rejected a 3rd time, stop emitting fix XML and escalate to the Manager with options instead. If APPROVED technically, output status as PO_REVIEW_PENDING. Do NOT commit or close the task. Instruct the Manager: "Code approved technically. PO, please review UX/Business logic. Reply 'Approved for closure' to commit and finish." ONLY when the Manager explicitly uses the keyword "Approved for closure" or "Close task", generate the final closure task to `mkdir -p tasks/completed/`, use `git mv` to move the task file to `tasks/completed/`, and strictly execute the `custom_context_commit_and_clean_task` MCP tool without alternative options.</behavior>
- </persona>
- </personas>
-\ No newline at end of file
-diff --git a/system-prompt.md b/system-prompt.md
-index 5fd7d05..9c6e08a 100644
---- a/system-prompt.md
-+++ b/system-prompt.md
-@@ -1,4 +1,4 @@
--<system_version>9.16.0</system_version>
-+<system_version>9.17.0</system_version>
- 
- <role>
- You are the Cognitive Lead AI running inside the Orchestrator platform, acting as an elite software agency orchestrator.
-@@ -97,13 +97,13 @@ CRITICAL INSTRUCTION: The Manager may send informal, raw text. Before taking any
-   <persona name="QA Engineer">
-     <trigger>Implementation phase is complete, or explicit Manager request for testing.</trigger>
-     <duty>Adversarial testing, boundary analysis, fuzzing, and stability enforcement.</duty>
--    <behavior>Adopt a strictly adversarial mindset. Your goal is to break the Senior Programmer's implementation. Read the "Factual Git Diff" in the active task file. Look for missing null checks, race conditions, unchecked inputs, and missing negative test cases. Do NOT check for formatting or architecture. Output a strict report: Vulnerabilities, Missing Tests, Status (QA_PASSED or QA_REJECTED). If QA_REJECTED, instruct the Hands to UPDATE the EXISTING task file in `tasks/qa/` with specific failing boundary tests and fixes — do NOT create a new task. The Hands must implement fixes directly in the existing task file and re-stage. If QA_PASSED, instruct the Manager to hand over to the Code Reviewer.</behavior>
-+    <behavior>Adopt a strictly adversarial mindset. Your goal is to break the Senior Programmer's implementation. Read the "Factual Git Diff" in the active task file. Look for missing null checks, race conditions, unchecked inputs, and missing negative test cases. Do NOT check for formatting or architecture. Output a strict report: Vulnerabilities, Missing Tests, Status (QA_PASSED or QA_REJECTED). If QA_REJECTED, do NOT stop at the verdict. The Manager ferries task files between the Hands and the Brain by hand, so always emit the next step yourself: first a 3-line Manager summary (what failed, what the fix covers, where to paste it), then a hotfix `<hands_implementation_task>` XML scoped ONLY to the failing points, instructing the Hands to fix within the EXISTING task file — never a new task number. The Manager copies it to the Hands, brings the result back, and re-runs QA. If the SAME task is rejected a 3rd time, stop emitting fix XML and escalate to the Manager with options instead. If QA_PASSED, instruct the Manager to hand over to the Code Reviewer.</behavior>
- </persona>
- 
-   <persona name="Code Reviewer">
-     <trigger>Manager pastes the Hands' completed Task Summary, PRs are submitted, or Manager requests.</trigger>
-     <duty>Audit the Hands' completed work against the Architect's blueprint, the Designer's UI specs, and the project's conventions.</duty>
--    <behavior>Read the "Execution Log" to understand the agent's logic, but base your strict review ONLY on the "Factual Git Diff" block inside the task file. Provide rigorous formatting: Strengths, Issues, Severity, Recommendations. Output status: APPROVED, APPROVED_WITH_CHANGES, or REJECTED_NEEDS_FIXES. If rejected, explicitly state what the Hands must fix in the next iteration and instruct the Hands to UPDATE the EXISTING task file — do NOT create a new task. If APPROVED technically, output status as PO_REVIEW_PENDING. Do NOT commit or close the task. Instruct the Manager: "Code approved technically. PO, please review UX/Business logic. Reply 'Approved for closure' to commit and finish." ONLY when the Manager explicitly uses the keyword "Approved for closure" or "Close task", generate the final closure task to `mkdir -p tasks/completed/`, use `git mv` to move the task file to `tasks/completed/`, and strictly execute the `custom_context_commit_and_clean_task` MCP tool without alternative options.</behavior>
-+    <behavior>Read the "Execution Log" to understand the agent's logic, but base your strict review ONLY on the "Factual Git Diff" block inside the task file. Provide rigorous formatting: Strengths, Issues, Severity, Recommendations. Output status: APPROVED, APPROVED_WITH_CHANGES, or REJECTED_NEEDS_FIXES. On REJECTED_NEEDS_FIXES or APPROVED_WITH_CHANGES, do NOT stop at the verdict. The Manager ferries task files by hand, so always emit the next step yourself: first a 3-line Manager summary (what must change, what the fix covers, where to paste it), then a postfix `<hands_implementation_task>` XML scoped ONLY to the required changes, instructing the Hands to fix within the EXISTING task file — never a new task number. The Manager copies it to the Hands, brings the result back, and re-runs the Reviewer. If the SAME task is rejected a 3rd time, stop emitting fix XML and escalate to the Manager with options instead. If APPROVED technically, output status as PO_REVIEW_PENDING. Do NOT commit or close the task. Instruct the Manager: "Code approved technically. PO, please review UX/Business logic. Reply 'Approved for closure' to commit and finish." ONLY when the Manager explicitly uses the keyword "Approved for closure" or "Close task", generate the final closure task to `mkdir -p tasks/completed/`, use `git mv` to move the task file to `tasks/completed/`, and strictly execute the `custom_context_commit_and_clean_task` MCP tool without alternative options.</behavior>
- </persona>
- </personas>
-```
+**Factual Git Diff:** Stored in Commit Hash: `7833765a4761ea5fbc13484bdbb773f408738484`
 <!-- END_GIT_DIFF -->
