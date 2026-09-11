@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- **Spider-search workflow for blowsh skill (Task 186):** `skill-templates/blowsh/SKILL.md` gains a `Spider-Search Workflow` deep-research mode — plan (4–6 sub-questions mapped to queries) → sweep wide (`query_variants` + `intent`) → probe cheap (`must_contain`/`toc`/`map`) → read deep (`fetch_web_batch` + `focus`) → follow chains (`extract_links`, default 2 iterations) → cite everything. Loop rules: visited-URL set, budgets on every call, stop signals as results, `respect_robots`/`same_host` defaults. Grounded in researched best practices (deep-research survey pipeline, Firecrawl search→scrape→analyze→repeat, DeepWideSearch breadth-depth balance, NVIDIA planner/researcher phases, classic best-first focused crawling). Synced to global skills.
+- **Dogfood round (Task 186, same task):** Ran the new workflow on its own topic — plan (4 sub-questions) → parallel sweeps → probe → focused fetch of the LangChain deep-research doc → iteration-2 chain fetch. Folded 5 genuine deltas back into the skill: parallel sub-question sweeps (step 2), assess-after-each-search question (step 5), one citation number per unique URL + Sources list + sub-question coverage check (step 6), search budget 2–3 simple / 5 per branch complex + scale-matching rule (loop rules). Synced to global skills.
+
 ## [9.16.0] - 2026-09-11
 
 ### Removed

@@ -86,3 +86,43 @@ follow site navigation without fetching full content.
    agent loops; a `Deadline` stop is an honest signal, not a failure.
 5. **SSRF scope:** PDF fetch and crawling are server-guarded; never
    route `file://` or internal-host URLs through these tools.
+
+## Spider-Search Workflow (deep research mode)
+
+For open-ended research questions, run this loop instead of one-off
+calls. It follows the standard deep-research pipeline (plan → questions
+→ explore → report) plus classic focused-crawling practice: alternate
+broad discovery with multi-hop depth, order the frontier best-first,
+and never visit a URL twice.
+
+1. **Plan.** Split the question into 4–6 sub-questions. Map each one to
+   a search query. Sketch the answer outline before searching.
+2. **Sweep wide.** One `search_web` per sub-question with
+   `query_variants` and the matching `intent` (`code` for repos,
+   `paper` for papers, `news` for events, `entity` for background).
+   Collect candidate URLs. Run independent sub-question sweeps in
+   parallel.
+3. **Probe cheap.** `must_contain`, `toc`, or `crawl_web` in `map` mode
+   first. Fetch full bodies only for pages that pass the probe.
+4. **Read deep.** `fetch_web_batch` (up to 10) for the winners. Use
+   `focus` on long pages to cut noise 50–80%.
+5. **Follow chains.** `extract_links` on the best pages. Each new clue
+   becomes a new query — go back to step 2. After every round, pause
+   and assess: what did I learn, what is still missing, do I have
+   enough to answer? Default 2 iterations, more
+   only when the frontier still yields novel URLs.
+6. **Cite everything.** Every claim in the final answer carries its
+   source URL. Give each unique URL one citation number across the
+   whole answer and end with a Sources list. No claim without a read
+   source. Before finishing, verify every sub-question from step 1 is
+   addressed.
+
+Loop rules: keep a visited-URL set, never fetch the same URL twice.
+Set `deadline_ms`/`deadline_s` on every call. Search budget: simple
+fact-finding gets 2–3 search calls, complex questions up to 5 per
+branch — then stop and answer with what you have. Match the scale to
+the question: a quick fact needs one search, a deep question gets the
+full loop. Stop on FrontierEmpty,
+MaxPages, CharBudget, or Deadline — a stop is a result, not a failure.
+`respect_robots` stays true. `same_host` stays true unless the question
+demands crossing domains.
