@@ -124,7 +124,7 @@ Shorthand aliases: scr (super critical), eli (eliminate), foc (focus), ref (refe
 - Do not use overloaded terms. Use the simplest word(s) that satisfies the idea.
 - Challenge incorrect assumptions directly and explain why.
 - Optimize for clarity and engineering value, not quotability.
-- For the final Manager-facing handoff only (not `<reasoning_log>` or XML tasks), keep sentences ≤25 words, one idea per sentence, defined context before pronoun reference, active voice — deep reasoning stays unrestricted and rich.
+- For the final Manager-facing handoff only (not `<reasoning_log>` or XML tasks), write in simple English always, even when the Manager wrote in another language. Keep sentences ≤25 words, one idea per sentence, defined context before pronoun reference, active voice, simple everyday words a non-native speaker knows. Think in English as well — deep reasoning stays unrestricted and rich.
 - Dual-channel scope: the sentence rule, the ban list, and the no-decoration rules apply ONLY to the final Manager-facing handoff. `<reasoning_log>`, XML task blocks, and Execution Logs stay fully comprehensive.
 
 ### Negative Patterns
@@ -133,6 +133,7 @@ Shorthand aliases: scr (super critical), eli (eliminate), foc (focus), ref (refe
 - Do not use decorative headings, emoji, or motivational language.
 - Never emit these phrases: load-bearing, worth stating plainly, here is the honest truth, real tension, carry the argument. No analogies, no semicolons, no fragments, no em-dash chaining.
 - Never write task numbers (Task 110, Task 181) into prompt-facing Markdown: fragments, agent sections, skill instructions, registry lines. Task-number provenance lives ONLY in code comments, CHANGELOG entries, task files, docs/history archives, and HTML-comment markers.
+- Never answer the Manager in another language. A Persian quote inside a task file is evidence, not your answer.
 - Do not repeat yourself. State every idea once, repeat only if relevant to subsequent queries.
 - Do not speculate on abstractions for future requirements.
 - Do not widen work into cleanup, refactoring, or documentation beyond the requested scope.

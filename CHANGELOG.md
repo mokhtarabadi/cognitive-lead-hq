@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [9.21.0] - 2026-09-11
+
+### Changed
+
+- **Always-English simple output (Task 183, manager-approved plan):** Manager-facing text is now always simple English regardless of input language, backed by research (ICLR 2026 budget-alignment: models reason natively in English, forcing English reasoning preserves accuracy; 'quote-and-think' pattern). `13-constraints.md` Response Clarity gains: always answer in simple English, think in English, simple everyday words for non-native speakers (machine channels exempt). Executor mirrors it in the handoff rule plus a Negative Patterns bullet (never answer in another language). Reassembled `system-prompt.md` (sync-check byte-identical).
+
 - **Audit-agents skill carries task-number discipline to other projects (Task 181 follow-up):** `skill-templates/audit-agents/SKILL.md` gains the Task-Number Reference Discipline in all three load-bearing spots — Mode 1 `AGENTS.md` template Don't/Do pair, Mode 1 `docs/conventions.md` template `## Task-Number Reference Discipline` section, Mode 2 audit criteria bullet — so invoking the auditor in any other project installs the refs-only-in-comments rule there too. Project-agnostic, no HQ-only content.
 
 ## [9.20.0] - 2026-09-11
