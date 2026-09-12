@@ -65,6 +65,26 @@ These are configured in `opencode.json` and auto-start with OpenCode.
 > (`brain_turn`).
 > Global installs additionally run `blowsh` + `telegram`.
 
+### Systemd user service env
+
+When OpenCode runs as a systemd user service (`opencode-server.service`),
+the daemon starts with a bare environment — no shell exports apply. Give
+it the project env explicitly so `{env:VAR}` forwarding in `opencode.json`
+resolves and the bridge/decision servers start with keys:
+
+```ini
+[Service]
+EnvironmentFile=-/home/mohammad/code-server/projects/cognitive-lead-hq/.env
+```
+
+Portable form for other machines: `EnvironmentFile=%h/.config/opencode/.env`.
+After editing: `systemctl --user daemon-reload` (safe anytime), then
+`systemctl --user restart opencode-server` to take effect — the restart
+kills live sessions, so the manager runs it, never the Hands. Verify with
+`systemctl --user show opencode-server.service -p EnvironmentFiles`.
+As process env, these vars outrank every `.env` file fallback, so all
+projects served by the daemon share them.
+
 ## Development Tools
 
 ```bash

@@ -460,6 +460,30 @@ Cloudflare Tunnel (`managed-remote` with your domain + account token) is the nex
 
 ---
 
+## 7.10. Systemd User Service Env (If OpenCode Runs as a Daemon)
+
+If the user runs OpenCode via a systemd user unit (e.g. `opencode-server.service`
+for OpenChamber), the daemon starts with a bare environment — shell exports do
+not apply and `{env:VAR}` forwarding in `opencode.json` resolves empty. Add the
+env file to the unit so the bridge/decision servers start with keys:
+
+```ini
+[Service]
+# Project env (keys + model pins). '-' = unit still starts if file is missing.
+EnvironmentFile=-<project-path>/.env
+# Portable alternative: EnvironmentFile=%h/.config/opencode/.env
+```
+
+Then `systemctl --user daemon-reload` (safe anytime). The vars take effect on the
+next `systemctl --user restart opencode-server` — the restart kills live
+sessions, so the USER runs it, never the agent. Verify with
+`systemctl --user show opencode-server.service -p EnvironmentFiles`.
+As process env these vars outrank every `.env` file fallback, so all projects
+served by the daemon share them. Per-project overrides still work via that
+project's own `.env` only for keys the daemon env does NOT set.
+
+---
+
 ## 8. Clean Up Temporary Clone
 
 Remove the cloned repository from `/tmp/`:

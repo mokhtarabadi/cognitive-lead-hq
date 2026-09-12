@@ -151,7 +151,7 @@ with zero approvals — default OFF, never auto-commits, never closes.
 ```bash
 # 1. Configure
 cp .env.example .env
-# Edit .env with your keys (OPENROUTER_API_KEY, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID)
+# Edit .env with your keys (BRAIN_API_KEY, BRAIN_API_BASE, BRAIN_MODEL)
 
 # 2. Register servers (global install, absolute paths) or use the repo opencode.json locally
 # mcp-brain-bridge runs via `uv run` stdio FastMCP, zero-install deps
