@@ -1,0 +1,21 @@
+{
+  "session_id": "200",
+  "verbatim_quote": {
+    "original": "برای بار آخر، این خیلی مهمه: حتماً حتماً حتماً حتماً، BrainMCP Brain باید به کل فایل تسک یا محتوای اون همیشه دسترسی داشته باشه.",
+    "english_translation": "For the last time, this is very important: absolutely, the Brain MCP Brain must always have access to the whole task file or its content."
+  },
+  "extracted_decision": {
+    "summary": "Brain must always receive the full task-file working content on every turn (implemented as auto-attach minus the diff block, Task 200).",
+    "category": "architecture",
+    "rationale": "Manager (stated with quadruple emphasis) considers complete Brain context non-negotiable for correct behavior.",
+    "alternatives": [
+      "Paste-on-demand only",
+      "Rely on conversation history alone"
+    ],
+    "tradeoffs": "Larger prompts per turn in exchange for guaranteed complete context."
+  },
+  "project_name": "cognitive-lead-hq",
+  "redaction_verified": true,
+  "decision_id": "DEC-20260912-002",
+  "timestamp": "2026-09-12T06:27:21.602633+00:00"
+}

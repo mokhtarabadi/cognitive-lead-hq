@@ -1,0 +1,20 @@
+{
+  "session_id": "190",
+  "verbatim_quote": {
+    "original": "I restarted",
+    "english_translation": "I restarted (OpenCode, so the new MCP servers/skills load)."
+  },
+  "extracted_decision": {
+    "summary": "Restart handshake: Hands prepares everything (env, global sync, timeouts), tells manager to restart OpenCode, verifies post-restart state (mcp list 7/7) before live testing.",
+    "category": "tooling",
+    "rationale": "Config/server changes only take effect after an OpenCode restart, which only the manager can perform.",
+    "alternatives": [
+      "Assume restart worked without verifying"
+    ],
+    "tradeoffs": "One restart round-trip per infra change in exchange for verified live state."
+  },
+  "project_name": "cognitive-lead-hq",
+  "redaction_verified": true,
+  "decision_id": "DEC-20260912-009",
+  "timestamp": "2026-09-12T06:27:21.611537+00:00"
+}

@@ -1,0 +1,21 @@
+{
+  "session_id": "189",
+  "verbatim_quote": {
+    "original": "خودت سایکل اتوپایلت رو برای این تسک اجرا کن اگر تایید شد منم تایید میکنم تسک رو ببند.",
+    "english_translation": "Run the autopilot cycle on this task yourself; if it passes I will approve closing it."
+  },
+  "extracted_decision": {
+    "summary": "Manager orders Hands to run the QA-review autopilot cycle autonomously and promises closure approval on a pass.",
+    "category": "process",
+    "rationale": "Manager trusts the memorized QA-review cycle and wants verification without his involvement; approval is conditional on a pass.",
+    "alternatives": [
+      "Manager runs QA himself",
+      "Skip QA and close directly"
+    ],
+    "tradeoffs": "Hands must be rigorous since approval is pre-committed on a pass verdict."
+  },
+  "project_name": "cognitive-lead-hq",
+  "redaction_verified": true,
+  "decision_id": "DEC-20260912-001",
+  "timestamp": "2026-09-12T06:27:21.601238+00:00"
+}

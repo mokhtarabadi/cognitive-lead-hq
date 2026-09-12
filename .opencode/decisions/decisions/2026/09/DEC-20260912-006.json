@@ -1,0 +1,20 @@
+{
+  "session_id": "183",
+  "verbatim_quote": {
+    "original": "Approve for clouse",
+    "english_translation": "Approved for closure (with a voice-to-text typo for 'closure')."
+  },
+  "extracted_decision": {
+    "summary": "Closure approvals with obvious voice-to-text typos (clouse, Ckosetask, Appriveed) are accepted as valid approval words.",
+    "category": "process",
+    "rationale": "Manager dictates via voice-to-text; intent is unambiguous despite typos, and asking for rephrasing wastes turns.",
+    "alternatives": [
+      "Require exact approval phrase"
+    ],
+    "tradeoffs": "Tiny misinterpretation risk accepted for flow."
+  },
+  "project_name": "cognitive-lead-hq",
+  "redaction_verified": true,
+  "decision_id": "DEC-20260912-006",
+  "timestamp": "2026-09-12T06:27:21.607456+00:00"
+}

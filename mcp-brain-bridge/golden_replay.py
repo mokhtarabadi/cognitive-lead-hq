@@ -12,6 +12,9 @@ so approved behavior changes cannot silently rot a fixture file).
 from __future__ import annotations
 
 import hashlib
+import json
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Callable
 
 
@@ -53,3 +56,28 @@ def replay(
         "failed": len(results) - passed,
         "results": results,
     }
+
+
+def record(report: dict[str, Any], sessions_root=None) -> Path:
+    """Append one replay-report row as JSONL; returns the file path.
+
+    Row: {ts, prompt_hash, passed, total}. Creates parent dirs.
+    sessions_root override exists for tests (default: the standard
+    brain-sessions dir under ~/.config/opencode).
+    """
+    base = (
+        Path(sessions_root)
+        if sessions_root is not None
+        else Path.home() / ".config" / "opencode" / "brain-sessions"
+    )
+    base.mkdir(parents=True, exist_ok=True)
+    path = base / "golden_runs.jsonl"
+    row = {
+        "ts": datetime.now(timezone.utc).isoformat(),
+        "prompt_hash": report.get("prompt_hash"),
+        "passed": report.get("passed"),
+        "total": report.get("passed", 0) + report.get("failed", 0),
+    }
+    with open(path, "a", encoding="utf-8") as fh:
+        fh.write(json.dumps(row) + "\n")
+    return path

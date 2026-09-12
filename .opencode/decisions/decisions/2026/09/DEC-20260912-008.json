@@ -1,0 +1,20 @@
+{
+  "session_id": "184",
+  "verbatim_quote": {
+    "original": "حالت اتوپایلت رو برای این تسک اجرا کن.",
+    "english_translation": "Run the autopilot mode on this task."
+  },
+  "extracted_decision": {
+    "summary": "The memorized QA-review cycle (QA persona, then reviewer persona, then report) is the standard reusable autopilot for task verification.",
+    "category": "process",
+    "rationale": "Manager reuses the same autopilot invocation across tasks instead of re-explaining the QA/review procedure.",
+    "alternatives": [
+      "Ad-hoc verification per task"
+    ],
+    "tradeoffs": "Uniform rigor on every task at the cost of extra turns."
+  },
+  "project_name": "cognitive-lead-hq",
+  "redaction_verified": true,
+  "decision_id": "DEC-20260912-008",
+  "timestamp": "2026-09-12T06:27:21.610122+00:00"
+}

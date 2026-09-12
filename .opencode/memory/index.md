@@ -16,4 +16,5 @@
 | release | release-workflow | Release workflow for cognitive-lead-hq. |  |
 | telegram-sync | topic-scoped-sync-workflow | # Telegram Sync Workflow Constraints (Cognitive Lead HQ) |  |
 | workflows | global-install-upgrade | # Global Install Upgrade Workflow (OpenCode) |  |
+| workflows | manual-qa-review-cycle | # Manual QA + Review Cycle (Hands role-plays both) |  |
 | workflows | telegram-file-delivery | # Sending Task Files to Telegram — MANAGER PREFERENCE (updated 2026-08-10, overrides previous version) |  |

@@ -1,0 +1,20 @@
+{
+  "session_id": "190",
+  "verbatim_quote": {
+    "original": "همین‌طور یه باگ دیدم، الان توی حالت اتو پایلت هستی، چرا به من داری حرف می‌زنی؟ تو باید دوباره خودت برین رو صدا بزنی، کلاً توی کاگنیتیو اگزیکیوتر وقتی توی حالت خودکار هستی دیگه چیزی از من نپرس.",
+    "english_translation": "I also spotted a bug: you are in autopilot mode right now, why are you talking to me? You should call the Brain yourself again; in cognitive-executor, when you are in automatic mode, don't ask me anything at all."
+  },
+  "extracted_decision": {
+    "summary": "In autopilot/automatic mode the Hands must call brain_turn directly and never route questions or XML through the manager (no-ferry rule).",
+    "category": "process",
+    "rationale": "Manager considers any manager contact during autopilot a bug; the Hands has direct brain access and must use it.",
+    "alternatives": [
+      "Ferry XML through manager for Brain calls"
+    ],
+    "tradeoffs": "Hands bears full responsibility for chaining QA/review calls itself."
+  },
+  "project_name": "cognitive-lead-hq",
+  "redaction_verified": true,
+  "decision_id": "DEC-20260912-003",
+  "timestamp": "2026-09-12T06:27:21.603848+00:00"
+}

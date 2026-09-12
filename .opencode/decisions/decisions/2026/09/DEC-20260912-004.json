@@ -1,0 +1,20 @@
+{
+  "session_id": "181",
+  "verbatim_quote": {
+    "original": "توی فایل‌های مارک‌دان و مخصوصاً فایل‌های مارک‌دانی که برای پرامپت قراره استفاده بشه، به شماره تسک‌ها هم ریفرنس می‌دی. این کار باعث ایجاد توهم برای هوش مصنوعی می‌شه و جالب نیست.",
+    "english_translation": "In Markdown files, especially Markdown files meant to be used as prompts, you also reference task numbers. This causes hallucination for the AI and it is not good."
+  },
+  "extracted_decision": {
+    "summary": "Task numbers live ONLY in code comments, CHANGELOG, task files, history archives, and HTML comments — never in prompt-facing Markdown prose (anti-hallucination discipline).",
+    "category": "process",
+    "rationale": "Manager observed task-number references in prompt Markdown causing AI hallucination; code comments are fine and welcome.",
+    "alternatives": [
+      "Keep provenance references everywhere"
+    ],
+    "tradeoffs": "Provenance in prompts is sacrificed for hallucination safety; traceability stays in code/CHANGELOG/tasks."
+  },
+  "project_name": "cognitive-lead-hq",
+  "redaction_verified": true,
+  "decision_id": "DEC-20260912-004",
+  "timestamp": "2026-09-12T06:27:21.605063+00:00"
+}

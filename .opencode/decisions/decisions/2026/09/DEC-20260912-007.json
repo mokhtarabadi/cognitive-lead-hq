@@ -1,0 +1,21 @@
+{
+  "session_id": "199",
+  "verbatim_quote": {
+    "original": "از طریق ام‌سی‌پی بلوش و اسکیل بلوش، دیپ‌سرچ توی اینترنت انجام بده. در مورد تک‌تک پرسوناهایی که ما توی سیستم پرامپت داریم، تحقیق انجام بده؛ اگر نیازِ، پرسونای جدید به سیستم اضافه کن، اگر واقعاً نیازِ.",
+    "english_translation": "Do deep search on the internet via the blowsh MCP and blowsh skill. Research each and every persona in our system prompt; if needed, add a new persona to the system, only if truly needed."
+  },
+  "extracted_decision": {
+    "summary": "Improve existing personas/skills via live web research; add new personas only on proven gaps (seven-seat contract guarded); prefer surgical precision over padding.",
+    "category": "scope",
+    "rationale": "Manager wants evidence-grounded improvements and explicitly constrains additions to truly-needed cases.",
+    "alternatives": [
+      "Rewrite personas from scratch",
+      "Add personas speculatively"
+    ],
+    "tradeoffs": "Research time spent per item in exchange for zero-hallucination accuracy."
+  },
+  "project_name": "cognitive-lead-hq",
+  "redaction_verified": true,
+  "decision_id": "DEC-20260912-007",
+  "timestamp": "2026-09-12T06:27:21.608821+00:00"
+}
