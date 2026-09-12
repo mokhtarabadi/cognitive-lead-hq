@@ -127,3 +127,115 @@ def test_gate_clean_no_judge_passes():
     )
     assert result.verdict == "QA_PASSED"
     assert result.judge_called is False
+
+
+def test_allowlist_relative_inside():
+    assert check_allowlist(["a/b.py"], roots=["."]) == []
+
+
+def test_allowlist_relative_escape(tmp_path, monkeypatch):
+    sub = tmp_path / "sub"
+    sub.mkdir()
+    monkeypatch.chdir(sub)
+    assert check_allowlist(["../evil.py"], roots=["."]) != []
+
+
+def test_parse_two_verdicts_raise():
+    reply = "VERDICT: QA_PASSED\nSome prose.\nVERDICT: QA_REJECTED\n"
+    with pytest.raises(UnparseableVerdict):
+        parse_verdict(reply)
+
+
+def test_parse_leading_space_verdict():
+    verdict, _ = parse_verdict("  VERDICT: QA_PASSED  \n")
+    assert verdict == "QA_PASSED"
+
+
+def test_gate_judge_garbage_rejected():
+    judge = Mock(return_value="MAYBE")
+    result = run_gate(
+        {"verdict_reply": PASSED_REPLY, "paths": []},
+        required=[],
+        budget=(0, 1_000_000),
+        allowlist_roots=["/repo"],
+        judge=judge,
+    )
+    assert result.verdict == "QA_REJECTED"
+    assert result.judge_called is True
+    assert any("invalid judge verdict" in v for v in result.violations)
+
+
+def test_schema_nested_missing():
+    assert check_schema({"a": {"b": 1}}, required=["a.b", "a.c"]) == [
+        "missing field: a.c"
+    ]
+
+
+def test_parse_cite_trailing_period():
+    verdict, cites = parse_verdict("CITE: foo.py:12.\nVERDICT: QA_PASSED\n")
+    assert verdict == "QA_PASSED"
+    assert cites == [("foo.py", 12)]
+
+
+def test_allowlist_sibling_prefix_rejected():
+    violations = check_allowlist(
+        ["/repo/allow-evil/x.py"], roots=["/repo/allow"]
+    )
+    assert violations == ["path outside allowlist: /repo/allow-evil/x.py"]
+
+
+def test_allowlist_symlink_escape_rejected(tmp_path):
+    allowed = tmp_path / "allowed"
+    allowed.mkdir()
+    secret = tmp_path / "secret.txt"
+    secret.write_text("top secret")
+    link = allowed / "link.py"
+    link.symlink_to(secret)
+    assert check_allowlist([str(link)], roots=[str(allowed)]) == [
+        f"path outside allowlist: {link}"
+    ]
+
+
+def test_allowlist_symlink_inside_passes(tmp_path):
+    allowed = tmp_path / "allowed"
+    allowed.mkdir()
+    real = allowed / "real.py"
+    real.write_text("x = 1")
+    link = allowed / "link.py"
+    link.symlink_to(real)
+    assert check_allowlist([str(link)], roots=[str(allowed)]) == []
+
+
+def test_parse_indented_second_marker_raises():
+    reply = "VERDICT: QA_PASSED\n  VERDICT: QA_REJECTED\n"
+    with pytest.raises(UnparseableVerdict):
+        parse_verdict(reply)
+
+
+def test_gate_judge_none_rejected():
+    judge = Mock(return_value=None)
+    result = run_gate(
+        {"verdict_reply": PASSED_REPLY, "paths": []},
+        required=[],
+        budget=(0, 1_000_000),
+        allowlist_roots=["/repo"],
+        judge=judge,
+    )
+    assert result.verdict == "QA_REJECTED"
+    assert result.judge_called is True
+    assert any("invalid judge verdict" in v for v in result.violations)
+
+
+def test_schema_deep_nested_and_nondict_mid():
+    assert check_schema({"a": {"b": {"c": 1}}}, required=["a.b.c"]) == []
+    assert check_schema({"a": {"b": {"c": 1}}}, required=["a.b.d"]) == [
+        "missing field: a.b.d"
+    ]
+    assert check_schema({"a": 5}, required=["a.b"]) == ["missing field: a.b"]
+
+
+def test_parse_cite_version_and_all_punct_tails():
+    reply = "CITE: pkg/v1.2:34\nCITE: foo.py:12.,;:!?\nVERDICT: QA_PASSED\n"
+    verdict, cites = parse_verdict(reply)
+    assert verdict == "QA_PASSED"
+    assert cites == [("pkg/v1.2", 34), ("foo.py", 12)]

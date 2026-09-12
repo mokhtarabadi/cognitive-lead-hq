@@ -1,9 +1,9 @@
 # Task 195: Machine-readable QA verdicts plus rules-first checks
 
-**File:** `tasks/qa/195-machine-verdicts-rules-first.md`
+**File:** `tasks/completed/195-machine-verdicts-rules-first.md`
 **Source:** manager
 **Type:** feature
-**Status:** open
+**Status:** closed
 
 ## Goal
 
