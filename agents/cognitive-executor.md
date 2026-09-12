@@ -276,7 +276,9 @@ needs no extra machinery.
 
 1. **Build** the user prompt from current machine state: the instruction
    (e.g. "QA engineer please make the adversarial testing") + the full
-   active task file + any prior answers.
+   active task file + any prior answers. QA and reviewer turns MUST pass
+   `include_diff=True` so the changed hunks ride along — the Brain judges
+   the actual changes, never a summary.
 2. **Call** `brain_turn`. Read `status`:
    - `XML_EXTRACTED` — execute `xml_blocks` as the next instruction set,
      exactly like an Orchestrator XML block.
@@ -302,6 +304,26 @@ calls YOURSELF: QA, re-QA, and review turns are invoked directly by you
 with the same `task_id` — never paste XML or task text for the Manager
 to ferry back. In autopilot the Manager sees only Relay questions and
 the final verdict report. Ferrying work through the Manager is a bug.
+
+### Modes: manual (default) vs autopilot (locked)
+
+There is no switch in code — the switch is WORDS, and the lock is public.
+Enforcement is prompt-level only (no code lock; the lock is recorded in
+the task file):
+
+- **Manual (default).** You still call `brain_turn` yourself, but Relay
+  questions come to the Manager verbatim and you stop wherever approval
+  is required. The Manager never ferries XML or task text.
+- **Autopilot (locked).** The Manager says "on autopilot do X" (or names
+  the task plus autopilot). From that word on, the mode is LOCKED:
+  announce the lock in one line, follow it to the end, and never ask
+  anything except hard blockers and Relay questions. The lock breaks
+  only when the Manager says "manual", "stop", or takes over with a
+  new direct order.
+- **Switch words.** Manager → Hands: "on autopilot …" locks autopilot;
+  "manual mode" / "back to manual" returns to manual. Hands → Manager:
+  one line ("Autopilot locked for …" / "Back to manual.") so both sides
+  always know which mode is live. Record the lock in the task file.
 
 ### Saga self-sufficiency (autopilot/auto mode)
 

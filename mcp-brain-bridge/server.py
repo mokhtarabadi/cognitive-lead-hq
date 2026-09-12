@@ -174,6 +174,7 @@ _TASK_DIFF_END = "<!-- END_GIT_DIFF -->"
 _TASK_FILE_MARKER = "[task-file:"
 _TASK_KANBAN_DIRS = ("in-progress", "qa", "backlog", "completed", "archive")
 _TASK_ATTACH_CAP = 12000
+_TASK_DIFF_CAP = 20000
 
 
 def _task_id_ok(tid: object) -> bool:
@@ -294,6 +295,82 @@ def _build_task_attach(task_id: str) -> str:
     except Exception as exc:  # never fail a turn on attach problems
         print(f"brain-bridge: task attach skipped ({exc})", file=sys.stderr)
         return ""
+
+
+def extract_task_diff(text: str) -> str:
+    """Return the raw Factual Git Diff block bodies, joined ('' when none).
+
+    Pure: no filesystem touch. An unclosed BEGIN cuts to EOF.
+    """
+    bodies: list[str] = []
+    rest = text
+    while True:
+        start = rest.find(_TASK_DIFF_BEGIN)
+        if start < 0:
+            break
+        tail = rest[start + len(_TASK_DIFF_BEGIN):]
+        end = tail.find(_TASK_DIFF_END)
+        if end < 0:
+            bodies.append(tail)
+            break
+        bodies.append(tail[:end])
+        rest = tail[end + len(_TASK_DIFF_END):]
+    return "\n".join(bodies)
+
+
+def build_diff_attach(task_id: str) -> str:
+    """Assemble the labeled changed-hunks block ('' when none).
+
+    Contains the task file's Factual Git Diff content verbatim so QA and
+    reviewer turns judge the actual changes, never a summary. Content
+    caps at _TASK_DIFF_CAP chars with a truncation note. Never raises.
+    """
+    try:
+        path = _resolve_task_file(task_id)
+        if path is None:
+            return ""
+        text = path.read_text(encoding="utf-8", errors="replace")
+        diff = extract_task_diff(text)
+        if not diff.strip():
+            return ""
+        try:
+            rel = path.resolve().relative_to(
+                _workspace_root().resolve()).as_posix()
+        except (OSError, ValueError):
+            rel = path.name
+        if len(diff) > _TASK_DIFF_CAP:
+            diff = (
+                diff[:_TASK_DIFF_CAP]
+                + f"\n[...diff truncated at {_TASK_DIFF_CAP} chars — "
+                + f"pull remainder via read_file({rel!r}, offset, limit)]"
+            )
+        tid = task_id.strip() if isinstance(task_id, str) else "task"
+        # Same V1 guard as the task attach: break fence parsing invisibly
+        # so embedded fences in diff content cannot close our block early.
+        diff = diff.replace(chr(96) * 3, chr(96) * 2 + chr(8203) + chr(96))
+        return (
+            f"[changed-hunks:{tid}: {rel}]\n"
+            + "```diff\n" + diff + "\n```"
+        )
+    except Exception as exc:  # never fail a turn on attach problems
+        print(f"brain-bridge: diff attach skipped ({exc})", file=sys.stderr)
+        return ""
+
+
+def _failsafe_qa_attach(user_prompt: object, task_id: object) -> str:
+    """Return the diff-attach block for QA-like prompts ('' otherwise).
+
+    Keyword gate only: fires when the prompt reads like a QA/reviewer
+    turn ("qa engineer", "code reviewer", "adversarial"). Lets QA turns
+    carry the changed hunks even when the caller forgot include_diff.
+    Never raises (build_diff_attach never raises).
+    """
+    lowered = user_prompt.lower() if isinstance(user_prompt, str) else ""
+    if ("qa engineer" in lowered or "code reviewer" in lowered
+            or "adversarial" in lowered):
+        return build_diff_attach(
+            task_id.strip() if isinstance(task_id, str) else "")
+    return ""
 
 
 def _build_context_bundle() -> str:
@@ -853,6 +930,7 @@ def brain_turn(
     task_id: Optional[str] = None,
     system_prompt_path: Optional[str] = None,
     include_bundle: bool = True,
+    include_diff: bool = False,
 ) -> dict[str, Any]:
     """Send one Brain turn.
 
@@ -870,6 +948,14 @@ def brain_turn(
             evidence/log minus the Factual Git Diff block, with a
             read_file pull path) whenever task_id resolves to a file.
             Pass False for tiny calls. The system prompt is untouched.
+        include_diff: When True, append the task file's changed hunks
+            (Factual Git Diff content, verbatim, capped) whenever
+            task_id resolves to a file that carries a diff block.
+            QA and reviewer turns MUST pass True — the Brain judges
+            the actual changes, never a summary. Fail-safe: when the
+            flag is False but the prompt reads like a QA/reviewer turn
+            ("qa engineer", "code reviewer", "adversarial"), the hunks
+            still auto-attach with a stderr warning.
 
     Returns:
         {"status": "XML_EXTRACTED"|"REPORT", "xml_blocks": [...],
@@ -897,6 +983,29 @@ def brain_turn(
                 effective_prompt = attach + "\n\n---\n\n" + effective_prompt
         except Exception as exc:  # never fail a turn on attach problems
             print(f"brain-bridge: task attach skipped ({exc})", file=sys.stderr)
+    if include_bundle and include_diff and task_id:
+        try:
+            dattach = build_diff_attach(
+                task_id.strip() if isinstance(task_id, str) else "")
+            if dattach:
+                effective_prompt = effective_prompt + "\n\n---\n\n" + dattach
+        except Exception as exc:  # never fail a turn on attach problems
+            print(f"brain-bridge: diff attach skipped ({exc})", file=sys.stderr)
+    if include_bundle and not include_diff and task_id:
+        # Fail-safe: QA/reviewer-like prompts carry the changed hunks even
+        # when the caller forgot the flag — a silent drop would let the
+        # Brain judge a summary instead of the changes. Keyword gate only;
+        # normal turns are untouched when the flag is False.
+        try:
+            dattach = _failsafe_qa_attach(user_prompt, task_id)
+            if dattach:
+                print("brain-bridge: QA turn without include_diff, "
+                      "auto-attaching diff", file=sys.stderr)
+                effective_prompt = (effective_prompt + "\n\n---\n\n"
+                                    + dattach)
+        except Exception as exc:  # never fail a turn on attach problems
+            print(f"brain-bridge: diff attach skipped ({exc})",
+                  file=sys.stderr)
     model = _get_brain_model()
     history = load_history(task_id) if task_id else []
     # Input budget: system + user + history chars count against

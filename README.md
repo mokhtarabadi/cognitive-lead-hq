@@ -94,6 +94,16 @@ This is the canonical pure-MCP cycle:
 
 All transitions use pure FastMCP tools (`custom_context_qa_transition`, `bundle_tasks`, `custom_context_commit_and_clean_task`) — no `uv run scripts/...` CLI required.
 
+### Modes: manual (default) vs autopilot (locked)
+
+There is no switch in code — the switch is words, and enforcement is
+prompt-level only (no code lock; the lock is recorded in the task file):
+
+- **Manual (default).** The Hands still calls the Brain itself, but questions and approvals come to you. You never ferry XML or task text between them.
+- **Autopilot (locked).** Say "on autopilot do X". The Hands announces the lock in one line and runs end-to-end (implement, Brain-QA, fix, Brain-review, stage, move to QA) with zero pauses — stopping only for hard blockers. It never auto-commits and never closes tasks; closure always needs your explicit approval word.
+- **Switch back.** Say "manual mode" or "back to manual". The lock breaks at once.
+- **How you always know.** The Hands confirms every switch in one line ("Autopilot locked for …" / "Back to manual.") and records the lock in the task file.
+
 ### System Prompt V9 Architecture (Separation of Concerns)
 
 The `system-prompt.md` is restructured in V9.1.0 with a clear separation of concerns:
