@@ -1,9 +1,9 @@
 # Task 207: Release v9.31.0 with push script
 
-**File:** `tasks/qa/207-release-v9-31-0-with-push-script.md`
+**File:** `tasks/completed/207-release-v9-31-0-with-push-script.md`
 **Source:** manager
 **Type:** improvement
-**Status:** open
+**Status:** closed
 **Mode:** autopilot-locked (manager said "use auto polit mode"; auto-closure approved)
 
 ## Goal
@@ -67,58 +67,5 @@ Reviewer round 2: technically approved, no blocking issue, keep file as is, PO r
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
-```diff
-diff --git a/CHANGELOG.md b/CHANGELOG.md
-index 2faa908..92e60b6 100644
---- a/CHANGELOG.md
-+++ b/CHANGELOG.md
-@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
- 
- ## [Unreleased]
- 
-+## [9.31.0] - 2026-09-12
-+
- ### Added
- 
- - **Empty-output retry rule (Task 203):** executor bridge state machine gained step 5 — an empty-`output` REPORT is a transport flake, never a verdict: one lean retry (`include_bundle=false`, same task_id), then escalate. Lived during the self-judgment brainstorm round (2 empty REPORTs under history-bloat truncation). Executor doc is not a prompt-build input → no rebuild owed. Full suite: **264 passed**.
-@@ -17,8 +19,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
- - **Token-optimization verified spike (Task 150):** Evaluated RTK 0.49.0 locally (musl binary, no global install): passing pytest suite collapses 1801 bytes / 21 lines → 44 bytes / 3 lines (**97.6% fewer bytes**, exit code preserved, 232 passed); small git outputs (±2%) not worth wrapping; `rtk diff` is a `/usr/bin/diff` wrapper (use `rtk git diff`); `rtk test` needs exact dep pins (`mcp==1.30.0` — `<` specs break as shell redirection). `headroom-ai` 0.37.0 (PyPI) and `@caveman-ai/cli` 1.3.3 (npm) registry-verified; proxy/pixel eval deferred (needs provider rewiring + manager approval). Claim scoped to passing suites — failing-suite trimming unmeasured. New `docs/loop-engine/configuration.md` holds the evidence table (with source column: local measurement vs tool self-report); `docs/opencode-shell-strategy.md` §8 holds the practices. Headroom/Caveman proxy integration and 10-task sprint measurement remain open follow-ups.
- - **Machine-readable QA verdicts + rules-first gate (Task 195):** QA persona (fragment 06) now ends every report with a machine verdict block (`VERDICT: QA_PASSED` / `QA_REJECTED` + `CITE: file:line` lines, single-regex parseable) with a documented escape hatch (unparseable → QA_REJECTED with reason, prose fallback, manager override). New `scripts/qa-rules-gate/rules_gate.py` runs verdict-parse, schema, budget, and allowlist checks before any LLM judge call — rule failures return QA_REJECTED without invoking the judge (Mock-asserted). 20 mocked tests (relative-path allowlist, exactly-one-verdict, whitespace tolerance, judge validation, nested schema, cite punctuation). System version 9.27.0 → 9.28.0, `system-prompt.md` rebuilt (sync-check byte-identical). Full suite: **239 passed**.
- 
-+- **Release push script (Task 207):** new ZAC-compliant `/tmp/cognitive-lead-push-release.sh` (`set -euo pipefail`, `VERSION="v9.31.0"`, clean-tree plus `gh auth status` checks, missing-tag creation, branch plus tag push, release create-or-verify, remote verification). Hands generate only, Manager runs it manually.
-+
- ### Changed
- 
-+- **Prompt 9.30.0 → 9.31.0 (Task 207):** version fragment bumped, `system-prompt.md` reassembled (81684 bytes), sync check passed. Covers deferred bridge and executor capability changes.
-+
- - **Systemd daemon env + docs (Task 206):** `opencode-server.service` (systemd user unit) gained `EnvironmentFile=-<hq>/.env` so the daemon-run OpenCode starts with keys + model pins — process env outranks every `.env` fallback and feeds `{env:}` forwarding, so all served projects share it. Verified via daemon-reload (`EnvironmentFiles` listed, service still running); restart deferred to Manager (kills live sessions). Documented in `docs/setup.md` (§Systemd user service env) and `LLM.txt` (§7.10, portable `%h` form for others).
- 
- - **Cleanup sweep 9.30.0 (Task 205):** removed the dead 2026-09-09 pause narrative from live docs (executor bridge section, setup.md, README, LLM.txt) — the paused system was deleted during the bridge rebuild, never paused; deleted `archive/` (only a superseded RESTORE pointer) and its dead docs pointer; folded the loop-engine RTK evidence table into the shell strategy and removed `docs/loop-engine/`; README aligned to bridge reality; deleted the leftover `scripts/qa-rules-gate/` (zero live callers) and stripped its prose from the QA persona; shell strategy now mandates `rtk test` (binary installed) and mirrors the permission-layer git denies; LLM defaults to the latest OpenAI astra model on OpenAI-compatible transport. System version 9.29.0 → 9.30.0, prompt rebuilt (81684 bytes), sync check passed.
-@@ -47,8 +53,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
- 
- - **Guaranteed context bundle + autopilot saga rule (Task 190 overnight):** Executor autopilot gained Saga self-sufficiency — the Hands plays the manager role via manager-decision when an XML step says the manager copies, and hands results to the reviewer directly via `brain_turn` (ferrying through the human in autopilot is now a bug). Big-file-to-LLM research (blowsh spider workflow, Kokil 2026 long-context guide) concluded tool-use beats whole-file stuffing, so the bridge now auto-prepends a 5-file context bundle (`cognitive-executor.md`, `conventions.md`, `architecture.md`, `data_model.md`, `DESIGN.md`, 60k/file cap, `[missing]` markers) to every `brain_turn`, and exposes `read_file` (root-guarded, numbered lines) + `grep_files` (30-hit cap) for on-demand pulls of big files like full task files. Live bundle proof: HTTP 200, exact `BUNDLE_PROOF_OK`, all 5 files included-or-marked. Covered by 10 new mocked tests. Full suite: **139 passed**.
- 
--### Fixed
--
- - **Reviewer hotfix on hunks path (Task 201):** QA/reviewer-like prompts now auto-attach the changed hunks even when the caller forgets `include_diff` (new pure `_failsafe_qa_attach` keyword gate + stderr warning; normal turns untouched); diff fence guard proven identical to the V1 task-attach guard; Modes docs now state prompt-level enforcement explicitly. Covered by 2 new tests (QA prompt attaches, normal prompt stays empty). Full suite: **264 passed**.
- 
- ## [9.26.0] - 2026-09-11
-diff --git a/prompts/fragments/01-system_version.md b/prompts/fragments/01-system_version.md
-index e3b682f..2078c3c 100644
---- a/prompts/fragments/01-system_version.md
-+++ b/prompts/fragments/01-system_version.md
-@@ -1 +1 @@
--<system_version>9.30.0</system_version>
-+<system_version>9.31.0</system_version>
-diff --git a/system-prompt.md b/system-prompt.md
-index 5380623..aea9c53 100644
---- a/system-prompt.md
-+++ b/system-prompt.md
-@@ -1,4 +1,4 @@
--<system_version>9.30.0</system_version>
-+<system_version>9.31.0</system_version>
- 
- <role>
- You are the Cognitive Lead AI running inside the Orchestrator platform, acting as an elite software agency orchestrator.
-```
+**Factual Git Diff:** Stored in Commit Hash: `876bbf808ad75ebc0e335da47149f40960a879c1`
 <!-- END_GIT_DIFF -->
