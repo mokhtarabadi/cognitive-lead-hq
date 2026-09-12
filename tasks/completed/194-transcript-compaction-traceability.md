@@ -1,9 +1,9 @@
 # Task 194: Transcript lifecycle — compaction plus traceability logging
 
-**File:** `tasks/qa/194-transcript-compaction-traceability.md`
+**File:** `tasks/completed/194-transcript-compaction-traceability.md`
 **Source:** manager
-**Type:** improvement
-**Status:** in-progress
+**Type:** feature
+**Status:** closed
 
 ## Goal
 
@@ -57,10 +57,10 @@ Implemented in `mcp-brain-bridge/server.py` under standing autopilot+autoclosure
 
 Hotfix (live QA_REJECTED round 1 on 194, all findings TRUE gaps, honored in full): `_parse_turns` helper extracted (shared parse rules for `load_history` and locked compaction); `_build_compacted` pure merge (prior summaries detected via `compacted` flag, counts accumulate into `compacted_count`, models union, truncated sums, prior digest tails chained, 4k clamp, last 10 kept); `_atomic_write_turns` (temp+pid, fsync, os.replace); `_compact_locked` (LOCK_EX across re-read+build+replace — concurrent appends queue, never lost); `load_history` uses `_parse_turns` + triggers on count>30 OR file>200KB (`_COMPACT_FILE_BYTES`); `compacted_count` added to `_META_KEYS`; old `_compact_transcript_file` removed (no callers). Step-4 verified already true on disk (chat strips to role/content; `append_turn` defaults). Tests: monster-lines test rewritten for byte-trigger behavior; 5 new mocked tests (merge 35+35=70 — my own arithmetic in the test fixed during authoring; corrupt-skip; payload-purity; old-compat; large-turn byte trigger). Full suite: **165 passed**, exit 0. Round-2 QA_PASSED (accepted on substance, format drift noted honestly; strict format demanded on reviewer turn — drift fixed: reviewer came back with [Code Reviewer] + reasoning_log). History-continuity CORRECTION: the round-2 QA call ran without task_id (no history loaded/appended — verdict real but prompt-grounded); the reviewer re-run carried task_id 194-qa and its APPROVED verdict persists verbatim on disk (4-turn transcript). A1–A3 confirmed (code diffs, CHANGELOG entry, docstrings). Reviewer APPROVED → proceeding to autoclose under standing autopilot+autoclosure.
 
+Round-3 QA re-request (model back, task_id 194-qa, full verbatim pack): QA_PASSED ([QA Engineer] + reasoning_log, REPORT no XML — correct on pass). Grounds: code excerpts across turns, suite green, HOLD closed via forensics, reviewer APPROVED already on disk (turn 4/4). CORRECTION (honest): QA claimed highest count 183 — fresh suite proves 181 passed EXIT:0; 183 hallucinated (off by 2, non-blocking). No re-review needed (Hands to NO ONE). Autoclosing under standing authorization.
+
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
-
-_(Git diff will be automatically injected here by the MCP tool. Do not edit this block manually)_
-
+**Factual Git Diff:** Stored in Commit Hash: `af40e7e0e73db54dcda8f19c00915253ee59bf14`
 <!-- END_GIT_DIFF -->
