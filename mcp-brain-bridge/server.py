@@ -145,6 +145,12 @@ _SKIP_DIRS = frozenset(
     {".git", "__pycache__", ".venv", "node_modules", ".pytest_cache"}
 )
 
+# Guardrails for the file-pull tools (state-machine hotfix round).
+_READ_MAX_LINES = 2000        # read_file limit clamp — pulls stay pull-sized
+_READ_MAX_BYTES = 2_000_000   # read_file refuses bigger files outright
+_GREP_PATTERN_MAX = 500       # Brain-supplied regex length cap (ReDoS bound)
+_GREP_MAX_LINE_CHARS = 4000   # overlong lines are skipped, never searched
+
 
 def _workspace_root() -> Path:
     """Repo root for context reads; override via ``BRAIN_WORKSPACE_ROOT``."""
@@ -266,7 +272,11 @@ def _build_task_attach(task_id: str) -> str:
         if path is None:
             return ""
         text = path.read_text(encoding="utf-8", errors="replace")
-        rel = path.name
+        try:
+            rel = path.resolve().relative_to(
+                _workspace_root().resolve()).as_posix()
+        except (OSError, ValueError):
+            rel = path.name
         cleaned, _omitted, _truncated = _strip_task_diff(text, rel)
         if len(cleaned) > _TASK_ATTACH_CAP:
             cleaned = (
@@ -311,16 +321,29 @@ def _build_context_bundle() -> str:
 
 
 def _read_file_impl(path: str, offset: int = 1, limit: int = 200) -> dict[str, Any]:
-    """Numbered-line slice of a workspace text file (1-indexed offset)."""
+    """Numbered-line slice of a workspace text file (1-indexed offset).
+
+    The ``limit`` clamps to ``_READ_MAX_LINES`` and files over
+    ``_READ_MAX_BYTES`` are refused — pulls stay pull-sized and can
+    never drag a giant file into context.
+    """
     if not isinstance(path, str) or not path.strip():
         raise ValueError(f"bad path: {path!r}")
     if offset < 1:
         raise ValueError(f"bad offset (1-indexed): {offset!r}")
     if limit < 1:
         raise ValueError(f"bad limit: {limit!r}")
+    limit = min(limit, _READ_MAX_LINES)
     resolved = _resolve_under_root(path)
     if resolved.suffix.lower() not in _ALLOWED_READ_SUFFIXES:
         raise ValueError(f"unsupported extension: {path!r}")
+    try:
+        if resolved.stat().st_size > _READ_MAX_BYTES:
+            raise ValueError(
+                f"file too large for read_file: {path!r} "
+                f"(>{_READ_MAX_BYTES} bytes)")
+    except OSError:
+        pass  # stat failed — the read below raises the real error
     text = resolved.read_text(encoding="utf-8", errors="replace")
     lines = text.splitlines()
     total = len(lines)
@@ -336,7 +359,20 @@ def _read_file_impl(path: str, offset: int = 1, limit: int = 200) -> dict[str, A
 
 
 def _grep_files_impl(pattern: str, subdir: str = ".") -> list[str]:
-    """Python-regex search over workspace text files (max 30 hits)."""
+    """Python-regex search over workspace text files (max 30 hits).
+
+    Hardening: the Brain-supplied pattern caps at ``_GREP_PATTERN_MAX``
+    chars (``re`` has no timeout, so length is the ReDoS bound), each hit
+    line truncates at 200 chars, lines over ``_GREP_MAX_LINE_CHARS`` are
+    skipped unsearched, and every candidate resolves against the root
+    BEFORE it is read — a symlink escaping the workspace is skipped,
+    never opened.
+    """
+    if not isinstance(pattern, str) or not pattern:
+        raise ValueError(f"bad regex: {pattern!r}")
+    if len(pattern) > _GREP_PATTERN_MAX:
+        raise ValueError(
+            f"regex too long ({len(pattern)} > {_GREP_PATTERN_MAX})")
     try:
         rx = re.compile(pattern)
     except re.error as exc:
@@ -353,11 +389,18 @@ def _grep_files_impl(pattern: str, subdir: str = ".") -> list[str]:
                 continue
             fpath = Path(dirpath) / name
             try:
-                text = fpath.read_text(encoding="utf-8", errors="replace")
+                resolved = fpath.resolve()
+                resolved.relative_to(root)
+            except (OSError, ValueError):
+                continue  # symlink escape — skip before any read
+            try:
+                text = resolved.read_text(encoding="utf-8", errors="replace")
             except OSError:
                 continue
-            rel = fpath.resolve().relative_to(root).as_posix()
+            rel = resolved.relative_to(root).as_posix()
             for lineno, line in enumerate(text.splitlines(), 1):
+                if len(line) > _GREP_MAX_LINE_CHARS:
+                    continue
                 if rx.search(line):
                     hits.append(f"{rel}:{lineno}: {line.strip()[:200]}")
                     if len(hits) >= 30:

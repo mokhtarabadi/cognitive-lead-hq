@@ -1088,3 +1088,61 @@ def test_task_attach_truncation_has_pull_path(tmp_path, monkeypatch):
     attach = bridge._build_task_attach("200-foo")
     assert "read_file(" in attach and "200-foo.md" in attach
     assert len(attach) < 30000
+
+
+def test_task_attach_pull_path_is_lane_relative_and_live(tmp_path, monkeypatch):
+    d = tmp_path / "tasks" / "backlog"
+    d.mkdir(parents=True, exist_ok=True)
+    (d / "200-foo.md").write_text(
+        "# T\n<!-- BEGIN_GIT_DIFF -->\nx\n<!-- END_GIT_DIFF -->\n",
+        encoding="utf-8")
+    monkeypatch.setattr(bridge, "_workspace_root", lambda: tmp_path)
+    attach = bridge._build_task_attach("200-foo")
+    assert "tasks/backlog/200-foo.md" in attach
+    pulled = bridge._read_file_impl("tasks/backlog/200-foo.md")
+    assert pulled["total_lines"] == 4
+
+
+def test_grep_skips_symlink_escape(tmp_path, monkeypatch):
+    ws = tmp_path / "ws"
+    sub = ws / "docs"
+    sub.mkdir(parents=True)
+    (sub / "real.md").write_text("hello\n", encoding="utf-8")
+    outside = tmp_path / "outside-secret.md"
+    outside.write_text("SECRET-XYZ\n", encoding="utf-8")
+    (sub / "evil.md").symlink_to(outside)
+    monkeypatch.setattr(bridge, "_workspace_root", lambda: ws)
+    hits = bridge._grep_files_impl("SECRET-XYZ", "docs")
+    assert hits == []
+
+
+def test_read_file_limit_clamped(tmp_path, monkeypatch):
+    (tmp_path / "big.md").write_text(
+        "".join(f"line {n}\n" for n in range(2500)), encoding="utf-8")
+    monkeypatch.setattr(bridge, "_workspace_root", lambda: tmp_path)
+    result = bridge._read_file_impl("big.md", limit=10 ** 9)
+    assert result["limit"] == bridge._READ_MAX_LINES
+    assert len(result["lines"]) == bridge._READ_MAX_LINES
+
+
+def test_read_file_oversize_refused(tmp_path, monkeypatch):
+    (tmp_path / "huge.md").write_bytes(b"x" * (bridge._READ_MAX_BYTES + 1))
+    monkeypatch.setattr(bridge, "_workspace_root", lambda: tmp_path)
+    with pytest.raises(ValueError, match="too large"):
+        bridge._read_file_impl("huge.md")
+
+
+def test_grep_pattern_too_long_rejected(tmp_path, monkeypatch):
+    monkeypatch.setattr(bridge, "_workspace_root", lambda: tmp_path)
+    with pytest.raises(ValueError, match="too long"):
+        bridge._grep_files_impl("a" * (bridge._GREP_PATTERN_MAX + 1))
+
+
+def test_grep_skips_overlong_lines(tmp_path, monkeypatch):
+    sub = tmp_path / "docs"
+    sub.mkdir()
+    (sub / "mix.md").write_text(
+        "MATCH " + ("z" * 5000) + "\nplain MATCH line\n", encoding="utf-8")
+    monkeypatch.setattr(bridge, "_workspace_root", lambda: tmp_path)
+    hits = bridge._grep_files_impl("MATCH", "docs")
+    assert len(hits) == 1 and ":2:" in hits[0]
