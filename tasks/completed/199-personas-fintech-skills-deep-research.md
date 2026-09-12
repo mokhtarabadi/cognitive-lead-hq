@@ -62,7 +62,5 @@ QA (brain 199-qc): QA_PASSED ([QA Engineer] + reasoning_log, REPORT). Verified P
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
-
-_(Git diff will be automatically injected here by the MCP tool. Do not edit this block manually)_
-
+**Factual Git Diff:** Stored in Commit Hash: `b402bfaeae50671de2956d8763916d49e18fa737`
 <!-- END_GIT_DIFF -->
