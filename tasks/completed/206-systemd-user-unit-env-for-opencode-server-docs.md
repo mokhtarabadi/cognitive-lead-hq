@@ -1,9 +1,9 @@
 # Task 206: Systemd user unit env for opencode-server + docs
 
-**File:** `tasks/qa/206-systemd-user-unit-env-for-opencode-server-docs.md`
+**File:** `tasks/completed/206-systemd-user-unit-env-for-opencode-server-docs.md`
 **Source:** manager
 **Type:** improvement
-**Status:** open
+**Status:** closed
 
 ## Goal
 
@@ -59,85 +59,5 @@ Check our opencode and how it works, and global opencode configuration. I manage
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
-```diff
-diff --git a/CHANGELOG.md b/CHANGELOG.md
-index f135592..2faa908 100644
---- a/CHANGELOG.md
-+++ b/CHANGELOG.md
-@@ -19,6 +19,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
- 
- ### Changed
- 
-+- **Systemd daemon env + docs (Task 206):** `opencode-server.service` (systemd user unit) gained `EnvironmentFile=-<hq>/.env` so the daemon-run OpenCode starts with keys + model pins — process env outranks every `.env` fallback and feeds `{env:}` forwarding, so all served projects share it. Verified via daemon-reload (`EnvironmentFiles` listed, service still running); restart deferred to Manager (kills live sessions). Documented in `docs/setup.md` (§Systemd user service env) and `LLM.txt` (§7.10, portable `%h` form for others).
-+
- - **Cleanup sweep 9.30.0 (Task 205):** removed the dead 2026-09-09 pause narrative from live docs (executor bridge section, setup.md, README, LLM.txt) — the paused system was deleted during the bridge rebuild, never paused; deleted `archive/` (only a superseded RESTORE pointer) and its dead docs pointer; folded the loop-engine RTK evidence table into the shell strategy and removed `docs/loop-engine/`; README aligned to bridge reality; deleted the leftover `scripts/qa-rules-gate/` (zero live callers) and stripped its prose from the QA persona; shell strategy now mandates `rtk test` (binary installed) and mirrors the permission-layer git denies; LLM defaults to the latest OpenAI astra model on OpenAI-compatible transport. System version 9.29.0 → 9.30.0, prompt rebuilt (81684 bytes), sync check passed.
- 
- - **Persona boundaries + mode-aware ferry (Task 204):** self-judgment follow-up — Planner vs Strategist and Architect vs Programmer gained one-line ownership boundaries (WHAT vs HOW, state vs priority); QA + Reviewer ferry language made mode-aware (manual ferry vs autopilot direct call); Architect Discovery-First triple coverage trimmed to prohibition + single directive. System version 9.28.0 → 9.29.0, prompt rebuilt, sync check passed.
-diff --git a/LLM.txt b/LLM.txt
-index 7cc7eb4..2d5c0b0 100644
---- a/LLM.txt
-+++ b/LLM.txt
-@@ -460,6 +460,30 @@ Cloudflare Tunnel (`managed-remote` with your domain + account token) is the nex
- 
- ---
- 
-+## 7.10. Systemd User Service Env (If OpenCode Runs as a Daemon)
-+
-+If the user runs OpenCode via a systemd user unit (e.g. `opencode-server.service`
-+for OpenChamber), the daemon starts with a bare environment — shell exports do
-+not apply and `{env:VAR}` forwarding in `opencode.json` resolves empty. Add the
-+env file to the unit so the bridge/decision servers start with keys:
-+
-+```ini
-+[Service]
-+# Project env (keys + model pins). '-' = unit still starts if file is missing.
-+EnvironmentFile=-<project-path>/.env
-+# Portable alternative: EnvironmentFile=%h/.config/opencode/.env
-+```
-+
-+Then `systemctl --user daemon-reload` (safe anytime). The vars take effect on the
-+next `systemctl --user restart opencode-server` — the restart kills live
-+sessions, so the USER runs it, never the agent. Verify with
-+`systemctl --user show opencode-server.service -p EnvironmentFiles`.
-+As process env these vars outrank every `.env` file fallback, so all projects
-+served by the daemon share them. Per-project overrides still work via that
-+project's own `.env` only for keys the daemon env does NOT set.
-+
-+---
-+
- ## 8. Clean Up Temporary Clone
- 
- Remove the cloned repository from `/tmp/`:
-diff --git a/docs/setup.md b/docs/setup.md
-index 29819f3..fede78d 100644
---- a/docs/setup.md
-+++ b/docs/setup.md
-@@ -65,6 +65,26 @@ These are configured in `opencode.json` and auto-start with OpenCode.
- > (`brain_turn`).
- > Global installs additionally run `blowsh` + `telegram`.
- 
-+### Systemd user service env
-+
-+When OpenCode runs as a systemd user service (`opencode-server.service`),
-+the daemon starts with a bare environment — no shell exports apply. Give
-+it the project env explicitly so `{env:VAR}` forwarding in `opencode.json`
-+resolves and the bridge/decision servers start with keys:
-+
-+```ini
-+[Service]
-+EnvironmentFile=-/home/mohammad/code-server/projects/cognitive-lead-hq/.env
-+```
-+
-+Portable form for other machines: `EnvironmentFile=%h/.config/opencode/.env`.
-+After editing: `systemctl --user daemon-reload` (safe anytime), then
-+`systemctl --user restart opencode-server` to take effect — the restart
-+kills live sessions, so the manager runs it, never the Hands. Verify with
-+`systemctl --user show opencode-server.service -p EnvironmentFiles`.
-+As process env, these vars outrank every `.env` file fallback, so all
-+projects served by the daemon share them.
-+
- ## Development Tools
- 
- ```bash
-```
+**Factual Git Diff:** Stored in Commit Hash: `50ea9bc86b1e9bc9738e0ea68d2be80edaba3347`
 <!-- END_GIT_DIFF -->
