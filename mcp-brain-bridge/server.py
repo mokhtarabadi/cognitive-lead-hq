@@ -163,6 +163,113 @@ def _resolve_under_root(rel: str, root: Optional[Path] = None) -> Path:
     return candidate
 
 
+_TASK_DIFF_BEGIN = "<!-- BEGIN_GIT_DIFF -->"
+_TASK_DIFF_END = "<!-- END_GIT_DIFF -->"
+_TASK_FILE_MARKER = "[task-file:"
+_TASK_KANBAN_DIRS = ("backlog", "in-progress", "qa", "completed", "archive")
+_TASK_ATTACH_CAP = 12000
+_TASK_ATTACH_CAP = 12000
+
+
+def _task_id_ok(tid: object) -> bool:
+    """Allowlist for task ids (mirrors loop_guard): letters, digits,
+    underscore, hyphen; must start alnum; max 64 chars. Blocks
+    traversal (../), separators (/), and glob metacharacters (*?[]).
+    Uses the module-level compiled _TASK_ID_RE (shared with the
+    history-path sanitizer — do NOT redefine it here)."""
+    return isinstance(tid, str) and bool(_TASK_ID_RE.match(tid))
+
+
+def _resolve_task_file(task_id: str) -> Path | None:
+    """Resolve a Brain task_id to its task file (None when unresolvable).
+
+    Tries `<task_id>-*.md` in each Kanban dir (lane order: backlog,
+    in-progress, qa, completed, archive — first match wins), then
+    progressively strips trailing `-segment`s (so session id `194-qa`
+    finds task file `194-*.md`). The allowlist rejects traversal,
+    separators, and glob metacharacters before any filesystem touch.
+    Never raises — returns None instead.
+    """
+    try:
+        if not _task_id_ok(task_id):
+            return None
+        tid = task_id.strip()
+        root = _workspace_root() / "tasks"
+        candidates = [tid]
+        while "-" in candidates[-1]:
+            candidates.append(candidates[-1].rsplit("-", 1)[0])
+        for cand in candidates:
+            for lane in _TASK_KANBAN_DIRS:
+                matches = sorted((root / lane).glob(cand + "-*.md"))
+                if matches:
+                    return matches[0]
+        return None
+    except Exception:
+        return None
+
+
+def _strip_task_diff(text: str, rel: str) -> tuple[str, int, bool]:
+    """Cut ALL Factual Git Diff blocks; return (cleaned, omitted, truncated).
+
+    An unclosed BEGIN (no END after it) cuts to EOF and sets
+    truncated=True; a lone END marker is left untouched.
+    """
+    parts: list[str] = []
+    rest = text
+    omitted = 0
+    truncated = False
+    while True:
+        start = rest.find(_TASK_DIFF_BEGIN)
+        if start < 0:
+            parts.append(rest)
+            break
+        parts.append(rest[:start])
+        tail = rest[start + len(_TASK_DIFF_BEGIN):]
+        end = tail.find(_TASK_DIFF_END)
+        if end < 0:
+            omitted += tail.count("\n") + 1
+            truncated = True
+            break
+        omitted += tail.count("\n", 0, end) + 1
+        rest = tail[end + len(_TASK_DIFF_END):]
+    if not omitted:
+        return text, 0, False
+    note = (
+        f"[Factual Git Diff omitted — {omitted} lines; "
+        + f"pull ranges via read_file({rel!r}, offset, limit)]"
+    )
+    if truncated:
+        note += " [diff truncated: unclosed block cut to EOF]"
+    return "".join(parts) + note, omitted, truncated
+
+
+def _build_task_attach(task_id: str) -> str:
+    """Assemble the labeled task-file block ('' when unresolvable).
+
+    Contains the task file's working content (Goal/Notes/TODOs/AC/
+    evidence/log) minus the Factual Git Diff block, fenced so the
+    XML extractor never mistakes task prose for Brain output blocks.
+    Content caps at _TASK_ATTACH_CAP chars. Never raises.
+    """
+    try:
+        path = _resolve_task_file(task_id)
+        if path is None:
+            return ""
+        text = path.read_text(encoding="utf-8", errors="replace")
+        rel = path.name
+        cleaned, _omitted, _truncated = _strip_task_diff(text, rel)
+        if len(cleaned) > _TASK_ATTACH_CAP:
+            cleaned = cleaned[:_TASK_ATTACH_CAP] + "\n[...truncated]"
+        tid = task_id.strip() if isinstance(task_id, str) else "task"
+        return (
+            f"{_TASK_FILE_MARKER}{tid}: {rel}]\n"
+            + "```markdown\n" + cleaned + "\n```"
+        )
+    except Exception as exc:  # never fail a turn on attach problems
+        print(f"brain-bridge: task attach skipped ({exc})", file=sys.stderr)
+        return ""
+
+
 def _build_context_bundle() -> str:
     """Assemble the labeled small-file bundle (never raises on Absent-File)."""
     root = _workspace_root()
@@ -699,7 +806,10 @@ def brain_turn(
         system_prompt_path: Optional override; default is the global
             install copy of system-prompt.md.
         include_bundle: When True (default), prepend the small-file
-            context bundle unless the prompt already carries its marker.
+            context bundle unless the prompt already carries its marker,
+            plus the task file's working content (Goal/Notes/TODOs/AC/
+            evidence/log minus the Factual Git Diff block, with a
+            read_file pull path) whenever task_id resolves to a file.
             Pass False for tiny calls. The system prompt is untouched.
 
     Returns:
@@ -716,6 +826,18 @@ def brain_turn(
     effective_prompt = user_prompt
     if include_bundle and _BUNDLE_MARKER not in user_prompt:
         effective_prompt = _build_context_bundle() + "\n\n---\n\n" + user_prompt
+    if include_bundle and task_id:
+        try:
+            attach = _build_task_attach(task_id)
+            _ns = (
+                f"{_TASK_FILE_MARKER}{task_id.strip()}: "
+                if isinstance(task_id, str)
+                else _TASK_FILE_MARKER
+            )
+            if attach and _ns not in user_prompt:
+                effective_prompt = attach + "\n\n---\n\n" + effective_prompt
+        except Exception as exc:  # never fail a turn on attach problems
+            print(f"brain-bridge: task attach skipped ({exc})", file=sys.stderr)
     model = _get_brain_model()
     history = load_history(task_id) if task_id else []
     # Input budget: system + user + history chars count against

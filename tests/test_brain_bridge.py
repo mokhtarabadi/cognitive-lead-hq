@@ -408,6 +408,93 @@ def test_brain_turn_budget_return_fields(tmp_path, monkeypatch):
     assert set(("truncated_count", "budget_chars", "retry_count")) <= set(result)
 
 
+def _mk_tasks_root(tmp_path):
+    tasks = tmp_path / "tasks" / "backlog"
+    tasks.mkdir(parents=True)
+    (tasks / "200-foo.md").write_text(
+        "# T\n\nGoal line.\n\n<!-- BEGIN_GIT_DIFF -->\nDIFFSTUFF\n<!-- END_GIT_DIFF -->\n",
+        encoding="utf-8")
+    return tmp_path
+
+
+def test_task_attach_strip_pure():
+    cleaned, omitted, truncated = bridge._strip_task_diff(
+        "head\n<!-- BEGIN_GIT_DIFF -->\na\nb\n<!-- END_GIT_DIFF -->\ntail",
+        "tasks/x.md")
+    assert "DIFFSTUFF" not in cleaned and "a\nb" not in cleaned
+    assert "head" in cleaned and "tail" in cleaned
+    assert omitted == 4  # block lines incl. markers (impl counts span newlines + 1)
+    assert truncated is False
+    assert "read_file" in cleaned
+
+
+def test_task_attach_resolve_exact_and_fallback(tmp_path, monkeypatch):
+    _mk_tasks_root(tmp_path)
+    monkeypatch.setattr(bridge, "_workspace_root", lambda: tmp_path)
+    found = bridge._resolve_task_file("200-foo")
+    assert found is not None and found.name == "200-foo.md"
+    fallback = bridge._resolve_task_file("200-foo-qa")
+    assert fallback is not None and fallback.name == "200-foo.md"
+    assert bridge._resolve_task_file("nope-no-file") is None
+
+
+def test_task_attach_unresolvable_empty(tmp_path, monkeypatch):
+    _mk_tasks_root(tmp_path)
+    monkeypatch.setattr(bridge, "_workspace_root", lambda: tmp_path)
+    assert bridge._build_task_attach("nope-no-file") == ""
+
+
+def test_brain_turn_task_attach_in_body(tmp_path, monkeypatch):
+    _mk_tasks_root(tmp_path)
+    monkeypatch.setattr(bridge, "_workspace_root", lambda: tmp_path)
+    monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
+    _mk_sys_prompt(tmp_path, monkeypatch)
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    monkeypatch.delenv("BRAIN_TEMPERATURE", raising=False)
+    _mk_bridge_client(monkeypatch, [_FakeResp(200, "fine", _ok_payload("ok"))])
+    call = bridge.brain_turn
+    target = call.fn if hasattr(call, "fn") else call
+    result = target("q", task_id="200-foo")
+    assert result["status"] == "REPORT"
+    user_line = (tmp_path / "sessions" / "200-foo" / "transcript.jsonl").read_text(
+        encoding="utf-8").splitlines()[0]
+    assert "[task-file:200-foo:" in user_line
+    assert "Goal line." in user_line
+    assert "DIFFSTUFF" not in user_line
+
+
+def test_brain_turn_task_attach_no_duplicate(tmp_path, monkeypatch):
+    _mk_tasks_root(tmp_path)
+    monkeypatch.setattr(bridge, "_workspace_root", lambda: tmp_path)
+    monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
+    _mk_sys_prompt(tmp_path, monkeypatch)
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    monkeypatch.delenv("BRAIN_TEMPERATURE", raising=False)
+    _mk_bridge_client(monkeypatch, [_FakeResp(200, "fine", _ok_payload("ok"))])
+    call = bridge.brain_turn
+    target = call.fn if hasattr(call, "fn") else call
+    result = target("[task-file:200-foo: 200-foo.md]\nq", task_id="200-foo")
+    assert result["status"] == "REPORT"
+    user_line = (tmp_path / "sessions" / "200-foo" / "transcript.jsonl").read_text(
+        encoding="utf-8").splitlines()[0]
+    assert user_line.count("[task-file:200-foo:") == 1
+
+
+def test_brain_turn_unresolvable_task_id_succeeds(tmp_path, monkeypatch):
+    _mk_tasks_root(tmp_path)
+    monkeypatch.setattr(bridge, "_workspace_root", lambda: tmp_path)
+    monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
+    _mk_sys_prompt(tmp_path, monkeypatch)
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    monkeypatch.delenv("BRAIN_TEMPERATURE", raising=False)
+    _mk_bridge_client(monkeypatch, [_FakeResp(200, "fine", _ok_payload("ok"))])
+    call = bridge.brain_turn
+    target = call.fn if hasattr(call, "fn") else call
+    result = target("q", task_id="nope-no-file")
+    assert result["status"] == "REPORT"
+    assert result["output"] == "ok"
+
+
 def test_brain_turn_temperature_omitted_unless_set(tmp_path, monkeypatch):
     monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
     _mk_sys_prompt(tmp_path, monkeypatch)
@@ -870,3 +957,59 @@ def test_taxonomy_non_httpx_error_propagates(monkeypatch):
     client = _FakeClient([ValueError("boom")])
     with pytest.raises(ValueError, match="boom"):
         bridge._post_with_retry(client, "http://x/responses", {})
+
+
+def test_task_id_allowlist_rejects_traversal(tmp_path, monkeypatch):
+    _mk_tasks_root(tmp_path)
+    monkeypatch.setattr(bridge, "_workspace_root", lambda: tmp_path)
+    assert bridge._resolve_task_file("../x") is None
+    assert bridge._resolve_task_file("a/b") is None
+    assert bridge._resolve_task_file("*") is None
+    assert bridge._resolve_task_file("200-foo;rm") is None
+    assert bridge._build_task_attach("../x") == ""
+
+
+def test_task_id_non_strings_rejected(tmp_path, monkeypatch):
+    _mk_tasks_root(tmp_path)
+    monkeypatch.setattr(bridge, "_workspace_root", lambda: tmp_path)
+    assert bridge._resolve_task_file(200) is None
+    assert bridge._resolve_task_file(None) is None
+    assert bridge._resolve_task_file("") is None
+    assert bridge._resolve_task_file("   ") is None
+    assert bridge._build_task_attach(None) == ""
+
+
+def test_task_resolve_lane_order_backlog_first(tmp_path, monkeypatch):
+    for lane in ("backlog", "completed"):
+        d = tmp_path / "tasks" / lane
+        d.mkdir(parents=True, exist_ok=True)
+        (d / "200-foo.md").write_text(f"# from {lane}\n", encoding="utf-8")
+    monkeypatch.setattr(bridge, "_workspace_root", lambda: tmp_path)
+    found = bridge._resolve_task_file("200-foo")
+    assert found is not None and "backlog" in str(found)
+
+
+def test_task_attach_truncates_big_file(tmp_path, monkeypatch):
+    d = tmp_path / "tasks" / "backlog"
+    d.mkdir(parents=True, exist_ok=True)
+    (d / "200-foo.md").write_text("# T\n" + ("y" * 30000), encoding="utf-8")
+    monkeypatch.setattr(bridge, "_workspace_root", lambda: tmp_path)
+    attach = bridge._build_task_attach("200-foo")
+    assert "[...truncated]" in attach
+    assert len(attach) < 30000
+
+
+def test_strip_multi_unclosed_lone_markers():
+    two = ("a\n<!-- BEGIN_GIT_DIFF -->\nx\n<!-- END_GIT_DIFF -->\nmid\n"
+           "<!-- BEGIN_GIT_DIFF -->\ny\n<!-- END_GIT_DIFF -->\nz")
+    cleaned, omitted, truncated = bridge._strip_task_diff(two, "t.md")
+    assert "x\n" not in cleaned and "\ny\n" not in cleaned
+    assert "a\n" in cleaned and "mid\n" in cleaned and "z[Factual" in cleaned
+    assert truncated is False
+    unclosed = "keep\n<!-- BEGIN_GIT_DIFF -->\nleak this"
+    cleaned_u, _o, trunc_u = bridge._strip_task_diff(unclosed, "t.md")
+    assert "keep" in cleaned_u and "leak this" not in cleaned_u
+    assert trunc_u is True
+    lone = "keep\n<!-- END_GIT_DIFF -->\nall"
+    cleaned_l, omitted_l, trunc_l = bridge._strip_task_diff(lone, "t.md")
+    assert cleaned_l == lone and omitted_l == 0 and trunc_l is False
