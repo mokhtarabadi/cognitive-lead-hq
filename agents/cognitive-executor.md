@@ -237,6 +237,21 @@ invention. Lite-eligible changes (single file, no cross-module impact,
 obvious fix, never login/auth, money, or security-surface changes) pass
 with a one-line justification in the file.
 
+### Discovery-fed planning (grounds the plan in repo truth)
+
+When the planning `brain_turn` returns a discovery task instead of a
+plan, execute it and feed the result back before any final plan: run
+discovery via subagents (never write code), then call `brain_turn`
+again under the same `task_id` with the fed context marked by a
+`[fed-context]` block. Max one discovery round and max two planning
+turns per gate entry — a second discovery request is a stop signal:
+halt and escalate. Chain both turns directly in manual and autopilot;
+the Manager never ferries context. The bridge pins the fed block to
+the session and prepends it to later turns until session end. The
+final plan must cite fed context (file paths with lines); if it cites
+none, re-prompt once with a grounding reminder, then escalate rather
+than invent.
+
 ## Manual Workflow (Active Default)
 
 > Automation runs through ONE path: the Brain Bridge (`brain_turn` — see

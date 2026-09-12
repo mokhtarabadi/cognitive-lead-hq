@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- **Discovery-fed Brain planning with pinned session context (Task 209):** planning gate gained a discovery-fed loop — when the planning turn returns a discovery task, the Hands execute it via subagents and feed the result back under the same id (max one discovery round, max two planning turns) before the final plan, which must cite fed context. The bridge pins `[fed-context]` blocks to `fed_context.md` per session and prepends the pin to later turns, exempt from compaction and the middle drop (20k cap). Executor gate plus bridge pinning, no prompt rebuild. Full suite: **245 passed**.
+
 ## [9.31.0] - 2026-09-12
 
 ### Added

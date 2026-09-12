@@ -924,6 +924,90 @@ def append_turn(task_id: str, role: str, content: str, model: Optional[str] = No
             fcntl.flock(fh, fcntl.LOCK_UN)
 
 
+#: Marker opening a fed discovery block inside a user prompt. Everything
+#: after the marker line (up to an optional ``[/fed-context]`` line) is
+#: pinned to the session and prepended to later turns until session end,
+#: so planning always reasons from executed discovery, never memory.
+_FED_CONTEXT_MARKER = "[fed-context]"
+_FED_CONTEXT_END = "[/fed-context]"
+_FED_CONTEXT_FILE = "fed_context.md"
+
+#: Cap for pinned fed context (chars). Truncated with a note, never
+#: silently dropped by history compaction or the input-budget middle drop
+#: (it lives in its own file, outside the transcript window).
+_FED_CONTEXT_CAP = 20000
+
+
+def _fed_context_path(task_id: str) -> Path:
+    """Pinned fed-context file for a task (raises ValueError on bad id)."""
+    return _sessions_root() / _sanitize_task_id(task_id) / _FED_CONTEXT_FILE
+
+
+def extract_fed_context(prompt: object) -> str:
+    """Return the fed discovery block in ``prompt`` ('' when none).
+
+    Pure: no filesystem touch. Takes text after the first ``[fed-context]``
+    line, cuts at ``[/fed-context]`` when present, strips blank edges.
+    """
+    if not isinstance(prompt, str):
+        return ""
+    lines = prompt.splitlines()
+    start = None
+    for i, line in enumerate(lines):
+        if line.strip() == _FED_CONTEXT_MARKER:
+            start = i + 1
+            break
+    if start is None:
+        return ""
+    end = len(lines)
+    for j in range(start, len(lines)):
+        if lines[j].strip() == _FED_CONTEXT_END:
+            end = j
+            break
+    return "\n".join(lines[start:end]).strip()
+
+
+def save_fed_context(task_id: str, content: str) -> None:
+    """Pin fed discovery context (atomic write, capped).
+
+    Raises ValueError on invalid task id; IO problems are logged and
+    skipped, never raised. Empty content deletes the pin. Oversize
+    content truncates with a note.
+    """
+    path = _fed_context_path(task_id)
+    if not content.strip():
+        try:
+            path.unlink(missing_ok=True)
+        except OSError as exc:
+            print(f"brain-bridge: fed-context clear skipped ({exc})",
+                  file=sys.stderr)
+        return
+    if len(content) > _FED_CONTEXT_CAP:
+        content = (content[:_FED_CONTEXT_CAP]
+                   + f"\n[...fed context truncated at {_FED_CONTEXT_CAP} "
+                   + "chars]")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(f"{path.name}.tmp-{os.getpid()}")
+    try:
+        with tmp.open("w", encoding="utf-8") as fh:
+            fh.write(content + "\n")
+            fh.flush()
+            os.fsync(fh.fileno())
+        os.replace(tmp, path)
+    except OSError as exc:
+        print(f"brain-bridge: fed-context save skipped ({exc})",
+              file=sys.stderr)
+
+
+def load_fed_context(task_id: str) -> str:
+    """Read pinned fed context ('' when none; never raises)."""
+    try:
+        return _fed_context_path(task_id).read_text(
+            encoding="utf-8", errors="replace").strip()
+    except (OSError, ValueError):
+        return ""
+
+
 @mcp.tool()
 def brain_turn(
     user_prompt: str,
@@ -1008,6 +1092,25 @@ def brain_turn(
                   file=sys.stderr)
     model = _get_brain_model()
     history = load_history(task_id) if task_id else []
+    if task_id:
+        # Discovery-fed planning: a [fed-context] block in this prompt is
+        # pinned to the session, then the pin (not just this turn's copy)
+        # rides every later turn until session end. The pin lives outside
+        # the transcript, so compaction and the middle drop below can never
+        # silently remove it; it still counts toward the input budget.
+        try:
+            fed = extract_fed_context(effective_prompt)
+            if fed:
+                save_fed_context(task_id, fed)
+            pinned = load_fed_context(task_id)
+            if pinned and "[pinned-fed-context]" not in effective_prompt:
+                effective_prompt = (
+                    "[pinned-fed-context]\n" + pinned
+                    + "\n[/pinned-fed-context]\n\n---\n\n"
+                    + effective_prompt)
+        except Exception as exc:  # never fail a turn on pin problems
+            print(f"brain-bridge: fed-context skipped ({exc})",
+                  file=sys.stderr)
     # Input budget: system + user + history chars count against
     # _INPUT_BUDGET. The FIRST history turn is grounding and survives;
     # oldest MIDDLE turns truncate first. Token estimate (chars//4) is

@@ -1146,3 +1146,51 @@ def test_grep_skips_overlong_lines(tmp_path, monkeypatch):
     monkeypatch.setattr(bridge, "_workspace_root", lambda: tmp_path)
     hits = bridge._grep_files_impl("MATCH", "docs")
     assert len(hits) == 1 and ":2:" in hits[0]
+
+
+def test_extract_fed_context_present():
+    prompt = "plan please\n[fed-context]\nCTX-1 tree\nCTX-2 gate\n[/fed-context]\nend"
+    assert bridge.extract_fed_context(prompt) == "CTX-1 tree\nCTX-2 gate"
+
+
+def test_extract_fed_context_unclosed_runs_to_end():
+    prompt = "hi\n[fed-context]\nCTX-1 tree"
+    assert bridge.extract_fed_context(prompt) == "CTX-1 tree"
+
+
+def test_extract_fed_context_absent():
+    assert bridge.extract_fed_context("plain plan, no marker") == ""
+    assert bridge.extract_fed_context(None) == ""
+
+
+def test_fed_context_roundtrip(tmp_path, monkeypatch):
+    monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path))
+    assert bridge.load_fed_context("t1") == ""
+    bridge.save_fed_context("t1", "CTX-1 tree")
+    assert bridge.load_fed_context("t1") == "CTX-1 tree"
+
+
+def test_fed_context_truncates_at_cap(tmp_path, monkeypatch):
+    monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path))
+    bridge.save_fed_context("t2", "x" * (bridge._FED_CONTEXT_CAP + 100))
+    saved = bridge.load_fed_context("t2")
+    assert len(saved) <= bridge._FED_CONTEXT_CAP + 100
+    assert "truncated" in saved
+
+
+def test_fed_context_empty_clears_pin(tmp_path, monkeypatch):
+    monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path))
+    bridge.save_fed_context("t3", "something")
+    bridge.save_fed_context("t3", "   ")
+    assert bridge.load_fed_context("t3") == ""
+
+
+def test_fed_context_bad_id_raises(tmp_path, monkeypatch):
+    monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path))
+    with pytest.raises(ValueError):
+        bridge.save_fed_context("../evil", "x")
+
+
+def test_fed_context_load_bad_id_returns_empty(tmp_path, monkeypatch):
+    monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path))
+    assert bridge.load_fed_context("../evil") == ""
