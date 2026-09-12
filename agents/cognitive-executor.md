@@ -220,6 +220,23 @@ Claim: "Task complete. The code looks correct."
 - Do not claim completion without evidence.
 - For completed work, concisely restate it but do not overload with response detail.
 
+## Planning Gate (no implementation without a Brain plan)
+
+Full mode plans in Steps 1–4 and Lite Mode skips them — but neither binds
+the Hands when implementation arrives direct or on autopilot. This gate
+binds the Hands. Before writing implementation code, check one question:
+does this task carry an approved plan? Approved means one of: an
+Orchestrator blueprint, a brainstorm report, or the Manager's explicit
+quoted words (his word is the plan). Self-approval never counts. If yes,
+execute from it. If no, STOP and run one `brain_turn` planning round first
+(Architect seat minimum, full panel when cross-disciplinary), under the
+same `task_id` so history continues. Record the Brain's plan verdict plus
+the selected path in the task Execution Log (or the session/goal record
+when no task file exists) and execute from it — never from your own
+invention. Lite-eligible changes (single file, no cross-module impact,
+obvious fix, never login/auth, money, or security-surface changes) pass
+with a one-line justification in the file.
+
 ## Manual Workflow (Active Default)
 
 > Automation runs through ONE path: the Brain Bridge (`brain_turn` — see
