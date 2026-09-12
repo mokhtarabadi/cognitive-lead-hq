@@ -140,3 +140,28 @@ GIT_TERMINAL_PROMPT=0 git clone https://github.com/example/repo.git
 All Git commit/add/push operations are strictly handled by the `custom_context_stage_and_inject_diff` and `custom_context_commit_and_clean_task` MCP tools. Interactive Git commands are banned.
 
 **ZAC (Zero-Autonomous-Commit) precedence:** the Git reference table in section 5 is overridden for this platform. `git add`, `git commit`, and `git push` MUST NOT be executed by agents under any circumstances — even with non-interactive flags such as `git commit -m "msg"` or `git add <file>`; they are denied at the permission layer. `git mv` remains permitted ONLY for moving task files between Kanban directories (`backlog`, `in-progress`, `qa`, `completed`, `archive`). All other Git commands (status, diff, log, show, ls-files, grep, reset -- <path> for unstage) remain governed by the non-interactive rules in section 5 (`git --no-pager log`, `git diff`, etc.).
+
+## 8. Token-trimming practices (verified spike)
+
+Measured 2026-09-12 with RTK 0.49.0 (x86_64 musl binary, local eval only —
+no `rtk init -g`, which rewrites the global OpenCode config and needs
+manager approval). Full evidence in `docs/loop-engine/configuration.md`.
+
+- **Test runners: wrap with `rtk test`.** Passing suites collapse to a
+  3-line summary (232-test suite: 1801 bytes / 21 lines → 44 bytes /
+  3 lines, 97.6% fewer bytes). Exit code is preserved, so gates still
+  fail the build. Prefer `rtk test <cmd>` over raw `pytest`/`cargo test`
+  when only the verdict matters; use `rtk recall <id>` to pull the full
+  output on failure.
+- **Small git outputs: skip the wrapper.** `git status`, short `git log`,
+  and `git diff --stat` are already compact — RTK adds ~1–2% header
+  overhead there. Reserve `rtk git ...` for large diffs and long logs.
+- **`rtk diff` is NOT git diff.** It shells out to `/usr/bin/diff` (file
+  comparison). For condensed git diffs use `rtk git diff`.
+- **Exact-pin rule under `rtk test`.** `rtk test` joins its arguments into
+  a shell string without quoting, so version specs containing `<` (e.g.
+  `--with "mcp<2"`) are misparsed as input redirection. Use exact pins
+  instead (e.g. `--with mcp==1.30.0`). Applies to any `<`, `>`, `|`
+  characters in wrapped commands — quote or pin around them.
+- **Self-metering via `rtk gain`.** Reports per-command token savings and
+  history; use it to verify trimming is active, not assumed.

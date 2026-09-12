@@ -970,8 +970,9 @@ def query_manager_decisions(query: str, category: Optional[str] = None) -> str:
     process, scope, or quality gates.
 
     Case-insensitive substring match over summaries, rationales, trade-offs,
-    and both verbatim-quote languages. Returns formatted summaries with
-    verbatim quotes, or a no-match message (never an error) when empty.
+    alternatives, and both verbatim-quote languages. Returns formatted
+    summaries with verbatim quotes, or a no-match message (never an error)
+    when empty.
 
     Args:
         query: Keyword(s); blank returns everything in the category.
@@ -989,9 +990,11 @@ def query_manager_decisions(query: str, category: Optional[str] = None) -> str:
         if category and extracted.get("category") != category:
             continue
         quote = record.get("verbatim_quote", {})
+        alternatives = extracted.get("alternatives", []) or []
         haystack = " ".join([
             str(extracted.get("summary", "")), str(extracted.get("rationale", "")),
-            str(extracted.get("tradeoffs", "")), str(quote.get("original", "")),
+            str(extracted.get("tradeoffs", "")), " ".join(str(a) for a in alternatives),
+            str(quote.get("original", "")),
             str(quote.get("english_translation", "")),
         ]).lower()
         if needle and needle not in haystack:

@@ -6,7 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- **Token-optimization verified spike (Task 150):** Evaluated RTK 0.49.0 locally (musl binary, no global install): passing pytest suite collapses 1801 bytes / 21 lines → 44 bytes / 3 lines (**97.6% fewer bytes**, exit code preserved, 232 passed); small git outputs (±2%) not worth wrapping; `rtk diff` is a `/usr/bin/diff` wrapper (use `rtk git diff`); `rtk test` needs exact dep pins (`mcp==1.30.0` — `<` specs break as shell redirection). `headroom-ai` 0.37.0 (PyPI) and `@caveman-ai/cli` 1.3.3 (npm) registry-verified; proxy/pixel eval deferred (needs provider rewiring + manager approval). New `docs/loop-engine/configuration.md` holds the evidence table; `docs/opencode-shell-strategy.md` §8 holds the practices. Headroom/Caveman proxy integration and 10-task sprint measurement remain open follow-ups.
+- **Machine-readable QA verdicts + rules-first gate (Task 195):** QA persona (fragment 06) now ends every report with a machine verdict block (`VERDICT: QA_PASSED` / `QA_REJECTED` + `CITE: file:line` lines, single-regex parseable) with a documented escape hatch (unparseable → QA_REJECTED with reason, prose fallback, manager override). New `scripts/qa-rules-gate/rules_gate.py` runs verdict-parse, schema, budget, and allowlist checks before any LLM judge call — rule failures return QA_REJECTED without invoking the judge (Mock-asserted). 13 new mocked tests. System version 9.27.0 → 9.28.0, `system-prompt.md` rebuilt (sync-check byte-identical). Full suite: **232 passed**.
+
 ### Fixed
+
+- **Decision query hits alternatives (Task 192):** `query_manager_decisions` haystack now includes `extracted.alternatives[]` (None-safe, str-coerced) alongside summary/rationale/tradeoffs/quotes — a keyword present only in alternatives returns the decision. Docstring lists the full searched-field list. Schema carries no status field, so no status matching was added. Regression test `test_query_hits_term_only_in_alternatives`. Decision suite: **63 passed**.
 
 - **Brain full-task-file access (Task 200):** `brain_turn` now auto-attaches the task file's working content (Goal/Notes/TODOs/AC/evidence/log minus the Factual Git Diff block, replaced by an omitted-note with line count + `read_file` pull path) on every call carrying a `task_id` — the Brain always sees the whole task file regardless of size; unresolvable ids never fail a turn. 6 new mocked tests (strip/resolve/fallback/unresolvable/attach/no-duplicate). Full suite: **207 passed**.
 

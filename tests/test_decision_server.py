@@ -194,6 +194,24 @@ def test_query_keyword_and_category(srv, repo):
     assert "No manager decisions match" in target("zzz-no-such-thing")
 
 
+def test_query_hits_term_only_in_alternatives(srv, repo):
+    """Regression: a keyword present only in alternatives[] must hit."""
+    cand = _candidate()
+    cand["extracted_decision"] = {
+        "summary": "Adopt the new runner",
+        "category": "tooling",
+        "rationale": "Faster feedback on every push",
+        "alternatives": ["keep the legacy zebracorn runner"],
+        "tradeoffs": "Migration effort",
+    }
+    _record(srv.record_manager_decision, cand)
+    call = srv.query_manager_decisions
+    target = call.fn if hasattr(call, "fn") else call
+    found = target("zebracorn")
+    assert "No manager decisions match" not in found
+    assert "Adopt the new runner" in found
+
+
 def test_get_manager_profile_missing_and_present(srv, repo, monkeypatch):
     call = srv.get_manager_profile
     target = call.fn if hasattr(call, "fn") else call
