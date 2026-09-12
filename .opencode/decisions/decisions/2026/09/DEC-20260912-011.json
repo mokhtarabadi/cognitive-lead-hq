@@ -1,0 +1,20 @@
+{
+  "session_id": "203",
+  "verbatim_quote": {
+    "original": "بهتره یک گوشه یادداشت کنی",
+    "english_translation": "Better to note it down in a corner (a side note, not inside the task file)."
+  },
+  "extracted_decision": {
+    "summary": "In-flight findings go to a side note (/tmp) during the run, not into the task file; only final verdicts land in the Execution Log.",
+    "category": "process",
+    "rationale": "Manager corrected mid-order: keeps the task file clean while preserving raw findings for the follow-up task.",
+    "alternatives": [
+      "Log everything in the task Execution Log immediately"
+    ],
+    "tradeoffs": "Side file is session-local (/tmp) and must be transcribed before it matters."
+  },
+  "project_name": "cognitive-lead-hq",
+  "redaction_verified": true,
+  "decision_id": "DEC-20260912-011",
+  "timestamp": "2026-09-12T10:09:17.608975+00:00"
+}

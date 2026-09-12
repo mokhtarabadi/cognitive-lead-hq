@@ -1,0 +1,21 @@
+{
+  "project_name": "cognitive-lead-hq",
+  "session_id": "204",
+  "verbatim_quote": {
+    "original": "restore the denies the cognitve exexture never can run git checkout, git push, git commit, the git maange by mcp servers.",
+    "english_translation": "Restore the denies: the cognitive executor can never run git checkout, git push, git commit; git is managed by MCP servers."
+  },
+  "extracted_decision": {
+    "summary": "Mechanical permission-layer lock: executor agents can never run git add/checkout/commit/push via bash (deny in repo + global opencode.json); all git writes go through the stage/commit MCP tools; git mv stays allowed for Kanban moves.",
+    "category": "tooling",
+    "rationale": "Prompt-only ZAC claims failed open; explicit deny rules are enforced even in auto mode.",
+    "alternatives": [
+      "Prompt-only prohibition (status quo ante)",
+      "Agent-scoped rule instead of top-level"
+    ],
+    "tradeoffs": "Top-level deny binds every agent in these configs, not just the executor; bare + wildcard patterns both listed."
+  },
+  "redaction_verified": true,
+  "decision_id": "DEC-20260912-012",
+  "timestamp": "2026-09-12T10:12:25.659234+00:00"
+}

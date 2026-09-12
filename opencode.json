@@ -108,6 +108,16 @@
     "external_directory": {
       "*": "ask",
       "/tmp/**": "allow"
+    },
+    "bash": {
+      "git add": "deny",
+      "git add *": "deny",
+      "git checkout": "deny",
+      "git checkout *": "deny",
+      "git commit": "deny",
+      "git commit *": "deny",
+      "git push": "deny",
+      "git push *": "deny"
     }
   }
 }

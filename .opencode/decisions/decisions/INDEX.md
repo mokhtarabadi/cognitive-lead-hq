@@ -13,3 +13,6 @@
 | DEC-20260912-007 | scope | Improve existing personas/skills via live web research; add new personas only on proven gaps (seven- | `decisions/2026/09/DEC-20260912-007.json` |
 | DEC-20260912-008 | process | The memorized QA-review cycle (QA persona, then reviewer persona, then report) is the standard reusa | `decisions/2026/09/DEC-20260912-008.json` |
 | DEC-20260912-009 | tooling | Restart handshake: Hands prepares everything (env, global sync, timeouts), tells manager to restart  | `decisions/2026/09/DEC-20260912-009.json` |
+| DEC-20260912-010 | process | Manager orders recurring-style self-judgment runs: fresh task, Brain Architect planning + brainstorm | `decisions/2026/09/DEC-20260912-010.json` |
+| DEC-20260912-011 | process | In-flight findings go to a side note (/tmp) during the run, not into the task file; only final verdi | `decisions/2026/09/DEC-20260912-011.json` |
+| DEC-20260912-012 | tooling | Mechanical permission-layer lock: executor agents can never run git add/checkout/commit/push via bas | `decisions/2026/09/DEC-20260912-012.json` |
