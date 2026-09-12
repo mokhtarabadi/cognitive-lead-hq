@@ -166,8 +166,7 @@ def _resolve_under_root(rel: str, root: Optional[Path] = None) -> Path:
 _TASK_DIFF_BEGIN = "<!-- BEGIN_GIT_DIFF -->"
 _TASK_DIFF_END = "<!-- END_GIT_DIFF -->"
 _TASK_FILE_MARKER = "[task-file:"
-_TASK_KANBAN_DIRS = ("backlog", "in-progress", "qa", "completed", "archive")
-_TASK_ATTACH_CAP = 12000
+_TASK_KANBAN_DIRS = ("in-progress", "qa", "backlog", "completed", "archive")
 _TASK_ATTACH_CAP = 12000
 
 
@@ -183,10 +182,16 @@ def _task_id_ok(tid: object) -> bool:
 def _resolve_task_file(task_id: str) -> Path | None:
     """Resolve a Brain task_id to its task file (None when unresolvable).
 
-    Tries `<task_id>-*.md` in each Kanban dir (lane order: backlog,
-    in-progress, qa, completed, archive — first match wins), then
-    progressively strips trailing `-segment`s (so session id `194-qa`
-    finds task file `194-*.md`). The allowlist rejects traversal,
+    Tries `<task_id>-*.md` in each Kanban dir (lane order: in-progress,
+    qa, backlog, completed, archive — first match wins; active work
+    beats backlog), then
+    progressively strips one known lane suffix (`-qa`, `-backlog`,
+    `-in-progress`, `-completed`, `-archive`) so session id `194-qa`
+    finds task file `194-*.md`, then falls back to the leading numeric
+    id (`200-foo` → `200`) because task ids in this repo are numeric
+    while callers often pass the full filename stem including the
+    slug; hyphenated ids without a lane suffix or numeric head never
+    over-strip. The allowlist rejects traversal,
     separators, and glob metacharacters before any filesystem touch.
     Never raises — returns None instead.
     """
@@ -196,8 +201,13 @@ def _resolve_task_file(task_id: str) -> Path | None:
         tid = task_id.strip()
         root = _workspace_root() / "tasks"
         candidates = [tid]
-        while "-" in candidates[-1]:
-            candidates.append(candidates[-1].rsplit("-", 1)[0])
+        for _suffix in ("-qa", "-backlog", "-in-progress", "-completed",
+                        "-archive"):
+            if candidates[-1].endswith(_suffix) and len(candidates[-1]) > len(_suffix):
+                candidates.append(candidates[-1][: -len(_suffix)])
+        _head = candidates[-1].split("-", 1)[0]
+        if _head.isdigit() and _head != candidates[-1]:
+            candidates.append(_head)
         for cand in candidates:
             for lane in _TASK_KANBAN_DIRS:
                 matches = sorted((root / lane).glob(cand + "-*.md"))
@@ -259,8 +269,14 @@ def _build_task_attach(task_id: str) -> str:
         rel = path.name
         cleaned, _omitted, _truncated = _strip_task_diff(text, rel)
         if len(cleaned) > _TASK_ATTACH_CAP:
-            cleaned = cleaned[:_TASK_ATTACH_CAP] + "\n[...truncated]"
+            cleaned = (
+                cleaned[:_TASK_ATTACH_CAP]
+                + f"\n[...truncated — pull remainder via read_file({rel!r}, offset, limit)]"
+            )
         tid = task_id.strip() if isinstance(task_id, str) else "task"
+        # V1 guard: break fence parsing invisibly so embedded fences in
+        # task content cannot close our block early.
+        cleaned = cleaned.replace(chr(96) * 3, chr(96) * 2 + chr(8203) + chr(96))
         return (
             f"{_TASK_FILE_MARKER}{tid}: {rel}]\n"
             + "```markdown\n" + cleaned + "\n```"

@@ -969,6 +969,62 @@ def test_task_id_allowlist_rejects_traversal(tmp_path, monkeypatch):
     assert bridge._build_task_attach("../x") == ""
 
 
+def test_task_attach_escapes_embedded_fences(tmp_path, monkeypatch):
+    d = tmp_path / "tasks" / "backlog"
+    d.mkdir(parents=True, exist_ok=True)
+    (d / "200-foo.md").write_text(
+        "# T\nGoal line.\n```\nevil()\n```\n", encoding="utf-8")
+    monkeypatch.setattr(bridge, "_workspace_root", lambda: tmp_path)
+    attach = bridge._build_task_attach("200-foo")
+    lines = attach.splitlines()
+    assert lines[1] == "```markdown"
+    assert lines[-1] == "```"
+    assert not any(l == "```" for l in lines[2:-1])
+
+
+def test_task_attach_omitted_note_has_offset_relpath(tmp_path, monkeypatch):
+    d = tmp_path / "tasks" / "backlog"
+    d.mkdir(parents=True, exist_ok=True)
+    (d / "200-foo.md").write_text(
+        "# T\n<!-- BEGIN_GIT_DIFF -->\nx\n<!-- END_GIT_DIFF -->\n", encoding="utf-8")
+    monkeypatch.setattr(bridge, "_workspace_root", lambda: tmp_path)
+    attach = bridge._build_task_attach("200-foo")
+    assert "read_file(" in attach
+    assert "offset" in attach and "limit" in attach
+    assert "200-foo.md" in attach
+    assert str(d) not in attach
+
+
+def test_brain_turn_include_bundle_false_skips_attach(tmp_path, monkeypatch):
+    _mk_tasks_root(tmp_path)
+    monkeypatch.setattr(bridge, "_workspace_root", lambda: tmp_path)
+    monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
+    _mk_sys_prompt(tmp_path, monkeypatch)
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    monkeypatch.delenv("BRAIN_TEMPERATURE", raising=False)
+    holder = {}
+    _mk_bridge_client(monkeypatch, [_FakeResp(200, "fine", _ok_payload("ok"))], holder)
+    call = bridge.brain_turn
+    target = call.fn if hasattr(call, "fn") else call
+    result = target("q", task_id="200-foo", include_bundle=False)
+    assert result["status"] == "REPORT"
+    user_contents = [t["content"] for t in holder["body"]["input"]]
+    assert not any("[task-file:" in c for c in user_contents)
+
+
+def test_task_resolve_tmp_root_integration(tmp_path, monkeypatch):
+    for lane in ("backlog", "qa"):
+        d = tmp_path / "tasks" / lane
+        d.mkdir(parents=True, exist_ok=True)
+    (tmp_path / "tasks" / "qa" / "200-foo.md").write_text(
+        "# T\nGoal line.\n", encoding="utf-8")
+    monkeypatch.setattr(bridge, "_workspace_root", lambda: tmp_path)
+    found = bridge._resolve_task_file("200-foo")
+    assert found is not None and found.name == "200-foo.md"
+    attach = bridge._build_task_attach("200-foo")
+    assert "Goal line." in attach
+
+
 def test_task_id_non_strings_rejected(tmp_path, monkeypatch):
     _mk_tasks_root(tmp_path)
     monkeypatch.setattr(bridge, "_workspace_root", lambda: tmp_path)
@@ -995,7 +1051,8 @@ def test_task_attach_truncates_big_file(tmp_path, monkeypatch):
     (d / "200-foo.md").write_text("# T\n" + ("y" * 30000), encoding="utf-8")
     monkeypatch.setattr(bridge, "_workspace_root", lambda: tmp_path)
     attach = bridge._build_task_attach("200-foo")
-    assert "[...truncated]" in attach
+    assert "[...truncated" in attach
+    assert "read_file(" in attach and "200-foo.md" in attach
     assert len(attach) < 30000
 
 
@@ -1013,3 +1070,21 @@ def test_strip_multi_unclosed_lone_markers():
     lone = "keep\n<!-- END_GIT_DIFF -->\nall"
     cleaned_l, omitted_l, trunc_l = bridge._strip_task_diff(lone, "t.md")
     assert cleaned_l == lone and omitted_l == 0 and trunc_l is False
+
+
+def test_task_resolve_known_suffix_only(tmp_path, monkeypatch):
+    _mk_tasks_root(tmp_path)
+    monkeypatch.setattr(bridge, "_workspace_root", lambda: tmp_path)
+    assert bridge._resolve_task_file("200-qa").name == "200-foo.md"
+    assert bridge._resolve_task_file("200-foo").name == "200-foo.md"
+    assert bridge._resolve_task_file("my-cool-task") is None
+
+
+def test_task_attach_truncation_has_pull_path(tmp_path, monkeypatch):
+    d = tmp_path / "tasks" / "backlog"
+    d.mkdir(parents=True, exist_ok=True)
+    (d / "200-foo.md").write_text("# T\n" + ("y" * 30000), encoding="utf-8")
+    monkeypatch.setattr(bridge, "_workspace_root", lambda: tmp_path)
+    attach = bridge._build_task_attach("200-foo")
+    assert "read_file(" in attach and "200-foo.md" in attach
+    assert len(attach) < 30000

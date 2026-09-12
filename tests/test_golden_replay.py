@@ -11,7 +11,7 @@ from pathlib import Path
 BRIDGE_DIR = Path(__file__).parent.parent / "mcp-brain-bridge"
 sys.path.insert(0, str(BRIDGE_DIR))
 
-from golden_replay import prompt_hash, replay
+from golden_replay import prompt_hash, record, replay
 
 
 def _echo_map(mapping):
@@ -67,3 +67,22 @@ def test_replay_normalizes_whitespace():
     report = replay(_echo_map(mapping), _corpus(), "prompt v1")
     assert report["passed"] == 3
     assert report["failed"] == 0
+
+
+def test_record_round_trip(tmp_path):
+    import json as _json
+
+    report = replay(
+        _echo_map({"q1": "a"}),
+        [{"name": "n1", "ask": "q1", "expect": "a"}],
+        "prompt v9",
+    )
+    path = record(report, sessions_root=tmp_path)
+    assert path == tmp_path / "golden_runs.jsonl"
+    rows = [_json.loads(line) for line in
+            path.read_text(encoding="utf-8").splitlines()]
+    assert len(rows) == 1
+    assert rows[0]["prompt_hash"] == report["prompt_hash"]
+    assert rows[0]["passed"] == 1
+    assert rows[0]["total"] == 1
+    assert "ts" in rows[0]
