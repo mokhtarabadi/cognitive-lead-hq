@@ -1,8 +1,8 @@
 ---
-created_at: '2026-08-17T09:55:12.993426+00:00'
+created_at: '2026-09-12T12:19:12.494958+00:00'
 status: active
 tags: []
-updated_at: '2026-09-03T08:15:00.000000+00:00'
+updated_at: '2026-09-12T12:19:12.494983+00:00'
 ---
 
 Release workflow for cognitive-lead-hq.
@@ -16,6 +16,8 @@ Before every release:
   - PATCH: bug fixes, docs sync, formatting, metadata-only changes.
   - MINOR: new skills, new workflow capabilities, non-breaking architectural upgrades.
   - MAJOR: breaking workflow changes or full system prompt protocol rewrites.
+
+Archive-on-release (standing manager rule, 2026-09-12): every release must archive tasks/completed/ first via the archive-tasks skill (milestone summary in docs/history/, git mv to tasks/archive/). Never cut a release while completed tasks pile up; the release task's Acceptance Criteria must include the archive step.
 
 CHANGELOG rules:
 - Use Keep a Changelog format.

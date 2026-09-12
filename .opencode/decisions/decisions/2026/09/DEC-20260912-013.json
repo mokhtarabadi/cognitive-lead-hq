@@ -1,0 +1,20 @@
+{
+  "extracted_decision": {
+    "alternatives": [
+      "Archive tasks only at milestones"
+    ],
+    "category": "process",
+    "rationale": "Manager wants completed tasks compacted on every release instead of piling up, and the release script must cover tag, push, and GitHub release with a clean changelog.",
+    "summary": "Every future release must archive tasks/completed/ via the archive-tasks skill as part of the release",
+    "tradeoffs": "Archive step adds release time but keeps the board clean and history reachable"
+  },
+  "project_name": "cognitive-lead-hq",
+  "session_id": "208",
+  "verbatim_quote": {
+    "english_translation": "Please archive the current tasks too. No need to build a new release, the release you made is fine, just archive the current tasks too. From now on whenever we want to release, the tasks must be archived.",
+    "original": "لطفاً تسک‌های فعلی رو هم آرکایو کن. نیاز نیست ریلیز جدید بسازی، همین ریلیزی که انجام دادی همه‌چی اوکیه، فقط تسک‌های فعلی رو هم آرکایو کن. از این به بعد هر موقع خواستیم ریلیز بزنیم باید تسک‌ها آرکایو بشن."
+  },
+  "redaction_verified": true,
+  "decision_id": "DEC-20260912-013",
+  "timestamp": "2026-09-12T12:19:50.188868+00:00"
+}
