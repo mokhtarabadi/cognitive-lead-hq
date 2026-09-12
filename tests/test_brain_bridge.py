@@ -89,8 +89,10 @@ def test_history_append_load_roundtrip(tmp_path, monkeypatch):
     bridge.append_turn("task-9", "assistant", "hello hands")
     history = bridge.load_history("task-9")
     assert history == [
-        {"role": "user", "content": "hello brain"},
-        {"role": "assistant", "content": "hello hands"},
+        {"role": "user", "content": "hello brain",
+         "model": None, "prompt_hash": None, "truncated": 0},
+        {"role": "assistant", "content": "hello hands",
+         "model": None, "prompt_hash": None, "truncated": 0},
     ]
 
 
@@ -102,17 +104,21 @@ def test_history_skips_corrupt_lines(tmp_path, monkeypatch):
         fh.write("not json at all\n")
         fh.write('{"role": "alien", "content": "x"}\n')
     assert bridge.load_history("task-7") == [
-        {"role": "user", "content": "good line"}
+        {"role": "user", "content": "good line",
+         "model": None, "prompt_hash": None, "truncated": 0}
     ]
 
 
 def test_history_limit_caps_oldest_first(tmp_path, monkeypatch):
+    # 45 appends exceed the 30-message compaction trigger, so load
+    # compacts to a summary + the last 10 (the 40-cap stays as backstop).
     monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
     for i in range(45):
         bridge.append_turn("task-5", "user", f"msg {i}")
     history = bridge.load_history("task-5")
-    assert len(history) == 40
-    assert history[0] == {"role": "user", "content": "msg 5"}
+    assert len(history) == 11
+    assert "compacted" in history[0]
+    assert [t["content"] for t in history[1:]] == [f"msg {i}" for i in range(35, 45)]
 
 
 def test_task_id_sanitized_against_traversal(tmp_path, monkeypatch):
@@ -583,5 +589,188 @@ def test_load_history_skips_monster_lines(tmp_path, monkeypatch):
     path.write_text(good + "\n" + "z" * 200_001 + "\n" + good + "\n",
                     encoding="utf-8")
     turns = bridge.load_history("big")
-    assert [t["content"] for t in turns] == ["hello", "hello"]
+    # File exceeds _COMPACT_FILE_BYTES (monster line) → byte trigger
+    # compacts: junk purged, summary + the 2 valid turns kept.
+    assert [t["content"] for t in turns][1:] == ["hello", "hello"]
+    assert turns[0].get("compacted") is True
     assert bridge._last_load_stats["skipped"] >= 1
+    again = bridge.load_history("big")  # idempotent: no re-compaction
+    assert [t["content"] for t in again] == [t["content"] for t in turns]
+
+
+# --- hotfix follow-up: merge + atomicity + bounds (QA_REJECTED round 1) ---
+
+def test_compact_merges_prior_summary(tmp_path, monkeypatch):
+    monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
+    _fill_turns("merge", 35)
+    first = bridge.load_history("merge")
+    assert len(first) == 11
+    assert first[0].get("compacted_count") == 35
+    _fill_turns("merge", 25, prefix="more")
+    second = bridge.load_history("merge")
+    assert len(second) == 11
+    assert second[0].get("compacted_count") == 35 + 35
+    assert "compacted" in second[0]
+
+
+def test_compact_skips_corrupt_lines(tmp_path, monkeypatch):
+    import json as _json
+    monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
+    path = bridge._transcript_path("corrupt")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    lines = []
+    for i in range(35):
+        lines.append(_json.dumps({"role": "user", "content": f"ok {i}"}))
+    lines.insert(3, "{not json")
+    lines.insert(10, _json.dumps({"role": "nope", "content": "x"}))
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    turns = bridge.load_history("corrupt")
+    assert len(turns) == 11
+    assert bridge._last_load_stats["skipped"] >= 2
+
+
+def test_payload_contains_only_role_content(tmp_path, monkeypatch):
+    monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    bridge.append_turn("pure", "user", "hi", model="m",
+                       prompt_hash="h", truncated=3)
+    holder = {}
+    _mk_bridge_client(monkeypatch, [_FakeResp(200, "fine", _ok_payload())], holder)
+    target = _unwrap(bridge.brain_turn)
+    target("q", task_id="pure")
+    for item in holder["body"]["input"]:
+        assert set(item.keys()) == {"role", "content"}
+
+
+def test_old_records_without_metadata_load(tmp_path, monkeypatch):
+    import json as _json
+    monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
+    path = bridge._transcript_path("legacy")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        _json.dumps({"role": "user", "content": "old"}) + "\n"
+        + _json.dumps({"role": "assistant", "content": "older"}) + "\n",
+        encoding="utf-8")
+    turns = bridge.load_history("legacy")
+    assert turns == [{"role": "user", "content": "old"},
+                     {"role": "assistant", "content": "older"}]
+
+
+def test_large_turns_trigger_byte_compaction(tmp_path, monkeypatch):
+    monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
+    for i in range(10):
+        bridge.append_turn("huge", "user", "y" * 30000 + f" {i}")
+    turns = bridge.load_history("huge")
+    assert len(turns) == 11
+    assert turns[0].get("compacted") is True
+
+
+# --- Task 194: transcript compaction + per-record traceability ---
+
+def _fill_turns(task, n, prefix="msg"):
+    for i in range(n):
+        role = "user" if i % 2 == 0 else "assistant"
+        bridge.append_turn(task, role, f"{prefix} {i}")
+
+
+def test_compact_fifty_to_summary_plus_ten(tmp_path, monkeypatch):
+    monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
+    _fill_turns("c50", 50)
+    turns = bridge.load_history("c50")
+    assert len(turns) == 11
+    assert turns[0]["role"] == "assistant" and "compacted" in turns[0]
+    assert [t["content"] for t in turns[1:]] == [f"msg {i}" for i in range(40, 50)]
+
+
+def test_compact_summary_bounded_and_idempotent(tmp_path, monkeypatch):
+    monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
+    _fill_turns("cbound", 50)
+    first = bridge.load_history("cbound")
+    assert len(first[0]["content"]) <= 4000
+    second = bridge.load_history("cbound")
+    assert second == first  # 11 records: no re-compaction on reload
+
+
+def test_records_carry_metadata_keys(tmp_path, monkeypatch):
+    monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
+    bridge.append_turn("m1", "user", "hi", model="m-x",
+                       prompt_hash="ab" * 32, truncated=3)
+    (turn,) = bridge.load_history("m1")
+    assert turn["model"] == "m-x"
+    assert turn["prompt_hash"] == "ab" * 32
+    assert turn["truncated"] == 3
+
+
+def test_append_defaults_stay_compatible(tmp_path, monkeypatch):
+    monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
+    bridge.append_turn("m0", "user", "hi")
+    (turn,) = bridge.load_history("m0")
+    assert turn["model"] is None
+    assert turn["prompt_hash"] is None
+    assert turn["truncated"] == 0
+
+
+def test_brain_turn_writes_metadata(tmp_path, monkeypatch):
+    monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+    prompt_file = tmp_path / ".config" / "opencode" / "sys.md"
+    prompt_file.parent.mkdir(parents=True)
+    prompt_file.write_text("sys", encoding="utf-8")
+    monkeypatch.setenv("BRAIN_SYSTEM_PROMPT", str(prompt_file))
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    monkeypatch.setenv("BRAIN_MODEL", "test-model-1")
+    script = [_FakeResp(200, "fine", _ok_payload())]
+
+    class _CapClient(_FakeClient):
+        def post(self, url, json=None, headers=None, **kwargs):
+            return super().post(url, json=json, headers=headers, **kwargs)
+
+    stub = _types.ModuleType("httpx")
+    stub.Client = lambda *a, **k: _CapClient(script)
+    stub.TimeoutException = Exception
+    stub.TransportError = Exception
+
+    class _Timeout:
+        def __init__(self, *a, **k):
+            pass
+
+    stub.Timeout = _Timeout
+    monkeypatch.setitem(sys.modules, "httpx", stub)
+    call = bridge.brain_turn
+    target = call.fn if hasattr(call, "fn") else call
+    result = target("hello", task_id="meta")
+    assert result["output"] == "ok"
+    turns = bridge.load_history("meta")
+    assert len(turns) == 2
+    assert turns[0]["model"] == "test-model-1"
+    assert len(turns[0]["prompt_hash"]) == 64
+    assert turns[1]["truncated"] >= 0
+
+
+def test_taxonomy_fatal_400_no_retry(monkeypatch):
+    _stub_httpx(monkeypatch)
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    client = _FakeClient([_FakeResp(400, "bad request")])
+    with pytest.raises(RuntimeError, match="no retry"):
+        bridge._post_with_retry(client, "http://x/responses", {})
+    assert client.calls == 1
+
+
+def test_taxonomy_fatal_401_no_retry(monkeypatch):
+    _stub_httpx(monkeypatch)
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    client = _FakeClient([_FakeResp(401, "unauthorized")])
+    with pytest.raises(RuntimeError, match="401"):
+        bridge._post_with_retry(client, "http://x/responses", {})
+    assert client.calls == 1
+
+
+def test_taxonomy_retryable_503_then_200(monkeypatch):
+    import time as _tmod
+    _stub_httpx(monkeypatch)
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    monkeypatch.setattr(_tmod, "sleep", lambda s: None)
+    script = [_FakeResp(503, "busy"), _FakeResp(200, "fine", {"ok": True})]
+    resp, attempts = bridge._post_with_retry(_FakeClient(script), "http://x/responses", {})
+    assert resp.status_code == 200
+    assert attempts == 2

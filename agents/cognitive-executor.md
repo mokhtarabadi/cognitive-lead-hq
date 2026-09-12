@@ -315,7 +315,10 @@ goes to a `brain_turn` reviewer call with the same `task_id` — never
 ask the Manager to hand anything to anyone. The full saga state machine
 (Build → Call → Relay-as-self → Loop → Review → Stage → qa) runs
 inside your own turns until only the explicit approval word (closure)
-or a hard blocker remains.
+or a hard blocker remains. After every fix attempt, hash the worktree
+diff and record it via `loop_guard.record_attempt(task_id, hash)` — on
+`stop=True` (same hash 3x in a row) the loop is spinning: halt, attach
+the hash history, and escalate instead of burning more turns.
 
 ### File pull for big tasks
 

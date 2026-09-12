@@ -155,6 +155,10 @@ def _get_api_key() -> str:
 # self-contained to the global install.)
 _RETRYABLE_STATUS = {429, 500, 502, 503, 504}
 
+# Fatal client errors: never retried — the request itself is wrong
+# (bad auth, bad route, bad payload). Other 4xx fail fast the same way.
+_FATAL_STATUS = {400, 401, 403, 404, 422}
+
 # Overall deadline (seconds) for the whole retry sequence. Sleeps are
 # capped by the remaining budget; hitting the deadline fast-fails instead
 # of sleeping past it.
@@ -181,7 +185,9 @@ def _post_with_retry(client: Any, url: str, payload: dict[str, Any]) -> tuple[An
     timeouts). Returns (resp, attempts). Honors Retry-After on 429
     (plus small jitter) before exponential backoff. Final failure
     raises RuntimeError with status + URL path + a 500-char body
-    snippet. Headers (and the key) never enter error strings."""
+    snippet. Fatal client errors (400/401/403/404/422 and other 4xx)
+    fail fast with a no-retry error. Headers (and the key) never
+    enter error strings."""
     import random
     import time
 
@@ -212,6 +218,11 @@ def _post_with_retry(client: Any, url: str, payload: dict[str, Any]) -> tuple[An
                 return resp, attempts
             last_status, last_snippet = resp.status_code, resp.text[:500]
             if resp.status_code not in _RETRYABLE_STATUS:
+                if 400 <= resp.status_code < 500:
+                    raise RuntimeError(
+                        f"fatal provider error {resp.status_code} (no retry) at "
+                        f"{url.rsplit('/', 1)[-1]}: {last_snippet}"
+                    )
                 raise RuntimeError(
                     f"provider error {resp.status_code} at "
                     f"{url.rsplit('/', 1)[-1]}: {last_snippet}"

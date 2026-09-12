@@ -1069,3 +1069,81 @@ def test_extract_invalid_temp_raises_loudly(srv, tmp_path, monkeypatch):
     monkeypatch.setenv("BRAIN_TEMPERATURE", "abc")
     with pytest.raises(ValueError):
         _extract(srv)(7, transcript_path=str(transcript))
+
+
+# --- Task-198 error taxonomy (per-class, scripted HTTP) ---
+
+_VALID_TAXONOMY_CAND = {
+    "verbatim_quote": {"original": "ship it", "english_translation": "ship it"},
+    "extracted_decision": {"summary": "s", "category": "architecture",
+                           "rationale": "r", "alternatives": [], "tradeoffs": "t"},
+}
+
+
+class _SeqClient:
+    """Scripted HTTP client: pops responses in order, counts posts."""
+
+    def __init__(self, script):
+        self._script = list(script)
+        self.calls = 0
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        return False
+
+    def post(self, *a, **k):
+        self.calls += 1
+        item = self._script.pop(0) if len(self._script) > 1 else self._script[0]
+        if isinstance(item, Exception):
+            raise item
+        return item
+
+
+def _stub_seq_http(monkeypatch, script):
+    client = _SeqClient(script)
+    stub = types.ModuleType("httpx-seq")
+    stub.Client = lambda *a, **k: client
+    stub.TimeoutException = type("TimeoutException", (Exception,), {})
+    stub.TransportError = type("TransportError", (Exception,), {})
+
+    class _Timeout:
+        def __init__(self, *a, **k):
+            pass
+
+    stub.Timeout = _Timeout
+    monkeypatch.setitem(sys.modules, "httpx", stub)
+    return client
+
+
+def test_taxonomy_fatal_400_no_retry_decision(srv, tmp_path, monkeypatch):
+    transcript = tmp_path / "transcript.jsonl"
+    _write_min_transcript(transcript)
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    client = _stub_seq_http(monkeypatch, [_decision_resp(400, "bad request", {})])
+    with pytest.raises(RuntimeError, match="no retry"):
+        _extract(srv)(7, transcript_path=str(transcript))
+    assert client.calls == 1
+
+
+def test_taxonomy_fatal_401_no_retry_decision(srv, tmp_path, monkeypatch):
+    transcript = tmp_path / "transcript.jsonl"
+    _write_min_transcript(transcript)
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    client = _stub_seq_http(monkeypatch, [_decision_resp(401, "unauthorized", {})])
+    with pytest.raises(RuntimeError, match="401"):
+        _extract(srv)(7, transcript_path=str(transcript))
+    assert client.calls == 1
+
+
+def test_taxonomy_retryable_503_then_200_decision(srv, tmp_path, monkeypatch):
+    transcript = tmp_path / "transcript.jsonl"
+    _write_min_transcript(transcript)
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    monkeypatch.setattr(_time, "sleep", lambda s: None)
+    script = [_decision_resp(503, "busy", {}),
+              _decision_resp(200, "fine", [_VALID_TAXONOMY_CAND])]
+    client = _stub_seq_http(monkeypatch, script)
+    assert _extract(srv)(7, transcript_path=str(transcript)) == [_VALID_TAXONOMY_CAND]
+    assert client.calls == 2

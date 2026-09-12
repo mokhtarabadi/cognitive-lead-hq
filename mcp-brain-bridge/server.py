@@ -42,6 +42,7 @@ need network access or provider credentials.
 from __future__ import annotations
 
 import fcntl
+import hashlib
 import os
 import re
 import sys
@@ -338,6 +339,10 @@ def _get_api_key() -> str:
 # Retry policy for provider calls: 3 attempts, exponential backoff.
 _RETRYABLE_STATUS = {429, 500, 502, 503, 504}
 
+# Fatal client errors: never retried — the request itself is wrong
+# (bad auth, bad route, bad payload). Other 4xx fail fast the same way.
+_FATAL_STATUS = {400, 401, 403, 404, 422}
+
 # Overall deadline (seconds) for the whole retry sequence. Sleeps are
 # capped by the remaining budget; hitting the deadline fast-fails instead
 # of sleeping past it.
@@ -364,7 +369,9 @@ def _post_with_retry(client: Any, url: str, payload: dict[str, Any]) -> tuple[An
     timeouts). Returns (resp, attempts). Honors Retry-After on 429
     (plus small jitter) before exponential backoff. Final failure
     raises RuntimeError with status + URL path + a 500-char body
-    snippet. Headers (and the key) never enter error strings."""
+    snippet. Fatal client errors (400/401/403/404/422 and other 4xx)
+    fail fast with a no-retry error. Headers (and the key) never
+    enter error strings."""
     import random
     import time
 
@@ -395,6 +402,11 @@ def _post_with_retry(client: Any, url: str, payload: dict[str, Any]) -> tuple[An
                 return resp, attempts
             last_status, last_snippet = resp.status_code, resp.text[:500]
             if resp.status_code not in _RETRYABLE_STATUS:
+                if 400 <= resp.status_code < 500:
+                    raise RuntimeError(
+                        f"fatal provider error {resp.status_code} (no retry) at "
+                        f"{url.rsplit('/', 1)[-1]}: {last_snippet}"
+                    )
                 raise RuntimeError(
                     f"provider error {resp.status_code} at "
                     f"{url.rsplit('/', 1)[-1]}: {last_snippet}"
@@ -470,30 +482,38 @@ def _transcript_path(task_id: str) -> Path:
 #: Per-line size guard (R5): one monster line can't blow memory on read.
 _LINE_CAP_CHARS = 200_000
 
+#: Transcript compaction (Task 194): when a task transcript grows past
+#: this many valid records, the next load rewrites the file as one
+#: extractive digest record plus the newest records below. No model
+#: call — the digest is deterministic (counts, ranges, models seen).
+_COMPACT_AFTER_MESSAGES = 30
+_COMPACT_KEEP_LAST = 10
+_SUMMARY_MAX_CHARS = 4000
+#: Byte-size backstop: compact whenever the transcript file exceeds this,
+#: even when the turn count is below the threshold (bounds huge turns).
+_COMPACT_FILE_BYTES = 200_000
 
-def load_history(task_id: str, limit: int = _HISTORY_LIMIT) -> list[dict[str, str]]:
-    """Read a task's prior turns (oldest first), capped at ``limit``.
-    Missing file means a fresh task — returns []. Corrupt lines are
-    skipped, never fatal; per-load stats land in ``_last_load_stats``
-    (``kept``/``skipped``) for tests and debugging."""
-    path = _transcript_path(task_id)
-    if not path.is_file():
-        _last_load_stats.update({"kept": 0, "skipped": 0})
-        return []
-    turns: list[dict[str, str]] = []
+#: Record keys preserved across load/compact cycles (traceability).
+_META_KEYS = ("model", "prompt_hash", "truncated", "compacted", "models",
+              "truncated_total", "compacted_count")
+
+
+def _parse_turns(raw: str) -> tuple[list[dict[str, Any]], int]:
+    """Parse transcript text into turns, skipping corrupt lines.
+
+    Shared by ``load_history`` and the locked compaction path so both
+    apply identical rules: blank lines ignored, monster lines over
+    ``_LINE_CAP_CHARS`` dropped with count, malformed JSON skipped,
+    non-turn dicts skipped, traceability keys preserved. Returns
+    ``(turns, skipped)``."""
+    turns: list[dict[str, Any]] = []
     skipped = 0
-    with path.open("r", encoding="utf-8") as fh:
-        fcntl.flock(fh, fcntl.LOCK_SH)
-        try:
-            raw = fh.read()
-        finally:
-            fcntl.flock(fh, fcntl.LOCK_UN)
     for line in raw.splitlines():
         line = line.strip()
         if not line:
             continue
         if len(line) > _LINE_CAP_CHARS:
-            skipped += 1  # R5: monster line dropped, counted, never fatal
+            skipped += 1
             continue
         try:
             entry = json.loads(line)
@@ -505,9 +525,121 @@ def load_history(task_id: str, limit: int = _HISTORY_LIMIT) -> list[dict[str, st
             and entry.get("role") in ("user", "assistant")
             and isinstance(entry.get("content"), str)
         ):
-            turns.append({"role": entry["role"], "content": entry["content"]})
+            turn: dict[str, Any] = {
+                "role": entry["role"], "content": entry["content"]}
+            for key in _META_KEYS:
+                if key in entry:
+                    turn[key] = entry[key]
+            turns.append(turn)
         else:
             skipped += 1
+    return turns, skipped
+
+
+def _build_compacted(turns: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Build the compacted record list (pure: no I/O, no locks).
+
+    Merges prior summary records instead of swallowing them: counts
+    accumulate (``compacted_count``), model sets union, truncation
+    totals sum, and the newest prior digests chain into the new digest
+    text (clamped to ``_SUMMARY_MAX_CHARS``). Idempotent — the result
+    holds 1 summary + the newest records, below the trigger."""
+    prior = [t for t in turns if t.get("compacted") is True]
+    fresh = [t for t in turns if not t.get("compacted")]
+    prior_count = sum(int(t.get("compacted_count") or 0) for t in prior)
+    total = prior_count + len(fresh)
+    users = sum(1 for t in fresh if t.get("role") == "user")
+    models: set[str] = set()
+    for t in fresh:
+        if t.get("model"):
+            models.add(t["model"])
+    for p in prior:
+        for m in p.get("models") or []:
+            models.add(m)
+    trunc = sum(int(t.get("truncated") or 0) for t in fresh)
+    trunc += sum(int(p.get("truncated_total") or 0) for p in prior)
+    chain = " | ".join(
+        str(p.get("content", ""))[:500] for p in prior[-2:])
+    digest = (
+        f"[compacted {total} turns: {users} user + "
+        f"{len(fresh) - users} assistant; models={sorted(models)}; "
+        f"truncated_total={trunc}]"
+    )
+    if chain:
+        digest += f" prior: {chain}"
+    digest = digest[:_SUMMARY_MAX_CHARS]
+    summary: dict[str, Any] = {
+        "role": "assistant", "content": digest, "compacted": True,
+        "compacted_count": total, "models": sorted(models),
+        "truncated_total": trunc,
+    }
+    return [summary] + fresh[-_COMPACT_KEEP_LAST:]
+
+
+def _atomic_write_turns(path: Path, turns: list[dict[str, Any]]) -> None:
+    """Replace a transcript atomically: temp file + fsync + rename.
+
+    A crash mid-write leaves either the old or the new file — never a
+    half-written transcript."""
+    tmp = path.with_name(f"{path.name}.tmp-{os.getpid()}")
+    with tmp.open("w", encoding="utf-8") as fh:
+        for turn in turns:
+            fh.write(json.dumps(turn) + "\n")
+        fh.flush()
+        os.fsync(fh.fileno())
+    os.replace(tmp, path)
+
+
+def _compact_locked(path: Path) -> tuple[list[dict[str, Any]], int]:
+    """Compact under an exclusive lock (read + build + write, one hold).
+
+    Re-reading inside the lock closes the TOCTOU window: appends from
+    other processes queue on the lock and land after the atomic
+    replace, so no turn is ever lost. Returns ``(kept, skipped)``."""
+    with path.open("r+", encoding="utf-8") as fh:
+        fcntl.flock(fh, fcntl.LOCK_EX)
+        try:
+            fh.seek(0)
+            turns, skipped = _parse_turns(fh.read())
+            kept = _build_compacted(turns)
+            _atomic_write_turns(path, kept)
+        finally:
+            fcntl.flock(fh, fcntl.LOCK_UN)
+    print(
+        f"brain-bridge: compacted {len(turns)} turns -> {len(kept)} records",
+        file=sys.stderr,
+    )
+    return kept, skipped
+
+
+def load_history(task_id: str, limit: int = _HISTORY_LIMIT) -> list[dict[str, str]]:
+    """Read a task's prior turns (oldest first), capped at ``limit``.
+    Missing file means a fresh task — returns []. Corrupt lines are
+    skipped, never fatal; per-load stats land in ``_last_load_stats``
+    (``kept``/``skipped``) for tests and debugging. Traceability keys
+    (model/prompt_hash/truncated/...) survive the round trip.
+    Transcripts past the count threshold — or the byte-size backstop
+    for huge turns — are compacted under one exclusive lock: prior
+    summaries merge into the new digest (never swallowed), the write
+    is atomic, and concurrent appends queue behind the lock instead
+    of being lost (see ``_build_compacted``)."""
+    path = _transcript_path(task_id)
+    if not path.is_file():
+        _last_load_stats.update({"kept": 0, "skipped": 0})
+        return []
+    with path.open("r", encoding="utf-8") as fh:
+        fcntl.flock(fh, fcntl.LOCK_SH)
+        try:
+            raw = fh.read()
+        finally:
+            fcntl.flock(fh, fcntl.LOCK_UN)
+    turns, skipped = _parse_turns(raw)
+    if (
+        len(turns) > _COMPACT_AFTER_MESSAGES
+        or path.stat().st_size > _COMPACT_FILE_BYTES
+    ):
+        turns, lock_skipped = _compact_locked(path)
+        skipped += lock_skipped
     turns = turns[-limit:]
     _last_load_stats.update({"kept": len(turns), "skipped": skipped})
     if skipped:
@@ -522,14 +654,22 @@ def load_history(task_id: str, limit: int = _HISTORY_LIMIT) -> list[dict[str, st
 _last_load_stats: dict[str, int] = {"kept": 0, "skipped": 0}
 
 
-def append_turn(task_id: str, role: str, content: str) -> None:
-    """Append one turn to the task transcript (creates dirs as needed)."""
+def append_turn(task_id: str, role: str, content: str, model: Optional[str] = None,
+               prompt_hash: Optional[str] = None, truncated: int = 0) -> None:
+    """Append one turn to the task transcript (creates dirs as needed).
+
+    Traceability keys ride on every record; unset stays None/0 so
+    older callers keep working unchanged."""
     path = _transcript_path(task_id)
     path.parent.mkdir(parents=True, exist_ok=True)
+    record: dict[str, Any] = {
+        "role": role, "content": content, "model": model,
+        "prompt_hash": prompt_hash, "truncated": truncated,
+    }
     with path.open("a", encoding="utf-8") as fh:
         fcntl.flock(fh, fcntl.LOCK_EX)
         try:
-            fh.write(json.dumps({"role": role, "content": content}) + "\n")
+            fh.write(json.dumps(record) + "\n")
             fh.flush()
             os.fsync(fh.fileno())
         finally:
@@ -596,7 +736,7 @@ def brain_turn(
             file=sys.stderr,
         )
     chat: list[dict[str, str]] = [{"role": "system", "content": system_prompt}]
-    chat.extend(history)
+    chat.extend({"role": t["role"], "content": t["content"]} for t in history)
     chat.append({"role": "user", "content": effective_prompt})
     body: dict[str, Any] = {
         "model": model,
@@ -626,8 +766,11 @@ def brain_turn(
     xml_blocks = extract_xml_blocks(output)
     fence_drops = list(_last_fence_drops)
     if task_id:
-        append_turn(task_id, "user", effective_prompt)
-        append_turn(task_id, "assistant", output)
+        prompt_hash = hashlib.sha256(effective_prompt.encode("utf-8")).hexdigest()
+        append_turn(task_id, "user", effective_prompt, model=model,
+                    prompt_hash=prompt_hash, truncated=truncated_count)
+        append_turn(task_id, "assistant", output, model=model,
+                    prompt_hash=prompt_hash, truncated=truncated_count)
     result: dict[str, Any] = {
         "status": "XML_EXTRACTED" if xml_blocks else "REPORT",
         "xml_blocks": xml_blocks,

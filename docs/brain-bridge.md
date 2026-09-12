@@ -42,7 +42,9 @@ call carries. Three tools close that gap:
   raise, per the Absent-File Policy). Each file caps at 60,000 chars
   with a `[truncated]` marker.
 - `read_file(path, offset=1, limit=200)` — reads any file under the
-  workspace root with numbered lines (1-indexed). Pull task-file ranges
+  workspace root (the repo root, or `BRAIN_WORKSPACE_ROOT` when set) with
+  numbered lines (1-indexed). Only the `system_prompt_path` override
+  additionally allows the global install dir (`~/.config/opencode`). Pull task-file ranges
   on demand instead of pasting whole files.
 - `grep_files(pattern, subdir=".")` — searches files for a pattern, up
   to 30 `path:line: excerpt` hits, skipping banned directories.
