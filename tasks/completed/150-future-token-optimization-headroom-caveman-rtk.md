@@ -1,9 +1,9 @@
 # Task 150: Future R&D — Token Optimization, Context Compression & Output Trimming Layer (Headroom, Caveman, RTK)
 
-**File:** `tasks/qa/150-future-token-optimization-headroom-caveman-rtk.md`
+**File:** `tasks/completed/150-future-token-optimization-headroom-caveman-rtk.md`
 **Source:** manager
 **Type:** research
-**Status:** open
+**Status:** closed
 **Target Milestone:** Future R&D / Token Efficiency
 
 ---
@@ -266,18 +266,122 @@ index 95adc72..9285505 100644
  - **Small git outputs: skip the wrapper.** `git status`, short `git log`,
    and `git diff --stat` are already compact — RTK adds ~1–2% header
    overhead there. Reserve `rtk git ...` for large diffs and long logs.
+diff --git a/mcp-brain-bridge/server.py b/mcp-brain-bridge/server.py
+index 34fc957..475f079 100644
+--- a/mcp-brain-bridge/server.py
++++ b/mcp-brain-bridge/server.py
+@@ -145,6 +145,12 @@ _SKIP_DIRS = frozenset(
+     {".git", "__pycache__", ".venv", "node_modules", ".pytest_cache"}
+ )
+ 
++# Guardrails for the file-pull tools (state-machine hotfix round).
++_READ_MAX_LINES = 2000        # read_file limit clamp — pulls stay pull-sized
++_READ_MAX_BYTES = 2_000_000   # read_file refuses bigger files outright
++_GREP_PATTERN_MAX = 500       # Brain-supplied regex length cap (ReDoS bound)
++_GREP_MAX_LINE_CHARS = 4000   # overlong lines are skipped, never searched
++
+ 
+ def _workspace_root() -> Path:
+     """Repo root for context reads; override via ``BRAIN_WORKSPACE_ROOT``."""
+@@ -266,7 +272,11 @@ def _build_task_attach(task_id: str) -> str:
+         if path is None:
+             return ""
+         text = path.read_text(encoding="utf-8", errors="replace")
+-        rel = path.name
++        try:
++            rel = path.resolve().relative_to(
++                _workspace_root().resolve()).as_posix()
++        except (OSError, ValueError):
++            rel = path.name
+         cleaned, _omitted, _truncated = _strip_task_diff(text, rel)
+         if len(cleaned) > _TASK_ATTACH_CAP:
+             cleaned = (
+@@ -311,16 +321,29 @@ def _build_context_bundle() -> str:
+ 
+ 
+ def _read_file_impl(path: str, offset: int = 1, limit: int = 200) -> dict[str, Any]:
+-    """Numbered-line slice of a workspace text file (1-indexed offset)."""
++    """Numbered-line slice of a workspace text file (1-indexed offset).
++
++    The ``limit`` clamps to ``_READ_MAX_LINES`` and files over
++    ``_READ_MAX_BYTES`` are refused — pulls stay pull-sized and can
++    never drag a giant file into context.
++    """
+     if not isinstance(path, str) or not path.strip():
+         raise ValueError(f"bad path: {path!r}")
+     if offset < 1:
+         raise ValueError(f"bad offset (1-indexed): {offset!r}")
+     if limit < 1:
+         raise ValueError(f"bad limit: {limit!r}")
++    limit = min(limit, _READ_MAX_LINES)
+     resolved = _resolve_under_root(path)
+     if resolved.suffix.lower() not in _ALLOWED_READ_SUFFIXES:
+         raise ValueError(f"unsupported extension: {path!r}")
++    try:
++        if resolved.stat().st_size > _READ_MAX_BYTES:
++            raise ValueError(
++                f"file too large for read_file: {path!r} "
++                f"(>{_READ_MAX_BYTES} bytes)")
++    except OSError:
++        pass  # stat failed — the read below raises the real error
+     text = resolved.read_text(encoding="utf-8", errors="replace")
+     lines = text.splitlines()
+     total = len(lines)
+@@ -336,7 +359,20 @@ def _read_file_impl(path: str, offset: int = 1, limit: int = 200) -> dict[str, A
+ 
+ 
+ def _grep_files_impl(pattern: str, subdir: str = ".") -> list[str]:
+-    """Python-regex search over workspace text files (max 30 hits)."""
++    """Python-regex search over workspace text files (max 30 hits).
++
++    Hardening: the Brain-supplied pattern caps at ``_GREP_PATTERN_MAX``
++    chars (``re`` has no timeout, so length is the ReDoS bound), each hit
++    line truncates at 200 chars, lines over ``_GREP_MAX_LINE_CHARS`` are
++    skipped unsearched, and every candidate resolves against the root
++    BEFORE it is read — a symlink escaping the workspace is skipped,
++    never opened.
++    """
++    if not isinstance(pattern, str) or not pattern:
++        raise ValueError(f"bad regex: {pattern!r}")
++    if len(pattern) > _GREP_PATTERN_MAX:
++        raise ValueError(
++            f"regex too long ({len(pattern)} > {_GREP_PATTERN_MAX})")
+     try:
+         rx = re.compile(pattern)
+     except re.error as exc:
+@@ -353,11 +389,18 @@ def _grep_files_impl(pattern: str, subdir: str = ".") -> list[str]:
+                 continue
+             fpath = Path(dirpath) / name
+             try:
+-                text = fpath.read_text(encoding="utf-8", errors="replace")
++                resolved = fpath.resolve()
++                resolved.relative_to(root)
++            except (OSError, ValueError):
++                continue  # symlink escape — skip before any read
++            try:
++                text = resolved.read_text(encoding="utf-8", errors="replace")
+             except OSError:
+                 continue
+-            rel = fpath.resolve().relative_to(root).as_posix()
++            rel = resolved.relative_to(root).as_posix()
+             for lineno, line in enumerate(text.splitlines(), 1):
++                if len(line) > _GREP_MAX_LINE_CHARS:
++                    continue
+                 if rx.search(line):
+                     hits.append(f"{rel}:{lineno}: {line.strip()[:200]}")
+                     if len(hits) >= 30:
 diff --git a/scripts/qa-rules-gate/rules_gate.py b/scripts/qa-rules-gate/rules_gate.py
-index 7e773fc..9a19c99 100644
+index 7e773fc..17b63df 100644
 --- a/scripts/qa-rules-gate/rules_gate.py
 +++ b/scripts/qa-rules-gate/rules_gate.py
-@@ -16,13 +16,18 @@ UnparseableVerdict — the autopilot treats that as QA_REJECTED with reason
+@@ -16,13 +16,17 @@ UnparseableVerdict — the autopilot treats that as QA_REJECTED with reason
  
  from __future__ import annotations
  
 +import os
  import re
  from dataclasses import dataclass, field
- from pathlib import Path
+-from pathlib import Path
  from typing import Callable
  
 -_VERDICT_RE = re.compile(r"^VERDICT:\s*(QA_PASSED|QA_REJECTED)\s*$", re.MULTILINE)
@@ -291,7 +395,7 @@ index 7e773fc..9a19c99 100644
  
  
  class UnparseableVerdict(ValueError):
-@@ -39,22 +44,46 @@ class GateResult:
+@@ -39,22 +43,46 @@ class GateResult:
  def parse_verdict(reply: str) -> tuple[str, list[tuple[str, int]]]:
      """Parse a QA reply into (verdict, [(file, line), ...]) with one regex each.
  
@@ -347,30 +451,41 @@ index 7e773fc..9a19c99 100644
  
  
  def check_budget(used: int, limit: int) -> list[str]:
-@@ -65,12 +94,19 @@ def check_budget(used: int, limit: int) -> list[str]:
+@@ -65,13 +93,28 @@ def check_budget(used: int, limit: int) -> list[str]:
  
  
  def check_allowlist(paths: list[str], roots: list[str]) -> list[str]:
 -    """Paths escaping every allowed root → one violation string each."""
 +    """Paths escaping every allowed root → one violation string each.
 +
-+    Both sides are normalized with ``abspath`` first, so relative payload
-+    paths (the production shape) are judged against the same roots as
-+    absolute ones instead of always failing closed.
++    Both sides are normalized with ``realpath`` (resolves ``..`` AND
++    symlinks — ``abspath`` alone leaves symlink escapes open) and
++    containment is enforced with ``commonpath``, so sibling-prefix
++    paths (``/allow-evil`` vs root ``/allow``) never match.
++    Relative payload paths (the production shape) are resolved against
++    the process CWD before comparison.
 +    """
-+    norm_roots = [os.path.abspath(root) for root in roots]
++    norm_roots = [os.path.realpath(root) for root in roots]
      violations = []
      for path in paths:
-+        norm_path = os.path.abspath(path)
-         if not any(
+-        if not any(
 -            Path(path) == Path(root) or Path(root) in Path(path).parents
 -            for root in roots
-+            norm_path == norm_root or norm_root in Path(norm_path).parents
-+            for norm_root in (Path(r) for r in norm_roots)
-         ):
+-        ):
++        norm_path = os.path.realpath(path)
++        try:
++            inside = any(
++                norm_path == norm_root
++                or os.path.commonpath([norm_path, norm_root]) == norm_root
++                for norm_root in norm_roots
++            )
++        except ValueError:
++            inside = False  # e.g. different drives — fail closed
++        if not inside:
              violations.append(f"path outside allowlist: {path}")
      return violations
-@@ -112,7 +148,14 @@ def run_gate(
+ 
+@@ -112,7 +155,14 @@ def run_gate(
      if violations:
          return GateResult(verdict="QA_REJECTED", violations=violations)
      if judge is not None:
@@ -386,19 +501,77 @@ index 7e773fc..9a19c99 100644
 +            verdict=judge_verdict, violations=[], judge_called=True
          )
      return GateResult(verdict=verdict, violations=[])
+diff --git a/tests/test_brain_bridge.py b/tests/test_brain_bridge.py
+index 1c2aba1..746a0d3 100644
+--- a/tests/test_brain_bridge.py
++++ b/tests/test_brain_bridge.py
+@@ -1088,3 +1088,61 @@ def test_task_attach_truncation_has_pull_path(tmp_path, monkeypatch):
+     attach = bridge._build_task_attach("200-foo")
+     assert "read_file(" in attach and "200-foo.md" in attach
+     assert len(attach) < 30000
++
++
++def test_task_attach_pull_path_is_lane_relative_and_live(tmp_path, monkeypatch):
++    d = tmp_path / "tasks" / "backlog"
++    d.mkdir(parents=True, exist_ok=True)
++    (d / "200-foo.md").write_text(
++        "# T\n<!-- BEGIN_GIT_DIFF -->\nx\n<!-- END_GIT_DIFF -->\n",
++        encoding="utf-8")
++    monkeypatch.setattr(bridge, "_workspace_root", lambda: tmp_path)
++    attach = bridge._build_task_attach("200-foo")
++    assert "tasks/backlog/200-foo.md" in attach
++    pulled = bridge._read_file_impl("tasks/backlog/200-foo.md")
++    assert pulled["total_lines"] == 4
++
++
++def test_grep_skips_symlink_escape(tmp_path, monkeypatch):
++    ws = tmp_path / "ws"
++    sub = ws / "docs"
++    sub.mkdir(parents=True)
++    (sub / "real.md").write_text("hello\n", encoding="utf-8")
++    outside = tmp_path / "outside-secret.md"
++    outside.write_text("SECRET-XYZ\n", encoding="utf-8")
++    (sub / "evil.md").symlink_to(outside)
++    monkeypatch.setattr(bridge, "_workspace_root", lambda: ws)
++    hits = bridge._grep_files_impl("SECRET-XYZ", "docs")
++    assert hits == []
++
++
++def test_read_file_limit_clamped(tmp_path, monkeypatch):
++    (tmp_path / "big.md").write_text(
++        "".join(f"line {n}\n" for n in range(2500)), encoding="utf-8")
++    monkeypatch.setattr(bridge, "_workspace_root", lambda: tmp_path)
++    result = bridge._read_file_impl("big.md", limit=10 ** 9)
++    assert result["limit"] == bridge._READ_MAX_LINES
++    assert len(result["lines"]) == bridge._READ_MAX_LINES
++
++
++def test_read_file_oversize_refused(tmp_path, monkeypatch):
++    (tmp_path / "huge.md").write_bytes(b"x" * (bridge._READ_MAX_BYTES + 1))
++    monkeypatch.setattr(bridge, "_workspace_root", lambda: tmp_path)
++    with pytest.raises(ValueError, match="too large"):
++        bridge._read_file_impl("huge.md")
++
++
++def test_grep_pattern_too_long_rejected(tmp_path, monkeypatch):
++    monkeypatch.setattr(bridge, "_workspace_root", lambda: tmp_path)
++    with pytest.raises(ValueError, match="too long"):
++        bridge._grep_files_impl("a" * (bridge._GREP_PATTERN_MAX + 1))
++
++
++def test_grep_skips_overlong_lines(tmp_path, monkeypatch):
++    sub = tmp_path / "docs"
++    sub.mkdir()
++    (sub / "mix.md").write_text(
++        "MATCH " + ("z" * 5000) + "\nplain MATCH line\n", encoding="utf-8")
++    monkeypatch.setattr(bridge, "_workspace_root", lambda: tmp_path)
++    hits = bridge._grep_files_impl("MATCH", "docs")
++    assert len(hits) == 1 and ":2:" in hits[0]
 diff --git a/tests/test_rules_gate.py b/tests/test_rules_gate.py
-index 2ceb3d0..20a31b9 100644
+index 2ceb3d0..fefc856 100644
 --- a/tests/test_rules_gate.py
 +++ b/tests/test_rules_gate.py
-@@ -10,6 +10,7 @@ Run: `pytest tests/test_rules_gate.py -v` (repo root).
- import sys
- from pathlib import Path
- from unittest.mock import Mock
-+import os
- 
- import pytest
- 
-@@ -127,3 +128,51 @@ def test_gate_clean_no_judge_passes():
+@@ -127,3 +127,115 @@ def test_gate_clean_no_judge_passes():
      )
      assert result.verdict == "QA_PASSED"
      assert result.judge_called is False
@@ -450,5 +623,69 @@ index 2ceb3d0..20a31b9 100644
 +    verdict, cites = parse_verdict("CITE: foo.py:12.\nVERDICT: QA_PASSED\n")
 +    assert verdict == "QA_PASSED"
 +    assert cites == [("foo.py", 12)]
++
++
++def test_allowlist_sibling_prefix_rejected():
++    violations = check_allowlist(
++        ["/repo/allow-evil/x.py"], roots=["/repo/allow"]
++    )
++    assert violations == ["path outside allowlist: /repo/allow-evil/x.py"]
++
++
++def test_allowlist_symlink_escape_rejected(tmp_path):
++    allowed = tmp_path / "allowed"
++    allowed.mkdir()
++    secret = tmp_path / "secret.txt"
++    secret.write_text("top secret")
++    link = allowed / "link.py"
++    link.symlink_to(secret)
++    assert check_allowlist([str(link)], roots=[str(allowed)]) == [
++        f"path outside allowlist: {link}"
++    ]
++
++
++def test_allowlist_symlink_inside_passes(tmp_path):
++    allowed = tmp_path / "allowed"
++    allowed.mkdir()
++    real = allowed / "real.py"
++    real.write_text("x = 1")
++    link = allowed / "link.py"
++    link.symlink_to(real)
++    assert check_allowlist([str(link)], roots=[str(allowed)]) == []
++
++
++def test_parse_indented_second_marker_raises():
++    reply = "VERDICT: QA_PASSED\n  VERDICT: QA_REJECTED\n"
++    with pytest.raises(UnparseableVerdict):
++        parse_verdict(reply)
++
++
++def test_gate_judge_none_rejected():
++    judge = Mock(return_value=None)
++    result = run_gate(
++        {"verdict_reply": PASSED_REPLY, "paths": []},
++        required=[],
++        budget=(0, 1_000_000),
++        allowlist_roots=["/repo"],
++        judge=judge,
++    )
++    assert result.verdict == "QA_REJECTED"
++    assert result.judge_called is True
++    assert any("invalid judge verdict" in v for v in result.violations)
++
++
++def test_schema_deep_nested_and_nondict_mid():
++    assert check_schema({"a": {"b": {"c": 1}}}, required=["a.b.c"]) == []
++    assert check_schema({"a": {"b": {"c": 1}}}, required=["a.b.d"]) == [
++        "missing field: a.b.d"
++    ]
++    assert check_schema({"a": 5}, required=["a.b"]) == ["missing field: a.b"]
++
++
++def test_parse_cite_version_and_all_punct_tails():
++    reply = "CITE: pkg/v1.2:34\nCITE: foo.py:12.,;:!?\nVERDICT: QA_PASSED\n"
++    verdict, cites = parse_verdict(reply)
++    assert verdict == "QA_PASSED"
++    assert cites == [("pkg/v1.2", 34), ("foo.py", 12)]
 ```
 <!-- END_GIT_DIFF -->

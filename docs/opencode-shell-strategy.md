@@ -152,7 +152,8 @@ manager approval). Full evidence in `docs/loop-engine/configuration.md`.
   3 lines, 97.6% fewer bytes). Exit code is preserved, so gates still
   fail the build. Prefer `rtk test <cmd>` over raw `pytest`/`cargo test`
   when only the verdict matters; use `rtk recall <id>` to pull the full
-  output on failure.
+  output on failure. Scope warning: failing-suite output is UNMEASURED —
+  keep full output on any failure, never collapse it.
 - **Small git outputs: skip the wrapper.** `git status`, short `git log`,
   and `git diff --stat` are already compact — RTK adds ~1–2% header
   overhead there. Reserve `rtk git ...` for large diffs and long logs.
