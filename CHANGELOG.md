@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [9.31.0] - 2026-09-12
+
 ### Added
 
 - **Empty-output retry rule (Task 203):** executor bridge state machine gained step 5 — an empty-`output` REPORT is a transport flake, never a verdict: one lean retry (`include_bundle=false`, same task_id), then escalate. Lived during the self-judgment brainstorm round (2 empty REPORTs under history-bloat truncation). Executor doc is not a prompt-build input → no rebuild owed. Full suite: **264 passed**.
@@ -17,7 +19,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **Token-optimization verified spike (Task 150):** Evaluated RTK 0.49.0 locally (musl binary, no global install): passing pytest suite collapses 1801 bytes / 21 lines → 44 bytes / 3 lines (**97.6% fewer bytes**, exit code preserved, 232 passed); small git outputs (±2%) not worth wrapping; `rtk diff` is a `/usr/bin/diff` wrapper (use `rtk git diff`); `rtk test` needs exact dep pins (`mcp==1.30.0` — `<` specs break as shell redirection). `headroom-ai` 0.37.0 (PyPI) and `@caveman-ai/cli` 1.3.3 (npm) registry-verified; proxy/pixel eval deferred (needs provider rewiring + manager approval). Claim scoped to passing suites — failing-suite trimming unmeasured. New `docs/loop-engine/configuration.md` holds the evidence table (with source column: local measurement vs tool self-report); `docs/opencode-shell-strategy.md` §8 holds the practices. Headroom/Caveman proxy integration and 10-task sprint measurement remain open follow-ups.
 - **Machine-readable QA verdicts + rules-first gate (Task 195):** QA persona (fragment 06) now ends every report with a machine verdict block (`VERDICT: QA_PASSED` / `QA_REJECTED` + `CITE: file:line` lines, single-regex parseable) with a documented escape hatch (unparseable → QA_REJECTED with reason, prose fallback, manager override). New `scripts/qa-rules-gate/rules_gate.py` runs verdict-parse, schema, budget, and allowlist checks before any LLM judge call — rule failures return QA_REJECTED without invoking the judge (Mock-asserted). 20 mocked tests (relative-path allowlist, exactly-one-verdict, whitespace tolerance, judge validation, nested schema, cite punctuation). System version 9.27.0 → 9.28.0, `system-prompt.md` rebuilt (sync-check byte-identical). Full suite: **239 passed**.
 
+- **Release push script (Task 207):** new ZAC-compliant `/tmp/cognitive-lead-push-release.sh` (`set -euo pipefail`, `VERSION="v9.31.0"`, clean-tree plus `gh auth status` checks, missing-tag creation, branch plus tag push, release create-or-verify, remote verification). Hands generate only, Manager runs it manually.
+
 ### Changed
+
+- **Prompt 9.30.0 → 9.31.0 (Task 207):** version fragment bumped, `system-prompt.md` reassembled (81684 bytes), sync check passed. Covers deferred bridge and executor capability changes.
 
 - **Systemd daemon env + docs (Task 206):** `opencode-server.service` (systemd user unit) gained `EnvironmentFile=-<hq>/.env` so the daemon-run OpenCode starts with keys + model pins — process env outranks every `.env` fallback and feeds `{env:}` forwarding, so all served projects share it. Verified via daemon-reload (`EnvironmentFiles` listed, service still running); restart deferred to Manager (kills live sessions). Documented in `docs/setup.md` (§Systemd user service env) and `LLM.txt` (§7.10, portable `%h` form for others).
 
@@ -46,8 +52,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **Autopilot QA hardening (Task 190 hotfix round):** The first live autopilot QA review rejected the bridge/decision servers with 10 findings; all honored — fail-closed empty-key guard, 3-attempt retry with backoff on 429/5xx, malformed-body errors with status + snippet, strict task-id allowlist + prompt-path confinement, fence-aware XML extraction, strict decision-schema checks (malformed raises, valid empty stays empty), temperature sent only when explicitly set, 100k-char input budget with oldest-first truncation. Also deleted a shadowing duplicate key helper that left the fail-closed guard dead. Covered by 13 new mocked tests (no live calls). Full suite: **113 passed**.
 
 - **Guaranteed context bundle + autopilot saga rule (Task 190 overnight):** Executor autopilot gained Saga self-sufficiency — the Hands plays the manager role via manager-decision when an XML step says the manager copies, and hands results to the reviewer directly via `brain_turn` (ferrying through the human in autopilot is now a bug). Big-file-to-LLM research (blowsh spider workflow, Kokil 2026 long-context guide) concluded tool-use beats whole-file stuffing, so the bridge now auto-prepends a 5-file context bundle (`cognitive-executor.md`, `conventions.md`, `architecture.md`, `data_model.md`, `DESIGN.md`, 60k/file cap, `[missing]` markers) to every `brain_turn`, and exposes `read_file` (root-guarded, numbered lines) + `grep_files` (30-hit cap) for on-demand pulls of big files like full task files. Live bundle proof: HTTP 200, exact `BUNDLE_PROOF_OK`, all 5 files included-or-marked. Covered by 10 new mocked tests. Full suite: **139 passed**.
-
-### Fixed
 
 - **Reviewer hotfix on hunks path (Task 201):** QA/reviewer-like prompts now auto-attach the changed hunks even when the caller forgets `include_diff` (new pure `_failsafe_qa_attach` keyword gate + stderr warning; normal turns untouched); diff fence guard proven identical to the V1 task-attach guard; Modes docs now state prompt-level enforcement explicitly. Covered by 2 new tests (QA prompt attaches, normal prompt stays empty). Full suite: **264 passed**.
 
