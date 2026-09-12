@@ -103,7 +103,7 @@ mcp = FastMCP("ManagerDecisions")
 _SCRUB_FIELDS = ("original", "english_translation", "summary", "rationale", "tradeoffs")
 
 #: Built-in extraction model when DECISION_MODEL is not set.
-DEFAULT_DECISION_MODEL = "muse-spark-1.3-contributor-free"
+DEFAULT_DECISION_MODEL = "gpt-6-astra"
 
 
 def _get_decision_temperature() -> float:

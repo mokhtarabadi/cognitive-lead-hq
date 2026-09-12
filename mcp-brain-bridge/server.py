@@ -558,7 +558,7 @@ def extract_xml_blocks(output: str) -> list[str]:
 
 def _get_brain_model() -> str:
     """LLM model for Brain turns; override via ``BRAIN_MODEL``."""
-    default = "muse-spark-1.3-contributor-free"
+    default = "gpt-6-astra"
     return os.environ.get("BRAIN_MODEL", default).strip() or default
 
 

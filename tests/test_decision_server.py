@@ -325,11 +325,11 @@ def test_decision_model_split_no_persona_fallback(srv, monkeypatch):
     call = srv._get_decision_model
     monkeypatch.delenv("DECISION_MODEL", raising=False)
     monkeypatch.setenv("PERSONA_MODEL", "openrouter/custom/persona")
-    assert call() == "muse-spark-1.3-contributor-free"  # Stale persona value never hijacks.
+    assert call() == "gpt-6-astra"  # Stale persona value never hijacks.
     monkeypatch.setenv("DECISION_MODEL", "openrouter/custom/extractor")
     assert call() == "openrouter/custom/extractor"
     monkeypatch.setenv("DECISION_MODEL", "   ")
-    assert call() == "muse-spark-1.3-contributor-free"  # Blank means unset.
+    assert call() == "gpt-6-astra"  # Blank means unset.
 
 
 def test_repo_root_prefers_cwd_project_store(srv, tmp_path, monkeypatch):

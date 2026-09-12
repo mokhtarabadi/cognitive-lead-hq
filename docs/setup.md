@@ -62,8 +62,7 @@ The project uses five FastMCP Python servers, all run via `uv`:
 These are configured in `opencode.json` and auto-start with OpenCode.
 
 > **Brain Bridge active:** QA/review run through one MCP
-> (`brain_turn`). The 2026-09-09 paused persona engine was deleted, not
-> restored; the decision server was restored and is live again.
+> (`brain_turn`).
 > Global installs additionally run `blowsh` + `telegram`.
 
 ## Development Tools

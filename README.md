@@ -33,9 +33,9 @@ See [`docs/setup.md`](docs/setup.md) for full setup instructions and all platfor
 
 This system relies on a strict separation of concerns:
 
-- **The Brain (The Orchestrator):** You paste the `system-prompt.md` here. It acts as the Orchestrator. It has _no_ direct access to your files or terminal. It thinks, plans, and generates XML task blocks.
-- **The Hands (OpenCode):** Runs locally on your machine. You paste the XML task blocks here. It executes file changes, runs bash commands, triggers Agent Skills, and generates task summaries to feed back to the Brain.
-- **The QA Loop:** After OpenCode implements a task, the Manager pastes the task file back to the Orchestrator. The QA Engineer persona performs adversarial testing — actively trying to break the logic. If QA fails, a fix task is generated. If QA passes, the Code Reviewer does a final architectural review before the task is committed and closed.
+- **The Brain (The Orchestrator):** Lives behind the `brain_turn` MCP tool. It has _no_ direct access to your files or terminal. It thinks, plans, and returns XML task blocks or verdict reports.
+- **The Hands (OpenCode):** Runs locally on your machine. It calls the Brain itself, executes file changes, runs bash commands, triggers Agent Skills, and records results in the task file. You never ferry text between them.
+- **The QA Loop:** After implementation, the Hands sends the task file to the Brain for QA and review through the same tool. If QA fails, a fix round runs. If QA passes, the task moves to `tasks/qa/` and waits for your approval word before it is committed and closed.
 
 ### Scenario A: Phase 0 for a Brand New Project
 
@@ -81,15 +81,15 @@ The AI will process your inline feedback, generate a revised plan, and wait for 
 
 ## ⚡ Manual Mode Workflow (Pure-MCP Human-in-the-Loop) — ACTIVE / DEFAULT
 
-> **Brain Bridge active:** QA/review run through one MCP (`brain_turn`) — no manual ferrying, no per-persona commands. This manual cycle remains available; autopilot mode runs it end-to-end. The 2026-09-09 paused system was deleted, not restored.
+> **Brain Bridge active:** QA/review run through one MCP (`brain_turn`) — no manual ferrying, no per-persona commands. This manual cycle remains available; autopilot mode runs it end-to-end.
 
 This is the canonical pure-MCP cycle:
 
 1. **Manager inputs raw thought / Telegram message** — raw bilingual draft or structured task file in `tasks/backlog/`.
 2. **Orchestrator issues architectural blueprint & awaits approval** — Brain reviews context, proposes plan, and halts for explicit Manager `Approved`.
-3. **Manager copies Senior Programmer `<hands_implementation_task>` block into OpenCode Hands** — Hands runs locally with ZAC enforcement.
+3. **Hands receives the implementation XML and runs locally with ZAC enforcement** — no pasting between chats; the Hands calls the Brain itself.
 4. **Hands executes code, runs tests, and invokes `custom_context_qa_transition`** — stages `modified_files`, injects factual diff, and moves task `tasks/in-progress/` → `tasks/qa/` via pure MCP.
-5. **Manager pastes QA task file to QA Engineer & Code Reviewer** — Orchestrator performs adversarial testing and architectural review via pasted `tasks/qa/` file.
+5. **Hands sends the QA task file to the Brain for QA Engineer adversarial testing and Code Reviewer architectural review via `brain_turn`** — no pasting; history continues under the same task id.
 6. **Manager approves closure and Hands commits atomically via `custom_context_commit_and_clean_task`** — commits staged diff, replaces raw diff with hash reference, and moves task to `tasks/completed/` — the only commit path.
 
 All transitions use pure FastMCP tools (`custom_context_qa_transition`, `bundle_tasks`, `custom_context_commit_and_clean_task`) — no `uv run scripts/...` CLI required.
@@ -137,9 +137,7 @@ The repository includes a standalone web tool at `tools/prompt-composer/index.ht
 
 ## 🌉 Brain Bridge (Active)
 
-> The 2026-09-09 paused automation was deleted, not restored. One MCP
-> server (`mcp-brain-bridge/`, tool `brain_turn`) replaces the persona
-> loops, decision-learning loop, and all 9 slash commands.
+> One MCP server (`mcp-brain-bridge/`, tool `brain_turn`) handles QA/review.
 
 The Hands builds the user prompt from its machine state (instruction +
 task file), the bridge prepends the latest system prompt from the global

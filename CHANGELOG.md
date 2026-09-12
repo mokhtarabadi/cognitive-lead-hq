@@ -19,6 +19,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- **Cleanup sweep 9.30.0 (Task 205):** removed the dead 2026-09-09 pause narrative from live docs (executor bridge section, setup.md, README, LLM.txt) — the paused system was deleted during the bridge rebuild, never paused; deleted `archive/` (only a superseded RESTORE pointer) and its dead docs pointer; folded the loop-engine RTK evidence table into the shell strategy and removed `docs/loop-engine/`; README aligned to bridge reality; deleted the leftover `scripts/qa-rules-gate/` (zero live callers) and stripped its prose from the QA persona; shell strategy now mandates `rtk test` (binary installed) and mirrors the permission-layer git denies; LLM defaults to the latest OpenAI astra model on OpenAI-compatible transport. System version 9.29.0 → 9.30.0, prompt rebuilt (81684 bytes), sync check passed.
+
 - **Persona boundaries + mode-aware ferry (Task 204):** self-judgment follow-up — Planner vs Strategist and Architect vs Programmer gained one-line ownership boundaries (WHAT vs HOW, state vs priority); QA + Reviewer ferry language made mode-aware (manual ferry vs autopilot direct call); Architect Discovery-First triple coverage trimmed to prohibition + single directive. System version 9.28.0 → 9.29.0, prompt rebuilt, sync check passed.
 
 ### Fixed

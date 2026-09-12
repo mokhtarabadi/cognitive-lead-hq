@@ -61,7 +61,7 @@ total size measured by construction).
 | ------------------- | ---------------------------------------------------- |
 | `BRAIN_API_BASE`    | _(Manager-owned endpoint, e.g. local proxy URL)_     |
 | `BRAIN_API_KEY`     | _(Manager-owned, never committed)_                   |
-| `BRAIN_MODEL`       | `muse-spark-1.3-contributor-free`                   |
+| `BRAIN_MODEL`       | `gpt-6-astra`                   |
 | `BRAIN_REASONING_EFFORT` | `xhigh`                                         |
 | `BRAIN_MAX_TOKENS`  | `16384`                                              |
 | `BRAIN_SYSTEM_PROMPT` | `~/.config/opencode/system-prompt.md`              |

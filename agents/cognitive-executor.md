@@ -240,9 +240,7 @@ with a one-line justification in the file.
 ## Manual Workflow (Active Default)
 
 > Automation runs through ONE path: the Brain Bridge (`brain_turn` — see
-> below). The 2026-09-09 paused system was deleted during the bridge rebuild, not
-> restored; `archive/automation-paused-2026-09-09/RESTORE.md` is a
-> superseded pointer.
+> below). No other automation path exists.
 
 1. **Plan** — read the task, gather context with direct tools, minimal changes.
 2. **Execute** — edit files; verify every change (tests/lint) before claiming done.
@@ -281,7 +279,7 @@ goal entirely — goal overhead must never exceed the task itself.
    no goal left open behind a closed task, no task closed with its goal
    unmet.
 
-## Brain Bridge (single MCP — replaces all archived automation)
+## Brain Bridge
 
 The `brain` MCP server (`mcp-brain-bridge/server.py`, one tool:
 `brain_turn`) is the ONLY automation path. No slash commands, no persona

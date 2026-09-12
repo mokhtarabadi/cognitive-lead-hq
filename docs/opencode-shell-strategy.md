@@ -141,16 +141,38 @@ All Git commit/add/push operations are strictly handled by the `custom_context_s
 
 **ZAC (Zero-Autonomous-Commit) precedence:** the Git reference table in section 5 is overridden for this platform. `git add`, `git commit`, and `git push` MUST NOT be executed by agents under any circumstances — even with non-interactive flags such as `git commit -m "msg"` or `git add <file>`; they are denied at the permission layer. `git mv` remains permitted ONLY for moving task files between Kanban directories (`backlog`, `in-progress`, `qa`, `completed`, `archive`). All other Git commands (status, diff, log, show, ls-files, grep, reset -- <path> for unstage) remain governed by the non-interactive rules in section 5 (`git --no-pager log`, `git diff`, etc.).
 
+**Denied commands (mirrors `opencode.json` permission layer).** The
+`permission.bash` block denies these for agents — the deny fires before
+execution, so the command never runs:
+
+| Denied pattern | Covers |
+| -------------- | ------ |
+| `git add`, `git add *` | staging (staging goes through `stage_and_inject_diff` only) |
+| `git checkout`, `git checkout *` | branch/file checkout |
+| `git commit`, `git commit *` | committing (closure goes through `commit_and_clean_task` only) |
+| `git push`, `git push *` | pushing (the Manager pushes) |
+
 ## 8. Token-trimming practices (verified spike)
 
-Measured 2026-09-12 with RTK 0.49.0 (x86_64 musl binary, local eval only —
-no `rtk init -g`, which rewrites the global OpenCode config and needs
-manager approval). Full evidence in `docs/loop-engine/configuration.md`.
+Measured 2026-09-12 with RTK 0.49.0 (x86_64 musl binary, installed at
+`~/.local/bin/rtk` and in active use). Evidence table:
+
+| Command | Raw | Via RTK | Reduction | Exit code |
+| ------- | --- | ------- | --------- | --------- |
+| `pytest tests/ -q` (232 passed) | 1801 bytes / 21 lines | 44 bytes / 3 lines | **97.6% bytes** | preserved (0) |
+| `git status --short` (32 lines) | 1589 bytes | 1621 bytes | −2% (overhead) | n/a |
+| `git log --oneline -15` | 1218 bytes | 1696 bytes | −39% (overhead) | n/a |
+| `git diff --stat HEAD` | 1952 bytes | 1951 bytes | ~0% | n/a |
+| `rtk git diff` (2-file sample) | 5297 bytes / 48 lines | 5204 bytes / 51 lines | ~2% (reformat) | n/a |
+
+`rtk gain` self-report for the eval session: 11 commands, 1.9K tokens
+saved (41.0% blended — dominated by the test-runner wins; tool
+self-report, not independently verified).
 
 - **Test runners: wrap with `rtk test`.** Passing suites collapse to a
   3-line summary (232-test suite: 1801 bytes / 21 lines → 44 bytes /
   3 lines, 97.6% fewer bytes). Exit code is preserved, so gates still
-  fail the build. Prefer `rtk test <cmd>` over raw `pytest`/`cargo test`
+  fail the build. Use `rtk test <cmd>` instead of raw `pytest`/`cargo test`
   when only the verdict matters; use `rtk recall <id>` to pull the full
   output on failure. Scope warning: failing-suite output is UNMEASURED —
   keep full output on any failure, never collapse it.

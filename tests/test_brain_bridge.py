@@ -71,9 +71,9 @@ def test_load_system_prompt_prefers_env(tmp_path, monkeypatch):
 
 def test_brain_model_default_and_override(monkeypatch):
     monkeypatch.delenv("BRAIN_MODEL", raising=False)
-    assert bridge._get_brain_model() == "muse-spark-1.3-contributor-free"
+    assert bridge._get_brain_model() == "gpt-6-astra"
     monkeypatch.setenv("BRAIN_MODEL", "  ")
-    assert bridge._get_brain_model() == "muse-spark-1.3-contributor-free"
+    assert bridge._get_brain_model() == "gpt-6-astra"
     monkeypatch.setenv("BRAIN_MODEL", "custom/model")
     assert bridge._get_brain_model() == "custom/model"
 

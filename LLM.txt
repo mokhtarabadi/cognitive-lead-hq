@@ -16,6 +16,20 @@ Check that the following tools are installed:
 - **Node.js (v20+ LTS)** and **npm** — required for npm-based tools and other dependencies
 - **GitHub CLI (`gh`)** — for GitHub operations (issues, PRs, CI runs, API queries)
 - **uv** — fast Python package manager (required by the MCP servers)
+- **RTK (`rtk`)** — token-trimming test-runner wrapper (required by `docs/opencode-shell-strategy.md` §8; agents run test suites via `rtk test`, not raw `pytest`)
+
+### Installing RTK (if missing)
+
+If `rtk` is not found, install the musl binary to `~/.local/bin` (ensure it is on PATH):
+
+```bash
+mkdir -p ~/.local/bin
+curl -fsSL -o ~/.local/bin/rtk https://github.com/JRedeker/rtk/releases/download/v0.49.0/rtk-x86_64-unknown-linux-musl
+chmod +x ~/.local/bin/rtk
+rtk --version   # expect 0.49.0
+```
+
+> Do NOT run `rtk init -g` — it rewrites the global OpenCode config. The binary alone is sufficient; agents invoke it as `rtk test <cmd>`.
 
 ### Installing Node.js (if missing)
 
@@ -333,7 +347,7 @@ grep -q "@tarquinen/opencode-dcp" ~/.config/opencode/opencode.json && echo "glob
 grep -q "@tarquinen/opencode-dcp" ~/.config/opencode/tui.json && echo "global tui.json DCP ✓"
 ```
 
-> **References ≠ installed (learned 2026-09-09):** config entries alone do NOT install plugins — the packages must land in `~/.cache/opencode/packages/`, and slash commands (`/goal`, `/dcp`, `/dcp-compress`) only appear after an OpenCode **restart**. Always verify:
+> **References ≠ installed:** config entries alone do NOT install plugins — the packages must land in `~/.cache/opencode/packages/`, and slash commands (`/goal`, `/dcp`, `/dcp-compress`) only appear after an OpenCode **restart**. Always verify:
 >
 > ```bash
 > ls -d ~/.cache/opencode/packages/@tarquinen/opencode-dcp@latest ~/.cache/opencode/packages/@prevalentware/opencode-goal-plugin@latest && echo "plugins installed ✓"
