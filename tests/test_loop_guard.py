@@ -64,3 +64,36 @@ def test_bad_task_id_rejected(tmp_path, monkeypatch):
         record_attempt("../../evil", "aaa")
     with pytest.raises(ValueError):
         record_attempt("", "aaa")
+
+
+def test_bad_diff_hash_rejected(tmp_path, monkeypatch):
+    import pytest
+
+    _root(tmp_path, monkeypatch)
+    for bad in (None, 123, "", "   "):
+        with pytest.raises(ValueError):
+            record_attempt("t5", bad)
+
+
+def test_missing_hash_lines_skipped_amid_valid(tmp_path, monkeypatch):
+    root = _root(tmp_path, monkeypatch)
+    log = Path(root) / "t6" / "loop_hashes.jsonl"
+    log.parent.mkdir(parents=True)
+    log.write_text(
+        '{"ts": 1, "hash": "kkk"}\n'
+        '{"ts": 2}\n'
+        '{"ts": 3, "hash": 42}\n'
+        '{"ts": 4, "hash": ""}\n'
+        '{"ts": 5, "hash": "kkk"}\n',
+        encoding="utf-8",
+    )
+    assert record_attempt("t6", "kkk")["stop"] is True
+
+
+def test_whitespace_stripped_equality_stops(tmp_path, monkeypatch):
+    _root(tmp_path, monkeypatch)
+    assert record_attempt("t7", "  aaa")["stop"] is False
+    assert record_attempt("t7", "aaa")["stop"] is False
+    third = record_attempt("t7", "aaa  ")
+    assert third["stop"] is True
+    assert third["history"] == ["aaa", "aaa", "aaa"]

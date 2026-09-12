@@ -64,16 +64,27 @@ def record_attempt(
 ) -> dict[str, Any]:
     """Record one fix-attempt hash; report whether the loop is spinning.
 
+    The hash is stripped and stored stripped. Comparison is exact and
+    case-sensitive (hashes such as base64 are case-sensitive, so no
+    lowercasing is applied).
+
     Returns ``{"stop": bool, "history": [last hashes]}``. ``stop`` is
     True only when the last three recorded hashes are identical and
     non-empty — anything else (fresh hash, short history) continues.
+    Lines with a missing/non-string/blank hash are skipped on read,
+    so corrupt entries can never fake a stop.
+
+    Raises:
+        ValueError: task_id illegal, or diff_hash not a non-empty
+            string after stripping.
     """
     if not isinstance(diff_hash, str) or not diff_hash.strip():
         raise ValueError(f"bad diff_hash for loop guard: {diff_hash!r}")
+    clean = diff_hash.strip()
     path = _hashes_path(task_id, sessions_root)
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("a", encoding="utf-8") as fh:
-        fh.write(json.dumps({"ts": time.time(), "hash": diff_hash}) + "\n")
+        fh.write(json.dumps({"ts": time.time(), "hash": clean}) + "\n")
     history = _read_hashes(path)
     tail = history[-_SPIN_COUNT:]
     stop = len(tail) == _SPIN_COUNT and len(set(tail)) == 1
