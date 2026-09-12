@@ -188,3 +188,7 @@ self-report, not independently verified).
   characters in wrapped commands — quote or pin around them.
 - **Self-metering via `rtk gain`.** Reports per-command token savings and
   history; use it to verify trimming is active, not assumed.
+- **Pipes mask exit codes.** `rtk test <cmd> | tail` reports `tail`'s code,
+  not the test's — a failure can read as exit 0. Verified 2026-09-12:
+  unpiped `rtk test` returns 1 on failure correctly. Measure gates
+  unpiped (`... > /tmp/out.txt 2>&1`, then `$?`), or set `pipefail`.
