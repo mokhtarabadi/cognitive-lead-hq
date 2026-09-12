@@ -1,8 +1,8 @@
 ---
-created_at: '2026-09-12T12:19:12.494958+00:00'
+created_at: '2026-09-12T13:45:55.442624+00:00'
 status: active
 tags: []
-updated_at: '2026-09-12T12:19:12.494983+00:00'
+updated_at: '2026-09-12T13:45:55.442839+00:00'
 ---
 
 Release workflow for cognitive-lead-hq.
@@ -38,6 +38,7 @@ Verification gates before staging:
 - lint_system_prompt_sync reports in sync.
 - python3 -m py_compile passes for prompt-build scripts and lint server.
 - full pytest suite passes.
+- scripts/check_docs_sync.py passes (deny-table sync strict, orphan scan warn-only).
 
 ZAC-safe commit rules:
 - Hands MUST NOT run git add, git commit, git push, git tag, or gh release create.
