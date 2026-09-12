@@ -53,5 +53,9 @@ project/
 ## Testing Strategies
 
 - **Framework**: Standard `testing` package + `testify` for assertions/mocks.
-- **Mocking**: Generate mocks from interfaces using `mockery` or `gomock` for the Repository and Service layers.
+- **Mocking**: Generate mocks from interfaces using `mockery` or `go.uber.org/mock` for the Repository and Service layers (`github.com/golang/mock` is archived).
 - **Table-Driven Tests**: Use slice-of-structs to test multiple inputs/outputs in a single test function.
+
+## Currency Baseline
+
+- **Standard observability:** Prefer stdlib `log/slog` for structured logging; pin a recent Go toolchain in `go.mod`.

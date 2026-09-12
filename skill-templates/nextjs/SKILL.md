@@ -20,7 +20,7 @@ Scaffold Next.js single-page or hybrid apps using these principles:
    - Components are Server Components by default. Fetch data, access databases, and handle security here.
    - Client Components must be annotated with `"use client"` at the top. Use them only for user interactivity (hooks, event handlers, local states). Keep them at leaf-level.
 3. **Server Actions for Mutations:** Always handle form submissions and database mutations using Server Actions with the `"use server"` directive. Banned: setting up custom API routes for simple form handling.
-4. **Tailwind Token System:** Never use arbitrary Tailwind classes (like `h-[12px]`) or inline styles. Declare custom scales inside `tailwind.config.ts` and refer to them.
+4. **Tailwind Token System:** Never use arbitrary Tailwind classes (like `h-[12px]`) or inline styles. Declare custom scales CSS-first via `@theme` (Tailwind v4) and refer to them.
 5. **A11y Semantic HTML:** Always enforce standard landmarks (`<header>`, `<main>`, `<footer/>`) and `next/image` alt tags.
 
 ## Project Structure
@@ -91,11 +91,11 @@ Server Component (fetches data) → passes data as props → Client Component (r
 - Define mutations as Server Actions in `src/actions/`.
 - Use `"use server"` at the top of the action file (or inline with `"use server"` in a function).
 - Server Actions eliminate the need for manual API routes for form submissions.
-- Use `useActionState` (or `useFormState`) for progressive enhancement.
+- Use `useActionState` for progressive enhancement (`useFormState` is deprecated since React 19).
 
 ### Tailwind UI Tokens
 
-- Define design tokens (colors, spacing, fonts) in `tailwind.config.ts` — do not use raw CSS values.
+- Define design tokens (colors, spacing, fonts) CSS-first via `@theme` (Tailwind v4) — do not use raw CSS values.
 - Use the official Tailwind CSS classes exclusively; avoid inline `style` props unless dynamic values are required.
 
 ### Accessible (a11y) Component Structure
@@ -126,3 +126,7 @@ Server Component (fetches data) → passes data as props → Client Component (r
 - Use `msw` (Mock Service Worker) to mock API routes in tests.
 - Use Playwright for E2E testing; run against a real or preview deployment.
 - Write a minimum of one accessibility test per page using `jest-axe` or Playwright's built-in a11y snapshot.
+
+## Currency Baseline
+
+- **No default cache (Next 15+):** `fetch`, `GET` route handlers, and client navigations are not cached unless opted in (`cache: 'force-cache'`, `revalidate`, or a `fetchCache` segment config). Never assume caching by default.

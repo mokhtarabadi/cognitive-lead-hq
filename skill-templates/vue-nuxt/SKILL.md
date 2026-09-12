@@ -1,9 +1,9 @@
 ---
 name: vue-nuxt
-description: Vue 3 Composition API, Nuxt 3 routing, and state management
+description: Vue 3 Composition API, Nuxt 4 routing, and state management
 ---
 
-# Vue 3 & Nuxt 3 — Best Practices & AI-Driven Scaffolding
+# Vue 3 & Nuxt 4 — Best Practices & AI-Driven Scaffolding
 
 ## AI Context & Token Optimization
 
@@ -64,3 +64,7 @@ project/
 - **Framework**: `Vitest` + `Vue Test Utils`.
 - **Component Testing**: Mount components and test DOM output/emitted events.
 - **E2E Testing**: Use `Playwright` or `Cypress`.
+
+## Currency Baseline
+
+- **Nuxt 4 (current major):** Scaffold with the `app/` directory layout (`app/components`, `app/pages`) and shared types in `shared/`; Nuxt 3 is end-of-life, so do not pin new work to v3 conventions.

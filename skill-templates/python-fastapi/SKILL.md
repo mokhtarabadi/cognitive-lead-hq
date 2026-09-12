@@ -16,7 +16,7 @@ description: AI-Optimized FastAPI architecture with strict Pydantic V2 schemas a
 ```
 app/
 ├── api/                 # API routers (v1/users.py)
-├── core/                # config.py (Pydantic BaseSettings)
+├── core/                # config.py (pydantic-settings BaseSettings)
 ├── db/                  # Database session and setup (Supabase/Postgres)
 ├── models/              # SQLAlchemy 2.0 Typed Models
 ├── schemas/             # Pydantic V2 Models (DTOs)
@@ -52,3 +52,7 @@ app/
 | ------------ | ----------- | -------------------------- | ---------------------- |
 | Service      | Unit        | Pytest                     | `test_user_service.py` |
 | Route / View | Integration | Pytest + httpx AsyncClient | `test_users.py`        |
+
+## Currency Baseline
+
+- **Settings + lifespan:** Import `BaseSettings` from `pydantic-settings` (not `pydantic`); manage startup/shutdown with the `lifespan` context manager (`@app.on_event` is deprecated).

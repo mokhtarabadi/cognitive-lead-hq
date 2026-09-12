@@ -52,3 +52,7 @@ project/
 
 - **Framework**: `Jest` + `@testing-library/react-native`.
 - **Approach**: Test component rendering and user interactions natively.
+
+## Currency Baseline
+
+- **New Architecture default:** Target the React Native New Architecture (Fabric/TurboModules), default in current Expo SDKs; verify third-party native modules support it (or ship a config plugin) before adopting.

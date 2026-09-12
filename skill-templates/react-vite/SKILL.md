@@ -1,6 +1,6 @@
 ---
 name: react-vite
-description: React 18+ SPA architecture, hooks, and Vite configuration
+description: React 19 SPA architecture, hooks, and Vite configuration
 ---
 
 # React (Vite SPA) — Best Practices
@@ -54,3 +54,7 @@ src/
 
 - **Framework**: `Vitest` + `React Testing Library`.
 - **Approach**: Render components, query by accessibility roles (`getByRole`), and simulate user events using `@testing-library/user-event`.
+
+## Currency Baseline
+
+- **React 19:** Baseline React 19 (`useActionState`, `useOptimistic`, ref-as-prop); with React Compiler v1.0 available, keep manual `memo`/`useMemo`/`useCallback` to profiled bottlenecks only.

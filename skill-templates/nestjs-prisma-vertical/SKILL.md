@@ -11,7 +11,7 @@ description: NestJS, Prisma ORM, Vertical Slice Architecture, and Strict TypeScr
 2. **Vertical Slice Architecture:** Do NOT use traditional layered architectures (global `controllers/`, `services/`). Group all files by feature (e.g., `src/features/auth/`) to localize AI context and save memory tokens.
 3. **Strict TypeScript & Compile-Time Safety:** The `any` type is strictly forbidden.
 4. **Prisma ORM as Source of Truth:** Raw SQL queries are BANNED. You must modify `schema.prisma`, and rely on the compiler to catch invalid database calls.
-5. **Validation:** All incoming requests MUST be validated using DTOs with `class-validator` and `class-transformer`.
+5. **Validation:** All incoming requests MUST be validated using DTOs with `class-validator` and `class-transformer`, enforced by a global `ValidationPipe` (`whitelist: true, transform: true`).
 
 ## Project Structure
 

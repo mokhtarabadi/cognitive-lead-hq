@@ -107,3 +107,7 @@ Create a single `@RestControllerAdvice` class that catches all exceptions.
 - Use `@WebMvcTest` and `@DataJpaTest` for focused tests — they bootstrap only the relevant context.
 - Prefer `Mockito` for mocking; never use `PowerMock`.
 - Use `Testcontainers` for database-dependent integration tests.
+
+## Currency Baseline
+
+- **Spring Boot 3.x:** Baseline Java 17+ with the `jakarta.*` namespace (never `javax.*`); enable virtual threads via `spring.threads.virtual.enabled=true` for IO-bound services.

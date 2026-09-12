@@ -56,3 +56,8 @@ Hilt is mandatory. Do not write manual dependency factories.
 | Use cases       | Unit                       | JUnit 5 + MockK               |
 | ViewModel (MVI) | Unit (Intent injection)    | JUnit 5 + Turbine (for Flows) |
 | UI / Composable | Snapshot / Compose UI Test | Compose Test                  |
+
+## Currency Baseline
+
+- **KSP codegen + Compose BOM:** Use KSP (never KAPT) for Room/Hilt processors, and pin Compose artifacts via the Compose BOM.
+- **Edge-to-edge:** Call `enableEdgeToEdge()`; Android 15 enforces edge-to-edge, so never hardcode system-bar insets.

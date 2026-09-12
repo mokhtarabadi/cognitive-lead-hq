@@ -93,3 +93,7 @@ Never panic. Return errors explicitly. Wrap errors with context using `%w` so th
 
 - Generate mocks for all interfaces in `internal/core/ports` using `mockery`.
 - AI must write table-driven tests (`[]struct`) for all core business logic.
+
+## Currency Baseline
+
+- **Proto toolchain:** Generate code with `buf` (`buf generate`) and validate contracts with `protovalidate` (`protoc-gen-validate` is archived); keep `.proto` files as the single source of truth.

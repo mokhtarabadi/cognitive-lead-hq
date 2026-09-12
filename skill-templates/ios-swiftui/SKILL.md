@@ -52,3 +52,7 @@ App/
 - **Framework**: `XCTest` + `XCUITest`.
 - **Unit Tests**: Test ViewModels independently of Views. Inject mock network clients via protocols to verify state changes.
 - **UI Tests**: Use Accessibility Identifiers (`.accessibilityIdentifier("login_btn")`) to write stable UI tests.
+
+## Currency Baseline
+
+- **Swift 6 mode:** Enable the Swift 6 language mode (complete concurrency checking); all types crossing actor boundaries must conform to `Sendable`, with ViewModels kept `@MainActor`-isolated.

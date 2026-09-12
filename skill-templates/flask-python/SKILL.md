@@ -106,3 +106,7 @@ Create a `config.py` with at least three classes: `Config` (base), `DevelopmentC
 - Use `conftest.py` to define shared fixtures (app instance, test client, database session).
 - Use an in-memory SQLite database for fast test runs.
 - For every Blueprint, write at least one test that validates the route returns the expected status code.
+
+## Currency Baseline
+
+- **Flask 3.x baseline:** Target Flask 3.x with Flask-SQLAlchemy 3 and SQLAlchemy 2.0-style typed models.
