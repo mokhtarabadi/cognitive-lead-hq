@@ -307,6 +307,10 @@ needs no extra machinery.
 4. **Loop** — repeat until the Brain returns no blocking findings (QA) or
    approval (review). Max 3 rejections per stage, then escalate to the
    Manager (same retry guard as the hotfix/postfix loops).
+5. **Empty output** — a `REPORT` with empty `output` is a transport flake,
+   never a verdict. Do not act on it and do not count it as a rejection:
+   retry once, lean (`include_bundle=false`, same `task_id`, short prompt),
+   then escalate to the Manager if still empty.
 
 ### Autopilot mode (default OFF)
 
