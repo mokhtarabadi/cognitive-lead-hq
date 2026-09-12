@@ -774,3 +774,99 @@ def test_taxonomy_retryable_503_then_200(monkeypatch):
     resp, attempts = bridge._post_with_retry(_FakeClient(script), "http://x/responses", {})
     assert resp.status_code == 200
     assert attempts == 2
+
+
+# --- hotfix taxonomy per-class tests (Step 4-9, direct _post unit) ---
+
+def _ensure_httpx_exc(monkeypatch):
+    import sys as _sysmod
+    _stub_httpx(monkeypatch)
+    _sysmod.modules["httpx"].TimeoutException = type(
+        "TimeoutException", (Exception,), {})
+    _sysmod.modules["httpx"].TransportError = type(
+        "TransportError", (Exception,), {})
+    return _sysmod.modules["httpx"]
+
+
+def test_taxonomy_fatal_403_no_retry(monkeypatch):
+    _ensure_httpx_exc(monkeypatch)
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    client = _FakeClient([_FakeResp(403, "forbidden")])
+    with pytest.raises(RuntimeError, match="no retry"):
+        bridge._post_with_retry(client, "http://x/responses", {})
+    assert client.calls == 1
+
+
+def test_taxonomy_fatal_404_no_retry(monkeypatch):
+    _ensure_httpx_exc(monkeypatch)
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    client = _FakeClient([_FakeResp(404, "not here")])
+    with pytest.raises(RuntimeError, match="no retry"):
+        bridge._post_with_retry(client, "http://x/responses", {})
+    assert client.calls == 1
+
+
+def test_taxonomy_fatal_422_no_retry(monkeypatch):
+    _ensure_httpx_exc(monkeypatch)
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    client = _FakeClient([_FakeResp(422, "unprocessable")])
+    with pytest.raises(RuntimeError, match="no retry"):
+        bridge._post_with_retry(client, "http://x/responses", {})
+    assert client.calls == 1
+
+
+def test_taxonomy_retryable_429_then_200(monkeypatch):
+    import time as _tmod
+    _ensure_httpx_exc(monkeypatch)
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    monkeypatch.setattr(_tmod, "sleep", lambda s: None)
+    script = [_FakeResp(429, "slow"), _FakeResp(200, "fine", {"ok": True})]
+    resp, attempts = bridge._post_with_retry(
+        _FakeClient(script), "http://x/responses", {})
+    assert resp.status_code == 200
+    assert attempts == 2
+
+
+def test_taxonomy_timeout_then_200(monkeypatch):
+    import time as _tmod
+    httpx_stub = _ensure_httpx_exc(monkeypatch)
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    monkeypatch.setattr(_tmod, "sleep", lambda s: None)
+    script = [httpx_stub.TimeoutException("timed out"),
+              _FakeResp(200, "fine", {"ok": True})]
+    resp, attempts = bridge._post_with_retry(
+        _FakeClient(script), "http://x/responses", {})
+    assert resp.status_code == 200
+    assert attempts == 2
+
+
+def test_taxonomy_message_contract(monkeypatch):
+    _ensure_httpx_exc(monkeypatch)
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-SECRET-XYZ")
+    client = _FakeClient([_FakeResp(403, "denied detail")])
+    with pytest.raises(RuntimeError) as exc:
+        bridge._post_with_retry(client, "http://x/responses", {})
+    msg = str(exc.value)
+    assert "403" in msg and "responses" in msg and "denied detail" in msg
+    assert "SECRET" not in msg
+
+
+def test_taxonomy_sleep_skipped_on_fatal(monkeypatch):
+    import time as _tmod
+    _ensure_httpx_exc(monkeypatch)
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    sleeps = []
+    monkeypatch.setattr(_tmod, "sleep", lambda s: sleeps.append(s))
+    client = _FakeClient([_FakeResp(404, "gone")])
+    with pytest.raises(RuntimeError, match="no retry"):
+        bridge._post_with_retry(client, "http://x/responses", {})
+    assert sleeps == []
+    assert client.calls == 1
+
+
+def test_taxonomy_non_httpx_error_propagates(monkeypatch):
+    _ensure_httpx_exc(monkeypatch)
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    client = _FakeClient([ValueError("boom")])
+    with pytest.raises(ValueError, match="boom"):
+        bridge._post_with_retry(client, "http://x/responses", {})

@@ -153,6 +153,11 @@ def _get_api_key() -> str:
 # Retry policy for provider calls: 3 attempts, exponential backoff.
 # (Duplicated from the brain bridge on purpose — each server dir ships
 # self-contained to the global install.)
+#: Retryable statuses. INTENTIONALLY NARROW: only these 5xx (plus 429
+#: and network timeouts) are retried. Other 5xx (501, 505, …) fall
+#: through to the generic provider error. Do NOT expand this set
+#: without a task: broadening retries burns latency on hopeless calls.
+#: DOCUMENTATION ONLY — the branch below checks membership directly.
 _RETRYABLE_STATUS = {429, 500, 502, 503, 504}
 
 # Fatal client errors: never retried — the request itself is wrong

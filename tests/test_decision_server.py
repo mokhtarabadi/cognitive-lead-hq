@@ -1147,3 +1147,103 @@ def test_taxonomy_retryable_503_then_200_decision(srv, tmp_path, monkeypatch):
     client = _stub_seq_http(monkeypatch, script)
     assert _extract(srv)(7, transcript_path=str(transcript)) == [_VALID_TAXONOMY_CAND]
     assert client.calls == 2
+
+
+# --- hotfix taxonomy per-class tests (Step 4-9, direct _post unit) ---
+
+class _TaxSeqClient:
+    def __init__(self, script):
+        self._script = list(script)
+        self.calls = 0
+
+    def post(self, url, json=None, headers=None, **k):
+        self.calls += 1
+        item = self._script.pop(0) if len(self._script) > 1 else self._script[0]
+        if isinstance(item, Exception):
+            raise item
+        return item
+
+
+def _tax_resp(status, text="x"):
+    return types.SimpleNamespace(status_code=status, text=text, headers={})
+
+
+def _tax_env(monkeypatch):
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    stub = types.ModuleType("httpx")
+    stub.TimeoutException = type("TimeoutException", (Exception,), {})
+    stub.TransportError = type("TransportError", (Exception,), {})
+    monkeypatch.setitem(sys.modules, "httpx", stub)
+    return stub
+
+
+def test_taxonomy_fatal_403_no_retry_post(srv, monkeypatch):
+    _tax_env(monkeypatch)
+    client = _TaxSeqClient([_tax_resp(403, "forbidden")])
+    with pytest.raises(RuntimeError, match="no retry"):
+        srv._post_with_retry(client, "http://x/responses", {})
+    assert client.calls == 1
+
+
+def test_taxonomy_fatal_404_no_retry_post(srv, monkeypatch):
+    _tax_env(monkeypatch)
+    client = _TaxSeqClient([_tax_resp(404, "not here")])
+    with pytest.raises(RuntimeError, match="no retry"):
+        srv._post_with_retry(client, "http://x/responses", {})
+    assert client.calls == 1
+
+
+def test_taxonomy_fatal_422_no_retry_post(srv, monkeypatch):
+    _tax_env(monkeypatch)
+    client = _TaxSeqClient([_tax_resp(422, "unprocessable")])
+    with pytest.raises(RuntimeError, match="no retry"):
+        srv._post_with_retry(client, "http://x/responses", {})
+    assert client.calls == 1
+
+
+def test_taxonomy_retryable_429_then_200_post(srv, monkeypatch):
+    _tax_env(monkeypatch)
+    monkeypatch.setattr(_time, "sleep", lambda s: None)
+    client = _TaxSeqClient([_tax_resp(429, "slow"), _tax_resp(200, "fine")])
+    resp, attempts = srv._post_with_retry(client, "http://x/responses", {})
+    assert resp.status_code == 200
+    assert attempts == 2
+
+
+def test_taxonomy_timeout_then_200_post(srv, monkeypatch):
+    stub = _tax_env(monkeypatch)
+    monkeypatch.setattr(_time, "sleep", lambda s: None)
+    client = _TaxSeqClient([stub.TimeoutException("timed out"),
+                            _tax_resp(200, "fine")])
+    resp, attempts = srv._post_with_retry(client, "http://x/responses", {})
+    assert resp.status_code == 200
+    assert attempts == 2
+
+
+def test_taxonomy_message_contract_post(srv, monkeypatch):
+    _tax_env(monkeypatch)
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-SECRET-XYZ")
+    client = _TaxSeqClient([_tax_resp(403, "denied detail")])
+    with pytest.raises(RuntimeError) as exc:
+        srv._post_with_retry(client, "http://x/responses", {})
+    msg = str(exc.value)
+    assert "403" in msg and "responses" in msg and "denied detail" in msg
+    assert "SECRET" not in msg
+
+
+def test_taxonomy_sleep_skipped_on_fatal_post(srv, monkeypatch):
+    _tax_env(monkeypatch)
+    sleeps = []
+    monkeypatch.setattr(_time, "sleep", lambda s: sleeps.append(s))
+    client = _TaxSeqClient([_tax_resp(404, "gone")])
+    with pytest.raises(RuntimeError, match="no retry"):
+        srv._post_with_retry(client, "http://x/responses", {})
+    assert sleeps == []
+    assert client.calls == 1
+
+
+def test_taxonomy_non_httpx_error_propagates_post(srv, monkeypatch):
+    _tax_env(monkeypatch)
+    client = _TaxSeqClient([ValueError("boom")])
+    with pytest.raises(ValueError, match="boom"):
+        srv._post_with_retry(client, "http://x/responses", {})
