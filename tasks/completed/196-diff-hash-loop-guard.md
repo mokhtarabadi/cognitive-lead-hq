@@ -1,9 +1,9 @@
 # Task 196: Autopilot diff-hash loop guard
 
-**File:** `tasks/qa/196-diff-hash-loop-guard.md`
+**File:** `tasks/completed/196-diff-hash-loop-guard.md`
 **Source:** manager
 **Type:** feature
-**Status:** open
+**Status:** closed
 
 ## Goal
 
@@ -60,80 +60,5 @@ Reviewer round (model back): conditional APPROVED_WITH_CHANGES with postfix F1â€
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
-```diff
-diff --git a/mcp-brain-bridge/loop_guard.py b/mcp-brain-bridge/loop_guard.py
-index 589954a..3d298bb 100644
---- a/mcp-brain-bridge/loop_guard.py
-+++ b/mcp-brain-bridge/loop_guard.py
-@@ -64,16 +64,27 @@ def record_attempt(
- ) -> dict[str, Any]:
-     """Record one fix-attempt hash; report whether the loop is spinning.
- 
-+    The hash is stripped and stored stripped. Comparison is exact and
-+    case-sensitive (hashes such as base64 are case-sensitive, so no
-+    lowercasing is applied).
-+
-     Returns ``{"stop": bool, "history": [last hashes]}``. ``stop`` is
-     True only when the last three recorded hashes are identical and
-     non-empty â€” anything else (fresh hash, short history) continues.
-+    Lines with a missing/non-string/blank hash are skipped on read,
-+    so corrupt entries can never fake a stop.
-+
-+    Raises:
-+        ValueError: task_id illegal, or diff_hash not a non-empty
-+            string after stripping.
-     """
-     if not isinstance(diff_hash, str) or not diff_hash.strip():
-         raise ValueError(f"bad diff_hash for loop guard: {diff_hash!r}")
-+    clean = diff_hash.strip()
-     path = _hashes_path(task_id, sessions_root)
-     path.parent.mkdir(parents=True, exist_ok=True)
-     with path.open("a", encoding="utf-8") as fh:
--        fh.write(json.dumps({"ts": time.time(), "hash": diff_hash}) + "\n")
-+        fh.write(json.dumps({"ts": time.time(), "hash": clean}) + "\n")
-     history = _read_hashes(path)
-     tail = history[-_SPIN_COUNT:]
-     stop = len(tail) == _SPIN_COUNT and len(set(tail)) == 1
-diff --git a/tests/test_loop_guard.py b/tests/test_loop_guard.py
-index 5231b8f..cbe4db4 100644
---- a/tests/test_loop_guard.py
-+++ b/tests/test_loop_guard.py
-@@ -64,3 +64,36 @@ def test_bad_task_id_rejected(tmp_path, monkeypatch):
-         record_attempt("../../evil", "aaa")
-     with pytest.raises(ValueError):
-         record_attempt("", "aaa")
-+
-+
-+def test_bad_diff_hash_rejected(tmp_path, monkeypatch):
-+    import pytest
-+
-+    _root(tmp_path, monkeypatch)
-+    for bad in (None, 123, "", "   "):
-+        with pytest.raises(ValueError):
-+            record_attempt("t5", bad)
-+
-+
-+def test_missing_hash_lines_skipped_amid_valid(tmp_path, monkeypatch):
-+    root = _root(tmp_path, monkeypatch)
-+    log = Path(root) / "t6" / "loop_hashes.jsonl"
-+    log.parent.mkdir(parents=True)
-+    log.write_text(
-+        '{"ts": 1, "hash": "kkk"}\n'
-+        '{"ts": 2}\n'
-+        '{"ts": 3, "hash": 42}\n'
-+        '{"ts": 4, "hash": ""}\n'
-+        '{"ts": 5, "hash": "kkk"}\n',
-+        encoding="utf-8",
-+    )
-+    assert record_attempt("t6", "kkk")["stop"] is True
-+
-+
-+def test_whitespace_stripped_equality_stops(tmp_path, monkeypatch):
-+    _root(tmp_path, monkeypatch)
-+    assert record_attempt("t7", "  aaa")["stop"] is False
-+    assert record_attempt("t7", "aaa")["stop"] is False
-+    third = record_attempt("t7", "aaa  ")
-+    assert third["stop"] is True
-+    assert third["history"] == ["aaa", "aaa", "aaa"]
-```
+**Factual Git Diff:** Stored in Commit Hash: `973e15917854a2dc2c009f96c3f1929df1387eca`
 <!-- END_GIT_DIFF -->
