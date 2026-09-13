@@ -1194,3 +1194,80 @@ def test_fed_context_bad_id_raises(tmp_path, monkeypatch):
 def test_fed_context_load_bad_id_returns_empty(tmp_path, monkeypatch):
     monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path))
     assert bridge.load_fed_context("../evil") == ""
+
+
+def _ws(tmp_path, monkeypatch):
+    monkeypatch.setattr(bridge, "_workspace_root", lambda: tmp_path)
+    return tmp_path
+
+
+def test_paths_attach_off_by_default():
+    assert bridge.build_paths_attach(None) == ""
+    assert bridge.build_paths_attach([]) == ""
+    assert bridge.build_paths_attach("not-a-list") == ""
+
+
+def test_paths_attach_happy_path(tmp_path, monkeypatch):
+    _ws(tmp_path, monkeypatch)
+    (tmp_path / "ctx.md").write_text("# ctx\nbody\n", encoding="utf-8")
+    out = bridge.build_paths_attach(["ctx.md"])
+    assert "[path-injected: ctx.md]" in out
+    assert "body" in out
+
+
+def test_paths_attach_traversal_labelled(tmp_path, monkeypatch):
+    _ws(tmp_path, monkeypatch)
+    out = bridge.build_paths_attach(["../evil.md"])
+    assert "outside workspace" in out
+
+
+def test_paths_attach_bad_suffix_labelled(tmp_path, monkeypatch):
+    _ws(tmp_path, monkeypatch)
+    (tmp_path / "run.py").write_text("x = 1\n", encoding="utf-8")
+    out = bridge.build_paths_attach(["run.py"])
+    assert "unsupported extension" in out
+
+
+def test_paths_attach_missing_labelled(tmp_path, monkeypatch):
+    _ws(tmp_path, monkeypatch)
+    out = bridge.build_paths_attach(["gone.md"])
+    assert "unreadable" in out
+
+
+def test_paths_attach_empty_labelled(tmp_path, monkeypatch):
+    _ws(tmp_path, monkeypatch)
+    (tmp_path / "empty.md").write_text("   \n", encoding="utf-8")
+    out = bridge.build_paths_attach(["empty.md"])
+    assert "empty file" in out
+
+
+def test_paths_attach_per_file_cap(tmp_path, monkeypatch):
+    _ws(tmp_path, monkeypatch)
+    (tmp_path / "big.md").write_text(
+        "y" * (bridge._CTX_PATHS_PER_FILE + 10), encoding="utf-8")
+    out = bridge.build_paths_attach(["big.md"])
+    assert "truncated" in out
+
+
+def test_paths_attach_total_budget(tmp_path, monkeypatch):
+    _ws(tmp_path, monkeypatch)
+    chunk = "z" * bridge._CTX_PATHS_TOTAL
+    (tmp_path / "a.md").write_text(chunk, encoding="utf-8")
+    (tmp_path / "b.md").write_text(chunk, encoding="utf-8")
+    (tmp_path / "c.md").write_text("tiny\n", encoding="utf-8")
+    out = bridge.build_paths_attach(["a.md", "b.md", "c.md"])
+    assert "total budget" in out
+    assert "tiny" in out  # skip does not abort later files
+
+
+def test_paths_attach_too_large_labelled(tmp_path, monkeypatch):
+    _ws(tmp_path, monkeypatch)
+    (tmp_path / "huge.md").write_bytes(b"q" * (bridge._READ_MAX_BYTES + 1))
+    out = bridge.build_paths_attach(["huge.md"])
+    assert "too large" in out
+
+
+def test_paths_attach_absolute_escape_labelled(tmp_path, monkeypatch):
+    _ws(tmp_path, monkeypatch)
+    out = bridge.build_paths_attach(["/etc/hostname"])
+    assert "outside workspace" in out

@@ -1008,6 +1008,68 @@ def load_fed_context(task_id: str) -> str:
         return ""
 
 
+#: Per-file cap for path-injected context (chars). Truncated with a note.
+_CTX_PATHS_PER_FILE = 20000
+
+#: Total cap across all path-injected files per turn (chars). Files past
+#: the total are skipped with an explicit skipped note — stacked files
+#: must never overflow the turn budget on their own.
+_CTX_PATHS_TOTAL = 40000
+
+
+def build_paths_attach(paths: object) -> str:
+    """Read workspace files for path injection ('' when none).
+
+    Each path resolves under the workspace root (escapes, missing files,
+    and unsupported suffixes become explicit ``[unavailable: ...]``
+    labels, never silent drops). Files truncate at ``_CTX_PATHS_PER_FILE``
+    chars; injection stops at ``_CTX_PATHS_TOTAL`` with a skipped note.
+    Pure apart from disk reads; never raises.
+    """
+    if not isinstance(paths, (list, tuple)):
+        return ""
+    wanted = [p for p in paths if isinstance(p, str) and p.strip()]
+    if not wanted:
+        return ""
+    blocks: list[str] = []
+    used = 0
+    for rel in wanted:
+        try:
+            resolved = _resolve_under_root(rel)
+        except ValueError:
+            blocks.append(f"[unavailable: {rel.strip()} — outside workspace]")
+            continue
+        if resolved.suffix.lower() not in _ALLOWED_READ_SUFFIXES:
+            blocks.append(
+                f"[unavailable: {rel.strip()} — unsupported extension]")
+            continue
+        try:
+            if resolved.stat().st_size > _READ_MAX_BYTES:
+                blocks.append(
+                    f"[unavailable: {rel.strip()} — file too large]")
+                continue
+            text = resolved.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            blocks.append(f"[unavailable: {rel.strip()} — unreadable]")
+            continue
+        if not text.strip():
+            blocks.append(f"[unavailable: {rel.strip()} — empty file]")
+            continue
+        if len(text) > _CTX_PATHS_PER_FILE:
+            text = (text[:_CTX_PATHS_PER_FILE]
+                    + f"\n[...truncated at {_CTX_PATHS_PER_FILE} chars]")
+        if used + len(text) > _CTX_PATHS_TOTAL:
+            blocks.append(
+                f"[skipped: {rel.strip()} — total budget "
+                f"{_CTX_PATHS_TOTAL} chars reached]")
+            continue
+        used += len(text)
+        blocks.append(f"[path-injected: {rel.strip()}]\n{text}")
+    if not blocks:
+        return ""
+    return "\n\n---\n\n".join(blocks)
+
+
 @mcp.tool()
 def brain_turn(
     user_prompt: str,
@@ -1015,6 +1077,7 @@ def brain_turn(
     system_prompt_path: Optional[str] = None,
     include_bundle: bool = True,
     include_diff: bool = False,
+    context_paths: Optional[list[str]] = None,
 ) -> dict[str, Any]:
     """Send one Brain turn.
 
@@ -1040,6 +1103,11 @@ def brain_turn(
             flag is False but the prompt reads like a QA/reviewer turn
             ("qa engineer", "code reviewer", "adversarial"), the hunks
             still auto-attach with a stderr warning.
+        context_paths: Optional workspace file paths to inject server-side
+            (e.g. context/tree/signature reports). Each path resolves
+            under the workspace root with the read suffix allowlist;
+            per-file cap plus total budget apply, problems become explicit
+            unavailable labels. Default off. Small pulls stay inline.
 
     Returns:
         {"status": "XML_EXTRACTED"|"REPORT", "xml_blocks": [...],
@@ -1067,6 +1135,18 @@ def brain_turn(
                 effective_prompt = attach + "\n\n---\n\n" + effective_prompt
         except Exception as exc:  # never fail a turn on attach problems
             print(f"brain-bridge: task attach skipped ({exc})", file=sys.stderr)
+    if context_paths:
+        # File-path injection: the server reads big artifacts (context,
+        # tree, signature reports) from disk instead of the Hands pasting
+        # them. Counts toward the input budget below like any prompt text.
+        try:
+            paths_attach = build_paths_attach(context_paths)
+            if paths_attach:
+                effective_prompt = (
+                    effective_prompt + "\n\n---\n\n" + paths_attach)
+        except Exception as exc:  # never fail a turn on attach problems
+            print(f"brain-bridge: paths attach skipped ({exc})",
+                  file=sys.stderr)
     if include_bundle and include_diff and task_id:
         try:
             dattach = build_diff_attach(

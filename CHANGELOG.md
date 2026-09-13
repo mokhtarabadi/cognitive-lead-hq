@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **File-path context injection for brain turns (Task 210):** `brain_turn` accepts optional `context_paths` — the server reads workspace files from disk and injects them capped and labeled (per-file 20k, total 40k, escapes plus bad suffixes plus missing files become explicit labels). Context, tree, and signature reports now ride by path instead of pasted lines; small pulls stay inline. Full suite: **255 passed**.
+
 - **Discovery-fed Brain planning with pinned session context (Task 209):** planning gate gained a discovery-fed loop — when the planning turn returns a discovery task, the Hands execute it via subagents and feed the result back under the same id (max one discovery round, max two planning turns) before the final plan, which must cite fed context. The bridge pins `[fed-context]` blocks to `fed_context.md` per session and prepends the pin to later turns, exempt from compaction and the middle drop (20k cap). Executor gate plus bridge pinning, no prompt rebuild. Full suite: **245 passed**.
 
 ## [9.31.0] - 2026-09-12
