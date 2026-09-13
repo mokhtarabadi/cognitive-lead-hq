@@ -133,6 +133,40 @@ skill replays what the manager would have decided:
    MUST escalate to the manager with the exact query it tried plus why the
    top results did not apply — never invent a ruling, never stay silent.
 4. **Autopilot loop-pole:** in autopilot the consult verdict travels inside
-   the agent's own turns (decide-from-record, log the replay line, continue);
-   the human is paged only on no-match escalation. (Per stored
-   autopilot-cycle ruling DEC-20260912-007.)
+    the agent's own turns (decide-from-record, log the replay line, continue);
+    the human is paged only on no-match escalation. (Per stored
+    autopilot-cycle ruling DEC-20260912-007.)
+
+## Push Protocol (post-record: rebase-first, admin pushes)
+
+Recording is agent work; publishing is admin work. After EVERY local
+decision write, the agent MUST run this exact flow so the personal repo
+is always alive and the admin sees precisely what to publish:
+
+1. **Pull-first (already latest?):** before writing, the server pulls with
+   rebase (`pull --ff-only`-style semantics): if the pull reports
+   up-to-date, the store is current — proceed. If it reports new commits,
+   re-read the affected records after the pull so nothing is cooked from
+   stale text. If the pull FAILS (diverged / unreachable / dirty tree),
+   writes fail closed with a loud error — never write on top of unknown
+   state; reads still serve stale local state with a loud stderr note.
+2. **Write locally:** `record_manager_decision` appends the scrubbed
+   record + regenerates `INDEX.md`. Show the admin the local diff
+   (`git status --short`, new `DEC-*.json/.md` paths).
+3. **Hand the admin the push command:** print the pending records and the
+   exact command, and STOP — the admin reviews and pushes:
+
+```bash
+git -C "$DECISION_REPO_PATH" status --short
+git -C "$DECISION_REPO_PATH" log origin/main..HEAD --oneline
+echo "Review the records above, then publish:"
+echo "git -C \"\$DECISION_REPO_PATH\" pull --rebase && git -C \"\$DECISION_REPO_PATH\" push"
+```
+
+4. **Rules:** agents MUST NOT `git push` / `git commit` the personal
+   repo (ZAC — denied at the permission layer). Never push blind: the
+   admin always sees the record list first. First push to an empty
+   remote seeds the branch (`push -u origin main`); an empty remote has
+   no `main` ref, so skip the pull on first publish. Prune rule: local
+   per-project cache records may be deleted ONLY after `git ls-tree -r
+   origin/main --name-only` proves every id exists on the remote.
