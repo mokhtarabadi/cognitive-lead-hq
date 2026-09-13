@@ -229,13 +229,51 @@ does this task carry an approved plan? Approved means one of: an
 Orchestrator blueprint, a brainstorm report, or the Manager's explicit
 quoted words (his word is the plan). Self-approval never counts. If yes,
 execute from it. If no, STOP and run one `brain_turn` planning round first
-(Architect seat minimum, full panel when cross-disciplinary), under the
-same `task_id` so history continues. Record the Brain's plan verdict plus
-the selected path in the task Execution Log (or the session/goal record
-when no task file exists) and execute from it — never from your own
-invention. Lite-eligible changes (single file, no cross-module impact,
-obvious fix, never login/auth, money, or security-surface changes) pass
-with a one-line justification in the file.
+under the same `task_id` so history continues. Seat selection for that call
+is governed by the Seat Check, trigger map, and reject rule below —
+"Architect seat minimum" alone is never sufficient when a trigger matches.
+Record the Brain's plan verdict plus the selected path in the task Execution
+Log (or the session/goal record when no task file exists) and execute from
+it — never from your own invention. Lite-eligible changes (single file, no
+cross-module impact, obvious fix, never login/auth, money, or security-surface
+changes) pass with a one-line justification in the file.
+
+### Seat Check, trigger map, and lightweight consult (mandatory at plan start)
+
+Seat names and duties live in `system-prompt.md` `<personas>` — the Hands
+reference them by exact name; that block is the only roster.
+
+1. **Seat Check.** Before any `brain_turn` planning call, state: task
+   domain(s) → seat(s) requested → seats skipped + one-line reason each.
+   A planning turn with no Seat Check is malformed.
+2. **Trigger→seat map (minimum viable).** Match on TITLE+BODY, defined
+   as the case-insensitive concatenation of the task title and body (empty
+   body = title alone; a neutral title with an empty body still misses, so
+   state that miss explicitly in the Seat Check). Match case-insensitively
+   on whole words, not substrings (`sheet` must not fire on `spreadsheet`):
+   `layout|dialog|sheet|theme|rtl|a11y|styling|frontend|component|screen|
+   page|flow|navigation|onboarding|empty state|avatar|settings`
+   → UI/UX Designer; `schema|contract|migration|quota|index|API design`
+   → Software Architect; `flaky|race|deadlock|silent-fail|performance`
+   → Senior Programmer (+ `debug-instrumentation` skill). Two or more domains
+   hit = cross-disciplinary = multi-seat planning call. UX-intent fallback:
+   when the title names a user-visible surface (a screen, page, flow, or
+   user-facing state) but no keyword hits, treat it as a Designer trigger
+   rather than defaulting to Architect-only.
+3. **Reject rule (bounded).** A single-seat plan is invalid for a task
+   matching another seat's trigger. One reject automatically triggers the
+   lightweight 2-seat consult below — a second reject on the same triggers
+   is forbidden; the planner owns remediation and the consult verdict is
+   final. The verdict must name its seat(s).
+4. **Lightweight consult, not full brainstorm.** A 2-seat `brain_turn`
+   planning call (analysis only, no synthesis report) satisfies a
+   cross-disciplinary gate — "ask the Designer about two layouts" costs one
+   call, not the 7-seat ceremony.
+
+5. **Lite and Discovery-fed scope.** Lite-eligible changes still run a
+   2-line Seat Check (domains → seats, no skipped-seat reasons required);
+   Discovery-fed planning runs the full Seat Check. The Lite one-line
+   justification never replaces the Seat Check — it follows it.
 
 ### Discovery-fed planning (grounds the plan in repo truth)
 
@@ -383,3 +421,27 @@ carries. For big task files, never paste the whole file: grep first via
 the bridge `grep_files`, then pull only the needed ranges with
 `read_file(path, offset, limit)`. The five-file bundle rides every call
 automatically; full files are pulled on demand, never stuffed.
+
+## Personas Roster (local seat resolution)
+
+When the Manager names a seat, or a step needs one (planning, sprint,
+design, QA, review), resolve it HERE — no Brain round-trip required.
+Source of truth is `prompts/fragments/06-personas.md`; on any conflict
+the source file wins, and every edit to the source MUST update this
+table in the same commit.
+
+| Seat | Trigger (when to load) | Duty (one line) |
+| ---- | ---------------------- | --------------- |
+| Software Architect | New features, major backend changes, explicit Manager request | System design, schemas, API contracts, DevOps, roadmapping |
+| UI/UX Designer | Frontend features, layout, components, styling | Design systems, user journeys, a11y, responsive, local `DESIGN.md` |
+| Senior Programmer | Approved blueprints/designs, explicit Manager request | Implementation lead, "Hands Whisperer", writes `<hands_implementation_task>` XML |
+| Project Planner | Status checks, milestone planning, explicit Manager request | Kanban file state + milestones; never backlog priority |
+| Sprint Strategist | Sprint planning, backlog prioritization, sprint overfill | Capacity, MoSCoW, WIP ≤ 3; owns priority and sprint scope |
+| QA Engineer | Implementation complete, explicit test request | Adversarial testing; verdict `QA_PASSED` / `QA_REJECTED` |
+| Code Reviewer | Task summary pasted, PR submitted, review requested | Audit vs blueprint; verdict `APPROVED` / `APPROVED_WITH_CHANGES` / `REJECTED_NEEDS_FIXES` |
+
+**Load rules (mirror of `<auto_load>`):** Layer 1 — explicit mention wins
+(exact name or alias: QA, Reviewer, Architect, Strategist, Planner,
+Programmer, Designer). Layer 2 — exactly one trigger/duty match means
+high confidence: load it and declare it; two or more matches, or none,
+means low confidence: STOP and ask the Manager which seat. Never guess.

@@ -11,7 +11,7 @@
       "task"
     ]
   },
-  "last_processed_message_id": 588,
+  "last_processed_message_id": 609,
   "processed_ids": [
     458,
     465,
@@ -95,7 +95,28 @@
     585,
     586,
     587,
-    588
+    588,
+    589,
+    590,
+    591,
+    592,
+    593,
+    594,
+    595,
+    596,
+    597,
+    598,
+    599,
+    600,
+    601,
+    602,
+    603,
+    604,
+    605,
+    606,
+    607,
+    608,
+    609
   ],
   "sync_registry": {
     "466": {
@@ -192,6 +213,26 @@
       "task_file": "tasks/backlog/168-manager-decision-skill-with-separate-learning-repo.md",
       "gh_issue": "https://github.com/mokhtarabadi/cognitive-lead-hq/issues/8",
       "type": "FEATURE"
+    },
+    "602": {
+      "task_file": "tasks/backlog/211-enforce-conventional-commits-standard.md",
+      "gh_issue": "https://github.com/mokhtarabadi/cognitive-lead-hq/issues/10",
+      "type": "IMPROVE"
+    },
+    "604": {
+      "task_file": "tasks/backlog/212-self-improve-cross-project-github-issue-automation.md",
+      "gh_issue": "https://github.com/mokhtarabadi/cognitive-lead-hq/issues/11",
+      "type": "IMPROVE"
+    },
+    "605": {
+      "task_file": "tasks/backlog/213-manager-decision-auto-extraction-and-shared-repo.md",
+      "gh_issue": "https://github.com/mokhtarabadi/cognitive-lead-hq/issues/12",
+      "type": "IMPROVE"
+    },
+    "609": {
+      "task_file": "tasks/backlog/216-separate-manager-decisions-repo-and-consult-skill.md",
+      "gh_issue": "https://github.com/mokhtarabadi/cognitive-lead-hq/issues/13",
+      "type": "TASK"
     }
   }
 }

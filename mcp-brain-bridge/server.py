@@ -80,17 +80,28 @@ mcp = FastMCP("BrainBridge")
 
 # XML blocks the Brain may emit. Hands executes these; everything else
 # is conversation. Kept as plain names (no angle brackets) for the regex.
+# ``hotfix`` added per Task 215: the Code Reviewer emits hotfix instruction
+# blocks on REJECTED_NEEDS_FIXES, and the old allowlist silently dropped
+# them to REPORT.
 XML_BLOCK_TAGS = (
     "hands_discovery_task",
     "hands_implementation_task",
     "hands_combined_task",
     "failure_report",
+    "hotfix",
 )
 
 _XML_RE = re.compile(
     r"<(" + "|".join(XML_BLOCK_TAGS) + r")>.*?</\1>", re.DOTALL
 )
 
+# Explicit ```xml fences hold REAL xml, not documentation — the info string
+# is the author's own language tag. Only this fence type feeds the
+# extraction fallback (Task 215); json/bare/tilde fences stay stripped.
+# Runs to the next closing fence or \Z so an unclosed fence still yields.
+# The (?<!`) guard keeps ````quad```` fences out: without it the pattern
+# would match at offset 1 inside ````xml (reviewer follow-up A1).
+_XML_FENCE_RE = re.compile(r"(?<!`)```xml[^\S\n]*\n([\s\S]*?)(?:```|\Z)", re.IGNORECASE)
 # Fenced code blocks are documentation, not instructions — strip them
 # before scanning, or a pasted XML example would false-positive.
 # Covers ``` fences (any length 3+, closed OR unclosed to EOF) and
@@ -550,10 +561,19 @@ def load_system_prompt(explicit_path: Optional[str] = None) -> str:
 def extract_xml_blocks(output: str) -> list[str]:
     """Return verbatim XML control blocks in document order. Fenced code
     blocks are stripped first (XML inside backticks is documentation, not
-    instructions — fence-only output means REPORT). Empty list means plain
-    conversation — the Hands takes the whole output."""
+    instructions — fence-only output means REPORT), EXCEPT explicit
+    ```xml fences: the info string marks real XML, so when the unfenced
+    scan finds nothing, allowlist tags inside ```xml bodies are returned
+    as a fallback (Task 215: reviewer hotfix XML arrived fenced). Empty
+    list means plain conversation — the Hands takes the whole output."""
     clean, _ = _strip_fences(output)
-    return [m.group(0) for m in _XML_RE.finditer(clean)]
+    blocks = [m.group(0) for m in _XML_RE.finditer(clean)]
+    if blocks:
+        return blocks
+    out: list[str] = []
+    for body in _XML_FENCE_RE.finditer(output):
+        out.extend(m.group(0) for m in _XML_RE.finditer(body.group(1)))
+    return out
 
 
 def _get_brain_model() -> str:

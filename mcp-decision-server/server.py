@@ -86,7 +86,16 @@ def _repo_root() -> Path:
     explicit = os.environ.get("DECISION_REPO_PATH", "").strip()
     if explicit:
         root = Path(explicit)
-        root.mkdir(parents=True, exist_ok=True)
+        try:
+            root.mkdir(parents=True, exist_ok=True)
+        except OSError as exc:
+            # Fail CLOSED with a clear error: never silently fall back to a
+            # per-project store (that would split personality without a
+            # trace), and never write before the scrub gate runs.
+            raise RuntimeError(
+                f"DECISION_REPO_PATH={explicit!r} is not usable ({exc}); "
+                "fix the path or unset it to use the per-project fallback"
+            ) from exc
         return root
     for base in (Path.cwd(), INSTALL_ROOT):
         candidate = base / ".opencode" / "decisions"
@@ -96,6 +105,77 @@ def _repo_root() -> Path:
         except OSError:
             continue
     raise RuntimeError("cannot create a decision store: no writable location found")
+
+
+def _active_root_info(repo: Path) -> str:
+    """One-line provenance for the resolved store (Task 216).
+
+    Tells the operator WHERE personality decisions land: the explicit
+    personal repo when ``DECISION_REPO_PATH`` is set, else the per-project
+    fallback. Logged on every record call so an unset env on a new
+    machine is visible instead of silently splitting the store.
+    """
+    explicit = os.environ.get("DECISION_REPO_PATH", "").strip()
+    if explicit:
+        return f"personal repo (DECISION_REPO_PATH={explicit})"
+    return f"project fallback ({repo})"
+
+
+def _run_git(repo: Path, *args: str) -> "subprocess.CompletedProcess[str]":
+    """Run a git command inside `repo`; never raises (caller inspects)."""
+    return subprocess.run(
+        ["git", "-C", str(repo), *args],
+        capture_output=True, text=True, timeout=60,
+    )
+
+
+def _pull_latest(repo: Path) -> str:
+    """Pull latest into the decision store; recall always reads fresh (218).
+
+    Fail-closed on real conflicts (aborts the rebase, raises RuntimeError);
+    tolerant everywhere else: non-git dir, no upstream, or unreachable
+    remote just reports a status and the caller reads local state.
+    Never pushes, never commits — ZAC: those stay Manager-owned.
+    """
+    if _run_git(repo, "rev-parse", "--git-dir").returncode != 0:
+        return "sync skipped (not a git checkout)"
+    if _run_git(repo, "status", "--porcelain").stdout.strip():
+        return "sync skipped (dirty tree)"
+    if _run_git(repo, "rev-parse", "--abbrev-ref",
+                "--symbolic-full-name", "@{u}").returncode != 0:
+        return "sync skipped (no upstream configured)"
+    if _run_git(repo, "fetch", "origin").returncode != 0:
+        return "sync warning (remote unreachable; reading local state)"
+    pull = _run_git(repo, "pull", "--ff-only")
+    if pull.returncode != 0:
+        raise RuntimeError(
+            "decision store pull failed (diverged or conflicted); "
+            "local state untouched. "
+            f"Resolve it in {repo} and retry.")
+    return "store pulled to latest"
+
+
+def _ensure_fresh(repo: Path) -> str:
+    """Pull-before-read/write gate; `DECISION_NO_PULL=1` skips (tests)."""
+    if os.environ.get("DECISION_NO_PULL", "").strip() == "1":
+        return "sync skipped (DECISION_NO_PULL=1)"
+    status = _pull_latest(repo)
+    print(f"decision-server: {status}: {_active_root_info(repo)}", file=sys.stderr)
+    return status
+
+
+def _unpushed_report(repo: Path) -> str:
+    """Visible push debt: tell the Manager what still needs commit+push."""
+    if _run_git(repo, "rev-parse", "--git-dir").returncode != 0:
+        return "personal repo is not a git checkout; nothing to push."
+    dirty = _run_git(repo, "status", "--porcelain").stdout.strip().splitlines()
+    dirty = [l for l in dirty if l.strip()]
+    ahead = _run_git(repo, "rev-list", "--count", "@{u}..HEAD")
+    n_ahead = ahead.stdout.strip() if ahead.returncode == 0 else "?"
+    return (f"sync debt: {len(dirty)} uncommitted file(s), {n_ahead} "
+            f"unpushed commit(s) — Manager: `git -C {repo} add -A && "
+            f"git commit -m \"docs: record manager decisions\" && git push`.")
+
 
 mcp = FastMCP("ManagerDecisions")
 
@@ -918,6 +998,18 @@ def record_manager_decision(decision: dict[str, Any]) -> str:
     schema validation → write `decisions/YYYY/MM/DEC-*.json` + matching `.md`
     (verbatim quote + summary for humans) → regenerate `INDEX.md`.
 
+    The scrub gate fail-closes on EVERY root, including an explicit
+    personal repo (Task 216 public-default guard): free-text fields are
+    sanitized, and if any sensitive pattern survives sanitizing,
+    `ValueError` is raised and nothing is written — there is no bypass flag.
+
+    Provenance (Task 216 QA hotfix): every stored record carries
+    `active_root` (repo display name only — never the absolute path, so a
+    public-default personal repo leaks no usernames) and `store_mode`
+    (`personal` vs `project-fallback`) so personal-vs-fallback is queryable
+    without relying on stderr. The full path stays in the local stderr log
+    only — it is never written to a record.
+
     Args:
         decision: Candidate object (verbatim_quote + extracted_decision;
             decision_id/timestamp assigned here when absent).
@@ -930,9 +1022,16 @@ def record_manager_decision(decision: dict[str, Any]) -> str:
             written in that case (append-only store stays clean).
     """
     repo = _repo_root()
+    print(f"decision-server: active store: {_active_root_info(repo)}", file=sys.stderr)
+    (repo / "decisions").mkdir(parents=True, exist_ok=True)
+    _ensure_fresh(repo)
     scrubbed = _scrub_free_text(decision)
     scrubbed.setdefault("decision_id", _next_decision_id(repo))
     scrubbed.setdefault("timestamp", datetime.now(timezone.utc).isoformat())
+    scrubbed["active_root"] = repo.name
+    scrubbed["store_mode"] = ("personal"
+                               if os.environ.get("DECISION_REPO_PATH", "").strip()
+                               else "project-fallback")
     problems = _validate_against_schema(scrubbed)
     if problems:
         raise ValueError(f"decision schema violations: {'; '.join(problems)}")
@@ -957,7 +1056,8 @@ def record_manager_decision(decision: dict[str, Any]) -> str:
     )
     count = _rewrite_index(repo)
     return (f"Recorded {scrubbed['decision_id']} "
-            f"(`{json_path.relative_to(repo)}` + `.md`; index now holds {count}).")
+            f"(`{json_path.relative_to(repo)}` + `.md`; index now holds {count}). "
+            f"{_unpushed_report(repo)}")
 
 
 @mcp.tool()
@@ -979,6 +1079,13 @@ def query_manager_decisions(query: str, category: Optional[str] = None) -> str:
         category: Optional category filter (see schema enum).
     """
     repo = _repo_root()
+    try:
+        _ensure_fresh(repo)
+    except RuntimeError as exc:
+        # Reads stay available on divergence: serve stale local state and
+        # say so loudly instead of failing the consult (reviewer A1).
+        print(f"decision-server: pull failed ({exc}); reading local state",
+              file=sys.stderr)
     needle = (query or "").strip().lower()
     hits: list[str] = []
     for path in sorted((repo / "decisions").rglob("DEC-*.json")):
@@ -1024,6 +1131,12 @@ def get_manager_profile() -> str:
     Returns an explanatory message (not an error) when the sample is absent.
     """
     profile = _repo_root() / "samples" / "manager_profile.md"
+    try:
+        _ensure_fresh(profile.parent.parent)
+    except RuntimeError as exc:
+        # Same stale-on-divergence rule as query (reviewer A1).
+        print(f"decision-server: pull failed ({exc}); reading local state",
+              file=sys.stderr)
     if not profile.is_file():
         return "No manager profile sample exists yet."
     return profile.read_text(encoding="utf-8")

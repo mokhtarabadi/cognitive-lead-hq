@@ -1265,3 +1265,441 @@ def test_taxonomy_non_httpx_error_propagates_post(srv, monkeypatch):
     client = _TaxSeqClient([ValueError("boom")])
     with pytest.raises(ValueError, match="boom"):
         srv._post_with_retry(client, "http://x/responses", {})
+
+
+# --- Task 213: decision-moment detector (mcp-decision-server/detector.py) ---
+
+@pytest.fixture(scope="module")
+def det():
+    return _load("decision_detector", "detector.py")
+
+
+def test_detector_flags_manager_ruling(det):
+    turns = [
+        {"speaker": "manager",
+         "text": "We decided to use composition over inheritance for the auth "
+                 "schema; the tradeoff is more boilerplate instead of magic."},
+    ]
+    out = det.detect_decision_moments(turns)
+    assert len(out) == 1
+    assert out[0]["turn_index"] == 0
+    assert out[0]["passes"] is True
+    assert "owner:manager" in out[0]["signals"]
+    assert "strong-ruling" in out[0]["signals"]
+    assert len(out[0]["excerpt"]) <= 200
+
+
+def test_detector_ignores_agent_spoken_ruling(det):
+    turns = [
+        {"speaker": "agent",
+         "text": "We decided to use composition over inheritance for the auth "
+                 "schema; the tradeoff is more boilerplate instead of magic."},
+        {"speaker": "Assistant",
+         "text": "Approved: migrate the database instead of patching it."},
+    ]
+    assert det.detect_decision_moments(turns) == []
+
+
+def test_detector_approved_alone_not_queued(det):
+    turns = [
+        {"speaker": "manager", "text": "approved"},
+        {"speaker": "manager", "text": "thanks, looks good"},
+        {"speaker": "agent", "text": "ok, continuing with the build"},
+    ]
+    assert det.detect_decision_moments(turns) == []
+
+
+def test_detector_substring_lookalikes_not_queued(det):
+    turns = [
+        {"speaker": "manager",
+         "text": "Add mustard to the dropdown; use a ruler for the layout."},
+    ]
+    assert det.detect_decision_moments(turns) == []
+
+
+def test_detector_non_manager_owner_fails_bar(det):
+    # Mixed-case non-manager speaker with ruling + scope content: skipped.
+    turns = [
+        {"speaker": "Agent",
+         "text": "Approved: migrate the database instead of patching it."},
+        {"speaker": " Manager ",
+         "text": "Approved: migrate the database instead of patching it."},
+    ]
+    out = det.detect_decision_moments(turns)
+    assert [c["turn_index"] for c in out] == [1]
+
+
+def test_detector_weak_signals_need_strong_pairing(det):
+    # Owner + weak modal + lone scope noun, no strong verb or tradeoff:
+    # weak categories are dropped, bar fails, nothing queued.
+    turns = [
+        {"speaker": "manager",
+         "text": "We must keep the api scope unchanged for now."},
+    ]
+    assert det.detect_decision_moments(turns) == []
+    # Same weak signals + a tradeoff phrase: paired, queued.
+    turns2 = [
+        {"speaker": "manager",
+         "text": "We must keep the api scope unchanged instead of expanding it."},
+    ]
+    out = det.detect_decision_moments(turns2)
+    assert len(out) == 1 and out[0]["passes"] is True
+
+
+def test_detector_long_unicode_truncates_on_word_edge(det):
+    text = "Manager ruling: " + "تصمیم " * 60 + "approved: migrate the database instead."
+    out = det.detect_decision_moments([{"speaker": "manager", "text": text}])
+    assert len(out) == 1
+    assert len(out[0]["excerpt"]) <= 200
+    assert not out[0]["excerpt"].endswith(" ")
+
+
+def test_detector_bar_requires_owner_and_two_categories(det):
+    assert det.passes_precision_bar(["owner:manager", "strong-ruling", "scope-noun"]) is True
+    assert det.passes_precision_bar([" Owner:Manager ", "strong-ruling", "scope-noun"]) is True
+    assert det.passes_precision_bar([" Manager ", "strong-ruling", "scope-noun"]) is False  # raw speaker name is not an owner signal
+    assert det.passes_precision_bar(["owner:manager", "strong-ruling"]) is False
+    assert det.passes_precision_bar(["owner:manager", "weak-ruling", "scope-noun"]) is True  # paired upstream
+    assert det.passes_precision_bar(["strong-ruling", "scope-noun", "tradeoff-marker"]) is False
+    assert det.passes_precision_bar([]) is False
+    assert det.passes_precision_bar("owner:manager") is False
+
+
+def test_detector_never_raises_on_bad_input(det):
+    assert det.detect_decision_moments([]) == []
+    assert det.detect_decision_moments("not a list") == []
+    valid = {"speaker": "manager",
+             "text": "Decided: use X over Y for the auth schema."}
+    out = det.detect_decision_moments(
+        [None, {"speaker": "manager", "text": ""},
+         {"speaker": "manager", "text": 123}, valid])
+    assert [c["turn_index"] for c in out] == [3]
+
+
+# --- Task 216: personal-repo provenance + fail-closed scrub on explicit path ---
+# (uses the existing _record(call, cand) helper from line 174)
+
+def test_active_root_info_names_personal_repo(srv, tmp_path, monkeypatch):
+    monkeypatch.setenv("DECISION_REPO_PATH", str(tmp_path / "personal"))
+    info = srv._active_root_info(tmp_path / "personal")
+    assert "personal repo" in info
+    assert "DECISION_REPO_PATH" in info
+
+
+def test_active_root_info_names_project_fallback(srv, tmp_path, monkeypatch):
+    monkeypatch.delenv("DECISION_REPO_PATH", raising=False)
+    info = srv._active_root_info(tmp_path / ".opencode" / "decisions")
+    assert "project fallback" in info
+
+
+def test_personal_path_scrubs_secrets_before_write(srv, tmp_path, monkeypatch):
+    # Task 216 public-default guard: on an explicit personal repo, secrets
+    # are scrubbed before they touch the store — nothing sensitive persists.
+    # (The scrub gate replaces recognized patterns; the schema gate rejects
+    # malformed records. Both run on every root, personal included.)
+    personal = tmp_path / "manager-decisions"
+    monkeypatch.setenv("DECISION_REPO_PATH", str(personal))
+    sneaky = _candidate()
+    sneaky["extracted_decision"]["rationale"] = "approved, key sk-proj-SECRET1234567890 ok"
+    _record(srv.record_manager_decision, sneaky)
+    stored = json.loads(next(personal.rglob("DEC-*.json")).read_text(encoding="utf-8"))
+    assert "SECRET1234567890" not in json.dumps(stored)
+    assert stored["redaction_verified"] is True
+
+
+def test_record_creates_store_on_fresh_personal_repo(srv, tmp_path, monkeypatch):
+    # Fresh clone / first run: no decisions/ dir yet — record still works.
+    personal = tmp_path / "fresh-personal"
+    monkeypatch.setenv("DECISION_REPO_PATH", str(personal))
+    assert not (personal / "decisions").exists()
+    out = _record(srv.record_manager_decision, _candidate())
+    assert "Recorded DEC-" in out
+    assert (personal / "decisions").is_dir()
+
+
+# --- Task 216 QA hotfix (F1-F5): provenance, fail-closed, stderr secrecy ---
+
+def test_record_fail_closed_when_scrub_cannot_clean(srv, tmp_path, monkeypatch, capsys):
+    # Gate ordering proof: with sanitizing disabled, a key-shaped input must
+    # raise ValueError BEFORE any write — no JSON, no .md, no index entry.
+    personal = tmp_path / "personal"
+    monkeypatch.setenv("DECISION_REPO_PATH", str(personal))
+    monkeypatch.setattr(srv, "sanitize_text", lambda t: t if isinstance(t, str) else str(t))
+    sneaky = _candidate()
+    sneaky["extracted_decision"]["rationale"] = "approved, key sk-proj-FAILCLOSED1 ok"
+    with pytest.raises(ValueError, match="redaction failed"):
+        _record(srv.record_manager_decision, sneaky)
+    assert list(personal.rglob("DEC-*.json")) == []
+    assert list(personal.rglob("DEC-*.md")) == []
+
+
+def test_record_stderr_never_carries_secrets(srv, tmp_path, monkeypatch, capsys):
+    personal = tmp_path / "personal"
+    monkeypatch.setenv("DECISION_REPO_PATH", str(personal))
+    secret = "sk-proj-STDERRPROOF12345678"
+    sneaky = _candidate()
+    sneaky["extracted_decision"]["rationale"] = f"approved, key {secret} ok"
+    _record(srv.record_manager_decision, sneaky)
+    captured = capsys.readouterr()
+    assert "active store" in captured.err
+    assert secret not in captured.err
+    assert "SECRET" not in captured.err
+
+
+def test_record_persists_queryable_provenance(srv, tmp_path, monkeypatch):
+    personal = tmp_path / "personal"
+    monkeypatch.setenv("DECISION_REPO_PATH", str(personal))
+    _record(srv.record_manager_decision, _candidate())
+    stored = json.loads(next(personal.rglob("DEC-*.json")).read_text(encoding="utf-8"))
+    assert stored["active_root"] == personal.name  # display name only: no abs path leaks into public-default repos
+    assert stored["store_mode"] == "personal"
+
+
+def test_record_empty_env_falls_back_with_provenance(srv, tmp_path, monkeypatch):
+    monkeypatch.setenv("DECISION_REPO_PATH", "")
+    monkeypatch.chdir(tmp_path)
+    _record(srv.record_manager_decision, _candidate())
+    stored = json.loads(next((tmp_path / ".opencode" / "decisions").rglob("DEC-*.json")).read_text(encoding="utf-8"))
+    assert stored["store_mode"] == "project-fallback"
+    assert stored["active_root"] == "decisions"  # basename only (R1 privacy fix)
+
+
+def test_record_nested_personal_path_created(srv, tmp_path, monkeypatch):
+    deep = tmp_path / "a" / "b" / "personal"
+    monkeypatch.setenv("DECISION_REPO_PATH", str(deep))
+    out = _record(srv.record_manager_decision, _candidate())
+    assert "Recorded DEC-" in out
+    assert (deep / "decisions").is_dir()
+
+
+def test_record_file_as_path_fails_closed_and_clear(srv, tmp_path, monkeypatch):
+    blocker = tmp_path / "not-a-dir"
+    blocker.write_text("x", encoding="utf-8")
+    monkeypatch.setenv("DECISION_REPO_PATH", str(blocker))
+    with pytest.raises(RuntimeError, match="DECISION_REPO_PATH"):
+        _record(srv.record_manager_decision, _candidate())
+    assert list(tmp_path.rglob("DEC-*.json")) == []
+
+
+def test_record_double_write_sequential_ids(srv, tmp_path, monkeypatch):
+    personal = tmp_path / "personal"
+    monkeypatch.setenv("DECISION_REPO_PATH", str(personal))
+    _record(srv.record_manager_decision, _candidate())
+    _record(srv.record_manager_decision, _candidate())
+    ids = sorted(p.name for p in personal.rglob("DEC-*.json"))
+    assert len(ids) == 2 and ids[0] != ids[1]
+
+
+# --- Task 219 (218 scope): auto-sync personal repo (pull on read, debt visible) ---
+
+import shutil as _shutil
+
+_HAS_GIT = _shutil.which("git") is not None
+needs_git = pytest.mark.skipif(not _HAS_GIT, reason="git CLI not available")
+
+
+def _git(repo, *args, env=None):
+    import subprocess
+    e = dict(os.environ)
+    e["GIT_CONFIG_NOSYSTEM"] = "1"
+    e["HOME"] = str(repo)
+    if env:
+        e.update(env)
+    r = subprocess.run(["git", "-C", str(repo), *args],
+                       capture_output=True, text=True, timeout=60, env=e)
+    return r
+
+
+def _git_repo(path, branch="main"):
+    r = _git(path, "init", "-b", branch)
+    assert r.returncode == 0, r.stderr
+    _git(path, "config", "user.email", "t@t.t")
+    _git(path, "config", "user.name", "t")
+    (path / "seed.txt").write_text("seed")
+    _git(path, "add", "-A")
+    r = _git(path, "commit", "-m", "docs: seed")
+    assert r.returncode == 0, r.stderr
+    return path
+
+
+def _no_pull_env(monkeypatch):
+    monkeypatch.delenv("DECISION_NO_PULL", raising=False)
+
+
+def test_sync_skipped_not_git_checkout(srv, tmp_path, monkeypatch):
+    _no_pull_env(monkeypatch)
+    assert srv._pull_latest(tmp_path) == "sync skipped (not a git checkout)"
+
+
+@needs_git
+def test_sync_skipped_no_upstream(srv, tmp_path, monkeypatch):
+    _no_pull_env(monkeypatch)
+    _git_repo(tmp_path)
+    assert srv._pull_latest(tmp_path) == "sync skipped (no upstream configured)"
+
+
+@needs_git
+def test_sync_kill_switch(srv, tmp_path, monkeypatch):
+    monkeypatch.setenv("DECISION_NO_PULL", "1")
+    _git_repo(tmp_path)
+    assert srv._ensure_fresh(tmp_path) == "sync skipped (DECISION_NO_PULL=1)"
+
+
+@needs_git
+def test_sync_pulls_latest(srv, tmp_path, monkeypatch):
+    _no_pull_env(monkeypatch)
+    origin = tmp_path / "origin.git"
+    assert _git(tmp_path, "init", "--bare", "origin.git").returncode == 0
+    other = tmp_path / "other"
+    assert _git(tmp_path, "clone", str(origin), "other").returncode == 0
+    _git(other, "config", "user.email", "t@t.t")
+    _git(other, "config", "user.name", "t")
+    (other / "seed.txt").write_text("seed")
+    _git(other, "add", "-A")
+    assert _git(other, "commit", "-m", "docs: seed").returncode == 0
+    assert _git(other, "push", "-u", "origin", "HEAD:main").returncode == 0
+    assert _git(origin, "symbolic-ref", "HEAD",
+                "refs/heads/main").returncode == 0
+    store = tmp_path / "store"
+    assert _git(tmp_path, "clone", str(origin), "store").returncode == 0
+    _git(store, "config", "user.email", "t@t.t")
+    _git(store, "config", "user.name", "t")
+    (other / "fresh.md").write_text("latest")
+    _git(other, "add", "-A")
+    assert _git(other, "commit", "-m", "docs: fresh").returncode == 0
+    assert _git(other, "push", "origin", "HEAD:main").returncode == 0
+    status = srv._pull_latest(store)
+    assert status == "store pulled to latest"
+    assert (store / "fresh.md").read_text() == "latest"
+
+
+@needs_git
+def test_sync_diverged_fails_closed(srv, tmp_path, monkeypatch):
+    _no_pull_env(monkeypatch)
+    origin = tmp_path / "origin.git"
+    assert _git(tmp_path, "init", "--bare", "origin.git").returncode == 0
+    store = tmp_path / "store"
+    assert _git(tmp_path, "clone", str(origin), "store").returncode == 0
+    _git(store, "config", "user.email", "t@t.t")
+    _git(store, "config", "user.name", "t")
+    (store / "a.txt").write_text("v1")
+    _git(store, "add", "-A")
+    assert _git(store, "commit", "-m", "docs: seed").returncode == 0
+    assert _git(store, "push", "-u", "origin", "HEAD:main").returncode == 0
+    assert _git(origin, "symbolic-ref", "HEAD",
+                "refs/heads/main").returncode == 0
+    other = tmp_path / "other"
+    assert _git(tmp_path, "clone", str(origin), "other").returncode == 0
+    _git(other, "config", "user.email", "t@t.t")
+    _git(other, "config", "user.name", "t")
+    (other / "a.txt").write_text("remote-change")
+    _git(other, "add", "-A")
+    assert _git(other, "commit", "-m", "docs: remote").returncode == 0
+    assert _git(other, "push", "origin", "HEAD:main").returncode == 0
+    (store / "a.txt").write_text("local-change")
+    _git(store, "add", "-A")
+    assert _git(store, "commit", "-m", "docs: local").returncode == 0
+    with pytest.raises(RuntimeError):
+        srv._pull_latest(store)
+    assert _git(store, "status", "--porcelain").stdout.strip() == ""
+
+
+@needs_git
+def test_sync_offline_tolerant(srv, tmp_path, monkeypatch):
+    _no_pull_env(monkeypatch)
+    origin = tmp_path / "origin.git"
+    assert _git(tmp_path, "init", "--bare", "origin.git").returncode == 0
+    store = tmp_path / "store"
+    assert _git(tmp_path, "clone", str(origin), "store").returncode == 0
+    _git(store, "config", "user.email", "t@t.t")
+    _git(store, "config", "user.name", "t")
+    (store / "a.txt").write_text("v1")
+    _git(store, "add", "-A")
+    assert _git(store, "commit", "-m", "docs: seed").returncode == 0
+    assert _git(store, "push", "-u", "origin", "HEAD:main").returncode == 0
+    _shutil.rmtree(origin)
+    status = srv._pull_latest(store)
+    assert status == "sync warning (remote unreachable; reading local state)"
+
+
+@needs_git
+def test_record_reports_sync_debt(srv, tmp_path, monkeypatch):
+    _no_pull_env(monkeypatch)
+    monkeypatch.setenv("DECISION_REPO_PATH", str(tmp_path))
+    _git_repo(tmp_path)
+    (tmp_path / "decisions").mkdir(exist_ok=True)
+    out = srv.record_manager_decision(_candidate())
+    assert "Recorded DEC-" in out
+    assert "sync debt:" in out
+    assert "git push" in out
+
+
+@needs_git
+def test_sync_untracked_file_blocks_pull(srv, tmp_path, monkeypatch):
+    # QA T3: untracked (??) files also trip the dirty-tree guard.
+    _no_pull_env(monkeypatch)
+    _git_repo(tmp_path)
+    (tmp_path / "scratch.txt").write_text("untracked")
+    assert srv._pull_latest(tmp_path) == "sync skipped (dirty tree)"
+
+
+def test_run_git_sets_network_timeout(srv, tmp_path, monkeypatch):
+    # QA T3: every git call carries a timeout so hung remotes fail, not hang.
+    import subprocess as _sp
+    seen = {}
+
+    def fake_run(cmd, **kw):
+        seen.update(kw)
+        return _sp.CompletedProcess(cmd, 0, "", "")
+
+    monkeypatch.setattr(srv.subprocess, "run", fake_run)
+    srv._run_git(tmp_path, "rev-parse", "--git-dir")
+    assert seen.get("timeout") == 60
+
+
+@needs_git
+def test_sync_diverged_reads_serve_stale_local_state(srv, tmp_path, monkeypatch):
+    # Reviewer follow-up A1: a diverged personal repo must not take reads
+    # offline. query + profile serve stale local state with a loud note
+    # instead of raising; writes (record) stay fail-closed.
+    _no_pull_env(monkeypatch)
+    origin = tmp_path / "origin.git"
+    assert _git(tmp_path, "init", "--bare", "origin.git").returncode == 0
+    store = tmp_path / "store"
+    assert _git(tmp_path, "clone", str(origin), "store").returncode == 0
+    _git(store, "config", "user.email", "t@t.t")
+    _git(store, "config", "user.name", "t")
+    (store / "a.txt").write_text("v1")
+    _git(store, "add", "-A")
+    assert _git(store, "commit", "-m", "docs: seed").returncode == 0
+    assert _git(store, "push", "-u", "origin", "HEAD:main").returncode == 0
+    assert _git(origin, "symbolic-ref", "HEAD",
+                "refs/heads/main").returncode == 0
+    other = tmp_path / "other"
+    assert _git(tmp_path, "clone", str(origin), "other").returncode == 0
+    _git(other, "config", "user.email", "t@t.t")
+    _git(other, "config", "user.name", "t")
+    (other / "a.txt").write_text("remote-change")
+    _git(other, "add", "-A")
+    assert _git(other, "commit", "-m", "docs: remote").returncode == 0
+    assert _git(other, "push", "origin", "HEAD:main").returncode == 0
+    (store / "a.txt").write_text("local-change")
+    _git(store, "add", "-A")
+    assert _git(store, "commit", "-m", "docs: local").returncode == 0
+    decs = store / "decisions"
+    decs.mkdir(parents=True, exist_ok=True)
+    (decs / "DEC-20260913-001.json").write_text(json.dumps({
+        "decision_id": "DEC-20260913-001",
+        "extracted_decision": {
+            "summary": "use pull-before-read with stale fallback",
+            "category": "architecture",
+            "rationale": "reads must survive divergence",
+        },
+        "verbatim_quote": {"original": "x", "english_translation": "y"},
+    }))
+    (store / "samples").mkdir(exist_ok=True)
+    (store / "samples" / "manager_profile.md").write_text("# profile\n")
+    monkeypatch.setenv("DECISION_REPO_PATH", str(store))
+    out = srv.query_manager_decisions("stale fallback")
+    assert "DEC-20260913-001" in out
+    assert "profile" in srv.get_manager_profile().lower()

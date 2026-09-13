@@ -787,6 +787,27 @@ def _derive_task_slug(task_file_path: str) -> str:
         return f"task {parts[0]} - {parts[1].replace('-', ' ')}"
     return f"task - {name.replace('-', ' ')}"
 
+# Conventional Commits enforcement (Task 211): `commit_and_clean_task` is the
+# ONLY commit path, so the caller-supplied feature message is validated here
+# against skill-templates/versioning-and-release (`type: subject`, ≤72 chars).
+_CONVENTIONAL_RE = re.compile(r"^(feat|fix|docs|refactor|chore): \S.*$")
+
+def _check_conventional_commit(commit_message: str) -> Optional[str]:
+    """Returns an error string when commit_message violates Conventional Commits, else None."""
+    first_line = commit_message.splitlines()[0] if commit_message and commit_message.strip() else ""
+    if not _CONVENTIONAL_RE.match(first_line):
+        return (
+            "❌ Commit message rejected: must match Conventional Commits "
+            "`<type>: <subject>` with type in feat|fix|docs|refactor|chore "
+            f"(see skill-templates/versioning-and-release). Got: {first_line!r}"
+        )
+    if len(first_line) > 72:
+        return (
+            "❌ Commit message rejected: first line exceeds 72 characters "
+            f"({len(first_line)}). Got: {first_line!r}"
+        )
+    return None
+
 @mcp.tool()
 def commit_and_clean_task(task_file_path: str, commit_message: str) -> str:
     """Commits staged changes, captures the feature commit hash, replaces the raw diff in the task file with the hash reference, and commits the cleaned task file as a separate closure commit. The stored hash always points to the feature commit, which stays reachable forever (no amend, no orphaned commits)."""
@@ -807,6 +828,13 @@ def commit_and_clean_task(task_file_path: str, commit_message: str) -> str:
             )
             if cleaned_block.search(existing):
                 return "⚠️ Task file already cleaned (Stored in Commit Hash present). Nothing to commit."
+
+        # 0.25 Conventional Commits gate (Task 211): reject free-form feature
+        # messages before touching git. The closure commit below is templated
+        # and always conforms, so only the caller-supplied message is checked.
+        conventional_error = _check_conventional_commit(commit_message)
+        if conventional_error:
+            return conventional_error
 
         # 0.5 Safety check before commit
         staged_check = subprocess.run(["git", "diff", "--staged", "--quiet"], capture_output=True)

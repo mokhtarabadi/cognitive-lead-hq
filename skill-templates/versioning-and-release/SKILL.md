@@ -74,11 +74,9 @@ All git commit messages MUST use lowercase prefixes followed by a colon and a sp
 1. Call the `custom_context_stage_and_inject_diff` MCP tool, providing the exact path to your active task file.
 2. This stages your modified codebase files and automatically injects the factual diff into your task file, ensuring the Code Reviewer has a grounded reference.
 
-### Phase 4: Git Commit & Secure Push Protocol
+### Phase 4: Closure Commit via MCP (ZAC-Compliant)
 
-1. Run the non-interactive commit command with a Conventional Commit message.
-   _Example:_ `git commit -m "docs: finalize versioning skill template"`
-2. Before pushing to the remote repository, check if the working tree is clean (`git status`).
-3. Run the secure, non-interactive push command:
-   `git push origin main` (or the active branch).
-4. If the push fails due to remote updates, run `git pull --rebase` first, verify tests pass again, and then push.
+1. NEVER run raw `git commit` or `git push` — autonomous agents are forbidden from both (Zero-Autonomous-Commit). Call the `custom_context_commit_and_clean_task` MCP tool with your active task file path and a Conventional Commit message.
+   _Example message:_ `docs: finalize versioning skill template`
+2. The tool validates the message (type in `feat|fix|docs|refactor|chore`, first line ≤72 chars) and rejects free-form text — fix the message and retry, never bypass.
+3. Pushing to the remote repository is Manager-owned. The Manager runs `git push origin main` (or the active branch) manually after task closure.

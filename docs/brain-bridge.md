@@ -15,8 +15,11 @@ retired persona engine. The Hands calls it for every Brain turn
    to the LLM over the OpenAI Responses API via httpx.
 3. **Output comes back raw.** When it contains a structured block
    (`<hands_implementation_task>`, `<hands_discovery_task>`,
-   `<hands_combined_task>`, `<failure_report>`), the bridge returns
+   `<hands_combined_task>`, `<failure_report>`, `<hotfix>`), the bridge returns
    `XML_EXTRACTED` with the block; otherwise `REPORT` with the text.
+   Explicit ```xml fences count as real XML: when the unfenced scan finds
+   nothing, allowlist tags inside ```xml bodies still extract (other
+   fences stay documentation-only).
 4. **Questions relay to the Manager.** A `QUESTION` verdict pauses
    the Hands until the Manager answers (Autopilot mode answers
    from `manager_decision` rulings instead — see below).

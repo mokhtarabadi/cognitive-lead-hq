@@ -1271,3 +1271,110 @@ def test_paths_attach_absolute_escape_labelled(tmp_path, monkeypatch):
     _ws(tmp_path, monkeypatch)
     out = bridge.build_paths_attach(["/etc/hostname"])
     assert "outside workspace" in out
+
+
+# --- Task 215: reviewer hotfix XML must extract (bare + xml-fenced) ---
+
+def test_extract_hotfix_bare_block():
+    # Incident: Code Reviewer emitted a hotfix instruction block, but the
+    # allowlist had no hotfix tag, so brain_turn returned REPORT.
+    out = "[Code Reviewer] verdict below:\n<hotfix>fix F8 first</hotfix>\ntail"
+    blocks = bridge.extract_xml_blocks(out)
+    assert len(blocks) == 1
+    assert blocks[0].startswith("<hotfix>")
+
+
+def test_extract_known_tag_inside_xml_fence():
+    # Incident variant: operative XML wrapped in an explicit ```xml fence
+    # was stripped as documentation before scanning.
+    out = "notes\n```xml\n<failure_report>root cause</failure_report>\n```\ntail"
+    blocks = bridge.extract_xml_blocks(out)
+    assert len(blocks) == 1
+    assert blocks[0].startswith("<failure_report>")
+
+
+def test_extract_hotfix_inside_xml_fence():
+    out = "```xml\n<hotfix>apply A1-A8</hotfix>\n```"
+    blocks = bridge.extract_xml_blocks(out)
+    assert len(blocks) == 1
+    assert blocks[0].startswith("<hotfix>")
+
+
+def test_extract_unclosed_xml_fence_to_eof():
+    out = "notes\n```xml\n<hotfix>apply A1</hotfix>\n"
+    blocks = bridge.extract_xml_blocks(out)
+    assert len(blocks) == 1
+    assert blocks[0].startswith("<hotfix>")
+
+
+def test_extract_ignores_hotfix_in_non_xml_fences():
+    # No over-extraction: json/python/bare/tilde fences stay documentation.
+    for fenced in (
+        "```json\n<hotfix>x</hotfix>\n```",
+        "```python\n<hotfix>x</hotfix>\n```",
+        "````\n<hotfix>x</hotfix>\n````",
+        "~~~\n<hotfix>x</hotfix>\n~~~",
+    ):
+        assert bridge.extract_xml_blocks(fenced) == [], fenced
+
+
+def test_extract_unknown_tag_inside_xml_fence_stays_ignored():
+    # Allowlist discipline holds inside the fallback: reasoning prose is
+    # never instructions, fenced or not.
+    out = "```xml\n<reasoning_log>thinking</reasoning_log>\n```"
+    assert bridge.extract_xml_blocks(out) == []
+
+
+def test_extract_unfenced_wins_over_fenced_xml():
+    # Precedence lock: when unfenced blocks exist, current behavior is
+    # preserved and the fenced copy is not double-counted.
+    out = "<failure_report>live</failure_report>\n```xml\n<hotfix>doc</hotfix>\n```"
+    blocks = bridge.extract_xml_blocks(out)
+    assert len(blocks) == 1
+    assert blocks[0].startswith("<failure_report>")
+
+
+# --- Task 215 QA follow-ups (A1-A4 + attribute lock) ---
+
+def test_extract_multiple_xml_fences_in_order():
+    out = "```xml\n<hotfix>first</hotfix>\n```\ntext\n```xml\n<failure_report>second</failure_report>\n```"
+    blocks = bridge.extract_xml_blocks(out)
+    assert len(blocks) == 2
+    assert blocks[0].startswith("<hotfix>")
+    assert blocks[1].startswith("<failure_report>")
+
+
+def test_extract_uppercase_fence_lowercase_tag():
+    out = "```XML\n<hotfix>loud fence</hotfix>\n```"
+    blocks = bridge.extract_xml_blocks(out)
+    assert len(blocks) == 1
+    assert blocks[0].startswith("<hotfix>")
+
+
+def test_extract_uppercase_tag_stays_ignored():
+    # Locks current behavior: tag names are lowercase per protocol.
+    assert bridge.extract_xml_blocks("<HOTFIX>x</HOTFIX>") == []
+    assert bridge.extract_xml_blocks("```xml\n<HOTFIX>x</HOTFIX>\n```") == []
+
+
+def test_extract_fence_without_newline_ignored():
+    # Fail-closed: marker must be followed by newline; otherwise docs.
+    assert bridge.extract_xml_blocks("```xml<hotfix>x</hotfix>```") == []
+
+
+def test_extract_empty_hotfix_block():
+    blocks = bridge.extract_xml_blocks("<hotfix></hotfix>")
+    assert len(blocks) == 1
+
+
+def test_extract_tag_with_attributes_stays_ignored():
+    # Locks current behavior: bare tag names only; attribute-form tags
+    # are not operative instructions.
+    assert bridge.extract_xml_blocks('<hotfix id="1">x</hotfix>') == []
+
+
+def test_extract_quad_xml_fence_stays_ignored():
+    # Reviewer follow-up A1: without the (?<!`) guard the fence pattern
+    # matched at offset 1 inside ````xml. Quad fences stay documentation.
+    out = "````xml\n<hotfix>x</hotfix>\n````"
+    assert bridge.extract_xml_blocks(out) == []

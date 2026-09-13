@@ -2280,3 +2280,113 @@ def test_read_source_files_prepends_metrics():
         finally:
             os.chdir(old_cwd)
             shutil.rmtree(root / "context-reports", ignore_errors=True)
+
+
+def test_check_conventional_commit_accepts_all_types():
+    """Task 211: validator accepts every documented type with `type: subject`."""
+    mod = _load_context_server_hardening()
+    for msg in (
+        "feat: add seat check to planning gate",
+        "fix: repair bug",
+        "docs: finalize versioning skill template",
+        "refactor: split prompt builder",
+        "chore: close task 78 - fix bug",
+    ):
+        assert mod._check_conventional_commit(msg) is None, msg
+
+
+def test_check_conventional_commit_rejects_bad_type():
+    """Task 211: unknown type prefixes are rejected."""
+    mod = _load_context_server_hardening()
+    err = mod._check_conventional_commit("wip: something")
+    assert err is not None and "Conventional Commits" in err, err
+
+
+def test_check_conventional_commit_rejects_missing_colon():
+    """Task 211: free-form messages without `type: ` are rejected."""
+    mod = _load_context_server_hardening()
+    for msg in ("fix bug", "Fix: repair bug", "fix repair bug", "", "   "):
+        err = mod._check_conventional_commit(msg)
+        assert err is not None, repr(msg)
+
+
+def test_check_conventional_commit_rejects_long_subject():
+    """Task 211: first lines over 72 chars are rejected."""
+    mod = _load_context_server_hardening()
+    err = mod._check_conventional_commit("fix: " + "x" * 70)
+    assert err is not None and "72" in err, err
+    assert mod._check_conventional_commit("fix: " + "x" * 66) is None
+
+
+def test_check_conventional_commit_ignores_body():
+    """Task 211: only the first line is validated; body text is free."""
+    mod = _load_context_server_hardening()
+    assert mod._check_conventional_commit("fix: repair bug\n\nLong body " + "y" * 200) is None
+
+
+def test_commit_and_clean_task_rejects_nonconventional_message():
+    """Task 211: the commit gate refuses bad messages before touching git."""
+    import os
+    import subprocess
+    import tempfile
+    from pathlib import Path
+
+    mod = _load_context_server_hardening()
+    with tempfile.TemporaryDirectory() as repo_dir:
+        repo = Path(repo_dir)
+        subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
+        subprocess.run(["git", "config", "user.name", "Test"], cwd=repo, check=True)
+        subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=repo, check=True)
+        (repo / "feature.py").write_text("x = 1\n")
+        task_file = repo / "80-bad-msg.md"
+        task_file.write_text("# Task 80\n\n<!-- BEGIN_GIT_DIFF -->\n```diff\n+x\n```\n<!-- END_GIT_DIFF -->\n")
+        subprocess.run(["git", "add", "-A"], cwd=repo, check=True)
+        old_cwd = os.getcwd()
+        os.chdir(repo)
+        try:
+            result = mod.commit_and_clean_task(str(task_file), "some random message")
+        finally:
+            os.chdir(old_cwd)
+        assert "rejected" in result, result
+        log = subprocess.run(
+            ["git", "log", "--oneline"], cwd=repo, capture_output=True, text=True
+        ).stdout
+        assert "random message" not in log, "Rejected message must not be committed"
+
+
+def test_check_conventional_commit_rejects_whitespace_subject():
+    """Task 211 (QA follow-up): a subject of only spaces must not pass `.+`."""
+    mod = _load_context_server_hardening()
+    for msg in ("fix:    ", "docs:  \t ", "chore:  "):
+        err = mod._check_conventional_commit(msg)
+        assert err is not None, repr(msg)
+
+
+def _read_executor_gate():
+    """Helper: returns the Planning Gate section text of agents/cognitive-executor.md."""
+    from pathlib import Path
+
+    gate_path = Path(__file__).parent.parent / "agents" / "cognitive-executor.md"
+    return gate_path.read_text(encoding="utf-8")
+
+
+def test_planning_gate_designer_fallback_terms():
+    """Task 214 (QA hotfix F1/M1): trigger map covers neutral UX phrasing."""
+    gate = _read_executor_gate()
+    for term in ("screen", "navigation", "onboarding", "empty state", "avatar", "settings", "flow"):
+        assert term in gate, f"fallback term missing: {term}"
+
+
+def test_planning_gate_match_rules():
+    """Task 214 (QA hotfix F4/M2/M3): case-insensitive whole-word match on title+body defined."""
+    gate = _read_executor_gate()
+    assert "case-insensitive" in gate
+    assert "whole words" in gate
+    assert "TITLE+BODY" in gate
+
+
+def test_planning_gate_reject_bounded_and_lite_scoped():
+    """Task 214 (QA hotfix F2/F3/M4/M5): one reject then consult is final; Lite keeps a 2-line check."""
+    gate = _read_executor_gate()
+    assert "second reject" in gate
+    assert "2-line Seat Check" in gate

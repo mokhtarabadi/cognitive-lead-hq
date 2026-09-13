@@ -484,6 +484,31 @@ project's own `.env` only for keys the daemon env does NOT set.
 
 ---
 
+## 7.11. Personal Manager-Decisions Repo (Declare or Auto-Create)
+
+The manager's decisions live in ONE separate personal repo (Task 216) — the
+authoritative personality source across all projects. Declare it or let the
+tooling create it:
+
+```bash
+# 1. Declare (or create when gh is pre-configured):
+export DECISION_REPO_PATH="$HOME/manager-decisions"   # clone/checkout path
+# No repo yet? gh auth status && gh repo create <owner>/manager-decisions --public --clone
+# Visibility: public by default (cooler per manager order); --private stays optional.
+# 2. Verify the server sees it: record one decision, confirm the stderr line
+#    "decision-server: active store: personal repo (DECISION_REPO_PATH=<path>)"
+#    (not "project fallback (...)").
+```
+
+Without `DECISION_REPO_PATH` the server falls back to per-project
+`.opencode/decisions/` (write-through cache + offline fallback) and logs it —
+records still land, personality just stays local. Do NOT put
+`DECISION_REPO_PATH` in the shared `opencode.json` environment block: one
+global value would break per-user resolution; it belongs in the user's shell
+env (or the §7.10 unit file for daemon runs).
+
+---
+
 ## 8. Clean Up Temporary Clone
 
 Remove the cloned repository from `/tmp/`:
