@@ -77,3 +77,52 @@ def test_migration_skill_forbids_invented_paths_and_source_edits():
     text = _migration_skill_text()
     assert "Never invent, guess, or default the target path." in text
     assert "git status --porcelain" in text
+
+
+def _template_text(name: str) -> str:
+    return (ROOT / "skill-templates" / name / "SKILL.md").read_text(encoding="utf-8")
+
+
+def test_testing_strategy_skill_contract():
+    text = _template_text("testing-strategy")
+    for required in (
+        "RED",
+        "GREEN",
+        "REFACTOR",
+        "Diff coverage",
+        "Error paths",
+        "Test-Placement Map",
+        "Lite-Mode Exemption",
+    ):
+        assert required in text, f"contract term missing: {required}"
+
+
+def test_database_migration_skill_contract():
+    text = _template_text("database-migration")
+    for required in (
+        "No raw DDL",
+        "db push",
+        "Alembic",
+        "Prisma",
+        "Flyway",
+        "Drift Check",
+    ):
+        assert required in text, f"contract term missing: {required}"
+
+
+def test_hexagonal_expansion_contract():
+    py = _template_text("python-fastapi")
+    assert "Zero-Framework Core" in py
+    assert "Protocol" in py
+    node = _template_text("node-hexagonal-api")
+    for required in (
+        "Zero-Framework Core",
+        "strict",
+        "container.ts",
+        "vitest",
+    ):
+        assert required in node, f"contract term missing: {required}"
+    reg = REGISTRY.read_text(encoding="utf-8")
+    assert "node-hexagonal-api" in reg
+    stacks = (ROOT / "stacks" / "node-ts.yaml").read_text(encoding="utf-8")
+    assert "node-hexagonal-api" in stacks

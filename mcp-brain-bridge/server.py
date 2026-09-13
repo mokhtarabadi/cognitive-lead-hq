@@ -134,6 +134,31 @@ def _strip_fences(text: str) -> tuple[str, list[str]]:
 # (``..``, separators, empty) raises instead of being mangled.
 _TASK_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$")
 
+# Brain history ids are BARE task numbers (digits only, e.g. "215").
+# Suffixed variants ("215qa", "215rev", "215plan") would key separate
+# transcript directories and split one task's history — the tool entry
+# rejects them (see _require_task_number).
+_TASK_NUMBER_RE = re.compile(r"^\d+$")
+
+
+def _require_task_number(task_id: object) -> str:
+    """Fail-closed gate for the ``brain_turn`` task_id input.
+
+    Returns the stripped bare number. Raises ValueError for anything
+    else (slugs, suffixed variants, empty, non-strings) BEFORE any
+    history load, file attach, or model call — a wrong id must never
+    silently start a second, empty history next to the real one.
+    """
+    if isinstance(task_id, str) and _TASK_NUMBER_RE.fullmatch(task_id.strip()):
+        return task_id.strip()
+    raise ValueError(
+        f"bad task_id: {task_id!r} — must be the bare task number "
+        "(digits only, e.g. '215'). Pass the identical number on every "
+        "turn of one task (plan, implement, QA, review) so history "
+        "continues; suffixes like '215qa'/'215rev' split history into "
+        "separate transcripts and are rejected."
+    )
+
 # Small context files bundled into every brain_turn (unless opted out).
 # Task files can be huge — never stuffed whole; pulled via tools instead.
 _BUNDLE_FILES = (
@@ -1104,9 +1129,16 @@ def brain_turn(
     Args:
         user_prompt: Built by the Hands from its current machine state
             (instruction + task file content + prior answers).
-        task_id: When given, the task's transcript is loaded and sent
-            along (chat-style history), and this turn is appended to it.
-            Omit for one-off turns with no memory.
+        task_id: The BARE task number (digits only, e.g. "215") — never
+            a slug, never a suffixed variant like "215qa", "215rev",
+            or "215plan". When given, the task's transcript is loaded
+            and sent along (chat-style history), and this turn is
+            appended to it. History is keyed by this exact string, so
+            EVERY turn for one task (plan, implement, QA, review) MUST
+            pass the identical number: a different id starts a
+            separate, empty history and the Brain loses all prior
+            context. Non-numeric input is rejected before anything
+            runs. Omit for one-off turns with no memory.
         system_prompt_path: Optional override; default is the global
             install copy of system-prompt.md.
         include_bundle: When True (default), prepend the small-file
@@ -1137,6 +1169,13 @@ def brain_turn(
         the Manager and feed the answer back as the next ``user_prompt``
         (with the same ``task_id`` so history continues).
     """
+    # Task-number gate FIRST: a suffixed id ("215qa") would silently fork
+    # history into a second transcript dir. Reject before any load,
+    # attach, import, or model call. None means a one-off turn with
+    # no memory.
+    if task_id is not None:
+        task_id = _require_task_number(task_id)
+
     import httpx  # lazy: import/tests stay offline
 
     system_prompt = load_system_prompt(system_prompt_path)

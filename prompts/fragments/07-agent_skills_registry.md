@@ -20,6 +20,8 @@ The following Agent Skills are available. You MUST intelligently instruct the Ha
 - **project-memory**: Smart note-taking and persistent project memory. Automatically saves Manager constraints and proactively retrieves context to prevent hallucinations.
 - **manager-decision**: Capture per-session manager decisions into a learning repo. Extract rulings, redact secrets, consult past decisions, and evolve the manager-AI sample behind a human review gate.
 - **decision-migration**: Migrate a project's per-project manager decisions into the separate personal repo. Hands-invoked, dry-run-first, idempotent, append-only.
+- **testing-strategy**: Enforce Test-Driven Development order and coverage gates so OpenCode writes tests before or alongside implementation code.
+- **database-migration**: Forbid direct schema alterations and force standard migration tools (Alembic, Prisma, Flyway) for safe, repeatable deployments.
 - **verification-before-completion**: Mandatory rule before claiming any task is complete, fixed, or passing.
 - **github**: GitHub CLI (gh) workflow for pull request triage, issue management, CI/CD run analysis, and API queries.
 - **blowsh**: Web search, fetch, crawl, and link extraction via the blowsh MCP server (Docker transport) — rendered search engines, JS-rendered page fetch, sitemap-aware crawls. Use for all live-web research instead of raw curl.
@@ -33,6 +35,7 @@ The following Agent Skills are available. You MUST intelligently instruct the Ha
 - **ios-swiftui**: SwiftUI, MVVM, and modern iOS app architecture
 - **nestjs-prisma-vertical**: NestJS, Prisma ORM, Vertical Slice Architecture, and Strict TypeScript for zero-hallucination backend development.
 - **nextjs**: App Router, Server/Client Components, Server Actions, and Tailwind tokens for Next.js
+- **node-hexagonal-api**: Hexagonal Architecture (Ports and Adapters) for TypeScript Node.js backends — strict layer boundaries, interface ports, and swappable adapters.
 - **python-fastapi**: AI-Optimized FastAPI architecture with strict Pydantic V2 schemas and modular routing.
 - **react-native-expo**: Expo Managed Workflow, Expo Router, NativeWind, and Strict TypeScript for zero-hallucination cross-platform apps.
 - **react-vite**: React 18+ SPA architecture, hooks, and Vite configuration

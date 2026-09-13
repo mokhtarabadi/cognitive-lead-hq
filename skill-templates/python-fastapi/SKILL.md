@@ -39,6 +39,16 @@ app/
 **ORM to Schema Separation:** Never return SQLAlchemy models directly from endpoints. Always return Pydantic schemas to ensure data validation and hide sensitive fields.
 **Async First:** Use `async def` for endpoints and asynchronous database drivers (e.g., `asyncpg` for SQLAlchemy) to maximize throughput.
 
+## Hexagonal Architecture (Ports & Adapters)
+
+Ported from the Go blueprint (`go-hexagonal-grpc`). Same rules, Python idioms:
+
+**Zero-Framework Core:** `core/` (entities + ports + use cases) imports NOTHING from FastAPI, SQLAlchemy, or Pydantic. Domain entities are plain dataclasses. Violation fails review.
+**Ports as Protocols:** define inbound/outbound ports as `typing.Protocol` classes in `core/ports/` (`UserRepository`, `Clock`). Use cases implement inbound ports; adapters implement outbound ports.
+**Layout:** `core/{domain,ports/inbound,ports/outbound,use_cases}` + `adapters/{inbound/api,outbound/postgres}` + `container.py` composition root (`dependency-injector` package or explicit factory functions). FastAPI routers depend ONLY on inbound port Protocols, injected via `Depends()`.
+**Clock Abstraction:** reuse the `ClockProvider` above as the `Clock` outbound port. Banned: `datetime.now()` in core.
+**Testing:** use-case unit tests with faked Protocol implementations (pytest); adapter integration tests with testcontainers (real Postgres).
+
 ## Universal DateTime Governance
 
 - **Timezone-Aware Datetimes:** Use `datetime.now(timezone.utc)` exclusively. Banned: bare `datetime.now()` and `datetime.utcnow()` which produce naive datetimes.

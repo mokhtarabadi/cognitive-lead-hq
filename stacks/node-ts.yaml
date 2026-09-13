@@ -4,7 +4,7 @@ detection:
   marker_files: ["package.json", "tsconfig.json"]
   extensions: [".ts", ".tsx", ".js"]
   task_keywords: ["node", "typescript", "nextjs", "react"]
-skills: ["nextjs", "react-vite"]
+skills: ["nextjs", "react-vite", "node-hexagonal-api"]
 preflight:
   - "node --version"
   - "pnpm --version || npm --version"

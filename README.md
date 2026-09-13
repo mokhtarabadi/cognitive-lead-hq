@@ -522,6 +522,6 @@ See `.opencode/skills/sop-maintenance/SKILL.md` for the rules that AI agents mus
 
 1. **Automated Pull Request Integration:** Upgrade the final Code Reviewer step to automatically branch, commit, and open a PR via GitHub CLI (`gh pr create`) instead of committing locally to `main`.
 2. **Epic and Milestone Tracking:** Create an `epics/` directory and update the `task-generator` skill to link individual tasks to parent epics for better macro-level project tracking.
-3. **Dedicated `testing-strategy` Skill:** Create a template enforcing Test-Driven Development (TDD) or strict coverage thresholds, ensuring OpenCode writes tests before or alongside implementation code.
-4. **Database Migration Management:** Create a `database-migration` skill to strictly forbid direct schema alterations, forcing the use of standard migration tools (Prisma, Alembic, Flyway) for safe, repeatable deployments.
-5. **Hexagonal Architecture Expansion:** Port the strict Ports & Adapters blueprint from Go to our Python (FastAPI) and TypeScript (Node.js) templates to unify "Max Power" backend design patterns across all supported stacks.
+3. ~~Dedicated `testing-strategy` Skill~~ — DONE (Task 224 META): `skill-templates/testing-strategy/SKILL.md` enforces TDD order + diff-coverage + error-path gates.
+4. ~~Database Migration Management~~ — DONE (Task 224 META): `skill-templates/database-migration/SKILL.md` bans direct DDL, forces Alembic/Prisma/Flyway.
+5. ~~Hexagonal Architecture Expansion~~ — DONE (Task 224 META): Hexagonal section in `skill-templates/python-fastapi/SKILL.md` + new `skill-templates/node-hexagonal-api/SKILL.md`; `stacks/node-ts.yaml` updated.

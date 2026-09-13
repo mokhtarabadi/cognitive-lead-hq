@@ -283,7 +283,7 @@ def test_brain_turn_truncates_oldest_history(tmp_path, monkeypatch):
     monkeypatch.setenv("BRAIN_SYSTEM_PROMPT", str(prompt_file))
     monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
     for _ in range(10):
-        bridge.append_turn("bigtask", "user", "x" * 30000)
+        bridge.append_turn("215", "user", "x" * 30000)
     holder = {}
     script = [_FakeResp(200, "fine", _ok_payload())]
 
@@ -305,7 +305,7 @@ def test_brain_turn_truncates_oldest_history(tmp_path, monkeypatch):
     monkeypatch.setitem(sys.modules, "httpx", stub)
     call = bridge.brain_turn
     target = call.fn if hasattr(call, "fn") else call
-    result = target("q", task_id="bigtask")
+    result = target("q", task_id="215")
     assert result["status"] == "REPORT"
     assert result["output"] == "ok"
     big_turns = [t for t in holder["body"]["input"]
@@ -400,11 +400,11 @@ def test_brain_turn_budget_return_fields(tmp_path, monkeypatch):
     monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
     monkeypatch.delenv("BRAIN_TEMPERATURE", raising=False)
     for _ in range(10):
-        bridge.append_turn("fieldstask", "user", "x" * 30000)
+        bridge.append_turn("216", "user", "x" * 30000)
     _mk_bridge_client(monkeypatch, [_FakeResp(200, "fine", _ok_payload())])
     call = bridge.brain_turn
     target = call.fn if hasattr(call, "fn") else call
-    result = target("q", task_id="fieldstask")
+    result = target("q", task_id="216")
     assert set(("truncated_count", "budget_chars", "retry_count")) <= set(result)
 
 
@@ -454,11 +454,11 @@ def test_brain_turn_task_attach_in_body(tmp_path, monkeypatch):
     _mk_bridge_client(monkeypatch, [_FakeResp(200, "fine", _ok_payload("ok"))])
     call = bridge.brain_turn
     target = call.fn if hasattr(call, "fn") else call
-    result = target("q", task_id="200-foo")
+    result = target("q", task_id="200")
     assert result["status"] == "REPORT"
-    user_line = (tmp_path / "sessions" / "200-foo" / "transcript.jsonl").read_text(
+    user_line = (tmp_path / "sessions" / "200" / "transcript.jsonl").read_text(
         encoding="utf-8").splitlines()[0]
-    assert "[task-file:200-foo:" in user_line
+    assert "[task-file:200:" in user_line
     assert "Goal line." in user_line
     assert "DIFFSTUFF" not in user_line
 
@@ -473,11 +473,11 @@ def test_brain_turn_task_attach_no_duplicate(tmp_path, monkeypatch):
     _mk_bridge_client(monkeypatch, [_FakeResp(200, "fine", _ok_payload("ok"))])
     call = bridge.brain_turn
     target = call.fn if hasattr(call, "fn") else call
-    result = target("[task-file:200-foo: 200-foo.md]\nq", task_id="200-foo")
+    result = target("[task-file:200: 200-foo.md]\nq", task_id="200")
     assert result["status"] == "REPORT"
-    user_line = (tmp_path / "sessions" / "200-foo" / "transcript.jsonl").read_text(
+    user_line = (tmp_path / "sessions" / "200" / "transcript.jsonl").read_text(
         encoding="utf-8").splitlines()[0]
-    assert user_line.count("[task-file:200-foo:") == 1
+    assert user_line.count("[task-file:200:") == 1
 
 
 def test_brain_turn_unresolvable_task_id_succeeds(tmp_path, monkeypatch):
@@ -490,7 +490,7 @@ def test_brain_turn_unresolvable_task_id_succeeds(tmp_path, monkeypatch):
     _mk_bridge_client(monkeypatch, [_FakeResp(200, "fine", _ok_payload("ok"))])
     call = bridge.brain_turn
     target = call.fn if hasattr(call, "fn") else call
-    result = target("q", task_id="nope-no-file")
+    result = target("q", task_id="999")
     assert result["status"] == "REPORT"
     assert result["output"] == "ok"
 
@@ -719,12 +719,12 @@ def test_compact_skips_corrupt_lines(tmp_path, monkeypatch):
 def test_payload_contains_only_role_content(tmp_path, monkeypatch):
     monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
     monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
-    bridge.append_turn("pure", "user", "hi", model="m",
+    bridge.append_turn("217", "user", "hi", model="m",
                        prompt_hash="h", truncated=3)
     holder = {}
     _mk_bridge_client(monkeypatch, [_FakeResp(200, "fine", _ok_payload())], holder)
     target = _unwrap(bridge.brain_turn)
-    target("q", task_id="pure")
+    target("q", task_id="217")
     for item in holder["body"]["input"]:
         assert set(item.keys()) == {"role", "content"}
 
@@ -825,9 +825,9 @@ def test_brain_turn_writes_metadata(tmp_path, monkeypatch):
     monkeypatch.setitem(sys.modules, "httpx", stub)
     call = bridge.brain_turn
     target = call.fn if hasattr(call, "fn") else call
-    result = target("hello", task_id="meta")
+    result = target("hello", task_id="218")
     assert result["output"] == "ok"
-    turns = bridge.load_history("meta")
+    turns = bridge.load_history("218")
     assert len(turns) == 2
     assert turns[0]["model"] == "test-model-1"
     assert len(turns[0]["prompt_hash"]) == 64
@@ -1006,7 +1006,7 @@ def test_brain_turn_include_bundle_false_skips_attach(tmp_path, monkeypatch):
     _mk_bridge_client(monkeypatch, [_FakeResp(200, "fine", _ok_payload("ok"))], holder)
     call = bridge.brain_turn
     target = call.fn if hasattr(call, "fn") else call
-    result = target("q", task_id="200-foo", include_bundle=False)
+    result = target("q", task_id="200", include_bundle=False)
     assert result["status"] == "REPORT"
     user_contents = [t["content"] for t in holder["body"]["input"]]
     assert not any("[task-file:" in c for c in user_contents)
@@ -1378,3 +1378,34 @@ def test_extract_quad_xml_fence_stays_ignored():
     # matched at offset 1 inside ````xml. Quad fences stay documentation.
     out = "````xml\n<hotfix>x</hotfix>\n````"
     assert bridge.extract_xml_blocks(out) == []
+
+# --- Task-number gate: task_id is a bare number, never suffixed ---
+# (Session finding: "215qa"/"215rev"/"215plan" forked one task's history
+# into separate transcript dirs. The tool entry now rejects them.)
+
+def test_require_task_number_accepts_bare_digits():
+    assert bridge._require_task_number("215") == "215"
+    assert bridge._require_task_number("01") == "01"
+
+
+def test_require_task_number_rejects_session_suffixes():
+    import pytest as _pt
+    for bad in ("215qa", "215rev", "215plan", "224qa", "219rev"):
+        with _pt.raises(ValueError, match="bare task number"):
+            bridge._require_task_number(bad)
+
+
+def test_require_task_number_rejects_slugs_and_empty():
+    import pytest as _pt
+    for bad in ("200-foo", "nope-no-file", "", "   ", "21 5", None, 215):
+        with _pt.raises(ValueError, match="bare task number"):
+            bridge._require_task_number(bad)
+
+
+def test_brain_turn_rejects_suffixed_id_before_any_work(tmp_path, monkeypatch):
+    monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
+    import pytest as _pt
+    target = bridge.brain_turn.fn if hasattr(bridge.brain_turn, "fn") else bridge.brain_turn
+    with _pt.raises(ValueError, match="identical number on every"):
+        target("q", task_id="215qa")
+    assert not (tmp_path / "sessions").exists()
