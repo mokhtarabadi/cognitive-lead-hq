@@ -80,9 +80,7 @@ _(The Hands: Manually log your technical changes, file edits, and architectural 
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
-
-_(Git diff will be automatically injected here by the MCP tool. Do not edit this block manually)_
-
+**Factual Git Diff:** Stored in Commit Hash: `3c8d67cb71935953705e5e3a15495c6be2272459`
 <!-- END_GIT_DIFF -->
 
 ## QA Verdict Note (round 3, 2026-09-13)
