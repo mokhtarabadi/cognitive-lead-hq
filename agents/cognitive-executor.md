@@ -367,8 +367,10 @@ needs no extra machinery.
    Manager (same retry guard as the hotfix/postfix loops).
 5. **Empty output** — a `REPORT` with empty `output` is a transport flake,
    never a verdict. Do not act on it and do not count it as a rejection:
-   retry once, lean (`include_bundle=false`, same `task_id`, short prompt),
-   then escalate to the Manager if still empty.
+    retry once, lean (`include_bundle=false`, same `task_id`, short prompt),
+    then escalate to the Manager if still empty. The bridge itself returns the
+    `EMPTY_OUTPUT_RETRY` token in this case — treat that token exactly like an
+    empty output and follow the same retry shape.
 
 ### Autopilot mode (default OFF)
 

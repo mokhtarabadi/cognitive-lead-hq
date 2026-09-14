@@ -641,6 +641,19 @@ _FATAL_STATUS = {400, 401, 403, 404, 422}
 # of sleeping past it.
 _OVERALL_DEADLINE_S = 500.0
 
+# Empty-output contract (Task 232): a REPORT with blank output is a
+# transport/model flake, never a verdict. The bridge MUST NOT return it
+# silently — it substitutes the EMPTY_OUTPUT_RETRY hint so the caller
+# knows to retry lean once instead of acting on (or stalling on) nothing.
+#: Machine-readable token callers assert on. NEVER rename without a task:
+#: the Hands executor and regression tests match this exact string.
+EMPTY_OUTPUT_RETRY = "EMPTY_OUTPUT_RETRY"
+
+# Prompt-size advisory threshold (chars). Pure hint, never a cap: past
+# this size the model has been observed returning empty output, so the
+# bridge logs a lean-retry suggestion to stderr BEFORE the call.
+_PROMPT_WARN_CHARS = 60000
+
 
 def _retry_after_s(resp: Any) -> float:
     """Seconds from the Retry-After header (cap 120). 0 when missing/invalid."""
@@ -1266,6 +1279,14 @@ def brain_turn(
         history.pop(1)
         truncated_count += 1
     budget_chars = len(system_prompt) + len(effective_prompt) + _hist_chars()
+    if budget_chars > _PROMPT_WARN_CHARS:
+        print(
+            f"brain-bridge: prompt is large (budget_chars={budget_chars} "
+            f"est_tokens~{budget_chars // 4}); oversized prompts have returned "
+            "empty output before — if this turn comes back empty, retry lean "
+            "(include_bundle=false, same task_id, short prompt)",
+            file=sys.stderr,
+        )
     if truncated_count:
         print(
             f"brain-bridge: truncated {truncated_count} middle history turns "
@@ -1301,6 +1322,12 @@ def brain_turn(
         resp, attempts = _post_with_retry(client, _responses_url(), body)
         output = parse_responses_text(_resp_json(resp))
     xml_blocks = extract_xml_blocks(output)
+    if not xml_blocks and not output.strip():
+        # Empty-output guard (Task 232): never return a silent blank
+        # REPORT. Substitute the retry hint; status stays REPORT so old
+        # callers keep working. The transcript below records the hint,
+        # not a verdict.
+        output = _empty_output_hint(task_id)
     fence_drops = list(_last_fence_drops)
     if task_id:
         prompt_hash = hashlib.sha256(effective_prompt.encode("utf-8")).hexdigest()
@@ -1338,6 +1365,22 @@ def _get_reasoning_effort() -> str:
     if not re.fullmatch(r"[\w.-]{1,64}", val):
         raise ValueError(f"bad reasoning effort: {val!r}")
     return val
+
+
+def _empty_output_hint(task_id: Optional[str] = None) -> str:
+    """Retry instruction substituted for a blank model output.
+
+    Pure function (no I/O) so tests can assert the contract directly.
+    The bridge MUST NOT invent verdict content here — hint only.
+    """
+    where = f" for task {task_id}" if task_id else ""
+    return (
+        f"{EMPTY_OUTPUT_RETRY}: the model returned no text{where} "
+        "(transport/model flake, never a verdict). "
+        "Do NOT act on this result and do NOT count it as a rejection. "
+        "Retry ONCE, lean: same task_id, include_bundle=false, short prompt. "
+        "If the retry is still empty, escalate to the Manager."
+    )
 
 
 def parse_responses_text(data: dict) -> str:

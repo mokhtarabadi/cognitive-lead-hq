@@ -1409,3 +1409,62 @@ def test_brain_turn_rejects_suffixed_id_before_any_work(tmp_path, monkeypatch):
     with _pt.raises(ValueError, match="identical number on every"):
         target("q", task_id="215qa")
     assert not (tmp_path / "sessions").exists()
+
+
+# --- Task 232: empty-output retry hint (mocked httpx only) ---
+
+
+def test_empty_output_hint_contract():
+    hint = bridge._empty_output_hint("232")
+    assert bridge.EMPTY_OUTPUT_RETRY in hint
+    assert "232" in hint
+    assert "include_bundle=false" in hint
+    assert "same task_id" in hint
+    bare = bridge._empty_output_hint(None)
+    assert bridge.EMPTY_OUTPUT_RETRY in bare
+    assert "escalate" in bare
+
+
+def _run_turn(monkeypatch, tmp_path, payload, prompt="q", task_id="232"):
+    monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
+    _mk_sys_prompt(tmp_path, monkeypatch)
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    _mk_bridge_client(monkeypatch, [_FakeResp(200, "fine", payload)])
+    target = bridge.brain_turn.fn if hasattr(bridge.brain_turn, "fn") else bridge.brain_turn
+    return target(prompt, task_id=task_id)
+
+
+def test_brain_turn_missing_output_returns_retry_hint(tmp_path, monkeypatch):
+    result = _run_turn(monkeypatch, tmp_path, {})
+    assert result["status"] == "REPORT"
+    assert result["xml_blocks"] == []
+    assert bridge.EMPTY_OUTPUT_RETRY in result["output"]
+    assert "232" in result["output"]
+
+
+def test_brain_turn_none_output_returns_retry_hint(tmp_path, monkeypatch):
+    result = _run_turn(monkeypatch, tmp_path, {"output": None})
+    assert result["status"] == "REPORT"
+    assert bridge.EMPTY_OUTPUT_RETRY in result["output"]
+
+
+def test_brain_turn_whitespace_output_returns_retry_hint(tmp_path, monkeypatch):
+    result = _run_turn(monkeypatch, tmp_path, _ok_payload("  \n  "))
+    assert result["status"] == "REPORT"
+    assert bridge.EMPTY_OUTPUT_RETRY in result["output"]
+
+
+def test_brain_turn_normal_output_has_no_retry_hint(tmp_path, monkeypatch):
+    result = _run_turn(monkeypatch, tmp_path, _ok_payload("a real verdict"))
+    assert result["status"] == "REPORT"
+    assert result["output"] == "a real verdict"
+    assert bridge.EMPTY_OUTPUT_RETRY not in result["output"]
+
+
+def test_brain_turn_large_prompt_warns_on_stderr(tmp_path, monkeypatch, capsys):
+    big = "x" * (bridge._PROMPT_WARN_CHARS + 1)
+    result = _run_turn(monkeypatch, tmp_path, _ok_payload("ok"), prompt=big)
+    assert result["output"] == "ok"
+    err = capsys.readouterr().err
+    assert "prompt is large" in err
+    assert "include_bundle=false" in err
