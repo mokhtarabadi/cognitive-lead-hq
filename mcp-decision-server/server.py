@@ -77,6 +77,11 @@ INSTALL_ROOT = Path(__file__).resolve().parent.parent
 def _repo_root() -> Path:
     """Resolve (creating) the decision store — project-aware.
 
+    Install-once configuration (B1): set ``DECISION_REPO_PATH`` ONCE in the
+    shell environment or server ``.env`` file (see ``.env.example``). It is
+    NEVER asked per call — every tool resolves the same path silently, and
+    every record logs which store it landed in via ``_active_root_info``.
+
     Order: explicit ``DECISION_REPO_PATH`` env, then
     ``<cwd>/.opencode/decisions`` (each project keeps its OWN manager
     notes — opencode launches servers with the project as cwd), then
@@ -390,6 +395,38 @@ def _next_decision_id(repo: Path) -> str:
     return f"{prefix}{seq + 1:03d}"
 
 
+def _decision_fingerprint(decision: dict[str, Any]) -> str:
+    """Content hash for duplicate detection (F4): sha256 over the normalized
+    summary + verbatim original + English translation. Case/whitespace
+    folded so trivial re-saves match; non-blocking — callers warn, never
+    reject, on a hit."""
+    quote = decision.get("verbatim_quote", {}) if isinstance(decision, dict) else {}
+    extracted = decision.get("extracted_decision", {}) if isinstance(decision, dict) else {}
+    parts = [
+        str(extracted.get("summary", "")),
+        str(quote.get("original", "")),
+        str(quote.get("english_translation", "")),
+    ]
+    normalized = "\0".join(" ".join(p.split()).casefold() for p in parts)
+    return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+
+
+def _find_fingerprint_hit(repo: Path, fingerprint: str) -> Optional[str]:
+    """Return the decision_id of an existing record with the same fingerprint,
+    or None. Scans stored JSON files; skips unreadable ones."""
+    decisions_dir = repo / "decisions"
+    if not decisions_dir.exists():
+        return None
+    for path in sorted(decisions_dir.rglob("DEC-*.json")):
+        try:
+            record = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        if record.get("fingerprint") == fingerprint:
+            return str(record.get("decision_id", path.stem))
+    return None
+
+
 def _scrub_free_text(decision: dict[str, Any]) -> dict[str, Any]:
     """Return a copy with every free-text field sanitized + verified.
 
@@ -446,9 +483,23 @@ def _validate_against_schema(decision: dict[str, Any]) -> list[str]:
         issues.append("verbatim_quote.original/english_translation must be non-empty strings")
     extracted = decision["extracted_decision"]
     valid_categories = {"architecture", "process", "scope", "quality-gate",
-                        "tooling", "release", "other"}
+                        "tooling", "release", "other", "autopilot-cycle"}
     if not isinstance(extracted, dict) or extracted.get("category") not in valid_categories:
         issues.append(f"bad category: {extracted.get('category') if isinstance(extracted, dict) else extracted!r}")
+    for field_name, valid_values in (
+        ("fidelity", {"verbatim", "reconstructed"}),
+        ("mode", {"manual", "autopilot"}),
+        ("scope", {"standing", "episode"}),
+    ):
+        value = decision.get(field_name)
+        if value is not None and value not in valid_values:
+            issues.append(f"bad {field_name}: {value!r}")
+    fingerprint = decision.get("fingerprint")
+    if fingerprint is not None and not re.fullmatch(r"[0-9a-f]{64}", str(fingerprint)):
+        issues.append(f"bad fingerprint: {fingerprint!r}")
+    goal_ref = decision.get("goal_ref")
+    if goal_ref is not None and not isinstance(goal_ref, str):
+        issues.append(f"bad goal_ref: {goal_ref!r}")
     if decision["redaction_verified"] is not True:
         issues.append("redaction_verified must be true")
     return issues
@@ -496,7 +547,7 @@ _REPAIR_COUNT = 0
 
 _VALID_CATEGORIES = {
     "architecture", "process", "scope", "quality-gate",
-    "tooling", "release", "other",
+    "tooling", "release", "other", "autopilot-cycle",
 }
 _REQUIRED_DECISION_FIELDS = (
     "summary", "category", "rationale", "alternatives", "tradeoffs",
@@ -1028,6 +1079,13 @@ def record_manager_decision(decision: dict[str, Any]) -> str:
     scrubbed = _scrub_free_text(decision)
     scrubbed.setdefault("decision_id", _next_decision_id(repo))
     scrubbed.setdefault("timestamp", datetime.now(timezone.utc).isoformat())
+    # Optional hardening fields (F1/F2/F3/F5): defaults keep old callers valid.
+    scrubbed.setdefault("fidelity", "verbatim")
+    scrubbed.setdefault("mode", "manual")
+    scrubbed.setdefault("scope", "episode")
+    scrubbed.setdefault("goal_ref", "")
+    scrubbed.setdefault("fingerprint", _decision_fingerprint(scrubbed))
+    dup_of = _find_fingerprint_hit(repo, scrubbed["fingerprint"])
     scrubbed["active_root"] = repo.name
     scrubbed["store_mode"] = ("personal"
                                if os.environ.get("DECISION_REPO_PATH", "").strip()
@@ -1048,6 +1106,10 @@ def record_manager_decision(decision: dict[str, Any]) -> str:
         f"# {scrubbed['decision_id']} — {extracted.get('summary', '')}\n\n"
         f"- Category: {extracted.get('category')}\n"
         f"- Session: {scrubbed.get('session_id', '?')}\n"
+        f"- Goal: {scrubbed.get('goal_ref', '') or '-'}\n"
+        f"- Mode: {scrubbed.get('mode', 'manual')} | "
+        f"Fidelity: {scrubbed.get('fidelity', 'verbatim')} | "
+        f"Scope: {scrubbed.get('scope', 'episode')}\n"
         f"- Project: {scrubbed.get('project_name', '?')}\n\n"
         f"## Verbatim (original)\n\n> {quote.get('original', '')}\n\n"
         f"## Verbatim (English)\n\n> {quote.get('english_translation', '')}\n\n"
@@ -1055,8 +1117,10 @@ def record_manager_decision(decision: dict[str, Any]) -> str:
         encoding="utf-8",
     )
     count = _rewrite_index(repo)
+    dup_note = (f" Possible duplicate of {dup_of} (same fingerprint) — "
+                "kept as a separate record; confirm intent." if dup_of else "")
     return (f"Recorded {scrubbed['decision_id']} "
-            f"(`{json_path.relative_to(repo)}` + `.md`; index now holds {count}). "
+            f"(`{json_path.relative_to(repo)}` + `.md`; index now holds {count}).{dup_note} "
             f"{_unpushed_report(repo)}")
 
 
@@ -1069,10 +1133,12 @@ def query_manager_decisions(query: str, category: Optional[str] = None) -> str:
     Also call it during discovery when the task touches architecture,
     process, scope, or quality gates.
 
-    Case-insensitive substring match over summaries, rationales, trade-offs,
-    alternatives, and both verbatim-quote languages. Returns formatted
-    summaries with verbatim quotes, or a no-match message (never an error)
-    when empty.
+    Case-insensitive ranked match over summaries, rationales, trade-offs,
+    alternatives, and both verbatim-quote languages. Terms score with
+    field weights (summary 3, verbatim quotes 2, rationale 2, trade-offs
+    and alternatives 1); results return ranked, best first. Returns
+    formatted summaries with verbatim quotes, or a no-match message
+    (never an error) when empty.
 
     Args:
         query: Keyword(s); blank returns everything in the category.
@@ -1087,7 +1153,8 @@ def query_manager_decisions(query: str, category: Optional[str] = None) -> str:
         print(f"decision-server: pull failed ({exc}); reading local state",
               file=sys.stderr)
     needle = (query or "").strip().lower()
-    hits: list[str] = []
+    terms = [t for t in needle.split() if t]
+    scored: list[tuple[int, str]] = []
     for path in sorted((repo / "decisions").rglob("DEC-*.json")):
         try:
             record = json.loads(path.read_text(encoding="utf-8"))
@@ -1098,23 +1165,50 @@ def query_manager_decisions(query: str, category: Optional[str] = None) -> str:
             continue
         quote = record.get("verbatim_quote", {})
         alternatives = extracted.get("alternatives", []) or []
-        haystack = " ".join([
-            str(extracted.get("summary", "")), str(extracted.get("rationale", "")),
-            str(extracted.get("tradeoffs", "")), " ".join(str(a) for a in alternatives),
-            str(quote.get("original", "")),
-            str(quote.get("english_translation", "")),
-        ]).lower()
-        if needle and needle not in haystack:
-            continue
-        hits.append(
+        fields = [
+            (str(extracted.get("summary", "")).lower(), 3),
+            (str(quote.get("original", "")).lower(), 2),
+            (str(quote.get("english_translation", "")).lower(), 2),
+            (str(extracted.get("rationale", "")).lower(), 2),
+            (str(extracted.get("tradeoffs", "")).lower(), 1),
+            (" ".join(str(a) for a in alternatives).lower(), 1),
+        ]
+        if not terms:
+            score = 1
+        else:
+            score = 0
+            for term in terms:
+                for text, weight in fields:
+                    if term and term in text:
+                        score += weight
+            if score == 0:
+                continue
+        scored.append((
+            score,
             f"### {record.get('decision_id')} [{extracted.get('category')}] "
             f"{extracted.get('summary', '')}\n"
             f"> {quote.get('english_translation', '')}\n"
-            f"Rationale: {extracted.get('rationale', '')}"
-        )
-    if not hits:
+            f"Rationale: {extracted.get('rationale', '')}",
+        ))
+    if not scored:
         return f"No manager decisions match query={query!r} category={category!r}."
+    scored.sort(key=lambda item: item[0], reverse=True)
+    hits = [text for _, text in scored]
     return f"{len(hits)} decision(s) match:\n\n" + "\n\n".join(hits)
+
+
+@mcp.tool()
+def get_sync_status() -> str:
+    """Report pending push debt at session start (M3): uncommitted files and
+    unpushed commits in the decision store, plus which store is active.
+    Read-only; never pushes or commits (ZAC). Call it when a session opens
+    so silent sync debt is visible before new records land."""
+    repo = _repo_root()
+    try:
+        fresh = _ensure_fresh(repo)
+    except RuntimeError as exc:
+        fresh = f"pull failed ({exc}); reading local state"
+    return f"{_active_root_info(repo)}; {fresh}; {_unpushed_report(repo)}"
 
 
 @mcp.tool()

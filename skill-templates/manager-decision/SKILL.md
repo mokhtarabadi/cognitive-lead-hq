@@ -18,7 +18,16 @@ Turns each session's manager judgment into training data. Whenever the manager m
 - An agent faces an architectural ambiguity the manager has ruled on before (consult first via `query_manager_decisions`).
 - The sample looks stale: new decisions exist that the profile does not reflect (propose evolution).
 
-Primary interface: the `manager_decisions` MCP server (5 tools). This skill is the universal wrapper so agents in ANY project invoke decision capture the same way.
+## Install-Once Path Config (B1)
+
+`DECISION_REPO_PATH` is set ONCE at install (shell export or server
+`.env` file — see `.env.example`), never asked per call. When set, every
+tool resolves the personal repo silently. When unset, the server falls
+back to the per-project store and logs which store each record landed in
+(`active_root` + `store_mode` on every record). Agents MUST NOT prompt
+for a save path per call; if the path is missing, proceed on the
+fallback and surface the one-line store note. Primary interface: the
+`manager_decisions` MCP server (6 tools). This skill is the universal wrapper so agents in ANY project invoke decision capture the same way.
 
 ## Extraction Workflow
 
@@ -29,7 +38,13 @@ Primary interface: the `manager_decisions` MCP server (5 tools). This skill is t
 
 ## Consultation Workflow
 
-- Before re-asking the manager, call `query_manager_decisions(query, category?)`. A hit (summary + verbatim quote + rationale) resolves the ambiguity without bothering the human.
+- Call `get_sync_status()` at session start so pending push debt is
+  visible before new records land (M3 — reads stay stale-available,
+  writes fail closed on divergence).
+- Before re-asking the manager, call `query_manager_decisions(query, category?)`.
+  Consult-first: log the top-3 hits (ranked, best first) before paging
+  the human. A hit (summary + verbatim quote + rationale) resolves the
+  ambiguity without bothering the human. A hit (summary + verbatim quote + rationale) resolves the ambiguity without bothering the human.
 - Inject `get_manager_profile()` output into agent reasoning when resolving architectural ambiguities (see cognitive-executor Context Bootstrapping).
 
 ## Sample-Evolution Loop (Review Gate Mandatory)
@@ -75,10 +90,31 @@ Extraction was callable but never called automatically. Two layers now feed it:
 3. **Mandatory confirm gate**: NOTHING persists without the Manager approving
    the scrubbed quote + source session + `verify_clean` result. Rejections drop
    silently (no write, no retry). Auto-record is forbidden — confirm is slower
-   but preserves verbatim trust. The gate is enforced in the call path, not
-   just prose: `detector.py` has no code path to the store, and agents MUST
-   NOT call `record_manager_decision` on detector output without pasting the
-   scrubbed quote back to the Manager and receiving explicit approval first.
+   but preserves verbatim trust.
+
+## Auto-Capture on Task Close (B2 — extract automatically, record gated)
+
+On every successful task/sprint close the cognitive executor runs
+`extract_session_decisions(task_id)` automatically (close rule in
+`agents/cognitive-executor.md`). Extraction is automatic; PERSISTENCE
+stays gated: every candidate is queued for Manager confirm (scrubbed
+quote + source session + `verify_clean` result) and only recorded via
+`record_manager_decision` after explicit approval. The Task 213
+confirm gate is preserved — B2 automates the extraction trigger, never
+the write.
+
+## Record Fields (hardened)
+
+Optional fields with safe defaults (old callers stay valid):
+`fidelity` (`verbatim` default — only verbatim records promote to the
+profile; `reconstructed` stays training data), `mode` (`manual` /
+`autopilot`), `goal_ref` (goal/session id for lineage), `scope`
+(`episode` default / `standing` for standing orders with owner + expiry),
+`fingerprint` (auto sha256; near-duplicates warn, never block).
+Category `autopilot-cycle` covers autopilot-loop rulings.
+Maturity L0-L3 counts, coverage, and override rate are computed at
+promotion time from these fields; the doppelganger runtime stays
+deferred until the first reviewed promotion lands.
 
 ## Personal Repo — Separate, Authoritative (Task 216 — SUPERSEDES Task 213 mirror rule)
 

@@ -17,6 +17,7 @@ Run: `pytest tests/test_decision_server.py -v` (repo root).
 import importlib
 import json
 import os
+import re
 import shutil
 import sys
 import types
@@ -230,6 +231,70 @@ def test_propose_profile_empty_then_draft(srv, repo):
     ready = target()
     assert ready["status"] == "DRAFT_READY"
     assert "Category distribution" in ready["draft"]
+
+
+# --- hardening (fidelity/mode/scope/fingerprint/ranked/sync) ---------------------
+
+def test_record_sets_hardening_defaults(srv, repo):
+    _record(srv.record_manager_decision, _candidate())
+    record = json.loads(next((repo / "decisions").rglob("DEC-*.json")).read_text(encoding="utf-8"))
+    assert record["fidelity"] == "verbatim"
+    assert record["mode"] == "manual"
+    assert record["scope"] == "episode"
+    assert record["goal_ref"] == ""
+    assert re.fullmatch(r"[0-9a-f]{64}", record["fingerprint"])
+
+
+def test_record_rejects_bad_optionals(srv, repo):
+    call = srv.record_manager_decision
+    target = call.fn if hasattr(call, "fn") else call
+    bad = _candidate()
+    bad["fidelity"] = "telepathic"
+    with pytest.raises(ValueError, match="schema violations"):
+        target(bad)
+    assert list((repo / "decisions").rglob("DEC-*.json")) == []
+
+
+def test_record_duplicate_warns_not_blocks(srv, repo):
+    call = srv.record_manager_decision
+    target = call.fn if hasattr(call, "fn") else call
+    first = target(_candidate())
+    second = target(_candidate())
+    assert "Recorded DEC-" in first and "Recorded DEC-" in second
+    assert "Possible duplicate" in second
+
+
+def test_query_ranked_summary_first(srv, repo):
+    first = _candidate()
+    first["extracted_decision"] = {
+        "summary": "Adopt the zebracorn runner",
+        "category": "tooling",
+        "rationale": "Unrelated reason",
+        "alternatives": [],
+        "tradeoffs": "Unrelated cost",
+    }
+    second = _candidate()
+    second["extracted_decision"] = {
+        "summary": "Unrelated change",
+        "category": "tooling",
+        "rationale": "Unrelated reason",
+        "alternatives": [],
+        "tradeoffs": "Mentions zebracorn once",
+    }
+    _record(srv.record_manager_decision, first)
+    _record(srv.record_manager_decision, second)
+    call = srv.query_manager_decisions
+    target = call.fn if hasattr(call, "fn") else call
+    found = target("zebracorn")
+    assert found.index("Adopt the zebracorn runner") < found.index("Unrelated change")
+
+
+def test_sync_status_reports_debt(srv, repo):
+    call = srv.get_sync_status
+    target = call.fn if hasattr(call, "fn") else call
+    status = target()
+    assert "personal repo" in status
+    assert "sync debt" in status or "not a git checkout" in status
 
 
 # --- extract (stubbed LLM) ---------------------------------------------------------
