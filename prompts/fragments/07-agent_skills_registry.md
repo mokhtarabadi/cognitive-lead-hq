@@ -25,6 +25,7 @@ The following Agent Skills are available. You MUST intelligently instruct the Ha
 - **verification-before-completion**: Mandatory rule before claiming any task is complete, fixed, or passing.
 - **github**: GitHub CLI (gh) workflow for pull request triage, issue management, CI/CD run analysis, and API queries.
 - **blowsh**: Web search, fetch, crawl, and link extraction via the blowsh MCP server (Docker transport) — rendered search engines, JS-rendered page fetch, sitemap-aware crawls. Use for all live-web research instead of raw curl.
+- **opencode-init**: Analyze a project (or ask the user) and generate a comprehensive, correct V1 opencode.json for it. Validates with scripts/validate-opencode.py before writing; never touches global config.
 
 **Stack-Specific Blueprints (Load if matching the project):**
 

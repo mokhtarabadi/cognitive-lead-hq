@@ -318,13 +318,20 @@ goal entirely — goal overhead must never exceed the task itself.
 2. **Work under the goal.** Every implementation step serves the goal
    objective. If new instructions arrive mid-task, capture them against
    the goal before acting.
-3. **Pause on allowed questions only.** If the task truly cannot proceed
-   without the Manager, pause the goal, ask exactly one precise question,
-   and stop. Pausing is permitted ONLY for the narrow cases where asking
-   is allowed — never as a substitute for permitted autonomous action.
-   No orphaned pauses: every pause names the blocker.
-4. **Resume on answer.** When the Manager answers, resume the goal and
-   continue from the recorded state. Do not restart completed steps.
+3. **Pause BEFORE asking — never ask with the goal active.** If the task
+   truly cannot proceed without the Manager, call
+   `update_goal_status(paused)` FIRST, then ask exactly one precise
+   question, then stop. Reason: while the goal stays active the goal
+   plugin auto-resends the continuation prompt on your next turn, which
+   re-issues the objective instead of waiting for the answer — the
+   Manager ends up answering the same objective twice. Pausing is
+   permitted ONLY for the narrow cases where asking is allowed — never
+   as a substitute for permitted autonomous action. No orphaned pauses:
+   every pause names the blocker.
+4. **Resume WITH the answer.** When the Manager answers, call
+   `update_goal_status(active)` and continue from the recorded state,
+   carrying the Manager's answer forward as the deciding input. Never
+   resume without the answer in hand. Do not restart completed steps.
 5. **Close with evidence.** Close the goal only when the task's
    Acceptance Criteria are verified against real artifacts (tests,
    diffs, command output). The closure evidence mirrors the task's
