@@ -1,0 +1,26 @@
+{
+  "project_name": "cognitive-lead-hq",
+  "fidelity": "verbatim",
+  "mode": "autopilot",
+  "scope": "standing",
+  "verbatim_quote": {
+    "original": "تسک‌ها رو یکی‌به‌یکی طبق پروتکلی که برات تعریف شده ببند. بعد که بستی، گلوبال رو سینک کن توی مموری، همه‌چی هست. بعد که سینک کردی به من خبر بده.",
+    "english_translation": "Close the tasks one by one per the protocol defined for you. After you close them, sync the global into memory, everything is there. After you sync, inform me."
+  },
+  "extracted_decision": {
+    "summary": "Task closure runs one by one per the Kanban protocol (verify, git mv to completed, commit_and_clean_task), then decisions are synced into memory and the Manager is notified.",
+    "category": "process",
+    "rationale": "Ordered closure sequence with memory sync and notification as the final step.",
+    "alternatives": [
+      "Close all tasks in one batch commit"
+    ],
+    "tradeoffs": "One-by-one is slower but keeps per-task hashes and traceability."
+  },
+  "redaction_verified": true,
+  "decision_id": "DEC-20260914-003",
+  "timestamp": "2026-09-14T18:56:45.088420+00:00",
+  "goal_ref": "",
+  "fingerprint": "856715ea4483f8d025843f6edad4d3d42bdf9427d08844545376d93f3ba74954",
+  "active_root": "decisions",
+  "store_mode": "project-fallback"
+}

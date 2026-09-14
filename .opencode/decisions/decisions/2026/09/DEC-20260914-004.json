@@ -1,0 +1,26 @@
+{
+  "project_name": "cognitive-lead-hq",
+  "fidelity": "verbatim",
+  "mode": "autopilot",
+  "scope": "episode",
+  "verbatim_quote": {
+    "original": "ایشوی گیت‌هابشون هم با کامنت ببندی.",
+    "english_translation": "Close their GitHub issues with a comment too."
+  },
+  "extracted_decision": {
+    "summary": "GitHub issues linked to closed tasks are closed with a closing comment carrying the feature commit hashes.",
+    "category": "process",
+    "rationale": "Keeps issue state in sync with the local Kanban both ways.",
+    "alternatives": [
+      "Leave the issue open after task closure"
+    ],
+    "tradeoffs": "None; comment preserves the full trace."
+  },
+  "redaction_verified": true,
+  "decision_id": "DEC-20260914-004",
+  "timestamp": "2026-09-14T18:56:45.108534+00:00",
+  "goal_ref": "",
+  "fingerprint": "5753c5b39254aa3996ae8354735faa08c15773750fcb3a30508704b5c45cf2ba",
+  "active_root": "decisions",
+  "store_mode": "project-fallback"
+}

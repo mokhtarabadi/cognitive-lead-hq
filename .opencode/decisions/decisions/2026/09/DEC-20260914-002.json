@@ -1,0 +1,26 @@
+{
+  "project_name": "cognitive-lead-hq",
+  "fidelity": "verbatim",
+  "mode": "manual",
+  "scope": "episode",
+  "verbatim_quote": {
+    "original": "Approve merge clean migrate",
+    "english_translation": "Approve merge clean migrate"
+  },
+  "extracted_decision": {
+    "summary": "Manager approved merging the first reviewed profile promotion into the personal repo (clean migrate).",
+    "category": "process",
+    "rationale": "The DRAFT_READY draft from 43 live records passed fidelity review (all quotes full dicts, zero empty).",
+    "alternatives": [
+      "Leave the profile aggregate on baseline"
+    ],
+    "tradeoffs": "Promotion file is written but unpushed; publishing stays Manager-owned per ZAC."
+  },
+  "redaction_verified": true,
+  "decision_id": "DEC-20260914-002",
+  "timestamp": "2026-09-14T18:56:45.065297+00:00",
+  "goal_ref": "",
+  "fingerprint": "77012e325107f553731fa749aa116ef7fcf0f2820021045e87394fb5e70ab564",
+  "active_root": "decisions",
+  "store_mode": "project-fallback"
+}
