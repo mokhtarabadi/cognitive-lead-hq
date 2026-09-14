@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [9.35.0] - 2026-09-14
+
 ### Added
 
 - **Goal pause-before-ask rule (cognitive-executor):** Goal Lifecycle steps 3-4 now order pause-then-ask: the Hands MUST call `update_goal_status(paused)` BEFORE asking the Manager anything, because an active goal makes the goal plugin auto-resend the continuation prompt instead of waiting for the answer; resume via `update_goal_status(active)` carrying the answer forward. Fixes the double-prompt loop reported by the Manager.
