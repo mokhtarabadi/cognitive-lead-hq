@@ -1,9 +1,9 @@
 # Task 231: Manager-decision follow-up — B2 live proof plus fingerprint hardening
 
-**File:** `tasks/qa/231-manager-decision-followup-b2-proof-fingerprint-hardening.md`
+**File:** `tasks/completed/231-manager-decision-followup-b2-proof-fingerprint-hardening.md`
 **Source:** manager
 **Type:** improvement
-**Status:** open
+**Status:** closed
 
 ## Goal
 
@@ -66,7 +66,5 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
-
-_(Git diff will be automatically injected here by the MCP tool. Do not edit this block manually)_
-
+**Factual Git Diff:** Stored in Commit Hash: `a80975ddcc5cf2e9e1506b8868c918c4d553815b`
 <!-- END_GIT_DIFF -->
