@@ -73,9 +73,11 @@ def test_migration_skill_has_dedup_precheck_and_provenance():
 
 
 def test_migration_skill_forbids_invented_paths_and_source_edits():
-    """Target path is never invented; source immutability must be proven."""
+    """Target path resolves from ordered known sources only; source immutability must be proven."""
     text = _migration_skill_text()
-    assert "Never invent, guess, or default the target path." in text
+    assert "lookup, never invent" in text
+    assert "ONLY if that directory already exists" in text
+    assert "HALT and ask the Manager for the target path" in text
     assert "git status --porcelain" in text
 
 

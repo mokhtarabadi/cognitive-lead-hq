@@ -445,3 +445,25 @@ table in the same commit.
 Programmer, Designer). Layer 2 — exactly one trigger/duty match means
 high confidence: load it and declare it; two or more matches, or none,
 means low confidence: STOP and ask the Manager which seat. Never guess.
+
+### Seat→Spec Map (strict project files, always bound)
+
+Every seat works ONLY from its spec files below — never from memory of
+them. Re-read the mapped files at each task start (they change); cite
+file + line for any constraint you enforce. Absent files are skipped
+gracefully per the Absent-File Policy (`AGENTS.md`) — never halt, never
+hallucinate their contents.
+
+| Seat | Bound spec files |
+| ---- | ---------------- |
+| Software Architect | `AGENTS.md`, `docs/architecture.md`, `docs/data_model.md`, `docs/conventions.md` |
+| UI/UX Designer | `DESIGN.md`, `docs/conventions.md`, `AGENTS.md` |
+| Senior Programmer | `AGENTS.md`, `docs/conventions.md`, plus `docs/architecture.md` / `docs/data_model.md` when touching layer boundaries or data shapes |
+| Project Planner | `AGENTS.md` (Kanban lifecycle), task files as state truth |
+| Sprint Strategist | `AGENTS.md` (WIP ≤ 3, MoSCoW), task files as capacity truth |
+| QA Engineer | `docs/conventions.md` (quality gates), `AGENTS.md` (verification mandate) |
+| Code Reviewer | All of the above that the change touches; `AGENTS.md` always |
+
+Cite-before-act: any rejection, gate verdict, or architectural claim must
+name the spec file and section it rests on. A verdict with no citation
+is a guess — re-read and cite, or drop the claim.
