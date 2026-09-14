@@ -44,7 +44,7 @@ fallback and surface the one-line store note. Primary interface: the
 - Before re-asking the manager, call `query_manager_decisions(query, category?)`.
   Consult-first: log the top-3 hits (ranked, best first) before paging
   the human. A hit (summary + verbatim quote + rationale) resolves the
-  ambiguity without bothering the human. A hit (summary + verbatim quote + rationale) resolves the ambiguity without bothering the human.
+  ambiguity without bothering the human.
 - Inject `get_manager_profile()` output into agent reasoning when resolving architectural ambiguities (see cognitive-executor Context Bootstrapping).
 
 ## Sample-Evolution Loop (Review Gate Mandatory)

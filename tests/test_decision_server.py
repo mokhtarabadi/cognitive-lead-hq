@@ -297,6 +297,36 @@ def test_sync_status_reports_debt(srv, repo):
     assert "sync debt" in status or "not a git checkout" in status
 
 
+def test_fingerprint_tolerates_string_quote(srv):
+    fp = srv._decision_fingerprint({"verbatim_quote": "stray string",
+                                    "extracted_decision": {"summary": "s"}})
+    assert re.fullmatch(r"[0-9a-f]{64}", fp)
+
+
+def test_fingerprint_scan_skips_nondict_file(srv, repo):
+    bad = repo / "decisions" / "2026" / "09" / "DEC-20260914-099.json"
+    bad.parent.mkdir(parents=True, exist_ok=True)
+    bad.write_text("[1, 2, 3]", encoding="utf-8")
+    assert srv._find_fingerprint_hit(repo, "0" * 64) is None
+    assert srv._rewrite_index(repo) == 0  # same H2 class, must not crash
+
+
+def test_record_explicit_none_gets_defaults(srv, repo):
+    call = srv.record_manager_decision
+    target = call.fn if hasattr(call, "fn") else call
+    cand = _candidate()
+    cand["fidelity"] = None
+    cand["mode"] = None
+    cand["scope"] = None
+    cand["goal_ref"] = None
+    target(cand)
+    record = json.loads(next((repo / "decisions").rglob("DEC-*.json")).read_text(encoding="utf-8"))
+    assert record["fidelity"] == "verbatim"
+    assert record["mode"] == "manual"
+    assert record["scope"] == "episode"
+    assert record["goal_ref"] == ""
+
+
 # --- extract (stubbed LLM) ---------------------------------------------------------
 
 def test_extract_missing_transcript_returns_empty(srv, tmp_path):

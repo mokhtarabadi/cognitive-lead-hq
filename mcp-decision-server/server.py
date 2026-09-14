@@ -402,6 +402,10 @@ def _decision_fingerprint(decision: dict[str, Any]) -> str:
     reject, on a hit."""
     quote = decision.get("verbatim_quote", {}) if isinstance(decision, dict) else {}
     extracted = decision.get("extracted_decision", {}) if isinstance(decision, dict) else {}
+    if not isinstance(quote, dict):  # H1: a stray string must not crash .get below.
+        quote = {}
+    if not isinstance(extracted, dict):
+        extracted = {}
     parts = [
         str(extracted.get("summary", "")),
         str(quote.get("original", "")),
@@ -421,6 +425,8 @@ def _find_fingerprint_hit(repo: Path, fingerprint: str) -> Optional[str]:
         try:
             record = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, ValueError):
+            continue
+        if not isinstance(record, dict):  # H2: tampered non-dict file — skip, never crash.
             continue
         if record.get("fingerprint") == fingerprint:
             return str(record.get("decision_id", path.stem))
@@ -518,7 +524,11 @@ def _rewrite_index(repo: Path) -> int:
             record = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, ValueError):
             continue
+        if not isinstance(record, dict):  # H2 (same class as fingerprint scan).
+            continue
         extracted = record.get("extracted_decision", {})
+        if not isinstance(extracted, dict):
+            extracted = {}
         rows.append(
             f"| {record.get('decision_id')} | {extracted.get('category', '?')} | "
             f"{extracted.get('summary', '')[:100]} | `{path.relative_to(repo).as_posix()}` |"
@@ -1080,10 +1090,14 @@ def record_manager_decision(decision: dict[str, Any]) -> str:
     scrubbed.setdefault("decision_id", _next_decision_id(repo))
     scrubbed.setdefault("timestamp", datetime.now(timezone.utc).isoformat())
     # Optional hardening fields (F1/F2/F3/F5): defaults keep old callers valid.
-    scrubbed.setdefault("fidelity", "verbatim")
-    scrubbed.setdefault("mode", "manual")
-    scrubbed.setdefault("scope", "episode")
-    scrubbed.setdefault("goal_ref", "")
+    # Explicit None counts as unset (H3) so safe defaults still apply.
+    for _field, _default in (("fidelity", "verbatim"), ("mode", "manual"),
+                             ("scope", "episode"), ("goal_ref", "")):
+        if scrubbed.get(_field) is None:
+            scrubbed.pop(_field, None)
+        scrubbed.setdefault(_field, _default)
+    if scrubbed.get("fingerprint") is None:
+        scrubbed.pop("fingerprint", None)
     scrubbed.setdefault("fingerprint", _decision_fingerprint(scrubbed))
     dup_of = _find_fingerprint_hit(repo, scrubbed["fingerprint"])
     scrubbed["active_root"] = repo.name
