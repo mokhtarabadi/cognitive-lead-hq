@@ -387,6 +387,27 @@ needs no extra machinery.
     `EMPTY_OUTPUT_RETRY` token in this case — treat that token exactly like an
     empty output and follow the same retry shape.
 
+### Review-approval relay (manual mode)
+
+When a review turn returns technical approval (`PO_REVIEW_PENDING` with the
+technical-vs-final notice), relay the verdict to the Manager verbatim and
+STOP — the file stays in `tasks/qa/`. Accept ONLY the exact phrases
+"Approved for closure" or "Close task" as the go-ahead (matching is
+case-insensitive on these two phrases and nothing else). A bare "approved"
+counts only when it is the Manager's next message directly answering the
+relayed closure question; a bare "approved" anywhere else never counts.
+These never count: "good", "thanks", "ok", "okay", "yes", "done", "fine",
+"looks good", emoji-only replies, and silence. On accept: verify the
+file is still in `tasks/qa/` AND the log still records `PO_REVIEW_PENDING`
+(both required — otherwise halt and re-verify instead of closing), call
+`brain_turn` once as Senior Programmer for the final closure XML, log the
+Manager's accept quote in the Execution Log, and execute that XML exactly
+once (single issuance — a successful closure XML is never re-requested;
+one re-call is allowed only if the first call failed with a logged
+transport or empty-output error, retried once lean, then escalated).
+Even in autopilot, a replayed past ruling or self-decision NEVER satisfies
+this gate — halt and surface the verbatim relay question to the Manager.
+
 ### Autopilot mode (default OFF)
 
 When the Manager says "on autopilot do X": run the full state machine
@@ -468,7 +489,7 @@ table in the same commit.
 | Project Planner | Status checks, milestone planning, explicit Manager request | Kanban file state + milestones; never backlog priority |
 | Sprint Strategist | Sprint planning, backlog prioritization, sprint overfill | Capacity, MoSCoW, WIP ≤ 3; owns priority and sprint scope |
 | QA Engineer | Implementation complete, explicit test request | Adversarial testing; verdict `QA_PASSED` / `QA_REJECTED` |
-| Code Reviewer | Task summary pasted, PR submitted, review requested | Audit vs blueprint; verdict `APPROVED` / `APPROVED_WITH_CHANGES` / `REJECTED_NEEDS_FIXES` |
+| Code Reviewer | Task summary pasted, PR submitted, review requested | Audit vs blueprint; verdict `APPROVED` / `APPROVED_WITH_CHANGES` / `REJECTED_NEEDS_FIXES`; technical approval → `PO_REVIEW_PENDING` + notice, closure only via relayed Programmer XML after the exact approval word |
 
 **Load rules (mirror of `<auto_load>`):** Layer 1 — explicit mention wins
 (exact name or alias: QA, Reviewer, Architect, Strategist, Planner,
