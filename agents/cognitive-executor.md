@@ -385,7 +385,12 @@ needs no extra machinery.
     retry once, lean (`include_bundle=false`, same `task_id`, short prompt),
     then escalate to the Manager if still empty. The bridge itself returns the
     `EMPTY_OUTPUT_RETRY` token in this case — treat that token exactly like an
-    empty output and follow the same retry shape.
+    empty output and follow the same retry shape. State check on the lean
+    retry: it drops the bundle, so if its answer judges stale or missing
+    context (wrong file version, no diff seen), re-run ONCE with the full
+    bundle plus diff (`include_bundle=true`, `include_diff=true`) before
+    escalating. The hint now carries a state note (task path, status,
+    diff hash) — compare it across retries to spot a stale answer.
 
 ### Review-approval relay (manual mode)
 

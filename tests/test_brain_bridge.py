@@ -1423,6 +1423,11 @@ def test_empty_output_hint_contract():
     bare = bridge._empty_output_hint(None)
     assert bridge.EMPTY_OUTPUT_RETRY in bare
     assert "escalate" in bare
+    assert "stale" in hint  # lean retries drop context; stale answers re-run full
+    noted = bridge._empty_output_hint("232", "tasks/qa/x.md | status=open | diff=abc123")
+    assert "Current state: tasks/qa/x.md" in noted
+    assert bridge._task_state_note("no-such-task-xyz") == "unknown"
+    assert bridge._task_state_note(None) == "unknown"
 
 
 def _run_turn(monkeypatch, tmp_path, payload, prompt="q", task_id="232"):

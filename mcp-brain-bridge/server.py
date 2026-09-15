@@ -1563,7 +1563,7 @@ def brain_turn(
         # REPORT. Substitute the retry hint; status stays REPORT so old
         # callers keep working. The transcript below records the hint,
         # not a verdict.
-        output = _empty_output_hint(task_id)
+        output = _empty_output_hint(task_id, _task_state_note(task_id))
     fence_drops = list(_last_fence_drops)
     if task_id:
         prompt_hash = hashlib.sha256(effective_prompt.encode("utf-8")).hexdigest()
@@ -1605,19 +1605,59 @@ def _get_reasoning_effort() -> str:
     return val
 
 
-def _empty_output_hint(task_id: Optional[str] = None) -> str:
+def _task_state_note(task_id: Optional[str]) -> str:
+    """One-line state note for the empty-output retry hint (never raises).
+
+    Format: ``path | status | diff-hash``. Lets the retry-er judge whether
+    the next answer sees the same file version instead of a stale one.
+    Unresolvable task → "unknown".
+    """
+    try:
+        if not task_id or not isinstance(task_id, str):
+            return "unknown"
+        path = _resolve_task_file(task_id)
+        if path is None:
+            return "unknown"
+        try:
+            rel = path.resolve().relative_to(
+                _workspace_root().resolve()).as_posix()
+        except (OSError, ValueError):
+            rel = path.name
+        text = path.read_text(encoding="utf-8", errors="replace")
+        status = "unknown"
+        m = re.search(r"^\*\*Status:\*\*\s*(.+?)\s*$", text, re.M)
+        if m:
+            status = m.group(1)[:32]
+        diff = extract_task_diff(text)
+        dh = (hashlib.sha256(diff.encode("utf-8")).hexdigest()[:8]
+              if diff.strip() else "no-diff")
+        return f"{rel} | status={status} | diff={dh}"
+    except Exception:
+        return "unknown"
+
+
+def _empty_output_hint(task_id: Optional[str] = None,
+                       state: Optional[str] = None) -> str:
     """Retry instruction substituted for a blank model output.
 
     Pure function (no I/O) so tests can assert the contract directly.
     The bridge MUST NOT invent verdict content here — hint only.
+    ``state`` is a precomputed task path/status/diff note (see
+    ``_task_state_note``); the hint stays pure, the caller does the I/O.
     """
     where = f" for task {task_id}" if task_id else ""
+    note = f" Current state: {state}." if state else ""
     return (
         f"{EMPTY_OUTPUT_RETRY}: the model returned no text{where} "
         "(transport/model flake, never a verdict). "
         "Do NOT act on this result and do NOT count it as a rejection. "
         "Retry ONCE, lean: same task_id, include_bundle=false, short prompt. "
-        "If the retry is still empty, escalate to the Manager."
+        "State check on the retry: the lean call drops the bundle, so if its "
+        "answer judges stale or missing context (wrong file version, no diff "
+        "seen), re-run ONCE with the full bundle plus diff "
+        "(include_bundle=true, include_diff=true) before escalating. "
+        "If the full-context call is still empty, escalate to the Manager."
+        + note
     )
 
 
