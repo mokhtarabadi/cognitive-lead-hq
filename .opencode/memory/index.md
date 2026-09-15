@@ -15,6 +15,7 @@
 | project | system-prompt-build-process | system-prompt.md is a GENERATED build artifact, NOT a hand-edited source file. |  |
 | quirks | code_search_skill_sync_pattern | **Pattern (2026-08-21, updated 2026-08-27):** The `code-search` skill has two copies that must stay in sync: `skill-t... |  |
 | quirks | extract_signatures_file_write_fix | **Bug Fixed (2026-08-21):** `extract_signatures` MCP tool in `mcp-context-server/server.py` was returning signature s... |  |
+| quirks | full_output_verification_rule | Never trust truncated command output: `head`/`tail` cuts hid `manager_decisions` from `opencode mcp list` and caused ... |  |
 | release | release-workflow | Release workflow for cognitive-lead-hq. |  |
 | telegram-sync | topic-scoped-sync-workflow | # Telegram Sync Workflow Constraints (Cognitive Lead HQ) |  |
 | workflows | global-install-upgrade | # Global Install Upgrade Workflow (OpenCode) |  |
