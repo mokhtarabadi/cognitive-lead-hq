@@ -88,6 +88,8 @@ This MCP implementation does **NOT** expose a `topic_id` parameter. Forum topics
 
 Store the Manager's GitHub preference in a variable `GH_ENABLED` (true/false).
 
+Autopilot note: the data question in step 4 (whether GitHub issues are wanted) folds into the planning turn. The Hands asks it once alongside candidate approval, records the answer in the task file, and never asks again mid-task.
+
 ### Phase 3: Task Generation & Automation (Per Approved Candidate)
 
 For **each** approved candidate, execute the following steps **strictly in order**:

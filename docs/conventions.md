@@ -114,6 +114,16 @@ Bypasses Steps 1–4 of `<execution_workflow>` (Discovery, Brainstorming, Bluepr
 
 If implementation reveals the change is NOT trivial, the Hands MUST HALT and output: "Escalating from Lite Mode to Full Mode: [reason]." The full workflow restarts at Step 1.
 
+### Risk Tiers (Autopilot-Ready Contract)
+
+Every task runs at one tier. The tier sets how many human pauses apply.
+
+- **T0 trivial:** meets all three Lite eligibility criteria above. Lite fast path applies. No human pauses except QA and review verdicts.
+- **T1 standard:** multi-file changes or new behavior. Full supervised autopilot applies with a plan-approval pause plus Relay questions.
+- **T2 destructive or irreversible:** migrations, deletes, publishes, pushes, or secret handling. Each action needs explicit Manager approval. Autopilot MUST halt and never self-approve.
+
+Max three tries per loop (plan, QA, review), then escalate to the Manager with evidence.
+
 ## Goal-Oriented Tasks & Parallel Agent Execution Standards
 
 ### Goal-Oriented Task Treatment

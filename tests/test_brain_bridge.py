@@ -1468,3 +1468,42 @@ def test_brain_turn_large_prompt_warns_on_stderr(tmp_path, monkeypatch, capsys):
     err = capsys.readouterr().err
     assert "prompt is large" in err
     assert "include_bundle=false" in err
+
+
+def test_bundle_total_cap_bounds_oversize_workspace(tmp_path, monkeypatch):
+    ws = tmp_path / "ws"
+    ws.mkdir()
+    (ws / "a.md").write_text("A" * 2000, encoding="utf-8")
+    (ws / "b.md").write_text("B" * 2000, encoding="utf-8")
+    monkeypatch.setenv("BRAIN_WORKSPACE_ROOT", str(ws))
+    monkeypatch.setattr(bridge, "_BUNDLE_FILES", ("a.md", "b.md"))
+    monkeypatch.setattr(bridge, "_BUNDLE_TOTAL_CAP", 500)
+    out = bridge._build_context_bundle()
+    assert "bundle total cap" in out
+    assert "B" * 2000 not in out
+
+
+def test_fed_context_persists_across_second_turn(tmp_path, monkeypatch):
+    monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
+    bridge.save_fed_context("t9", "CTX turn one")
+    assert bridge.load_fed_context("t9") == "CTX turn one"
+    bridge.save_fed_context("t9", "CTX turn one\nCTX turn two")
+    assert bridge.load_fed_context("t9") == "CTX turn one\nCTX turn two"
+
+
+def test_plan_verdict_valid():
+    plan = ("verdict: PLAN APPROVED\nseats: Architect\npath: implement\n"
+            "steps: edit files\ncites: server.py:100, skill.md:20")
+    assert bridge.validate_plan_verdict(plan) == []
+
+
+def test_plan_verdict_missing_fields():
+    problems = bridge.validate_plan_verdict("looks good, ship it")
+    assert any("seats" in p for p in problems)
+    assert any("cites" in p for p in problems)
+
+
+def test_plan_verdict_cites_without_lines():
+    plan = "verdict: ok\nseats: A\npath: p\nsteps: s\ncites: some files somewhere"
+    problems = bridge.validate_plan_verdict(plan)
+    assert any("file path with lines" in p for p in problems)

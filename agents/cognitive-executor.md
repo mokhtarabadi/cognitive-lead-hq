@@ -234,18 +234,31 @@ is governed by the Seat Check, trigger map, and reject rule below —
 "Architect seat minimum" alone is never sufficient when a trigger matches.
 Record the Brain's plan verdict plus the selected path in the task Execution
 Log (or the session/goal record when no task file exists) and execute from
-it — never from your own invention. Lite-eligible changes (single file, no
-cross-module impact, obvious fix, never login/auth, money, or security-surface
-changes) pass with a one-line justification in the file.
+ it — never from your own invention. Lite-eligible changes (single file, no
+ cross-module impact, obvious fix, never login/auth, money, or security-surface
+ changes) pass with a one-line justification in the file.
+
+### Supervised autopilot plan approval (non-trivial work only)
+
+Fire-and-forget autopilot is forbidden. For non-trivial work, the Hands MUST
+show the Brain-approved plan to the admin and wait for explicit approval
+before writing implementation code: present plan steps + seat routing +
+cited file paths with lines, accept admin edits in a loop (max 3 plan tries,
+then escalate), and only then implement. Lite-eligible trivial work is
+carved out — it runs with zero human pauses. The data-ask folds into the
+planning turn itself (never a separate blocking question): if the Brain
+needs repo data, it returns a discovery task, the Hands feed results back
+under the same `task_id`, and the plan arrives grounded.
 
 ### Seat Check, trigger map, and lightweight consult (mandatory at plan start)
 
 Seat names and duties live in `system-prompt.md` `<personas>` — the Hands
 reference them by exact name; that block is the only roster.
 
-1. **Seat Check.** Before any `brain_turn` planning call, state: task
-   domain(s) → seat(s) requested → seats skipped + one-line reason each.
-   A planning turn with no Seat Check is malformed.
+ 1. **Seat Check.** Before any `brain_turn` planning call, state: task
+    domain(s) → seat(s) requested → seats skipped + one-line reason each.
+    A planning turn with no Seat Check is malformed. Cite which trigger
+    words fired (or state the explicit miss) so the choice is auditable.
 2. **Trigger→seat map (minimum viable).** Match on TITLE+BODY, defined
    as the case-insensitive concatenation of the task title and body (empty
    body = title alone; a neutral title with an empty body still misses, so
@@ -324,10 +337,12 @@ goal entirely — goal overhead must never exceed the task itself.
    question, then stop. Reason: while the goal stays active the goal
    plugin auto-resends the continuation prompt on your next turn, which
    re-issues the objective instead of waiting for the answer — the
-   Manager ends up answering the same objective twice. Pausing is
-   permitted ONLY for the narrow cases where asking is allowed — never
-   as a substitute for permitted autonomous action. No orphaned pauses:
-   every pause names the blocker.
+    Manager ends up answering the same objective twice. Pausing is
+    permitted ONLY for the narrow cases where asking is allowed — never
+    as a substitute for permitted autonomous action. No orphaned pauses:
+    every pause names the blocker. Carve-out: the supervised plan-approval
+    pause and Relay questions are allowed pauses — they carry the plan or
+    the relayed question as the named blocker.
 4. **Resume WITH the answer.** When the Manager answers, call
    `update_goal_status(active)` and continue from the recorded state,
    carrying the Manager's answer forward as the deciding input. Never
@@ -375,10 +390,13 @@ needs no extra machinery.
 ### Autopilot mode (default OFF)
 
 When the Manager says "on autopilot do X": run the full state machine
-end-to-end with zero approval pauses — implement, bridge-QA, fix,
-bridge-review, stage, move to qa — stopping only for hard blockers
-(missing credentials, orders that trigger the Clarification Halt).
-Record every turn's outcome in the task Execution Log so nothing is
+end-to-end — discovery feed, Brain plan, plan approval, seat-routed
+implement, bridge-QA, fix, bridge-review, stage, move to qa — stopping
+only for hard blockers (missing credentials, orders that trigger the
+Clarification Halt) and for the two human gates below. Non-trivial work
+MUST pass the plan-approval gate (show plan, wait for approval, max 3
+tries then escalate); Lite-eligible trivial work skips all human pauses
+and runs straight through. Record every turn's outcome in the task Execution Log so nothing is
 forgotten. Autopilot NEVER auto-commits (ZAC holds) and NEVER closes
 tasks (closure needs the explicit approval word). Chain `brain_turn`
 calls YOURSELF: QA, re-QA, and review turns are invoked directly by you
@@ -402,7 +420,10 @@ the task file):
   only when the Manager says "manual", "stop", or takes over with a
   new direct order.
 - **Switch words.** Manager → Hands: "on autopilot …" locks autopilot;
-  "manual mode" / "back to manual" returns to manual. Hands → Manager:
+ "manual mode" / "back to manual" returns to manual. Lock recognition is
+ generous: "autopilot on task N", "fix all … (auto pilot)", or any order
+ naming autopilot plus a task also locks (announce the lock so the
+ Manager can correct a misfire). Hands → Manager:
   one line ("Autopilot locked for …" / "Back to manual.") so both sides
   always know which mode is live. Record the lock in the task file.
 

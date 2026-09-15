@@ -171,6 +171,11 @@ _BUNDLE_FILES = (
 _BUNDLE_MARKER = "=== agents/cognitive-executor.md ==="
 _BUNDLE_FILE_CAP = 60000
 
+#: Total cap for the assembled bundle (chars). Five files at the per-file
+#: cap would reach 300k — this bounds the worst case so planning turns
+#: stay lean and never time out on context size.
+_BUNDLE_TOTAL_CAP = 150000
+
 # Text extensions readable via read_file / searchable via grep_files.
 _ALLOWED_READ_SUFFIXES = frozenset(
     {".md", ".txt", ".json", ".yaml", ".yml", ".toml"}
@@ -410,12 +415,25 @@ def _failsafe_qa_attach(user_prompt: object, task_id: object) -> str:
 
 
 def _build_context_bundle() -> str:
-    """Assemble the labeled small-file bundle (never raises on Absent-File)."""
+    """Assemble the labeled small-file bundle (never raises on Absent-File).
+
+    The per-file cap applies first; the total cap applies across files so
+    five full files can never stuff 300k into one turn. Files past the
+    total budget are marked skipped, never silently dropped. The truncation
+    suffix length is reserved before slicing, so the appended marker can
+    never push the total past the cap (off-by-suffix overflow).
+    """
     root = _workspace_root()
     parts: list[str] = []
     missing = 0
+    total = 0
+    capped = False
+    suffix = "\n[truncated: bundle total cap]"
     for rel in _BUNDLE_FILES:
         header = f"=== {rel} ==="
+        if capped:
+            parts.append(header + "\n[skipped: bundle total cap]")
+            continue
         try:
             text = (root / rel).read_text(encoding="utf-8", errors="replace")
         except (FileNotFoundError, NotADirectoryError, OSError):
@@ -424,7 +442,18 @@ def _build_context_bundle() -> str:
             continue
         if len(text) > _BUNDLE_FILE_CAP:
             text = text[:_BUNDLE_FILE_CAP] + "\n[truncated]"
-        parts.append(header + "\n" + text)
+        chunk = header + "\n" + text
+        if total + len(chunk) > _BUNDLE_TOTAL_CAP:
+            room = _BUNDLE_TOTAL_CAP - total
+            if room > len(header) + 64 + len(suffix):
+                parts.append(chunk[:room - len(suffix)] + suffix)
+            else:
+                parts.append(header + "\n[skipped: bundle total cap]")
+            total = _BUNDLE_TOTAL_CAP
+            capped = True
+            continue
+        parts.append(chunk)
+        total += len(chunk)
     if missing:
         print(
             f"brain-bridge: context bundle skipped {missing} missing files",
@@ -599,6 +628,37 @@ def extract_xml_blocks(output: str) -> list[str]:
     for body in _XML_FENCE_RE.finditer(output):
         out.extend(m.group(0) for m in _XML_RE.finditer(body.group(1)))
     return out
+
+
+#: Required fields of a Brain plan verdict. Hands-side plan review checks
+#: plan text for these before executing — a plan with no cites is
+#: ungrounded and must be re-prompted, never executed.
+_PLAN_VERDICT_FIELDS = ("verdict", "seats", "path", "steps", "cites")
+
+
+def validate_plan_verdict(plan_text: object) -> list[str]:
+    """Check Brain plan text for the five verdict fields (pure, offline).
+
+    Returns problem strings; empty means valid. ``cites`` additionally
+    requires at least one ``path:line``-shaped file reference, otherwise
+    the plan is ungrounded.
+
+    Field presence uses word-bound matching (``\\b``), not substring
+    matching: a bare ``in`` check would accept ``path`` inside ``paths``
+    or ``footpath`` and ``steps`` inside ``missteps``, letting a stub
+    plan pass review. Word bounds force each field to appear as its own
+    word, so only a genuinely sectioned verdict validates.
+    """
+    if not isinstance(plan_text, str) or not plan_text.strip():
+        return ["plan text is empty"]
+    lowered = plan_text.lower()
+    problems = [f"plan text missing {field!r} field"
+                for field in _PLAN_VERDICT_FIELDS
+                if not re.search(rf"\b{re.escape(field)}\b", lowered)]
+    if ("cites" not in problems
+            and not re.search(r"\S+\.\w+:\d+", plan_text)):
+        problems.append("plan cites carry no file path with lines")
+    return problems
 
 
 def _get_brain_model() -> str:
