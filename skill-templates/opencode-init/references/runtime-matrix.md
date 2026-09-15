@@ -2,13 +2,15 @@
 
 | Area | V1 — EMIT THIS | V2 — REJECT |
 | ---- | -------------- | ----------- |
-| Top level | `$schema`, `default_agent`, `instructions[]`, `plugin[]`, `mcp{}`, `permission{}` | `permissions[]` array |
+| Top level (project) | `$schema`, `default_agent`, `instructions[]`, `formatter`, `lsp`, `permission{}` | `permissions[]` array; `mcp{}` and `plugin[]` (global-only) |
 | Permission entries | `"tool-name": "allow\|ask\|deny"` flat map | `{permission: ..., pattern: ...}` objects |
 | Bash rules | `permission.bash = {"git commit": "deny", ...}` string map | Structured rule objects |
-| MCP local | `{type: local, command: [...], enabled, timeout, environment?}` | Remote-first / auth-object forms |
-| LSP | `language-server: {name: {command}}` map (experimental, env-gated) | `enabled` + per-extension bool/object |
-| Secrets | `"{env:NAME}"` placeholders only | Literal values (validator fails these) |
-| Plugin env | dict `environment` with `{env:}` values only | Literal values (validator fails these) |
+| MCP | GLOBAL-ONLY — install in `~/.config/opencode/opencode.json`; banned from project output | Any `mcp{}` block in a generated project file |
+| Plugin | GLOBAL-ONLY — npm spec in global config or `.opencode/plugins/` / `~/.config/opencode/plugins/`; banned from project output | Any `plugin[]` list in a generated project file |
+| LSP (project guidance) | `language-server: {name: {command}}` map — enable/tune per project; server install stays host/global side | `enabled` + per-extension bool/object |
+| Formatter (project) | `true` (all built-ins) \| `false` (disable) \| custom `{command, extensions}` map | — |
+| Secrets (global scope) | `"{env:NAME}"` placeholders only — project output carries no secret-bearing blocks | Literal values (validator fails these) |
+| Plugin env (global scope) | dict `environment` with `{env:}` values only | Literal values (validator fails these) |
 
 Rule: when the public schema and the local golden file disagree, the golden
 file (`references/examples/golden-opencode.json`) wins. The validator
