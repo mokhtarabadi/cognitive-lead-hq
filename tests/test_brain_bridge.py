@@ -1507,3 +1507,114 @@ def test_plan_verdict_cites_without_lines():
     plan = "verdict: ok\nseats: A\npath: p\nsteps: s\ncites: some files somewhere"
     problems = bridge.validate_plan_verdict(plan)
     assert any("file path with lines" in p for p in problems)
+
+
+def _mk_project(tmp_path, name):
+    proj = tmp_path / name
+    (proj / "tasks").mkdir(parents=True)
+    return proj
+
+
+def _clean_session_env(monkeypatch):
+    for key in ("BRAIN_SESSIONS_ROOT", "BRAIN_PROJECT_ROOT",
+                "BRAIN_WORKSPACE_ROOT"):
+        monkeypatch.delenv(key, raising=False)
+
+
+def test_per_project_roots_differ_by_project(tmp_path, monkeypatch):
+    _clean_session_env(monkeypatch)
+    proj_a = _mk_project(tmp_path, "proj_a")
+    proj_b = _mk_project(tmp_path, "proj_b")
+    root_a = bridge._sessions_root(project_root=str(proj_a))
+    root_b = bridge._sessions_root(project_root=str(proj_b))
+    assert root_a == proj_a / "tasks" / ".sessions"
+    assert root_b == proj_b / "tasks" / ".sessions"
+    assert root_a != root_b
+
+
+def test_no_tasks_dir_falls_back_to_legacy(tmp_path, monkeypatch):
+    _clean_session_env(monkeypatch)
+    bare = tmp_path / "bare"
+    bare.mkdir()
+    monkeypatch.chdir(bare)
+    assert bridge._sessions_root() == bridge._legacy_sessions_root()
+
+
+def test_legacy_global_transcript_read_through(tmp_path, monkeypatch):
+    fake_home = tmp_path / "home"
+    fake_home.mkdir()
+    monkeypatch.setenv("HOME", str(fake_home))
+    _clean_session_env(monkeypatch)
+    bare = tmp_path / "bare"
+    bare.mkdir()
+    monkeypatch.chdir(bare)
+    # Plant a pre-migration global file directly: append_turn now refuses
+    # to write to the legacy global dir (no-global-write rule), so the
+    # legacy fixture must be written by hand.
+    planted = (fake_home / ".config" / "opencode" / "brain-sessions"
+               / "t3legacy" / "transcript.jsonl")
+    planted.parent.mkdir(parents=True, exist_ok=True)
+    planted.write_text(
+        '{"role": "user", "content": "legacy hello", "model": null, '
+        '"prompt_hash": null, "truncated": 0}\n', encoding="utf-8")
+    assert planted.is_file()
+    proj = _mk_project(tmp_path, "proj_read")
+    monkeypatch.chdir(proj)
+    turns = bridge.load_history("t3legacy")
+    assert any(t.get("content") == "legacy hello" for t in turns)
+
+
+def test_fresh_write_goes_per_project(tmp_path, monkeypatch):
+    _clean_session_env(monkeypatch)
+    proj = _mk_project(tmp_path, "proj_write")
+    monkeypatch.chdir(proj)
+    bridge.append_turn("t4fresh", "user", "fresh hello")
+    fresh = (proj / "tasks" / ".sessions" / "t4fresh" / "transcript.jsonl")
+    assert fresh.is_file()
+    assert "fresh hello" in fresh.read_text(encoding="utf-8")
+
+
+def test_writes_avoid_legacy_global_when_no_root(tmp_path, monkeypatch, capsys):
+    # T5: bare cwd (no tasks/ anywhere up except tmp freshness) + fake
+    # HOME: append_turn must land in cwd/tasks/.sessions, never global.
+    fake_home = tmp_path / "home5"
+    fake_home.mkdir()
+    monkeypatch.setenv("HOME", str(fake_home))
+    _clean_session_env(monkeypatch)
+    bare = tmp_path / "bare5"
+    bare.mkdir()
+    monkeypatch.chdir(bare)
+    bridge.append_turn("t5noglobal", "user", "no bleed")
+    local = bare / "tasks" / ".sessions" / "t5noglobal" / "transcript.jsonl"
+    assert local.is_file()
+    legacy = (fake_home / ".config" / "opencode" / "brain-sessions"
+              / "t5noglobal" / "transcript.jsonl")
+    assert not legacy.exists()
+    assert "instead of legacy global" in capsys.readouterr().err
+
+
+def test_loop_guard_isolation_by_project(tmp_path, monkeypatch):
+    # T6: same task id in two projects keeps separate spin state.
+    from loop_guard import record_attempt
+    _clean_session_env(monkeypatch)
+    proj_a = _mk_project(tmp_path, "proj_ga")
+    proj_b = _mk_project(tmp_path, "proj_gb")
+    ra = record_attempt("t6spin", "aaa", project_root=str(proj_a))
+    rb = record_attempt("t6spin", "bbb", project_root=str(proj_b))
+    assert ra == {"stop": False, "history": ["aaa"]}
+    assert rb == {"stop": False, "history": ["bbb"]}
+    assert (proj_a / "tasks" / ".sessions" / "t6spin" / "loop_hashes.jsonl").is_file()
+    assert (proj_b / "tasks" / ".sessions" / "t6spin" / "loop_hashes.jsonl").is_file()
+
+
+def test_sibling_missing_still_resolves_per_project(tmp_path, monkeypatch):
+    # T7: even when the loop_guard sibling import fails, the local
+    # walk-up fallback resolves a project holding tasks/.
+    _clean_session_env(monkeypatch)
+    proj = _mk_project(tmp_path, "proj_pkg")
+    monkeypatch.chdir(proj)
+    monkeypatch.setattr(bridge, "_shared_project_root", None)
+    monkeypatch.setattr(bridge, "_shared_legacy_root", None)
+    assert bridge._sessions_root() == proj / "tasks" / ".sessions"
+    assert bridge._sessions_root(project_root=str(proj)) == (
+        proj / "tasks" / ".sessions")

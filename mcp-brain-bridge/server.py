@@ -76,6 +76,29 @@ _loaded_from = _load_env_files()
 if _loaded_from is not None:
     print(f"brain-bridge: loaded env from {_loaded_from}", file=sys.stderr)
 
+# Shared per-project sessions resolver lives in loop_guard (stdlib-only,
+# zero coupling back to this module). Guarded import so the server never
+# fails to load when run from an installed package without the sibling.
+try:
+    from mcp_brain_bridge.loop_guard import (  # type: ignore[import-not-found]
+        legacy_sessions_root as _shared_legacy_root,
+        project_sessions_root as _shared_project_root,
+    )
+except ImportError:
+    try:
+        from loop_guard import (  # type: ignore[import-not-found]
+            legacy_sessions_root as _shared_legacy_root,
+            project_sessions_root as _shared_project_root,
+        )
+    except ImportError:  # pragma: no cover - sibling missing
+        print(
+            "brain-bridge: loop_guard sibling missing under both import names; "
+            "per-project sessions disabled, legacy global applies",
+            file=sys.stderr,
+        )
+        _shared_project_root = None  # type: ignore[assignment]
+        _shared_legacy_root = None  # type: ignore[assignment]
+
 mcp = FastMCP("BrainBridge")
 
 # XML blocks the Brain may emit. Hands executes these; everything else
@@ -821,12 +844,87 @@ _HISTORY_LIMIT = 40
 _INPUT_BUDGET = 100000
 
 
-def _sessions_root() -> Path:
-    """Sessions root; override via ``BRAIN_SESSIONS_ROOT``."""
+def _sessions_root(project_root: Optional[str] = None) -> Path:
+    """Per-project sessions root: ``<project>/tasks/.sessions``.
+
+    Resolution lives in ``loop_guard.project_sessions_root`` (single
+    resolver, no duplicated logic): explicit ``BRAIN_SESSIONS_ROOT``
+    wins, then project-root candidates holding ``tasks/``, then a cwd
+    walk-up, then the legacy global dir. When the sibling is
+    unavailable, fall back to the legacy global path so old projects
+    keep working.
+    """
+    if _shared_project_root is not None:
+        return _shared_project_root(project_root=project_root)
     override = os.environ.get("BRAIN_SESSIONS_ROOT", "").strip()
     if override:
         return Path(override).expanduser()
+    # Sibling missing: best-effort per-project walk-up mirroring the
+    # resolver order (param, env roots, cwd walk-up), else legacy global.
+    cands: list[Path] = []
+    if project_root:
+        cands.append(Path(project_root).expanduser())
+    for _key in ("BRAIN_PROJECT_ROOT", "BRAIN_WORKSPACE_ROOT"):
+        _val = os.environ.get(_key, "").strip()
+        if _val:
+            cands.append(Path(_val).expanduser())
+    try:
+        cands.append(Path.cwd())
+    except OSError:
+        pass
+    for _cand in cands:
+        try:
+            _node = _cand.resolve()
+        except OSError:
+            continue
+        for _ in range(6):
+            try:
+                if (_node / "tasks").is_dir():
+                    return _node / "tasks" / ".sessions"
+            except OSError:
+                break
+            if _node.parent == _node:
+                break
+            _node = _node.parent
     return Path.home() / ".config" / "opencode" / "brain-sessions"
+
+
+def _legacy_sessions_root() -> Path:
+    """Pre-per-project global root (read fallback for unmigrated history)."""
+    if _shared_legacy_root is not None:
+        return _shared_legacy_root()
+    return Path.home() / ".config" / "opencode" / "brain-sessions"
+
+
+def _write_sessions_root(project_root: Optional[str] = None) -> Path:
+    """Sessions root for WRITES: per-project, never the legacy global.
+
+    An explicit ``BRAIN_SESSIONS_ROOT`` override is honored as-is (the
+    operator chose it). Otherwise, when the resolver can only offer the
+    legacy global fallback, writes go to ``cwd/tasks/.sessions`` with a
+    loud stderr warn instead — a new write must never reintroduce
+    cross-project bleed into the global dir. Reads keep the legacy
+    fallback (see ``load_history``/``load_fed_context``).
+    """
+    override = os.environ.get("BRAIN_SESSIONS_ROOT", "").strip()
+    if override:
+        return Path(override).expanduser()
+    root = _sessions_root(project_root)
+    if root != _legacy_sessions_root():
+        return root
+    print(
+        "brain-bridge: no project root found; writing to "
+        "cwd/tasks/.sessions instead of legacy global",
+        file=sys.stderr,
+    )
+    try:
+        return Path.cwd() / "tasks" / ".sessions"
+    except OSError:
+        print(
+            "brain-bridge: cwd unavailable; keeping legacy global write",
+            file=sys.stderr,
+        )
+        return root
 
 
 def _sanitize_task_id(task_id: str) -> str:
@@ -841,8 +939,31 @@ def _sanitize_task_id(task_id: str) -> str:
     return task_id
 
 
-def _transcript_path(task_id: str) -> Path:
-    return _sessions_root() / _sanitize_task_id(task_id) / "transcript.jsonl"
+def _transcript_path(task_id: str, project_root: Optional[str] = None) -> Path:
+    return (
+        _sessions_root(project_root)
+        / _sanitize_task_id(task_id)
+        / "transcript.jsonl"
+    )
+
+
+def _write_transcript_path(task_id: str,
+                           project_root: Optional[str] = None) -> Path:
+    """Transcript path for WRITES (per-project; never legacy global)."""
+    return (
+        _write_sessions_root(project_root)
+        / _sanitize_task_id(task_id)
+        / "transcript.jsonl"
+    )
+
+
+def _legacy_transcript_path(task_id: str) -> Path:
+    """Legacy global transcript (read fallback until migration copies it)."""
+    return (
+        _legacy_sessions_root()
+        / _sanitize_task_id(task_id)
+        / "transcript.jsonl"
+    )
 
 
 #: Per-line size guard (R5): one monster line can't blow memory on read.
@@ -978,7 +1099,8 @@ def _compact_locked(path: Path) -> tuple[list[dict[str, Any]], int]:
     return kept, skipped
 
 
-def load_history(task_id: str, limit: int = _HISTORY_LIMIT) -> list[dict[str, str]]:
+def load_history(task_id: str, limit: int = _HISTORY_LIMIT,
+                  project_root: Optional[str] = None) -> list[dict[str, str]]:
     """Read a task's prior turns (oldest first), capped at ``limit``.
     Missing file means a fresh task — returns []. Corrupt lines are
     skipped, never fatal; per-load stats land in ``_last_load_stats``
@@ -989,7 +1111,14 @@ def load_history(task_id: str, limit: int = _HISTORY_LIMIT) -> list[dict[str, st
     summaries merge into the new digest (never swallowed), the write
     is atomic, and concurrent appends queue behind the lock instead
     of being lost (see ``_build_compacted``)."""
-    path = _transcript_path(task_id)
+    path = _transcript_path(task_id, project_root)
+    if not path.is_file():
+        legacy = _legacy_transcript_path(task_id)
+        if legacy.is_file():
+            print("brain-bridge: reading legacy global session "
+                  f"({task_id}); migrate it under tasks/.sessions/",
+                  file=sys.stderr)
+            path = legacy
     if not path.is_file():
         _last_load_stats.update({"kept": 0, "skipped": 0})
         return []
@@ -1021,12 +1150,14 @@ _last_load_stats: dict[str, int] = {"kept": 0, "skipped": 0}
 
 
 def append_turn(task_id: str, role: str, content: str, model: Optional[str] = None,
-               prompt_hash: Optional[str] = None, truncated: int = 0) -> None:
+                prompt_hash: Optional[str] = None, truncated: int = 0,
+                project_root: Optional[str] = None) -> None:
     """Append one turn to the task transcript (creates dirs as needed).
 
     Traceability keys ride on every record; unset stays None/0 so
-    older callers keep working unchanged."""
-    path = _transcript_path(task_id)
+    older callers keep working unchanged. Writes always go to the
+    per-project path, never to the legacy global dir."""
+    path = _write_transcript_path(task_id, project_root)
     path.parent.mkdir(parents=True, exist_ok=True)
     record: dict[str, Any] = {
         "role": role, "content": content, "model": model,
@@ -1056,9 +1187,33 @@ _FED_CONTEXT_FILE = "fed_context.md"
 _FED_CONTEXT_CAP = 20000
 
 
-def _fed_context_path(task_id: str) -> Path:
+def _fed_context_path(task_id: str,
+                        project_root: Optional[str] = None) -> Path:
     """Pinned fed-context file for a task (raises ValueError on bad id)."""
-    return _sessions_root() / _sanitize_task_id(task_id) / _FED_CONTEXT_FILE
+    return (
+        _sessions_root(project_root)
+        / _sanitize_task_id(task_id)
+        / _FED_CONTEXT_FILE
+    )
+
+
+def _legacy_fed_context_path(task_id: str) -> Path:
+    """Legacy global fed-context file (read fallback until migrated)."""
+    return (
+        _legacy_sessions_root()
+        / _sanitize_task_id(task_id)
+        / _FED_CONTEXT_FILE
+    )
+
+
+def _write_fed_context_path(task_id: str,
+                              project_root: Optional[str] = None) -> Path:
+    """Fed-context path for WRITES (per-project; never legacy global)."""
+    return (
+        _write_sessions_root(project_root)
+        / _sanitize_task_id(task_id)
+        / _FED_CONTEXT_FILE
+    )
 
 
 def extract_fed_context(prompt: object) -> str:
@@ -1085,14 +1240,15 @@ def extract_fed_context(prompt: object) -> str:
     return "\n".join(lines[start:end]).strip()
 
 
-def save_fed_context(task_id: str, content: str) -> None:
+def save_fed_context(task_id: str, content: str,
+                     project_root: Optional[str] = None) -> None:
     """Pin fed discovery context (atomic write, capped).
 
     Raises ValueError on invalid task id; IO problems are logged and
     skipped, never raised. Empty content deletes the pin. Oversize
-    content truncates with a note.
+    content truncates with a note. Writes always go per-project.
     """
-    path = _fed_context_path(task_id)
+    path = _write_fed_context_path(task_id, project_root)
     if not content.strip():
         try:
             path.unlink(missing_ok=True)
@@ -1117,10 +1273,19 @@ def save_fed_context(task_id: str, content: str) -> None:
               file=sys.stderr)
 
 
-def load_fed_context(task_id: str) -> str:
-    """Read pinned fed context ('' when none; never raises)."""
+def load_fed_context(task_id: str,
+                     project_root: Optional[str] = None) -> str:
+    """Read pinned fed context ('' when none; never raises).
+
+    Falls back to the legacy global file so unmigrated pins keep
+    working; new pins are always written per-project."""
     try:
-        return _fed_context_path(task_id).read_text(
+        return _fed_context_path(task_id, project_root).read_text(
+            encoding="utf-8", errors="replace").strip()
+    except (OSError, ValueError):
+        pass
+    try:
+        return _legacy_fed_context_path(task_id).read_text(
             encoding="utf-8", errors="replace").strip()
     except (OSError, ValueError):
         return ""
@@ -1196,6 +1361,7 @@ def brain_turn(
     include_bundle: bool = True,
     include_diff: bool = False,
     context_paths: Optional[list[str]] = None,
+    project_root: Optional[str] = None,
 ) -> dict[str, Any]:
     """Send one Brain turn.
 
@@ -1233,6 +1399,11 @@ def brain_turn(
             under the workspace root with the read suffix allowlist;
             per-file cap plus total budget apply, problems become explicit
             unavailable labels. Default off. Small pulls stay inline.
+        project_root: Optional project dir holding ``tasks/``. Its
+            ``tasks/.sessions/`` stores this turn's history (per-project
+            sessions). When omitted the resolver tries
+            ``BRAIN_PROJECT_ROOT`` / ``BRAIN_WORKSPACE_ROOT`` / cwd
+            walk-up, then falls back to legacy reads.
 
     Returns:
         {"status": "XML_EXTRACTED"|"REPORT", "xml_blocks": [...],
@@ -1303,7 +1474,12 @@ def brain_turn(
             print(f"brain-bridge: diff attach skipped ({exc})",
                   file=sys.stderr)
     model = _get_brain_model()
-    history = load_history(task_id) if task_id else []
+    if task_id:
+        # Sessions-root visibility: one debug line per turn so a
+        # misrouted project is observable in stderr, never silent.
+        print(f"brain-bridge: sessions root {_sessions_root(project_root)} "
+              f"(task {task_id})", file=sys.stderr)
+    history = load_history(task_id, project_root=project_root) if task_id else []
     if task_id:
         # Discovery-fed planning: a [fed-context] block in this prompt is
         # pinned to the session, then the pin (not just this turn's copy)
@@ -1313,8 +1489,8 @@ def brain_turn(
         try:
             fed = extract_fed_context(effective_prompt)
             if fed:
-                save_fed_context(task_id, fed)
-            pinned = load_fed_context(task_id)
+                save_fed_context(task_id, fed, project_root=project_root)
+            pinned = load_fed_context(task_id, project_root=project_root)
             if pinned and "[pinned-fed-context]" not in effective_prompt:
                 effective_prompt = (
                     "[pinned-fed-context]\n" + pinned
@@ -1392,9 +1568,11 @@ def brain_turn(
     if task_id:
         prompt_hash = hashlib.sha256(effective_prompt.encode("utf-8")).hexdigest()
         append_turn(task_id, "user", effective_prompt, model=model,
-                    prompt_hash=prompt_hash, truncated=truncated_count)
+                    prompt_hash=prompt_hash, truncated=truncated_count,
+                    project_root=project_root)
         append_turn(task_id, "assistant", output, model=model,
-                    prompt_hash=prompt_hash, truncated=truncated_count)
+                    prompt_hash=prompt_hash, truncated=truncated_count,
+                    project_root=project_root)
     result: dict[str, Any] = {
         "status": "XML_EXTRACTED" if xml_blocks else "REPORT",
         "xml_blocks": xml_blocks,
