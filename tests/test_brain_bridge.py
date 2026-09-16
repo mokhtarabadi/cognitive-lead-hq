@@ -425,7 +425,9 @@ def test_task_attach_strip_pure():
     assert "head" in cleaned and "tail" in cleaned
     assert omitted == 4  # block lines incl. markers (impl counts span newlines + 1)
     assert truncated is False
-    assert "read_file" in cleaned
+    # Task 241 Bug 1: no Brain pull order — Hands route instead.
+    assert "read_file" not in cleaned
+    assert "no file tools" in cleaned and "Hands" in cleaned
 
 
 def test_task_attach_resolve_exact_and_fallback(tmp_path, monkeypatch):
@@ -989,8 +991,10 @@ def test_task_attach_omitted_note_has_offset_relpath(tmp_path, monkeypatch):
         "# T\n<!-- BEGIN_GIT_DIFF -->\nx\n<!-- END_GIT_DIFF -->\n", encoding="utf-8")
     monkeypatch.setattr(bridge, "_workspace_root", lambda: tmp_path)
     attach = bridge._build_task_attach("200-foo")
-    assert "read_file(" in attach
-    assert "offset" in attach and "limit" in attach
+    # Task 241 Bug 1: the Brain has no file tools — the note must route
+    # the pull to the Hands, never order a read_file pull.
+    assert "read_file(" not in attach
+    assert "no file tools" in attach and "Hands" in attach
     assert "200-foo.md" in attach
     assert str(d) not in attach
 
@@ -1116,7 +1120,8 @@ def test_task_attach_truncates_big_file(tmp_path, monkeypatch):
     monkeypatch.setattr(bridge, "_workspace_root", lambda: tmp_path)
     attach = bridge._build_task_attach("200-foo")
     assert "[...truncated" in attach
-    assert "read_file(" in attach and "200-foo.md" in attach
+    assert "read_file(" not in attach
+    assert "no file tools" in attach and "fed-context" in attach
     assert len(attach) < 30000
 
 
@@ -1131,6 +1136,7 @@ def test_strip_multi_unclosed_lone_markers():
     cleaned_u, _o, trunc_u = bridge._strip_task_diff(unclosed, "t.md")
     assert "keep" in cleaned_u and "leak this" not in cleaned_u
     assert trunc_u is True
+    assert "UNVERIFIABLE" in cleaned_u and "QA_REJECTED" not in cleaned_u
     lone = "keep\n<!-- END_GIT_DIFF -->\nall"
     cleaned_l, omitted_l, trunc_l = bridge._strip_task_diff(lone, "t.md")
     assert cleaned_l == lone and omitted_l == 0 and trunc_l is False
@@ -1150,7 +1156,8 @@ def test_task_attach_truncation_has_pull_path(tmp_path, monkeypatch):
     (d / "200-foo.md").write_text("# T\n" + ("y" * 30000), encoding="utf-8")
     monkeypatch.setattr(bridge, "_workspace_root", lambda: tmp_path)
     attach = bridge._build_task_attach("200-foo")
-    assert "read_file(" in attach and "200-foo.md" in attach
+    assert "read_file(" not in attach
+    assert "no file tools" in attach and "Hands" in attach
     assert len(attach) < 30000
 
 
@@ -1621,6 +1628,21 @@ def test_brain_turn_large_prompt_warns_on_stderr(tmp_path, monkeypatch, capsys):
     assert "include_bundle=false" in err
 
 
+def test_brain_turn_writes_context_ledger_with_util(tmp_path, monkeypatch, capsys):
+    import json
+
+    big = "x" * (bridge._PROMPT_WARN_CHARS + 1)
+    result = _run_turn(monkeypatch, tmp_path, _ok_payload("ok"), prompt=big)
+    assert result["output"] == "ok"
+    assert "util~" in capsys.readouterr().err
+    ledger = tmp_path / "sessions" / bridge._CONTEXT_LEDGER_NAME
+    row = json.loads(ledger.read_text(encoding="utf-8").strip().split("\n")[-1])
+    assert row["task_id"] == "232"
+    assert row["budget_chars"] > bridge._PROMPT_WARN_CHARS
+    assert row["util_pct"] == row["budget_chars"] * 100 // bridge._MODEL_WINDOW_CHARS
+    assert row["truncated"] == 0
+
+
 def test_bundle_total_cap_bounds_oversize_workspace(tmp_path, monkeypatch):
     ws = tmp_path / "ws"
     ws.mkdir()
@@ -1658,6 +1680,43 @@ def test_plan_verdict_cites_without_lines():
     plan = "verdict: ok\nseats: A\npath: p\nsteps: s\ncites: some files somewhere"
     problems = bridge.validate_plan_verdict(plan)
     assert any("file path with lines" in p for p in problems)
+
+
+def _close_ready_task():
+    return ("VERDICT: QA_PASSED\nstate PO_REVIEW_PENDING\n"
+            "Manager wrote: \"Approved for closure\".\n"
+            "Ran extract_session_decisions(241): [] loudly, nothing queued.\n"
+            "<!-- BEGIN_GIT_DIFF -->\n```diff\n"
+            "diff --git a/f.py b/f.py\n+fix\n"
+            "```\n<!-- END_GIT_DIFF -->")
+
+
+def test_closure_checklist_ready():
+    assert bridge.validate_closure_checklist(_close_ready_task()) == []
+
+
+def test_closure_checklist_missing_each():
+    base = _close_ready_task()
+    assert any("QA_PASSED" in p for p in
+               bridge.validate_closure_checklist("no verdict here"))
+    assert any("PO_REVIEW_PENDING" in p for p in
+               bridge.validate_closure_checklist(
+                   base.replace("PO_REVIEW_PENDING", "review done")))
+    # Bare "approved" never counts — only the exact approval words.
+    assert any("approval-word" in p for p in
+               bridge.validate_closure_checklist(
+                   base.replace('"Approved for closure"',
+                                'manager said approved')))
+    assert any("Diff block is empty" in p for p in
+               bridge.validate_closure_checklist(
+                   base.replace("diff --git a/f.py b/f.py\n+fix",
+                                "_(Git diff will be automatically "
+                                "injected here)_")))
+    assert any("extract_session_decisions" in p for p in
+               bridge.validate_closure_checklist(
+                   base.replace("Ran extract_session_decisions(241): "
+                                "[] loudly, nothing queued.\n", "")))
+
 
 
 def _mk_project(tmp_path, name):
@@ -1709,10 +1768,33 @@ def test_legacy_global_transcript_read_through(tmp_path, monkeypatch):
         '{"role": "user", "content": "legacy hello", "model": null, '
         '"prompt_hash": null, "truncated": 0}\n', encoding="utf-8")
     assert planted.is_file()
-    proj = _mk_project(tmp_path, "proj_read")
-    monkeypatch.chdir(proj)
+    # Read from the bare dir: no per-project root resolves there, so the
+    # legacy global fallback (pre-migration read path) still applies.
     turns = bridge.load_history("t3legacy")
     assert any(t.get("content") == "legacy hello" for t in turns)
+
+
+def test_no_cross_project_bleed_for_project_with_sessions_dir(
+        tmp_path, monkeypatch):
+    # Task 241 Bug 2: a project with its own sessions dir must NEVER read
+    # another project's turns or pin from the legacy global store — the
+    # fallback applies only when no per-project root resolves.
+    fake_home = tmp_path / "home_bleed"
+    fake_home.mkdir()
+    monkeypatch.setenv("HOME", str(fake_home))
+    _clean_session_env(monkeypatch)
+    legacy_dir = (fake_home / ".config" / "opencode" / "brain-sessions"
+                  / "bleed")
+    legacy_dir.mkdir(parents=True)
+    (legacy_dir / "transcript.jsonl").write_text(
+        '{"role": "user", "content": "foreign hello", "model": null, '
+        '"prompt_hash": null, "truncated": 0}\n', encoding="utf-8")
+    (legacy_dir / "fed_context.md").write_text(
+        "foreign pin\n", encoding="utf-8")
+    proj = _mk_project(tmp_path, "proj_bleed")
+    monkeypatch.chdir(proj)
+    assert bridge.load_history("bleed") == []
+    assert bridge.load_fed_context("bleed") == ""
 
 
 def test_fresh_write_goes_per_project(tmp_path, monkeypatch):

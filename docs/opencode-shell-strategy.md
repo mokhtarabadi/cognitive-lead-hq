@@ -192,3 +192,38 @@ self-report, not independently verified).
   not the test's — a failure can read as exit 0. Verified 2026-09-12:
   unpiped `rtk test` returns 1 on failure correctly. Measure gates
   unpiped (`... > /tmp/out.txt 2>&1`, then `$?`), or set `pipefail`.
+
+### 8.1. Wider wrapper coverage (subcommand list verified 2026-09-16 via `rtk --help`)
+
+`rtk test` is the default, but the proxy covers far more. Use the
+matching wrapper instead of raw output whenever only the verdict
+matters. Exit codes are preserved throughout; pull full output via
+`rtk recall <id>` on failure.
+
+- **Named test runners:** `rtk jest`, `rtk vitest`, `rtk ctest`,
+  `rtk dotnet` (build/test/restore/format). Research-reported cuts:
+  jest/vitest 94–99%, cargo 90%, playwright 90%, pytest 80–90%
+  (only the pytest figure is locally measured — see table above).
+- **Errors-only:** `rtk err <cmd>` shows only errors/warnings. Use for
+  noisy builds where success output is worthless.
+- **Search and navigation:** `rtk grep` / `rtk rg` (strips whitespace,
+  truncates, groups by file), `rtk find` (accepts native flags),
+  `rtk ls` / `rtk tree` / `rtk read`. Prefer over raw `grep -r` dumps.
+- **VCS and forge:** `rtk git`, `rtk gh`, `rtk glab`, `rtk gt`
+  (Graphite stacked PRs). ZAC still applies — wrappers never authorize
+  a denied command; they only compress output of allowed ones.
+- **Ops and data:** `rtk docker`, `rtk kubectl`, `rtk oc`,
+  `rtk aws` (forces JSON, compresses), `rtk psql` (strips borders,
+  compresses tables), `rtk prisma` (no ASCII art).
+- **Builds:** `rtk mvn` / `rtk mvnd`, `rtk gradlew` (build, test,
+  lint), `rtk pnpm`, `rtk golangci-lint`.
+- **Output shaping:** `rtk log` (dedupe), `rtk json` (compact values,
+  `--keys-only`), `rtk summary` (2-line heuristic), `rtk diff`
+  (changed lines only — file comparison, NOT git diff), `rtk wc`,
+  `rtk deps`, `rtk env` (filtered).
+- **Hook truth:** `rtk rewrite` shows what the hook rewrites a raw
+  command into — single source of truth when a result looks
+  over-trimmed. The hook fires on Bash calls only; unknown commands
+  pass through untouched (`discover` finds the misses).
+- **Scope warning (all wrappers):** collapsing is for PASSES and
+  verdicts. Any failure keeps full output — never compress a failure.

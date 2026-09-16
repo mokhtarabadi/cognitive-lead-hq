@@ -323,7 +323,22 @@ def process_source_file(file_path: Path, max_size: int, line_numbers: bool) -> s
     try:
         size = file_path.stat().st_size
         if size > max_size:
-            lines.append(f"> Skipped: (File too large: {size} bytes)\n")
+            lines.append(f"> Skipped: (File too large: {size} bytes > max_size={max_size})\n")
+            # Discovery gap fix (Task 241): a skipped body must not mean
+            # zero evidence — attach structural signatures when extractable
+            # so the Brain still sees the file's shape. Never raises.
+            try:
+                sig = _extract_via_tree_sitter(file_path)
+                if sig:
+                    lines.append("> Body omitted by size cap; structural signatures follow:\n")
+                    lines.append(sig)
+                else:
+                    lines.append(
+                        "> No signatures extracted — narrow `paths`, raise "
+                        "`max_size`, or call `extract_signatures` on this file.\n"
+                    )
+            except Exception as sig_err:
+                lines.append(f"> Signature fallback failed: ({sig_err})\n")
             return "\n".join(lines)
     except OSError as e:
         lines.append(f"> Skipped: (OS Error: {e})\n")

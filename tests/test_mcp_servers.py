@@ -2358,6 +2358,22 @@ def test_read_source_files_prepends_metrics():
             shutil.rmtree(root / "context-reports", ignore_errors=True)
 
 
+def test_process_source_file_too_large_attaches_signatures():
+    """Task 241: an over-cap body is skipped but never silent — signatures
+    (or a narrow-paths pointer) ride along instead."""
+    import tempfile
+    from pathlib import Path
+
+    mod = _load_context_server_hardening()
+    with tempfile.TemporaryDirectory() as tmpdir:
+        big = Path(tmpdir) / "big.py"
+        big.write_text("def alpha():\n    pass\n" + "x" * 5000, encoding="utf-8")
+        out = mod.process_source_file(big, 100, False)
+        assert "File too large" in out
+        assert "x" * 5000 not in out
+        assert "signature" in out.lower()
+
+
 def test_check_conventional_commit_accepts_all_types():
     """Task 211: validator accepts every documented type with `type: subject`."""
     mod = _load_context_server_hardening()

@@ -348,11 +348,14 @@ def _strip_task_diff(text: str, rel: str) -> tuple[str, int, bool]:
     if not omitted:
         return text, 0, False
     note = (
-        f"[Factual Git Diff omitted — {omitted} lines; "
-        + f"pull ranges via read_file({rel!r}, offset, limit)]"
+        f"[Factual Git Diff omitted — {omitted} lines. You have no file "
+        + "tools in this turn: quote the paths you need in your verdict "
+        + "and the Hands will feed them as fed-context under the same "
+        + "task_id.]"
     )
     if truncated:
-        note += " [diff truncated: unclosed block cut to EOF]"
+        note += (" [diff truncated: unclosed block cut to EOF — scope past "
+                 "the cut is UNVERIFIABLE, never REJECTED]")
     return "".join(parts) + note, omitted, truncated
 
 
@@ -380,7 +383,10 @@ def _build_task_attach(
         if len(cleaned) > _TASK_ATTACH_CAP:
             cleaned = (
                 cleaned[:_TASK_ATTACH_CAP]
-                + f"\n[...truncated — pull remainder via read_file({rel!r}, offset, limit)]"
+                + "\n[...truncated — remainder NOT sent. Judge visible "
+                + "only; mark unseen UNVERIFIABLE, NEVER REJECTED. You "
+                + "have no file tools: quote needed paths and the Hands "
+                + "will feed them as fed-context under the same task_id.]"
             )
         tid = task_id.strip() if isinstance(task_id, str) else "task"
         # V1 guard: break fence parsing invisibly so embedded fences in
@@ -817,6 +823,47 @@ def validate_plan_verdict(plan_text: object) -> list[str]:
     return problems
 
 
+_CLOSURE_APPROVAL_WORDS = ("approved for closure", "close task")
+
+
+def validate_closure_checklist(task_text: object) -> list[str]:
+    """Check task text is close-ready (pure, offline).
+
+    Returns problem strings; empty means ready. Closeout needs a
+    ``QA_PASSED`` verdict line, a ``PO_REVIEW_PENDING`` reviewer state,
+    the exact approval-word quote (only "Approved for closure" or
+    "Close task" count — bare "approved" never does), a non-empty
+    Factual Git Diff block (content between the markers, not the empty
+    placeholder), and evidence that ``extract_session_decisions`` ran
+    for the close (the auto-extract rule never fires unless closeout
+    verifies it). Anything missing must be fixed before the closure
+    commit, never closed around.
+    """
+    if not isinstance(task_text, str) or not task_text.strip():
+        return ["task text is empty"]
+    lowered = task_text.lower()
+    problems = []
+    if not re.search(r"\bQA_PASSED\b", task_text):
+        problems.append("task text missing QA_PASSED verdict")
+    if not re.search(r"\bPO_REVIEW_PENDING\b", task_text):
+        problems.append("task text missing PO_REVIEW_PENDING reviewer state")
+    if not any(word in lowered for word in _CLOSURE_APPROVAL_WORDS):
+        problems.append("task text missing exact approval-word quote")
+    if not re.search(r"\bextract_session_decisions\b", task_text):
+        problems.append("task text shows no extract_session_decisions run")
+    diff_match = re.search(
+        r"<!-- BEGIN_GIT_DIFF -->(.*?)<!-- END_GIT_DIFF -->",
+        task_text, re.DOTALL)
+    if diff_match is None:
+        problems.append("task text missing Factual Git Diff block")
+    else:
+        inner = diff_match.group(1).strip()
+        inner = re.sub(r"```diff|```", "", inner).strip()
+        if (not inner or "will be automatically injected" in inner):
+            problems.append("Factual Git Diff block is empty")
+    return problems
+
+
 def _get_brain_model() -> str:
     """LLM model for Brain turns; override via ``BRAIN_MODEL``."""
     default = "gpt-6-astra"
@@ -975,6 +1022,38 @@ _HISTORY_LIMIT = 40
 
 # Max prompt + history chars per turn. Oldest history drops first.
 _INPUT_BUDGET = 100000
+
+# Assumed model window (chars) for the utilization monitor below.
+# Informational only — providers differ; the send cap stays _INPUT_BUDGET.
+_MODEL_WINDOW_CHARS = 200000
+
+# Per-session context ledger filename (one JSON object per line per turn).
+_CONTEXT_LEDGER_NAME = "context_ledger.jsonl"
+
+
+def _append_context_ledger(
+    task_id: Optional[str],
+    project_root: Optional[str],
+    budget_chars: int,
+    truncated_count: int,
+) -> None:
+    """Best-effort utilization ledger: one JSON line per turn under the
+    sessions root (Task 241 context-gap fix). Never raises — a ledger
+    failure must not break the Brain turn it measures."""
+    try:
+        row = {
+            "task_id": task_id or "noid",
+            "budget_chars": budget_chars,
+            "est_tokens": budget_chars // 4,
+            "util_pct": budget_chars * 100 // _MODEL_WINDOW_CHARS,
+            "truncated": truncated_count,
+        }
+        ledger = _sessions_root(project_root) / _CONTEXT_LEDGER_NAME
+        ledger.parent.mkdir(parents=True, exist_ok=True)
+        with open(ledger, "a", encoding="utf-8") as f:
+            f.write(json.dumps(row) + "\n")
+    except Exception:
+        pass
 
 
 def _sessions_root(project_root: Optional[str] = None) -> Path:
@@ -1246,8 +1325,13 @@ def load_history(task_id: str, limit: int = _HISTORY_LIMIT,
     of being lost (see ``_build_compacted``)."""
     path = _transcript_path(task_id, project_root)
     if not path.is_file():
+        # Cross-project bleed guard: the legacy global fallback
+        # applies ONLY when no per-project root resolves. A project
+        # with its own sessions dir but no file for this id gets a
+        # fresh history — never another project's turns.
         legacy = _legacy_transcript_path(task_id)
-        if legacy.is_file():
+        if (_sessions_root(project_root) == _legacy_sessions_root()
+                and legacy.is_file()):
             print("brain-bridge: reading legacy global session "
                   f"({task_id}); migrate it under tasks/.sessions/",
                   file=sys.stderr)
@@ -1410,13 +1494,17 @@ def load_fed_context(task_id: str,
                      project_root: Optional[str] = None) -> str:
     """Read pinned fed context ('' when none; never raises).
 
-    Falls back to the legacy global file so unmigrated pins keep
-    working; new pins are always written per-project."""
+    Falls back to the legacy global file ONLY when no per-project
+    root resolves; a project with its own sessions dir but no pin
+    gets '' — never another project's pin. New pins are always
+    written per-project."""
     try:
         return _fed_context_path(task_id, project_root).read_text(
             encoding="utf-8", errors="replace").strip()
     except (OSError, ValueError):
         pass
+    if _sessions_root(project_root) != _legacy_sessions_root():
+        return ""
     try:
         return _legacy_fed_context_path(task_id).read_text(
             encoding="utf-8", errors="replace").strip()
@@ -1666,10 +1754,13 @@ def brain_turn(
         history.pop(1)
         truncated_count += 1
     budget_chars = len(system_prompt) + len(effective_prompt) + _hist_chars()
+    util_pct = budget_chars * 100 // _MODEL_WINDOW_CHARS
+    _append_context_ledger(task_id, project_root, budget_chars, truncated_count)
     if budget_chars > _PROMPT_WARN_CHARS:
         print(
             f"brain-bridge: prompt is large (budget_chars={budget_chars} "
-            f"est_tokens~{budget_chars // 4}); oversized prompts have returned "
+            f"est_tokens~{budget_chars // 4} util~{util_pct}% of "
+            f"{_MODEL_WINDOW_CHARS}ch window); oversized prompts have returned "
             "empty output before — if this turn comes back empty, retry lean "
             "(include_bundle=false, same task_id, short prompt)",
             file=sys.stderr,
