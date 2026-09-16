@@ -54,28 +54,44 @@ def test_extract_diff_unclosed_cuts_to_eof():
 def test_build_diff_attach_resolved_with_diff(monkeypatch, tmp_path):
     target = tmp_path / "99-sample.md"
     target.write_text(_task_text("+added"), encoding="utf-8")
-    monkeypatch.setattr(bridge, "_resolve_task_file", lambda tid: target)
+    monkeypatch.setattr(
+        bridge, "_resolve_task_file",
+        lambda tid, project_root=None: target)
     monkeypatch.setattr(bridge, "_workspace_root", lambda: tmp_path)
     out = bridge.build_diff_attach("99")
     assert "+added" in out
 
 
-def test_build_diff_attach_no_diff_returns_empty(monkeypatch, tmp_path):
+def test_build_diff_attach_no_diff_returns_inline_empty_note(
+        monkeypatch, tmp_path):
+    # Re-QA repair: stderr is invisible to the model, so an empty diff
+    # returns an inline EMPTY note (never silent "") with the remedy.
     target = tmp_path / "99-sample.md"
     target.write_text("# Task 99: no diff\n", encoding="utf-8")
-    monkeypatch.setattr(bridge, "_resolve_task_file", lambda tid: target)
-    assert bridge.build_diff_attach("99") == ""
+    monkeypatch.setattr(
+        bridge, "_resolve_task_file",
+        lambda tid, project_root=None: target)
+    out = bridge.build_diff_attach("99")
+    assert "EMPTY" in out
+    assert "stage_and_inject_diff" in out
 
 
-def test_build_diff_attach_unresolvable_returns_empty(monkeypatch):
-    monkeypatch.setattr(bridge, "_resolve_task_file", lambda tid: None)
-    assert bridge.build_diff_attach("nope") == ""
+def test_build_diff_attach_unresolvable_returns_inline_note(monkeypatch):
+    # Re-QA repair: unresolvable file returns an inline UNAVAILABLE
+    # note (never silent "") naming project_root as the remedy.
+    monkeypatch.setattr(
+        bridge, "_resolve_task_file", lambda tid, project_root=None: None)
+    out = bridge.build_diff_attach("nope")
+    assert "UNAVAILABLE" in out
+    assert "project_root" in out
 
 
 def test_build_diff_attach_over_cap_truncates(monkeypatch, tmp_path):
     target = tmp_path / "99-sample.md"
     target.write_text(_task_text("x" * 50000), encoding="utf-8")
-    monkeypatch.setattr(bridge, "_resolve_task_file", lambda tid: target)
+    monkeypatch.setattr(
+        bridge, "_resolve_task_file",
+        lambda tid, project_root=None: target)
     monkeypatch.setattr(bridge, "_workspace_root", lambda: tmp_path)
     monkeypatch.setattr(bridge, "_TASK_DIFF_CAP", 100)
     out = bridge.build_diff_attach("99")
@@ -91,7 +107,9 @@ def test_extract_diff_empty_pair_yields_empty():
 def test_build_diff_attach_breaks_embedded_fences(monkeypatch, tmp_path):
     target = tmp_path / "99-sample.md"
     target.write_text(_task_text("line\n```evil\nline"), encoding="utf-8")
-    monkeypatch.setattr(bridge, "_resolve_task_file", lambda tid: target)
+    monkeypatch.setattr(
+        bridge, "_resolve_task_file",
+        lambda tid, project_root=None: target)
     monkeypatch.setattr(bridge, "_workspace_root", lambda: tmp_path)
     out = bridge.build_diff_attach("99")
     assert "```evil" not in out
@@ -101,7 +119,9 @@ def test_build_diff_attach_breaks_embedded_fences(monkeypatch, tmp_path):
 def test_failsafe_qa_prompt_attaches_without_flag(monkeypatch, tmp_path):
     target = tmp_path / "99-sample.md"
     target.write_text(_task_text("+added"), encoding="utf-8")
-    monkeypatch.setattr(bridge, "_resolve_task_file", lambda tid: target)
+    monkeypatch.setattr(
+        bridge, "_resolve_task_file",
+        lambda tid, project_root=None: target)
     monkeypatch.setattr(bridge, "_workspace_root", lambda: tmp_path)
     out = bridge._failsafe_qa_attach(
         "QA engineer, adversarial review please", "99")
@@ -111,5 +131,68 @@ def test_failsafe_qa_prompt_attaches_without_flag(monkeypatch, tmp_path):
 def test_failsafe_normal_prompt_stays_empty(monkeypatch, tmp_path):
     target = tmp_path / "99-sample.md"
     target.write_text(_task_text("+added"), encoding="utf-8")
-    monkeypatch.setattr(bridge, "_resolve_task_file", lambda tid: target)
+    monkeypatch.setattr(
+        bridge, "_resolve_task_file",
+        lambda tid, project_root=None: target)
     assert bridge._failsafe_qa_attach("fix the login bug", "99") == ""
+
+
+def _mk_project(tmp_path, name="proj"):
+    proj = tmp_path / name
+    lane = proj / "tasks" / "qa"
+    lane.mkdir(parents=True)
+    (lane / "999-sample.md").write_text(
+        _task_text("+via-project-root"), encoding="utf-8")
+    return proj
+
+
+def test_resolve_task_file_honors_project_root(monkeypatch, tmp_path):
+    proj = _mk_project(tmp_path)
+    empty = tmp_path / "empty"
+    empty.mkdir()
+    monkeypatch.setattr(bridge, "_workspace_root", lambda: empty)
+    found = bridge._resolve_task_file("999", project_root=str(proj))
+    assert found is not None and found.name == "999-sample.md"
+    assert bridge._resolve_task_file("999") is None
+
+
+def test_resolve_task_file_project_root_without_tasks_falls_back(
+        monkeypatch, tmp_path):
+    lane = tmp_path / "tasks" / "qa"
+    lane.mkdir(parents=True)
+    (lane / "999-sample.md").write_text(
+        _task_text("+via-workspace"), encoding="utf-8")
+    monkeypatch.setattr(bridge, "_workspace_root", lambda: tmp_path)
+    bare = tmp_path / "bare"
+    bare.mkdir()
+    found = bridge._resolve_task_file("999", project_root=str(bare))
+    assert found is not None and found.name == "999-sample.md"
+
+
+def test_build_diff_attach_via_project_root(monkeypatch, tmp_path):
+    proj = _mk_project(tmp_path)
+    empty = tmp_path / "empty"
+    empty.mkdir()
+    monkeypatch.setattr(bridge, "_workspace_root", lambda: empty)
+    out = bridge.build_diff_attach("999", project_root=str(proj))
+    assert "+via-project-root" in out
+
+
+def test_build_diff_attach_unresolvable_says_so(monkeypatch, capsys):
+    monkeypatch.setattr(
+        bridge, "_resolve_task_file",
+        lambda tid, project_root=None: None)
+    out = bridge.build_diff_attach("nope")
+    assert "UNAVAILABLE" in out  # inline note for the model, not ""
+    assert "unresolvable" in capsys.readouterr().err  # stderr kept too
+
+
+def test_build_diff_attach_empty_diff_says_so(monkeypatch, tmp_path, capsys):
+    target = tmp_path / "99-sample.md"
+    target.write_text("# Task 99: no diff\n", encoding="utf-8")
+    monkeypatch.setattr(
+        bridge, "_resolve_task_file",
+        lambda tid, project_root=None: target)
+    out = bridge.build_diff_attach("99")
+    assert "EMPTY" in out  # inline note for the model, not ""
+    assert "no Factual Git Diff block" in capsys.readouterr().err

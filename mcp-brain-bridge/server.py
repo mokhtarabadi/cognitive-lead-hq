@@ -114,8 +114,26 @@ XML_BLOCK_TAGS = (
     "hotfix",
 )
 
+# Tolerance (Task 238 fix loop, Manager order: extraction must handle every
+# operative tag form): real model output varies — attributes
+# (``<hotfix id="1">``), any case (``<HOTFIX>``), whitespace
+# (``<hotfix >``). All still mean the same instruction, so the matcher
+# tolerates them instead of silently dropping to REPORT. Non-allowlisted
+# tags (``reasoning_log`` etc.) never extract, in any case or form.
 _XML_RE = re.compile(
-    r"<(" + "|".join(XML_BLOCK_TAGS) + r")>.*?</\1>", re.DOTALL
+    r"<(" + "|".join(XML_BLOCK_TAGS) + r")(?:\s[^>]*)?>.*?</\1\s*>",
+    re.DOTALL | re.IGNORECASE,
+)
+
+# Truncation fallback: a transport cut can leave the trailing block without
+# its close tag. A line-start allowlisted opener with no matching close is
+# surfaced (opener onward, trailing prose cut at the first blank line
+# followed by a non-XML line) instead of dropped — the Hands then sees
+# broken XML and re-prompts rather than silently ignoring instructions.
+# Line-start required so mid-sentence prose mentions never trigger it.
+_XML_UNCLOSED_RE = re.compile(
+    r"(?m)^[ \t]*<(" + "|".join(XML_BLOCK_TAGS) + r")(?:\s[^>]*)?>",
+    re.IGNORECASE,
 )
 
 # Explicit ```xml fences hold REAL xml, not documentation — the info string
@@ -250,7 +268,9 @@ def _task_id_ok(tid: object) -> bool:
     return isinstance(tid, str) and bool(_TASK_ID_RE.match(tid))
 
 
-def _resolve_task_file(task_id: str) -> Path | None:
+def _resolve_task_file(
+    task_id: str, project_root: Optional[str] = None
+) -> Path | None:
     """Resolve a Brain task_id to its task file (None when unresolvable).
 
     Tries `<task_id>-*.md` in each Kanban dir (lane order: in-progress,
@@ -264,13 +284,24 @@ def _resolve_task_file(task_id: str) -> Path | None:
     slug; hyphenated ids without a lane suffix or numeric head never
     over-strip. The allowlist rejects traversal,
     separators, and glob metacharacters before any filesystem touch.
-    Never raises — returns None instead.
+    Roots tried in order: explicit ``project_root`` (when it holds a
+    ``tasks/`` dir — the sessions resolver already honors it, the task
+    resolver must too), then the workspace root. Never raises —
+    returns None instead.
     """
     try:
         if not _task_id_ok(task_id):
             return None
         tid = task_id.strip()
-        root = _workspace_root() / "tasks"
+        roots: list[Path] = []
+        if project_root:
+            _pr = Path(project_root).expanduser()
+            try:
+                if (_pr / "tasks").is_dir():
+                    roots.append(_pr / "tasks")
+            except OSError:
+                pass
+        roots.append(_workspace_root() / "tasks")
         candidates = [tid]
         for _suffix in ("-qa", "-backlog", "-in-progress", "-completed",
                         "-archive"):
@@ -280,10 +311,11 @@ def _resolve_task_file(task_id: str) -> Path | None:
         if _head.isdigit() and _head != candidates[-1]:
             candidates.append(_head)
         for cand in candidates:
-            for lane in _TASK_KANBAN_DIRS:
-                matches = sorted((root / lane).glob(cand + "-*.md"))
-                if matches:
-                    return matches[0]
+            for root in roots:
+                for lane in _TASK_KANBAN_DIRS:
+                    matches = sorted((root / lane).glob(cand + "-*.md"))
+                    if matches:
+                        return matches[0]
         return None
     except Exception:
         return None
@@ -324,7 +356,9 @@ def _strip_task_diff(text: str, rel: str) -> tuple[str, int, bool]:
     return "".join(parts) + note, omitted, truncated
 
 
-def _build_task_attach(task_id: str) -> str:
+def _build_task_attach(
+    task_id: str, project_root: Optional[str] = None
+) -> str:
     """Assemble the labeled task-file block ('' when unresolvable).
 
     Contains the task file's working content (Goal/Notes/TODOs/AC/
@@ -333,7 +367,7 @@ def _build_task_attach(task_id: str) -> str:
     Content caps at _TASK_ATTACH_CAP chars. Never raises.
     """
     try:
-        path = _resolve_task_file(task_id)
+        path = _resolve_task_file(task_id, project_root=project_root)
         if path is None:
             return ""
         text = path.read_text(encoding="utf-8", errors="replace")
@@ -382,21 +416,47 @@ def extract_task_diff(text: str) -> str:
     return "\n".join(bodies)
 
 
-def build_diff_attach(task_id: str) -> str:
-    """Assemble the labeled changed-hunks block ('' when none).
+def build_diff_attach(
+    task_id: str, project_root: Optional[str] = None
+) -> str:
+    """Assemble the labeled changed-hunks block.
 
     Contains the task file's Factual Git Diff content verbatim so QA and
     reviewer turns judge the actual changes, never a summary. Content
-    caps at _TASK_DIFF_CAP chars with a truncation note. Never raises.
+    caps at _TASK_DIFF_CAP chars with a truncation note. When the hunks
+    cannot attach, an inline UNAVAILABLE/EMPTY note is returned INSTEAD
+    of "" — stderr is invisible to the model, so a silent "" made the
+    Brain reject blind ("no diff present, cannot judge"); the inline
+    note tells it WHY (unresolvable file vs empty diff block) and the
+    remedy (pass project_root, or paste hunks inline). Never raises.
     """
     try:
-        path = _resolve_task_file(task_id)
+        tid = task_id.strip() if isinstance(task_id, str) else "task"
+        path = _resolve_task_file(task_id, project_root=project_root)
         if path is None:
-            return ""
+            print(f"brain-bridge: diff attach skipped "
+                  f"(task file unresolvable for {task_id!r})",
+                  file=sys.stderr)
+            return (
+                f"[changed-hunks:{tid}: UNAVAILABLE — task file "
+                f"unresolvable for {task_id!r}. The server could not "
+                f"find the task file (wrong project_root, or the task "
+                f"lives in another install). Remedy: retry with the "
+                f"correct project_root, or paste the Factual Git Diff "
+                f"hunks inline. Do NOT reject blind on missing hunks."
+            )
         text = path.read_text(encoding="utf-8", errors="replace")
         diff = extract_task_diff(text)
         if not diff.strip():
-            return ""
+            print(f"brain-bridge: diff attach skipped "
+                  f"(no Factual Git Diff block in {path.name})",
+                  file=sys.stderr)
+            return (
+                f"[changed-hunks:{tid}: EMPTY — no Factual Git Diff "
+                f"block in {path.name} yet. Stage the diff first "
+                f"(stage_and_inject_diff), then re-run this turn. "
+                f"Do NOT reject blind on missing hunks."
+            )
         try:
             rel = path.resolve().relative_to(
                 _workspace_root().resolve()).as_posix()
@@ -408,7 +468,6 @@ def build_diff_attach(task_id: str) -> str:
                 + f"\n[...diff truncated at {_TASK_DIFF_CAP} chars — "
                 + f"pull remainder via read_file({rel!r}, offset, limit)]"
             )
-        tid = task_id.strip() if isinstance(task_id, str) else "task"
         # Same V1 guard as the task attach: break fence parsing invisibly
         # so embedded fences in diff content cannot close our block early.
         diff = diff.replace(chr(96) * 3, chr(96) * 2 + chr(8203) + chr(96))
@@ -418,10 +477,20 @@ def build_diff_attach(task_id: str) -> str:
         )
     except Exception as exc:  # never fail a turn on attach problems
         print(f"brain-bridge: diff attach skipped ({exc})", file=sys.stderr)
-        return ""
+        tid = (task_id.strip() if isinstance(task_id, str)
+               else "task")
+        return (
+            f"[changed-hunks:{tid}: UNAVAILABLE — attach raised "
+            f"({exc}). Retry the turn; if it persists, paste the "
+            f"Factual Git Diff hunks inline. Do NOT reject blind "
+            f"on missing hunks."
+        )
 
 
-def _failsafe_qa_attach(user_prompt: object, task_id: object) -> str:
+def _failsafe_qa_attach(
+    user_prompt: object, task_id: object,
+    project_root: Optional[str] = None,
+) -> str:
     """Return the diff-attach block for QA-like prompts ('' otherwise).
 
     Keyword gate only: fires when the prompt reads like a QA/reviewer
@@ -433,7 +502,8 @@ def _failsafe_qa_attach(user_prompt: object, task_id: object) -> str:
     if ("qa engineer" in lowered or "code reviewer" in lowered
             or "adversarial" in lowered):
         return build_diff_attach(
-            task_id.strip() if isinstance(task_id, str) else "")
+            task_id.strip() if isinstance(task_id, str) else "",
+            project_root=project_root)
     return ""
 
 
@@ -635,21 +705,75 @@ def load_system_prompt(explicit_path: Optional[str] = None) -> str:
     )
 
 
+def _extract_unclosed_tail(text: str) -> str | None:
+    """Return the truncated trailing block for the first line-start
+    allowlisted opener with no matching close tag after it, else None.
+    Pure helper for the truncation fallback in ``extract_xml_blocks``.
+
+    Two QA-hotfix guards keep broken output from becoming live
+    instructions. First, the tag NAME alone decides allowlist membership:
+    it is lowercased before the close-tag check, and attributes never
+    participate (the opener regex already captures only the name). Second,
+    trailing PROSE is cut: a blank line followed by a line that does not
+    open XML ends the block, because prose after a broken block is
+    conversation, not instructions — the Hands executes whatever lands in
+    ``xml_blocks``. Pretty-printed XML (blank line followed by another
+    ``<`` line) passes through untouched. Empty remainder means None.
+    """
+    for m in _XML_UNCLOSED_RE.finditer(text):
+        # Lowercase: the close-tag search below is case-insensitive, and
+        # the allowlist match above already ignored case — the name, not
+        # its surface form or attributes, carries the decision.
+        name = m.group(1).lower()
+        close_re = re.compile(r"</" + name + r"\s*>", re.IGNORECASE)
+        if close_re.search(text, m.end()):
+            continue
+        lines = text[m.start():].split("\n")
+        cut = len(lines)
+        for i, line in enumerate(lines):
+            if line.strip():
+                continue
+            # Blank line: peek at the next non-blank line. XML continues
+            # only when it opens another tag; prose ends the block here.
+            for nxt in lines[i + 1:]:
+                if not nxt.strip():
+                    continue
+                if not nxt.lstrip().startswith("<"):
+                    cut = i
+                break
+            if cut != len(lines):
+                break
+        tail = "\n".join(lines[:cut]).rstrip()
+        if tail:
+            return tail
+    return None
+
+
 def extract_xml_blocks(output: str) -> list[str]:
     """Return verbatim XML control blocks in document order. Fenced code
     blocks are stripped first (XML inside backticks is documentation, not
     instructions — fence-only output means REPORT), EXCEPT explicit
     ```xml fences: the info string marks real XML, so when the unfenced
     scan finds nothing, allowlist tags inside ```xml bodies are returned
-    as a fallback (Task 215: reviewer hotfix XML arrived fenced). Empty
-    list means plain conversation — the Hands takes the whole output."""
+    as a fallback (Task 215: reviewer hotfix XML arrived fenced). Tag
+    matching tolerates attributes, whitespace, and case (Task 238 fix
+    loop). A trailing line-start opener with no close tag is surfaced
+    with trailing prose cut (truncation) instead of dropped. Empty list
+    means plain conversation — the Hands takes the whole output."""
     clean, _ = _strip_fences(output)
     blocks = [m.group(0) for m in _XML_RE.finditer(clean)]
     if blocks:
         return blocks
+    tail = _extract_unclosed_tail(clean)
+    if tail:
+        return [tail]
     out: list[str] = []
     for body in _XML_FENCE_RE.finditer(output):
-        out.extend(m.group(0) for m in _XML_RE.finditer(body.group(1)))
+        content = body.group(1)
+        out.extend(m.group(0) for m in _XML_RE.finditer(content))
+        tail = _extract_unclosed_tail(content)
+        if tail:
+            out.append(tail)
     return out
 
 
@@ -1389,6 +1513,11 @@ def brain_turn(
         include_diff: When True, append the task file's changed hunks
             (Factual Git Diff content, verbatim, capped) whenever
             task_id resolves to a file that carries a diff block.
+            Stands alone: honored even on lean turns with
+            include_bundle=False (the EMPTY_OUTPUT_RETRY shape) — the
+            old bundle gate silently dropped QA diffs on every lean
+            retry. When True but nothing attaches, a stderr reason
+            says why (unresolvable file vs empty diff block).
             QA and reviewer turns MUST pass True — the Brain judges
             the actual changes, never a summary. Fail-safe: when the
             flag is False but the prompt reads like a QA/reviewer turn
@@ -1401,9 +1530,13 @@ def brain_turn(
             unavailable labels. Default off. Small pulls stay inline.
         project_root: Optional project dir holding ``tasks/``. Its
             ``tasks/.sessions/`` stores this turn's history (per-project
-            sessions). When omitted the resolver tries
-            ``BRAIN_PROJECT_ROOT`` / ``BRAIN_WORKSPACE_ROOT`` / cwd
-            walk-up, then falls back to legacy reads.
+            sessions), and its ``tasks/`` lanes resolve the task file
+            for the task attach and the diff attach — without it both
+            resolvers fall back to the workspace root, which misses
+            when the server runs from another install. When omitted the
+            resolver tries ``BRAIN_PROJECT_ROOT`` /
+            ``BRAIN_WORKSPACE_ROOT`` / cwd walk-up, then falls back to
+            legacy reads.
 
     Returns:
         {"status": "XML_EXTRACTED"|"REPORT", "xml_blocks": [...],
@@ -1428,7 +1561,7 @@ def brain_turn(
         effective_prompt = _build_context_bundle() + "\n\n---\n\n" + user_prompt
     if include_bundle and task_id:
         try:
-            attach = _build_task_attach(task_id)
+            attach = _build_task_attach(task_id, project_root=project_root)
             _ns = (
                 f"{_TASK_FILE_MARKER}{task_id.strip()}: "
                 if isinstance(task_id, str)
@@ -1450,21 +1583,30 @@ def brain_turn(
         except Exception as exc:  # never fail a turn on attach problems
             print(f"brain-bridge: paths attach skipped ({exc})",
                   file=sys.stderr)
-    if include_bundle and include_diff and task_id:
+    # Explicit flag stands alone: a lean turn (include_bundle=False,
+    # the documented EMPTY_OUTPUT_RETRY shape) with include_diff=True
+    # MUST still carry the hunks — gating the diff on the bundle
+    # silently dropped QA diffs on every lean retry.
+    if include_diff and task_id:
         try:
             dattach = build_diff_attach(
-                task_id.strip() if isinstance(task_id, str) else "")
+                task_id.strip() if isinstance(task_id, str) else "",
+                project_root=project_root)
             if dattach:
                 effective_prompt = effective_prompt + "\n\n---\n\n" + dattach
+            else:
+                print("brain-bridge: include_diff=True but no hunks "
+                      "attached (see reason above)", file=sys.stderr)
         except Exception as exc:  # never fail a turn on attach problems
             print(f"brain-bridge: diff attach skipped ({exc})", file=sys.stderr)
-    if include_bundle and not include_diff and task_id:
+    if not include_diff and task_id:
         # Fail-safe: QA/reviewer-like prompts carry the changed hunks even
         # when the caller forgot the flag — a silent drop would let the
         # Brain judge a summary instead of the changes. Keyword gate only;
         # normal turns are untouched when the flag is False.
         try:
-            dattach = _failsafe_qa_attach(user_prompt, task_id)
+            dattach = _failsafe_qa_attach(
+                user_prompt, task_id, project_root=project_root)
             if dattach:
                 print("brain-bridge: QA turn without include_diff, "
                       "auto-attaching diff", file=sys.stderr)
@@ -1563,7 +1705,8 @@ def brain_turn(
         # REPORT. Substitute the retry hint; status stays REPORT so old
         # callers keep working. The transcript below records the hint,
         # not a verdict.
-        output = _empty_output_hint(task_id, _task_state_note(task_id))
+        output = _empty_output_hint(
+            task_id, _task_state_note(task_id, project_root))
     fence_drops = list(_last_fence_drops)
     if task_id:
         prompt_hash = hashlib.sha256(effective_prompt.encode("utf-8")).hexdigest()
@@ -1605,7 +1748,9 @@ def _get_reasoning_effort() -> str:
     return val
 
 
-def _task_state_note(task_id: Optional[str]) -> str:
+def _task_state_note(
+    task_id: Optional[str], project_root: Optional[str] = None
+) -> str:
     """One-line state note for the empty-output retry hint (never raises).
 
     Format: ``path | status | diff-hash``. Lets the retry-er judge whether
@@ -1615,7 +1760,7 @@ def _task_state_note(task_id: Optional[str]) -> str:
     try:
         if not task_id or not isinstance(task_id, str):
             return "unknown"
-        path = _resolve_task_file(task_id)
+        path = _resolve_task_file(task_id, project_root=project_root)
         if path is None:
             return "unknown"
         try:

@@ -53,7 +53,35 @@ class GitIgnoreFilter:
         abs_path = path.resolve()
         if ".git" in abs_path.parts or abs_path.name == ".git":
             return True
-        current = abs_path.parent
+        # Repo boundary (Task 238 fix loop): git only applies .gitignore
+        # files INSIDE the repo. The old walk-to-/ let a grandparent
+        # .gitignore (e.g. `projects/` two levels up) mark every in-repo
+        # path ignored, which broke get_directory_tree("."). Stop at the
+        # nearest self-or-ancestor dir containing .git (its spec still
+        # applies); with no repo found, floor at cwd when the path lives
+        # under it, else keep the legacy walk-to-/ behavior.
+        boundary: Path | None = None
+        probe = abs_path if abs_path.is_dir() else abs_path.parent
+        cwd = Path.cwd().resolve()
+        # Both .git forms stop the walk: a directory in normal repos, a
+        # FILE in submodule/worktree roots (gitdir pointer). Either way
+        # this dir is a repo root and .gitignore files above it never
+        # apply inside.
+        while True:
+            dot_git = probe / ".git"
+            if dot_git.is_dir() or dot_git.is_file():
+                boundary = probe
+                break
+            if probe == probe.parent:
+                break
+            probe = probe.parent
+        if boundary is None:
+            try:
+                abs_path.relative_to(cwd)
+                boundary = cwd
+            except ValueError:
+                boundary = None
+        current = abs_path if abs_path.is_dir() else abs_path.parent
         while True:
             spec = self._get_spec(current)
             if spec:
@@ -66,6 +94,8 @@ class GitIgnoreFilter:
                         return True
                 except ValueError:
                     pass
+            if boundary is not None and current == boundary:
+                break
             if current == current.parent:
                 break
             current = current.parent

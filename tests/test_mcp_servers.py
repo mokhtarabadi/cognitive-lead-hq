@@ -2171,6 +2171,82 @@ def test_tree_rejects_parent_escape():
             os.chdir(old_cwd)
 
 
+def test_tree_dot_not_ignored_by_parent_gitignore():
+    """Task 238 fix loop: a grandparent .gitignore must not mark the whole
+    repo ignored — get_directory_tree('.') returns the tree."""
+    import os
+    import tempfile
+    from pathlib import Path
+
+    mod = _load_context_server_hardening()
+    with tempfile.TemporaryDirectory() as tmpdir:
+        parent = Path(tmpdir)
+        (parent / ".gitignore").write_text("repo/\n", encoding="utf-8")
+        repo = parent / "repo"
+        (repo / ".git").mkdir(parents=True)
+        (repo / ".gitignore").write_text("ignored-dir/\n", encoding="utf-8")
+        (repo / "ignored-dir").mkdir()
+        (repo / "kept.txt").write_text("x", encoding="utf-8")
+        old_cwd = os.getcwd()
+        os.chdir(repo)
+        try:
+            result = mod.get_directory_tree(".")
+            assert result.startswith("## Directory Tree:"), result[:120]
+            assert "kept.txt" in result
+            assert "ignored-dir" not in result
+        finally:
+            os.chdir(old_cwd)
+
+
+def test_tree_outer_gitignore_naming_inner_file_does_not_apply():
+    """QA hotfix M3: an outer .gitignore OUTSIDE the repo root naming an
+    inner file must not hide it — outer rules never apply inside."""
+    import os
+    import tempfile
+    from pathlib import Path
+
+    mod = _load_context_server_hardening()
+    with tempfile.TemporaryDirectory() as tmpdir:
+        parent = Path(tmpdir)
+        (parent / ".gitignore").write_text("kept.txt\n", encoding="utf-8")
+        repo = parent / "repo"
+        (repo / ".git").mkdir(parents=True)
+        (repo / "kept.txt").write_text("x", encoding="utf-8")
+        old_cwd = os.getcwd()
+        os.chdir(repo)
+        try:
+            result = mod.get_directory_tree(".")
+            assert result.startswith("## Directory Tree:"), result[:120]
+            assert "kept.txt" in result
+        finally:
+            os.chdir(old_cwd)
+
+
+def test_tree_git_file_stops_upward_walk():
+    """QA hotfix M4: submodule/worktree roots carry a .git FILE, not a
+    dir — it must stop the upward .gitignore walk like a .git dir."""
+    import os
+    import tempfile
+    from pathlib import Path
+
+    mod = _load_context_server_hardening()
+    with tempfile.TemporaryDirectory() as tmpdir:
+        parent = Path(tmpdir)
+        (parent / ".gitignore").write_text("kept.txt\n", encoding="utf-8")
+        repo = parent / "sub"
+        repo.mkdir()
+        (repo / ".git").write_text("gitdir: /elsewhere\n", encoding="utf-8")
+        (repo / "kept.txt").write_text("x", encoding="utf-8")
+        old_cwd = os.getcwd()
+        os.chdir(repo)
+        try:
+            result = mod.get_directory_tree(".")
+            assert result.startswith("## Directory Tree:"), result[:120]
+            assert "kept.txt" in result
+        finally:
+            os.chdir(old_cwd)
+
+
 def test_tree_none_defaults_to_workspace_root():
     """Non-string target degrades gracefully to the whole-project default."""
     import os

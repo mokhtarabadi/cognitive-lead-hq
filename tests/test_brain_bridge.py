@@ -1012,6 +1012,70 @@ def test_brain_turn_include_bundle_false_skips_attach(tmp_path, monkeypatch):
     assert not any("[task-file:" in c for c in user_contents)
 
 
+def test_brain_turn_lean_diff_attaches_without_bundle(tmp_path, monkeypatch):
+    # Task 238 "why" fix: the old bundle gate silently dropped QA diffs
+    # on every lean retry (include_bundle=False). The explicit flag
+    # stands alone now — hunks must ride the lean turn.
+    _mk_tasks_root(tmp_path)
+    monkeypatch.setattr(bridge, "_workspace_root", lambda: tmp_path)
+    monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
+    _mk_sys_prompt(tmp_path, monkeypatch)
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    monkeypatch.delenv("BRAIN_TEMPERATURE", raising=False)
+    holder = {}
+    _mk_bridge_client(monkeypatch, [_FakeResp(200, "fine", _ok_payload("ok"))], holder)
+    call = bridge.brain_turn
+    target = call.fn if hasattr(call, "fn") else call
+    result = target("q", task_id="200",
+                     include_bundle=False, include_diff=True)
+    assert result["status"] == "REPORT"
+    user_contents = [t["content"] for t in holder["body"]["input"]]
+    assert any("[changed-hunks:" in c for c in user_contents)
+    assert any("DIFFSTUFF" in c for c in user_contents)
+
+
+def test_brain_turn_failsafe_fires_without_bundle(tmp_path, monkeypatch):
+    # QA-like prompt, flag forgotten, bundle off — the failsafe must
+    # still auto-attach the hunks (it no longer requires the bundle).
+    _mk_tasks_root(tmp_path)
+    monkeypatch.setattr(bridge, "_workspace_root", lambda: tmp_path)
+    monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
+    _mk_sys_prompt(tmp_path, monkeypatch)
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    monkeypatch.delenv("BRAIN_TEMPERATURE", raising=False)
+    holder = {}
+    _mk_bridge_client(monkeypatch, [_FakeResp(200, "fine", _ok_payload("ok"))], holder)
+    call = bridge.brain_turn
+    target = call.fn if hasattr(call, "fn") else call
+    result = target("qa engineer, adversarial review please",
+                     task_id="200", include_bundle=False)
+    assert result["status"] == "REPORT"
+    user_contents = [t["content"] for t in holder["body"]["input"]]
+    assert any("[changed-hunks:" in c for c in user_contents)
+
+
+def test_brain_turn_include_diff_unresolvable_warns(tmp_path, monkeypatch,
+                                                     capsys):
+    # Loud skip: flag set but no file — stderr must say why instead
+    # of silently sending a diff-less QA turn.
+    monkeypatch.setattr(bridge, "_workspace_root", lambda: tmp_path)
+    monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
+    _mk_sys_prompt(tmp_path, monkeypatch)
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    monkeypatch.delenv("BRAIN_TEMPERATURE", raising=False)
+    holder = {}
+    _mk_bridge_client(monkeypatch, [_FakeResp(200, "fine", _ok_payload("ok"))], holder)
+    call = bridge.brain_turn
+    target = call.fn if hasattr(call, "fn") else call
+    result = target("q", task_id="200", include_diff=True)
+    assert result["status"] == "REPORT"
+    assert "unresolvable" in capsys.readouterr().err
+    # Re-QA repair: the model itself must see WHY — the inline note
+    # rides in the sent prompt, never a silent empty attach.
+    user_contents = [t["content"] for t in holder["body"]["input"]]
+    assert any("UNAVAILABLE" in c for c in user_contents)
+
+
 def test_task_resolve_tmp_root_integration(tmp_path, monkeypatch):
     for lane in ("backlog", "qa"):
         d = tmp_path / "tasks" / lane
@@ -1351,10 +1415,12 @@ def test_extract_uppercase_fence_lowercase_tag():
     assert blocks[0].startswith("<hotfix>")
 
 
-def test_extract_uppercase_tag_stays_ignored():
-    # Locks current behavior: tag names are lowercase per protocol.
-    assert bridge.extract_xml_blocks("<HOTFIX>x</HOTFIX>") == []
-    assert bridge.extract_xml_blocks("```xml\n<HOTFIX>x</HOTFIX>\n```") == []
+def test_extract_uppercase_tag_tolerated():
+    # Task 238 fix loop (supersedes the lowercase-only lock): model output
+    # varies in case; an operative tag in any case still extracts.
+    blocks = bridge.extract_xml_blocks("<HOTFIX>x</HOTFIX>")
+    assert len(blocks) == 1
+    assert bridge.extract_xml_blocks("```xml\n<HOTFIX>x</HOTFIX>\n```") != []
 
 
 def test_extract_fence_without_newline_ignored():
@@ -1367,10 +1433,16 @@ def test_extract_empty_hotfix_block():
     assert len(blocks) == 1
 
 
-def test_extract_tag_with_attributes_stays_ignored():
-    # Locks current behavior: bare tag names only; attribute-form tags
-    # are not operative instructions.
-    assert bridge.extract_xml_blocks('<hotfix id="1">x</hotfix>') == []
+def test_extract_tag_with_attributes_tolerated():
+    # Task 238 fix loop (supersedes the bare-names-only lock): attribute
+    # and whitespace forms of operative tags still extract.
+    for variant in (
+        '<hotfix id="1">x</hotfix>',
+        "<hotfix >x</hotfix>",
+        '<HANDS_IMPLEMENTATION_TASK retry="2">y</HANDS_IMPLEMENTATION_TASK>',
+    ):
+        blocks = bridge.extract_xml_blocks(variant)
+        assert len(blocks) == 1, variant
 
 
 def test_extract_quad_xml_fence_stays_ignored():
@@ -1378,6 +1450,80 @@ def test_extract_quad_xml_fence_stays_ignored():
     # matched at offset 1 inside ````xml. Quad fences stay documentation.
     out = "````xml\n<hotfix>x</hotfix>\n````"
     assert bridge.extract_xml_blocks(out) == []
+
+
+# --- Task 238 fix loop: tolerance + truncation fallback ---
+
+def test_extract_mismatched_close_stays_ignored():
+    # Mid-line so the truncation fallback (line-start only) stays out.
+    assert bridge.extract_xml_blocks("note <hotfix>x</failure_report> tail") == []
+
+
+def test_extract_non_allowlisted_tag_never_extracts():
+    # reasoning_log is conversation, never instructions — any case, attrs,
+    # fenced or bare, closed or line-start unclosed.
+    assert bridge.extract_xml_blocks("<reasoning_log>x</reasoning_log>") == []
+    assert bridge.extract_xml_blocks("<REASONING_LOG>x</REASONING_LOG>") == []
+    assert bridge.extract_xml_blocks('<reasoning_log tone="t">x</reasoning_log>') == []
+    assert bridge.extract_xml_blocks("```xml\n<reasoning_log>x</reasoning_log>\n```") == []
+    assert bridge.extract_xml_blocks("notes\n<reasoning_log>truncated") == []
+
+
+def test_extract_truncated_trailing_block_surfaced():
+    out = "thinking\n<hotfix>apply A1-A8"
+    blocks = bridge.extract_xml_blocks(out)
+    assert len(blocks) == 1
+    assert blocks[0].startswith("<hotfix>")
+
+
+def test_extract_truncated_tail_cuts_trailing_prose():
+    # QA hotfix M1: prose after the broken block must stay conversation,
+    # never become instructions the Hands executes.
+    out = "notes\n<hotfix>apply A1\n\nC1 explains why this is safe"
+    blocks = bridge.extract_xml_blocks(out)
+    assert len(blocks) == 1
+    assert "explains" not in blocks[0]
+    assert blocks[0].startswith("<hotfix>")
+
+
+def test_extract_plain_prose_angle_brackets_never_extracts():
+    # QA hotfix M2: angle brackets with no allowlisted tag yield nothing.
+    assert bridge.extract_xml_blocks("compare a < b and c > d, done") == []
+    assert bridge.extract_xml_blocks("price <10> and <20> ok") == []
+
+
+def test_extract_unclosed_uppercase_with_attrs_surfaced():
+    # QA hotfix V2: case and attributes never affect the allowlist
+    # decision — the tag NAME alone decides.
+    out = "notes\n<HOTFIX ID=\"7\">do step 1"
+    blocks = bridge.extract_xml_blocks(out)
+    assert len(blocks) == 1
+    assert blocks[0].startswith("<HOTFIX")
+
+
+def test_extract_truncated_block_with_attributes_surfaced():
+    out = "thinking\n<HANDS_IMPLEMENTATION_TASK retry=\"2\">do step 1"
+    blocks = bridge.extract_xml_blocks(out)
+    assert len(blocks) == 1
+
+
+def test_extract_mid_sentence_unclosed_mention_ignored():
+    # Line-start required: prose mentions never trigger the fallback.
+    assert bridge.extract_xml_blocks("use <hotfix> for urgent fixes") == []
+
+
+def test_extract_truncated_inside_xml_fence_surfaced():
+    out = "notes\n```xml\n<hotfix>apply A1"
+    blocks = bridge.extract_xml_blocks(out)
+    assert len(blocks) == 1
+    assert blocks[0].startswith("<hotfix>")
+
+
+def test_extract_closed_block_wins_over_truncated_tail():
+    out = "<failure_report>live</failure_report>\n<hotfix>truncated"
+    blocks = bridge.extract_xml_blocks(out)
+    assert len(blocks) == 1
+    assert blocks[0].startswith("<failure_report>")
 
 # --- Task-number gate: task_id is a bare number, never suffixed ---
 # (Session finding: "215qa"/"215rev"/"215plan" forked one task's history

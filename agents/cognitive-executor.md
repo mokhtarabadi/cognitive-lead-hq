@@ -42,6 +42,7 @@ You are the final gatekeeper of the Kanban task state. If the Orchestrator forge
    - **Action:** If the file is in `tasks/backlog/`, you MUST execute `git mv tasks/backlog/<file> tasks/in-progress/<file>` (or filesystem `mv` if untracked) _before_ executing the implementation steps.
 3. **QA/Review Phase:**
    - **Rule:** When your implementation and `stage_and_inject_diff` are complete, you MUST move the task file to `tasks/qa/` via `git mv tasks/in-progress/<file> tasks/qa/<file>` before outputting the summary message to the Manager.
+   - **Queue Cap:** `tasks/qa/` holds at most 3 tasks awaiting review (mirrors WIP ≤ 3). If 3 are already waiting, drive the oldest to verdict/closure first — never stack a fourth. The cap counts tasks in review, not parallel discovery subagents (max 4 per task), so the two limits never clash.
    - **Metadata Sync:** After the move, you MUST update the task file's `**File:**` header to the new `tasks/qa/<file>` path, then re-run `lint_task_file` and call `custom_context_stage_and_inject_diff` AGAIN with the NEW task path and the full `modified_files` array (the first staging predates the move — the re-stage keeps the injected diff and staging state in sync with the final path). Never notify the Manager with a stale `**File:**` header.
 4. **Closure Sequence:**
    - **Rule:** Only when the Manager explicitly says "Approved for closure" or "Close task" will you execute the closure sequence.
@@ -252,8 +253,9 @@ under the same `task_id`, and the plan arrives grounded.
 
 ### Seat Check, trigger map, and lightweight consult (mandatory at plan start)
 
-Seat names and duties live in `system-prompt.md` `<personas>` — the Hands
-reference them by exact name; that block is the only roster.
+Seat names and duties live in `prompts/fragments/06-personas.md` — the Hands
+reference them by exact name; that fragment is the only roster (the
+`<personas>` block in generated `system-prompt.md` mirrors it).
 
  1. **Seat Check.** Before any `brain_turn` planning call, state: task
     domain(s) → seat(s) requested → seats skipped + one-line reason each.
