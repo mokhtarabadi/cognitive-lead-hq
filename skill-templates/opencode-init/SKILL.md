@@ -1,6 +1,6 @@
 ---
 name: opencode-init
-description: Analyze a project (or ask the user) and generate a comprehensive, correct opencode.json for it. V1 runtime shapes only; validates before writing.
+description: Analyze a project (or ask the user) and generate a comprehensive, correct opencode.json for it. Matches https://opencode.ai/config.json shapes; validates before writing.
 ---
 
 # Skill: opencode-init
@@ -11,20 +11,31 @@ description: Analyze a project (or ask the user) and generate a comprehensive, c
 
 Turn project analysis into a working `opencode.json` for THAT project only.
 Analyze stack files, ask the user for gaps (default agent,
-formatter, LSP guidance, instructions, permissions), emit V1-runtime JSON,
+formatter, LSP guidance, instructions, permissions), emit JSON matching
+the public schema (https://opencode.ai/config.json),
 then validate with `scripts/validate-opencode.py` before writing.
 MCP servers and plugins install GLOBALLY — never emit `mcp` or `plugin`
 into the project file. Never edit global config. Never install plugins.
 
-## Ground Truth (this repo's runtime — file evidence wins over public docs)
+## Ground Truth (public schema wins — verified 2026-09-16)
 
-- Shape: flat V1 map. Project-only top keys: `$schema`, `default_agent`,
-  `instructions[]`, `formatter`, `lsp` (guidance only — enable/tune,
-  never install), `permission{}`. The `permission` map is
+- Shape: project-only top keys: `$schema`, `default_agent`,
+  `instructions[]`, `formatter`, `lsp`, `permission{}`. The `permission` map is
   `tool-name → allow|ask|deny`, plus a `bash` sub-map of
   `command-pattern → deny` and optional scoped sub-maps
   (e.g. `external_directory`). There is NO `permissions[]` array here.
   `mcp{}` and `plugin[]` are GLOBAL-only and banned from project output.
+- Formatter: `true` | `false` | named map
+  `{<name>: {command?, extensions?, environment?, disabled?}}`.
+  NEVER emit a flat `{command, extensions}` object — it fails with
+  `Missing key formatter.command`. Example:
+  `{"spotless-java": {"command": ["mvn", "spotless:apply"], "extensions": [".java"]}}`.
+- LSP: `true` | `false` | flat map
+  `{<name>: {command (required), extensions?, env?, initialization?, disabled?}}`.
+  NEVER wrap in a `language-server` key — it fails with
+  `Missing key lsp.language-server.command` because the runtime treats
+  `language-server` as a server name. LSP uses `env`, NOT `environment`.
+  Example: `{"typescript": {"command": ["typescript-language-server", "--stdio"]}}`.
 - MCP server: global-only. Shared servers live in the global config
   (`~/.config/opencode/opencode.json`) or a global plugin directory —
   project output carries NO `mcp` block. Secrets travel ONLY as
@@ -34,9 +45,10 @@ into the project file. Never edit global config. Never install plugins.
   `.opencode/*` wins. Global holds shared MCP and plugins;
   the project file holds overrides only (formatter, LSP guidance,
   instructions, permissions).
-- The public schema reference leans V2 and mismatches this runtime —
-  see `references/runtime-matrix.md`. When file and docs disagree, the
-  local `opencode.json` (copied at `references/examples/golden-opencode.json`) wins.
+- Schema authority: https://opencode.ai/config.json plus
+  `references/runtime-matrix.md`. The golden file
+  (`references/examples/golden-opencode.json`) is a known-good example
+  that MUST pass both this validator and `opencode debug config`.
 
 ## Workflow
 
@@ -49,9 +61,10 @@ into the project file. Never edit global config. Never install plugins.
    instructions/permission choices. Ask with explicit questions;
    ambiguous means NOT answered — HALT and re-ask rather than
    inventing values. Never ask for MCP env keys or plugin selection.
-3. **Generate.** Emit V1 project-only JSON: `$schema`, `default_agent`,
+3. **Generate.** Emit project-only JSON: `$schema`, `default_agent`,
    `instructions[]` (existing doc paths only), `formatter`
-   (`true`|`false`|custom command), `lsp` (guidance only),
+   (`true`|`false`|named map `{<name>: {command, extensions?, environment?, disabled?}}`),
+   `lsp` (`true`|`false`|flat map `{<name>: {command, extensions?, env?, initialization?, disabled?}}`),
    `permission{}` (tool allows + full ZAC `bash` deny set).
    Omit `mcp` and `plugin` entirely; instead write a human note naming
    the global install paths (`~/.config/opencode/opencode.json`,
@@ -62,8 +75,9 @@ into the project file. Never edit global config. Never install plugins.
 
 ## Rules
 
-- V1 project-only output. `mcp` and `plugin` keys, `permissions[]`
-  arrays, V2 LSP objects, and any key the validator rejects are forbidden.
+- Project-only output. `mcp` and `plugin` keys, `permissions[]`
+  arrays, `language-server` LSP wrappers, flat formatter objects,
+  and any key the validator rejects are forbidden.
 - Project key allowlist: `$schema`, `default_agent`, `instructions`,
   `formatter`, `lsp`, `permission`. Output keys MUST subset this list.
 - ZAC deny set is mandatory in every generated file: `git add`, `git add *`,

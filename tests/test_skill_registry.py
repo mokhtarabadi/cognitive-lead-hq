@@ -134,7 +134,8 @@ def test_opencode_init_skill_contract():
     text = _template_text("opencode-init")
     for required in (
         "validate-opencode.py",
-        "V1",
+        "flat map",
+        "named map",
         "default_agent",
         "{env:",
         "git commit",
@@ -190,8 +191,8 @@ def test_validate_opencode_script():
     code, out = run(no_zac)
     assert code == 1 and "git push *" in out
     secret = json.loads(json.dumps(base))
-    first_srv = next(iter(secret["mcp"]))
-    secret["mcp"][first_srv]["environment"] = {"KEY": "sk-live-abc123"}
+    secret["lsp"] = {"pyright": {"command": ["pyright"],
+                                 "env": {"KEY": "sk-live-abc123"}}}
     code, out = run(secret)
     assert code == 1 and "placeholder" in out
 
@@ -237,43 +238,73 @@ def test_validate_lsp_v2_keys_rejected():
         assert code == 1 and "lsp" in out.lower()
 
 
+def test_validate_lsp_wrapper_rejected():
+    cfg = _fresh_golden()
+    cfg["lsp"] = {"language-server": {"typescript": {"command": ["typescript-language-server", "--stdio"]}}}
+    code, out = _run_validator(cfg)
+    assert code == 1 and "language-server" in out
+    cfg = _fresh_golden()
+    cfg["lsp"] = {"pyright": {"command": ["pyright"], "environment": {"K": "{env:K}"}}}
+    code, out = _run_validator(cfg)
+    assert code == 1 and "env" in out
+
+
 def test_validate_lsp_null_empty_and_valid():
     cfg = _fresh_golden()
-    cfg["lsp"] = {"language-server": {"py": None}}
+    cfg["lsp"] = {"py": None}
     assert _run_validator(cfg)[0] == 1
     cfg = _fresh_golden()
-    cfg["lsp"] = {"language-server": {"py": {"command": []}}}
+    cfg["lsp"] = {"py": {"command": []}}
     code, out = _run_validator(cfg)
     assert code == 1 and "command" in out.lower()
     cfg = _fresh_golden()
-    cfg["lsp"] = {"language-server": {"py": {}}}
+    cfg["lsp"] = {"py": {}}
     assert _run_validator(cfg)[0] == 1
     cfg = _fresh_golden()
-    cfg["lsp"] = {"language-server": {"pyright": {"command": ["pyright"]}}}
+    cfg["lsp"] = {"pyright": {"command": ["pyright"]}}
+    assert _run_validator(cfg) == (0, "")
+    cfg = _fresh_golden()
+    cfg["lsp"] = {"pyright": {"command": ["pyright"],
+                              "extensions": [".py"],
+                              "env": {"KEY": "{env:KEY}"}}}
+    assert _run_validator(cfg) == (0, "")
+    cfg = _fresh_golden()
+    cfg["lsp"] = {"pyright": {"disabled": True}}
+    assert _run_validator(cfg) == (0, "")
+    cfg = _fresh_golden()
+    cfg["lsp"] = True
     assert _run_validator(cfg) == (0, "")
     cfg = _fresh_golden()
     cfg["lsp"] = None
     assert _run_validator(cfg) == (0, "")
     cfg = _fresh_golden()
-    cfg["lsp"] = {"language-server": {}}
+    cfg["lsp"] = {}
+    assert _run_validator(cfg) == (0, "")
+
+
+def test_validate_formatter_named_map():
+    cfg = _fresh_golden()
+    cfg["formatter"] = {"command": ["mvn"], "extensions": [".java"]}
+    code, out = _run_validator(cfg)
+    assert code == 1 and "named map" in out
+    cfg = _fresh_golden()
+    cfg["formatter"] = {"spotless-java": {"command": ["mvn", "spotless:apply"],
+                                          "extensions": [".java"]}}
+    assert _run_validator(cfg) == (0, "")
+    cfg = _fresh_golden()
+    cfg["formatter"] = False
     assert _run_validator(cfg) == (0, "")
 
 
 def test_validate_plugin_env_secret_rules():
     cfg = _fresh_golden()
-    cfg["plugin"] = [{"source": "my-plugin", "environment": {"KEY": "sk-live-abc123"}}]
+    cfg["plugin"] = ["my-plugin"]
     code, out = _run_validator(cfg)
-    assert code == 1 and "plugin" in out and "secret" in out.lower()
+    assert code == 1 and "plugin" in out and "global-only" in out
     cfg = _fresh_golden()
     cfg["plugin"] = [{"source": "my-plugin", "environment": {"KEY": "{env:KEY}"}}]
-    assert _run_validator(cfg) == (0, "")
-    cfg = _fresh_golden()
-    cfg["plugin"] = [{"source": "my-plugin"}]
-    assert _run_validator(cfg) == (0, "")
-    cfg = _fresh_golden()
-    cfg["plugin"] = [{"source": "my-plugin", "api_token": "x"}]
     code, out = _run_validator(cfg)
-    assert code == 1 and "environment" in out.lower()
+    assert code == 1 and "plugin" in out
 
 
 def test_validate_invented_values_expanded():
@@ -297,15 +328,12 @@ def test_validate_invented_values_expanded():
     assert _run_validator(cfg) == (0, "")
 
 
-def test_validate_mcp_env_names_and_refs():
+def test_validate_mcp_rejected_global_only():
     cfg = _fresh_golden()
-    first_srv = next(iter(cfg["mcp"]))
-    cfg["mcp"][first_srv]["environment"] = {"TODO_KEY": "{env:TODO_KEY}"}
-    assert _run_validator(cfg)[0] == 1
-    cfg = _fresh_golden()
-    first_srv = next(iter(cfg["mcp"]))
-    cfg["mcp"][first_srv]["environment"] = {"KEY": "{env:FOO_PATH}"}
-    assert _run_validator(cfg) == (0, "")
+    cfg["mcp"] = {"srv": {"type": "local", "command": ["node", "server.js"],
+                          "environment": {"KEY": "{env:KEY}"}}}
+    code, out = _run_validator(cfg)
+    assert code == 1 and "global-only" in out
 
 
 def test_validate_partial_zac_rejected():
@@ -341,8 +369,9 @@ def test_validate_opencode_positives():
     del cfg["$schema"]
     assert _run_validator(cfg) == (0, "")
     cfg = _fresh_golden()
-    cfg["lsp"] = {"language-server": {"pyright": {"command": ["pyright"]}}}
+    cfg["lsp"] = {"pyright": {"command": ["pyright"]}}
     assert _run_validator(cfg) == (0, "")
     cfg = _fresh_golden()
-    cfg["plugin"] = [{"source": "my-plugin", "environment": {"KEY": "{env:KEY}"}}]
+    cfg["formatter"] = {"spotless-java": {"command": ["mvn", "spotless:apply"],
+                                          "extensions": [".java"]}}
     assert _run_validator(cfg) == (0, "")
