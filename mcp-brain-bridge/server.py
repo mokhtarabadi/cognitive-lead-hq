@@ -423,7 +423,9 @@ def build_diff_attach(
 
     Contains the task file's Factual Git Diff content verbatim so QA and
     reviewer turns judge the actual changes, never a summary. Content
-    caps at _TASK_DIFF_CAP chars with a truncation note. When the hunks
+    caps at _TASK_DIFF_CAP chars with a truncation note that orders
+    UNVERIFIABLE-not-REJECTED for unseen scope (the Brain has no file
+    tools, so the note addresses pulls to the Hands, never to the Brain). When the hunks
     cannot attach, an inline UNAVAILABLE/EMPTY note is returned INSTEAD
     of "" — stderr is invisible to the model, so a silent "" made the
     Brain reject blind ("no diff present, cannot judge"); the inline
@@ -466,7 +468,14 @@ def build_diff_attach(
             diff = (
                 diff[:_TASK_DIFF_CAP]
                 + f"\n[...diff truncated at {_TASK_DIFF_CAP} chars — "
-                + f"pull remainder via read_file({rel!r}, offset, limit)]"
+                + "hunks past this point were NOT sent. Judge only what "
+                + "is visible above: pass visible scope, mark the unseen "
+                + "remainder UNVERIFIABLE, and NEVER emit REJECTED on "
+                + "evidence past the truncation point. You have no file "
+                + "tools in this turn, so do NOT attempt to pull the "
+                + "remainder yourself. If you need specific paths to "
+                + "finish, quote them in your verdict and the Hands will "
+                + "pull them via read_file and re-run QA.]"
             )
         # Same V1 guard as the task attach: break fence parsing invisibly
         # so embedded fences in diff content cannot close our block early.

@@ -99,6 +99,24 @@ def test_build_diff_attach_over_cap_truncates(monkeypatch, tmp_path):
     assert len(out) < 50000
 
 
+def test_build_diff_attach_truncation_note_is_unverifiable(monkeypatch, tmp_path):
+    # Issue 14: the Brain has zero tool calls, so the truncation note must
+    # order UNVERIFIABLE-not-REJECTED and address the pull path to the
+    # Hands — never instruct the Brain to pull via read_file itself.
+    target = tmp_path / "99-sample.md"
+    target.write_text(_task_text("x" * 50000), encoding="utf-8")
+    monkeypatch.setattr(
+        bridge, "_resolve_task_file",
+        lambda tid, project_root=None: target)
+    monkeypatch.setattr(bridge, "_workspace_root", lambda: tmp_path)
+    monkeypatch.setattr(bridge, "_TASK_DIFF_CAP", 100)
+    out = bridge.build_diff_attach("99")
+    assert "UNVERIFIABLE" in out
+    assert "NEVER emit REJECTED" in out
+    assert "no file tools" in out
+    assert "Hands will" in out and "read_file" in out
+
+
 def test_extract_diff_empty_pair_yields_empty():
     text = "<!-- BEGIN_GIT_DIFF --><!-- END_GIT_DIFF -->\n"
     assert bridge.extract_task_diff(text) == ""
