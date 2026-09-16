@@ -253,9 +253,8 @@ under the same `task_id`, and the plan arrives grounded.
 
 ### Seat Check, trigger map, and lightweight consult (mandatory at plan start)
 
-Seat names and duties live in `prompts/fragments/06-personas.md` — the Hands
-reference them by exact name; that fragment is the only roster (the
-`<personas>` block in generated `system-prompt.md` mirrors it).
+Seat names and duties are fixed — the Hands
+reference them by exact name; the roster table below is the only roster.
 
  1. **Seat Check.** Before any `brain_turn` planning call, state: task
     domain(s) → seat(s) requested → seats skipped + one-line reason each.
@@ -484,9 +483,7 @@ automatically; full files are pulled on demand, never stuffed.
 
 When the Manager names a seat, or a step needs one (planning, sprint,
 design, QA, review), resolve it HERE — no Brain round-trip required.
-Source of truth is `prompts/fragments/06-personas.md`; on any conflict
-the source file wins, and every edit to the source MUST update this
-table in the same commit.
+The roster table below is the only roster.
 
 | Seat | Trigger (when to load) | Duty (one line) |
 | ---- | ---------------------- | --------------- |

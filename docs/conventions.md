@@ -76,7 +76,7 @@ All projects in this ecosystem MUST treat source-of-truth contracts and shared s
 3. **SOLID reconciliation** — Single-source-of-truth prevents type drift (DRY/SRP) and does not conflict with YAGNI or the 3-Implementation Rule: extract or generate only when a contract or cross-service dependency already exists.
 4. **Deterministic enforcement (historical — loop-engine retired):** the retired `loop-engine/sentinel.py` `TypeDriftSentinel` used to scan task diffs during toolchain verification (pre-QA). With the loop-engine daemon retired, enforcement is manual review until a replacement lands. Bypass with an explicit `drift-ignore` comment only when a justified exception exists.
 
-The single source of truth for the full mandate is `prompts/fragments/20-no_manual_dto_mandate.md` — this section is a summary only.
+The single source of truth for the full mandate is the `<no_manual_dto_mandate>` block in `system-prompt.md` — this section is a summary only.
 
 ## Universal Financial Ledger Standard
 
