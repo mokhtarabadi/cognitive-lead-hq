@@ -1,0 +1,86 @@
+{
+  "cases": [
+    {
+      "candidates": [
+        {
+          "candidate_id": "decision-001",
+          "chunk_id": "decision-chunk-001",
+          "local_score": 0.2,
+          "source": "decision",
+          "text": "The manager decision controls this behavior."
+        },
+        {
+          "candidate_id": "memory-001",
+          "chunk_id": "memory-chunk-001",
+          "local_score": 0.99,
+          "source": "memory",
+          "text": "Project memory describes the same behavior."
+        },
+        {
+          "candidate_id": "repo-001",
+          "chunk_id": "repo-chunk-001",
+          "local_score": 0.99,
+          "source": "repo",
+          "text": "Repo files describe the same behavior."
+        },
+        {
+          "candidate_id": "web-001",
+          "chunk_id": "web-chunk-001",
+          "local_score": 0.99,
+          "source": "web",
+          "text": "Web results describe the same behavior."
+        }
+      ],
+      "case_id": "decision-outranks-all",
+      "expected": {
+        "gather_limit": 20,
+        "narrow_limit": 5,
+        "top_candidate_id": "decision-001"
+      },
+      "query": "authority retrieval"
+    },
+    {
+      "candidates": [
+        {
+          "candidate_id": "memory-010",
+          "chunk_id": "m-010",
+          "local_score": 0.1,
+          "source": "memory",
+          "text": "Memory note about overlap selection and chunk narrowing rules."
+        },
+        {
+          "candidate_id": "memory-011",
+          "chunk_id": "m-011",
+          "local_score": 0.2,
+          "source": "memory",
+          "text": "Overlap selection prefers chunks sharing narrowing rules vocabulary."
+        },
+        {
+          "candidate_id": "repo-010",
+          "chunk_id": "r-010",
+          "local_score": 0.9,
+          "source": "repo",
+          "text": "Unrelated repository file about deployment pipelines."
+        },
+        {
+          "candidate_id": "web-010",
+          "chunk_id": "w-010",
+          "local_score": 0.9,
+          "source": "web",
+          "text": "Unrelated web page about cooking recipes."
+        }
+      ],
+      "case_id": "overlap-prefers-related",
+      "expected": {
+        "gather_limit": 20,
+        "narrow_limit": 2,
+        "selected_ids": [
+          "memory-011",
+          "memory-010"
+        ]
+      },
+      "query": "overlap selection"
+    }
+  ],
+  "schema_version": 1
+}
