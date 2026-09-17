@@ -2015,3 +2015,132 @@ def test_sibling_missing_still_resolves_per_project(tmp_path, monkeypatch):
     assert bridge._sessions_root() == proj / "tasks" / ".sessions"
     assert bridge._sessions_root(project_root=str(proj)) == (
         proj / "tasks" / ".sessions")
+
+
+# --- Risk-aware routing (RED: resolver + wiring do not exist yet) ---
+
+def _clean_routing_env(monkeypatch):
+    for var in ("BRAIN_RISK_ROUTING_ENABLED", "BRAIN_MODEL_LOW",
+                "BRAIN_MODEL_HIGH", "BRAIN_MODEL"):
+        monkeypatch.delenv(var, raising=False)
+
+
+def _run_turn_capture(monkeypatch, tmp_path, payload, prompt="q",
+                      task_id="232", **kwargs):
+    monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
+    _mk_sys_prompt(tmp_path, monkeypatch)
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    monkeypatch.delenv("BRAIN_TEMPERATURE", raising=False)
+    holder = {}
+    _mk_bridge_client(monkeypatch, [_FakeResp(200, "fine", payload)],
+                      holder=holder)
+    target = (bridge.brain_turn.fn if hasattr(bridge.brain_turn, "fn")
+              else bridge.brain_turn)
+    result = target(prompt, task_id=task_id, **kwargs)
+    return result, holder
+
+
+def test_routed_model_resolution_table(monkeypatch):
+    _clean_routing_env(monkeypatch)
+    r = bridge.resolve_routed_model
+    # Disabled: every tier falls back to the current default model.
+    for tier in ("T0", "T1", "T2", None, "", "t0", "bogus"):
+        assert r(False, tier, "gpt-6-astra", "low-m", "high-m") == "gpt-6-astra"
+    # Enabled: T0 -> low, T1/T2 -> high, missing/invalid -> default.
+    assert r(True, "T0", "gpt-6-astra", "low-m", "high-m") == "low-m"
+    assert r(True, "T1", "gpt-6-astra", "low-m", "high-m") == "high-m"
+    assert r(True, "T2", "gpt-6-astra", "low-m", "high-m") == "high-m"
+    assert r(True, None, "gpt-6-astra", "low-m", "high-m") == "gpt-6-astra"
+    assert r(True, "", "gpt-6-astra", "low-m", "high-m") == "gpt-6-astra"
+    assert r(True, "t0", "gpt-6-astra", "low-m", "high-m") == "gpt-6-astra"
+    assert r(True, "bogus", "gpt-6-astra", "low-m", "high-m") == "gpt-6-astra"
+    # Blank overrides fall back to the default model per tier.
+    assert r(True, "T0", "gpt-6-astra", "", "high-m") == "gpt-6-astra"
+    assert r(True, "T1", "gpt-6-astra", "low-m", "  ") == "gpt-6-astra"
+
+
+def test_routing_disabled_by_default_preserves_behavior(tmp_path, monkeypatch):
+    _clean_routing_env(monkeypatch)
+    assert bridge._routing_enabled() is False
+    result, holder = _run_turn_capture(monkeypatch, tmp_path, _ok_payload("ok"))
+    assert result["output"] == "ok"
+    assert holder["body"]["model"] == "gpt-6-astra"
+    assert holder["body"]["reasoning"] == {"effort": "xhigh"}
+    assert holder["body"]["max_output_tokens"] == 16384
+    # Disabled + explicit tier: wiring must stay on the default model.
+    result, holder = _run_turn_capture(
+        monkeypatch, tmp_path, _ok_payload("ok"), task_id="233",
+        risk_tier="T0")
+    assert holder["body"]["model"] == "gpt-6-astra"
+
+
+def test_routing_env_overrides_stripped_and_blank(monkeypatch):
+    _clean_routing_env(monkeypatch)
+    monkeypatch.setenv("BRAIN_RISK_ROUTING_ENABLED", "  true  ")
+    assert bridge._routing_enabled() is True
+    monkeypatch.setenv("BRAIN_RISK_ROUTING_ENABLED", "0")
+    assert bridge._routing_enabled() is False
+    monkeypatch.setenv("BRAIN_MODEL_LOW", "  low-m  ")
+    monkeypatch.setenv("BRAIN_MODEL_HIGH", "   ")
+    assert bridge._get_model_low() == "low-m"
+    assert bridge._get_model_high() == ""
+
+
+def test_model_low_only_affects_T0(monkeypatch):
+    _clean_routing_env(monkeypatch)
+    r = bridge.resolve_routed_model
+    assert r(True, "T0", "d", "low-m", "high-m") == "low-m"
+    assert r(True, "T1", "d", "low-m", "high-m") == "high-m"
+    assert r(True, "T2", "d", "low-m", "high-m") == "high-m"
+
+
+def test_model_high_only_affects_T1_T2(monkeypatch):
+    _clean_routing_env(monkeypatch)
+    r = bridge.resolve_routed_model
+    assert r(True, "T0", "d", "low-m", "high-m") == "low-m"
+    assert r(True, "T1", "d", "low-m", "") == "d"
+    assert r(True, "T2", "d", "low-m", "") == "d"
+
+
+def test_routed_body_uses_selected_model(tmp_path, monkeypatch):
+    _clean_routing_env(monkeypatch)
+    monkeypatch.setenv("BRAIN_RISK_ROUTING_ENABLED", "true")
+    monkeypatch.setenv("BRAIN_MODEL_LOW", "low-m")
+    monkeypatch.setenv("BRAIN_MODEL_HIGH", "high-m")
+    result, holder = _run_turn_capture(
+        monkeypatch, tmp_path, _ok_payload("ok"), risk_tier="T0")
+    assert result["output"] == "ok"
+    assert result["model"] == "low-m"
+    assert holder["body"]["model"] == "low-m"
+    assert holder["body"]["reasoning"] == {"effort": "xhigh"}
+    assert holder["body"]["max_output_tokens"] == 16384
+    result, holder = _run_turn_capture(
+        monkeypatch, tmp_path, _ok_payload("ok"), task_id="233",
+        risk_tier="T2")
+    assert holder["body"]["model"] == "high-m"
+
+
+def test_ledger_carries_model_and_tier_only(tmp_path, monkeypatch):
+    import json
+    _clean_routing_env(monkeypatch)
+    monkeypatch.setenv("BRAIN_RISK_ROUTING_ENABLED", "true")
+    monkeypatch.setenv("BRAIN_MODEL_LOW", "low-m")
+    secret_prompt = "ledger-leak-probe-zz9"
+    _run_turn_capture(monkeypatch, tmp_path, _ok_payload("ok"),
+                      prompt=secret_prompt, risk_tier="T0")
+    ledger = tmp_path / "sessions" / bridge._CONTEXT_LEDGER_NAME
+    blob = ledger.read_text(encoding="utf-8").strip().split("\n")[-1]
+    row = json.loads(blob)
+    assert row["model"] == "low-m"
+    assert row["risk_tier"] == "T0"
+    assert secret_prompt not in blob
+    assert "sk-test-key" not in blob
+    assert set(row) == {"task_id", "budget_chars", "est_tokens",
+                        "util_pct", "truncated", "model", "risk_tier"}
+
+
+def test_resolver_takes_no_prompt_diff_or_key():
+    import inspect
+    params = set(inspect.signature(bridge.resolve_routed_model).parameters)
+    assert params == {"enabled", "risk_tier", "default_model",
+                      "model_low", "model_high"}

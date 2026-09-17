@@ -949,6 +949,55 @@ def _get_brain_model() -> str:
     return os.environ.get("BRAIN_MODEL", default).strip() or default
 
 
+def _routing_enabled() -> bool:
+    """Risk-aware routing master switch; default OFF (Task 246).
+
+    Accepts ``1/true/yes/on`` (case-insensitive); anything else —
+    including blank — keeps today's single-model behavior exactly."""
+    return os.environ.get(
+        "BRAIN_RISK_ROUTING_ENABLED", "").strip().lower() in (
+            "1", "true", "yes", "on")
+
+
+def _get_model_low() -> str:
+    """Override model for T0 turns; blank means fall back to the
+    current model (``BRAIN_MODEL``). Stripped, never defaulted here —
+    the pure resolver below owns the fallback."""
+    return os.environ.get("BRAIN_MODEL_LOW", "").strip()
+
+
+def _get_model_high() -> str:
+    """Override model for T1/T2 turns; blank means fall back to the
+    current model (``BRAIN_MODEL``). Stripped, never defaulted here."""
+    return os.environ.get("BRAIN_MODEL_HIGH", "").strip()
+
+
+#: Tier sets for routing. Case-sensitive on purpose: a lowercase
+#: ``t0`` is an invalid tier and must fail safe to the default model.
+_ROUTED_LOW_TIERS = frozenset({"T0"})
+_ROUTED_HIGH_TIERS = frozenset({"T1", "T2"})
+
+
+def resolve_routed_model(enabled: bool, risk_tier: Optional[str],
+                         default_model: str, model_low: str,
+                         model_high: str) -> str:
+    """Pure tier-to-model resolver (Task 246).
+
+    Takes values only — no environment reads, no network, and never
+    the prompt, the task diff, or the API key (asserted by test: the
+    signature is exactly these five parameters). Fail-safe: disabled,
+    missing, or invalid tiers return ``default_model``; a blank
+    per-tier override falls back to ``default_model`` for that tier."""
+    if not enabled:
+        return default_model
+    tier = (risk_tier or "").strip()
+    if tier in _ROUTED_LOW_TIERS:
+        return (model_low or "").strip() or default_model
+    if tier in _ROUTED_HIGH_TIERS:
+        return (model_high or "").strip() or default_model
+    return default_model
+
+
 def _get_max_tokens() -> int:
     """Cap for Brain turns; override via ``BRAIN_MAX_TOKENS``."""
     try:
@@ -1115,10 +1164,14 @@ def _append_context_ledger(
     project_root: Optional[str],
     budget_chars: int,
     truncated_count: int,
+    model: Optional[str] = None,
+    risk_tier: Optional[str] = None,
 ) -> None:
     """Best-effort utilization ledger: one JSON line per turn under the
     sessions root (Task 241 context-gap fix). Never raises — a ledger
-    failure must not break the Brain turn it measures."""
+    failure must not break the Brain turn it measures. Additive
+    ``model``/``risk_tier`` metadata only (Task 246) — never prompt
+    text, diffs, or keys."""
     try:
         row = {
             "task_id": task_id or "noid",
@@ -1126,6 +1179,8 @@ def _append_context_ledger(
             "est_tokens": budget_chars // 4,
             "util_pct": budget_chars * 100 // _MODEL_WINDOW_CHARS,
             "truncated": truncated_count,
+            "model": model,
+            "risk_tier": (risk_tier or "").strip() or None,
         }
         ledger = _sessions_root(project_root) / _CONTEXT_LEDGER_NAME
         ledger.parent.mkdir(parents=True, exist_ok=True)
@@ -1690,6 +1745,7 @@ def brain_turn(
     include_diff: bool = False,
     context_paths: Optional[list[str]] = None,
     project_root: Optional[str] = None,
+    risk_tier: Optional[str] = None,
 ) -> dict[str, Any]:
     """Send one Brain turn.
 
@@ -1741,6 +1797,11 @@ def brain_turn(
             resolver tries ``BRAIN_PROJECT_ROOT`` /
             ``BRAIN_WORKSPACE_ROOT`` / cwd walk-up, then falls back to
             legacy reads.
+        risk_tier: Optional explicit risk tier for model routing
+            (``T0``/``T1``/``T2`` per ``docs/conventions.md``). Only
+            takes effect when ``BRAIN_RISK_ROUTING_ENABLED`` is set;
+            missing or invalid values fail safe to the current model.
+            Default None (unrouted, today's behavior).
 
     Returns:
         {"status": "XML_EXTRACTED"|"REPORT", "xml_blocks": [...],
@@ -1820,7 +1881,9 @@ def brain_turn(
         except Exception as exc:  # never fail a turn on attach problems
             print(f"brain-bridge: diff attach skipped ({exc})",
                   file=sys.stderr)
-    model = _get_brain_model()
+    model = resolve_routed_model(
+        _routing_enabled(), risk_tier, _get_brain_model(),
+        _get_model_low(), _get_model_high())
     if task_id:
         # Sessions-root visibility: one debug line per turn so a
         # misrouted project is observable in stderr, never silent.
@@ -1863,7 +1926,9 @@ def brain_turn(
         truncated_count += 1
     budget_chars = len(system_prompt) + len(effective_prompt) + _hist_chars()
     util_pct = budget_chars * 100 // _MODEL_WINDOW_CHARS
-    _append_context_ledger(task_id, project_root, budget_chars, truncated_count)
+    _append_context_ledger(task_id, project_root, budget_chars,
+                           truncated_count, model=model,
+                           risk_tier=risk_tier)
     if budget_chars > _PROMPT_WARN_CHARS:
         print(
             f"brain-bridge: prompt is large (budget_chars={budget_chars} "

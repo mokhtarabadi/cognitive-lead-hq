@@ -71,6 +71,23 @@ total size measured by construction).
 | `BRAIN_SESSIONS_ROOT` | `~/.config/opencode/brain-sessions`                |
 | `DECISION_MODEL`    | _(falls back to `BRAIN_MODEL` default)_              |
 | `DECISION_TEMPERATURE` | `1.0`                                             |
+| `BRAIN_RISK_ROUTING_ENABLED` | `false` (routing OFF = single model)      |
+| `BRAIN_MODEL_LOW`   | _(blank = `BRAIN_MODEL`; used for `T0` turns)_       |
+| `BRAIN_MODEL_HIGH`  | _(blank = `BRAIN_MODEL`; used for `T1`/`T2` turns)_  |
+
+## Routing
+
+Risk-aware model routing is OFF by default: with no flags set, every
+turn uses `BRAIN_MODEL` (default `gpt-6-astra`), effort `xhigh`, and
+`16384` max tokens — exactly today's behavior. To enable, set
+`BRAIN_RISK_ROUTING_ENABLED=true` plus `BRAIN_MODEL_LOW` and/or
+`BRAIN_MODEL_HIGH`, then pass `risk_tier` (`T0`/`T1`/`T2` per
+`docs/conventions.md`) on `brain_turn`. `T0` routes to the low model,
+`T1`/`T2` to the high model; missing or invalid tiers fail safe to
+`BRAIN_MODEL`, as do blank per-tier overrides. Effort and token
+behavior never change under routing. Each context-ledger row records
+the selected `model` and the `risk_tier` (metadata only — never prompt
+text, diffs, or keys).
 
 ## Autopilot + manager-decision
 
