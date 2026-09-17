@@ -219,20 +219,44 @@ def _get_decision_model() -> str:
 
 
 def _get_decision_effort() -> str:
-    """Reasoning effort for extraction; override via ``BRAIN_REASONING_EFFORT``."""
-    val = os.environ.get("BRAIN_REASONING_EFFORT", "xhigh").strip() or "xhigh"
+    """Reasoning effort for extraction; override via
+    ``DECISION_REASONING_EFFORT``, falling back to
+    ``BRAIN_REASONING_EFFORT``."""
+    val = (
+        os.environ.get("DECISION_REASONING_EFFORT", "").strip()
+        or os.environ.get("BRAIN_REASONING_EFFORT", "xhigh").strip()
+        or "xhigh"
+    )
     if not re.fullmatch(r"[\w.-]{1,64}", val):
         raise ValueError(f"bad reasoning effort: {val!r}")
     return val
 
 
 def _get_api_key() -> str:
-    """Provider key. Fail-closed: an empty key cannot authenticate, so
-    raise instead of sending a bare ``Bearer `` header."""
-    key = os.environ.get("BRAIN_API_KEY", "").strip()
+    """Provider key: ``DECISION_API_KEY`` first, ``BRAIN_API_KEY`` as
+    fallback. Fail-closed: an empty key cannot authenticate, so raise
+    instead of sending a bare ``Bearer `` header."""
+    key = (
+        os.environ.get("DECISION_API_KEY", "").strip()
+        or os.environ.get("BRAIN_API_KEY", "").strip()
+    )
     if not key:
-        raise RuntimeError("BRAIN_API_KEY is empty; set it in .env")
+        raise RuntimeError("DECISION_API_KEY/BRAIN_API_KEY is empty; set it in .env")
     return key
+
+
+#: Local default when neither DECISION_API_BASE nor BRAIN_API_BASE is set.
+_DECISION_API_BASE_DEFAULT = "http://127.0.0.1:8081/zen/resp"
+
+
+def _get_api_base() -> str:
+    """Provider base URL: ``DECISION_API_BASE`` first, ``BRAIN_API_BASE``
+    as fallback, then the local default."""
+    return (
+        os.environ.get("DECISION_API_BASE", "").strip()
+        or os.environ.get("BRAIN_API_BASE", _DECISION_API_BASE_DEFAULT).strip()
+        or _DECISION_API_BASE_DEFAULT
+    )
 
 
 # Retry policy for provider calls: 3 attempts, exponential backoff.
@@ -884,15 +908,26 @@ def extract_session_decisions(
     )
     transcript_bytes = path.read_bytes()
     transcript_text = "\n".join(turns)
-    _get_decision_effort()  # Validate only; the value is dropped below.
+    effort = _get_decision_effort()  # Validated always; sent when no explicit temp.
+    # Temperature-vs-effort rule (mirrors the Brain bridge): an explicitly
+    # set temperature wins (temperature sent, effort dropped — Responses
+    # models reject the combination). Otherwise the validated effort is
+    # sent in the Responses-native nested shape (flat reasoning_effort is
+    # rejected by strict providers, e.g. OpenAI/OpenRouter 400
+    # unsupported_parameter) and temperature is omitted. Manager order:
+    # decisions run at max effort by default; explicit temp restores the
+    # old pinned-temperature behavior. temp_to_send stays 0 in the
+    # default branch so the extract cache key shape is unchanged (effort
+    # is deploy-constant from env).
     # Task 191: pin the EXTRACTION temperature to 0 unless the manager
     # explicitly sets BRAIN_TEMPERATURE (explicit wins, blank-means-unset
     # house rule). Scoped to this extraction call only — brainstorm and
-    # other paths are untouched. Temperature is therefore ALWAYS sent
-    # here, so reasoning_effort is always dropped (Responses models
-    # reject the combination). Computed BEFORE the cache key so the key
-    # covers (transcript, model, effective_temp) — an explicit override
-    # never serves temp-0 results.
+    # other paths are untouched. When no explicit temperature is set, the
+    # validated effort goes out in the Responses-native nested shape and
+    # temperature is omitted (manager max-effort order); explicit temp
+    # restores temperature-sent + effort-dropped. Computed BEFORE the
+    # cache key so the key covers (transcript, model, effective_temp) —
+    # an explicit override never serves default-branch results.
     raw_brain_temp = os.environ.get("BRAIN_TEMPERATURE", "").strip()
     raw_decision_temp = os.environ.get("DECISION_TEMPERATURE", "").strip()
     if raw_brain_temp:
@@ -929,12 +964,15 @@ def extract_session_decisions(
             _EXTRACT_CACHE[cache_key] = hit  # LRU touch: recent hits stay.
             return copy.deepcopy(hit)
     import httpx  # Lazy: import stays side-effect free.
-    api_base = os.environ.get("BRAIN_API_BASE", "http://127.0.0.1:8081/zen/resp").strip() or "http://127.0.0.1:8081/zen/resp"
+    api_base = _get_api_base()
     body: dict[str, Any] = {
         "model": model,
         "input": [{"role": "user", "content": prompt}],
-        "temperature": temp_to_send,
     }
+    if raw_brain_temp or raw_decision_temp:
+        body["temperature"] = temp_to_send
+    else:
+        body["reasoning"] = {"effort": effort}
     with httpx.Client(
         timeout=httpx.Timeout(connect=10, read=120, write=30, pool=10)
     ) as client:
