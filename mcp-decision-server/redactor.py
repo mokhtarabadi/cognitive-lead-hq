@@ -25,12 +25,20 @@ REDACTION_RULES: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"\bAIzaSy[A-Za-z0-9_-]{10,}\b"), "[REDACTED_GOOGLE_KEY]"),
     # Bearer tokens (Authorization headers, config dumps).
     (re.compile(r"\bBearer\s+[A-Za-z0-9\-._~+/=]{8,}", re.IGNORECASE), "Bearer [REDACTED]"),
+    # Short digit-bearing Bearer tokens (e.g. `Bearer abc123`). The digit
+    # gate keeps prose like "Bearer tokens" untouched; the {8,} rule above
+    # still catches long tokens with or without digits.
+    (re.compile(r"\bBearer\s+(?=[A-Za-z0-9\-._~+/=]*\d)[A-Za-z0-9\-._~+/=]{4,7}\b",
+                re.IGNORECASE), "Bearer [REDACTED]"),
     # Private IPv4: 10/8, 172.16/12, 192.168/16 (loopback stays — harmless).
     (re.compile(r"\b10(?:\.\d{1,3}){3}\b"), "[REDACTED_IP]"),
     (re.compile(r"\b172\.(?:1[6-9]|2\d|3[01])(?:\.\d{1,3}){2}\b"), "[REDACTED_IP]"),
     (re.compile(r"\b192\.168(?:\.\d{1,3}){2}\b"), "[REDACTED_IP]"),
     # Generic credential assignments: password = "secret", token: xyz.
-    (re.compile(r"(?i)\b(password|passwd|secret|api[_-]?key|auth[_-]?token)\b\s*[:=]\s*\S+"),
+    # Leading edge is "not preceded by alphanumerics" (not \b) so ENV-style
+    # names joined by underscore (BRAIN_API_KEY=, FOO_SECRET=) still match,
+    # while letter-joined words (topsecret=) stay untouched.
+    (re.compile(r"(?i)(?<![A-Za-z0-9])(password|passwd|secret|api[_-]?key|auth[_-]?token)\b\s*[:=]\s*\S+"),
      r"\1=[REDACTED]"),
 )
 
@@ -39,7 +47,7 @@ REDACTION_RULES: tuple[tuple[re.Pattern[str], str], ...] = (
 # already-redacted `password=[REDACTED]` marker is NOT mistaken for a live
 # secret (otherwise verify_clean could never pass on sanitized text).
 _VERIFY_ASSIGNMENT = re.compile(
-    r"(?i)\b(password|passwd|secret|api[_-]?key|auth[_-]?token)\b\s*[:=]\s*(?!\[REDACTED\])\S+"
+    r"(?i)(?<![A-Za-z0-9])(password|passwd|secret|api[_-]?key|auth[_-]?token)\b\s*[:=]\s*(?!\[REDACTED\])\S+"
 )
 _VERIFY_RESIDUE: tuple[re.Pattern[str], ...] = tuple(
     _VERIFY_ASSIGNMENT if rule is REDACTION_RULES[-1][0] else rule

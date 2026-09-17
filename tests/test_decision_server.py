@@ -113,6 +113,66 @@ def test_verify_detects_raw_secrets(red):
     assert red.verify_clean("password=hunter2") is False
 
 
+def test_sanitize_env_style_assignment_names(red):
+    # Task 242 B1: ENV-style names (BRAIN_API_KEY=, FOO_SECRET=) must redact —
+    # the leading \b missed names joined by underscore.
+    dirty = "BRAIN_API_KEY=abc123XYZ and FOO_SECRET=hunter2 and my-auth-token: zz99x"
+    clean = red.sanitize_text(dirty)
+    assert "abc123XYZ" not in clean
+    assert "hunter2" not in clean
+    assert "zz99x" not in clean
+    assert red.verify_clean(clean) is True
+
+
+def test_sanitize_short_bearer_with_digit(red):
+    # Task 242 B1: short digit-bearing Bearer tokens must redact.
+    dirty = "Authorization: Bearer abc123"
+    clean = red.sanitize_text(dirty)
+    assert "abc123" not in clean
+    assert red.verify_clean(clean) is True
+
+
+def test_no_false_positive_on_prose(red):
+    # Guard: plain prose and letter-joined names must pass through untouched.
+    assert red.sanitize_text("Bearer tokens are standard") == "Bearer tokens are standard"
+    assert red.sanitize_text("topsecret=x") == "topsecret=x"
+    assert red.verify_clean("Bearer tokens are standard") is True
+
+
+def test_verify_detects_env_style_raw(red):
+    assert red.verify_clean("FOO_SECRET=hunter2") is False
+    assert red.verify_clean("Authorization: Bearer abc123") is False
+
+
+def test_sanitize_short_bearer_punctuation_no_suffix_leak(red):
+    # QA hotfix: `Bearer abcd-1` must fully redact — no `-1` suffix may leak.
+    dirty = "Authorization: Bearer abcd-1"
+    clean = red.sanitize_text(dirty)
+    assert "abcd-1" not in clean
+    assert "-1" not in clean
+    assert red.verify_clean(clean) is True
+
+
+def test_sanitize_quoted_assignment_value(red):
+    # QA hotfix: quoted assignment values must redact end to end.
+    dirty = 'FOO_SECRET="hunter2"'
+    assert red.verify_clean(dirty) is False
+    assert red.verify_clean(red.sanitize_text(dirty)) is True
+
+
+def test_sanitize_quoted_colon_assignment_value(red):
+    # QA hotfix: quoted colon-form values must redact end to end.
+    dirty = "API_KEY: 'abc123'"
+    assert red.verify_clean(dirty) is False
+    assert red.verify_clean(red.sanitize_text(dirty)) is True
+
+
+def test_letter_joined_name_passes_verify(red):
+    # QA hotfix: letter-joined names are not credential assignments.
+    assert red.sanitize_text("topsecret=x") == "topsecret=x"
+    assert red.verify_clean("topsecret=x") is True
+
+
 def test_sanitize_clean_text_passthrough_and_idempotent(red):
     text = "Prefer composition over inheritance for testability."
     assert red.sanitize_text(text) == text
@@ -427,6 +487,37 @@ def test_decision_model_split_no_persona_fallback(srv, monkeypatch):
     assert call() == "gpt-6-astra"  # Blank means unset.
 
 
+def test_decision_env_precedence_over_brain_fallbacks(srv, monkeypatch):
+    monkeypatch.setenv("BRAIN_API_BASE", "http://brain-base")
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-brain")
+    monkeypatch.setenv("BRAIN_REASONING_EFFORT", "low")
+    monkeypatch.setenv("DECISION_API_BASE", "https://decisions-base")
+    monkeypatch.setenv("DECISION_API_KEY", "sk-decisions")
+    monkeypatch.setenv("DECISION_REASONING_EFFORT", "xhigh")
+    assert srv._get_api_base() == "https://decisions-base"
+    assert srv._get_api_key() == "sk-decisions"
+    assert srv._get_decision_effort() == "xhigh"
+
+
+def test_decision_env_blank_falls_back_to_brain(srv, monkeypatch):
+    monkeypatch.setenv("BRAIN_API_BASE", "http://brain-base")
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-brain")
+    monkeypatch.setenv("BRAIN_REASONING_EFFORT", "low")
+    monkeypatch.setenv("DECISION_API_BASE", "   ")
+    monkeypatch.setenv("DECISION_API_KEY", "   ")
+    monkeypatch.setenv("DECISION_REASONING_EFFORT", "   ")
+    assert srv._get_api_base() == "http://brain-base"
+    assert srv._get_api_key() == "sk-brain"
+    assert srv._get_decision_effort() == "low"
+
+
+def test_decision_api_key_fail_closed_names_both(srv, monkeypatch):
+    monkeypatch.delenv("DECISION_API_KEY", raising=False)
+    monkeypatch.delenv("BRAIN_API_KEY", raising=False)
+    with pytest.raises(RuntimeError, match="DECISION_API_KEY/BRAIN_API_KEY"):
+        srv._get_api_key()
+
+
 def test_repo_root_prefers_cwd_project_store(srv, tmp_path, monkeypatch):
     # Project-aware resolution: <cwd>/.opencode/decisions wins without any env.
     monkeypatch.delenv("DECISION_REPO_PATH", raising=False)
@@ -540,6 +631,7 @@ def test_extract_empty_key_raises(srv, tmp_path, monkeypatch):
     transcript = tmp_path / "transcript.jsonl"
     _write_min_transcript(transcript)
     monkeypatch.delenv("BRAIN_API_KEY", raising=False)
+    monkeypatch.delenv("DECISION_API_KEY", raising=False)
     with pytest.raises(RuntimeError, match="empty"):
         _extract(srv)(7, transcript_path=str(transcript))
 
@@ -740,7 +832,8 @@ def test_temperature_pinned_zero_unless_set(srv, tmp_path, monkeypatch):
     monkeypatch.delenv("DECISION_TEMPERATURE", raising=False)
     _stub_capture(_decision_resp(200, "fine", envelope))
     _extract(srv)(7, transcript_path=str(transcript))
-    assert seen["body"]["temperature"] == 0
+    assert "temperature" not in seen["body"]
+    assert seen["body"]["reasoning"] == {"effort": "xhigh"}
     assert "reasoning_effort" not in seen["body"]
     srv._EXTRACT_CACHE.clear()
     monkeypatch.setenv("BRAIN_TEMPERATURE", "0.7")
@@ -759,6 +852,7 @@ def test_temperature_pinned_zero_unless_set(srv, tmp_path, monkeypatch):
 
 def test_invalid_effort_value_raises(srv, monkeypatch):
     monkeypatch.setenv("BRAIN_REASONING_EFFORT", "bad effort!!")
+    monkeypatch.delenv("DECISION_REASONING_EFFORT", raising=False)
     with pytest.raises(ValueError):
         srv._get_decision_effort()
 
@@ -838,7 +932,7 @@ def test_extract_repeat_determinism_five_times(srv, tmp_path, monkeypatch, capsy
     assert calls["n"] == 1  # Cache serves repeats: exactly one HTTP hit.
     blobs = [json.dumps(r, sort_keys=True) for r in results]
     assert all(b == blobs[0] for b in blobs)  # Byte-identical 5x.
-    assert calls["bodies"][0]["temperature"] == 0  # Temp-0 default pinned.
+    assert calls["bodies"][0]["reasoning"] == {"effort": "xhigh"}  # Max-effort default.
     assert capsys.readouterr().err.count("cache hit") == 4
 
 
@@ -1000,7 +1094,8 @@ def test_extract_temp_wire_default_zero(srv, tmp_path, monkeypatch):
                   _decision_resp(200, "fine", _envelope_191(json.dumps(_ship_candidates()))),
                   seen)
     _extract(srv)(21, transcript_path=str(transcript))
-    assert seen[0]["temperature"] == 0
+    assert "temperature" not in seen[0]
+    assert seen[0]["reasoning"] == {"effort": "xhigh"}
     assert "reasoning_effort" not in seen[0]
 
 
@@ -1037,7 +1132,11 @@ def test_extract_effort_absent_both_legs(srv, tmp_path, monkeypatch):
         _extract(srv)(23, transcript_path=str(transcript))
         body = seen[-1]
         if temp is None:
-            assert body["temperature"] == 0
+            assert "temperature" not in body
+            assert body["reasoning"] == {"effort": "xhigh"}
+        else:
+            assert body["temperature"] == 0.7
+            assert "reasoning" not in body
         assert "reasoning_effort" not in body
 
 
