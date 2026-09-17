@@ -5,6 +5,8 @@
 | Namespace | Key | Summary | Tags |
 | :--- | :--- | :--- | :--- |
 | architecture | brain-hands-architecture-2026-08-21 | # Brain + Hands Architecture Decision — 2026-08-21 |  |
+| manager | english_only_reasoning_responses | English-only standing order (Manager order 2026-09-17): agent must NEVER think, reason, or respond in any non-English... |  |
+| manager | full_automatic_mode | STANDING ORDER — FULL AUTOMATIC MODE. Manager has no session access and cannot be paged. Zero questions, zero clarifi... |  |
 | manager-decisions | autopilot_consult_all_personas | Session 2026-09-14 (tasks 230+231 closure): the Manager ordered that in autopilot the Hands must consult ALL Brain pe... |  |
 | manager-decisions | task_closure_protocol_one_by_one | Session 2026-09-14: task closure protocol ordered by the Manager — close tasks ONE BY ONE (verify, git mv to tasks/co... |  |
 | opencode_config | global_goal_plugin_upgrade_2026_08_27 | # Global Goal Plugin Upgrade — 2026-08-27 |  |
@@ -21,4 +23,5 @@
 | workflows | global-install-upgrade | # Global Install Upgrade Workflow (OpenCode) |  |
 | workflows | manual-qa-review-cycle | # Manual QA + Review Cycle (Hands role-plays both) |  |
 | workflows | no_task_for_global_upgrade | Global install upgrades run WITHOUT a task file: Manager order 2026-09-14 — delete any upgrade task file, execute wor... |  |
+| workflows | rtk_first_verification | RTK-first verification rule (Manager order 2026-09-17, structurally wired): every test-suite verification run begins ... |  |
 | workflows | telegram-file-delivery | # Sending Task Files to Telegram — MANAGER PREFERENCE (updated 2026-08-10, overrides previous version) |  |
