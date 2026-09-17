@@ -998,6 +998,103 @@ def resolve_routed_model(enabled: bool, risk_tier: Optional[str],
     return default_model
 
 
+#: Prompt-cache split descriptor version. Bump only when the segment
+#: framing below changes; consumers key stability on this number.
+_CACHE_SPLIT_SCHEMA_VERSION = 2
+
+#: Logical split boundary: everything up to and including the task
+#: attach is the stable prefix; user input, injected paths, diffs,
+#: fed context, and history form the dynamic suffix (Task 247).
+_CACHE_SPLIT_BOUNDARY = "after_system_bundle_task_attach"
+
+#: Memoized static-prefix hashes, keyed by the static INPUTS (the
+#: three texts, held by reference — no copies). A hit means identical
+#: static bytes, so the stored hash is the answer without re-hashing.
+#: Bounded: oldest entry evicted past the cap.
+_STATIC_SPLIT_CACHE: dict[tuple[str, str, str], str] = {}
+_STATIC_SPLIT_CACHE_MAX = 64
+
+#: Test hook: counts static-hash computations (cache misses). Never
+#: read on the hot path for logic — informational only.
+_STATIC_SPLIT_COMPUTES = 0
+
+
+def _frame_segment(label: str, text: str) -> bytes:
+    """Deterministic framing: len + NUL + label + NUL + len + NUL + bytes.
+
+    Both halves are length-prefixed so concatenation stays injective:
+    labels are caller-controlled (history roles come from transcripts
+    and may carry NULs), and an unprefixed label lets one segment
+    list alias another's bytes. Lengths are always honest (computed
+    here, never caller-supplied), so parsing left-to-right is unique
+    and two different segment lists can never frame identically."""
+    lab = label.encode("utf-8")
+    data = text.encode("utf-8")
+    return (str(len(lab)).encode() + b"\x00" + lab + b"\x00"
+            + str(len(data)).encode() + b"\x00" + data)
+
+
+def _static_prefix_hash(system_prompt: str, bundle_text: str,
+                        task_attach_text: str) -> str:
+    """SHA-256 over the framed static segments, memoized (Task 247).
+
+    The lookup key is the static input tuple itself, so a repeat
+    input costs zero new static hashes — the digest is computed only
+    on a miss."""
+    global _STATIC_SPLIT_COMPUTES
+    key = (system_prompt, bundle_text, task_attach_text)
+    cached = _STATIC_SPLIT_CACHE.get(key)
+    if cached is not None:
+        return cached
+    framed = (b"".join((
+        _frame_segment("system_prompt", system_prompt),
+        _frame_segment("bundle_prepend", bundle_text),
+        _frame_segment("task_attach_prepend", task_attach_text),
+    )))
+    digest = hashlib.sha256(framed).hexdigest()
+    _STATIC_SPLIT_COMPUTES += 1
+    if len(_STATIC_SPLIT_CACHE) >= _STATIC_SPLIT_CACHE_MAX:
+        _STATIC_SPLIT_CACHE.pop(next(iter(_STATIC_SPLIT_CACHE)))
+    _STATIC_SPLIT_CACHE[key] = digest
+    return digest
+
+
+def build_prompt_cache_split(
+        system_prompt: str, bundle_text: str, task_attach_text: str,
+        user_prompt: str, paths_text: str = "", diff_text: str = "",
+        failsafe_text: str = "", fed_text: str = "",
+        history: Optional[list] = None) -> dict[str, str]:
+    """Pure static/dynamic split descriptor (Task 247).
+
+    Provider-neutral sidecar metadata: hashes and fixed labels only —
+    never prompt text, keys, diffs, paths, or history content. The
+    static half covers the stable prefix (system + bundle + task
+    attach); the dynamic half covers everything that may vary per
+    turn (user input, path/diff/failsafe/fed-context appends, and
+    the shipped history). Takes values only — no environment reads,
+    no network, no mutation of the prompt."""
+    static_hash = _static_prefix_hash(
+        system_prompt, bundle_text, task_attach_text)
+    frames = [
+        _frame_segment("user_prompt", user_prompt),
+        _frame_segment("paths_attach", paths_text),
+        _frame_segment("diff_append", diff_text),
+        _frame_segment("failsafe_append", failsafe_text),
+        _frame_segment("fed_context", fed_text),
+    ]
+    for idx, turn in enumerate(history or []):
+        role = turn.get("role", "") if isinstance(turn, dict) else ""
+        content = turn.get("content", "") if isinstance(turn, dict) else ""
+        frames.append(_frame_segment(f"history[{idx}].{role}", content))
+    dynamic_hash = hashlib.sha256(b"".join(frames)).hexdigest()
+    return {
+        "schema_version": _CACHE_SPLIT_SCHEMA_VERSION,
+        "split_boundary": _CACHE_SPLIT_BOUNDARY,
+        "static_prefix_sha256": static_hash,
+        "dynamic_suffix_sha256": dynamic_hash,
+    }
+
+
 def _get_max_tokens() -> int:
     """Cap for Brain turns; override via ``BRAIN_MAX_TOKENS``."""
     try:
@@ -1166,12 +1263,14 @@ def _append_context_ledger(
     truncated_count: int,
     model: Optional[str] = None,
     risk_tier: Optional[str] = None,
+    prompt_cache_split: Optional[dict] = None,
 ) -> None:
     """Best-effort utilization ledger: one JSON line per turn under the
     sessions root (Task 241 context-gap fix). Never raises — a ledger
     failure must not break the Brain turn it measures. Additive
-    ``model``/``risk_tier`` metadata only (Task 246) — never prompt
-    text, diffs, or keys."""
+    ``model``/``risk_tier`` (Task 246) and ``prompt_cache_split``
+    (Task 247, hashes only) metadata — never prompt text, diffs,
+    or keys."""
     try:
         row = {
             "task_id": task_id or "noid",
@@ -1181,6 +1280,7 @@ def _append_context_ledger(
             "truncated": truncated_count,
             "model": model,
             "risk_tier": (risk_tier or "").strip() or None,
+            "prompt_cache_split": prompt_cache_split,
         }
         ledger = _sessions_root(project_root) / _CONTEXT_LEDGER_NAME
         ledger.parent.mkdir(parents=True, exist_ok=True)
@@ -1822,8 +1922,17 @@ def brain_turn(
 
     system_prompt = load_system_prompt(system_prompt_path)
     effective_prompt = user_prompt
+    # Segment captures for the prompt-cache split descriptor (Task 247):
+    # static pieces are hashed for stability, dynamic pieces per turn.
+    bundle_text = ""
+    task_attach_text = ""
+    paths_text = ""
+    diff_append_text = ""
+    failsafe_text = ""
+    fed_text = ""
     if include_bundle and _BUNDLE_MARKER not in user_prompt:
-        effective_prompt = _build_context_bundle() + "\n\n---\n\n" + user_prompt
+        bundle_text = _build_context_bundle()
+        effective_prompt = bundle_text + "\n\n---\n\n" + user_prompt
     if include_bundle and task_id:
         try:
             attach = _build_task_attach(task_id, project_root=project_root)
@@ -1833,6 +1942,7 @@ def brain_turn(
                 else _TASK_FILE_MARKER
             )
             if attach and _ns not in user_prompt:
+                task_attach_text = attach
                 effective_prompt = attach + "\n\n---\n\n" + effective_prompt
         except Exception as exc:  # never fail a turn on attach problems
             print(f"brain-bridge: task attach skipped ({exc})", file=sys.stderr)
@@ -1844,6 +1954,7 @@ def brain_turn(
             paths_attach = build_paths_attach(
                 context_paths, project_root=project_root)
             if paths_attach:
+                paths_text = paths_attach
                 effective_prompt = (
                     effective_prompt + "\n\n---\n\n" + paths_attach)
         except Exception as exc:  # never fail a turn on attach problems
@@ -1859,6 +1970,7 @@ def brain_turn(
                 task_id.strip() if isinstance(task_id, str) else "",
                 project_root=project_root)
             if dattach:
+                diff_append_text = dattach
                 effective_prompt = effective_prompt + "\n\n---\n\n" + dattach
             else:
                 print("brain-bridge: include_diff=True but no hunks "
@@ -1876,6 +1988,7 @@ def brain_turn(
             if dattach:
                 print("brain-bridge: QA turn without include_diff, "
                       "auto-attaching diff", file=sys.stderr)
+                failsafe_text = dattach
                 effective_prompt = (effective_prompt + "\n\n---\n\n"
                                     + dattach)
         except Exception as exc:  # never fail a turn on attach problems
@@ -1902,6 +2015,7 @@ def brain_turn(
                 save_fed_context(task_id, fed, project_root=project_root)
             pinned = load_fed_context(task_id, project_root=project_root)
             if pinned and "[pinned-fed-context]" not in effective_prompt:
+                fed_text = pinned
                 effective_prompt = (
                     "[pinned-fed-context]\n" + pinned
                     + "\n[/pinned-fed-context]\n\n---\n\n"
@@ -1926,9 +2040,17 @@ def brain_turn(
         truncated_count += 1
     budget_chars = len(system_prompt) + len(effective_prompt) + _hist_chars()
     util_pct = budget_chars * 100 // _MODEL_WINDOW_CHARS
+    # Sidecar only: the split descriptor never touches wire bytes —
+    # effective_prompt, chat payload, and prompt_hash stay identical.
+    cache_split = build_prompt_cache_split(
+        system_prompt, bundle_text, task_attach_text, user_prompt,
+        paths_text=paths_text, diff_text=diff_append_text,
+        failsafe_text=failsafe_text, fed_text=fed_text,
+        history=history)
     _append_context_ledger(task_id, project_root, budget_chars,
                            truncated_count, model=model,
-                           risk_tier=risk_tier)
+                           risk_tier=risk_tier,
+                           prompt_cache_split=cache_split)
     if budget_chars > _PROMPT_WARN_CHARS:
         print(
             f"brain-bridge: prompt is large (budget_chars={budget_chars} "
@@ -2012,6 +2134,7 @@ def brain_turn(
         "truncated_count": truncated_count,
         "budget_chars": budget_chars,
         "retry_count": attempts,
+        "prompt_cache_split": cache_split,
     }
     if fence_drops:
         result["debug"] = {

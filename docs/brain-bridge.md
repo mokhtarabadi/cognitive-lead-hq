@@ -89,6 +89,25 @@ behavior never change under routing. Each context-ledger row records
 the selected `model` and the `risk_tier` (metadata only — never prompt
 text, diffs, or keys).
 
+## Prompt-cache split
+
+Every turn computes a provider-neutral split descriptor alongside the
+unchanged wire payload: the stable prefix (system prompt + bundle +
+task attach) hashes to `static_prefix_sha256` (memoized per identical
+static inputs — a repeat costs zero new static hashes), and everything
+per-turn (user input, path/diff/failsafe appends,
+fed context, shipped history) hashes to `dynamic_suffix_sha256`.
+Only hashes and fixed labels travel — never prompt text, diffs, keys,
+or history content. The descriptor is returned as `prompt_cache_split`
+on the turn result and recorded on each context-ledger row, so repeated
+turns with an identical static hash share maximal prefix bytes for any
+provider-side caching. The split is logical, not a rewrite: fed context
+still prepends on the wire exactly as before. Framing schema v2
+length-prefixes labels as well as payloads, so NUL-bearing history
+roles (caller-controlled transcript text) can never alias another
+segment list's bytes; the failsafe attach hashes in its own slot,
+never merged into the diff slot.
+
 ## Autopilot + manager-decision
 
 Autopilot mode (default OFF) runs the full state machine with zero

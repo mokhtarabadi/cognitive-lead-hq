@@ -2120,23 +2120,28 @@ def test_routed_body_uses_selected_model(tmp_path, monkeypatch):
     assert holder["body"]["model"] == "high-m"
 
 
-def test_ledger_carries_model_and_tier_only(tmp_path, monkeypatch):
+def test_ledger_carries_model_tier_and_cache_split(tmp_path, monkeypatch):
     import json
     _clean_routing_env(monkeypatch)
     monkeypatch.setenv("BRAIN_RISK_ROUTING_ENABLED", "true")
     monkeypatch.setenv("BRAIN_MODEL_LOW", "low-m")
     secret_prompt = "ledger-leak-probe-zz9"
-    _run_turn_capture(monkeypatch, tmp_path, _ok_payload("ok"),
-                      prompt=secret_prompt, risk_tier="T0")
+    result, _ = _run_turn_capture(monkeypatch, tmp_path, _ok_payload("ok"),
+                                  prompt=secret_prompt, risk_tier="T0")
     ledger = tmp_path / "sessions" / bridge._CONTEXT_LEDGER_NAME
     blob = ledger.read_text(encoding="utf-8").strip().split("\n")[-1]
     row = json.loads(blob)
     assert row["model"] == "low-m"
     assert row["risk_tier"] == "T0"
+    assert row["prompt_cache_split"] == result["prompt_cache_split"]
+    assert set(row["prompt_cache_split"]) == {
+        "schema_version", "split_boundary", "static_prefix_sha256",
+        "dynamic_suffix_sha256"}
     assert secret_prompt not in blob
     assert "sk-test-key" not in blob
     assert set(row) == {"task_id", "budget_chars", "est_tokens",
-                        "util_pct", "truncated", "model", "risk_tier"}
+                        "util_pct", "truncated", "model", "risk_tier",
+                        "prompt_cache_split"}
 
 
 def test_resolver_takes_no_prompt_diff_or_key():
@@ -2144,3 +2149,225 @@ def test_resolver_takes_no_prompt_diff_or_key():
     params = set(inspect.signature(bridge.resolve_routed_model).parameters)
     assert params == {"enabled", "risk_tier", "default_model",
                       "model_low", "model_high"}
+
+
+def _split_kwargs(**over):
+    base = dict(system_prompt="sys", bundle_text="bundle",
+                task_attach_text="attach", user_prompt="q",
+                paths_text="", diff_text="", failsafe_text="",
+                fed_text="", history=[])
+    base.update(over)
+    return base
+
+
+def test_cache_split_static_stable_dynamic_varies():
+    a = bridge.build_prompt_cache_split(**_split_kwargs())
+    b = bridge.build_prompt_cache_split(**_split_kwargs(
+        user_prompt="q2", paths_text="p", diff_text="d",
+        failsafe_text="f", fed_text="fed",
+        history=[{"role": "user", "content": "h"}]))
+    assert a["schema_version"] == bridge._CACHE_SPLIT_SCHEMA_VERSION
+    assert (a["split_boundary"]
+            == "after_system_bundle_task_attach")
+    assert a["static_prefix_sha256"] == b["static_prefix_sha256"]
+    assert a["dynamic_suffix_sha256"] != b["dynamic_suffix_sha256"]
+    assert len(a["static_prefix_sha256"]) == 64
+    assert len(a["dynamic_suffix_sha256"]) == 64
+
+
+def test_cache_split_each_dynamic_segment_flips_dynamic():
+    base = bridge.build_prompt_cache_split(**_split_kwargs())
+    for field, val in (("user_prompt", "x"), ("paths_text", "x"),
+                       ("diff_text", "x"), ("failsafe_text", "x"),
+                       ("fed_text", "x")):
+        other = bridge.build_prompt_cache_split(
+            **_split_kwargs(**{field: val}))
+        assert (other["dynamic_suffix_sha256"]
+                != base["dynamic_suffix_sha256"])
+        assert (other["static_prefix_sha256"]
+                == base["static_prefix_sha256"])
+    hist = bridge.build_prompt_cache_split(**_split_kwargs(
+        history=[{"role": "assistant", "content": "x"}]))
+    assert hist["dynamic_suffix_sha256"] != base["dynamic_suffix_sha256"]
+    assert hist["static_prefix_sha256"] == base["static_prefix_sha256"]
+
+
+def test_cache_split_static_change_flips_static_only():
+    base = bridge.build_prompt_cache_split(**_split_kwargs())
+    for field in ("system_prompt", "bundle_text", "task_attach_text"):
+        other = bridge.build_prompt_cache_split(
+            **_split_kwargs(**{field: "changed"}))
+        assert (other["static_prefix_sha256"]
+                != base["static_prefix_sha256"])
+
+
+def test_cache_split_memoizes_static_computation(monkeypatch):
+    bridge._STATIC_SPLIT_CACHE.clear()
+    monkeypatch.setattr(bridge, "_STATIC_SPLIT_COMPUTES", 0)
+    kw = _split_kwargs()
+    bridge.build_prompt_cache_split(**kw)
+    bridge.build_prompt_cache_split(**kw)
+    assert bridge._STATIC_SPLIT_COMPUTES == 1
+    kw["bundle_text"] = "other-bundle"
+    bridge.build_prompt_cache_split(**kw)
+    assert bridge._STATIC_SPLIT_COMPUTES == 2
+
+
+def test_cache_split_result_and_ledger(tmp_path, monkeypatch):
+    import json
+    _clean_routing_env(monkeypatch)
+    result, holder = _run_turn_capture(
+        monkeypatch, tmp_path, _ok_payload("ok"), prompt="cache-q")
+    split = result["prompt_cache_split"]
+    assert split["schema_version"] == bridge._CACHE_SPLIT_SCHEMA_VERSION
+    assert split["split_boundary"] == "after_system_bundle_task_attach"
+    assert len(split["static_prefix_sha256"]) == 64
+    assert len(split["dynamic_suffix_sha256"]) == 64
+    assert set(split) == {"schema_version", "split_boundary",
+                          "static_prefix_sha256",
+                          "dynamic_suffix_sha256"}
+    # Wire untouched: no cache params on the provider body.
+    assert set(holder["body"]) == {"model", "input", "reasoning",
+                                   "max_output_tokens"}
+    ledger = tmp_path / "sessions" / bridge._CONTEXT_LEDGER_NAME
+    row = json.loads(ledger.read_text(encoding="utf-8").strip()
+                     .split("\n")[-1])
+    assert row["prompt_cache_split"] == split
+    assert set(row) == {"task_id", "budget_chars", "est_tokens",
+                        "util_pct", "truncated", "model", "risk_tier",
+                        "prompt_cache_split"}
+
+
+def test_cache_split_stable_across_turns(tmp_path, monkeypatch):
+    _clean_routing_env(monkeypatch)
+    monkeypatch.setenv("BRAIN_SESSIONS_ROOT",
+                       str(tmp_path / "sessions"))
+    _mk_sys_prompt(tmp_path, monkeypatch)
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    holder = {}
+    _mk_bridge_client(monkeypatch, [_FakeResp(200, "a", _ok_payload("a")),
+                                    _FakeResp(200, "b", _ok_payload("b"))],
+                      holder=holder)
+    target = (bridge.brain_turn.fn if hasattr(bridge.brain_turn, "fn")
+              else bridge.brain_turn)
+    first = target("first-question", task_id="234")
+    second = target("second-question", task_id="234")
+    assert (first["prompt_cache_split"]["static_prefix_sha256"]
+            == second["prompt_cache_split"]["static_prefix_sha256"])
+    assert (first["prompt_cache_split"]["dynamic_suffix_sha256"]
+            != second["prompt_cache_split"]["dynamic_suffix_sha256"])
+
+
+def test_cache_split_leaks_nothing(tmp_path, monkeypatch):
+    import json
+    _clean_routing_env(monkeypatch)
+    sentinel = "cache-leak-sentinel-zz7"
+    result, _ = _run_turn_capture(
+        monkeypatch, tmp_path, _ok_payload("ok"), prompt=sentinel)
+    assert sentinel not in json.dumps(result["prompt_cache_split"])
+    ledger = tmp_path / "sessions" / bridge._CONTEXT_LEDGER_NAME
+    blob = ledger.read_text(encoding="utf-8")
+    assert sentinel not in blob
+    assert "sk-test-key" not in blob
+
+
+# --- Prompt-cache split hotfix (QA_REJECTED F1-F4 -> M1-M4, Task 247) ---
+
+def _failsafe_turn_setup(monkeypatch, tmp_path):
+    _clean_routing_env(monkeypatch)
+    _mk_tasks_root(tmp_path)
+    monkeypatch.setattr(bridge, "_workspace_root", lambda: tmp_path)
+    monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
+    _mk_sys_prompt(tmp_path, monkeypatch)
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    monkeypatch.delenv("BRAIN_TEMPERATURE", raising=False)
+
+
+def test_cache_split_failsafe_wires_own_slot(tmp_path, monkeypatch):
+    # M1: the failsafe branch must hash its attach in the failsafe
+    # slot, never merged into the diff slot (F1).
+    _failsafe_turn_setup(monkeypatch, tmp_path)
+    holder = {}
+    _mk_bridge_client(monkeypatch, [_FakeResp(200, "fine", _ok_payload("ok"))],
+                      holder=holder)
+    target = (bridge.brain_turn.fn if hasattr(bridge.brain_turn, "fn")
+              else bridge.brain_turn)
+    prompt = "qa engineer, adversarial review please"
+    result = target(prompt, task_id="200", include_bundle=False)
+    hunks = bridge._failsafe_qa_attach(prompt, "200")
+    assert hunks  # guard: the failsafe really fired for this prompt
+    expected = bridge.build_prompt_cache_split(
+        "sys", "", "", prompt, diff_text="", failsafe_text=hunks,
+        history=[])
+    assert (result["prompt_cache_split"]["dynamic_suffix_sha256"]
+            == expected["dynamic_suffix_sha256"])
+    swapped = bridge.build_prompt_cache_split(
+        "sys", "", "", prompt, diff_text=hunks, failsafe_text="",
+        history=[])
+    assert (swapped["dynamic_suffix_sha256"]
+            != expected["dynamic_suffix_sha256"])
+
+
+def test_cache_split_nul_role_cannot_collide():
+    # M2: NUL-bearing history roles must not alias another segment
+    # list (F2). Old framing hashed both histories below to the same
+    # dynamic bytes: label "history[0].r" + content "q\x001\x00Y"
+    # framed identically to role "r\x005\x00q" + content "Y".
+    assert len("q\x001\x00Y") == 5  # honest length the collision pivots on
+    a = bridge.build_prompt_cache_split(**_split_kwargs(
+        history=[{"role": "r", "content": "q\x001\x00Y"}]))
+    b = bridge.build_prompt_cache_split(**_split_kwargs(
+        history=[{"role": "r\x005\x00q", "content": "Y"}]))
+    assert (a["dynamic_suffix_sha256"]
+            != b["dynamic_suffix_sha256"])
+
+
+def test_cache_split_descriptor_matches_post_truncation_wire(
+        tmp_path, monkeypatch):
+    # M3: the descriptor must describe the SHIPPED (post-truncation)
+    # wire, never the pre-truncation assembly (F3).
+    _clean_routing_env(monkeypatch)
+    monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
+    _mk_sys_prompt(tmp_path, monkeypatch)
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    monkeypatch.delenv("BRAIN_TEMPERATURE", raising=False)
+    monkeypatch.setattr(bridge, "_INPUT_BUDGET", 20)
+    holder = {}
+    _mk_bridge_client(monkeypatch, [_FakeResp(200, "a", _ok_payload("a")),
+                                    _FakeResp(200, "b", _ok_payload("b"))],
+                      holder=holder)
+    target = (bridge.brain_turn.fn if hasattr(bridge.brain_turn, "fn")
+              else bridge.brain_turn)
+    target("first-question", task_id="234", include_bundle=False)
+    second = target("second-question", task_id="234", include_bundle=False)
+    shipped = holder["body"]["input"]
+    shipped_history = [t for t in shipped[1:-1]]
+    assert len(shipped_history) < 2  # the middle drop really fired
+    expected = bridge.build_prompt_cache_split(
+        "sys", "", "", "second-question", history=shipped_history)
+    assert (second["prompt_cache_split"]["dynamic_suffix_sha256"]
+            == expected["dynamic_suffix_sha256"])
+    assert (second["prompt_cache_split"]["static_prefix_sha256"]
+            == expected["static_prefix_sha256"])
+
+
+def test_cache_split_static_lookup_skips_hash(monkeypatch):
+    # M4: memoization must key on the static INPUTS, not hash-then-
+    # lookup — a repeat static input must cost zero new static hashes
+    # (F4). Two identical builds: miss (static + dynamic) then hit
+    # (dynamic only) = exactly 3 sha256 calls.
+    bridge._STATIC_SPLIT_CACHE.clear()
+    real_sha256 = bridge.hashlib.sha256
+    calls = []
+
+    def counting(data=b""):
+        calls.append(1)
+        return real_sha256(data)
+
+    monkeypatch.setattr(bridge.hashlib, "sha256", counting)
+    kw = _split_kwargs()
+    first = bridge.build_prompt_cache_split(**kw)
+    second = bridge.build_prompt_cache_split(**kw)
+    assert (first["static_prefix_sha256"]
+            == second["static_prefix_sha256"])
+    assert len(calls) == 3
