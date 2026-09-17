@@ -52,7 +52,7 @@ This repository is the Headquarters for the Cognitive Lead AI multi-agent system
 - **Don't** apply the full 9-step production line for trivial, single-file changes.
   -> **Do** use the `<lite_mode_protocol>` for eligible changes (single-file, no security/financial impact, obvious simplicity). Escalate to Full Mode if implementation reveals hidden complexity. See `<lite_mode_protocol>` in the system prompt.
 - **Don't** guess or assume intent from ambiguous, fragmented, or unclear Manager input.
-  -> **Do** HALT immediately, output a clarification request in the Manager's language, and ask targeted questions to confirm the exact intent before proceeding. (Clarification Halt — V9.1.0)
+  -> **Do** HALT immediately, output a clarification request in simple English, and ask targeted questions to confirm the exact intent before proceeding. (Clarification Halt — V9.1.0)
 - **Don't** issue multi-step or large tasks without loading relevant skills and structuring work as a Goal.
   -> **Do** instruct the Hands to load all relevant skills from `<agent_skills_registry>` and treat multi-phase implementations as Goal units with explicit verification gates. (Goal-Oriented Tasks — V9.1.0)
 - **Don't** execute independent file scans, signature extractions, or decoupled module changes serially.

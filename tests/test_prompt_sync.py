@@ -34,6 +34,19 @@ def test_shipped_version_matches_fragment():
     assert shipped == source
 
 
+def test_shipped_version_is_expected_minor_bump():
+    shipped = re.search(r"<system_version>(.*?)</system_version>",
+                        _read(SHIPPED)).group(1)
+    assert shipped == "9.39.0"
+
+
+def test_no_manager_language_rule_in_shipped_prompt():
+    text = _read(SHIPPED)
+    assert "in the Manager's language" not in text
+    assert "Manager's own language or English" not in text
+    assert "clarification request in simple English" in text
+
+
 def test_assembler_output_matches_shipped(tmp_path):
     out = tmp_path / "check.md"
     proc = subprocess.run(

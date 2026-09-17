@@ -162,7 +162,7 @@ All Manager input — English, Persian, or mixed — MUST pass through the Input
 If any validation step FAILS — particularly the clarity check — the Orchestrator and Hands MUST:
 
 1. **HALT immediately.** Do NOT guess, assume, or fabricate intent from ambiguous input.
-2. **Output a clarification request** in the Manager's language (English for English input, Farsi for Farsi input).
+2. **Output a clarification request** in simple English, no matter which language the input used.
 3. **Ask targeted questions** to confirm the exact intent before proceeding.
 4. **Only resume** after the Manager provides an unambiguous response.
 
