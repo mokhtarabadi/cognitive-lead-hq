@@ -1777,12 +1777,15 @@ def brain_turn(
     body: dict[str, Any] = {
         "model": model,
         "input": chat,
-        "reasoning_effort": _get_reasoning_effort(),
+        # Responses API shape: effort nests under reasoning (flat
+        # reasoning_effort is rejected by strict providers, e.g.
+        # OpenAI/OpenRouter 400 unsupported_parameter).
+        "reasoning": {"effort": _get_reasoning_effort()},
         "max_output_tokens": _get_max_tokens(),
     }
     # Blank-means-unset: only send temperature when explicitly set. A
-    # non-blank temperature conflicts with reasoning_effort on Responses
-    # models, so drop the effort key when temperature is present.
+    # non-blank temperature conflicts with reasoning effort on Responses
+    # models, so drop the reasoning key when temperature is present.
     _temp_raw = os.environ.get("BRAIN_TEMPERATURE", "")
     if _temp_raw.strip():
         try:
@@ -1793,7 +1796,7 @@ def brain_turn(
                 "set a numeric value or leave it blank"
             )
         else:
-            del body["reasoning_effort"]
+            del body["reasoning"]
     with httpx.Client(
         timeout=httpx.Timeout(connect=10, read=120, write=30, pool=10)
     ) as client:

@@ -508,13 +508,13 @@ def test_brain_turn_temperature_omitted_unless_set(tmp_path, monkeypatch):
     target = call.fn if hasattr(call, "fn") else call
     target("q")
     assert "temperature" not in holder["body"]
-    assert "reasoning_effort" in holder["body"]
+    assert holder["body"].get("reasoning", {}).get("effort")
     monkeypatch.setenv("BRAIN_TEMPERATURE", "0.7")
     holder2 = {}
     _mk_bridge_client(monkeypatch, [_FakeResp(200, "fine", _ok_payload())], holder2)
     target("q2")
     assert holder2["body"]["temperature"] == 0.7
-    assert "reasoning_effort" not in holder2["body"]
+    assert "reasoning" not in holder2["body"]
 
 
 def test_long_task_id_error_carries_migration_hint(tmp_path, monkeypatch):
