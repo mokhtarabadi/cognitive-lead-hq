@@ -792,6 +792,85 @@ def extract_xml_blocks(output: str) -> list[str]:
     return out
 
 
+#: Required phase markers per Hands block type (Task 245: semantic gate).
+#: Mirrors the templates in ``prompts/fragments/09-hands_protocols.md``.
+#: ``failure_report``/``hotfix`` are free-form — only non-empty bodies
+#: are required. Matching is word-bound (like ``validate_plan_verdict``)
+#: so prose mentions count and only genuinely phaseless blocks fail.
+_HANDS_REQUIRED_PHASES = {
+    "hands_discovery_task": (
+        "validation_phase", "context_phase", "execution_phase",
+        "summary_phase"),
+    "hands_implementation_task": (
+        "validation_phase", "context_phase", "execution_phase",
+        "bash_phase", "documentation_phase", "summary_phase"),
+    "hands_combined_task": ("validation_phase", "discovery_phase"),
+    "failure_report": (),
+    "hotfix": (),
+}
+
+_ROOT_RE = re.compile(r"\s*<\s*([A-Za-z_][\w.-]*)")
+
+_COMMENT_RE = re.compile(r"<!--.*?-->", re.DOTALL)
+
+
+def _phase_element_present(body: str, phase: str) -> bool:
+    """True when ``body`` holds ``phase`` as an opening element.
+
+    Bare words, HTML comments, closing tags, and text outside the root
+    body never satisfy the gate — only ``<phase>`` or ``<phase ...>``
+    inside the root counts.
+    """
+    return bool(re.search(
+        rf"<\s*{re.escape(phase)}(?:\s[^>]*)?>", body, re.IGNORECASE))
+
+
+def validate_hands_xml_blocks(blocks: object) -> list[str]:
+    """Check extracted Brain XML against the Hands contract (pure, offline).
+
+    Returns problem strings; empty means semantically valid. The tolerant
+    syntax parser (``extract_xml_blocks``) stays unchanged — this runs
+    after it and rejects only blocks that are structurally incomplete:
+    unknown roots, missing close tags (truncation), empty bodies, or
+    missing required phase markers. Valid existing outputs always pass.
+    """
+    if not isinstance(blocks, (list, tuple)) or not blocks:
+        return ["no xml blocks to validate"]
+    problems: list[str] = []
+    for i, block in enumerate(blocks):
+        if not isinstance(block, str) or not block.strip():
+            problems.append(f"block {i}: empty block")
+            continue
+        m = _ROOT_RE.match(block)
+        root = m.group(1).lower() if m else ""
+        if root not in _HANDS_REQUIRED_PHASES:
+            problems.append(
+                f"block {i}: unexpected root <{root or '?'}>")
+            continue
+        tag = m.group(1) if m else root
+        close_m = re.search(rf"</\s*{re.escape(tag)}\s*>",
+                            block, re.IGNORECASE)
+        if not close_m:
+            problems.append(
+                f"block {i} <{root}>: missing close tag (truncated?)")
+            continue
+        open_m = re.search(rf"<\s*{re.escape(tag)}(?:\s[^>]*)?>",
+                           block, re.IGNORECASE)
+        raw_body = (block[open_m.end():close_m.start()]
+                    if open_m and close_m.start() >= open_m.end()
+                    else "")
+        body = _COMMENT_RE.sub("", raw_body)
+        if not body.strip():
+            problems.append(f"block {i} <{root}>: empty body")
+            continue
+        for phase in _HANDS_REQUIRED_PHASES[root]:
+            if not _phase_element_present(body, phase):
+                problems.append(
+                    f"block {i} <{root}>: missing required "
+                    f"<{phase}> element")
+    return problems
+
+
 #: Required fields of a Brain plan verdict. Hands-side plan review checks
 #: plan text for these before executing — a plan with no cites is
 #: ungrounded and must be re-prompted, never executed.
@@ -1521,10 +1600,37 @@ _CTX_PATHS_PER_FILE = 20000
 _CTX_PATHS_TOTAL = 40000
 
 
-def build_paths_attach(paths: object) -> str:
+def _paths_base(project_root: Optional[str] = None) -> Path:
+    """Base dir for ``context_paths`` reads (cross-install fix).
+
+    An explicit ``project_root`` pointing at an existing directory wins;
+    otherwise the workspace root applies. This mirrors the task-file
+    resolver's root order (``_resolve_task_file``) so path injection and
+    task attach agree on the project instead of diverging when the
+    server runs from another install. Invalid values fall back silently
+    to the workspace root — resolution failure is reported per file,
+    never raised.
+    """
+    if project_root:
+        try:
+            if not isinstance(project_root, (str, os.PathLike)):
+                raise TypeError(
+                    f"project_root is not path-like: {type(project_root)!r}")
+            pr = Path(project_root).expanduser()
+            if pr.is_dir():
+                return pr.resolve()
+        except (OSError, TypeError):
+            pass
+    return _workspace_root()
+
+
+def build_paths_attach(
+    paths: object, project_root: Optional[str] = None
+) -> str:
     """Read workspace files for path injection ('' when none).
 
-    Each path resolves under the workspace root (escapes, missing files,
+    Relative paths resolve under the explicit ``project_root`` when one
+    is supplied, else under the workspace root (escapes, missing files,
     and unsupported suffixes become explicit ``[unavailable: ...]``
     labels, never silent drops). Files truncate at ``_CTX_PATHS_PER_FILE``
     chars; injection stops at ``_CTX_PATHS_TOTAL`` with a skipped note.
@@ -1537,9 +1643,10 @@ def build_paths_attach(paths: object) -> str:
         return ""
     blocks: list[str] = []
     used = 0
+    base = _paths_base(project_root)
     for rel in wanted:
         try:
-            resolved = _resolve_under_root(rel)
+            resolved = _resolve_under_root(rel, root=base)
         except ValueError:
             blocks.append(f"[unavailable: {rel.strip()} — outside workspace]")
             continue
@@ -1673,7 +1780,8 @@ def brain_turn(
         # tree, signature reports) from disk instead of the Hands pasting
         # them. Counts toward the input budget below like any prompt text.
         try:
-            paths_attach = build_paths_attach(context_paths)
+            paths_attach = build_paths_attach(
+                context_paths, project_root=project_root)
             if paths_attach:
                 effective_prompt = (
                     effective_prompt + "\n\n---\n\n" + paths_attach)
@@ -1803,6 +1911,18 @@ def brain_turn(
         resp, attempts = _post_with_retry(client, _responses_url(), body)
         output = parse_responses_text(_resp_json(resp))
     xml_blocks = extract_xml_blocks(output)
+    if xml_blocks:
+        # Semantic gate (Task 245): syntactically valid but contract-
+        # incomplete XML must triage as REPORT with explicit reasons —
+        # the Hands executes only whole contracts, never fragments.
+        sem_problems = validate_hands_xml_blocks(xml_blocks)
+        if sem_problems:
+            print("brain-bridge: xml failed semantic validation "
+                  f"({len(sem_problems)} problems)", file=sys.stderr)
+            output = ("[xml-semantic-reject]\n"
+                      + "\n".join(f"- {p}" for p in sem_problems)
+                      + "\n[/xml-semantic-reject]\n" + output)
+            xml_blocks = []
     if not xml_blocks and not output.strip():
         # Empty-output guard (Task 232): never return a silent blank
         # REPORT. Substitute the retry hint; status stays REPORT so old

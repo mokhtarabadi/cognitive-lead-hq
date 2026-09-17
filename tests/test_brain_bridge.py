@@ -1344,6 +1344,170 @@ def test_paths_attach_absolute_escape_labelled(tmp_path, monkeypatch):
     assert "outside workspace" in out
 
 
+def test_paths_attach_project_root_wins_over_workspace(tmp_path, monkeypatch):
+    _ws(tmp_path, monkeypatch)  # server install dir lacks the report
+    proj = tmp_path / "proj"
+    (proj / "context-reports").mkdir(parents=True)
+    (proj / "context-reports" / "r.md").write_text(
+        "# real\nbody\n", encoding="utf-8")
+    out = bridge.build_paths_attach(
+        ["context-reports/r.md"], project_root=str(proj))
+    assert "[path-injected: context-reports/r.md]" in out
+    assert "body" in out
+
+
+def test_paths_attach_project_root_missing_stays_labelled(tmp_path, monkeypatch):
+    _ws(tmp_path, monkeypatch)
+    proj = tmp_path / "proj"
+    (proj / "tasks").mkdir(parents=True)
+    out = bridge.build_paths_attach(["gone.md"], project_root=str(proj))
+    assert "unreadable" in out
+
+
+def test_paths_attach_project_root_invalid_falls_back(tmp_path, monkeypatch):
+    _ws(tmp_path, monkeypatch)
+    (tmp_path / "ctx.md").write_text("# ctx\nbody\n", encoding="utf-8")
+    out = bridge.build_paths_attach(
+        ["ctx.md"], project_root=str(tmp_path / "nope"))
+    assert "[path-injected: ctx.md]" in out
+
+
+def test_paths_attach_ignores_cwd(tmp_path, monkeypatch):
+    _ws(tmp_path, monkeypatch)
+    (tmp_path / "ctx.md").write_text("# ctx\nbody\n", encoding="utf-8")
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    monkeypatch.chdir(elsewhere)
+    out = bridge.build_paths_attach(["ctx.md"])
+    assert "[path-injected: ctx.md]" in out
+
+
+def test_paths_attach_size_pattern_truncates_never_blanks(tmp_path, monkeypatch):
+    _ws(tmp_path, monkeypatch)
+    (tmp_path / "small.md").write_text("s\n", encoding="utf-8")
+    (tmp_path / "mid.md").write_text("m" * 6000 + "\n", encoding="utf-8")
+    (tmp_path / "big.md").write_text("b" * 47000 + "\n", encoding="utf-8")
+    out = bridge.build_paths_attach(["small.md", "mid.md", "big.md"])
+    assert "[path-injected: small.md]" in out
+    assert "truncated" in out  # big report truncates per-file, never blanks all
+
+
+_IMPL_OK = (
+    "<hands_implementation_task><!--INCLUDE:shared/validation-phase.md-->"
+    "<validation_phase>v</validation_phase>"
+    "<context_phase>x</context_phase>"
+    "<execution_phase>y</execution_phase>"
+    "<bash_phase>pytest</bash_phase>"
+    "<documentation_phase>d</documentation_phase>"
+    "<summary_phase>z</summary_phase></hands_implementation_task>"
+)
+_DISC_OK = (
+    "<hands_discovery_task><!--INCLUDE:shared/validation-phase.md-->"
+    "<validation_phase>v</validation_phase>"
+    "<context_phase>x</context_phase>"
+    "<execution_phase>y</execution_phase>"
+    "<summary_phase>z</summary_phase></hands_discovery_task>"
+)
+
+
+def test_validate_hands_xml_accepts_valid_blocks():
+    assert bridge.validate_hands_xml_blocks([_IMPL_OK, _DISC_OK]) == []
+    assert bridge.validate_hands_xml_blocks(["<hotfix>do X</hotfix>"]) == []
+    assert bridge.validate_hands_xml_blocks(
+        ["<failure_report>boom</failure_report>"]) == []
+    assert bridge.validate_hands_xml_blocks(
+        ["<hands_combined_task><!--INCLUDE:shared/validation-phase.md-->"
+         "<validation_phase>v</validation_phase>"
+         "<discovery_phase>x</discovery_phase>"
+         "</hands_combined_task>"]) == []
+
+
+def test_validate_hands_xml_rejects_missing_phase():
+    bad = ("<hands_implementation_task><context_phase>x</context_phase>"
+           "</hands_implementation_task>")
+    problems = bridge.validate_hands_xml_blocks([bad])
+    assert problems
+    assert any("summary_phase" in p for p in problems)
+
+
+def test_validate_hands_xml_rejects_missing_bash_phase():
+    bad = ("<hands_implementation_task>"
+           "<validation_phase>v</validation_phase>"
+           "<context_phase>x</context_phase>"
+           "<execution_phase>y</execution_phase>"
+           "<summary_phase>z</summary_phase></hands_implementation_task>")
+    problems = bridge.validate_hands_xml_blocks([bad])
+    assert problems
+    assert any("bash_phase" in p for p in problems)
+
+
+def test_paths_attach_project_root_non_string_falls_back(tmp_path, monkeypatch):
+    _ws(tmp_path, monkeypatch)
+    (tmp_path / "ctx.md").write_text("# ctx\nbody\n", encoding="utf-8")
+    out = bridge.build_paths_attach(["ctx.md"], project_root=123)
+    assert "[path-injected: ctx.md]" in out
+
+
+def test_validate_hands_xml_rejects_empty_and_unclosed():
+    assert bridge.validate_hands_xml_blocks(["<hotfix>   </hotfix>"])
+    assert bridge.validate_hands_xml_blocks(
+        ["<hands_discovery_task><context_phase>x"])
+
+
+def test_validate_hands_xml_rejects_unknown_root_and_empty_input():
+    assert bridge.validate_hands_xml_blocks(
+        ["<reasoning_log>hi</reasoning_log>"])
+    assert bridge.validate_hands_xml_blocks([])
+
+
+def test_validate_hands_xml_rejects_bare_phase_words():
+    bare = ("<hands_implementation_task>\n"
+            "  validation_phase context_phase execution_phase bash_phase\n"
+            "  documentation_phase summary_phase\n"
+            "</hands_implementation_task>")
+    problems = bridge.validate_hands_xml_blocks([bare])
+    assert problems
+    assert any("<context_phase>" in p for p in problems)
+
+
+def test_validate_hands_xml_rejects_comment_only_phases():
+    commented = ("<hands_implementation_task>\n"
+                 "<!-- validation_phase context_phase execution_phase -->\n"
+                 "<!-- bash_phase documentation_phase summary_phase -->\n"
+                 "please implement the thing\n"
+                 "</hands_implementation_task>")
+    problems = bridge.validate_hands_xml_blocks([commented])
+    assert problems
+
+
+def test_validate_hands_xml_rejects_post_close_phases():
+    after = ("<hands_implementation_task><summary_phase>z</summary_phase>"
+             "</hands_implementation_task>\n"
+             "<context_phase>x</context_phase>"
+             "<execution_phase>y</execution_phase>")
+    problems = bridge.validate_hands_xml_blocks([after])
+    assert problems
+    assert any("context_phase" in p for p in problems)
+
+
+def test_brain_turn_semantic_reject_reports(tmp_path, monkeypatch):
+    monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
+    _mk_sys_prompt(tmp_path, monkeypatch)
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    monkeypatch.delenv("BRAIN_TEMPERATURE", raising=False)
+    incomplete = ("<hands_implementation_task>"
+                  "<context_phase>x</context_phase>"
+                  "</hands_implementation_task>")
+    _mk_bridge_client(
+        monkeypatch, [_FakeResp(200, "fine", _ok_payload(incomplete))])
+    call = bridge.brain_turn
+    target = call.fn if hasattr(call, "fn") else call
+    result = target("q", include_bundle=False)
+    assert result["status"] == "REPORT"
+    assert "[xml-semantic-reject]" in result["output"]
+    assert result["xml_blocks"] == []
+
+
 # --- Task 215: reviewer hotfix XML must extract (bare + xml-fenced) ---
 
 def test_extract_hotfix_bare_block():
