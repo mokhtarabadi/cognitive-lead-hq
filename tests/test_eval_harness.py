@@ -5,6 +5,7 @@ module contract. Pure and offline only: structured traces in,
 report rows out. Missing cost/latency stays null, never zero.
 """
 
+import math
 import sys
 from pathlib import Path
 
@@ -176,3 +177,64 @@ def test_aggregate_all_missing_qa_counts_null():
     assert report["qa_repair_count_total"] is None
     assert report["qa_repair_count_mean"] is None
     assert report["qa_repair_observed_case_count"] == 0
+
+
+def test_zac_detects_absolute_path_git_command():
+    ops = [
+        {"kind": "shell", "command": "/usr/bin/git add ."},
+        {"kind": "shell", "command": "/usr/local/bin/git commit -m msg"},
+    ]
+    count, clean = scan_zac(ops)
+    assert count == 2
+    assert clean is False
+
+
+def test_zac_detects_sudo_git_command():
+    count, clean = scan_zac([{"kind": "shell", "command": "sudo git push origin main"}])
+    assert (count, clean) == (1, False)
+
+
+def test_zac_scan_ignores_prose_mentioning_git():
+    ops = [
+        {"kind": "shell", "command": "echo legit git status"},
+        {"kind": "shell", "command": "git status"},
+    ]
+    assert scan_zac(ops) == (0, True)
+
+
+def test_aggregate_rejects_boolean_cost_and_latency():
+    rows = [
+        score_case(_trace(cost_usd=True, latency_ms=False), _expected()),
+        score_case(_trace(cost_usd=0.02, latency_ms=100.0), _expected()),
+    ]
+    report = aggregate_report(rows)
+    assert report["cost_total_usd"] == 0.02
+    assert report["cost_observed_case_count"] == 1
+    assert report["latency_mean_ms"] == 100.0
+    assert report["latency_observed_case_count"] == 1
+
+
+def test_aggregate_rejects_non_finite_cost_and_latency():
+    rows = [
+        score_case(_trace(cost_usd=float("nan"), latency_ms=float("inf")), _expected()),
+        score_case(_trace(cost_usd=float("-inf"), latency_ms=float("nan")), _expected()),
+        score_case(_trace(cost_usd=0.02, latency_ms=100.0), _expected()),
+    ]
+    report = aggregate_report(rows)
+    assert report["cost_total_usd"] == 0.02
+    assert report["cost_mean_usd"] == 0.02
+    assert report["cost_observed_case_count"] == 1
+    assert report["latency_mean_ms"] == 100.0
+    assert report["latency_observed_case_count"] == 1
+
+
+def test_mean_ignores_boolean_and_non_finite_values():
+    rows = [
+        score_case(_trace(cost_usd=True), _expected()),
+        score_case(_trace(cost_usd=float("nan")), _expected()),
+        score_case(_trace(cost_usd=0.02), _expected()),
+        score_case(_trace(cost_usd=0.04), _expected()),
+    ]
+    report = aggregate_report(rows)
+    assert report["cost_mean_usd"] == 0.03
+    assert report["cost_observed_case_count"] == 2

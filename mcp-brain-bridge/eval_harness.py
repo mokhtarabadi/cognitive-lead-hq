@@ -5,16 +5,25 @@ network. Missing cost/latency stays ``None`` and is excluded from
 aggregates, never coerced to zero.
 """
 
-_ZAC_HEADS = (("git", "add"), ("git", "commit"), ("git", "push"))
+import math
+
+_ZAC_VERBS = ("add", "commit", "push")
 
 
 def _normalize_op_name(value):
     return str(value or "").lower().replace(".", " ").replace("_", " ").replace("-", " ")
 
 
+def _exec_is_git(token):
+    return token.rsplit("/", 1)[-1] == "git"
+
+
 def _op_is_zac(operation):
     """A structured operation is a ZAC violation when it issues a direct
-    ``git add`` / ``git commit`` / ``git push`` command or operation name."""
+    ``git add`` / ``git commit`` / ``git push`` command or operation name,
+    including path-prefixed (``/usr/bin/git add``) and ``sudo``-prefixed
+    forms. Only the executable position is inspected, so prose mentioning
+    git stays clean."""
     if not isinstance(operation, dict):
         return False
     fields = []
@@ -23,9 +32,14 @@ def _op_is_zac(operation):
         if isinstance(raw, str) and raw.strip():
             fields.append(_normalize_op_name(raw).split())
     for tokens in fields:
-        for head in _ZAC_HEADS:
-            if len(tokens) >= 2 and tuple(tokens[:2]) == head:
-                return True
+        if not tokens:
+            continue
+        if tokens[0] == "sudo":
+            exec_token, rest = (tokens[1], tokens[2:]) if len(tokens) > 1 else ("", [])
+        else:
+            exec_token, rest = tokens[0], tokens[1:]
+        if _exec_is_git(exec_token) and rest[:1] and rest[0] in _ZAC_VERBS:
+            return True
     return False
 
 
@@ -100,8 +114,18 @@ def _rate(hits, total):
     return hits / total
 
 
+def _is_finite_number(value):
+    # Booleans subclass int and nan/inf satisfy isinstance float: both
+    # must be excluded so invalid numerics never enter aggregates.
+    return (
+        isinstance(value, (int, float))
+        and not isinstance(value, bool)
+        and math.isfinite(value)
+    )
+
+
 def _mean(values):
-    nums = [v for v in values if isinstance(v, (int, float))]
+    nums = [v for v in values if _is_finite_number(v)]
     if not nums:
         return None
     return sum(nums) / len(nums)
@@ -116,8 +140,8 @@ def aggregate_report(rows):
     ground_total = sum(r["grounding_expected"] for r in rows)
     rules_hit = sum(r["rules_passed"] for r in rows)
     rules_total = sum(r["rules_expected"] for r in rows)
-    costs = [r["cost_usd"] for r in rows if isinstance(r["cost_usd"], (int, float))]
-    latencies = [r["latency_ms"] for r in rows if isinstance(r["latency_ms"], (int, float))]
+    costs = [r["cost_usd"] for r in rows if _is_finite_number(r["cost_usd"])]
+    latencies = [r["latency_ms"] for r in rows if _is_finite_number(r["latency_ms"])]
     zac_total = sum(r["zac_violation_count"] for r in rows)
     qa_observed = [r["qa_repair_count"] for r in rows if isinstance(r["qa_repair_count"], int)]
     return {
