@@ -1897,3 +1897,138 @@ def test_sync_diverged_reads_serve_stale_local_state(srv, tmp_path, monkeypatch)
     out = srv.query_manager_decisions("stale fallback")
     assert "DEC-20260913-001" in out
     assert "profile" in srv.get_manager_profile().lower()
+
+
+# --- Task 248: malformed-shape hardening (RED first, GREEN after fix) ---
+
+def _ship_pair():
+    valid = {
+        "verbatim_quote": {"original": "ship it", "english_translation": "y"},
+        "extracted_decision": {"summary": "s", "category": "architecture",
+                               "rationale": "r", "alternatives": [],
+                               "tradeoffs": "t"},
+    }
+    bad_tradeoffs = {
+        "verbatim_quote": {"original": "ship it", "english_translation": "y"},
+        "extracted_decision": {"summary": "s2", "category": "architecture",
+                               "rationale": "r2", "alternatives": [],
+                               "tradeoffs": ["not", "a", "string"]},
+    }
+    return valid, bad_tradeoffs
+
+
+def test_extract_drops_nonstring_tradeoffs_keeps_valid(srv, tmp_path, monkeypatch):
+    transcript = tmp_path / "transcript.jsonl"
+    _write_min_transcript(transcript)
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    valid, bad_tradeoffs = _ship_pair()
+    _stub_decision_http(monkeypatch, _decision_resp(200, "fine", [valid, bad_tradeoffs]))
+    assert _extract(srv)(7, transcript_path=str(transcript)) == [valid]
+
+
+def test_extract_all_bad_tradeoffs_returns_empty(srv, tmp_path, monkeypatch):
+    transcript = tmp_path / "transcript.jsonl"
+    _write_min_transcript(transcript)
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    _, bad_tradeoffs = _ship_pair()
+    _stub_decision_http(monkeypatch, _decision_resp(200, "fine", [bad_tradeoffs]))
+    assert _extract(srv)(7, transcript_path=str(transcript)) == []
+
+
+def test_record_rejects_string_verbatim_quote(srv, repo):
+    call = srv.record_manager_decision
+    target = call.fn if hasattr(call, "fn") else call
+    bad = _candidate()
+    bad["verbatim_quote"] = "flat string, not a mapping"
+    with pytest.raises(ValueError, match="verbatim_quote"):
+        target(bad)
+    assert list((repo / "decisions").rglob("DEC-*.json")) == []  # Nothing written.
+
+
+def test_record_rejects_string_extracted_decision(srv, repo):
+    call = srv.record_manager_decision
+    target = call.fn if hasattr(call, "fn") else call
+    bad = _candidate()
+    bad["extracted_decision"] = "flat string, not a mapping"
+    with pytest.raises(ValueError, match="extracted_decision"):
+        target(bad)
+    assert list((repo / "decisions").rglob("DEC-*.json")) == []  # Nothing written.
+
+
+def test_record_rejects_string_alternatives(srv, repo):
+    call = srv.record_manager_decision
+    target = call.fn if hasattr(call, "fn") else call
+    bad = _candidate()
+    bad["extracted_decision"]["alternatives"] = "not-a-list"
+    with pytest.raises(ValueError, match="alternatives"):
+        target(bad)
+    assert list((repo / "decisions").rglob("DEC-*.json")) == []  # Nothing written.
+
+
+def test_query_skips_tampered_record(srv, repo):
+    _record(srv.record_manager_decision, _candidate())
+    stored = next((repo / "decisions").rglob("DEC-*.json"))
+    record = json.loads(stored.read_text(encoding="utf-8"))
+    tampered_id = record["decision_id"]
+    record["extracted_decision"] = "flat string, not a mapping"
+    stored.write_text(json.dumps(record), encoding="utf-8")
+    out = srv.query_manager_decisions("composition")
+    assert isinstance(out, str)  # Never raises AttributeError.
+    assert tampered_id not in out  # Tampered record is skipped, not scored.
+
+
+# --- Task 248 QA hotfix: profile contract + nested leaf validation ---
+
+def test_profile_absent_returns_stable_message(srv, repo):
+    assert srv.get_manager_profile() == "No manager profile sample exists yet."
+
+
+def test_profile_present_returns_content(srv, repo):
+    samples = repo / "samples"
+    samples.mkdir(exist_ok=True)
+    (samples / "manager_profile.md").write_text("# Baseline\nPrefer composition.\n")
+    out = srv.get_manager_profile()
+    assert "Prefer composition." in out
+
+
+_LEAF_CASES = [
+    ("verbatim_quote", "original", "quote-original"),
+    ("verbatim_quote", "english_translation", "quote-english"),
+    ("extracted_decision", "summary", "decision-summary"),
+    ("extracted_decision", "rationale", "decision-rationale"),
+    ("extracted_decision", "tradeoffs", "decision-tradeoffs"),
+]
+
+
+@pytest.mark.parametrize("section,key,field", _LEAF_CASES)
+def test_record_rejects_nonstring_leaf(srv, repo, section, key, field):
+    call = srv.record_manager_decision
+    target = call.fn if hasattr(call, "fn") else call
+    bad = _candidate()
+    bad[section][key] = ["not", "a", "string"]
+    with pytest.raises(ValueError, match=field.split("-")[-1]):
+        target(bad)
+    assert list((repo / "decisions").rglob("DEC-*.json")) == []  # Nothing written.
+
+
+def test_record_rejects_nonstring_alternative_item(srv, repo):
+    call = srv.record_manager_decision
+    target = call.fn if hasattr(call, "fn") else call
+    bad = _candidate()
+    bad["extracted_decision"]["alternatives"] = ["fine", 123]
+    with pytest.raises(ValueError, match="alternatives"):
+        target(bad)
+    assert list((repo / "decisions").rglob("DEC-*.json")) == []  # Nothing written.
+
+
+@pytest.mark.parametrize("falsey", [None, "", 0, False])
+def test_query_skips_falsey_nonlist_alternatives(srv, repo, falsey):
+    _record(srv.record_manager_decision, _candidate())
+    stored = next((repo / "decisions").rglob("DEC-*.json"))
+    record = json.loads(stored.read_text(encoding="utf-8"))
+    tampered_id = record["decision_id"]
+    record["extracted_decision"]["alternatives"] = falsey
+    stored.write_text(json.dumps(record), encoding="utf-8")
+    out = srv.query_manager_decisions("composition")
+    assert isinstance(out, str)  # Never raises.
+    assert tampered_id not in out  # Falsey non-list must not validate as [].

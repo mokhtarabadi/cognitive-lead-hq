@@ -466,7 +466,41 @@ def _scrub_free_text(decision: dict[str, Any]) -> dict[str, Any]:
     """
     scrubbed = json.loads(json.dumps(decision))  # Deep copy via round-trip.
     quote = scrubbed.setdefault("verbatim_quote", {})
+    if not isinstance(quote, dict):
+        raise ValueError(
+            "verbatim_quote must be a mapping with "
+            f"original/english_translation strings, got: {str(quote)[:200]}"
+        )
     extracted = scrubbed.setdefault("extracted_decision", {})
+    if not isinstance(extracted, dict):
+        raise ValueError(
+            "extracted_decision must be a mapping with "
+            f"summary/category/rationale/alternatives/tradeoffs, got: {str(extracted)[:200]}"
+        )
+    alternatives_raw = extracted.get("alternatives", [])
+    if not isinstance(alternatives_raw, list):
+        raise ValueError(
+            "extracted_decision.alternatives must be a list, "
+            f"got: {str(alternatives_raw)[:200]}"
+        )
+    leaves = {
+        "verbatim_quote.original": quote.get("original", ""),
+        "verbatim_quote.english_translation": quote.get("english_translation", ""),
+        "extracted_decision.summary": extracted.get("summary", ""),
+        "extracted_decision.rationale": extracted.get("rationale", ""),
+        "extracted_decision.tradeoffs": extracted.get("tradeoffs", ""),
+    }
+    for _leaf_name, _leaf_value in leaves.items():
+        if not isinstance(_leaf_value, str):
+            raise ValueError(
+                f"{_leaf_name} must be a string, got: {str(_leaf_value)[:200]}"
+            )
+    for _item in alternatives_raw:
+        if not isinstance(_item, str):
+            raise ValueError(
+                "extracted_decision.alternatives items must be strings, "
+                f"got: {str(_item)[:200]}"
+            )
     targets = [quote.get("original", ""), quote.get("english_translation", ""),
                extracted.get("summary", ""), extracted.get("rationale", ""),
                extracted.get("tradeoffs", "")]
@@ -476,9 +510,7 @@ def _scrub_free_text(decision: dict[str, Any]) -> dict[str, Any]:
     (quote["original"], quote["english_translation"], extracted["summary"],
      extracted["rationale"], extracted["tradeoffs"]) = cleaned
     # Alternatives list items are manager-authored too — scrub each.
-    extracted["alternatives"] = [
-        sanitize_text(a) for a in extracted.get("alternatives", [])
-    ]
+    extracted["alternatives"] = [sanitize_text(a) for a in alternatives_raw]
     if not all(verify_clean(a) for a in extracted["alternatives"]):
         raise ValueError("redaction failed in alternatives list")
     scrubbed["redaction_verified"] = True
@@ -621,12 +653,19 @@ def _validate_extracted_candidates(
 
     When transcript_text is given, two extra guards apply: the
     verbatim original must be an exact substring of the transcript
-    (verbatim means verbatim — paraphrases belong in summary, never in
+    (    verbatim means verbatim — paraphrases belong in summary, never in
     the quote), and any extra key whose name contains "evidence" has
     non-verbatim values STRIPPED (with an stderr log) instead of
     failing the whole candidate — a hallucinated link must never
     persist, but one bad link must not nuke a valid ruling.
+
+    A non-string tradeoffs value is malformed model output, not a
+    transport failure: that candidate is DROPPED in place (with an
+    stderr log) and validation continues with the rest, so one bad
+    candidate never nukes the valid ones. An all-malformed list
+    validates to [] and flows into the empty-result path.
     """
+    _drop_idxs: list[int] = []
     for idx, item in enumerate(candidates):
         quote = item.get("verbatim_quote") if isinstance(item, dict) else None
         if not isinstance(quote, dict):
@@ -674,10 +713,16 @@ def _validate_extracted_candidates(
                 f"(list required): {str(item)[:300]}"
             )
         if not isinstance(extracted["tradeoffs"], str):
-            raise RuntimeError(
-                f"decision candidate {idx} has bad tradeoffs "
-                f"(string required): {str(item)[:300]}"
+            # Malformed model output must not crash the tool: drop this
+            # candidate with a loud note and keep validating the rest.
+            # An all-malformed list yields [] via the empty-result path.
+            print(
+                f"decision-server: dropped candidate {idx} with bad tradeoffs "
+                f"(string required): {str(item)[:200]}",
+                file=sys.stderr,
             )
+            _drop_idxs.append(idx)
+            continue
         if transcript_text is not None:
             if quote["original"] not in transcript_text:
                 raise RuntimeError(
@@ -708,6 +753,8 @@ def _validate_extracted_candidates(
                     item[extra_key] = kept[0]
                 else:
                     item[extra_key] = kept
+    for drop_idx in reversed(_drop_idxs):
+        del candidates[drop_idx]
 
 
 def _extract_largest_json(text: str) -> Any:
@@ -1212,11 +1259,41 @@ def query_manager_decisions(query: str, category: Optional[str] = None) -> str:
             record = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, ValueError):
             continue
+        if not isinstance(record, dict):
+            print(
+                f"decision-server: skipped non-dict stored record in {path.name}",
+                file=sys.stderr,
+            )
+            continue
         extracted = record.get("extracted_decision", {})
+        if not isinstance(extracted, dict):
+            print(
+                f"decision-server: skipped {record.get('decision_id', path.name)} "
+                "with non-dict extracted_decision",
+                file=sys.stderr,
+            )
+            continue
         if category and extracted.get("category") != category:
             continue
         quote = record.get("verbatim_quote", {})
-        alternatives = extracted.get("alternatives", []) or []
+        if not isinstance(quote, dict):
+            print(
+                f"decision-server: skipped {record.get('decision_id', path.name)} "
+                "with non-dict verbatim_quote",
+                file=sys.stderr,
+            )
+            continue
+        alternatives_raw = extracted.get("alternatives", [])
+        # Raw-value check BEFORE any normalization: `or []` would launder
+        # falsey non-lists (None/""/0/False) into a valid empty list.
+        if not isinstance(alternatives_raw, list):
+            print(
+                f"decision-server: skipped {record.get('decision_id', path.name)} "
+                "with non-list alternatives",
+                file=sys.stderr,
+            )
+            continue
+        alternatives = alternatives_raw
         fields = [
             (str(extracted.get("summary", "")).lower(), 3),
             (str(quote.get("original", "")).lower(), 2),
