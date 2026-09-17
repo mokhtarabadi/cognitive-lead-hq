@@ -120,7 +120,7 @@ so autopilot gets smarter over time.
 ## Verify
 
 ```bash
-uv run --project mcp-brain-bridge --with pytest pytest tests/test_brain_bridge.py -q
+rtk test uv run --project mcp-brain-bridge --with pytest pytest tests/test_brain_bridge.py -q
 ```
 
 Live calls need a valid `BRAIN_API_KEY` for the configured

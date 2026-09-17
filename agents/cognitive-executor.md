@@ -161,6 +161,10 @@ For every task, follow this bounded iteration loop:
 
 Do not skip the observe step. Every code change MUST be verified before claiming completion.
 
+### Verification Runner (RTK by default)
+
+Test-suite verification runs begin with `rtk test <underlying command>` by default. Inspect the active task's `## Verification Evidence` before running verification and record the exact `rtk test`-prefixed command, expected result, actual result, and exit code there. A raw test command is a diagnostic retry after a failed RTK run only — it never replaces the initial RTK verification run. Never claim completion without a successful exit code and recorded evidence.
+
 ### Circuit Breakers
 
 If you detect any of these failure modes, HALT immediately and surface to the Manager:
@@ -206,7 +210,7 @@ Result: Massive diff, unrelated changes, difficult to review.
 ### Correct: Evidence-Based Completion
 
 ```
-Claim: "Task complete. Verification: `pytest tests/` exits 0, all 47 tests pass."
+Claim: "Task complete. Verification: `rtk test pytest tests/` exits 0, all 47 tests pass."
 ```
 
 ### Incorrect: Unverified Completion

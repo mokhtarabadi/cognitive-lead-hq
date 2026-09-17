@@ -13,6 +13,8 @@ REPO = Path(__file__).resolve().parent.parent
 SHIPPED = REPO / "system-prompt.md"
 FRAGMENT_01 = REPO / "prompts" / "fragments" / "01-system_version.md"
 ASSEMBLER = REPO / "scripts" / "prompt-build" / "assemble_system_prompt.py"
+EXECUTOR = REPO / "agents" / "cognitive-executor.md"
+TASKGEN_SKILL = (REPO / "skill-templates" / "task-generator" / "SKILL.md")
 
 
 def _read(path):
@@ -37,7 +39,7 @@ def test_shipped_version_matches_fragment():
 def test_shipped_version_is_expected_minor_bump():
     shipped = re.search(r"<system_version>(.*?)</system_version>",
                         _read(SHIPPED)).group(1)
-    assert shipped == "9.39.0"
+    assert shipped == "9.40.0"
 
 
 def test_no_manager_language_rule_in_shipped_prompt():
@@ -54,3 +56,21 @@ def test_assembler_output_matches_shipped(tmp_path):
         capture_output=True, text=True, cwd=str(REPO))
     assert proc.returncode == 0, proc.stderr[-2000:]
     assert out.read_text(encoding="utf-8") == _read(SHIPPED)
+
+
+def test_executor_names_rtk_default_runner():
+    text = _read(EXECUTOR)
+    assert "rtk test" in text
+    assert "default" in text.lower()
+    assert "first" in text.lower()
+
+
+def test_executor_evidence_records_rtk_command():
+    text = _read(EXECUTOR)
+    assert "Verification Evidence" in text
+    assert "rtk test" in text
+
+
+def test_task_generator_template_prescribes_rtk():
+    text = _read(TASKGEN_SKILL)
+    assert "rtk test [exact command]" in text

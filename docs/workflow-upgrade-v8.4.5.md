@@ -48,7 +48,7 @@ The upgrade is **backward compatible** — existing task files do not break:
    pass (backward-compatible), but keeps the project uniform:
    `## OpenCode Execution Log & Reasoning` → `## Execution Log & Reasoning`.
 5. **Run `lint_task_file` after migrating** to confirm the structural checks pass clean.
-6. **Run the regression suite** (`pytest tests/ -q`) to confirm the runtime-agnostic guards pass.
+6. **Run the regression suite** (`rtk test pytest tests/ -q`) to confirm the runtime-agnostic guards pass.
 
 ## 4. What NOT to Change
 
