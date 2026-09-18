@@ -30,6 +30,37 @@ mcp = FastMCP("LintServer")
 
 # --- Internal Linting Functions ---
 
+# Quoted foreign-language source evidence (GitHub issue 19, P4) lives in
+# ```source-evidence fenced blocks. Verbatim evidence must never satisfy
+# structural checks (a quoted `## Goal` is evidence, not structure) and an
+# unclosed evidence fence gets its own diagnostic naming the fence.
+_SOURCE_EVIDENCE_FENCE = "```source-evidence"
+
+
+def _is_source_evidence_opener(stripped: str) -> bool:
+    return stripped == _SOURCE_EVIDENCE_FENCE or stripped.startswith(
+        _SOURCE_EVIDENCE_FENCE + " "
+    )
+
+
+def _strip_source_evidence_spans(text: str) -> str:
+    """Remove ```source-evidence spans (opener..closer, or opener..EOF)."""
+    kept: list[str] = []
+    in_evidence = False
+    for line in text.splitlines(keepends=True):
+        stripped = line.strip()
+        if not in_evidence and _is_source_evidence_opener(stripped):
+            in_evidence = True
+            continue
+        if in_evidence and stripped == "```":
+            in_evidence = False
+            continue
+        if in_evidence:
+            continue
+        kept.append(line)
+    return "".join(kept)
+
+
 def _check_markdown_basics(content: str, file_path: str) -> list[str]:
     """
     Check basic Markdown formatting rules.
@@ -62,6 +93,8 @@ def _check_markdown_basics(content: str, file_path: str) -> list[str]:
     # unchanged.
     in_diff_region = False
     in_code_block = False
+    in_source_evidence = False
+    source_evidence_open_line = 0
     for i, line in enumerate(lines, 1):
         stripped = line.strip()
         if stripped == "<!-- BEGIN_GIT_DIFF -->":
@@ -74,8 +107,21 @@ def _check_markdown_basics(content: str, file_path: str) -> list[str]:
         if in_diff_region:
             continue
 
-        # Track fenced code blocks
+        # Track fenced code blocks (a ```source-evidence opener starts a
+        # regular fenced block too, so its quoted contents stay exempt
+        # from heading/trailing-whitespace checks like any other fence).
         if stripped.startswith("```"):
+            if in_source_evidence:
+                # Only the bare closer ends an evidence span; anything
+                # else (including a nested opener-looking line) is
+                # quoted content and must not touch the fence state.
+                if stripped == "```":
+                    in_source_evidence = False
+                    in_code_block = False
+                continue
+            if not in_code_block and _is_source_evidence_opener(stripped):
+                in_source_evidence = True
+                source_evidence_open_line = i
             in_code_block = not in_code_block
             continue
 
@@ -83,9 +129,13 @@ def _check_markdown_basics(content: str, file_path: str) -> list[str]:
         if in_code_block:
             continue
 
-        # Check for missing blank line before heading
+        # Check for missing blank line before heading (consecutive
+        # headings need one too — GitHub issue 19, P4: an unclosed
+        # ```source-evidence fence must not exempt the rest, and a
+        # heading glued to the previous line is a defect even when
+        # both lines are headings).
         if line.startswith("#"):
-            if i > 1 and lines[i - 2].strip() != "" and not lines[i - 2].strip().startswith("#"):
+            if i > 1 and lines[i - 2].strip() != "":
                 issues.append(f"Line {i}: Missing blank line before heading.")
 
             # Check for missing blank line after heading
@@ -96,8 +146,14 @@ def _check_markdown_basics(content: str, file_path: str) -> list[str]:
         if line.endswith(" ") and not line.endswith("  "):
             issues.append(f"Line {i}: Trailing whitespace.")
 
-    # Check for unclosed code block
-    if in_code_block:
+    # Check for unclosed code block (a dangling ```source-evidence fence
+    # names the fence so authors can find the verbatim block to close).
+    if in_source_evidence:
+        issues.append(
+            f"Unclosed ```source-evidence block detected "
+            f"(opened at line {source_evidence_open_line})."
+        )
+    elif in_code_block:
         issues.append("Unclosed code block detected.")
 
     return issues
@@ -180,7 +236,13 @@ def _check_task_file_structure(content: str, file_path: str) -> list[str]:
     # resembles section headings — so inspecting the full file would produce
     # false positives. Only the hand-authored metadata and reasoning sections
     # above the diff block are structural, so they are what these guards check.
+    #
+    # Quoted foreign-language source evidence (```source-evidence spans,
+    # GitHub issue 19 P4) is stripped next: verbatim evidence may quote
+    # section-looking lines (`## Goal` inside a quote is evidence, not
+    # structure) and must never satisfy a required-section check.
     pre_diff = content.split("<!-- BEGIN_GIT_DIFF -->", 1)[0]
+    pre_diff = _strip_source_evidence_spans(pre_diff)
 
     # Exact-line heading counter: a heading counts only when an ENTIRE line
     # equals the heading text (whitespace-stripped). Prose that merely MENTIONS
@@ -191,16 +253,25 @@ def _check_task_file_structure(content: str, file_path: str) -> list[str]:
     def _count_heading(text: str, heading: str) -> int:
         return sum(1 for line in text.splitlines() if line.strip() == heading)
 
+    # Analysis-only tasks (GitHub issue 19, P6) carry report evidence
+    # instead of test-command evidence: the required-section set swaps
+    # `## Verification Evidence` for `## Report Evidence`, whose body must
+    # name the report file and carry a non-empty multi-line result.
+    task_type_match = re.search(r'\*\*Type:\*\*\s*(\w+)', content)
+    is_analysis = bool(task_type_match and task_type_match.group(1) == "analysis")
     required_sections = [
         "## Goal",
         "## Local TODOs",
         "## Acceptance Criteria",
-        "## Verification Evidence",
+        "## Report Evidence" if is_analysis else "## Verification Evidence",
         "## Risk & Rollback",
     ]
     for section in required_sections:
         if section not in pre_diff:
             issues.append(f"Missing required section: `{section}`")
+
+    if is_analysis:
+        issues.extend(_check_report_evidence_body(pre_diff))
 
     # 2.4 `## Factual Git Diff` heading — EXACTLY ONE, and only in the pre-diff
     # section. The heading must appear once, directly above the BEGIN marker, as
@@ -261,13 +332,64 @@ def _check_task_file_structure(content: str, file_path: str) -> list[str]:
     if not re.search(r'\*\*Source:\*\*\s*(orchestrator|telegram|manager)', content):
         issues.append("Missing or invalid `**Source:**` metadata field.")
 
-    # 5. Type field (Task 110: allow `meta` for bundled META tasks; canonical META still uses `feature` + `**Meta:** true`)
+    # 5. Type field (Task 110: allow `meta` for bundled META tasks; canonical META still uses `feature` + `**Meta:** true`;
+    # GitHub issue 19 P6: allow `analysis` for analysis-only tasks carrying `## Report Evidence`)
     if not re.search(
-        r'\*\*Type:\*\*\s*(bug|improvement|feature|chore|docs|refactor|security|research|infra|meta)',
+        r'\*\*Type:\*\*\s*(bug|improvement|feature|chore|docs|refactor|security|research|infra|meta|analysis)',
         content,
     ):
         issues.append("Missing or invalid `**Type:**` metadata field.")
 
+    return issues
+
+
+def _check_report_evidence_body(pre_diff: str) -> list[str]:
+    """Validate the `## Report Evidence` body of an analysis-only task.
+
+    The section must name the report file (a non-blank `Report:` line)
+    and carry a non-empty result (`Result:` followed by at least one
+    non-blank line). A bare `Exit code: 0` or an empty result never
+    substitutes for the recorded outcome.
+    """
+    issues: list[str] = []
+    lines = pre_diff.splitlines()
+    try:
+        start = next(
+            i for i, line in enumerate(lines)
+            if line.strip() == "## Report Evidence"
+        )
+    except StopIteration:  # Missing-section error already reported above.
+        return issues
+    body: list[str] = []
+    for line in lines[start + 1:]:
+        if line.startswith("## ") or line.strip() == "---":
+            break
+        body.append(line)
+    if not any(re.match(r"^Report:\s*\S", line) for line in body):
+        issues.append(
+            "Analysis task: `## Report Evidence` must name the report file "
+            "with a non-blank `Report:` line."
+        )
+    result_idx = next(
+        (i for i, line in enumerate(body)
+         if line.strip().startswith("Result:")), None
+    )
+    outcome: list[str] = []
+    if result_idx is not None:
+        # Same-line content after `Result:` counts; bare `Exit code:`
+        # residue never substitutes for the recorded outcome.
+        remainder = body[result_idx].strip()[len("Result:"):].strip()
+        if remainder and not remainder.startswith("Exit code:"):
+            outcome.append(remainder)
+        outcome.extend(
+            line.strip() for line in body[result_idx + 1:]
+            if line.strip() and not line.strip().startswith("Exit code:")
+        )
+    if result_idx is None or not outcome:
+        issues.append(
+            "Analysis task: `## Report Evidence` must carry a non-empty "
+            "multi-line `Result:` outcome."
+        )
     return issues
 
 

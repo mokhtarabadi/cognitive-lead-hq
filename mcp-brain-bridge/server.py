@@ -99,6 +99,69 @@ except ImportError:
         _shared_project_root = None  # type: ignore[assignment]
         _shared_legacy_root = None  # type: ignore[assignment]
 
+# Request preflight lives in preflight (stdlib-only, zero coupling back
+# to this module). Same guarded import as loop_guard above: installed
+# package first, sibling source tree second. Unlike loop_guard the
+# import is REQUIRED — without it brain_turn cannot validate, so both
+# names failing raises ImportError loudly instead of running unguarded.
+try:
+    from mcp_brain_bridge.preflight import (  # type: ignore[import-not-found]
+        PreflightError,
+        require_bare_task_id,
+        validate_request as _validate_request,
+    )
+except ImportError:
+    from preflight import (  # type: ignore[import-not-found]
+        PreflightError,
+        require_bare_task_id,
+        validate_request as _validate_request,
+    )
+
+# Capability preflight lives in capability, the session ledger in
+# session_ledger (both stdlib-only, zero coupling back to this module).
+# Same guarded import as preflight above; REQUIRED for the same reason.
+try:
+    from mcp_brain_bridge.capability import (  # type: ignore[import-not-found]
+        CapabilityBlockedError,
+        evaluate as _evaluate_capability,
+        format_relay_block as _format_relay_block,
+        gate as _gate_capability,
+    )
+    from mcp_brain_bridge.session_ledger import (  # type: ignore[import-not-found]
+        append_event as _append_ledger_event,
+        checkpoint as _ledger_checkpoint,
+    )
+except ImportError:
+    from capability import (  # type: ignore[import-not-found]
+        CapabilityBlockedError,
+        evaluate as _evaluate_capability,
+        format_relay_block as _format_relay_block,
+        gate as _gate_capability,
+    )
+    from session_ledger import (  # type: ignore[import-not-found]
+        append_event as _append_ledger_event,
+        checkpoint as _ledger_checkpoint,
+    )
+
+# Transport-failure learning lives in transport_learning (stdlib-only,
+# zero coupling back to this module). Same guarded REQUIRED import.
+try:
+    from mcp_brain_bridge.transport_learning import (  # type: ignore[import-not-found]
+        CorrectionMemory as _CorrectionMemory,
+        TransportEscalationError,
+        classify_transport_error as _classify_transport_error,
+        escalation_message as _escalation_message,
+        failure_signature as _failure_signature,
+    )
+except ImportError:
+    from transport_learning import (  # type: ignore[import-not-found]
+        CorrectionMemory as _CorrectionMemory,
+        TransportEscalationError,
+        classify_transport_error as _classify_transport_error,
+        escalation_message as _escalation_message,
+        failure_signature as _failure_signature,
+    )
+
 mcp = FastMCP("BrainBridge")
 
 # XML blocks the Brain may emit. Hands executes these; everything else
@@ -178,27 +241,20 @@ _TASK_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$")
 # Brain history ids are BARE task numbers (digits only, e.g. "215").
 # Suffixed variants ("215qa", "215rev", "215plan") would key separate
 # transcript directories and split one task's history — the tool entry
-# rejects them (see _require_task_number).
-_TASK_NUMBER_RE = re.compile(r"^\d+$")
+# rejects them (see _require_task_number, implemented in preflight).
 
 
 def _require_task_number(task_id: object) -> str:
     """Fail-closed gate for the ``brain_turn`` task_id input.
 
-    Returns the stripped bare number. Raises ValueError for anything
-    else (slugs, suffixed variants, empty, non-strings) BEFORE any
-    history load, file attach, or model call — a wrong id must never
-    silently start a second, empty history next to the real one.
+    Delegates to ``preflight.require_bare_task_id`` (single
+    implementation). Returns the stripped bare number. Raises ValueError
+    for anything else (slugs, suffixed variants, empty, non-strings)
+    BEFORE any history load, file attach, or model call — a wrong id
+    must never silently start a second, empty history next to the real
+    one.
     """
-    if isinstance(task_id, str) and _TASK_NUMBER_RE.fullmatch(task_id.strip()):
-        return task_id.strip()
-    raise ValueError(
-        f"bad task_id: {task_id!r} — must be the bare task number "
-        "(digits only, e.g. '215'). Pass the identical number on every "
-        "turn of one task (plan, implement, QA, review) so history "
-        "continues; suffixes like '215qa'/'215rev' split history into "
-        "separate transcripts and are rejected."
-    )
+    return require_bare_task_id(task_id)
 
 # Small context files bundled into every brain_turn (unless opted out).
 # Task files can be huge — never stuffed whole; pulled via tools instead.
@@ -1158,6 +1214,18 @@ def _retry_after_s(resp: Any) -> float:
     return min(val, 120.0)
 
 
+def _transport_fail(message: str, attempts: int) -> RuntimeError:
+    """Build a transport RuntimeError carrying its attempt count.
+
+    WS3 seam (GitHub issue 17): the learning send path accounts
+    attempts across the failed round and the corrected retry.
+    Message text is unchanged — existing message matches keep passing.
+    """
+    err = RuntimeError(message)
+    err.transport_attempts = attempts  # type: ignore[attr-defined]
+    return err
+
+
 def _post_with_retry(client: Any, url: str, payload: dict[str, Any]) -> tuple[Any, int]:
     """POST with retries on transient failures (429/5xx + network
     timeouts). Returns (resp, attempts). Honors Retry-After on 429
@@ -1177,9 +1245,10 @@ def _post_with_retry(client: Any, url: str, payload: dict[str, Any]) -> tuple[An
     attempts = 0
     for attempt in range(3):
         if time.monotonic() >= deadline:
-            raise RuntimeError(
+            raise _transport_fail(
                 f"provider overall deadline hit ({_OVERALL_DEADLINE_S}s) at "
-                f"{url.rsplit('/', 1)[-1]}: {last_snippet}"
+                f"{url.rsplit('/', 1)[-1]}: {last_snippet}",
+                attempts,
             )
         attempts += 1
         retry_after = 0.0
@@ -1197,13 +1266,15 @@ def _post_with_retry(client: Any, url: str, payload: dict[str, Any]) -> tuple[An
             last_status, last_snippet = resp.status_code, resp.text[:500]
             if resp.status_code not in _RETRYABLE_STATUS:
                 if 400 <= resp.status_code < 500:
-                    raise RuntimeError(
+                    raise _transport_fail(
                         f"fatal provider error {resp.status_code} (no retry) at "
-                        f"{url.rsplit('/', 1)[-1]}: {last_snippet}"
+                        f"{url.rsplit('/', 1)[-1]}: {last_snippet}",
+                        attempts,
                     )
-                raise RuntimeError(
+                raise _transport_fail(
                     f"provider error {resp.status_code} at "
-                    f"{url.rsplit('/', 1)[-1]}: {last_snippet}"
+                    f"{url.rsplit('/', 1)[-1]}: {last_snippet}",
+                    attempts,
                 )
             if resp.status_code == 429:
                 retry_after = _retry_after_s(resp)
@@ -1213,14 +1284,16 @@ def _post_with_retry(client: Any, url: str, payload: dict[str, Any]) -> tuple[An
         delay = base + random.uniform(0, 0.25)
         remaining = deadline - time.monotonic()
         if remaining <= 0:
-            raise RuntimeError(
+            raise _transport_fail(
                 f"provider overall deadline hit ({_OVERALL_DEADLINE_S}s) at "
-                f"{url.rsplit('/', 1)[-1]}: {last_snippet}"
+                f"{url.rsplit('/', 1)[-1]}: {last_snippet}",
+                attempts,
             )
         time.sleep(min(delay, remaining))
-    raise RuntimeError(
+    raise _transport_fail(
         f"provider failed after 3 attempts ({last_status}) at "
-        f"{url.rsplit('/', 1)[-1]}: {last_snippet}"
+        f"{url.rsplit('/', 1)[-1]}: {last_snippet}",
+        attempts,
     )
 
 
@@ -1240,6 +1313,109 @@ def _resp_json(resp: Any) -> Any:
             f"provider returned non-JSON (status {resp.status_code}, "
             f"{ctype}): {resp.text[:500]}"
         ) from exc
+
+
+def _make_client() -> Any:
+    """Build the provider HTTP client (lazy httpx: imports stay offline)."""
+    import httpx
+
+    return httpx.Client(
+        timeout=httpx.Timeout(connect=10, read=120, write=30, pool=10)
+    )
+
+
+def _send_with_learning(
+    make_client: Any,
+    url: str,
+    body: dict[str, Any],
+    *,
+    task_key: Optional[str] = None,
+    task_id: Optional[str] = None,
+    session_id: Optional[str] = None,
+    project_root: Optional[str] = None,
+) -> tuple[Any, int]:
+    """POST with transport-failure learning (GitHub issue 17).
+
+    One correctable round: a 400 naming an unsupported top-level body
+    key is classified, recorded to the session ledger, and retried once
+    with the key dropped. The same failure class twice in one saga
+    escalates via ``TransportEscalationError`` — never a verdict, never
+    a silent loop. Non-correctable failures propagate untouched, and
+    the returned attempt count spans the failed round plus the retry.
+    """
+    memory = _CorrectionMemory(task_key)
+    attempts_total = 0
+    while True:
+        with make_client() as client:
+            try:
+                resp, attempts = _post_with_retry(client, url, body)
+            except RuntimeError as exc:
+                attempts_total += int(
+                    getattr(exc, "transport_attempts", 0) or 0)
+                correction = _classify_transport_error(exc, body)
+                if correction is None:
+                    # Repeat of an already-applied correction (provider
+                    # echoing the same rejection after the key was
+                    # dropped): the fix did not stick — escalate.
+                    repeat_sig = _failure_signature(exc)
+                    if (repeat_sig is not None
+                            and memory.already_corrected(repeat_sig)):
+                        message = _escalation_message(
+                            task_key, repeat_sig, repeats=2)
+                        if project_root is not None:
+                            try:
+                                _append_ledger_event(
+                                    "transport_escalation",
+                                    task_id=task_id,
+                                    session_id=session_id,
+                                    data={"task_key": task_key,
+                                          "class": repeat_sig,
+                                          "fingerprint": repeat_sig},
+                                    project_root=project_root)
+                            except Exception as ledger_exc:
+                                print("brain-bridge: ledger event skipped "
+                                      f"({ledger_exc})", file=sys.stderr)
+                        _note_checkpoint("transport_correction_or_escalation",
+                                         task_id=task_id,
+                                         session_id=session_id,
+                                         project_root=project_root)
+                        raise TransportEscalationError(message) from exc
+                    raise
+                if memory.seen(correction.fingerprint):
+                    message = _escalation_message(
+                        task_key, correction.fingerprint, repeats=2)
+                    if project_root is not None:
+                        try:
+                            _append_ledger_event(
+                                "transport_escalation",
+                                task_id=task_id, session_id=session_id,
+                                data={"task_key": task_key,
+                                      "class": correction.failure_class,
+                                      "param": correction.param,
+                                      "fingerprint":
+                                          correction.fingerprint},
+                                project_root=project_root)
+                        except Exception as ledger_exc:
+                            print("brain-bridge: ledger event skipped "
+                                  f"({ledger_exc})", file=sys.stderr)
+                    _note_checkpoint("transport_correction_or_escalation",
+                                     task_id=task_id,
+                                     session_id=session_id,
+                                     project_root=project_root)
+                    raise TransportEscalationError(message) from exc
+                body = correction.apply(body)
+                memory.record(
+                    correction, task_id=task_id, session_id=session_id,
+                    project_root=project_root)
+                _note_checkpoint("transport_correction_or_escalation",
+                                 task_id=task_id,
+                                 session_id=session_id,
+                                 project_root=project_root)
+                print("brain-bridge: transport correction applied "
+                      f"({correction.fingerprint}); retrying once with "
+                      "corrected body", file=sys.stderr)
+                continue
+            return resp, attempts_total + attempts
 
 
 # Max prior messages re-sent per turn. Bounds context for long tasks.
@@ -1837,6 +2013,27 @@ def build_paths_attach(
 
 
 @mcp.tool()
+def _note_checkpoint(
+    name: str,
+    task_id: Optional[str] = None,
+    session_id: Optional[str] = None,
+    project_root: Optional[str] = None,
+) -> None:
+    """Best-effort session-ledger checkpoint (GitHub issue 19, P5).
+
+    One-off turns (no scope or no root) skip silently — there is no
+    sessions dir to record in. Ledger problems never fail a turn.
+    """
+    scope = session_id or task_id
+    if scope is None or project_root is None:
+        return
+    try:
+        _ledger_checkpoint(
+            scope, name, task_id=task_id, project_root=project_root)
+    except Exception as exc:  # never fail a turn on ledger problems
+        print(f"brain-bridge: checkpoint skipped ({exc})", file=sys.stderr)
+
+
 def brain_turn(
     user_prompt: str,
     task_id: Optional[str] = None,
@@ -1846,6 +2043,10 @@ def brain_turn(
     context_paths: Optional[list[str]] = None,
     project_root: Optional[str] = None,
     risk_tier: Optional[str] = None,
+    session_id: Optional[str] = None,
+    stage: Optional[str] = None,
+    kanban_path: Optional[str] = None,
+    required_tools: Optional[list[str]] = None,
 ) -> dict[str, Any]:
     """Send one Brain turn.
 
@@ -1891,17 +2092,33 @@ def brain_turn(
         project_root: Optional project dir holding ``tasks/``. Its
             ``tasks/.sessions/`` stores this turn's history (per-project
             sessions), and its ``tasks/`` lanes resolve the task file
-            for the task attach and the diff attach — without it both
-            resolvers fall back to the workspace root, which misses
-            when the server runs from another install. When omitted the
-            resolver tries ``BRAIN_PROJECT_ROOT`` /
-            ``BRAIN_WORKSPACE_ROOT`` / cwd walk-up, then falls back to
-            legacy reads.
+            for the task attach and the diff attach. An EXPLICIT root
+            must hold ``tasks/`` — otherwise preflight raises instead of
+            silently falling back to the workspace root (that silent
+            substitution failed whole sagas as "unavailable"). When
+            omitted the resolver tries ``BRAIN_PROJECT_ROOT`` /
+            ``BRAIN_WORKSPACE_ROOT`` / cwd walk-up; exhaustion raises
+            with ``project_root=`` as the remedy. One-off turns (no
+            task_id, no session_id) need no root.
         risk_tier: Optional explicit risk tier for model routing
             (``T0``/``T1``/``T2`` per ``docs/conventions.md``). Only
             takes effect when ``BRAIN_RISK_ROUTING_ENABLED`` is set;
             missing or invalid values fail safe to the current model.
             Default None (unrouted, today's behavior).
+        session_id: Optional taskless saga key (e.g. "cando-828") —
+            mutually exclusive with task_id. Pass exactly one of the two
+            on memory-bearing turns; omit both for one-off turns with no
+            memory. The session transcript continues under this key the
+            same way a task transcript continues under task_id.
+        stage: Optional turn stage, one of plan / implement / qa /
+            review / closure. Unknown stages are rejected so a typo can
+            never run as an unscoped turn.
+        kanban_path: Optional task-file path under
+            ``<project_root>/tasks/`` (e.g. "tasks/qa/257-x.md").
+            Paths escaping the tasks/ lanes are rejected.
+        required_tools: Optional list of tool names the turn's stage
+            requires (e.g. ["question"]). Missing-required tools gate
+            the turn before transport (see capability).
 
     Returns:
         {"status": "XML_EXTRACTED"|"REPORT", "xml_blocks": [...],
@@ -1911,14 +2128,69 @@ def brain_turn(
         the Manager and feed the answer back as the next ``user_prompt``
         (with the same ``task_id`` so history continues).
     """
-    # Task-number gate FIRST: a suffixed id ("215qa") would silently fork
-    # history into a second transcript dir. Reject before any load,
-    # attach, import, or model call. None means a one-off turn with
-    # no memory.
-    if task_id is not None:
-        task_id = _require_task_number(task_id)
+    # Request preflight FIRST (GitHub issue 18): local validation before
+    # any load, attach, import, or model call. An explicit project_root
+    # without tasks/ raises here instead of silently substituting the
+    # workspace root; suffixed task_ids are rejected; task_id and
+    # session_id are mutually exclusive (exactly one binds history,
+    # neither means a one-off turn). The resolved root feeds every
+    # downstream resolver so attaches and history share one root.
+    _pre = _validate_request(
+        project_root=project_root, task_id=task_id, session_id=session_id,
+        kanban_path=kanban_path, stage=stage,
+        include_bundle=include_bundle, include_diff=include_diff,
+        required_tools=required_tools)
+    task_id = _pre.task_id
+    session_id = _pre.session_id
+    project_root = (str(_pre.project_root)
+                    if _pre.project_root is not None else None)
+    history_key = _pre.history_key
+    _note_checkpoint("request_accepted", task_id=task_id,
+                     session_id=session_id, project_root=project_root)
+    _note_checkpoint("preflight_completed", task_id=task_id,
+                     session_id=session_id, project_root=project_root)
 
-    import httpx  # lazy: import/tests stay offline
+    # Capability preflight SECOND (GitHub issue 16): the manifest maps
+    # every required tool (caller-declared plus stage-implied) to
+    # AVAILABLE / UNAVAILABLE_REQUIRED / UNAVAILABLE_OPTIONAL. The
+    # manifest is printed as the session-start diagnostic and stored
+    # as a session-ledger event BEFORE the gate, so a blocked turn is
+    # still recorded. A missing required tool returns a non-verdict
+    # REPORT carrying the relay block with zero transport calls —
+    # silent skipping is forbidden, and transport failures never
+    # surface as verdicts.
+    manifest = _evaluate_capability(
+        referenced=list(_pre.required_tools),
+        required=list(_pre.required_tools),
+        stage=stage)
+    print(
+        "capability-manifest: task=%s session=%s stage=%s %s"
+        % (task_id, session_id, stage,
+           " ".join(f"{k}={v}" for k, v in sorted(manifest.items()))
+           or "(no tools referenced)"),
+        file=sys.stderr)
+    try:
+        _append_ledger_event(
+            "capability_manifest", task_id=task_id, session_id=session_id,
+            data={"stage": stage, "manifest": manifest},
+            project_root=project_root)
+    except Exception as exc:  # never fail a turn on ledger problems
+        print(f"brain-bridge: ledger event skipped ({exc})", file=sys.stderr)
+    try:
+        _gate_capability(manifest, stage=stage)
+    except CapabilityBlockedError as exc:
+        return {
+            "status": "REPORT",
+            "xml_blocks": [],
+            "output": _format_relay_block(exc),
+            "model": _get_brain_model(),
+            "truncated_count": 0,
+            "budget_chars": 0,
+            "retry_count": 0,
+            "prompt_cache_split": None,
+        }
+    _note_checkpoint("capability_completed", task_id=task_id,
+                     session_id=session_id, project_root=project_root)
 
     system_prompt = load_system_prompt(system_prompt_path)
     effective_prompt = user_prompt
@@ -1997,13 +2269,15 @@ def brain_turn(
     model = resolve_routed_model(
         _routing_enabled(), risk_tier, _get_brain_model(),
         _get_model_low(), _get_model_high())
-    if task_id:
+    if history_key:
         # Sessions-root visibility: one debug line per turn so a
         # misrouted project is observable in stderr, never silent.
+        _scope = "task" if task_id is not None else "session"
         print(f"brain-bridge: sessions root {_sessions_root(project_root)} "
-              f"(task {task_id})", file=sys.stderr)
-    history = load_history(task_id, project_root=project_root) if task_id else []
-    if task_id:
+              f"({_scope} {history_key})", file=sys.stderr)
+    history = (load_history(history_key, project_root=project_root)
+               if history_key else [])
+    if history_key:
         # Discovery-fed planning: a [fed-context] block in this prompt is
         # pinned to the session, then the pin (not just this turn's copy)
         # rides every later turn until session end. The pin lives outside
@@ -2012,8 +2286,8 @@ def brain_turn(
         try:
             fed = extract_fed_context(effective_prompt)
             if fed:
-                save_fed_context(task_id, fed, project_root=project_root)
-            pinned = load_fed_context(task_id, project_root=project_root)
+                save_fed_context(history_key, fed, project_root=project_root)
+            pinned = load_fed_context(history_key, project_root=project_root)
             if pinned and "[pinned-fed-context]" not in effective_prompt:
                 fed_text = pinned
                 effective_prompt = (
@@ -2047,7 +2321,7 @@ def brain_turn(
         paths_text=paths_text, diff_text=diff_append_text,
         failsafe_text=failsafe_text, fed_text=fed_text,
         history=history)
-    _append_context_ledger(task_id, project_root, budget_chars,
+    _append_context_ledger(history_key, project_root, budget_chars,
                            truncated_count, model=model,
                            risk_tier=risk_tier,
                            prompt_cache_split=cache_split)
@@ -2092,11 +2366,15 @@ def brain_turn(
             )
         else:
             del body["reasoning"]
-    with httpx.Client(
-        timeout=httpx.Timeout(connect=10, read=120, write=30, pool=10)
-    ) as client:
-        resp, attempts = _post_with_retry(client, _responses_url(), body)
-        output = parse_responses_text(_resp_json(resp))
+    _note_checkpoint("transport_started", task_id=task_id,
+                     session_id=session_id, project_root=project_root)
+    resp, attempts = _send_with_learning(
+        _make_client, _responses_url(), body,
+        task_key=history_key, task_id=task_id, session_id=session_id,
+        project_root=project_root)
+    output = parse_responses_text(_resp_json(resp))
+    _note_checkpoint("response_parsed", task_id=task_id,
+                     session_id=session_id, project_root=project_root)
     xml_blocks = extract_xml_blocks(output)
     if xml_blocks:
         # Semantic gate (Task 245): syntactically valid but contract-
@@ -2116,14 +2394,14 @@ def brain_turn(
         # callers keep working. The transcript below records the hint,
         # not a verdict.
         output = _empty_output_hint(
-            task_id, _task_state_note(task_id, project_root))
+            task_id, _task_state_note(history_key, project_root))
     fence_drops = list(_last_fence_drops)
-    if task_id:
+    if history_key:
         prompt_hash = hashlib.sha256(effective_prompt.encode("utf-8")).hexdigest()
-        append_turn(task_id, "user", effective_prompt, model=model,
+        append_turn(history_key, "user", effective_prompt, model=model,
                     prompt_hash=prompt_hash, truncated=truncated_count,
                     project_root=project_root)
-        append_turn(task_id, "assistant", output, model=model,
+        append_turn(history_key, "assistant", output, model=model,
                     prompt_hash=prompt_hash, truncated=truncated_count,
                     project_root=project_root)
     result: dict[str, Any] = {

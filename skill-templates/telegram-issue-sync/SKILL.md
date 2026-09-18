@@ -61,7 +61,7 @@ Use the `skill` tool for each. If loading fails, HALT and report the error.
 
 1. Read `telegram-sync.json` at the project root to get `config.chat_id`, `config.topic_id`, `config.account`, and `last_processed_message_id`.
 2. Call `telegram_get_history` (with `account` if set, limit=100). This returns messages from ALL forum topics — Telegram has no server-side topic filter. **You MUST client-filter** to `reply_to == config.topic_id` OR walk the `reply_to` chain via `telegram_get_message_context` until you reach the topic root `config.topic_id`. Only messages whose `reply_to` chain terminates at `config.topic_id` belong to this project. Then additionally filter for `id > last_processed_message_id`.
-3. **Candidate Selection:** Identify messages containing `target_hashtags` from the *topic-filtered* set. Also identify messages without hashtags that strongly resemble bug reports or feature requests.
+3. **Candidate Selection:** Identify messages containing `target_hashtags` from the _topic-filtered_ set. Also identify messages without hashtags that strongly resemble bug reports or feature requests.
 4. **Deep Context:** For every selected candidate, check `reply_to_message_id`. If it exists, call `telegram_get_message_context` to fetch the parent message. Merge the parent message (the "what") with the child message (the "intent").
 
 **CRITICAL — Message Integrity Rule:** Store the raw message text in a variable `RAW_TEXT` immediately after fetching. You MUST NOT modify, trim, or summarize this value at any point. Use it verbatim in Phase 3.
@@ -76,7 +76,7 @@ This MCP implementation does **NOT** expose a `topic_id` parameter. Forum topics
 
 ### Phase 2: Manager Approval
 
-1. Use the `question` tool to present the identified candidates to the Manager.
+1. Check the session capability manifest for the `question` tool first. If AVAILABLE, use it to present the identified candidates to the Manager. If UNAVAILABLE, do NOT silently skip this approval: relay the candidate list to the Manager as one message with the options inline and wait for the answer (manual mode), or record the replay-or-halt decision in the task file (autopilot mode).
 2. For each candidate, show:
    - Message ID
    - Snippet of the raw text (first 200 chars to identify it)

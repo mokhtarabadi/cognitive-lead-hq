@@ -448,7 +448,8 @@ def test_task_attach_unresolvable_empty(tmp_path, monkeypatch):
 
 def test_brain_turn_task_attach_in_body(tmp_path, monkeypatch):
     _mk_tasks_root(tmp_path)
-    monkeypatch.setattr(bridge, "_workspace_root", lambda: tmp_path)
+    # Preflight seam (issue 18): the turn resolves via explicit
+    # project_root, not the mocked workspace root.
     monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
     _mk_sys_prompt(tmp_path, monkeypatch)
     monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
@@ -456,7 +457,7 @@ def test_brain_turn_task_attach_in_body(tmp_path, monkeypatch):
     _mk_bridge_client(monkeypatch, [_FakeResp(200, "fine", _ok_payload("ok"))])
     call = bridge.brain_turn
     target = call.fn if hasattr(call, "fn") else call
-    result = target("q", task_id="200")
+    result = target("q", task_id="200", project_root=str(tmp_path))
     assert result["status"] == "REPORT"
     user_line = (tmp_path / "sessions" / "200" / "transcript.jsonl").read_text(
         encoding="utf-8").splitlines()[0]
@@ -1021,7 +1022,8 @@ def test_brain_turn_lean_diff_attaches_without_bundle(tmp_path, monkeypatch):
     # on every lean retry (include_bundle=False). The explicit flag
     # stands alone now — hunks must ride the lean turn.
     _mk_tasks_root(tmp_path)
-    monkeypatch.setattr(bridge, "_workspace_root", lambda: tmp_path)
+    # Preflight seam (issue 18): the turn resolves via explicit
+    # project_root, not the mocked workspace root.
     monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
     _mk_sys_prompt(tmp_path, monkeypatch)
     monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
@@ -1031,7 +1033,8 @@ def test_brain_turn_lean_diff_attaches_without_bundle(tmp_path, monkeypatch):
     call = bridge.brain_turn
     target = call.fn if hasattr(call, "fn") else call
     result = target("q", task_id="200",
-                     include_bundle=False, include_diff=True)
+                     include_bundle=False, include_diff=True,
+                     project_root=str(tmp_path))
     assert result["status"] == "REPORT"
     user_contents = [t["content"] for t in holder["body"]["input"]]
     assert any("[changed-hunks:" in c for c in user_contents)
@@ -1061,7 +1064,13 @@ def test_brain_turn_failsafe_fires_without_bundle(tmp_path, monkeypatch):
 def test_brain_turn_include_diff_unresolvable_warns(tmp_path, monkeypatch,
                                                      capsys):
     # Loud skip: flag set but no file — stderr must say why instead
-    # of silently sending a diff-less QA turn.
+    # of silently sending a diff-less QA turn. The fixture root holds
+    # tasks/ lanes (preflight resolves) but no task-200 file, so the
+    # diff attach stays loud-skipped.
+    (tmp_path / "tasks" / "backlog").mkdir(parents=True)
+    # The workspace fallback lane stays mocked to the fixture root so the
+    # missing file is unresolvable everywhere (hermetic — never leaks to
+    # the real repo lanes).
     monkeypatch.setattr(bridge, "_workspace_root", lambda: tmp_path)
     monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
     _mk_sys_prompt(tmp_path, monkeypatch)
@@ -1071,7 +1080,8 @@ def test_brain_turn_include_diff_unresolvable_warns(tmp_path, monkeypatch,
     _mk_bridge_client(monkeypatch, [_FakeResp(200, "fine", _ok_payload("ok"))], holder)
     call = bridge.brain_turn
     target = call.fn if hasattr(call, "fn") else call
-    result = target("q", task_id="200", include_diff=True)
+    result = target("q", task_id="200", include_diff=True,
+                    project_root=str(tmp_path))
     assert result["status"] == "REPORT"
     assert "unresolvable" in capsys.readouterr().err
     # Re-QA repair: the model itself must see WHY — the inline note
@@ -2293,7 +2303,10 @@ def test_cache_split_failsafe_wires_own_slot(tmp_path, monkeypatch):
     target = (bridge.brain_turn.fn if hasattr(bridge.brain_turn, "fn")
               else bridge.brain_turn)
     prompt = "qa engineer, adversarial review please"
-    result = target(prompt, task_id="200", include_bundle=False)
+    # Preflight seam (issue 18): the turn must resolve the same fixture
+    # root the direct attach call below sees via the mocked workspace.
+    result = target(prompt, task_id="200", include_bundle=False,
+                    project_root=str(tmp_path))
     hunks = bridge._failsafe_qa_attach(prompt, "200")
     assert hunks  # guard: the failsafe really fired for this prompt
     expected = bridge.build_prompt_cache_split(

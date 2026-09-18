@@ -37,7 +37,7 @@ import threading
 import unicodedata
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
 from mcp.server.fastmcp import FastMCP
 
@@ -115,15 +115,19 @@ def _repo_root() -> Path:
 def _active_root_info(repo: Path) -> str:
     """One-line provenance for the resolved store (Task 216).
 
-    Tells the operator WHERE personality decisions land: the explicit
-    personal repo when ``DECISION_REPO_PATH`` is set, else the per-project
-    fallback. Logged on every record call so an unset env on a new
-    machine is visible instead of silently splitting the store.
+    Tells the operator WHICH store personality decisions land in: the
+    explicit personal repo when ``DECISION_REPO_PATH`` is set, else the
+    per-project fallback. The raw path value is deliberately NOT echoed
+    (GitHub issue 19, P7): absolute paths leak machine layout into
+    session-start diagnostics, and the sync status must stay free of
+    approval-adjacent noise — the env var name alone names the store.
+    Logged on every record call so an unset env on a new machine is
+    visible instead of silently splitting the store.
     """
     explicit = os.environ.get("DECISION_REPO_PATH", "").strip()
     if explicit:
-        return f"personal repo (DECISION_REPO_PATH={explicit})"
-    return f"project fallback ({repo})"
+        return "personal repo (DECISION_REPO_PATH set)"
+    return "project fallback (DECISION_REPO_PATH unset)"
 
 
 def _run_git(repo: Path, *args: str) -> "subprocess.CompletedProcess[str]":
@@ -894,9 +898,27 @@ def _parse_model_text(text: str, transcript_text: str, note_repair: Any) -> Any:
     ) from direct_err
 
 
+# Taskless session ids (GitHub issue 19, P5): same shape the Brain
+# bridge preflight accepts — must start alnum, max 64 chars. Blocks
+# traversal (../), separators (/), and glob metacharacters before any
+# filesystem touch.
+_SESSION_ID_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{0,63}\Z")
+
+
+def _sanitize_session_id(sid: object) -> str:
+    if not isinstance(sid, str) or not _SESSION_ID_RE.match(sid):
+        raise ValueError(
+            f"decision extract: bad session id {sid!r}; use 1-64 "
+            "letters/digits/underscore/hyphen starting with alnum"
+        )
+    return sid
+
+
 @mcp.tool()
 def extract_session_decisions(
-    task_id: int, transcript_path: Optional[str] = None
+    task_id: Optional[Union[int, str]] = None,
+    transcript_path: Optional[str] = None,
+    session_id: Optional[str] = None,
 ) -> list[dict[str, Any]]:
     """Extract manager trade-offs/rulings from a session transcript.
 
@@ -913,7 +935,12 @@ def extract_session_decisions(
 
     Args:
         task_id: Session scope (`tasks/.sessions/{task_id}/transcript.jsonl`).
+            Numeric ids (or numeric strings) resolve the task lane; a
+            non-numeric string is treated as a taskless session id.
         transcript_path: Explicit transcript override (tests / replays).
+        session_id: Taskless session scope
+            (`tasks/.sessions/{session_id}/transcript.jsonl`) for turns
+            that carry no task binding (GitHub issue 19, P5).
 
     Returns:
         List of candidate decision dicts (may be empty when the session
@@ -922,11 +949,30 @@ def extract_session_decisions(
         RuntimeError on malformed model output (fail-loud beats a silent
         [] that downstream mistakes for "no rulings") and on present-but-
         empty transcripts (an existing file with zero turns is a broken
-        pipeline, not a quiet session).
+        pipeline, not a quiet session). Raises ValueError when neither
+        a task nor a session scope is given, or the session id is unsafe.
     """
-    path = Path(transcript_path) if transcript_path else (
-        Path.cwd() / "tasks" / ".sessions" / str(int(task_id)) / "transcript.jsonl"
-    )
+    if transcript_path:
+        path = Path(transcript_path)
+    else:
+        scope = session_id if session_id is not None else task_id
+        if scope is None:
+            raise ValueError(
+                "decision extract: pass task_id or session_id "
+                "(or transcript_path for replays)"
+            )
+        if session_id is not None or (
+            isinstance(scope, str) and not scope.isdigit()
+        ):
+            sid = _sanitize_session_id(str(scope))
+            path = (
+                Path.cwd() / "tasks" / ".sessions" / sid / "transcript.jsonl"
+            )
+        else:
+            path = (
+                Path.cwd() / "tasks" / ".sessions"
+                / str(int(scope)) / "transcript.jsonl"
+            )
     if not path.is_file():
         return []  # Graceful path needs no LLM: check BEFORE the lazy import.
     turns: list[str] = []
