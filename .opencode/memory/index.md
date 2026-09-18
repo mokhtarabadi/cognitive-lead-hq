@@ -13,6 +13,7 @@
 | opencode_config | plugin_policy_dcp_only_2026_09_08 | 2026-09-08 (Task 165): goal plugin (@prevalentware/opencode-goal-plugin) removed from all 4 opencode configs (global ... |  |
 | project | absent-file-policy | Absent-File Policy: If a referenced core file does not exist (e.g., DESIGN.md, docs/architecture.md, docs/data_model.... |  |
 | project | fragment-edit-regenerate-workflow | # Fragment-Edit → Regenerate Workflow (Task 129, 2026-08-30) |  |
+| project | mcp_tool_audit_2026_09_18 | MCP tool audit 2026-09-18: 28 tools across 5 servers. Strong: decision-server (WHEN TO CALL on all 6), lint-server (4... |  |
 | project | repo-details | # Repository Details |  |
 | project | system-prompt-build-process | system-prompt.md is a GENERATED build artifact, NOT a hand-edited source file. |  |
 | quirks | code_search_skill_sync_pattern | **Pattern (2026-08-21, updated 2026-08-27):** The `code-search` skill has two copies that must stay in sync: `skill-t... |  |
