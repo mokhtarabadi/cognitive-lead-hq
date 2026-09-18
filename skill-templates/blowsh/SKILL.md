@@ -20,9 +20,15 @@ cross-engine consensus. Returns ranked title/url/snippet results.
 - `query` (required), `max_results` (1–30, default 10), `page` (1–10)
 - `intent`: `auto` | `web` | `code` (adds GitHub vertical) | `paper`
   (arXiv) | `news` (HN) | `entity` (Wikipedia)
-- `query_variants`: up to 2 alternate formulations, searched in parallel
+- `query_variants`: up to 2 alternate formulations, searched in parallel,
+  merged with dedup into one flat array
 - `deadline_ms` (500–600000 hard budget), `enrich` (replace top-3
   snippets with fetched markdown, best-effort)
+- Deadline precedence: on expiry the tool returns `deadline.hit` or
+  cheap-fallback partials — never a bare `[]`. A bare `[]` always means
+  genuine zero results.
+- A synthetic `Instant Answer` result may lead the array with `url: ""`.
+  Accept the empty URL; it counts toward `max_results`.
 
 ### 2. `blowsh_fetch_web` — read one page
 
@@ -36,8 +42,11 @@ text (`type: "pdf"` downloads directly, SSRF-guarded, 20MB cap).
   `media: false` (~30% cheaper each)
 - `must_contain`: probe mode, returns MATCH/NO-MATCH + excerpts without
   loading full content into context
-- `archive`: `auto` (Wayback resurrection on 404/paywall) | `only` |
-  `off`; `stitch`: follow `rel=next` (up to 6 parts, same-host)
+- `archive`: `auto` (Wayback rescue on 404/timeout when a snapshot
+  exists; the original error returns unchanged when none exists) |
+  `only` (straight to Wayback, `archive.stale` when none) | `off`;
+  `deadline.hit` expiry is never rescued; `stitch`: follow `rel=next`
+  (up to 6 parts, same-host)
 - `tier`: `auto` (HTTP first, escalates to browser) | `1` (HTTP only) |
   `2` (browser directly); `offset`: resume from a prior `next_offset`
 - `deadline_ms` hard budget; `since_last`: one-line verdict when unchanged
@@ -45,10 +54,15 @@ text (`type: "pdf"` downloads directly, SSRF-guarded, 20MB cap).
 ### 3. `blowsh_fetch_web_batch` — read up to 10 pages at once
 
 Same output shapes as fetch; reuses the render cache. One failing URL
-does not fail the batch.
+does not fail the batch: each item returns `{url, ok, content|error}`
+and the batch envelope stays success.
 
-- `urls` (1–10, required); `type`, `max_chars`, `selector`, `wait_ms`
-  applied to each page
+- `urls` (1–10, required); `type`, `max_chars`, `selector`, `wait_ms`,
+  `deadline_ms` (per-item budget) applied to each page
+- Batch drops the other single-fetch options silently (`focus`, `toc`,
+  `section`, `must_contain`, `archive`, `stitch`, `tier`, `links`,
+  `media`, `since_last`, `offset`). When you need them, use serial
+  `fetch_web` calls instead.
 
 ### 4. `blowsh_crawl_web` — multi-page extraction (docs, API refs, wikis)
 
@@ -57,7 +71,8 @@ focus-ranked fetching with adaptive per-host pacing.
 
 - `url` seed (required); `mode`: `full` (map + content, default) |
   `map` (URL inventory only, very cheap) | `content` (BFS, no sitemap)
-- Budgets: `focus` (BM25 query — crawls only matching pages),
+- Budgets: `focus` (BM25 query — crawls only matching pages, seed
+  included: a non-matching seed is skipped, not fetched),
   `max_pages` (cap 200), `max_total_chars` (4000–500000),
   `deadline_s` (5–600); `resume` token continues across calls
 - `max_depth` (default 2, 0 = seed only), `per_page_max`,
@@ -86,6 +101,12 @@ follow site navigation without fetching full content.
    agent loops; a `Deadline` stop is an honest signal, not a failure.
 5. **SSRF scope:** PDF fetch and crawling are server-guarded; never
    route `file://` or internal-host URLs through these tools.
+6. **Guarded pages:** HTML may carry a guard trailer comment (captcha,
+   rate-limit, consent wall). Treat guarded content as suspect — never
+   cite a guard page as a clean source.
+7. **Batch parity:** `fetch_web_batch` drops single-fetch options (see
+   §3). A batch result is never a substitute for a focused single
+   fetch with `focus`, `section`, or `archive`.
 
 ## Spider-Search Workflow (deep research mode)
 
@@ -104,8 +125,9 @@ and never visit a URL twice.
    parallel.
 3. **Probe cheap.** `must_contain`, `toc`, or `crawl_web` in `map` mode
    first. Fetch full bodies only for pages that pass the probe.
-4. **Read deep.** `fetch_web_batch` (up to 10) for the winners. Use
-   `focus` on long pages to cut noise 50–80%.
+4. **Read deep.** `fetch_web_batch` (up to 10) for the winners. For
+   long pages follow up with single `fetch_web` + `focus` to cut noise
+   50–80% (batch drops `focus`).
 5. **Follow chains.** `extract_links` on the best pages. Each new clue
    becomes a new query — go back to step 2. After every round, pause
    and assess: what did I learn, what is still missing, do I have
