@@ -192,7 +192,7 @@ def build_memory_index() -> str:
 
 @mcp.tool()
 def store_memory(namespace: str, key: str, content: str, overwrite: bool = True) -> str:
-    """Stores a memory snippet as a markdown file. Uses atomic writes to prevent race conditions."""
+    """Stores a memory snippet as a markdown file. Uses atomic writes to prevent race conditions. Use when saving an explicit project rule or reusable constraint. Use search_memory instead when finding existing memory without writing."""
     try:
         ns_dir = _ensure_namespace(namespace)
         _validate_and_resolve(namespace, key)
@@ -233,7 +233,7 @@ def store_memory(namespace: str, key: str, content: str, overwrite: bool = True)
 
 @mcp.tool()
 def read_memory(namespace: str, key: str) -> str:
-    """Reads a specific memory snippet."""
+    """Reads a specific memory snippet. Use when opening one known namespace and key already found via list or search."""
     try:
         ns_dir = _validate_and_resolve(namespace, key)
         file_path = ns_dir / f"{key}.md"
@@ -247,7 +247,7 @@ def read_memory(namespace: str, key: str) -> str:
 
 @mcp.tool()
 def delete_memory(namespace: str, key: str) -> str:
-    """Deletes a specific memory snippet if it is no longer relevant."""
+    """Deletes a specific memory snippet if it is no longer relevant. Use only for an obsolete rule after manager approval, never for routine lookups."""
     try:
         ns_dir = _validate_and_resolve(namespace, key)
         file_path = ns_dir / f"{key}.md"
@@ -273,6 +273,7 @@ def delete_memory(namespace: str, key: str) -> str:
 @mcp.tool()
 def search_memory(query: str, namespace: Optional[str] = None) -> str:
     """Performs a full-text search across memories. If namespace is provided, limits search to that slice.
+    Use when finding existing memory without writing, and before asking the manager about a past ruling.
 
     Supports tag filtering: include `tag:xxx` in the query to filter by frontmatter tag.
     Results are ranked: exact key matches rank higher than content-only matches.
@@ -353,7 +354,7 @@ def search_memory(query: str, namespace: Optional[str] = None) -> str:
 
 @mcp.tool()
 def list_namespaces() -> str:
-    """Lists all active memory namespaces and their keys."""
+    """Lists all active memory namespaces and their keys. Use when discovering what is remembered before reading or searching."""
     if not MEMORY_DIR.exists():
         return "No memory namespaces found."
 

@@ -36,7 +36,9 @@ keeps its own ChatGPT-style context from first message to close.
 ## File pull tools
 
 The Brain cannot read the Hands' disk — it only sees what a `brain_turn`
-call carries. Three tools close that gap:
+call carries. The Hands close that gap with three server-side helpers.
+The Brain never calls them directly: it quotes needed paths and the
+Hands pull the content into the next turn.
 
 - `get_context_bundle()` — assembles the five small files
   (`agents/cognitive-executor.md`, `docs/conventions.md`,
@@ -44,19 +46,25 @@ call carries. Three tools close that gap:
   labeled bundle. Missing files become `[missing: path]` lines (never
   raise, per the Absent-File Policy). Each file caps at 60,000 chars
   with a `[truncated]` marker.
-- `read_file(path, offset=1, limit=200)` — reads any file under the
+- `read_file(path, offset=1, limit=200)` — the Hands read any text file under the
   workspace root (the repo root, or `BRAIN_WORKSPACE_ROOT` when set) with
   numbered lines (1-indexed). Only the `system_prompt_path` override
-  additionally allows the global install dir (`~/.config/opencode`). Pull task-file ranges
-  on demand instead of pasting whole files.
-- `grep_files(pattern, subdir=".")` — searches files for a pattern, up
+  additionally allows the global install dir (`~/.config/opencode`). Hands pull task-file ranges
+  on demand instead of pasting whole files. Text extensions only; the Brain
+  must never be told to pull files itself.
+- `grep_files(pattern, subdir=".")` — the Hands search files for a pattern, up
   to 30 `path:line: excerpt` hits, skipping banned directories.
 
-Budget-aware assembly: grep first to locate, then read only the ranges
+Budget-aware assembly: Hands grep first to locate, then read only the ranges
 that fit the remaining budget. The bundle caps (60,000/file) plus the
 `brain_turn` 100,000-char history truncation keep every call measurable
 (the bundle tests prove both legs: all five sections always present,
 total size measured by construction).
+
+Export mapping: the main entry is implemented as `brain_turn` in
+`mcp-brain-bridge/server.py` and exposed to operators as
+`default.brain_brain_turn`. Internal ledger checkpointing stays a private
+helper and is not a public tool.
 
 ## Environment
 

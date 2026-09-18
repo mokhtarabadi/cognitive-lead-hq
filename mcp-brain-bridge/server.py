@@ -716,7 +716,7 @@ def _grep_files_impl(pattern: str, subdir: str = ".") -> list[str]:
 
 @mcp.tool()
 def get_context_bundle() -> str:
-    """Return the labeled small-file context bundle from the workspace root.
+    """Return the labeled small-file context bundle from the workspace root. The Hands call this for bundle proof or debugging; every brain_turn already injects it by default.
 
     Missing files become ``[missing: path]`` marker lines (never raise);
     each file caps at 60000 chars with a ``[truncated]`` marker.
@@ -726,13 +726,13 @@ def get_context_bundle() -> str:
 
 @mcp.tool()
 def read_file(path: str, offset: int = 1, limit: int = 200) -> dict[str, Any]:
-    """Read numbered lines from a workspace text file (1-indexed offset)."""
+    """Read numbered lines from a workspace text file (1-indexed offset). The Hands call this after grep_files locates a hit; the Brain never calls it directly. Text extensions only (.md .txt .json .yaml .yml .toml); Python and other extensions are refused."""
     return _read_file_impl(path, offset, limit)
 
 
 @mcp.tool()
 def grep_files(pattern: str, subdir: str = ".") -> list[str]:
-    """Regex-search workspace text files; up to 30 ``path:line: excerpt`` hits."""
+    """Regex-search workspace text files; up to 30 ``path:line: excerpt`` hits. The Hands call this first to locate, then read only the ranges that fit the remaining budget."""
     return _grep_files_impl(pattern, subdir)
 
 # Prompt overrides must be real prompt files: .md only, resolved under
@@ -2012,7 +2012,6 @@ def build_paths_attach(
     return "\n\n---\n\n".join(blocks)
 
 
-@mcp.tool()
 def _note_checkpoint(
     name: str,
     task_id: Optional[str] = None,

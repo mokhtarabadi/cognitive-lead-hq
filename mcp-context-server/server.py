@@ -418,7 +418,7 @@ mcp = FastMCP("CustomContext")
 
 @mcp.tool()
 def get_directory_tree(target_path: str = ".") -> str:
-    """Generates an ASCII tree representation of the directory, respecting .gitignore. Use this to discover codebase structure."""
+    """Generates an ASCII tree representation of the directory, respecting .gitignore. Use this to discover codebase structure with immediate inline output. Use create_tree_report instead when a persistent saved report file is required."""
     # Security: mirror create_tree_report — coerce bad types, resolve against
     # the workspace root, reject escapes. Previously a bare "/" walked the
     # whole filesystem and wedged the single-threaded server (Task 177).
@@ -440,7 +440,7 @@ def get_directory_tree(target_path: str = ".") -> str:
 
 @mcp.tool()
 def read_source_files(paths: list[str], max_size: int = 1048576, no_line_numbers: bool = False) -> str:
-    """Reads multiple source files/directories, compiles their contents into a Markdown file under context-reports/, and returns the report file path."""
+    """Reads multiple source files/directories, compiles their contents into a Markdown file under context-reports/, and returns the report file path. Use when exact source content from named files is required. Returns a path, not inline content. Use extract_signatures instead for a structural outline without file bodies."""
     # Safeguard: Append context-reports/ to .gitignore if not present
     _ensure_context_reports_ignored()
 
@@ -562,7 +562,7 @@ def create_tree_report(target_path: str = ".") -> str:
 
 @mcp.tool()
 def extract_signatures(file_path: str) -> str:
-    """Extracts structural signatures (classes, functions, methods) from source files using tree-sitter AST. Falls back to regex when no tree-sitter grammar is available for the language. Saves the result to a Markdown file under context-reports/ and returns the report file path."""
+    """Extracts structural signatures (classes, functions, methods) from source files using tree-sitter AST. Falls back to regex when no tree-sitter grammar is available for the language. Saves the result to a Markdown file under context-reports/ and returns the report file path. Use for a structural API outline without file bodies. Use read_source_files instead when full source content is required."""
     # Master try/except: ensure extract_signatures never crashes the MCP server
     try:
         # Safeguard: Append context-reports/ to .gitignore if not present
