@@ -2033,6 +2033,7 @@ def _note_checkpoint(
         print(f"brain-bridge: checkpoint skipped ({exc})", file=sys.stderr)
 
 
+@mcp.tool()
 def brain_turn(
     user_prompt: str,
     task_id: Optional[str] = None,
