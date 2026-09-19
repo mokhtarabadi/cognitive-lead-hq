@@ -833,7 +833,8 @@ def test_temperature_pinned_zero_unless_set(srv, tmp_path, monkeypatch):
     _stub_capture(_decision_resp(200, "fine", envelope))
     _extract(srv)(7, transcript_path=str(transcript))
     assert "temperature" not in seen["body"]
-    assert seen["body"]["reasoning"] == {"effort": "xhigh"}
+    assert seen["body"]["reasoning"] == {"effort": "high"}
+    assert seen["body"]["max_output_tokens"] == 16384
     assert "reasoning_effort" not in seen["body"]
     srv._EXTRACT_CACHE.clear()
     monkeypatch.setenv("BRAIN_TEMPERATURE", "0.7")
@@ -932,7 +933,8 @@ def test_extract_repeat_determinism_five_times(srv, tmp_path, monkeypatch, capsy
     assert calls["n"] == 1  # Cache serves repeats: exactly one HTTP hit.
     blobs = [json.dumps(r, sort_keys=True) for r in results]
     assert all(b == blobs[0] for b in blobs)  # Byte-identical 5x.
-    assert calls["bodies"][0]["reasoning"] == {"effort": "xhigh"}  # Max-effort default.
+    assert calls["bodies"][0]["reasoning"] == {"effort": "high"}  # Model-default effort.
+    assert calls["bodies"][0]["max_output_tokens"] == 16384
     assert capsys.readouterr().err.count("cache hit") == 4
 
 
@@ -1095,7 +1097,8 @@ def test_extract_temp_wire_default_zero(srv, tmp_path, monkeypatch):
                   seen)
     _extract(srv)(21, transcript_path=str(transcript))
     assert "temperature" not in seen[0]
-    assert seen[0]["reasoning"] == {"effort": "xhigh"}
+    assert seen[0]["reasoning"] == {"effort": "high"}
+    assert seen[0]["max_output_tokens"] == 16384
     assert "reasoning_effort" not in seen[0]
 
 
@@ -1113,6 +1116,36 @@ def test_extract_override_wins_and_key_changes(srv, tmp_path, monkeypatch):
     raw = transcript.read_bytes()
     assert (srv._extract_cache_key(raw, "m", 0.7)
             != srv._extract_cache_key(raw, "m", 0.0))
+
+
+def test_log_responses_diagnostics_reports_visible_tokens(srv, capsys):
+    """The diag line exposes the visible-token count (output minus reasoning)."""
+    srv._log_responses_diagnostics({
+        "status": "completed",
+        "incomplete_reason": None,
+        "usage": {"input_tokens": 10, "output_tokens": 100,
+                  "reasoning_tokens": 90, "total_tokens": 110},
+        "error": None,
+        "refusal": None,
+    })
+    err = capsys.readouterr().err
+    assert "visible_tokens=10" in err
+    assert "reasoning_tokens=90" in err
+
+
+def test_resolve_decision_effort_coerces_unadvertised(srv, capsys):
+    """An effort the model does not advertise is coerced to its default.
+
+    The decision effort falls back to the shared `BRAIN_REASONING_EFFORT`,
+    and the Brain model advertises `xhigh` while DeepSeek V4.1 Flash does
+    not, so the inherited value must not reach the provider unchanged.
+    """
+    assert srv._resolve_decision_effort("deepseek/deepseek-v4.1-flash", "high") == "high"
+    assert srv._resolve_decision_effort("deepseek/deepseek-v4.1-flash", "xhigh") == "high"
+    assert "not among" in capsys.readouterr().err
+    # Unknown models keep the configured value and warn about nothing.
+    assert srv._resolve_decision_effort("unknown/model", "xhigh") == "xhigh"
+    assert capsys.readouterr().err == ""
 
 
 def test_extract_effort_absent_both_legs(srv, tmp_path, monkeypatch):
@@ -1133,7 +1166,7 @@ def test_extract_effort_absent_both_legs(srv, tmp_path, monkeypatch):
         body = seen[-1]
         if temp is None:
             assert "temperature" not in body
-            assert body["reasoning"] == {"effort": "xhigh"}
+            assert body["reasoning"] == {"effort": "high"}
         else:
             assert body["temperature"] == 0.7
             assert "reasoning" not in body

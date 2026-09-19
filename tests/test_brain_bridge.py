@@ -1869,6 +1869,38 @@ def test_output_budget_hint_contract():
     assert "reasoning=18" in hint
 
 
+def test_log_provider_diagnostics_reports_visible_tokens(capsys):
+    """The diag line exposes the visible-token count (output minus reasoning).
+
+    A near-zero value there is the signature of a reasoning trace that ate
+    the whole output budget, so the field is the measurement the budget fix
+    relies on.
+    """
+    bridge._log_provider_diagnostics({
+        "status": "completed",
+        "incomplete_reason": None,
+        "usage": {"input_tokens": 10, "output_tokens": 100,
+                  "reasoning_tokens": 90, "total_tokens": 110},
+        "error": None,
+        "refusal": None,
+    })
+    err = capsys.readouterr().err
+    assert "visible_tokens=10" in err
+    assert "reasoning_tokens=90" in err
+
+
+def test_log_provider_diagnostics_visible_tokens_none_without_usage(capsys):
+    """Missing usage must not crash or invent a visible count."""
+    bridge._log_provider_diagnostics({
+        "status": "incomplete",
+        "incomplete_reason": "max_output_tokens",
+        "usage": {},
+        "error": None,
+        "refusal": None,
+    })
+    assert "visible_tokens=None" in capsys.readouterr().err
+
+
 def test_brain_turn_budget_exhaustion_is_terminal(tmp_path, monkeypatch, capsys):
     payload = {
         "status": "incomplete",
@@ -2245,8 +2277,8 @@ def test_routing_disabled_by_default_preserves_behavior(tmp_path, monkeypatch):
     result, holder = _run_turn_capture(monkeypatch, tmp_path, _ok_payload("ok"))
     assert result["output"] == "ok"
     assert holder["body"]["model"] == "gpt-6-astra"
-    assert holder["body"]["reasoning"] == {"effort": "xhigh"}
-    assert holder["body"]["max_output_tokens"] == 16384
+    assert holder["body"]["reasoning"] == {"effort": "medium"}
+    assert holder["body"]["max_output_tokens"] == 32768
     # Disabled + explicit tier: wiring must stay on the default model.
     result, holder = _run_turn_capture(
         monkeypatch, tmp_path, _ok_payload("ok"), task_id="233",
@@ -2292,8 +2324,8 @@ def test_routed_body_uses_selected_model(tmp_path, monkeypatch):
     assert result["output"] == "ok"
     assert result["model"] == "low-m"
     assert holder["body"]["model"] == "low-m"
-    assert holder["body"]["reasoning"] == {"effort": "xhigh"}
-    assert holder["body"]["max_output_tokens"] == 16384
+    assert holder["body"]["reasoning"] == {"effort": "medium"}
+    assert holder["body"]["max_output_tokens"] == 32768
     result, holder = _run_turn_capture(
         monkeypatch, tmp_path, _ok_payload("ok"), task_id="233",
         risk_tier="T2")

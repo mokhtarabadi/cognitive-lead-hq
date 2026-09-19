@@ -5,6 +5,7 @@ temperature: 0.1
 steps: 512
 permission:
   edit: allow
+  question: allow
   bash:
     "*": "allow"
     "rm -rf*": "ask"

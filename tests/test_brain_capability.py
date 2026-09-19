@@ -32,16 +32,14 @@ def test_all_available_tools_report_available():
                         "brain_turn": "AVAILABLE"}
 
 
-def test_question_tool_required_is_unavailable_required():
+def test_question_tool_is_available():
     manifest = capability.build_manifest(
         referenced=["question"], required=["question"])
-    assert manifest == {"question": "UNAVAILABLE_REQUIRED"}
+    assert manifest == {"question": "AVAILABLE"}
 
 
-def test_question_tool_optional_is_unavailable_optional():
-    manifest = capability.build_manifest(
-        referenced=["question"], required=[])
-    assert manifest == {"question": "UNAVAILABLE_OPTIONAL"}
+def test_known_unavailable_registry_is_empty():
+    assert capability.KNOWN_UNAVAILABLE == frozenset()
 
 
 def test_unknown_required_tool_fails_closed():
@@ -58,9 +56,9 @@ def test_unknown_optional_tool_is_unavailable_optional():
 
 def test_caller_available_override_wins():
     manifest = capability.build_manifest(
-        referenced=["question"], required=["question"],
-        available={"question"})
-    assert manifest == {"question": "AVAILABLE"}
+        referenced=["frobnicate"], required=["frobnicate"],
+        available={"frobnicate"})
+    assert manifest == {"frobnicate": "AVAILABLE"}
 
 
 def test_caller_unavailable_override_marks_required():
@@ -70,12 +68,24 @@ def test_caller_unavailable_override_marks_required():
     assert manifest == {"lint_task_file": "UNAVAILABLE_REQUIRED"}
 
 
+def test_unavailable_override_demotes_granted_question_tool():
+    """An explicit unavailable override still demotes a granted tool.
+
+    `question` is in `AVAILABLE_EXACT` now, so this pins the override path
+    for a registry-available name rather than an unknown one.
+    """
+    manifest = capability.build_manifest(
+        referenced=["question"], required=["question"],
+        unavailable={"question"})
+    assert manifest == {"question": "UNAVAILABLE_REQUIRED"}
+
+
 def test_only_three_statuses_exist():
     assert capability.STATUSES == (
         "AVAILABLE", "UNAVAILABLE_REQUIRED", "UNAVAILABLE_OPTIONAL")
     manifest = capability.build_manifest(
         referenced=["brain_turn", "question", "frobnicate"],
-        required=["question", "frobnicate"])
+        required=["frobnicate"])
     assert set(manifest.values()) <= set(capability.STATUSES)
 
 
@@ -83,10 +93,10 @@ def test_internal_registry_name_never_emitted_as_status():
     manifest = capability.build_manifest(
         referenced=["brain_turn", "question", "frobnicate",
                     "lint_task_file"],
-        required=["brain_turn", "question", "frobnicate",
-                  "lint_task_file"])
+        required=["brain_turn", "frobnicate", "lint_task_file"])
     assert "KNOWN_UNAVAILABLE" not in manifest.values()
-    assert manifest["question"] == "UNAVAILABLE_REQUIRED"
+    assert manifest["frobnicate"] == "UNAVAILABLE_REQUIRED"
+    assert manifest["question"] == "AVAILABLE"
 
 
 def test_empty_referenced_gives_empty_manifest():
@@ -97,26 +107,27 @@ def test_empty_referenced_gives_empty_manifest():
 
 def test_gate_passes_with_no_missing_required():
     manifest = capability.build_manifest(
-        referenced=["lint_task_file", "question"], required=["lint_task_file"])
+        referenced=["lint_task_file", "frobnicate"],
+        required=["lint_task_file"])
     assert capability.gate(manifest, stage="qa") is None
 
 
 def test_gate_raises_naming_missing_tools():
     manifest = capability.build_manifest(
-        referenced=["question"], required=["question"])
+        referenced=["frobnicate"], required=["frobnicate"])
     with pytest.raises(capability.CapabilityBlockedError) as exc:
         capability.gate(manifest, stage="review")
-    assert "question" in str(exc.value)
+    assert "frobnicate" in str(exc.value)
     assert "review" in str(exc.value)
 
 
 def test_gate_error_carries_relay_block():
     manifest = capability.build_manifest(
-        referenced=["question"], required=["question"])
+        referenced=["frobnicate"], required=["frobnicate"])
     with pytest.raises(capability.CapabilityBlockedError) as exc:
         capability.gate(manifest, stage="review")
     block = capability.format_relay_block(exc.value)
-    assert "question" in block
+    assert "frobnicate" in block
     assert "review" in block
 
 
@@ -229,9 +240,9 @@ def test_brain_turn_missing_required_returns_non_verdict_report(
     call = bridge.brain_turn
     target = call.fn if hasattr(call, "fn") else call
     result = target("review this", task_id="257", project_root=str(proj),
-                    stage="review", required_tools=["question"])
+                    stage="review", required_tools=["frobnicate"])
     assert result["status"] == "REPORT"
-    assert "question" in result["output"]
+    assert "frobnicate" in result["output"]
     for verdict in ("QA_PASSED", "QA_REJECTED", "VERDICT:",
                     "PO_REVIEW_PENDING", "APPROVED"):
         assert verdict not in result["output"]

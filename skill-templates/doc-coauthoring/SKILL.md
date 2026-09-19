@@ -86,7 +86,7 @@ Inform them clarifying questions will be asked once they've done their initial d
 
 - If user mentions entities/projects that are unknown:
   - Ask if connected tools should be searched to learn more
-  - Wait for user confirmation before searching
+  - Wait for user confirmation before searching (via the `question` tool when the session capability manifest shows it AVAILABLE, otherwise in prose)
 
 - As user provides context, track what's being learned and what's still unclear
 

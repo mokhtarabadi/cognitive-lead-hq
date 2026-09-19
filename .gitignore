@@ -29,6 +29,9 @@ node_modules/
 # Environment
 .env
 .env.local
+.env.*
+!.env.example
+*.bak*
 
 # Retired browser automation MCP artifacts
 .retired-browser-name/

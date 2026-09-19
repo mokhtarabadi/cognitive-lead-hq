@@ -232,15 +232,69 @@ def _get_decision_model() -> str:
 def _get_decision_effort() -> str:
     """Reasoning effort for extraction; override via
     ``DECISION_REASONING_EFFORT``, falling back to
-    ``BRAIN_REASONING_EFFORT``."""
+    ``BRAIN_REASONING_EFFORT``.
+
+    Defaults to ``high`` — the effort ``deepseek/deepseek-v4.1-flash``
+    advertises as its own default (it supports only ``max``/``high``/``low``).
+    """
     val = (
         os.environ.get("DECISION_REASONING_EFFORT", "").strip()
-        or os.environ.get("BRAIN_REASONING_EFFORT", "xhigh").strip()
-        or "xhigh"
+        or os.environ.get("BRAIN_REASONING_EFFORT", "high").strip()
+        or "high"
     )
     if not re.fullmatch(r"[\w.-]{1,64}", val):
         raise ValueError(f"bad reasoning effort: {val!r}")
     return val
+
+
+def _get_decision_max_tokens() -> int:
+    """Output cap for extraction turns; override via ``DECISION_MAX_TOKENS``.
+
+    The extraction call used to send no cap at all, leaving the ceiling to
+    the provider. Reasoning tokens are billed as output and count against
+    this cap on most providers, so an explicit value keeps the cost and the
+    truncation boundary predictable.
+    """
+    try:
+        return int(os.environ.get("DECISION_MAX_TOKENS", "16384").strip() or "16384")
+    except ValueError:
+        return 16384
+
+
+#: Advertised reasoning-effort support for the models this server ships a
+#: default for. A missing entry means "unknown model" and the guard stays
+#: silent — it must never block a call, only keep an unadvertised setting
+#: from reaching the provider.
+_KNOWN_EFFORT_SUPPORT: dict[str, frozenset[str]] = {
+    # DeepSeek V4.1 Flash advertises only max/high/low (its own default is high).
+    "deepseek/deepseek-v4.1-flash": frozenset({"max", "high", "low"}),
+}
+
+#: Effort used when the configured value is not advertised by the model.
+#: Mirrors each model's own default.
+_KNOWN_EFFORT_DEFAULTS: dict[str, str] = {
+    "deepseek/deepseek-v4.1-flash": "high",
+}
+
+
+def _resolve_decision_effort(model: str, effort: str) -> str:
+    """Return an effort the model advertises, coercing when it does not.
+
+    ``DECISION_REASONING_EFFORT`` falls back to the shared
+    ``BRAIN_REASONING_EFFORT``, and the Brain and decision models advertise
+    different effort sets, so a value that suits one can be unadvertised for
+    the other. When that happens the model's own default is used instead and
+    a warning is printed; the call itself is never blocked.
+    """
+    supported = _KNOWN_EFFORT_SUPPORT.get(model)
+    if supported is None or effort in supported:
+        return effort
+    fallback = _KNOWN_EFFORT_DEFAULTS.get(model, effort)
+    print(
+        f"decision-server: warning: reasoning effort {effort!r} is not among "
+        f"{sorted(supported)} advertised by {model!r}; using {fallback!r}.",
+        file=sys.stderr)
+    return fallback
 
 
 def _get_api_key() -> str:
@@ -520,17 +574,29 @@ def _responses_diagnostics(data: Any) -> dict:
 
 
 def _log_responses_diagnostics(diag: dict) -> None:
-    """Emit one compact diagnostics line to stderr on every provider call."""
+    """Emit one compact diagnostics line to stderr on every provider call.
+
+    Includes the visible-token count (output minus reasoning). A near-zero
+    visible count is the signature of a reasoning trace that consumed the
+    whole output budget, which is what makes an answer come back blank or
+    truncated while the reasoning tokens are still billed.
+    """
     usage = diag.get("usage")
     if not isinstance(usage, dict):
         usage = {}
+    out_tokens = usage.get("output_tokens")
+    reasoning_tokens = usage.get("reasoning_tokens")
+    visible_tokens: Optional[int] = None
+    if isinstance(out_tokens, int) and isinstance(reasoning_tokens, int):
+        visible_tokens = out_tokens - reasoning_tokens
     print(
         "decision-server: provider diag "
         f"status={diag.get('status')} "
         f"incomplete_reason={diag.get('incomplete_reason')} "
         f"input_tokens={usage.get('input_tokens')} "
-        f"output_tokens={usage.get('output_tokens')} "
-        f"reasoning_tokens={usage.get('reasoning_tokens')} "
+        f"output_tokens={out_tokens} "
+        f"reasoning_tokens={reasoning_tokens} "
+        f"visible_tokens={visible_tokens} "
         f"total_tokens={usage.get('total_tokens')} "
         f"error={diag.get('error')!r} refusal={diag.get('refusal')!r}",
         file=sys.stderr)
@@ -1235,9 +1301,14 @@ def extract_session_decisions(
             return copy.deepcopy(hit)
     import httpx  # Lazy: import stays side-effect free.
     api_base = _get_api_base()
+    effort = _resolve_decision_effort(model, effort)
     body: dict[str, Any] = {
         "model": model,
         "input": [{"role": "user", "content": prompt}],
+        # Reasoning tokens are billed as output and count against this cap
+        # on most providers, so send an explicit ceiling instead of leaving
+        # the whole budget to the provider default.
+        "max_output_tokens": _get_decision_max_tokens(),
     }
     if raw_brain_temp or raw_decision_temp:
         body["temperature"] = temp_to_send

@@ -1152,11 +1152,17 @@ def build_prompt_cache_split(
 
 
 def _get_max_tokens() -> int:
-    """Cap for Brain turns; override via ``BRAIN_MAX_TOKENS``."""
+    """Cap for Brain turns; override via ``BRAIN_MAX_TOKENS``.
+
+    Defaults to 32768 rather than 16384: reasoning tokens are billed as
+    output and count against this cap on most providers, so a smaller cap
+    lets high-effort reasoning starve the visible answer (blank or
+    truncated replies while the reasoning tokens are still charged).
+    """
     try:
-        return int(os.environ.get("BRAIN_MAX_TOKENS", "16384").strip() or "16384")
+        return int(os.environ.get("BRAIN_MAX_TOKENS", "32768").strip() or "32768")
     except ValueError:
-        return 16384
+        return 32768
 
 
 def _get_api_key() -> str:
@@ -2468,8 +2474,14 @@ def _responses_url() -> str:
 
 
 def _get_reasoning_effort() -> str:
-    """Reasoning effort; override via ``BRAIN_REASONING_EFFORT``."""
-    val = os.environ.get("BRAIN_REASONING_EFFORT", "xhigh").strip() or "xhigh"
+    """Reasoning effort; override via ``BRAIN_REASONING_EFFORT``.
+
+    Defaults to ``medium`` — the default the Luna model itself advertises.
+    ``xhigh`` (and ``max``) allocate roughly 95% of ``max_output_tokens`` to
+    reasoning, so a modest cap leaves almost nothing for the visible answer
+    while the reasoning tokens are still billed.
+    """
+    val = os.environ.get("BRAIN_REASONING_EFFORT", "medium").strip() or "medium"
     if not re.fullmatch(r"[\w.-]{1,64}", val):
         raise ValueError(f"bad reasoning effort: {val!r}")
     return val
@@ -2642,17 +2654,28 @@ def parse_responses_diagnostics(data: Any) -> dict:
 
 
 def _log_provider_diagnostics(diag: dict) -> None:
-    """Emit one compact diagnostics line to stderr on every turn (AC1)."""
+    """Emit one compact diagnostics line to stderr on every turn (AC1).
+
+    Includes the visible-token count (output minus reasoning). Reasoning
+    tokens are billed as output and count against ``max_output_tokens``, so
+    a near-zero visible count is the signature of a starved answer.
+    """
     usage = diag.get("usage")
     if not isinstance(usage, dict):
         usage = {}
+    out_tokens = usage.get("output_tokens")
+    reasoning_tokens = usage.get("reasoning_tokens")
+    visible_tokens: Optional[int] = None
+    if isinstance(out_tokens, int) and isinstance(reasoning_tokens, int):
+        visible_tokens = out_tokens - reasoning_tokens
     print(
         "brain-bridge: provider diag "
         f"status={diag.get('status')} "
         f"incomplete_reason={diag.get('incomplete_reason')} "
         f"input_tokens={usage.get('input_tokens')} "
-        f"output_tokens={usage.get('output_tokens')} "
-        f"reasoning_tokens={usage.get('reasoning_tokens')} "
+        f"output_tokens={out_tokens} "
+        f"reasoning_tokens={reasoning_tokens} "
+        f"visible_tokens={visible_tokens} "
         f"total_tokens={usage.get('total_tokens')} "
         f"error={diag.get('error')!r} refusal={diag.get('refusal')!r}",
         file=sys.stderr)
@@ -2706,9 +2729,12 @@ def _output_budget_hint(diag: dict, task_id: Optional[str] = None,
 def _maybe_warn_reasoning_budget(effort: str, max_tokens: int) -> None:
     """Warn (non-breaking) when high effort runs with a small cap (C6).
 
-    Reasoning tokens count against ``max_output_tokens``; the bridge keeps
-    its 16384 default in this task, so the risky combination is surfaced
-    to stderr before the provider request instead of silently failing.
+    Reasoning tokens count against ``max_output_tokens``; ``xhigh`` claims
+    roughly 95% of the cap, so a small cap leaves almost nothing for the
+    visible answer. The 32768 default keeps the risky combination out of
+    the way, but an explicit ``BRAIN_MAX_TOKENS`` can still reintroduce it,
+    so the warning fires before the provider request rather than failing
+    silently.
     """
     if effort in _HIGH_EFFORT and max_tokens < _REASONING_BUDGET_FLOOR:
         print(

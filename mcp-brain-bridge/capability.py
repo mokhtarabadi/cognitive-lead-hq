@@ -12,18 +12,26 @@ of three statuses — no silent fourth state:
 - ``UNAVAILABLE_OPTIONAL`` — missing but not required: noted, skipped
   openly.
 
-Availability registry grounding (read 2026-09-18): the granted tool
+Availability registry grounding (read 2026-09-19): the granted tool
 surface is ``opencode.json`` ``permission`` — families
 ``custom_context_*``, ``project_memory_*``, ``lint_*``, ``blowsh_*``,
 ``telegram_*``, plus ``brain_turn``, the manager-decision tools, the
 context tools (``get_directory_tree``, ``read_source_files``,
 ``bundle_tasks``), and the native core (``task``, ``skill``,
 ``todowrite``, ``read``, ``edit``, ``write``, ``bash``, ``grep``,
-``glob``). ``question`` is absent from ``opencode.json`` AND has zero
-definitions anywhere in the repo, while two live references demand it
-(``skill-templates/telegram-issue-sync/SKILL.md:79``,
-``prompts/fragments/09-hands_protocols.md:66``) — hence
-``KNOWN_UNAVAILABLE = {'question'}``. Unknown names fail closed
+``glob``, ``question``).
+
+``question`` was previously listed in ``KNOWN_UNAVAILABLE``. The cause
+was not a missing tool: OpenCode ships ``question`` as a built-in, but
+its primary agents receive an explicit ``question: allow`` that
+overrides the base ``question: deny``, and a custom primary agent
+inherits only the deny. The agent definition now grants it explicitly
+(``agents/cognitive-executor.md`` frontmatter, ``permission: question:
+allow``), so ``question`` is part of the granted surface and
+``KNOWN_UNAVAILABLE`` is empty. Note the granted surface is the
+resolved agent toolset, not the ``opencode.json`` key list alone:
+``todowrite``, ``webfetch`` and ``websearch`` are absent from that
+block yet ARE granted. Unknown names still fail closed
 (``UNAVAILABLE_REQUIRED`` when required); the caller ``available`` /
 ``unavailable`` overrides are the documented escape hatch.
 """
@@ -69,14 +77,15 @@ AVAILABLE_EXACT = frozenset({
     "bash",
     "grep",
     "glob",
+    "question",
 })
 
 # Tools referenced by live prompts/skills but absent from the granted
 # toolset (see module docstring). Listed explicitly so the manifest can
-# name them instead of failing open on unknown names.
-KNOWN_UNAVAILABLE = frozenset({
-    "question",
-})
+# name them instead of failing open on unknown names. Empty since
+# ``question`` was granted through the cognitive-executor agent's
+# permission block.
+KNOWN_UNAVAILABLE = frozenset()
 
 # Approval-sensitive stages imply required tools even when the caller
 # does not list them: QA always needs the task linter, closure always

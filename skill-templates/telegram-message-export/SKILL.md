@@ -17,7 +17,7 @@ Determine the exact `[from_id, to_id]` range. If the Manager provided a text sni
 
 1. Call `telegram_get_history` and filter to keep messages where `id >= from_id` and `id <= to_id`.
 2. Sort the filtered messages strictly by `id` in ascending order.
-3. If the range spans more than 200 messages, use the `question` tool to ask for confirmation before proceeding to avoid rate limits.
+3. If the range spans more than 200 messages, ask for confirmation before proceeding to avoid rate limits. Use the `question` tool when the session capability manifest shows it AVAILABLE; otherwise relay the same question in prose and wait for the answer.
 
 ## Phase 2: Extraction & Sidecar Generation
 

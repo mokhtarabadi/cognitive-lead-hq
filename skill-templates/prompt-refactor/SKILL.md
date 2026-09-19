@@ -44,7 +44,7 @@ Provide the exact XML or JSON structure the AI must use to reply, ensuring it ca
 Before translating or refactoring, scan the raw input for:
 
 1. **Obvious typos** — Correct them silently. Log corrections in the output.
-2. **Hallucinated/nonsensical words** — If a word has no meaning in context, flag it and ask the Manager for clarification.
+2. **Hallucinated/nonsensical words** — If a word has no meaning in context, flag it and ask the Manager for clarification (via the `question` tool when the session capability manifest shows it AVAILABLE, otherwise in prose).
 3. **Ambiguity score** — Rate the input clarity from 1 to 5. If below 3, HALT and request clarification before proceeding.
 
 Output a brief correction note at the top of your response:

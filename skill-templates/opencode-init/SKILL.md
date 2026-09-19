@@ -14,6 +14,8 @@ Analyze stack files, ask the user for gaps (default agent,
 formatter, LSP guidance, instructions, permissions), emit JSON matching
 the public schema (https://opencode.ai/config.json),
 then validate with `scripts/validate-opencode.py` before writing.
+For every gap question, use the `question` tool when the session capability
+manifest shows it AVAILABLE; otherwise relay the same question in prose.
 MCP servers and plugins install GLOBALLY — never emit `mcp` or `plugin`
 into the project file. Never edit global config. Never install plugins.
 

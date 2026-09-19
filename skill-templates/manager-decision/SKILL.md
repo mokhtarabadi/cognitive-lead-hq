@@ -50,7 +50,7 @@ fallback and surface the one-line store note. Primary interface: the
 ## Sample-Evolution Loop (Review Gate Mandatory)
 
 1. `propose_profile_evolution()` runs `scripts/compile_profile.py` and returns a `DRAFT_READY` draft (category distribution + recurring rationales). It NEVER writes to the sample.
-2. Present the draft to the manager; on `APPROVED`, merge the reviewed text into `samples/manager_profile.md` baseline-adjacent generated section.
+2. Present the draft to the manager (via the `question` tool when the session capability manifest shows it AVAILABLE, otherwise in prose); on `APPROVED`, merge the reviewed text into `samples/manager_profile.md` baseline-adjacent generated section.
 3. On `REJECTED`, record the rejection rationale as a decision (category `process`) so the next draft learns from it.
 4. Identity updates without approval are forbidden — auto-promotion does not exist by design.
 
