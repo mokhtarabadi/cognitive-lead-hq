@@ -2032,3 +2032,180 @@ def test_query_skips_falsey_nonlist_alternatives(srv, repo, falsey):
     out = srv.query_manager_decisions("composition")
     assert isinstance(out, str)  # Never raises.
     assert tampered_id not in out  # Falsey non-list must not validate as [].
+
+
+# --- Task 259: provider diagnostics + terminal failure surfacing ----------
+
+
+def _write_transcript_text(path, text):
+    """Write a one-turn transcript whose content varies per test.
+
+    The extraction cache keys on transcript bytes, so tests must use
+    distinct content to avoid cross-test cache hits. The quote ``ship it``
+    is kept so candidate verbatim checks (exact-substring rule) pass.
+    """
+    path.write_text(
+        json.dumps({"role": "user", "content": f"ship it {text}", "name": "m",
+                    "timestamp": "2026-09-19T00:00:00+00:00"}) + "\n",
+        encoding="utf-8",
+    )
+
+
+def _stub_and_extract(srv, monkeypatch, tmp_path, payload, tag):
+    transcript = tmp_path / f"{tag}.jsonl"
+    _write_transcript_text(transcript, tag)
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    _stub_decision_http(monkeypatch, _decision_resp(200, "fine", payload))
+    return _extract(srv)(tag, transcript_path=str(transcript))
+
+
+def test_responses_diagnostics_full_payload(srv):
+    payload = {
+        "status": "incomplete",
+        "incomplete_details": {"reason": "max_output_tokens"},
+        "usage": {
+            "input_tokens": 10, "output_tokens": 16384, "total_tokens": 16394,
+            "output_tokens_details": {"reasoning_tokens": 16380},
+        },
+    }
+    diag = srv._responses_diagnostics(payload)
+    assert diag["status"] == "incomplete"
+    assert diag["incomplete_reason"] == "max_output_tokens"
+    assert diag["usage"] == {
+        "input_tokens": 10, "output_tokens": 16384,
+        "reasoning_tokens": 16380, "total_tokens": 16394,
+    }
+    assert diag["error"] is None and diag["refusal"] is None
+
+
+def test_responses_diagnostics_tolerates_malformed(srv):
+    for bad in (None, [], "text", 7, {"usage": "nope", "output": "nope",
+                                      "incomplete_details": 5}):
+        diag = srv._responses_diagnostics(bad)
+        assert set(diag) == {
+            "status", "incomplete_reason", "usage", "error", "refusal"}
+        assert set(diag["usage"]) == {
+            "input_tokens", "output_tokens", "reasoning_tokens", "total_tokens"}
+        assert diag["error"] is None and diag["refusal"] is None
+
+
+def test_responses_diagnostics_refusal_direct_and_nested(srv):
+    direct = {"output": [{"type": "refusal", "refusal": "I cannot do that"}]}
+    assert srv._responses_diagnostics(direct)["refusal"] == "I cannot do that"
+    nested = {"output": [{"type": "message", "content": [
+        {"type": "refusal", "refusal": "no thanks"}]}]}
+    assert srv._responses_diagnostics(nested)["refusal"] == "no thanks"
+
+
+def test_provider_failure_message_precedence(srv):
+    err = {"error": "boom", "output": []}
+    msg = srv._provider_failure_message(srv._responses_diagnostics(err))
+    assert msg.startswith("decision model returned no text: PROVIDER_ERROR")
+    assert "boom" in msg
+
+    refusal = {"output": [{"type": "refusal", "refusal": "nope"}]}
+    msg = srv._provider_failure_message(srv._responses_diagnostics(refusal))
+    assert "PROVIDER_REFUSAL" in msg and "nope" in msg
+
+    budget = {"status": "incomplete",
+              "incomplete_details": {"reason": "max_output_tokens"},
+              "usage": {"output_tokens": 5}, "output": []}
+    msg = srv._provider_failure_message(srv._responses_diagnostics(budget))
+    assert msg.startswith("decision model returned no text: OUTPUT_BUDGET_EXHAUSTED")
+    assert "NOT a model blank" in msg
+
+    # No cause => None so the caller keeps the generic non-JSON error.
+    assert srv._provider_failure_message(
+        srv._responses_diagnostics({"output": []})) is None
+
+
+def test_extract_budget_exhaustion_terminal(srv, tmp_path, monkeypatch):
+    payload = {
+        "status": "incomplete",
+        "incomplete_details": {"reason": "max_output_tokens"},
+        "usage": {"output_tokens": 16384,
+                  "output_tokens_details": {"reasoning_tokens": 16380}},
+        "output": [{"type": "reasoning"}],
+    }
+    with pytest.raises(RuntimeError, match="OUTPUT_BUDGET_EXHAUSTED") as exc:
+        _stub_and_extract(srv, monkeypatch, tmp_path, payload, "budget")
+    # Terminal diagnosis must not masquerade as a transcript/model blank.
+    assert "non-JSON" not in str(exc.value)
+    assert "max_output_tokens" in str(exc.value)
+
+
+def test_extract_provider_error_terminal(srv, tmp_path, monkeypatch):
+    payload = {"error": {"message": "upstream exploded"}, "output": []}
+    with pytest.raises(RuntimeError, match="PROVIDER_ERROR") as exc:
+        _stub_and_extract(srv, monkeypatch, tmp_path, payload, "perr")
+    assert "upstream exploded" in str(exc.value)
+
+
+def test_extract_refusal_terminal(srv, tmp_path, monkeypatch):
+    payload = {"output": [{"type": "refusal", "refusal": "I will not"}]}
+    with pytest.raises(RuntimeError, match="PROVIDER_REFUSAL") as exc:
+        _stub_and_extract(srv, monkeypatch, tmp_path, payload, "pref")
+    assert "I will not" in str(exc.value)
+
+
+def test_extract_genuine_blank_stays_generic(srv, tmp_path, monkeypatch):
+    # No provider cause: the ordinary empty envelope keeps its old error.
+    with pytest.raises(RuntimeError, match="non-JSON"):
+        _stub_and_extract(srv, monkeypatch, tmp_path, {"output": []}, "blank")
+
+
+def test_extract_logs_provider_diag_on_success(srv, tmp_path, monkeypatch, capsys):
+    one = {
+        "verbatim_quote": {"original": "ship it", "english_translation": "y"},
+        "extracted_decision": {"summary": "s", "category": "architecture",
+                               "rationale": "r", "alternatives": [],
+                               "tradeoffs": "t"},
+    }
+    payload = {"status": "completed", "usage": {"output_tokens": 3},
+               "output": [{"type": "message", "content": [
+                   {"type": "output_text", "text": json.dumps(one)}]}]}
+    assert _stub_and_extract(
+        srv, monkeypatch, tmp_path, payload, "diagnostics") == [one]
+    err = capsys.readouterr().err
+    assert "provider diag" in err
+    assert "status=completed" in err
+
+
+def test_responses_diagnostics_scalar_content_does_not_raise(srv):
+    # A malformed nested "content" scalar must not abort diagnosis (QA F1).
+    for bad_content in (1, "text", {"type": "refusal"}, True):
+        diag = srv._responses_diagnostics(
+            {"output": [{"type": "message", "content": bad_content}]})
+        assert set(diag) == {
+            "status", "incomplete_reason", "usage", "error", "refusal"}
+        assert diag["refusal"] is None
+
+
+def test_responses_diagnostics_non_finite_usage_is_none(srv):
+    # nan/inf raise inside int(); the parser must swallow them (QA F2).
+    diag = srv._responses_diagnostics({
+        "usage": {
+            "input_tokens": float("nan"),
+            "output_tokens": float("inf"),
+            "total_tokens": float("-inf"),
+            "output_tokens_details": {"reasoning_tokens": float("nan")},
+        },
+    })
+    assert diag["usage"] == {
+        "input_tokens": None, "output_tokens": None,
+        "reasoning_tokens": None, "total_tokens": None}
+
+
+def test_provider_failure_message_scalar_usage_still_terminal(srv):
+    # A hand-built diagnostic with a scalar usage must not raise in the
+    # budget branch; terminal classification survives with null usage (QA F3).
+    diag = {
+        "status": "incomplete",
+        "incomplete_reason": "max_output_tokens",
+        "usage": 5,
+        "error": None,
+        "refusal": None,
+    }
+    msg = srv._provider_failure_message(diag)
+    assert msg.startswith("decision model returned no text: OUTPUT_BUDGET_EXHAUSTED")
+    assert "input=None" in msg

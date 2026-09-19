@@ -1793,6 +1793,176 @@ def test_brain_turn_normal_output_has_no_retry_hint(tmp_path, monkeypatch):
     assert bridge.EMPTY_OUTPUT_RETRY not in result["output"]
 
 
+# --- Task 259: provider-diagnosis triage (budget exhaustion != flake) ------
+
+
+def test_parse_responses_diagnostics_full_payload():
+    data = {
+        "status": "incomplete",
+        "incomplete_details": {"reason": "max_output_tokens"},
+        "usage": {
+            "input_tokens": 100,
+            "output_tokens": 16384,
+            "total_tokens": 16484,
+            "output_tokens_details": {"reasoning_tokens": 16384},
+        },
+        "output": [{"type": "reasoning", "summary": []}],
+    }
+    diag = bridge.parse_responses_diagnostics(data)
+    assert diag["status"] == "incomplete"
+    assert diag["incomplete_reason"] == "max_output_tokens"
+    assert diag["usage"] == {
+        "input_tokens": 100,
+        "output_tokens": 16384,
+        "reasoning_tokens": 16384,
+        "total_tokens": 16484,
+    }
+    assert diag["error"] is None
+    assert diag["refusal"] is None
+
+
+def test_parse_responses_diagnostics_tolerates_malformed():
+    for bad in ({}, {"output": None}, {"usage": "nope"}, {"error": {}}, []):
+        diag = bridge.parse_responses_diagnostics(bad)
+        assert set(diag) == {
+            "status", "incomplete_reason", "usage", "error", "refusal"}
+        assert set(diag["usage"]) == {
+            "input_tokens", "output_tokens", "reasoning_tokens",
+            "total_tokens"}
+    assert bridge.parse_responses_diagnostics(None)["status"] is None
+
+
+def test_parse_responses_diagnostics_refusal_direct_and_nested():
+    direct = bridge.parse_responses_diagnostics(
+        {"output": [{"type": "refusal", "refusal": "I cannot help."}]})
+    assert direct["refusal"] == "I cannot help."
+    nested = bridge.parse_responses_diagnostics(
+        {"output": [{"type": "message", "content": [
+            {"type": "refusal", "refusal": "Nested refusal text"}]}]})
+    assert nested["refusal"] == "Nested refusal text"
+
+
+def test_parse_responses_diagnostics_error_shapes():
+    assert bridge.parse_responses_diagnostics(
+        {"error": "boom"})["error"] == "boom"
+    assert bridge.parse_responses_diagnostics(
+        {"error": {"message": "boom2", "type": "x"}})["error"] == "boom2"
+
+
+def test_output_budget_hint_contract():
+    diag = bridge.parse_responses_diagnostics({
+        "status": "incomplete",
+        "incomplete_details": {"reason": "max_output_tokens"},
+        "usage": {"input_tokens": 10, "output_tokens": 20,
+                  "total_tokens": 30,
+                  "output_tokens_details": {"reasoning_tokens": 18}},
+    })
+    hint = bridge._output_budget_hint(
+        diag, "259", "tasks/qa/x.md | status=open")
+    assert bridge.OUTPUT_BUDGET_EXHAUSTED in hint
+    assert bridge.EMPTY_OUTPUT_RETRY not in hint
+    assert "include_bundle=false" not in hint
+    assert "lean-retry" in hint
+    assert "BRAIN_MAX_TOKENS" in hint
+    assert "BRAIN_REASONING_EFFORT" in hint
+    assert "259" in hint
+    assert "reasoning=18" in hint
+
+
+def test_brain_turn_budget_exhaustion_is_terminal(tmp_path, monkeypatch, capsys):
+    payload = {
+        "status": "incomplete",
+        "incomplete_details": {"reason": "max_output_tokens"},
+        "usage": {"input_tokens": 500, "output_tokens": 16384,
+                  "total_tokens": 16884,
+                  "output_tokens_details": {"reasoning_tokens": 16000}},
+        "output": [{"type": "reasoning", "summary": []}],
+    }
+    result = _run_turn(monkeypatch, tmp_path, payload)
+    assert result["status"] == "REPORT"
+    assert bridge.OUTPUT_BUDGET_EXHAUSTED in result["output"]
+    assert bridge.EMPTY_OUTPUT_RETRY not in result["output"]
+    assert "include_bundle=false" not in result["output"]
+    provider = result["debug"]["provider"]
+    assert provider["incomplete_reason"] == "max_output_tokens"
+    assert provider["usage"]["reasoning_tokens"] == 16000
+    err = capsys.readouterr().err
+    assert "provider diag" in err
+    assert "reasoning_tokens=16000" in err
+
+
+def test_brain_turn_refusal_surfaced_verbatim(tmp_path, monkeypatch):
+    payload = {"output": [{"type": "refusal", "refusal": "I must decline."}]}
+    result = _run_turn(monkeypatch, tmp_path, payload)
+    assert bridge.PROVIDER_REFUSAL in result["output"]
+    assert "I must decline." in result["output"]
+    assert bridge.EMPTY_OUTPUT_RETRY not in result["output"]
+    assert result["debug"]["provider"]["refusal"] == "I must decline."
+
+
+def test_brain_turn_provider_error_surfaced_verbatim(tmp_path, monkeypatch):
+    payload = {"error": "upstream exploded", "output": []}
+    result = _run_turn(monkeypatch, tmp_path, payload)
+    assert bridge.PROVIDER_ERROR in result["output"]
+    assert "upstream exploded" in result["output"]
+    assert bridge.EMPTY_OUTPUT_RETRY not in result["output"]
+    assert result["debug"]["provider"]["error"] == "upstream exploded"
+
+
+def test_brain_turn_debug_provider_on_success(tmp_path, monkeypatch):
+    result = _run_turn(monkeypatch, tmp_path, _ok_payload("a real verdict"))
+    assert result["output"] == "a real verdict"
+    assert set(result["debug"]["provider"]) == {
+        "status", "incomplete_reason", "usage", "error", "refusal"}
+
+
+def test_brain_turn_high_effort_budget_warning(tmp_path, monkeypatch, capsys):
+    monkeypatch.setenv("BRAIN_MAX_TOKENS", "16384")
+    for effort in ("high", "xhigh"):
+        monkeypatch.setenv("BRAIN_REASONING_EFFORT", effort)
+        result = _run_turn(monkeypatch, tmp_path, _ok_payload("ok"))
+        assert result["output"] == "ok"
+    err = capsys.readouterr().err
+    # Both high-effort values must warn at the small cap (QA F4).
+    assert "'high'" in err
+    assert "'xhigh'" in err
+    assert "BRAIN_MAX_TOKENS" in err
+
+
+def test_brain_turn_low_effort_skips_budget_warning(tmp_path, monkeypatch,
+                                                    capsys):
+    monkeypatch.setenv("BRAIN_REASONING_EFFORT", "low")
+    monkeypatch.setenv("BRAIN_MAX_TOKENS", "16384")
+    result = _run_turn(monkeypatch, tmp_path, _ok_payload("ok"))
+    assert result["output"] == "ok"
+    assert "reasoning effort" not in capsys.readouterr().err
+
+
+def test_parse_responses_diagnostics_scalar_content_does_not_raise():
+    # A malformed nested "content" scalar must not abort diagnosis (QA F1).
+    for bad_content in (1, "text", {"type": "refusal"}, True):
+        diag = bridge.parse_responses_diagnostics(
+            {"output": [{"type": "message", "content": bad_content}]})
+        assert set(diag) == {
+            "status", "incomplete_reason", "usage", "error", "refusal"}
+        assert diag["refusal"] is None
+
+
+def test_parse_responses_diagnostics_non_finite_usage_is_none():
+    # nan/inf raise inside int(); the parser must swallow them (QA F2).
+    diag = bridge.parse_responses_diagnostics({
+        "usage": {
+            "input_tokens": float("nan"),
+            "output_tokens": float("inf"),
+            "total_tokens": float("-inf"),
+            "output_tokens_details": {"reasoning_tokens": float("nan")},
+        },
+    })
+    assert diag["usage"] == {
+        "input_tokens": None, "output_tokens": None,
+        "reasoning_tokens": None, "total_tokens": None}
+
+
 def test_brain_turn_large_prompt_warns_on_stderr(tmp_path, monkeypatch, capsys):
     big = "x" * (bridge._PROMPT_WARN_CHARS + 1)
     result = _run_turn(monkeypatch, tmp_path, _ok_payload("ok"), prompt=big)

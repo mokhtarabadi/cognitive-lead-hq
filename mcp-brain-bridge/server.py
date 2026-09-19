@@ -1193,6 +1193,24 @@ _OVERALL_DEADLINE_S = 500.0
 #: the Hands executor and regression tests match this exact string.
 EMPTY_OUTPUT_RETRY = "EMPTY_OUTPUT_RETRY"
 
+# Provider-diagnosis contract (Task 259): the Responses API can return a
+# blank visible text while carrying a precise cause — a top-level error, a
+# refusal content item, or ``status=incomplete`` with reason
+# ``max_output_tokens`` (the reasoning trace consumed the whole output
+# budget). Those are terminal for the turn and MUST NOT be misreported as
+# the EMPTY_OUTPUT_RETRY transport flake: a lean retry keeps the identical
+# effort and cap, so it can never fix an output-budget exhaustion.
+#: Machine token: output budget exhausted by reasoning (not a flake).
+OUTPUT_BUDGET_EXHAUSTED = "OUTPUT_BUDGET_EXHAUSTED"
+#: Machine token: the provider returned a top-level error.
+PROVIDER_ERROR = "PROVIDER_ERROR"
+#: Machine token: the provider returned a refusal content item.
+PROVIDER_REFUSAL = "PROVIDER_REFUSAL"
+#: Reasoning efforts that realistically exhaust a small output cap.
+_HIGH_EFFORT = {"high", "xhigh"}
+#: Below this cap, high/xhigh effort risks a reasoning-only (blank) finish.
+_REASONING_BUDGET_FLOOR = 32768
+
 # Prompt-size advisory threshold (chars). Pure hint, never a cap: past
 # this size the model has been observed returning empty output, so the
 # bridge logs a lean-retry suggestion to stderr BEFORE the call.
@@ -2366,13 +2384,20 @@ def brain_turn(
             )
         else:
             del body["reasoning"]
+    if "reasoning" in body:
+        # Guard the risky default (Task 259): reasoning tokens count
+        # against max_output_tokens, so high/xhigh effort with a small cap
+        # can exhaust the budget and finish with reasoning-only output.
+        _maybe_warn_reasoning_budget(
+            body["reasoning"]["effort"], body["max_output_tokens"])
     _note_checkpoint("transport_started", task_id=task_id,
                      session_id=session_id, project_root=project_root)
     resp, attempts = _send_with_learning(
         _make_client, _responses_url(), body,
         task_key=history_key, task_id=task_id, session_id=session_id,
         project_root=project_root)
-    output = parse_responses_text(_resp_json(resp))
+    resp_data = _resp_json(resp)
+    output = parse_responses_text(resp_data)
     _note_checkpoint("response_parsed", task_id=task_id,
                      session_id=session_id, project_root=project_root)
     xml_blocks = extract_xml_blocks(output)
@@ -2388,13 +2413,26 @@ def brain_turn(
                       + "\n".join(f"- {p}" for p in sem_problems)
                       + "\n[/xml-semantic-reject]\n" + output)
             xml_blocks = []
+    diag = parse_responses_diagnostics(resp_data)
+    _log_provider_diagnostics(diag)
     if not xml_blocks and not output.strip():
-        # Empty-output guard (Task 232): never return a silent blank
-        # REPORT. Substitute the retry hint; status stays REPORT so old
-        # callers keep working. The transcript below records the hint,
-        # not a verdict.
-        output = _empty_output_hint(
-            task_id, _task_state_note(history_key, project_root))
+        # Empty-output triage (Task 259): classify the provider diagnosis
+        # BEFORE falling back to the flake hint. Order is load-bearing:
+        # top-level error -> refusal -> output-budget exhaustion -> flake.
+        state = _task_state_note(history_key, project_root)
+        if diag["error"]:
+            output = _provider_error_hint(diag["error"])
+        elif diag["refusal"]:
+            output = _provider_refusal_hint(diag["refusal"])
+        elif (diag["status"] == "incomplete"
+              and diag["incomplete_reason"] == "max_output_tokens"):
+            output = _output_budget_hint(diag, task_id, state)
+        else:
+            # Transport/model flake (Task 232): never return a silent
+            # blank REPORT. Substitute the retry hint; status stays
+            # REPORT so old callers keep working. The transcript below
+            # records the hint, not a verdict.
+            output = _empty_output_hint(task_id, state)
     fence_drops = list(_last_fence_drops)
     if history_key:
         prompt_hash = hashlib.sha256(effective_prompt.encode("utf-8")).hexdigest()
@@ -2414,11 +2452,11 @@ def brain_turn(
         "retry_count": attempts,
         "prompt_cache_split": cache_split,
     }
+    debug: dict[str, Any] = {"provider": diag}
     if fence_drops:
-        result["debug"] = {
-            "fenced_blocks": len(fence_drops),
-            "snippets": fence_drops,
-        }
+        debug["fenced_blocks"] = len(fence_drops)
+        debug["snippets"] = fence_drops
+    result["debug"] = debug
     return result
 
 
@@ -2493,6 +2531,192 @@ def _empty_output_hint(task_id: Optional[str] = None,
         "If the full-context call is still empty, escalate to the Manager."
         + note
     )
+
+
+def _as_int(value: Any) -> Optional[int]:
+    """Coerce a usage counter to int; ``None`` when absent/unparseable.
+
+    Non-finite floats (``nan``/``inf``) raise inside ``int()`` — they are
+    swallowed here so malformed provider usage can never abort diagnosis
+    (Task 259 hotfix, QA F2).
+    """
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        try:
+            return int(value)
+        except (ValueError, OverflowError):
+            return None
+    return None
+
+
+def parse_responses_diagnostics(data: Any) -> dict:
+    """Extract provider diagnostics from a Responses payload (pure).
+
+    Never raises on missing or malformed fields: every key is present with
+    a ``None`` or zeroed value so the caller can return a stable shape on
+    every turn (Task 259 contract). ``refusal`` collects refusal text from
+    both direct ``type=="refusal"`` output items and nested content chunks,
+    so it does not depend on a ``type=="message"`` item existing.
+    """
+    diag: dict[str, Any] = {
+        "status": None,
+        "incomplete_reason": None,
+        "usage": {
+            "input_tokens": None,
+            "output_tokens": None,
+            "reasoning_tokens": None,
+            "total_tokens": None,
+        },
+        "error": None,
+        "refusal": None,
+    }
+    if not isinstance(data, dict):
+        return diag
+
+    status = data.get("status")
+    if isinstance(status, str) and status:
+        diag["status"] = status
+
+    incomplete = data.get("incomplete_details")
+    if isinstance(incomplete, dict):
+        reason = incomplete.get("reason")
+        if isinstance(reason, str) and reason:
+            diag["incomplete_reason"] = reason
+
+    usage = data.get("usage")
+    if isinstance(usage, dict):
+        diag["usage"]["input_tokens"] = _as_int(usage.get("input_tokens"))
+        diag["usage"]["output_tokens"] = _as_int(usage.get("output_tokens"))
+        diag["usage"]["total_tokens"] = _as_int(usage.get("total_tokens"))
+        details = usage.get("output_tokens_details")
+        if isinstance(details, dict):
+            diag["usage"]["reasoning_tokens"] = _as_int(
+                details.get("reasoning_tokens"))
+
+    error = data.get("error")
+    if isinstance(error, str) and error.strip():
+        diag["error"] = error.strip()
+    elif isinstance(error, dict):
+        message = error.get("message")
+        if isinstance(message, str) and message.strip():
+            diag["error"] = message.strip()
+        elif error:
+            # Serialization must never raise on exotic scalar types inside the
+            # error object (Task 259 hotfix) — fall back to repr.
+            try:
+                diag["error"] = json.dumps(error, ensure_ascii=False)
+            except (TypeError, ValueError):
+                diag["error"] = str(error)
+    elif error is not None and not isinstance(error, list):
+        diag["error"] = str(error)
+
+    output = data.get("output")
+    if isinstance(output, list):
+        for item in output:
+            if not isinstance(item, dict):
+                continue
+            if item.get("type") == "refusal":
+                text = item.get("refusal")
+                if isinstance(text, str) and text.strip():
+                    diag["refusal"] = text.strip()
+                    break
+            if item.get("type") == "message":
+                # "content" may be absent, null, or a malformed scalar; only a
+                # real list is iterable (Task 259 hotfix, QA F1).
+                content = item.get("content")
+                if not isinstance(content, list):
+                    continue
+                for chunk in content:
+                    if (isinstance(chunk, dict)
+                            and chunk.get("type") == "refusal"):
+                        text = chunk.get("refusal")
+                        if isinstance(text, str) and text.strip():
+                            diag["refusal"] = text.strip()
+                            break
+                if diag["refusal"]:
+                    break
+    return diag
+
+
+def _log_provider_diagnostics(diag: dict) -> None:
+    """Emit one compact diagnostics line to stderr on every turn (AC1)."""
+    usage = diag.get("usage")
+    if not isinstance(usage, dict):
+        usage = {}
+    print(
+        "brain-bridge: provider diag "
+        f"status={diag.get('status')} "
+        f"incomplete_reason={diag.get('incomplete_reason')} "
+        f"input_tokens={usage.get('input_tokens')} "
+        f"output_tokens={usage.get('output_tokens')} "
+        f"reasoning_tokens={usage.get('reasoning_tokens')} "
+        f"total_tokens={usage.get('total_tokens')} "
+        f"error={diag.get('error')!r} refusal={diag.get('refusal')!r}",
+        file=sys.stderr)
+
+
+def _provider_error_hint(error: str) -> str:
+    """Surface a top-level provider error verbatim (Task 259, terminal)."""
+    return (
+        f"{PROVIDER_ERROR}: the provider returned an error "
+        "(terminal for this turn, never a verdict):\n"
+        f"{error}"
+    )
+
+
+def _provider_refusal_hint(refusal: str) -> str:
+    """Surface a refusal content item verbatim (Task 259, terminal)."""
+    return (
+        f"{PROVIDER_REFUSAL}: the model refused this request "
+        "(terminal for this turn, never a verdict):\n"
+        f"{refusal}"
+    )
+
+
+def _output_budget_hint(diag: dict, task_id: Optional[str] = None,
+                        state: Optional[str] = None) -> str:
+    """Terminal hint for a reasoning-exhausted output budget (Task 259).
+
+    Deliberately NOT ``EMPTY_OUTPUT_RETRY``: a lean retry reuses the same
+    effort and cap, so it can never recover a ``max_output_tokens``
+    finish. Pure function (no I/O), so tests assert the contract directly.
+    """
+    where = f" for task {task_id}" if task_id else ""
+    note = f" Current state: {state}." if state else ""
+    usage = diag.get("usage") or {}
+    return (
+        f"{OUTPUT_BUDGET_EXHAUSTED}: the model produced no visible text{where} "
+        "because its reasoning trace exhausted the output-token budget "
+        "(status=incomplete, reason=max_output_tokens). "
+        "This is NOT a transport flake: do NOT lean-retry and do NOT count "
+        "it as a rejection — the same effort/cap would fail identically. "
+        "Remediate by lowering BRAIN_REASONING_EFFORT (e.g. to medium or low) "
+        "or raising BRAIN_MAX_TOKENS (recommend 32768 or higher when the "
+        "model supports it), then re-run the turn with full context. "
+        f"Usage: input={usage.get('input_tokens')} "
+        f"output={usage.get('output_tokens')} "
+        f"reasoning={usage.get('reasoning_tokens')} "
+        f"total={usage.get('total_tokens')}." + note
+    )
+
+
+def _maybe_warn_reasoning_budget(effort: str, max_tokens: int) -> None:
+    """Warn (non-breaking) when high effort runs with a small cap (C6).
+
+    Reasoning tokens count against ``max_output_tokens``; the bridge keeps
+    its 16384 default in this task, so the risky combination is surfaced
+    to stderr before the provider request instead of silently failing.
+    """
+    if effort in _HIGH_EFFORT and max_tokens < _REASONING_BUDGET_FLOOR:
+        print(
+            f"brain-bridge: warning: reasoning effort {effort!r} with "
+            f"max_output_tokens={max_tokens} (< {_REASONING_BUDGET_FLOOR}) "
+            "can exhaust the output budget and return blank text; raise "
+            "BRAIN_MAX_TOKENS or lower BRAIN_REASONING_EFFORT.",
+            file=sys.stderr)
 
 
 def parse_responses_text(data: dict) -> str:

@@ -194,6 +194,13 @@ _SCRUB_FIELDS = ("original", "english_translation", "summary", "rationale", "tra
 #: Built-in extraction model when DECISION_MODEL is not set.
 DEFAULT_DECISION_MODEL = "gpt-6-astra"
 
+# Provider-failure machine tokens (Task 259) — deliberately distinct from a
+# generic blank: the turn is terminal for the caller's retry logic, so the
+# extraction surface never blames the transcript when the provider failed.
+OUTPUT_BUDGET_EXHAUSTED = "OUTPUT_BUDGET_EXHAUSTED"
+PROVIDER_ERROR = "PROVIDER_ERROR"
+PROVIDER_REFUSAL = "PROVIDER_REFUSAL"
+
 
 def _get_decision_temperature() -> float:
     """Extraction sampling temperature; override via ``DECISION_TEMPERATURE``.
@@ -402,6 +409,176 @@ def _responses_text(data: dict) -> str:
             if isinstance(text, str) and text:
                 parts.append(text)
     return "\n".join(parts)
+
+
+def _as_int(value: Any) -> Optional[int]:
+    """Coerce a usage counter to int; ``None`` when absent/unparseable.
+
+    Non-finite floats (``nan``/``inf``) raise inside ``int()`` — they are
+    swallowed here so malformed provider usage can never abort diagnosis
+    (Task 259 hotfix, QA F2).
+    """
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        try:
+            return int(value)
+        except (ValueError, OverflowError):
+            return None
+    return None
+
+
+def _responses_diagnostics(data: Any) -> dict:
+    """Extract provider diagnostics from a Responses payload (pure).
+
+    Mirrors ``mcp-brain-bridge`` (Task 259): never raises on missing or
+    malformed fields — every key is present with a ``None`` value so the
+    caller sees a stable shape on every call. ``refusal`` collects refusal
+    text from both direct ``type=="refusal"`` output items and nested
+    content chunks, so it does not depend on a ``type=="message"`` item.
+    """
+    diag: dict[str, Any] = {
+        "status": None,
+        "incomplete_reason": None,
+        "usage": {
+            "input_tokens": None,
+            "output_tokens": None,
+            "reasoning_tokens": None,
+            "total_tokens": None,
+        },
+        "error": None,
+        "refusal": None,
+    }
+    if not isinstance(data, dict):
+        return diag
+
+    status = data.get("status")
+    if isinstance(status, str) and status:
+        diag["status"] = status
+
+    incomplete = data.get("incomplete_details")
+    if isinstance(incomplete, dict):
+        reason = incomplete.get("reason")
+        if isinstance(reason, str) and reason:
+            diag["incomplete_reason"] = reason
+
+    usage = data.get("usage")
+    if isinstance(usage, dict):
+        diag["usage"]["input_tokens"] = _as_int(usage.get("input_tokens"))
+        diag["usage"]["output_tokens"] = _as_int(usage.get("output_tokens"))
+        diag["usage"]["total_tokens"] = _as_int(usage.get("total_tokens"))
+        details = usage.get("output_tokens_details")
+        if isinstance(details, dict):
+            diag["usage"]["reasoning_tokens"] = _as_int(
+                details.get("reasoning_tokens"))
+
+    error = data.get("error")
+    if isinstance(error, str) and error.strip():
+        diag["error"] = error.strip()
+    elif isinstance(error, dict):
+        message = error.get("message")
+        if isinstance(message, str) and message.strip():
+            diag["error"] = message.strip()
+        elif error:
+            # Serialization must never raise on exotic scalar types inside the
+            # error object (Task 259 hotfix) — fall back to repr.
+            try:
+                diag["error"] = json.dumps(error, ensure_ascii=False)
+            except (TypeError, ValueError):
+                diag["error"] = str(error)
+    elif error is not None and not isinstance(error, list):
+        diag["error"] = str(error)
+
+    output = data.get("output")
+    if isinstance(output, list):
+        for item in output:
+            if not isinstance(item, dict):
+                continue
+            if item.get("type") == "refusal":
+                text = item.get("refusal")
+                if isinstance(text, str) and text.strip():
+                    diag["refusal"] = text.strip()
+                    break
+            if item.get("type") == "message":
+                # "content" may be absent, null, or a malformed scalar; only a
+                # real list is iterable (Task 259 hotfix, QA F1).
+                content = item.get("content")
+                if not isinstance(content, list):
+                    continue
+                for chunk in content:
+                    if (isinstance(chunk, dict)
+                            and chunk.get("type") == "refusal"):
+                        text = chunk.get("refusal")
+                        if isinstance(text, str) and text.strip():
+                            diag["refusal"] = text.strip()
+                            break
+                if diag["refusal"]:
+                    break
+    return diag
+
+
+def _log_responses_diagnostics(diag: dict) -> None:
+    """Emit one compact diagnostics line to stderr on every provider call."""
+    usage = diag.get("usage")
+    if not isinstance(usage, dict):
+        usage = {}
+    print(
+        "decision-server: provider diag "
+        f"status={diag.get('status')} "
+        f"incomplete_reason={diag.get('incomplete_reason')} "
+        f"input_tokens={usage.get('input_tokens')} "
+        f"output_tokens={usage.get('output_tokens')} "
+        f"reasoning_tokens={usage.get('reasoning_tokens')} "
+        f"total_tokens={usage.get('total_tokens')} "
+        f"error={diag.get('error')!r} refusal={diag.get('refusal')!r}",
+        file=sys.stderr)
+
+
+def _provider_failure_message(diag: dict) -> Optional[str]:
+    """Precise terminal error for an empty envelope with a known cause.
+
+    Returns ``None`` when the empty text has no provider cause (a genuine
+    model blank), letting the caller fall through to the existing generic
+    non-JSON error. Otherwise returns a message carrying the machine token
+    and the verbatim cause, in the same precedence the bridge uses:
+    error, then refusal, then max_output_tokens exhaustion.
+    """
+    # Normalize before reading so a malformed scalar ``usage`` cannot raise
+    # inside the budget branch; terminal classification is preserved with
+    # null usage values (Task 259 hotfix, QA F3).
+    usage = diag.get("usage")
+    if not isinstance(usage, dict):
+        usage = {}
+    if diag.get("error"):
+        return (
+            f"decision model returned no text: {PROVIDER_ERROR} — the "
+            "provider returned an error (terminal, not a model blank):\n"
+            f"{diag['error']}"
+        )
+    if diag.get("refusal"):
+        return (
+            f"decision model returned no text: {PROVIDER_REFUSAL} — the model "
+            "refused this request (terminal, not a model blank):\n"
+            f"{diag['refusal']}"
+        )
+    if (diag.get("status") == "incomplete"
+            and diag.get("incomplete_reason") == "max_output_tokens"):
+        return (
+            f"decision model returned no text: {OUTPUT_BUDGET_EXHAUSTED} — the "
+            "reasoning trace exhausted the output-token budget "
+            "(status=incomplete, reason=max_output_tokens). This is NOT a "
+            "model blank and NOT a transport flake; retrying with the same "
+            "effort/cap fails identically. Lower DECISION_REASONING_EFFORT "
+            "(or BRAIN_REASONING_EFFORT, e.g. to medium or low) or raise the "
+            "provider output cap, then re-run. "
+            f"Usage: input={usage.get('input_tokens')} "
+            f"output={usage.get('output_tokens')} "
+            f"reasoning={usage.get('reasoning_tokens')} "
+            f"total={usage.get('total_tokens')}."
+        )
+    return None
 
 
 def _utc_today() -> str:
@@ -1073,6 +1250,10 @@ def extract_session_decisions(
             client, api_base.rstrip("/") + "/responses", body
         )
         data = _resp_json(resp)
+    # Task 259: diagnose the provider turn once, log it, and reuse it to
+    # avoid misreporting a provider failure as a model-transcript blank.
+    diag = _responses_diagnostics(data)
+    _log_responses_diagnostics(diag)
     candidates: Any = None
     snippet = ""
     snippet_is_model_text = False
@@ -1101,6 +1282,13 @@ def extract_session_decisions(
         # (Task 191).
         snippet = _responses_text(data).strip()
         snippet_is_model_text = True
+        if not snippet:
+            # Task 259: an empty envelope is only a model blank when the
+            # provider reports no cause. Surface error/refusal/budget
+            # exhaustion verbatim instead of a misleading non-JSON error.
+            provider_failure = _provider_failure_message(diag)
+            if provider_failure:
+                raise RuntimeError(provider_failure)
         candidates = _parse_model_text(snippet, transcript_text, _note_repair)
         if isinstance(candidates, dict):
             if "candidates" in candidates:
