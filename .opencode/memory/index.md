@@ -5,6 +5,7 @@
 | Namespace | Key | Summary | Tags |
 | :--- | :--- | :--- | :--- |
 | architecture | brain-hands-architecture-2026-08-21 | # Brain + Hands Architecture Decision — 2026-08-21 |  |
+| architecture | responses_api_provider_diagnostics | # Responses-API servers must surface provider diagnostics |  |
 | manager | english_only_reasoning_responses | English-only standing order (Manager order 2026-09-17): agent must NEVER think, reason, or respond in any non-English... |  |
 | manager | full_automatic_mode | STANDING ORDER — FULL AUTOMATIC MODE. Manager has no session access and cannot be paged. Zero questions, zero clarifi... |  |
 | manager-decisions | autopilot_consult_all_personas | Session 2026-09-14 (tasks 230+231 closure): the Manager ordered that in autopilot the Hands must consult ALL Brain pe... |  |

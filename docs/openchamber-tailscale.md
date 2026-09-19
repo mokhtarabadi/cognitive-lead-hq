@@ -1,12 +1,12 @@
 # OpenChamber over Tailscale — Setup & Usage (this workstation)
 
-> Live since 2026-09-08. Server: `vm15996266` (Tailscale IP `100.82.29.19`), port **3005**.
-> Cloudflare Tunnel with a real domain is a LATER step — this doc covers Tailscale-only access.
+> Live since 2026-09-08. Server: `vm15996266` (loopback `127.0.0.1:3005` for Cloudflare Tunnel + Tailscale via `openchamber.surfshield.org`), port **3005**.
+> Cloudflare Tunnel active 2026-09-19: `openchamber.surfshield.org` → `http://127.0.0.1:3005` via host-native `cloudflared` (system `cloudflared.service` v2026.9.1). Tailscale direct `100.82.29.19:3005` retired 2026-09-19 in favor of loopback for tunnel — see §7.
 
 ## 1. What is running
 
-- **OpenChamber 1.22.2** (global npm: `@openchamber/web`), daemon PID varies — check with `openchamber status`.
-  - Web UI: `100.82.29.19:3005` (Tailscale-only bind `--host 100.82.29.19`; public `194.76.154.73:3005` is **refused** — not `0.0.0.0`).
+- **OpenChamber 1.24.2** (global npm: `@openchamber/web`), daemon PID varies — check with `openchamber status`.
+  - Web UI: `127.0.0.1:3005` (loopback bind `--host 127.0.0.1`; Tailscale IP `100.82.29.19:3005` and public `194.76.154.73:3005` are **refused** — not `0.0.0.0`). Access locally via `http://127.0.0.1:3005`, remotely via Cloudflare `https://openchamber.surfshield.org` (tunnel → `127.0.0.1:3005`) — see §3-4. Legacy Tailscale `100.82.29.19:3005` retired 2026-09-19.
   - External OpenCode server (stability fix 2026-09-10): `opencode-server.service` (systemd user unit, `~/.config/systemd/user/opencode-server.service`) runs `/home/mohammad/.opencode/bin/opencode serve --hostname 127.0.0.1 --port 4096` — **loopback-only**, `Restart=on-failure`, enabled at boot. OpenChamber attaches via drop-in `~/.config/systemd/user/openchamber.service.d/external-opencode.conf` (`OPENCODE_HOST=http://127.0.0.1:4096`, `OPENCODE_SKIP_START=true`, `After=opencode-server.service`). Why: the OpenChamber-supervised managed server stalled its event loop every few hours (all 5 MCPs `server unavailable` simultaneously, watchdog restarts 3×/24h — see §2c). Community-proven path (upstream issue #2258: 3 days stable). Rollback: delete the drop-in, `daemon-reload`, restart openchamber → back to managed.
   - Managed OpenCode (OLD, pre-2026-09-10): auto-started by OpenChamber on a dynamic loopback port — replaced by the external server above.
   - UI password: enabled. Secret lives ONLY in `~/.secrets/openchamber-ui-password` (`chmod 600`). Never committed.
@@ -18,9 +18,9 @@
 
 ```bash
 openchamber status                        # running runtimes (expect: port 3005, password: yes)
-curl -s -o /dev/null -w "%{http_code}\n" http://100.82.29.19:3005/     # expect 200 (Tailscale IP; use this locally too)
+curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:3005/     # expect 200 (Tailscale IP; use this locally too)
 curl -s -m 5 -o /dev/null -w "%{http_code}\n" http://194.76.154.73:3005/ && echo "PUBLIC STILL OPEN" || echo "public refused (good)"
-# note: http://127.0.0.1:3005/ is refused when bound to Tailscale IP — expected
+# note: http://100.82.29.19:3005/ is now refused when bound to loopback — expected (use 127.0.0.1)
 timeout 8 openchamber logs -p 3005 | head -n 30   # recent log (logs cmd follows; always wrap in timeout)
 export OPENCHAMBER_UI_PASSWORD="$(cat ~/.secrets/openchamber-ui-password)"  # password via env, avoids ps exposure
 openchamber startup status                # startup enabled, service active, lingering enabled
@@ -34,9 +34,9 @@ openchamber update                        # update OpenChamber later
 
 ### 2b. Auto-start at boot (systemd user service)
 
-- Enabled via `export OPENCHAMBER_UI_PASSWORD="$(cat ~/.secrets/openchamber-ui-password)" && openchamber startup enable --port 3005 --host 100.82.29.19` → writes `~/.config/systemd/user/openchamber.service` (`ExecStart=... serve --foreground --port 3005 --host 100.82.29.19`, `Restart=always`, `RestartSec=5`).
+- Enabled via `export OPENCHAMBER_UI_PASSWORD="$(cat ~/.secrets/openchamber-ui-password)" && openchamber startup enable --port 3005 --host 127.0.0.1` (was `--host 100.82.29.19` Tailscale-only until 2026-09-19; now loopback for Cloudflare Tunnel — see §7) → writes `~/.config/systemd/user/openchamber.service` (`ExecStart=... serve --foreground --port 3005 --host 127.0.0.1` (was `100.82.29.19` until 2026-09-19), `Restart=always`, `RestartSec=5`).
 - Lingering via `sudo loginctl enable-linger mohammad` → `loginctl show-user mohammad` shows `Linger=yes`, `State=active` — user manager starts at boot even without login.
-- Verification: `openchamber startup status` → `startup enabled`, `service active`, `user lingering enabled`; `systemctl --user is-enabled openchamber` → `enabled`; `systemctl --user is-active openchamber` → `active`; `ss -tlnp | grep 3005` → `100.82.29.19:3005` LISTEN; reboot → auto-starts, crash → restarts in 5s (`NRestarts` stays 0 when stable).
+- Verification: `openchamber startup status` → `startup enabled`, `service active`, `user lingering enabled`; `systemctl --user is-enabled openchamber` → `enabled`; `systemctl --user is-active openchamber` → `active`; `ss -tlnp | grep 3005` → `127.0.0.1:3005` LISTEN; reboot → auto-starts, crash → restarts in 5s (`NRestarts` stays 0 when stable).
 - Re-enable after password change: repeat the `startup enable` command (it rewrites `startup.env` with the new password) — do **not** hand-edit `startup.env`/`jwt-secret` (both `600`).
 
 ### 2c. External OpenCode server (stability fix 2026-09-10 — replaces managed server)
@@ -52,15 +52,15 @@ openchamber update                        # update OpenChamber later
 ## 3. Connect from a PC (mohammad-pc-1 / cando — Tailscale)
 
 1. Join the same tailnet on the PC (`tailscale status` must show `vm15996266`).
-2. Open `http://100.82.29.19:3005/` in the browser. Enter the UI password (ask the server owner; it is in `~/.secrets/` on the server only).
+2. Open `https://openchamber.surfshield.org/` (Cloudflare Tunnel → `127.0.0.1:3005`) in the browser, or `http://127.0.0.1:3005/` locally. Legacy `http://100.82.29.19:3005` is refused after 2026-09-19. Enter the UI password (ask the server owner; it is in `~/.secrets/` on the server only).
 3. Recommended: pair properly instead of password-every-time —
-   on the server run `openchamber connect-url --port 3005 --server http://100.82.29.19:3005 --qr`,
+   on the server run `openchamber connect-url --port 3005 --server https://openchamber.surfshield.org --qr` (was `http://100.82.29.19:3005` until 2026-09-19),
    then in OpenChamber Desktop use *Settings → Remote Instances → Direct Instances → Import Link* (or scan QR from mobile). Links are **single-use and expire** — generate a fresh one per device.
 4. Desktop app can then switch between direct (Tailscale) and Relay transports; green dot = connected.
 
 ## 4. Connect from Android (redmi-note-13 / xiaomi-2312fpca6g — Tailscale)
 
-1. Install Tailscale from Play Store, log in to the same tailnet, verify `tailscale status` on the server shows the phone.
+1. Install Tailscale from Play Store, log in to the same tailnet, or just open `https://openchamber.surfshield.org` via Cloudflare (no Tailscale needed externally); verify `tailscale status` if using Tailscale link.
 2. Option A (native): install the OpenChamber Android APK from `https://github.com/openchamber/openchamber/releases/latest`, open it, *Scan QR* from a fresh server-side `connect-url --qr` (Home-network scope is enough on Tailscale).
 3. Option B (no install): in Chrome open `http://100.82.29.19:3005/`, log in with the UI password, then *Install app / Add to Home Screen* (PWA).
 4. For away-from-home use, re-pair with **Anywhere** scope so the E2E Relay takes over when Tailscale direct is unreachable (server holds outbound to relay infra; no ports opened).
@@ -76,9 +76,9 @@ openchamber update                        # update OpenChamber later
 | Symptom | Check |
 |---|---|
 | Browser gets 307 → `/fa` on :3000 | You hit the Next.js app, not OpenChamber — use **:3005**. |
-| `curl` to :3005 hangs/refused | `openchamber status`; `ss -tlnp \| grep 3005` should show `100.82.29.19:3005` LISTEN; `curl http://100.82.29.19:3005/` → 200; public IP → refused is expected. |
-| `curl http://127.0.0.1:3005/` refused | Expected — bound to Tailscale IP only, not `0.0.0.0`/`127.0.0.1`. Use `http://100.82.29.19:3005/` locally too. |
-| Startup not starting at boot | `systemctl --user is-enabled openchamber` → `enabled`; `loginctl show-user mohammad | grep Linger` → `yes`; `systemctl --user status openchamber`; `journalctl --user -u openchamber -n 30`. Re-enable: `export OPENCHAMBER_UI_PASSWORD="$(cat ~/.secrets/openchamber-ui-password)" && openchamber startup enable --port 3005 --host 100.82.29.19` + `sudo loginctl enable-linger mohammad`. |
+| `curl` to :3005 hangs/refused | `openchamber status`; `ss -tlnp \| grep 3005` should show `127.0.0.1:3005` LISTEN; `curl http://127.0.0.1:3005/` → 200; public IP → refused is expected. |
+| `curl http://100.82.29.19:3005/` refused | Expected after 2026-09-19 — bound to loopback only (`127.0.0.1:3005`). Use `http://127.0.0.1:3005/` locally or `https://openchamber.surfshield.org` remotely. |
+| Startup not starting at boot | `systemctl --user is-enabled openchamber` → `enabled`; `loginctl show-user mohammad | grep Linger` → `yes`; `systemctl --user status openchamber`; `journalctl --user -u openchamber -n 30`. Re-enable: `export OPENCHAMBER_UI_PASSWORD="$(cat ~/.secrets/openchamber-ui-password)" && openchamber startup enable --port 3005 --host 127.0.0.1` + `sudo loginctl enable-linger mohammad`. |
 | Tailscale IP unreachable from phone/PC | `tailscale status` both ends; `tailscale ping 100.82.29.19`; ensure Tailscale is up (not logged out). |
 | Chat/notifications stall | Check `timeout 8 openchamber logs -p 3005`; external OpenCode `:4096` must stay loopback (`curl http://127.0.0.1:4096/session` → 200); restart order: `opencode-server` then `openchamber` (see §2c). |
 | All MCP tools unavailable to AI at once | Known managed-server stall (pre-§2c): every session logs `server unavailable` ×5 every 30s. Check `systemctl --user is-active opencode-server` + `:4096` health; restart both per §2c. If it recurs on the external server, capture `journalctl --user -u opencode-server` + RSS trend (`ps -o pid,etime,%mem,rss -C opencode`) for an upstream issue. |
@@ -87,8 +87,8 @@ openchamber update                        # update OpenChamber later
 
 ## 7. Security notes
 
-- Tailscale-only bind `--host 100.82.29.19`: `ss -tlnp` shows `100.82.29.19:3005` not `0.0.0.0:3005`; public IP `194.76.154.73:3005` → refused, loopback `127.0.0.1:3005` → refused — only tailnet peers (`mmokhtarabadi@gmail.com` tailnet, 5 peers) can reach it. Prior `0.0.0.0` bind was publicly reachable and has been hardened.
+- Loopback bind `--host 127.0.0.1` (since 2026-09-19, was `--host 100.82.29.19` until 2026-09-19): `ss -tlnp` shows `127.0.0.1:3005` not `0.0.0.0:3005`; public IP `194.76.154.73:3005` → refused, Tailscale IP `100.82.29.19:3005` → refused — only loopback + Cloudflare Tunnel `openchamber.surfshield.org` can reach it (`mmokhtarabadi@gmail.com` tailnet, 5 peers) can reach it. Prior `0.0.0.0` bind was publicly reachable and has been hardened.
 - Secrets: `~/.secrets/openchamber-ui-password` (`600`), `~/.config/openchamber/jwt-secret` (`600`), `~/.config/openchamber/startup.env` (`600`, contains password for systemd — never committed). UI password stays ON, pairing links stay single-use and expire, passkeys clear on password change.
 - Auto-start: `openchamber.service` `enabled` + `Linger=yes` + `Restart=always` — survives reboot/logout/crash; verify with `openchamber startup status` and `systemctl --user is-active openchamber`.
-- Next step (separate task): Cloudflare Tunnel `managed-remote` with your domain + account token for public URLs. Do NOT run a Quick tunnel with the real password for anything but a smoke test.
+- Cloudflare Tunnel active 2026-09-19: host-native `cloudflared` system service (`cloudflared.service` v2026.9.1, token `/etc/cloudflared/token`) proxies `https://openchamber.surfshield.org` → `http://127.0.0.1:3005` and `https://code.surfshield.org` → `http://127.0.0.1:8080`. See `docs/cloudflared.md`. Do NOT run a Quick tunnel with the real password for anything but a smoke test.
 - External OpenCode `:4096` is loopback-only (`127.0.0.1:4096`, never `0.0.0.0`) — not reachable via Tailscale or public IP by design; remote devices always go through OpenChamber `:3005`.
