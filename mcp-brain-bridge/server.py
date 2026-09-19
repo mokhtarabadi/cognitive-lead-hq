@@ -1006,32 +1006,100 @@ def _get_brain_model() -> str:
 
 
 def _routing_enabled() -> bool:
-    """Risk-aware routing master switch; default OFF (Task 246).
+    """Risk-aware routing master switch; default ON (Task 261).
 
-    Accepts ``1/true/yes/on`` (case-insensitive); anything else —
-    including blank — keeps today's single-model behavior exactly."""
-    return os.environ.get(
-        "BRAIN_RISK_ROUTING_ENABLED", "").strip().lower() in (
-            "1", "true", "yes", "on")
+    Blank/unset means enabled, so the routing baseline works with no
+    ``.env`` entry at all. An explicit falsy value (``0/false/no/off``
+    or anything unrecognized) turns routing off and restores the
+    single-model behavior exactly; ``1/true/yes/on`` keeps it on."""
+    raw = os.environ.get("BRAIN_RISK_ROUTING_ENABLED", "").strip().lower()
+    if not raw:
+        return True
+    return raw in ("1", "true", "yes", "on")
+
+
+#: Built-in per-tier model defaults (Task 261). They apply only when the
+#: corresponding ``.env`` key is UNSET; an explicitly BLANK value falls
+#: back to ``BRAIN_MODEL`` instead (see ``_get_model_low``).
+_MODEL_LOW_DEFAULT = "deepseek/deepseek-v4.1-flash"
+_MODEL_HIGH_DEFAULT = "openai/gpt-5.6-luna"
 
 
 def _get_model_low() -> str:
-    """Override model for T0 turns; blank means fall back to the
-    current model (``BRAIN_MODEL``). Stripped, never defaulted here —
-    the pure resolver below owns the fallback."""
-    return os.environ.get("BRAIN_MODEL_LOW", "").strip()
+    """Model for light turns; override via ``BRAIN_MODEL_LOW``.
+
+    Three-state contract (Task 261): UNSET uses the built-in default so
+    the routing baseline works with no ``.env`` entry; set-but-BLANK
+    returns an empty string, which the pure resolver below maps back to
+    ``BRAIN_MODEL``. The distinction is deliberate — an operator who
+    clears the override gets the ``BRAIN_MODEL`` fallback, never a
+    silent switch to the built-in routed model."""
+    raw = os.environ.get("BRAIN_MODEL_LOW")
+    if raw is None:
+        return _MODEL_LOW_DEFAULT
+    return raw.strip()
 
 
 def _get_model_high() -> str:
-    """Override model for T1/T2 turns; blank means fall back to the
-    current model (``BRAIN_MODEL``). Stripped, never defaulted here."""
-    return os.environ.get("BRAIN_MODEL_HIGH", "").strip()
+    """Model for hard turns; override via ``BRAIN_MODEL_HIGH``.
+
+    Same three-state contract as ``_get_model_low``: UNSET uses the
+    built-in default, set-but-BLANK falls back to ``BRAIN_MODEL``."""
+    raw = os.environ.get("BRAIN_MODEL_HIGH")
+    if raw is None:
+        return _MODEL_HIGH_DEFAULT
+    return raw.strip()
 
 
 #: Tier sets for routing. Case-sensitive on purpose: a lowercase
 #: ``t0`` is an invalid tier and must fail safe to the default model.
 _ROUTED_LOW_TIERS = frozenset({"T0"})
 _ROUTED_HIGH_TIERS = frozenset({"T1", "T2"})
+
+#: Default stage-to-tier map (Task 261): the hard turns get the strong
+#: model, the light turns the cheap one. Overridable per stage through
+#: ``BRAIN_STAGE_TIERS`` so no value is hardcoded beyond its default.
+_DEFAULT_STAGE_TIERS: dict[str, str] = {
+    "plan": "T2",
+    "review": "T2",
+    "implement": "T0",
+    "qa": "T0",
+    "closure": "T0",
+}
+
+
+def _get_stage_tiers() -> dict[str, str]:
+    """Stage-to-tier map; override entries via ``BRAIN_STAGE_TIERS``.
+
+    Format: ``stage:Tier`` pairs, comma-separated, e.g.
+    ``plan:T2,qa:T0``. Overrides merge onto the built-in default, and
+    an unusable pair (bad stage or unknown tier) is ignored rather
+    than failing a turn."""
+    mapping = dict(_DEFAULT_STAGE_TIERS)
+    raw = os.environ.get("BRAIN_STAGE_TIERS", "").strip()
+    if not raw:
+        return mapping
+    valid_tiers = _ROUTED_LOW_TIERS | _ROUTED_HIGH_TIERS
+    for pair in raw.split(","):
+        stage, _, tier = pair.partition(":")
+        stage = stage.strip().lower()
+        tier = tier.strip()
+        if stage and tier in valid_tiers:
+            mapping[stage] = tier
+    return mapping
+
+
+def resolve_stage_tier(stage: Optional[str],
+                       stage_tiers: dict[str, str]) -> Optional[str]:
+    """Pure stage-to-tier resolver (Task 261).
+
+    Takes values only — no environment reads. Returns ``None`` for a
+    missing or unknown stage, which the model resolver then treats as
+    "no tier" and falls back to ``BRAIN_MODEL``."""
+    key = (stage or "").strip().lower()
+    if not key:
+        return None
+    return stage_tiers.get(key)
 
 
 def resolve_routed_model(enabled: bool, risk_tier: Optional[str],
@@ -2290,8 +2358,14 @@ def brain_turn(
         except Exception as exc:  # never fail a turn on attach problems
             print(f"brain-bridge: diff attach skipped ({exc})",
                   file=sys.stderr)
+    # Tier precedence: an explicit ``risk_tier`` wins; otherwise the
+    # tier is derived from the turn stage (Task 261). A missing or
+    # unknown stage leaves the tier empty, and the resolver returns
+    # ``BRAIN_MODEL`` for it.
+    effective_tier = (risk_tier or "").strip() or resolve_stage_tier(
+        stage, _get_stage_tiers())
     model = resolve_routed_model(
-        _routing_enabled(), risk_tier, _get_brain_model(),
+        _routing_enabled(), effective_tier, _get_brain_model(),
         _get_model_low(), _get_model_high())
     if history_key:
         # Sessions-root visibility: one debug line per turn so a
@@ -2347,7 +2421,7 @@ def brain_turn(
         history=history)
     _append_context_ledger(history_key, project_root, budget_chars,
                            truncated_count, model=model,
-                           risk_tier=risk_tier,
+                           risk_tier=effective_tier,
                            prompt_cache_split=cache_split)
     if budget_chars > _PROMPT_WARN_CHARS:
         print(

@@ -2233,7 +2233,7 @@ def test_sibling_missing_still_resolves_per_project(tmp_path, monkeypatch):
 
 def _clean_routing_env(monkeypatch):
     for var in ("BRAIN_RISK_ROUTING_ENABLED", "BRAIN_MODEL_LOW",
-                "BRAIN_MODEL_HIGH", "BRAIN_MODEL"):
+                "BRAIN_MODEL_HIGH", "BRAIN_MODEL", "BRAIN_STAGE_TIERS"):
         monkeypatch.delenv(var, raising=False)
 
 
@@ -2271,18 +2271,29 @@ def test_routed_model_resolution_table(monkeypatch):
     assert r(True, "T1", "gpt-6-astra", "low-m", "  ") == "gpt-6-astra"
 
 
-def test_routing_disabled_by_default_preserves_behavior(tmp_path, monkeypatch):
+def test_routing_enabled_by_default_keeps_default_model(tmp_path, monkeypatch):
     _clean_routing_env(monkeypatch)
-    assert bridge._routing_enabled() is False
+    assert bridge._routing_enabled() is True
     result, holder = _run_turn_capture(monkeypatch, tmp_path, _ok_payload("ok"))
     assert result["output"] == "ok"
+    # No stage and no explicit tier -> no derived tier -> BRAIN_MODEL.
     assert holder["body"]["model"] == "gpt-6-astra"
     assert holder["body"]["reasoning"] == {"effort": "medium"}
     assert holder["body"]["max_output_tokens"] == 32768
-    # Disabled + explicit tier: wiring must stay on the default model.
+    # An unknown stage resolves to no tier, so the default model stands.
+    # (preflight rejects an unknown stage before routing runs, so this branch
+    # is only reachable through the pure resolver.)
+    assert bridge.resolve_stage_tier("nonsense", bridge._get_stage_tiers()) is None
+    assert bridge.resolve_stage_tier(None, bridge._get_stage_tiers()) is None
+
+
+def test_routing_explicitly_disabled_preserves_behavior(tmp_path, monkeypatch):
+    _clean_routing_env(monkeypatch)
+    monkeypatch.setenv("BRAIN_RISK_ROUTING_ENABLED", "false")
+    assert bridge._routing_enabled() is False
     result, holder = _run_turn_capture(
-        monkeypatch, tmp_path, _ok_payload("ok"), task_id="233",
-        risk_tier="T0")
+        monkeypatch, tmp_path, _ok_payload("ok"), risk_tier="T0")
+    assert result["output"] == "ok"
     assert holder["body"]["model"] == "gpt-6-astra"
 
 
@@ -2292,10 +2303,85 @@ def test_routing_env_overrides_stripped_and_blank(monkeypatch):
     assert bridge._routing_enabled() is True
     monkeypatch.setenv("BRAIN_RISK_ROUTING_ENABLED", "0")
     assert bridge._routing_enabled() is False
+    monkeypatch.delenv("BRAIN_RISK_ROUTING_ENABLED")
+    # Blank means the baseline is on with no .env entry at all.
+    assert bridge._routing_enabled() is True
     monkeypatch.setenv("BRAIN_MODEL_LOW", "  low-m  ")
     monkeypatch.setenv("BRAIN_MODEL_HIGH", "   ")
     assert bridge._get_model_low() == "low-m"
+    # A set-but-blank override yields "" so the pure resolver falls back
+    # to BRAIN_MODEL; only an UNSET key uses the built-in default.
     assert bridge._get_model_high() == ""
+    monkeypatch.delenv("BRAIN_MODEL_HIGH")
+    assert bridge._get_model_high() == "openai/gpt-5.6-luna"
+
+
+def test_unknown_stage_is_rejected_by_preflight(tmp_path, monkeypatch):
+    """End-to-end contract: an unknown stage never reaches routing.
+
+    Preflight rejects any stage outside the allowed set, so the documented
+    contract is "missing stage -> BRAIN_MODEL; unknown stage -> rejected",
+    never a silent fallback to the default model.
+    """
+    import pytest as _pytest
+    import preflight as _preflight
+
+    _clean_routing_env(monkeypatch)
+    with _pytest.raises(_preflight.PreflightError, match="stage"):
+        _run_turn_capture(monkeypatch, tmp_path, _ok_payload("ok"),
+                          task_id="233", stage="nonsense")
+
+
+def test_routing_model_defaults_are_built_in_and_overridable(monkeypatch):
+    _clean_routing_env(monkeypatch)
+    assert bridge._get_model_low() == "deepseek/deepseek-v4.1-flash"
+    assert bridge._get_model_high() == "openai/gpt-5.6-luna"
+    monkeypatch.setenv("BRAIN_MODEL_LOW", "cheap-x")
+    monkeypatch.setenv("BRAIN_MODEL_HIGH", "strong-x")
+    assert bridge._get_model_low() == "cheap-x"
+    assert bridge._get_model_high() == "strong-x"
+
+
+def test_stage_tier_mapping_defaults_and_override(monkeypatch):
+    _clean_routing_env(monkeypatch)
+    r = bridge.resolve_stage_tier
+    tiers = bridge._get_stage_tiers()
+    assert r("plan", tiers) == "T2"
+    assert r("review", tiers) == "T2"
+    assert r("implement", tiers) == "T0"
+    assert r("qa", tiers) == "T0"
+    assert r("closure", tiers) == "T0"
+    # Case/whitespace-insensitive stage; unknown and missing -> no tier.
+    assert r("  PLAN  ", tiers) == "T2"
+    assert r("nonsense", tiers) is None
+    assert r(None, tiers) is None
+    assert r("", tiers) is None
+    # Env override merges onto the default; unusable pairs are ignored.
+    monkeypatch.setenv("BRAIN_STAGE_TIERS",
+                       " plan:T0 ,qa:T2,bogus:T9,:T1,review")
+    overridden = bridge._get_stage_tiers()
+    assert overridden["plan"] == "T0"
+    assert overridden["qa"] == "T2"
+    assert "bogus" not in overridden
+    assert "" not in overridden
+    assert overridden["review"] == "T2"
+
+
+def test_stage_derived_tier_routes_the_turn(tmp_path, monkeypatch):
+    _clean_routing_env(monkeypatch)
+    monkeypatch.setenv("BRAIN_MODEL_LOW", "low-m")
+    monkeypatch.setenv("BRAIN_MODEL_HIGH", "high-m")
+    _, holder = _run_turn_capture(
+        monkeypatch, tmp_path, _ok_payload("ok"), stage="plan")
+    assert holder["body"]["model"] == "high-m"
+    _, holder = _run_turn_capture(
+        monkeypatch, tmp_path, _ok_payload("ok"), task_id="233", stage="qa")
+    assert holder["body"]["model"] == "low-m"
+    # An explicit risk_tier still wins over the stage-derived tier.
+    _, holder = _run_turn_capture(
+        monkeypatch, tmp_path, _ok_payload("ok"), task_id="234",
+        stage="plan", risk_tier="T0")
+    assert holder["body"]["model"] == "low-m"
 
 
 def test_model_low_only_affects_T0(monkeypatch):
@@ -2354,6 +2440,25 @@ def test_ledger_carries_model_tier_and_cache_split(tmp_path, monkeypatch):
     assert set(row) == {"task_id", "budget_chars", "est_tokens",
                         "util_pct", "truncated", "model", "risk_tier",
                         "prompt_cache_split"}
+
+
+def test_ledger_carries_stage_derived_tier_and_model(tmp_path, monkeypatch):
+    import json
+    _clean_routing_env(monkeypatch)
+    monkeypatch.setenv("BRAIN_MODEL_LOW", "low-m")
+    monkeypatch.setenv("BRAIN_MODEL_HIGH", "high-m")
+    # No explicit risk_tier: the tier comes from the turn stage.
+    _run_turn_capture(monkeypatch, tmp_path, _ok_payload("ok"), stage="plan")
+    ledger = tmp_path / "sessions" / bridge._CONTEXT_LEDGER_NAME
+    row = json.loads(ledger.read_text(encoding="utf-8").strip().split("\n")[-1])
+    assert row["model"] == "high-m"
+    assert row["risk_tier"] == "T2"
+    # A light stage derives the low tier and the cheap model.
+    _run_turn_capture(monkeypatch, tmp_path, _ok_payload("ok"),
+                      task_id="233", stage="qa")
+    row = json.loads(ledger.read_text(encoding="utf-8").strip().split("\n")[-1])
+    assert row["model"] == "low-m"
+    assert row["risk_tier"] == "T0"
 
 
 def test_resolver_takes_no_prompt_diff_or_key():

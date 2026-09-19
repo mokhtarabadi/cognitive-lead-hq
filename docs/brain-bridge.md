@@ -73,29 +73,39 @@ helper and is not a public tool.
 | `BRAIN_API_BASE`    | _(Manager-owned endpoint, e.g. local proxy URL)_     |
 | `BRAIN_API_KEY`     | _(Manager-owned, never committed)_                   |
 | `BRAIN_MODEL`       | `gpt-6-astra`                   |
-| `BRAIN_REASONING_EFFORT` | `xhigh`                                         |
-| `BRAIN_MAX_TOKENS`  | `16384`                                              |
+| `BRAIN_REASONING_EFFORT` | `medium`                                         |
+| `BRAIN_MAX_TOKENS`  | `32768`                                              |
 | `BRAIN_SYSTEM_PROMPT` | `~/.config/opencode/system-prompt.md`              |
 | `BRAIN_SESSIONS_ROOT` | `~/.config/opencode/brain-sessions`                |
 | `DECISION_MODEL`    | _(falls back to `BRAIN_MODEL` default)_              |
 | `DECISION_TEMPERATURE` | `1.0`                                             |
-| `BRAIN_RISK_ROUTING_ENABLED` | `false` (routing OFF = single model)      |
-| `BRAIN_MODEL_LOW`   | _(blank = `BRAIN_MODEL`; used for `T0` turns)_       |
-| `BRAIN_MODEL_HIGH`  | _(blank = `BRAIN_MODEL`; used for `T1`/`T2` turns)_  |
+| `BRAIN_RISK_ROUTING_ENABLED` | `true` (routing ON; set a falsy value to disable) |
+| `BRAIN_MODEL_LOW`   | `deepseek/deepseek-v4.1-flash` for `T0` turns; **unset** = built-in default, **blank** = `BRAIN_MODEL` |
+| `BRAIN_MODEL_HIGH`  | `openai/gpt-5.6-luna` for `T1`/`T2` turns; **unset** = built-in default, **blank** = `BRAIN_MODEL` |
+| `BRAIN_STAGE_TIERS` | `plan:T2,review:T2,implement:T0,qa:T0,closure:T0`    |
 
 ## Routing
 
-Risk-aware model routing is OFF by default: with no flags set, every
-turn uses `BRAIN_MODEL` (default `gpt-6-astra`), effort `xhigh`, and
-`16384` max tokens — exactly today's behavior. To enable, set
-`BRAIN_RISK_ROUTING_ENABLED=true` plus `BRAIN_MODEL_LOW` and/or
-`BRAIN_MODEL_HIGH`, then pass `risk_tier` (`T0`/`T1`/`T2` per
-`docs/conventions.md`) on `brain_turn`. `T0` routes to the low model,
-`T1`/`T2` to the high model; missing or invalid tiers fail safe to
-`BRAIN_MODEL`, as do blank per-tier overrides. Effort and token
-behavior never change under routing. Each context-ledger row records
-the selected `model` and the `risk_tier` (metadata only — never prompt
-text, diffs, or keys).
+Risk-aware model routing is ON by default. The effective tier comes from
+the turn `stage` unless an explicit `risk_tier` (`T0`/`T1`/`T2` per
+`docs/conventions.md`) is passed to `brain_turn`, which always wins.
+Stage defaults: `plan` and `review` → `T2` (high model), `implement`,
+`qa` and `closure` → `T0` (low model); a missing stage maps to no tier
+and falls back to `BRAIN_MODEL`, while an unknown stage is rejected by the
+request preflight (`plan`, `implement`, `qa`, `review`, `closure` are the
+allowed values). `T1` also routes to the high
+model. Override the mapping with `BRAIN_STAGE_TIERS` (comma-separated
+`stage:Tier` pairs merged onto the built-in default; unusable pairs are
+ignored). Set `BRAIN_RISK_ROUTING_ENABLED` to a falsy value to disable
+routing entirely — every turn then uses `BRAIN_MODEL`. Missing or invalid
+tiers fail safe to `BRAIN_MODEL`. For the per-tier models the unset and
+blank cases differ on purpose: leaving `BRAIN_MODEL_LOW`/`BRAIN_MODEL_HIGH`
+unset applies their built-in defaults, while setting a key to a blank value
+falls back to `BRAIN_MODEL`, so clearing an override never silently selects
+the built-in routed model. Effort
+and token behavior never change under routing. Each context-ledger row
+records the selected `model` and the effective `risk_tier` (metadata only
+— never prompt text, diffs, or keys).
 
 ## Prompt-cache split
 
