@@ -502,10 +502,12 @@ export DECISION_REPO_PATH="$HOME/manager-decisions"   # clone/checkout path
 
 Without `DECISION_REPO_PATH` the server falls back to per-project
 `.opencode/decisions/` (write-through cache + offline fallback) and logs it —
-records still land, personality just stays local. Do NOT put
-`DECISION_REPO_PATH` in the shared `opencode.json` environment block: one
-global value would break per-user resolution; it belongs in the user's shell
-env (or the §7.10 unit file for daemon runs).
+records still land, personality just stays local. Forward it in
+`opencode.json` as `{env:DECISION_REPO_PATH}`, the same interpolation form the
+sibling keys use (`{env:BRAIN_*}`): the daemon passes the variable through and
+the value stays per-user in the shell env or `.env`. Never hardcode a literal
+path in the shared `opencode.json` environment block — one global literal
+would break per-user resolution.
 
 ---
 

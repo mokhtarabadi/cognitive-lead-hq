@@ -74,7 +74,7 @@ resolves and the bridge/decision servers start with keys:
 
 ```ini
 [Service]
-EnvironmentFile=-/home/mohammad/code-server/projects/cognitive-lead-hq/.env
+EnvironmentFile=-/home/mohammad/Develop/Projects/cognitive-lead-hq/.env
 ```
 
 Portable form for other machines: `EnvironmentFile=%h/.config/opencode/.env`.

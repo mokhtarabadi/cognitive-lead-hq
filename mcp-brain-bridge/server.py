@@ -2462,7 +2462,7 @@ def brain_turn(
 
 def _responses_url() -> str:
     """Responses endpoint; override via ``BRAIN_API_BASE``."""
-    default = "http://127.0.0.1:8081/zen/resp"
+    default = "https://api.openai.com/v1"
     base = os.environ.get("BRAIN_API_BASE", default).strip() or default
     return base.rstrip("/") + "/responses"
 

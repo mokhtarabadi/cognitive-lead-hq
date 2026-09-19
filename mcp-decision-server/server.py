@@ -257,7 +257,7 @@ def _get_api_key() -> str:
 
 
 #: Local default when neither DECISION_API_BASE nor BRAIN_API_BASE is set.
-_DECISION_API_BASE_DEFAULT = "http://127.0.0.1:8081/zen/resp"
+_DECISION_API_BASE_DEFAULT = "https://api.openai.com/v1"
 
 
 def _get_api_base() -> str:

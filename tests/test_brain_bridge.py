@@ -153,7 +153,7 @@ def test_parse_responses_text_empty_and_malformed():
 
 def test_responses_url_default_and_override(monkeypatch):
     monkeypatch.delenv("BRAIN_API_BASE", raising=False)
-    assert bridge._responses_url() == "http://127.0.0.1:8081/zen/resp/responses"
+    assert bridge._responses_url() == "https://api.openai.com/v1/responses"
     monkeypatch.setenv("BRAIN_API_BASE", "http://x:1/base/")
     assert bridge._responses_url() == "http://x:1/base/responses"
 
