@@ -108,12 +108,14 @@ try:
     from mcp_brain_bridge.preflight import (  # type: ignore[import-not-found]
         PreflightError,
         require_bare_task_id,
+        resolve_project_root as _resolve_project_root,
         validate_request as _validate_request,
     )
 except ImportError:
     from preflight import (  # type: ignore[import-not-found]
         PreflightError,
         require_bare_task_id,
+        resolve_project_root as _resolve_project_root,
         validate_request as _validate_request,
     )
 
@@ -291,11 +293,30 @@ _GREP_MAX_LINE_CHARS = 4000   # overlong lines are skipped, never searched
 
 
 def _workspace_root() -> Path:
-    """Repo root for context reads; override via ``BRAIN_WORKSPACE_ROOT``."""
+    """Repo root for context reads; override via ``BRAIN_WORKSPACE_ROOT``.
+
+    Resolution order (issue #24): an explicit ``BRAIN_WORKSPACE_ROOT``
+    override wins outright; otherwise auto-resolve the ACTIVE project root
+    (``BRAIN_PROJECT_ROOT``, then a cwd ``tasks/`` walk-up) so the bundle and
+    the file-pull tools read the project the turn actually runs in, never the
+    directory this bridge happens to be installed into. Only when both fail
+    does it fall back to the install dir, with a loud stderr note naming the
+    remedy.
+    """
     override = os.environ.get("BRAIN_WORKSPACE_ROOT", "").strip()
     if override:
         return Path(override).expanduser().resolve()
-    return Path(__file__).resolve().parent.parent
+    try:
+        return _resolve_project_root(None, env=os.environ, cwd=Path.cwd()).resolve()
+    except Exception as exc:  # defensive last resort: never break a read
+        install_root = Path(__file__).resolve().parent.parent
+        print(
+            "brain-bridge: could not resolve the active project root "
+            f"({exc}); falling back to the bridge install dir {install_root}. "
+            "Set BRAIN_PROJECT_ROOT (or BRAIN_WORKSPACE_ROOT) to silence this.",
+            file=sys.stderr,
+        )
+        return install_root
 
 
 def _resolve_under_root(rel: str, root: Optional[Path] = None) -> Path:
@@ -305,6 +326,18 @@ def _resolve_under_root(rel: str, root: Optional[Path] = None) -> Path:
     if candidate != base and base not in candidate.parents:
         raise ValueError(f"path outside workspace root: {rel!r}")
     return candidate
+
+
+def _explicit_root(project_root: Optional[str]) -> Optional[Path]:
+    """Coerce an optional project-root string to a resolved Path.
+
+    ``None`` stays ``None`` so callers fall back to ``_workspace_root()``;
+    this is the shared coercion for the file-pull tools so an explicitly
+    passed root always beats ambient resolution (issue #24).
+    """
+    if project_root is None:
+        return None
+    return Path(project_root).expanduser().resolve()
 
 
 _TASK_DIFF_BEGIN = "<!-- BEGIN_GIT_DIFF -->"
@@ -611,8 +644,14 @@ def _failsafe_qa_attach(
     return ""
 
 
-def _build_context_bundle() -> str:
+def _build_context_bundle(root: Optional[str] = None) -> str:
     """Assemble the labeled small-file bundle (never raises on Absent-File).
+
+    ``root`` pins the project the bundle is read from (issue #24): when the
+    caller already resolved the turn's project root it MUST pass it here, so
+    the bundle follows the active project instead of the bridge install dir.
+    ``None`` keeps the historical behaviour and falls back to
+    ``_workspace_root()``.
 
     The per-file cap applies first; the total cap applies across files so
     five full files can never stuff 300k into one turn. Files past the
@@ -620,7 +659,8 @@ def _build_context_bundle() -> str:
     suffix length is reserved before slicing, so the appended marker can
     never push the total past the cap (off-by-suffix overflow).
     """
-    root = _workspace_root()
+    _pinned = _explicit_root(root)
+    root = _pinned if _pinned is not None else _workspace_root()
     parts: list[str] = []
     missing = 0
     total = 0
@@ -659,12 +699,19 @@ def _build_context_bundle() -> str:
     return "\n\n".join(parts)
 
 
-def _read_file_impl(path: str, offset: int = 1, limit: int = 200) -> dict[str, Any]:
+def _read_file_impl(
+    path: str,
+    offset: int = 1,
+    limit: int = 200,
+    project_root: Optional[str] = None,
+) -> dict[str, Any]:
     """Numbered-line slice of a workspace text file (1-indexed offset).
 
     The ``limit`` clamps to ``_READ_MAX_LINES`` and files over
     ``_READ_MAX_BYTES`` are refused — pulls stay pull-sized and can
-    never drag a giant file into context.
+    never drag a giant file into context. ``project_root`` pins the tree
+    the path resolves against (issue #24); ``None`` falls back to
+    ``_workspace_root()``.
     """
     if not isinstance(path, str) or not path.strip():
         raise ValueError(f"bad path: {path!r}")
@@ -673,7 +720,7 @@ def _read_file_impl(path: str, offset: int = 1, limit: int = 200) -> dict[str, A
     if limit < 1:
         raise ValueError(f"bad limit: {limit!r}")
     limit = min(limit, _READ_MAX_LINES)
-    resolved = _resolve_under_root(path)
+    resolved = _resolve_under_root(path, _explicit_root(project_root))
     if resolved.suffix.lower() not in _ALLOWED_READ_SUFFIXES:
         raise ValueError(f"unsupported extension: {path!r}")
     try:
@@ -697,7 +744,9 @@ def _read_file_impl(path: str, offset: int = 1, limit: int = 200) -> dict[str, A
     }
 
 
-def _grep_files_impl(pattern: str, subdir: str = ".") -> list[str]:
+def _grep_files_impl(
+    pattern: str, subdir: str = ".", project_root: Optional[str] = None
+) -> list[str]:
     """Python-regex search over workspace text files (max 30 hits).
 
     Hardening: the Brain-supplied pattern caps at ``_GREP_PATTERN_MAX``
@@ -705,7 +754,8 @@ def _grep_files_impl(pattern: str, subdir: str = ".") -> list[str]:
     line truncates at 200 chars, lines over ``_GREP_MAX_LINE_CHARS`` are
     skipped unsearched, and every candidate resolves against the root
     BEFORE it is read — a symlink escaping the workspace is skipped,
-    never opened.
+    never opened. ``project_root`` pins the tree searched (issue #24);
+    ``None`` falls back to ``_workspace_root()``.
     """
     if not isinstance(pattern, str) or not pattern:
         raise ValueError(f"bad regex: {pattern!r}")
@@ -716,7 +766,8 @@ def _grep_files_impl(pattern: str, subdir: str = ".") -> list[str]:
         rx = re.compile(pattern)
     except re.error as exc:
         raise ValueError(f"bad regex: {pattern!r} ({exc})") from exc
-    root = _workspace_root().resolve()
+    _pinned = _explicit_root(project_root)
+    root = (_pinned if _pinned is not None else _workspace_root()).resolve()
     base = _resolve_under_root(subdir, root)
     if not base.is_dir():
         return []
@@ -748,25 +799,43 @@ def _grep_files_impl(pattern: str, subdir: str = ".") -> list[str]:
 
 
 @mcp.tool()
-def get_context_bundle() -> str:
-    """Return the labeled small-file context bundle from the workspace root. The Hands call this for bundle proof or debugging; every brain_turn already injects it by default.
+def get_context_bundle(project_root: Optional[str] = None) -> str:
+    """Return the labeled small-file context bundle from the active project root. The Hands call this for bundle proof or debugging; every brain_turn already injects it by default.
 
+    ``project_root`` pins the project the bundle is read from (issue #24);
+    omit it to auto-resolve the active project root (``BRAIN_PROJECT_ROOT``,
+    then a cwd ``tasks/`` walk-up, then ``BRAIN_WORKSPACE_ROOT``).
     Missing files become ``[missing: path]`` marker lines (never raise);
     each file caps at 60000 chars with a ``[truncated]`` marker.
     """
-    return _build_context_bundle()
+    return _build_context_bundle(project_root)
 
 
 @mcp.tool()
-def read_file(path: str, offset: int = 1, limit: int = 200) -> dict[str, Any]:
-    """Read numbered lines from a workspace text file (1-indexed offset). The Hands call this after grep_files locates a hit; the Brain never calls it directly. Text extensions only (.md .txt .json .yaml .yml .toml); Python and other extensions are refused."""
-    return _read_file_impl(path, offset, limit)
+def read_file(
+    path: str,
+    offset: int = 1,
+    limit: int = 200,
+    project_root: Optional[str] = None,
+) -> dict[str, Any]:
+    """Read numbered lines from a workspace text file (1-indexed offset). The Hands call this after grep_files locates a hit; the Brain never calls it directly. Text extensions only (.md .txt .json .yaml .yml .toml); Python and other extensions are refused.
+
+    ``project_root`` pins the tree ``path`` resolves against (issue #24);
+    omit it to auto-resolve the active project root.
+    """
+    return _read_file_impl(path, offset, limit, project_root)
 
 
 @mcp.tool()
-def grep_files(pattern: str, subdir: str = ".") -> list[str]:
-    """Regex-search workspace text files; up to 30 ``path:line: excerpt`` hits. The Hands call this first to locate, then read only the ranges that fit the remaining budget."""
-    return _grep_files_impl(pattern, subdir)
+def grep_files(
+    pattern: str, subdir: str = ".", project_root: Optional[str] = None
+) -> list[str]:
+    """Regex-search workspace text files; up to 30 ``path:line: excerpt`` hits. The Hands call this first to locate, then read only the ranges that fit the remaining budget.
+
+    ``project_root`` pins the tree searched (issue #24); omit it to
+    auto-resolve the active project root.
+    """
+    return _grep_files_impl(pattern, subdir, project_root)
 
 # Prompt overrides must be real prompt files: .md only, resolved under
 # the repo root or ~/.config/opencode (the two legitimate homes).
@@ -2832,6 +2901,7 @@ def brain_turn(
     # session_id are mutually exclusive (exactly one binds history,
     # neither means a one-off turn). The resolved root feeds every
     # downstream resolver so attaches and history share one root.
+    _requested_root = project_root
     _pre = _validate_request(
         project_root=project_root, task_id=task_id, session_id=session_id,
         kanban_path=kanban_path, stage=stage,
@@ -2841,6 +2911,16 @@ def brain_turn(
     session_id = _pre.session_id
     project_root = (str(_pre.project_root)
                     if _pre.project_root is not None else None)
+    # One-off turns intentionally keep no project binding (they persist
+    # nothing), so preflight drops an explicit project_root. An explicitly
+    # passed root must still pin the BUNDLE and file-pull attaches to the
+    # caller's project (issue #24) — otherwise a one-off turn reads the
+    # bridge install dir. Existing-dir guard only: a bad root falls back
+    # to ambient resolution instead of silently reporting all-missing.
+    if project_root is None and _pre.binding == "one-off":
+        _pinned = _explicit_root(_requested_root)
+        if _pinned is not None and _pinned.is_dir():
+            project_root = str(_pinned)
     history_key = _pre.history_key
     _note_checkpoint("request_accepted", task_id=task_id,
                      session_id=session_id, project_root=project_root)
@@ -2914,13 +2994,16 @@ def brain_turn(
     # assume the whole window and starve the rest of the turn.
     candidates: list[dict] = []
     if include_bundle and _BUNDLE_MARKER not in user_prompt:
+        # Read the bundle from the SAME project root this turn resolved for
+        # the task file and context paths (issue #24): without the explicit
+        # root the bundle silently fell back to the bridge install dir.
         candidates.append({
             "kind": "bundle",
             "path": "small-file bundle",
             "slot": "bundle",
             "open_line": "",
             "fence_lang": None,
-            "text": _build_context_bundle(),
+            "text": _build_context_bundle(project_root),
         })
     if include_bundle and task_id:
         _ns = (

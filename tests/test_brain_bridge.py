@@ -579,6 +579,113 @@ def test_bundle_truncates_large_file(tmp_path, monkeypatch):
     assert len(section) < len(big) + 5000
 
 
+# --- active-project-root resolution (issue #24) -----------------------
+# Regression guard: the bundle and the file-pull tools must read the
+# project the turn runs in, never the bridge install dir (the ambient
+# BRAIN_WORKSPACE_ROOT decoy below stands in for that install dir).
+
+def test_build_context_bundle_explicit_root_beats_env_decoy(
+        tmp_path, monkeypatch):
+    decoy = _mk_workspace(tmp_path, {
+        "agents/cognitive-executor.md": "DECOY_BUNDLE_CONTENT",
+    })
+    monkeypatch.setenv("BRAIN_WORKSPACE_ROOT", str(decoy))
+    project = tmp_path / "project"
+    (project / "agents").mkdir(parents=True)
+    (project / "agents" / "cognitive-executor.md").write_text(
+        "REAL_BUNDLE_CONTENT", encoding="utf-8")
+    (project / "docs").mkdir()
+    (project / "docs" / "conventions.md").write_text(
+        "real conventions", encoding="utf-8")
+
+    out = bridge._build_context_bundle(str(project))
+
+    assert "REAL_BUNDLE_CONTENT" in out
+    assert "real conventions" in out
+    assert "DECOY_BUNDLE_CONTENT" not in out
+    # genuinely absent files still get their markers; present ones do not
+    assert "[missing: docs/architecture.md]" in out
+    assert "[missing: DESIGN.md]" in out
+    assert "[missing: docs/conventions.md]" not in out
+
+
+def test_get_context_bundle_tool_honours_project_root(tmp_path, monkeypatch):
+    decoy = _mk_workspace(tmp_path, {
+        "agents/cognitive-executor.md": "DECOY_TOOL_CONTENT",
+    })
+    monkeypatch.setenv("BRAIN_WORKSPACE_ROOT", str(decoy))
+    project = tmp_path / "project"
+    (project / "agents").mkdir(parents=True)
+    (project / "agents" / "cognitive-executor.md").write_text(
+        "REAL_TOOL_CONTENT", encoding="utf-8")
+
+    out = _unwrap(bridge.get_context_bundle)(str(project))
+
+    assert "REAL_TOOL_CONTENT" in out
+    assert "DECOY_TOOL_CONTENT" not in out
+
+
+def test_workspace_root_follows_cwd_walkup(tmp_path, monkeypatch):
+    # With no env override the root must auto-resolve the ACTIVE project
+    # via the cwd ``tasks/`` walk-up instead of the install dir.
+    _clean_session_env(monkeypatch)
+    project = _mk_project(tmp_path, "walkup_project")
+    (project / "agents").mkdir()
+    (project / "agents" / "cognitive-executor.md").write_text(
+        "WALKUP_BUNDLE_CONTENT", encoding="utf-8")
+    nested = project / "a" / "b"
+    nested.mkdir(parents=True)
+    monkeypatch.chdir(nested)
+
+    assert bridge._workspace_root() == project.resolve()
+    assert "WALKUP_BUNDLE_CONTENT" in _unwrap(bridge.get_context_bundle)()
+
+
+def test_read_and_grep_honour_explicit_project_root(tmp_path, monkeypatch):
+    decoy = _mk_workspace(tmp_path, {"notes.md": "DECOY_NEEDLE\n"})
+    monkeypatch.setenv("BRAIN_WORKSPACE_ROOT", str(decoy))
+    project = tmp_path / "project"
+    project.mkdir()
+    (project / "notes.md").write_text(
+        "alpha\nREAL_NEEDLE beta\n", encoding="utf-8")
+
+    result = _unwrap(bridge.read_file)(
+        "notes.md", offset=2, limit=1, project_root=str(project))
+    assert result["lines"] == ["2: REAL_NEEDLE beta"]
+
+    hits = _unwrap(bridge.grep_files)(
+        "REAL_NEEDLE", project_root=str(project))
+    assert any("notes.md:2:" in h for h in hits)
+    assert not any("DECOY_NEEDLE" in h for h in hits)
+
+
+def test_brain_turn_bundle_follows_project_root(tmp_path, monkeypatch):
+    decoy = _mk_workspace(tmp_path, {
+        "agents/cognitive-executor.md": "DECOY_TURN_CONTENT",
+    })
+    monkeypatch.setenv("BRAIN_WORKSPACE_ROOT", str(decoy))
+    monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    monkeypatch.delenv("BRAIN_TEMPERATURE", raising=False)
+    _mk_sys_prompt(tmp_path, monkeypatch)
+    project = _mk_project(tmp_path, "turn_project")
+    (project / "agents").mkdir()
+    (project / "agents" / "cognitive-executor.md").write_text(
+        "REAL_TURN_CONTENT", encoding="utf-8")
+
+    holder = {}
+    _mk_bridge_client(
+        monkeypatch, [_FakeResp(200, "fine", _ok_payload())], holder)
+    target = _unwrap(bridge.brain_turn)
+    target("tiny question", project_root=str(project))
+
+    user_msgs = [t for t in holder["body"]["input"] if t.get("role") == "user"]
+    assert user_msgs
+    last = user_msgs[-1]["content"]
+    assert "REAL_TURN_CONTENT" in last
+    assert "DECOY_TURN_CONTENT" not in last
+
+
 def test_read_file_offset_limit(tmp_path, monkeypatch):
     ws = _mk_workspace(tmp_path, {"notes.md": "a\nb\nc\nd\ne\n"})
     monkeypatch.setenv("BRAIN_WORKSPACE_ROOT", str(ws))
