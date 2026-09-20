@@ -1,9 +1,9 @@
 # Task 263: Decision server sends the whole session transcript unbounded and swallows a malformed output-token cap
 
-**File:** `tasks/qa/263-decision-server-transcript-cap-and-cap-validation.md`
+**File:** `tasks/completed/263-decision-server-transcript-cap-and-cap-validation.md`
 **Source:** manager
 **Type:** bug
-**Status:** open
+**Status:** closed
 
 ## Goal
 
@@ -66,7 +66,7 @@ A malformed value silently becomes 16384, and zero or a negative value is return
 - [x] Update the documentation surface for the new env var and the loud-failure rule (`CHANGELOG.md`; `mcp-decision-server/README.md` and `mcp-decision-server/.env.example` are absent and are skipped per the Absent-File Policy)
 - [x] Run the full suite via `rtk test`
 - [x] Stage via `custom_context_stage_and_inject_diff` and move to `tasks/qa/`
-- [ ] Extract the Manager's decisions from the old and the new task sessions and save them
+- [x] Extract the Manager's decisions from the old and the new task sessions and save them
 
 ## Acceptance Criteria
 
@@ -76,7 +76,7 @@ A malformed value silently becomes 16384, and zero or a negative value is return
 - [x] The temperature reader fails loudly on a malformed or out-of-range value, matching the brain-bridge caps' discipline.
 - [x] The Responses API request shape stays conformant (nested `reasoning.effort`, explicit `max_output_tokens`, `input` as role/content items, temperature never combined with reasoning).
 - [x] Regression tests cover the cap default, a blank value, a valid override, a malformed value, a non-positive value, and the truncation note.
-- [ ] The Manager's decisions from both the old task session and this task session are extracted and saved.
+- [x] The Manager's decisions from both the old task session and this task session are extracted and saved.
 
 ## Verification Evidence
 
@@ -145,292 +145,20 @@ The fix updates the EXISTING environment template rather than inventing a new fi
 
 **Verification after the fix.** `rtk test uv run --with pytest --with mcp==1.30.0 --with pathspec --with pyyaml --with tree-sitter --with tree-sitter-python --with tree-sitter-javascript --with tree-sitter-typescript --with tree-sitter-go --with tree-sitter-java --with tree-sitter-rust --with tree-sitter-kotlin pytest tests/ -q` → `665 passed, 10 warnings in 5.03s`, exit code 0.
 
+**Review round 2 — `APPROVED`; `PO_REVIEW_PENDING`.**
+
+The re-review confirmed the round-1 documentation defect is closed and approved the change set. The reviewer's closing lines, verbatim:
+
+> **Review Status: `APPROVED`**
+>
+> **`PO_REVIEW_PENDING`** — Code approved technically. PO, please review UX/Business logic. Reply "Approved for closure" to commit and finish.
+
+It cited the operator documentation at `.env.example:40-55` (`DECISION_MAX_TOKENS` default 16384 with positive-value validation, `DECISION_TEMPERATURE` default 1.0 with the inclusive 0.0-2.0 range, `DECISION_TRANSCRIPT_MAX_CHARS` default 131072 with blank-means-unset and positive-integer validation), the code regions `mcp-decision-server/server.py:213-230` (the new cap reader), `:234-254` (the loud temperature reader), `:298-321` (the loud output-token reader) and `:1296-1310` (the cap applied before prompt construction, with the marker reporting the exact dropped count at `:1300-1305` and the raw bytes still feeding the cache key at `:1296`), the regressions at `tests/test_decision_server.py:451-510` and `:612-681`, and the changelog at `CHANGELOG.md:33-34`. It recorded the QA observations as non-blocking and noted that the focused run passed `149` and the full suite passed `665 passed, 10 warnings` with exit code 0.
+
+**Manager approval.** The Manager replied with the exact closure phrase: "Approved for closure". Closure proceeded on that word, because the reviewer returned `APPROVED` with `PO_REVIEW_PENDING`, every acceptance criterion is verified, and the full suite is green.
+
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
-```diff
-diff --git a/CHANGELOG.md b/CHANGELOG.md
-index b930362..3574e99 100644
---- a/CHANGELOG.md
-+++ b/CHANGELOG.md
-@@ -30,6 +30,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
- 
- ### Fixed
- 
-+- **Decision server bounds the transcript prompt and fails loudly on a bad config value (Task 263):** the extraction call joined the whole session transcript into its prompt with no ceiling, so a long session produced an unbounded request — the same starvation class as issue 23 — and two config readers silently papered over a bad setting instead of reporting it. `extract_session_decisions()` now caps the joined transcript at `DECISION_TRANSCRIPT_MAX_CHARS` (default 131072 characters, blank-means-unset) BEFORE the prompt is built, keeping the first N characters and appending `[...truncated at <dropped> chars]` so the caller learns exactly how much was dropped; `transcript_bytes` stays the raw file content used by the cache key. `_get_decision_max_tokens()` (default 16384) and `_get_decision_temperature()` (default 1.0, range 0.0-2.0) now raise `ValueError` naming the variable and the bad value instead of falling back to 16384 or clamping to 1.0. The Responses request shape is unchanged (`model`, `input`, `max_output_tokens`, plus either `temperature` or nested `reasoning.effort`). 5 new tests. Full suite: **665 passed**.
- - **Brain Bridge sees the whole change set: configurable caps + one shared budget (Task 262, syncs GitHub issue 23):** the bridge appended every attachment against its own hard-coded constant, so a reviewer lost the hunks to boilerplate and every seat reported `[...truncated …]` mid-file. Four module defaults moved (`_TASK_ATTACH_CAP` 12000→60000, `_TASK_DIFF_CAP` 20000→200000, `_CTX_PATHS_PER_FILE` 20000→60000, `_CTX_PATHS_TOTAL` 40000→200000) and six caps gained blank-means-unset env overrides (`BRAIN_TASK_ATTACH_CAP`, `BRAIN_TASK_DIFF_CAP`, `BRAIN_CTX_PER_FILE_CAP`, `BRAIN_CTX_TOTAL_CAP`, `BRAIN_INPUT_BUDGET`, `BRAIN_MODEL_WINDOW_CHARS`) resolved at call time through the new `_env_positive_int`, which rejects malformed or non-positive values instead of clamping; `_INPUT_BUDGET` moves 100000→200000 because a live probe showed the assembled system prompt alone is ~87.6k chars, leaving the older ceiling only ~12k for the change set (200k chars is ~43k input tokens at the measured ~4.6 chars/token). The independent append sequence in `brain_turn` is replaced by one shared allocator that renders candidates against the chars actually left after the system prompt and the caller's prompt; `qa`/`review` turns rank context_paths → diff → task → fed context → bundle so explicit evidence outranks the small-file bundle, while history stays the last fallback and is deliberately excluded from the attachment budget (that keeps the static prompt-cache prefix stable across turns). Over-budget attachments chunk into numbered parts with an exact resume offset (`[ATTACHMENT kind=… part=1/3 …]` / `[NEXT_ATTACHMENT_PART … next_offset_chars=…]`) and the new `attachment_resume={"kind","path","offset_chars"}` argument continues them; a malformed resume is ignored with a stderr note. The result payload now splits the two failure modes: `history_turns_dropped` is canonical with `truncated_count` kept as the back-compat alias, and `attachments_truncated` (always a list; entries carry `kind`/`path`/`shown_chars`/`total_chars`/`dropped_chars`/`part`/`parts`) reports attachment loss alongside `attachment_parts`, `attachment_budget_chars`, `attachment_chars_used`, and `attachment_chars_remaining`; the capability-blocked early return carries the same field set. The three standalone builders keep their truncating behaviour for direct callers. `docs/brain-bridge.md` gains the new env-table rows and sections on the allocator, the priority order, the part/resume contract, and the two-truncation payload. The stored transcript no longer keeps the assembled prompt: each user turn is persisted with a compact `[stored-attachment kind=… path=… shown_chars=… total_chars=… part=a/b]` marker per segment instead of the attachment bodies, because every later turn replays the transcript — persisting the bodies made each turn re-pay the previous turn's attachment cost (one QA turn stored a 64,547-char user turn and every turn after it inherited it). The wire prompt is unchanged: attachments are re-derived from disk each turn, so only storage shrinks. The transcript file itself is append-only: every turn ever written stays on disk, and only the load VIEW is compacted in memory (one deterministic digest record plus the newest records), so a task keeps its full history while the send path stays bounded — the lossy rewrite helpers were removed. 27 new tests (cap readers, 60 KB file untruncated at both the builder and the turn level, part numbering + resume, priority order, separate reporting, chunk numbering, review-over-bundle precedence, compact transcript storage, append-only transcript storage) plus 2 regressions in `tests/test_brain_diff_attach.py` for the diff extractor (a `<!-- END_GIT_DIFF -->` marker inside a diff body no longer ends extraction, so a change set that edits the bridge's own marker constants is delivered whole), 3 loud-failure regressions proving a malformed or non-positive cap environment value fails the turn instead of being reported as an unavailable attachment, and 3 existing tests re-pinned to explicit caps. A malformed cap env value is now read outside the candidate guards so the configuration error propagates, and the part-marker reservation is measured from the lines actually emitted (`_marker_room`) instead of a fixed constant, so the running attachment total can no longer exceed the budget. The wrapper a rendered attachment emits (its open line, fence lines and separators, not just the part markers) is now priced against the room the allocator granted, so a block can never be longer than its budget, and the configured per-file cap bounds the CONTENT with the wrapper riding on top — a file that fits its cap exactly still arrives whole. Every `context_paths` file also shares one configured total budget (`BRAIN_CTX_TOTAL_CAP`), enforced across the whole group by the allocator with the overflow reported rather than silently sent, and a malformed or non-positive path cap fails the turn loudly like the task and diff caps do. Full suite: **660 passed**.
- 
- - **Secrets-safe repo hygiene + skill question-channel parity:** `.gitignore` now ignores `.env.*` (with an explicit `!.env.example` negation so the template stays tracked) plus `*.bak*`, and this session's project `.env` backup was moved out of the worktree to `~/.config/opencode/.env.project.bak-20260919b` — a `git add -A` can no longer sweep secrets into history. Seven skill templates that ask the Manager or user a question now point at the `question` tool when the session capability manifest shows it AVAILABLE and fall back to the prose relay otherwise: `telegram-message-export` (its unconditional mandate replaced), `decision-migration` (both gate spots), `opencode-init`, `doc-coauthoring`, `prompt-refactor`, and `manager-decision`; `telegram-issue-sync` already carried the wording. Every changed `SKILL.md` is synced to the global install (36/36 skills, zero drift, no orphans).
-diff --git a/mcp-decision-server/server.py b/mcp-decision-server/server.py
-index 7869ad9..1907de7 100644
---- a/mcp-decision-server/server.py
-+++ b/mcp-decision-server/server.py
-@@ -202,18 +202,63 @@ PROVIDER_ERROR = "PROVIDER_ERROR"
- PROVIDER_REFUSAL = "PROVIDER_REFUSAL"
- 
- 
-+#: Default character cap for the joined session transcript sent to the model.
-+_DECISION_TRANSCRIPT_MAX_CHARS_DEFAULT = 131072
-+
-+#: Default output-token ceiling for extraction turns.
-+_DECISION_MAX_TOKENS_DEFAULT = 16384
-+
-+
-+def _get_decision_transcript_max_chars() -> int:
-+    """Character cap for the session transcript sent to the model.
-+
-+    Override via ``DECISION_TRANSCRIPT_MAX_CHARS`` (default 131072). Blank
-+    means unset — the default wins. A malformed, zero, or negative value
-+    raises instead of letting an unbounded prompt reach the provider: an
-+    oversized transcript is the exact failure this cap exists to bound.
-+    """
-+    raw = os.environ.get("DECISION_TRANSCRIPT_MAX_CHARS", "").strip()
-+    if not raw:
-+        return _DECISION_TRANSCRIPT_MAX_CHARS_DEFAULT
-+    try:
-+        value = int(raw)
-+    except ValueError:
-+        raise ValueError(
-+            f"DECISION_TRANSCRIPT_MAX_CHARS={raw!r} is not an integer; "
-+            "set a positive integer or leave it blank"
-+        )
-+    if value <= 0:
-+        raise ValueError(
-+            f"DECISION_TRANSCRIPT_MAX_CHARS={value} must be positive"
-+        )
-+    return value
-+
-+
- def _get_decision_temperature() -> float:
-     """Extraction sampling temperature; override via ``DECISION_TEMPERATURE``.
- 
-     Defaults to 1.0 (matches the house temperature policy; the old hardcoded
--    0.2 was a Gemini-era leftover). Out-of-range or unparsable values clamp
--    to 1.0 instead of crashing a live turn.
-+    0.2 was a Gemini-era leftover). Blank means unset — the default wins. A
-+    malformed or out-of-range value raises instead of being clamped: a bad
-+    configuration must fail loudly, never be silently replaced by a default
-+    the operator did not choose.
-     """
-+    raw = os.environ.get("DECISION_TEMPERATURE", "").strip()
-+    if not raw:
-+        return 1.0
-     try:
--        value = float(os.environ.get("DECISION_TEMPERATURE", "1.0") or 1.0)
-+        value = float(raw)
-     except ValueError:
--        return 1.0
--    return value if 0.0 <= value <= 2.0 else 1.0
-+        raise ValueError(
-+            f"DECISION_TEMPERATURE={raw!r} is not a number; "
-+            "set a value between 0.0 and 2.0 or leave it blank"
-+        )
-+    if not 0.0 <= value <= 2.0:
-+        raise ValueError(
-+            f"DECISION_TEMPERATURE={raw!r} is out of range; "
-+            "use 0.0-2.0 or leave it blank"
-+        )
-+    return value
- 
- 
- def _get_decision_model() -> str:
-@@ -253,12 +298,23 @@ def _get_decision_max_tokens() -> int:
-     The extraction call used to send no cap at all, leaving the ceiling to
-     the provider. Reasoning tokens are billed as output and count against
-     this cap on most providers, so an explicit value keeps the cost and the
--    truncation boundary predictable.
-+    truncation boundary predictable. Blank means unset — the default wins.
-+    A malformed, zero, or negative value raises instead of silently falling
-+    back, so a bad configuration can never masquerade as the default.
-     """
-+    raw = os.environ.get("DECISION_MAX_TOKENS", "").strip()
-+    if not raw:
-+        return _DECISION_MAX_TOKENS_DEFAULT
-     try:
--        return int(os.environ.get("DECISION_MAX_TOKENS", "16384").strip() or "16384")
-+        value = int(raw)
-     except ValueError:
--        return 16384
-+        raise ValueError(
-+            f"DECISION_MAX_TOKENS={raw!r} is not an integer; "
-+            "set a positive integer or leave it blank"
-+        )
-+    if value <= 0:
-+        raise ValueError(f"DECISION_MAX_TOKENS={value} must be positive")
-+    return value
- 
- 
- #: Advertised reasoning-effort support for the models this server ships a
-@@ -1234,16 +1290,27 @@ def extract_session_decisions(
-             f"decision transcript {path} exists but holds zero turns — "
-             f"refusing to treat a broken pipeline as 'no rulings'"
-         )
-+    # The transcript is sent whole, so an oversized session produced an
-+    # unbounded prompt — the exact starvation this cap exists to bound.
-+    # Cap the joined text BEFORE the prompt is built and report the
-+    # dropped size, never silently.
-+    transcript_bytes = path.read_bytes()
-+    transcript_text = "\n".join(turns)
-+    _max_chars = _get_decision_transcript_max_chars()
-+    if len(transcript_text) > _max_chars:
-+        dropped_chars = len(transcript_text) - _max_chars
-+        transcript_text = (
-+            transcript_text[:_max_chars]
-+            + f"\n[...truncated at {dropped_chars} chars]"
-+        )
-     prompt = (
-         "Extract the MANAGER's decisions, trade-offs, and rulings from this session "
-         "transcript. Preserve each ruling's verbatim quote. Reply with a JSON array; "
-         "each item: {verbatim_quote: {original, english_translation}, "
-         "extracted_decision: {summary, category, rationale, alternatives[], tradeoffs}}. "
-         "Use categories: architecture/process/scope/quality-gate/tooling/release/other. "
--        "Empty array when the session holds no manager rulings.\n\n" + "\n".join(turns)
-+        "Empty array when the session holds no manager rulings.\n\n" + transcript_text
-     )
--    transcript_bytes = path.read_bytes()
--    transcript_text = "\n".join(turns)
-     effort = _get_decision_effort()  # Validated always; sent when no explicit temp.
-     # Temperature-vs-effort rule (mirrors the Brain bridge): an explicitly
-     # set temperature wins (temperature sent, effort dropped — Responses
-diff --git a/tests/test_decision_server.py b/tests/test_decision_server.py
-index 290bd63..e8f0d50 100644
---- a/tests/test_decision_server.py
-+++ b/tests/test_decision_server.py
-@@ -448,6 +448,77 @@ def test_extract_parses_stubbed_llm_json(srv, tmp_path, monkeypatch):
-     assert target(1, transcript_path=str(transcript)) == candidates
- 
- 
-+def test_extract_truncates_oversized_transcript_with_note(
-+        srv, tmp_path, monkeypatch):
-+    # The transcript is sent whole, so an oversized session produced an
-+    # unbounded prompt — the exact starvation the cap exists to bound. The
-+    # prompt now carries the capped text plus an explicit dropped count.
-+    lines = [
-+        json.dumps({"role": "user", "content": "x" * 40}) for _ in range(5)
-+    ]
-+    transcript = tmp_path / "transcript.jsonl"
-+    transcript.write_text("\n".join(lines) + "\n", encoding="utf-8")
-+    joined = "\n".join(f"[user] {'x' * 40}" for _ in range(5))
-+    monkeypatch.setenv("DECISION_TRANSCRIPT_MAX_CHARS", "20")
-+
-+    captured: dict = {}
-+    stub_resp = types.SimpleNamespace(
-+        status_code=200, text="stub", headers={},
-+        raise_for_status=lambda: None,
-+        json=lambda: {
-+            "output": [
-+                {"type": "message",
-+                 "content": [{"type": "output_text", "text": "[]"}]}
-+            ]
-+        },
-+    )
-+
-+    class _FakeClient:
-+        def __init__(self, *a, **k):
-+            pass
-+
-+        def __enter__(self):
-+            return self
-+
-+        def __exit__(self, *a):
-+            return False
-+
-+        def post(self, *a, **k):
-+            captured["kwargs"] = k
-+            return stub_resp
-+
-+    stub = types.ModuleType("httpx")
-+    stub.Client = _FakeClient
-+    stub.TimeoutException = type("TimeoutException", (Exception,), {})
-+    stub.TransportError = type("TransportError", (Exception,), {})
-+
-+    class _Timeout:
-+        def __init__(self, *a, **k):
-+            pass
-+
-+    stub.Timeout = _Timeout
-+    monkeypatch.setitem(sys.modules, "httpx", stub)
-+    call = srv.extract_session_decisions
-+    target = call.fn if hasattr(call, "fn") else call
-+    assert target(1, transcript_path=str(transcript)) == []
-+
-+    kwargs = captured["kwargs"]
-+    sent = kwargs.get("json")
-+    if sent is None:
-+        raw = kwargs.get("content")
-+        sent = json.loads(raw) if isinstance(raw, (str, bytes)) else None
-+    assert isinstance(sent, dict), kwargs
-+    # The request shape is unchanged: the same core fields, nothing new.
-+    assert {"model", "input", "max_output_tokens"} <= set(sent)
-+    assert set(sent) <= {"model", "input", "max_output_tokens",
-+                         "reasoning", "temperature"}
-+    content = sent["input"][0]["content"]
-+    dropped = len(joined) - 20
-+    assert f"[...truncated at {dropped} chars]" in content
-+    # The uncapped tail never reached the provider.
-+    assert content.count("x" * 40) == 0
-+
-+
- def test_load_env_files_from_cwd_and_never_overrides(srv, tmp_path, monkeypatch):
-     (tmp_path / ".env").write_text(
-         "DECISION_TEST_PROBE=probe-value-456\n", encoding="utf-8"
-@@ -541,10 +612,54 @@ def test_decision_temperature_default_and_overrides(srv, monkeypatch):
-     assert srv._get_decision_temperature() == 1.0
-     monkeypatch.setenv("DECISION_TEMPERATURE", "0.2")
-     assert srv._get_decision_temperature() == 0.2
--    monkeypatch.setenv("DECISION_TEMPERATURE", "not-a-float")
-+    # Blank means unset: the default wins.
-+    monkeypatch.setenv("DECISION_TEMPERATURE", "")
-     assert srv._get_decision_temperature() == 1.0
--    monkeypatch.setenv("DECISION_TEMPERATURE", "9.9")
--    assert srv._get_decision_temperature() == 1.0  # Clamped, never crashes.
-+    # A bad configuration fails loudly instead of being clamped away.
-+    for bad in ("not-a-float", "9.9", "-0.5"):
-+        monkeypatch.setenv("DECISION_TEMPERATURE", bad)
-+        with pytest.raises(ValueError) as err:
-+            srv._get_decision_temperature()
-+        assert "DECISION_TEMPERATURE" in str(err.value)
-+
-+
-+def test_decision_transcript_max_chars_default_blank_and_override(
-+        srv, monkeypatch):
-+    # Blank means unset: the documented default wins.
-+    monkeypatch.delenv("DECISION_TRANSCRIPT_MAX_CHARS", raising=False)
-+    assert srv._get_decision_transcript_max_chars() == 131072
-+    monkeypatch.setenv("DECISION_TRANSCRIPT_MAX_CHARS", "")
-+    assert srv._get_decision_transcript_max_chars() == 131072
-+    monkeypatch.setenv("DECISION_TRANSCRIPT_MAX_CHARS", "4096")
-+    assert srv._get_decision_transcript_max_chars() == 4096
-+
-+
-+def test_decision_transcript_max_chars_rejects_bad_values(srv, monkeypatch):
-+    # An oversized transcript is exactly what this cap exists to bound, so
-+    # a bad configuration must fail loudly rather than fall back.
-+    for bad in ("abc", "0", "-5"):
-+        monkeypatch.setenv("DECISION_TRANSCRIPT_MAX_CHARS", bad)
-+        with pytest.raises(ValueError) as err:
-+            srv._get_decision_transcript_max_chars()
-+        assert "DECISION_TRANSCRIPT_MAX_CHARS" in str(err.value)
-+
-+
-+def test_decision_max_tokens_default_blank_and_override(srv, monkeypatch):
-+    monkeypatch.delenv("DECISION_MAX_TOKENS", raising=False)
-+    assert srv._get_decision_max_tokens() == 16384
-+    monkeypatch.setenv("DECISION_MAX_TOKENS", "")
-+    assert srv._get_decision_max_tokens() == 16384
-+    monkeypatch.setenv("DECISION_MAX_TOKENS", "2048")
-+    assert srv._get_decision_max_tokens() == 2048
-+
-+
-+def test_decision_max_tokens_rejects_bad_values(srv, monkeypatch):
-+    # Previously a malformed value silently fell back to 16384.
-+    for bad in ("abc", "0", "-1"):
-+        monkeypatch.setenv("DECISION_MAX_TOKENS", bad)
-+        with pytest.raises(ValueError) as err:
-+            srv._get_decision_max_tokens()
-+        assert "DECISION_MAX_TOKENS" in str(err.value)
- 
- 
- def test_repo_root_falls_back_when_cwd_blocked(srv, tmp_path, monkeypatch):
-```
+**Factual Git Diff:** Stored in Commit Hash: `937724016edb6faab60f322564cc8d354649255a`
 <!-- END_GIT_DIFF -->
