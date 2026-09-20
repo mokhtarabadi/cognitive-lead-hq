@@ -571,13 +571,13 @@ def test_decision_env_precedence_over_brain_fallbacks(srv, monkeypatch):
 
 
 def test_decision_env_blank_falls_back_to_brain(srv, monkeypatch):
-    monkeypatch.setenv("BRAIN_API_BASE", "http://brain-base")
+    monkeypatch.setenv("BRAIN_API_BASE", "https://brain-base")
     monkeypatch.setenv("BRAIN_API_KEY", "sk-brain")
     monkeypatch.setenv("BRAIN_REASONING_EFFORT", "low")
     monkeypatch.setenv("DECISION_API_BASE", "   ")
     monkeypatch.setenv("DECISION_API_KEY", "   ")
     monkeypatch.setenv("DECISION_REASONING_EFFORT", "   ")
-    assert srv._get_api_base() == "http://brain-base"
+    assert srv._get_api_base() == "https://brain-base"
     assert srv._get_api_key() == "sk-brain"
     assert srv._get_decision_effort() == "low"
 
@@ -945,6 +945,7 @@ def test_temperature_pinned_zero_unless_set(srv, tmp_path, monkeypatch):
         {"type": "output_text", "text": json.dumps([one])}]}]}
     monkeypatch.delenv("BRAIN_TEMPERATURE", raising=False)
     monkeypatch.delenv("DECISION_TEMPERATURE", raising=False)
+    monkeypatch.delenv("DECISION_MAX_TOKENS", raising=False)
     _stub_capture(_decision_resp(200, "fine", envelope))
     _extract(srv)(7, transcript_path=str(transcript))
     assert "temperature" not in seen["body"]
@@ -1039,6 +1040,7 @@ def test_extract_repeat_determinism_five_times(srv, tmp_path, monkeypatch, capsy
     monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
     monkeypatch.delenv("BRAIN_TEMPERATURE", raising=False)
     monkeypatch.delenv("DECISION_TEMPERATURE", raising=False)
+    monkeypatch.delenv("DECISION_MAX_TOKENS", raising=False)
     one = _valid_one_191()
     calls = _stub_counting_http(
         monkeypatch,
@@ -1206,6 +1208,7 @@ def test_extract_temp_wire_default_zero(srv, tmp_path, monkeypatch):
     monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
     monkeypatch.delenv("BRAIN_TEMPERATURE", raising=False)
     monkeypatch.delenv("DECISION_TEMPERATURE", raising=False)
+    monkeypatch.delenv("DECISION_MAX_TOKENS", raising=False)
     seen = []
     _stub_capture(monkeypatch,
                   _decision_resp(200, "fine", _envelope_191(json.dumps(_ship_candidates()))),
@@ -2357,3 +2360,56 @@ def test_provider_failure_message_scalar_usage_still_terminal(srv):
     msg = srv._provider_failure_message(diag)
     assert msg.startswith("decision model returned no text: OUTPUT_BUDGET_EXHAUSTED")
     assert "input=None" in msg
+
+
+# --- R1: HTTPS scheme guard (Task 265) ---
+
+
+def test_decision_https_guard_allows_https(srv):
+    base = "https://api.openai.com/v1"
+    assert srv._https_guard(base, "DECISION_API_BASE") == base
+
+
+def test_decision_https_guard_allows_loopback(srv):
+    for base in ("http://localhost:8080/v1", "http://127.0.0.1:1234/v1"):
+        assert srv._https_guard(base, "DECISION_API_BASE") == base
+
+
+def test_decision_https_guard_rejects_plaintext_remote(srv):
+    with pytest.raises(RuntimeError) as exc:
+        srv._https_guard("http://api.example.com/v1", "DECISION_API_BASE")
+    assert "DECISION_API_BASE" in str(exc.value)
+
+
+def test_decision_api_base_rejects_plaintext_remote(srv, monkeypatch):
+    monkeypatch.setenv("DECISION_API_BASE", "http://api.example.com/v1")
+    monkeypatch.delenv("BRAIN_API_BASE", raising=False)
+    with pytest.raises(RuntimeError):
+        srv._get_api_base()
+
+
+def test_decision_api_base_accepts_https(srv, monkeypatch):
+    monkeypatch.setenv("DECISION_API_BASE", "https://openrouter.ai/api/v1")
+    assert srv._get_api_base() == "https://openrouter.ai/api/v1"
+
+
+# --- R2: configurable read timeout (Task 265) ---
+
+
+def test_decision_read_timeout_default_and_override(srv, monkeypatch):
+    monkeypatch.delenv("DECISION_HTTP_READ_TIMEOUT", raising=False)
+    assert srv._get_decision_read_timeout() == 600.0
+    monkeypatch.setenv("DECISION_HTTP_READ_TIMEOUT", "900")
+    assert srv._get_decision_read_timeout() == 900.0
+
+
+def test_decision_read_timeout_rejects_malformed(srv, monkeypatch):
+    monkeypatch.setenv("DECISION_HTTP_READ_TIMEOUT", "abc")
+    with pytest.raises(RuntimeError):
+        srv._get_decision_read_timeout()
+
+
+def test_decision_read_timeout_rejects_nonpositive(srv, monkeypatch):
+    monkeypatch.setenv("DECISION_HTTP_READ_TIMEOUT", "0")
+    with pytest.raises(RuntimeError):
+        srv._get_decision_read_timeout()

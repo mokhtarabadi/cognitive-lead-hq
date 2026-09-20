@@ -154,8 +154,9 @@ def test_parse_responses_text_empty_and_malformed():
 def test_responses_url_default_and_override(monkeypatch):
     monkeypatch.delenv("BRAIN_API_BASE", raising=False)
     assert bridge._responses_url() == "https://api.openai.com/v1/responses"
-    monkeypatch.setenv("BRAIN_API_BASE", "http://x:1/base/")
-    assert bridge._responses_url() == "http://x:1/base/responses"
+    # Loopback http stays allowed (local proxy); trailing slash is stripped.
+    monkeypatch.setenv("BRAIN_API_BASE", "http://localhost:1/base/")
+    assert bridge._responses_url() == "http://localhost:1/base/responses"
 
 
 # --- hotfix hardening (QA_REJECTED follow-up, mocked HTTP only) ---
@@ -2374,7 +2375,8 @@ def test_sibling_missing_still_resolves_per_project(tmp_path, monkeypatch):
 
 def _clean_routing_env(monkeypatch):
     for var in ("BRAIN_RISK_ROUTING_ENABLED", "BRAIN_MODEL_LOW",
-                "BRAIN_MODEL_HIGH", "BRAIN_MODEL", "BRAIN_STAGE_TIERS"):
+                "BRAIN_MODEL_HIGH", "BRAIN_MODEL", "BRAIN_STAGE_TIERS",
+                "BRAIN_REASONING_EFFORT", "BRAIN_MAX_TOKENS"):
         monkeypatch.delenv(var, raising=False)
 
 
@@ -3188,4 +3190,56 @@ def test_nonpositive_ctx_per_file_cap_fails_the_turn(tmp_path, monkeypatch):
             monkeypatch, "review the attached report", task_id="200",
             stage="review", include_bundle=False, include_diff=False,
             context_paths=["report.md"], project_root=str(tmp_path))
+
+
+# --- R1: HTTPS scheme guard (Task 265) ---
+
+
+def test_https_guard_allows_https():
+    base = "https://api.openai.com/v1"
+    assert bridge._https_guard(base, "BRAIN_API_BASE") == base
+
+
+def test_https_guard_allows_loopback_http():
+    for base in ("http://localhost:8080/v1", "http://127.0.0.1:1234/v1"):
+        assert bridge._https_guard(base, "BRAIN_API_BASE") == base
+
+
+def test_https_guard_rejects_plaintext_remote():
+    with pytest.raises(RuntimeError) as exc:
+        bridge._https_guard("http://api.example.com/v1", "BRAIN_API_BASE")
+    assert "BRAIN_API_BASE" in str(exc.value)
+
+
+def test_responses_url_rejects_plaintext_remote(monkeypatch):
+    monkeypatch.setenv("BRAIN_API_BASE", "http://api.example.com/v1")
+    with pytest.raises(RuntimeError):
+        bridge._responses_url()
+
+
+def test_responses_url_accepts_https(monkeypatch):
+    monkeypatch.setenv("BRAIN_API_BASE", "https://openrouter.ai/api/v1")
+    assert bridge._responses_url() == "https://openrouter.ai/api/v1/responses"
+
+
+# --- R2: configurable read timeout (Task 265) ---
+
+
+def test_read_timeout_default_and_override(monkeypatch):
+    monkeypatch.delenv("BRAIN_HTTP_READ_TIMEOUT", raising=False)
+    assert bridge._get_read_timeout() == 600.0
+    monkeypatch.setenv("BRAIN_HTTP_READ_TIMEOUT", "900")
+    assert bridge._get_read_timeout() == 900.0
+
+
+def test_read_timeout_rejects_malformed(monkeypatch):
+    monkeypatch.setenv("BRAIN_HTTP_READ_TIMEOUT", "abc")
+    with pytest.raises(RuntimeError):
+        bridge._get_read_timeout()
+
+
+def test_read_timeout_rejects_nonpositive(monkeypatch):
+    monkeypatch.setenv("BRAIN_HTTP_READ_TIMEOUT", "0")
+    with pytest.raises(RuntimeError):
+        bridge._get_read_timeout()
 

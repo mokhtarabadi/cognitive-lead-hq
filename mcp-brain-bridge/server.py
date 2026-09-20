@@ -49,6 +49,7 @@ import sys
 import json
 from pathlib import Path
 from typing import Any, Optional
+from urllib.parse import urlsplit
 
 from mcp.server.fastmcp import FastMCP
 
@@ -1509,12 +1510,49 @@ def _resp_json(resp: Any) -> Any:
         ) from exc
 
 
+def _https_guard(base: str, env_key: str) -> str:
+    """Fail closed on a provider base that would leak the Bearer key.
+
+    HTTPS is always allowed. Plain HTTP is allowed ONLY for loopback hosts
+    (a local proxy), where the bytes never leave the machine. Anything else
+    raises instead of shipping the API key in cleartext over the network.
+    """
+    parsed = urlsplit(base)
+    if parsed.scheme == "https":
+        return base
+    host = (parsed.hostname or "").lower()
+    if parsed.scheme == "http" and host in {"localhost", "127.0.0.1", "::1"}:
+        return base
+    raise RuntimeError(
+        f"{env_key}={base!r} must use https:// (http:// is allowed only for "
+        f"localhost); refusing to send the API key in cleartext"
+    )
+
+
+def _get_read_timeout() -> float:
+    """Read timeout (seconds) for the non-streaming provider call.
+
+    Override via ``BRAIN_HTTP_READ_TIMEOUT`` (default 600). Reasoning models
+    can think for minutes before the single response body arrives, so a fixed
+    120s ceiling aborted valid high-effort turns. Malformed or non-positive
+    values fail loud rather than silently falling back.
+    """
+    raw = os.environ.get("BRAIN_HTTP_READ_TIMEOUT", "600").strip() or "600"
+    try:
+        val = float(raw)
+    except ValueError:
+        raise RuntimeError(f"BRAIN_HTTP_READ_TIMEOUT must be a number, got {raw!r}")
+    if val <= 0:
+        raise RuntimeError(f"BRAIN_HTTP_READ_TIMEOUT must be > 0, got {raw!r}")
+    return val
+
+
 def _make_client() -> Any:
     """Build the provider HTTP client (lazy httpx: imports stay offline)."""
     import httpx
 
     return httpx.Client(
-        timeout=httpx.Timeout(connect=10, read=120, write=30, pool=10)
+        timeout=httpx.Timeout(connect=10, read=_get_read_timeout(), write=30, pool=10)
     )
 
 
@@ -3317,6 +3355,7 @@ def _responses_url() -> str:
     """Responses endpoint; override via ``BRAIN_API_BASE``."""
     default = "https://api.openai.com/v1"
     base = os.environ.get("BRAIN_API_BASE", default).strip() or default
+    base = _https_guard(base, "BRAIN_API_BASE")
     return base.rstrip("/") + "/responses"
 
 

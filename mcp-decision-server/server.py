@@ -38,6 +38,7 @@ import unicodedata
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional, Union
+from urllib.parse import urlsplit
 
 from mcp.server.fastmcp import FastMCP
 
@@ -370,14 +371,55 @@ def _get_api_key() -> str:
 _DECISION_API_BASE_DEFAULT = "https://api.openai.com/v1"
 
 
+def _https_guard(base: str, env_key: str) -> str:
+    """Fail closed on a provider base that would leak the Bearer key.
+
+    HTTPS is always allowed. Plain HTTP is allowed ONLY for loopback hosts
+    (a local proxy), where the bytes never leave the machine. Anything else
+    raises instead of shipping the API key in cleartext over the network.
+    """
+    parsed = urlsplit(base)
+    if parsed.scheme == "https":
+        return base
+    host = (parsed.hostname or "").lower()
+    if parsed.scheme == "http" and host in {"localhost", "127.0.0.1", "::1"}:
+        return base
+    raise RuntimeError(
+        f"{env_key}={base!r} must use https:// (http:// is allowed only for "
+        f"localhost); refusing to send the API key in cleartext"
+    )
+
+
 def _get_api_base() -> str:
     """Provider base URL: ``DECISION_API_BASE`` first, ``BRAIN_API_BASE``
-    as fallback, then the local default."""
-    return (
+    as fallback, then the local default. The resolved base must pass the
+    HTTPS guard so the Bearer key never travels in cleartext."""
+    base = (
         os.environ.get("DECISION_API_BASE", "").strip()
         or os.environ.get("BRAIN_API_BASE", _DECISION_API_BASE_DEFAULT).strip()
         or _DECISION_API_BASE_DEFAULT
     )
+    return _https_guard(base, "DECISION_API_BASE/BRAIN_API_BASE")
+
+
+def _get_decision_read_timeout() -> float:
+    """Read timeout (seconds) for the non-streaming provider call.
+
+    Override via ``DECISION_HTTP_READ_TIMEOUT`` (default 600). Reasoning
+    models can think for minutes before the single response body arrives, so
+    a fixed 120s ceiling aborted valid high-effort turns. Malformed or
+    non-positive values fail loud rather than silently falling back.
+    """
+    raw = os.environ.get("DECISION_HTTP_READ_TIMEOUT", "600").strip() or "600"
+    try:
+        val = float(raw)
+    except ValueError:
+        raise RuntimeError(
+            f"DECISION_HTTP_READ_TIMEOUT must be a number, got {raw!r}"
+        )
+    if val <= 0:
+        raise RuntimeError(f"DECISION_HTTP_READ_TIMEOUT must be > 0, got {raw!r}")
+    return val
 
 
 # Retry policy for provider calls: 3 attempts, exponential backoff.
@@ -1382,7 +1424,9 @@ def extract_session_decisions(
     else:
         body["reasoning"] = {"effort": effort}
     with httpx.Client(
-        timeout=httpx.Timeout(connect=10, read=120, write=30, pool=10)
+        timeout=httpx.Timeout(
+            connect=10, read=_get_decision_read_timeout(), write=30, pool=10
+        )
     ) as client:
         resp, _attempts = _post_with_retry(
             client, api_base.rstrip("/") + "/responses", body
