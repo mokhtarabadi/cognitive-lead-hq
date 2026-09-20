@@ -311,8 +311,11 @@ _TASK_DIFF_BEGIN = "<!-- BEGIN_GIT_DIFF -->"
 _TASK_DIFF_END = "<!-- END_GIT_DIFF -->"
 _TASK_FILE_MARKER = "[task-file:"
 _TASK_KANBAN_DIRS = ("in-progress", "qa", "backlog", "completed", "archive")
-_TASK_ATTACH_CAP = 12000
-_TASK_DIFF_CAP = 20000
+# Defaults only — both are overridable at runtime via environment
+# variables (see _task_attach_cap / _task_diff_cap below). These caps
+# bound a single attachment; the shared allocator bounds the whole turn.
+_TASK_ATTACH_CAP = 60000
+_TASK_DIFF_CAP = 200000
 
 
 def _task_id_ok(tid: object) -> bool:
@@ -377,6 +380,36 @@ def _resolve_task_file(
         return None
 
 
+def _diff_block_end(tail: str) -> int:
+    """Index of the closing marker in ``tail`` (the text after BEGIN).
+
+    The marker string can appear INSIDE a diff body — a task that edits
+    this very module defines ``_TASK_DIFF_END`` in its own source — so
+    the FIRST occurrence is not reliably the block end. That made the
+    diff attach stop a few lines into ``server.py`` and left the seat
+    judging a change set it could not see.
+
+    The injected shape is a fenced ```diff body followed by the marker,
+    so when the body opens a fence the block ends at the first marker
+    AFTER that fence closes. Blocks without a fence (hand-written, or
+    the template placeholder) fall back to the first marker.
+    """
+    lead = len(tail) - len(tail.lstrip())
+    body = tail[lead:]
+    if body.startswith("```"):
+        open_end = body.find("\n")
+        if open_end >= 0:
+            close = body.find("\n```", open_end)
+            if close >= 0:
+                line_end = body.find("\n", close + 1)
+                if line_end < 0:
+                    line_end = len(body)
+                marker = tail.find(_TASK_DIFF_END, lead + line_end)
+                if marker >= 0:
+                    return marker
+    return tail.find(_TASK_DIFF_END)
+
+
 def _strip_task_diff(text: str, rel: str) -> tuple[str, int, bool]:
     """Cut ALL Factual Git Diff blocks; return (cleaned, omitted, truncated).
 
@@ -394,7 +427,7 @@ def _strip_task_diff(text: str, rel: str) -> tuple[str, int, bool]:
             break
         parts.append(rest[:start])
         tail = rest[start + len(_TASK_DIFF_BEGIN):]
-        end = tail.find(_TASK_DIFF_END)
+        end = _diff_block_end(tail)
         if end < 0:
             omitted += tail.count("\n") + 1
             truncated = True
@@ -436,9 +469,10 @@ def _build_task_attach(
         except (OSError, ValueError):
             rel = path.name
         cleaned, _omitted, _truncated = _strip_task_diff(text, rel)
-        if len(cleaned) > _TASK_ATTACH_CAP:
+        _cap = _task_attach_cap()
+        if len(cleaned) > _cap:
             cleaned = (
-                cleaned[:_TASK_ATTACH_CAP]
+                cleaned[:_cap]
                 + "\n[...truncated — remainder NOT sent. Judge visible "
                 + "only; mark unseen UNVERIFIABLE, NEVER REJECTED. You "
                 + "have no file tools: quote needed paths and the Hands "
@@ -469,7 +503,7 @@ def extract_task_diff(text: str) -> str:
         if start < 0:
             break
         tail = rest[start + len(_TASK_DIFF_BEGIN):]
-        end = tail.find(_TASK_DIFF_END)
+        end = _diff_block_end(tail)
         if end < 0:
             bodies.append(tail)
             break
@@ -526,10 +560,11 @@ def build_diff_attach(
                 _workspace_root().resolve()).as_posix()
         except (OSError, ValueError):
             rel = path.name
-        if len(diff) > _TASK_DIFF_CAP:
+        _cap = _task_diff_cap()
+        if len(diff) > _cap:
             diff = (
-                diff[:_TASK_DIFF_CAP]
-                + f"\n[...diff truncated at {_TASK_DIFF_CAP} chars — "
+                diff[:_cap]
+                + f"\n[...diff truncated at {_cap} chars — "
                 + "hunks past this point were NOT sent. Judge only what "
                 + "is visible above: pass visible scope, mark the unseen "
                 + "remainder UNVERIFIABLE, and NEVER emit REJECTED on "
@@ -569,9 +604,7 @@ def _failsafe_qa_attach(
     carry the changed hunks even when the caller forgot include_diff.
     Never raises (build_diff_attach never raises).
     """
-    lowered = user_prompt.lower() if isinstance(user_prompt, str) else ""
-    if ("qa engineer" in lowered or "code reviewer" in lowered
-            or "adversarial" in lowered):
+    if _qa_like_prompt(user_prompt):
         return build_diff_attach(
             task_id.strip() if isinstance(task_id, str) else "",
             project_root=project_root)
@@ -1514,7 +1547,15 @@ def _send_with_learning(
 _HISTORY_LIMIT = 40
 
 # Max prompt + history chars per turn. Oldest history drops first.
-_INPUT_BUDGET = 100000
+#
+# Defaults to the same value as the model-window estimate below: a live
+# probe showed the assembled system prompt alone is ~87.6k chars, so the
+# older 100k ceiling left only ~12k of room for the change set a QA or
+# reviewer turn must see — which is the very starvation this ceiling was
+# meant to prevent. At the measured ~4.6 chars/token, 200k chars is
+# ~43k input tokens, well inside the documented window. Operators who
+# want the tighter ceiling back set BRAIN_INPUT_BUDGET.
+_INPUT_BUDGET = 200000
 
 # Assumed model window (chars) for the utilization monitor below.
 # Informational only — providers differ; the send cap stays _INPUT_BUDGET.
@@ -1522,6 +1563,63 @@ _MODEL_WINDOW_CHARS = 200000
 
 # Per-session context ledger filename (one JSON object per line per turn).
 _CONTEXT_LEDGER_NAME = "context_ledger.jsonl"
+
+
+# --- Configurable caps (blank-means-unset, mirrors mcp_common.env) ---
+# Every reader below resolves the module global AT CALL TIME so tests
+# (and callers) can monkeypatch the constant, and a blank env var means
+# "use the documented default" — never zero, never a crash at import.
+
+
+def _env_positive_int(name: str, default: int) -> int:
+    """Read a positive integer env var; blank/unset yields ``default``.
+
+    A malformed or non-positive value is a configuration error the
+    operator must see, never a silently clamped cap.
+    """
+    raw = os.environ.get(name, "")
+    if not raw.strip():
+        return default
+    try:
+        value = int(raw.strip())
+    except ValueError:
+        raise ValueError(
+            f"{name}={raw.strip()!r} is not an integer; set a positive "
+            "integer or leave it blank"
+        ) from None
+    if value <= 0:
+        raise ValueError(f"{name}={value} must be positive")
+    return value
+
+
+def _task_attach_cap() -> int:
+    """Configured task-attachment cap (chars)."""
+    return _env_positive_int("BRAIN_TASK_ATTACH_CAP", _TASK_ATTACH_CAP)
+
+
+def _task_diff_cap() -> int:
+    """Configured diff-attachment cap (chars)."""
+    return _env_positive_int("BRAIN_TASK_DIFF_CAP", _TASK_DIFF_CAP)
+
+
+def _ctx_paths_per_file_cap() -> int:
+    """Configured per-file cap for ``context_paths`` (chars)."""
+    return _env_positive_int("BRAIN_CTX_PER_FILE_CAP", _CTX_PATHS_PER_FILE)
+
+
+def _ctx_paths_total_cap() -> int:
+    """Configured total cap across ``context_paths`` (chars)."""
+    return _env_positive_int("BRAIN_CTX_TOTAL_CAP", _CTX_PATHS_TOTAL)
+
+
+def _input_budget_cap() -> int:
+    """Configured hard send ceiling for system+prompt+history (chars)."""
+    return _env_positive_int("BRAIN_INPUT_BUDGET", _INPUT_BUDGET)
+
+
+def _model_window_chars() -> int:
+    """Configured model-window estimate (chars), utilization monitor only."""
+    return _env_positive_int("BRAIN_MODEL_WINDOW_CHARS", _MODEL_WINDOW_CHARS)
 
 
 def _append_context_ledger(
@@ -1544,7 +1642,7 @@ def _append_context_ledger(
             "task_id": task_id or "noid",
             "budget_chars": budget_chars,
             "est_tokens": budget_chars // 4,
-            "util_pct": budget_chars * 100 // _MODEL_WINDOW_CHARS,
+            "util_pct": budget_chars * 100 // _model_window_chars(),
             "truncated": truncated_count,
             "model": model,
             "risk_tier": (risk_tier or "").strip() or None,
@@ -1683,15 +1781,21 @@ def _legacy_transcript_path(task_id: str) -> Path:
 #: Per-line size guard (R5): one monster line can't blow memory on read.
 _LINE_CAP_CHARS = 200_000
 
-#: Transcript compaction (Task 194): when a task transcript grows past
-#: this many valid records, the next load rewrites the file as one
+#: Transcript send-view compaction (Task 194): when a task transcript
+#: grows past this many valid records, the load view becomes one
 #: extractive digest record plus the newest records below. No model
 #: call — the digest is deterministic (counts, ranges, models seen).
+#:
+#: This bounds ONLY what is sent to the model. The transcript file is
+#: append-only and keeps every turn forever: the industry pattern
+#: (OpenCode, Claude Code, Codex) is to persist the full transcript and
+#: compact the sent context, never to discard stored history.
 _COMPACT_AFTER_MESSAGES = 30
 _COMPACT_KEEP_LAST = 10
 _SUMMARY_MAX_CHARS = 4000
-#: Byte-size backstop: compact whenever the transcript file exceeds this,
-#: even when the turn count is below the threshold (bounds huge turns).
+#: Byte-size backstop: apply the compacted view whenever the transcript
+#: file exceeds this, even when the turn count is below the threshold
+#: (bounds huge turns on the SEND path only).
 _COMPACT_FILE_BYTES = 200_000
 
 #: Record keys preserved across load/compact cycles (traceability).
@@ -1702,11 +1806,10 @@ _META_KEYS = ("model", "prompt_hash", "truncated", "compacted", "models",
 def _parse_turns(raw: str) -> tuple[list[dict[str, Any]], int]:
     """Parse transcript text into turns, skipping corrupt lines.
 
-    Shared by ``load_history`` and the locked compaction path so both
-    apply identical rules: blank lines ignored, monster lines over
-    ``_LINE_CAP_CHARS`` dropped with count, malformed JSON skipped,
-    non-turn dicts skipped, traceability keys preserved. Returns
-    ``(turns, skipped)``."""
+    The single reader for stored transcripts: blank lines ignored,
+    monster lines over ``_LINE_CAP_CHARS`` dropped with count,
+    malformed JSON skipped, non-turn dicts skipped, traceability keys
+    preserved. Returns ``(turns, skipped)``."""
     turns: list[dict[str, Any]] = []
     skipped = 0
     for line in raw.splitlines():
@@ -1777,42 +1880,6 @@ def _build_compacted(turns: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return [summary] + fresh[-_COMPACT_KEEP_LAST:]
 
 
-def _atomic_write_turns(path: Path, turns: list[dict[str, Any]]) -> None:
-    """Replace a transcript atomically: temp file + fsync + rename.
-
-    A crash mid-write leaves either the old or the new file — never a
-    half-written transcript."""
-    tmp = path.with_name(f"{path.name}.tmp-{os.getpid()}")
-    with tmp.open("w", encoding="utf-8") as fh:
-        for turn in turns:
-            fh.write(json.dumps(turn) + "\n")
-        fh.flush()
-        os.fsync(fh.fileno())
-    os.replace(tmp, path)
-
-
-def _compact_locked(path: Path) -> tuple[list[dict[str, Any]], int]:
-    """Compact under an exclusive lock (read + build + write, one hold).
-
-    Re-reading inside the lock closes the TOCTOU window: appends from
-    other processes queue on the lock and land after the atomic
-    replace, so no turn is ever lost. Returns ``(kept, skipped)``."""
-    with path.open("r+", encoding="utf-8") as fh:
-        fcntl.flock(fh, fcntl.LOCK_EX)
-        try:
-            fh.seek(0)
-            turns, skipped = _parse_turns(fh.read())
-            kept = _build_compacted(turns)
-            _atomic_write_turns(path, kept)
-        finally:
-            fcntl.flock(fh, fcntl.LOCK_UN)
-    print(
-        f"brain-bridge: compacted {len(turns)} turns -> {len(kept)} records",
-        file=sys.stderr,
-    )
-    return kept, skipped
-
-
 def load_history(task_id: str, limit: int = _HISTORY_LIMIT,
                   project_root: Optional[str] = None) -> list[dict[str, str]]:
     """Read a task's prior turns (oldest first), capped at ``limit``.
@@ -1820,11 +1887,12 @@ def load_history(task_id: str, limit: int = _HISTORY_LIMIT,
     skipped, never fatal; per-load stats land in ``_last_load_stats``
     (``kept``/``skipped``) for tests and debugging. Traceability keys
     (model/prompt_hash/truncated/...) survive the round trip.
-    Transcripts past the count threshold — or the byte-size backstop
-    for huge turns — are compacted under one exclusive lock: prior
-    summaries merge into the new digest (never swallowed), the write
-    is atomic, and concurrent appends queue behind the lock instead
-    of being lost (see ``_build_compacted``)."""
+    The file itself is append-only — every turn ever written stays on
+    disk. Transcripts past the count threshold (or the byte-size
+    backstop) only have their LOAD VIEW compacted in memory: one
+    digest record plus the newest records (see ``_build_compacted``),
+    so storage keeps the full history while the send path stays
+    bounded."""
     path = _transcript_path(task_id, project_root)
     if not path.is_file():
         # Cross-project bleed guard: the legacy global fallback
@@ -1848,12 +1916,14 @@ def load_history(task_id: str, limit: int = _HISTORY_LIMIT,
         finally:
             fcntl.flock(fh, fcntl.LOCK_UN)
     turns, skipped = _parse_turns(raw)
+    # The file is append-only: every turn stays on disk. Only the view
+    # handed to the model is bounded (see _build_compacted) — storage
+    # keeps all history for the task, the send path stays inside budget.
     if (
         len(turns) > _COMPACT_AFTER_MESSAGES
         or path.stat().st_size > _COMPACT_FILE_BYTES
     ):
-        turns, lock_skipped = _compact_locked(path)
-        skipped += lock_skipped
+        turns = _build_compacted(turns)
     turns = turns[-limit:]
     _last_load_stats.update({"kept": len(turns), "skipped": skipped})
     if skipped:
@@ -1866,6 +1936,43 @@ def load_history(task_id: str, limit: int = _HISTORY_LIMIT,
 
 # Stats from the most recent load_history call (tests + debugging).
 _last_load_stats: dict[str, int] = {"kept": 0, "skipped": 0}
+
+
+def _transcript_form(user_prompt: str, rendered: list) -> str:
+    """Compact storage form of a turn: own prompt + per-segment markers.
+
+    The transcript is REPLAYED on every later turn, so persisting the
+    assembled prompt with every attachment body inside it meant each
+    turn re-sent the previous turn's attachments — one QA turn stored
+    a 64,547-char user turn and every turn after it paid that cost
+    again and again.
+
+    Attachments are re-derived from disk on each turn (task file,
+    diff, ``context_paths``, bundle), so nothing is lost by storing a
+    marker line instead of the body: kind, path, sizes and part
+    number keep the turn auditable. The live provider request still
+    carries the full ``effective_prompt`` — this is storage only.
+    """
+    markers: list[str] = []
+    for cand, _block, meta in rendered:
+        kind = cand.get("kind", "attachment")
+        path = cand.get("path", "")
+        total = len(cand.get("text", ""))
+        shown = total
+        part = 1
+        parts = 1
+        if meta is not None:
+            shown = meta.get("shown_chars", total)
+            total = meta.get("total_chars", total)
+            part = meta.get("part", 1)
+            parts = meta.get("parts", 1)
+        markers.append(
+            f"[stored-attachment kind={kind} path={path} "
+            f"shown_chars={shown} total_chars={total} part={part}/{parts}]"
+        )
+    if not markers:
+        return user_prompt
+    return "\n".join(markers) + "\n\n---\n\n" + user_prompt
 
 
 def append_turn(task_id: str, role: str, content: str, model: Optional[str] = None,
@@ -2014,13 +2121,15 @@ def load_fed_context(task_id: str,
         return ""
 
 
-#: Per-file cap for path-injected context (chars). Truncated with a note.
-_CTX_PATHS_PER_FILE = 20000
+#: Default per-file cap for path-injected context (chars). Overridable via
+#: ``BRAIN_CTX_PER_FILE_CAP``. Rendering truncates with a resume marker.
+_CTX_PATHS_PER_FILE = 60000
 
-#: Total cap across all path-injected files per turn (chars). Files past
-#: the total are skipped with an explicit skipped note — stacked files
-#: must never overflow the turn budget on their own.
-_CTX_PATHS_TOTAL = 40000
+#: Default total cap across all path-injected files per turn (chars).
+#: Overridable via ``BRAIN_CTX_TOTAL_CAP``. Files past the total are
+#: skipped with an explicit skipped note — stacked files must never
+#: overflow the turn budget on their own.
+_CTX_PATHS_TOTAL = 200000
 
 
 def _paths_base(project_root: Optional[str] = None) -> Path:
@@ -2089,19 +2198,514 @@ def build_paths_attach(
         if not text.strip():
             blocks.append(f"[unavailable: {rel.strip()} — empty file]")
             continue
-        if len(text) > _CTX_PATHS_PER_FILE:
-            text = (text[:_CTX_PATHS_PER_FILE]
-                    + f"\n[...truncated at {_CTX_PATHS_PER_FILE} chars]")
-        if used + len(text) > _CTX_PATHS_TOTAL:
+        _per_file = _ctx_paths_per_file_cap()
+        _total_cap = _ctx_paths_total_cap()
+        if len(text) > _per_file:
+            text = (text[:_per_file]
+                    + f"\n[...truncated at {_per_file} chars]")
+        if used + len(text) > _total_cap:
             blocks.append(
                 f"[skipped: {rel.strip()} — total budget "
-                f"{_CTX_PATHS_TOTAL} chars reached]")
+                f"{_total_cap} chars reached]")
             continue
         used += len(text)
         blocks.append(f"[path-injected: {rel.strip()}]\n{text}")
     if not blocks:
         return ""
     return "\n\n---\n\n".join(blocks)
+
+
+# --- Shared attachment allocator ------------------------------------
+# The model input ceiling is authoritative, so every attachment is
+# rendered by ONE allocator against the chars actually left after the
+# system prompt, the caller's prompt, and the shipped history. Each
+# builder above keeps its own semantics for direct callers; these
+# helpers feed the turn-level allocator instead.
+
+#: Stages whose turns rank explicit evidence above the small-file bundle.
+_REVIEW_STAGES = frozenset({"qa", "review"})
+
+#: Attachment priority per turn shape. Review/QA turns must see the
+#: changed hunks and explicitly requested files before the bundle.
+_PRIORITY_REVIEW = ("context_path", "diff", "task", "fed_context", "bundle")
+_PRIORITY_DEFAULT = ("bundle", "task", "context_path", "diff", "fed_context")
+
+#: Marker overhead reserved per rendered attachment (chars), so a part can
+#: never overflow the room it was granted.
+_ATTACHMENT_MARKER_ROOM = 200
+
+
+def _qa_like_prompt(user_prompt: object) -> bool:
+    """Keyword gate for QA/reviewer-shaped prompts (never raises)."""
+    lowered = user_prompt.lower() if isinstance(user_prompt, str) else ""
+    return ("qa engineer" in lowered or "code reviewer" in lowered
+            or "adversarial" in lowered)
+
+
+def _validate_attachment_resume(resume: object) -> Optional[dict]:
+    """Validate an ``attachment_resume`` request (``None`` when unusable).
+
+    Accepts ``{"kind": "diff"|"context_path", "path": str,
+    "offset_chars": int >= 0}`` — the shape the response payload and the
+    ``[NEXT_ATTACHMENT_PART]`` marker publish. A malformed resume is
+    ignored with a stderr note so it can never break a turn.
+    """
+    if not isinstance(resume, dict):
+        print("brain-bridge: attachment_resume ignored (not a mapping)",
+              file=sys.stderr)
+        return None
+    kind = resume.get("kind")
+    path = resume.get("path")
+    if kind not in ("diff", "context_path") or not isinstance(path, str) \
+            or not path.strip():
+        print("brain-bridge: attachment_resume ignored (bad kind/path)",
+              file=sys.stderr)
+        return None
+    try:
+        offset = int(resume.get("offset_chars", 0))
+    except (TypeError, ValueError):
+        print("brain-bridge: attachment_resume ignored (bad offset_chars)",
+              file=sys.stderr)
+        return None
+    return {"kind": kind, "path": path.strip(),
+            "offset_chars": max(0, offset)}
+
+
+def _attachment_priority(stage: Optional[str]) -> tuple:
+    """Attachment priority order for ``stage`` (review/QA evidence first)."""
+    if (stage or "").strip().lower() in _REVIEW_STAGES:
+        return _PRIORITY_REVIEW
+    return _PRIORITY_DEFAULT
+
+
+def _fence_guard(text: str) -> str:
+    """Break embedded fences invisibly so content cannot close our block."""
+    return text.replace(chr(96) * 3, chr(96) * 2 + chr(8203) + chr(96))
+
+
+#: Separator the turn joins attachment blocks with. The allocator prices it
+#: per block so the assembled prompt can never creep past the send ceiling
+#: by the join overhead the individual block sizes do not include.
+_SEP_LEN = len("\n\n---\n\n")
+
+
+def _open_overhead(open_line: str, fence_lang: Optional[str]) -> int:
+    """Chars the UNMARKED wrapper adds around the body (measured).
+
+    A whole-fit attachment still carries its open line and fence, so the
+    fit test must price them: comparing only the body length against the
+    room let a rendered block exceed the room it was granted.
+    """
+    lines = [open_line]
+    if fence_lang:
+        lines.append(f"```{fence_lang}")
+    lines.append("")
+    if fence_lang:
+        lines.append("```")
+    return len("\n".join(lines))
+
+
+def _marker_room(
+    kind: str, path: str, total: int,
+    open_line: str = "", fence_lang: Optional[str] = None,
+) -> int:
+    """Complete wrapper overhead (chars) for a SPLIT attachment.
+
+    Priced from the line shapes actually emitted — the part markers, the
+    caller's open line, the fence lines and every newline separator —
+    instead of a fixed guess. The body itself is excluded, so the
+    allocator can size the body as ``room - _marker_room(...)`` and the
+    rendered block can never exceed the room it was granted. ``total``
+    sizes the numeric fields; the result never falls below the floor
+    constant.
+    """
+    digits = len(str(max(total, 1))) + 2  # part/parts can exceed total
+    header = (
+        f'[ATTACHMENT kind={kind} path="{path}" part=1/1 '
+        f"offset_chars=0 shown_chars=0 total_chars=0]"
+    )
+    end = f'[END ATTACHMENT kind={kind} path="{path}" part=1/1]'
+    nxt = (
+        f'[NEXT_ATTACHMENT_PART kind={kind} path="{path}" '
+        f"next_offset_chars=0 remaining_chars=0]"
+    )
+    lines = [header, open_line]
+    if fence_lang:
+        lines.append(f"```{fence_lang}")
+    lines.append("")
+    if fence_lang:
+        lines.append("```")
+    lines.append(end)
+    lines.append(nxt)
+    return max(
+        _ATTACHMENT_MARKER_ROOM,
+        len("\n".join(lines)) + digits * 6,
+    )
+
+
+def _render_attachment(
+    kind: str,
+    path: str,
+    open_line: str,
+    fence_lang: Optional[str],
+    text: str,
+    room: int,
+    offset: int = 0,
+) -> tuple[str, Optional[dict]]:
+    """Render one labeled attachment inside ``room`` chars.
+
+    Returns ``(rendered, meta)``. ``meta`` is ``None`` when the whole
+    attachment fit; otherwise it reports exactly how many chars were
+    shown, how many were dropped, and the offset that resumes it — so a
+    caller can always ask for the remainder instead of declaring the
+    unseen scope UNVERIFIABLE.
+    """
+    total = len(text)
+    try:
+        offset = max(0, min(int(offset), total))
+    except (TypeError, ValueError):
+        offset = 0
+    # A whole-fit attachment gets NO part markers: reserving the marker room
+    # unconditionally split a file that fit its cap exactly into a second
+    # 200-char part, which reported a truncation that never happened. The
+    # reservation applies only when a split is genuinely required.
+    # Price the COMPLETE emitted wrapper — the open line, the fence lines
+    # and every newline separator, not just the body — so a rendered block
+    # can never exceed the room the allocator granted. An exact fit still
+    # renders with no part markers.
+    fits = (total - offset) + _open_overhead(open_line, fence_lang) <= room
+    part_size = max(1, room - _marker_room(
+        kind, path, total, open_line=open_line, fence_lang=fence_lang))
+    body = text[offset:] if fits else text[offset:offset + part_size]
+    shown = len(body)
+    next_offset = offset + shown
+    remaining = total - next_offset
+    parts = max(1, (total + part_size - 1) // part_size)
+    part = min(parts, offset // part_size + 1)
+    lines: list[str] = [open_line]
+    if fence_lang:
+        lines.append(f"```{fence_lang}")
+    lines.append(body)
+    if fence_lang:
+        lines.append("```")
+    if remaining <= 0:
+        return "\n".join(lines), None
+    lines.insert(0, (
+        f'[ATTACHMENT kind={kind} path="{path}" part={part}/{parts} '
+        f"offset_chars={offset} shown_chars={shown} total_chars={total}]"
+    ))
+    lines.append(
+        f'[END ATTACHMENT kind={kind} path="{path}" part={part}/{parts}]')
+    lines.append(
+        f'[NEXT_ATTACHMENT_PART kind={kind} path="{path}" '
+        f"next_offset_chars={next_offset} remaining_chars={remaining}]")
+    return "\n".join(lines), {
+        "kind": kind,
+        "path": path,
+        "part": part,
+        "parts": parts,
+        "offset_chars": offset,
+        "shown_chars": shown,
+        "total_chars": total,
+        "dropped_chars": remaining,
+        "next_offset_chars": next_offset,
+        "remaining_chars": remaining,
+        "budget_chars_remaining": 0,
+    }
+
+
+def _allocate_attachments(
+    candidates: list[dict],
+    priority: tuple,
+    system_chars: int,
+    user_chars: int,
+    history_chars: int,
+    budget: int,
+) -> tuple[list[tuple[dict, str, Optional[dict]]], list[dict], dict]:
+    """Render every attachment against the chars actually left in ``budget``.
+
+    ``candidates`` carry ``kind``, ``path``, ``open_line``, ``fence_lang``,
+    ``text``, an optional ``offset`` resume point and an optional ``slot``
+    (the prompt-cache split segment the rendered block belongs to).
+    Returns ``(rendered, truncated, info)`` where ``rendered`` is a list of
+    ``(candidate, block, meta)`` in priority order, ``truncated`` describes
+    every attachment that lost chars, and ``info`` holds the attachment
+    budget accounting for the response payload.
+    """
+    available = max(
+        0,
+        budget - (system_chars + user_chars + history_chars)
+        - _SEP_LEN * (len(priority) + 1),
+    )
+    used = 0
+    group_used: dict[str, int] = {}
+    rendered: list[tuple[dict, str, Optional[dict]]] = []
+    truncated: list[dict] = []
+    for kind in priority:
+        for cand in candidates:
+            if cand.get("kind") != kind:
+                continue
+            total = len(cand.get("text", ""))
+            room = available - used
+            _cap = cand.get("cap")
+            if _cap:
+                # The configured cap bounds the CONTENT; the wrapper the
+                # renderer must emit rides on top of it, or a file that
+                # fits its cap exactly would be split for the sake of a
+                # few marker characters.
+                room = min(
+                    room,
+                    int(_cap) + _marker_room(
+                        kind, cand.get("path", ""), total,
+                        open_line=cand.get("open_line", ""),
+                        fence_lang=cand.get("fence_lang")),
+                )
+            _group = cand.get("group")
+            _gcap = int(cand.get("group_cap") or 0)
+            if _group and _gcap:
+                # Files in one group share a configured total budget
+                # (context_paths). The candidates are allocated
+                # independently, so the aggregate is enforced here: the
+                # remainder is reported, never silently over-sent.
+                _gleft = max(0, _gcap - group_used.get(_group, 0))
+                # The group cap bounds CONTENT: grant the remaining
+                # content plus the wrapper that carries it, so a file
+                # that still fits its share arrives whole.
+                room = min(room, _gleft + _open_overhead(
+                    cand.get("open_line", ""), cand.get("fence_lang")))
+            # Below the marker envelope the attachment could only render
+            # as an unreadable stub that also overflows the budget, so
+            # report it as fully dropped instead of spending the room.
+            if room <= _marker_room(
+                    kind, cand.get("path", ""), total,
+                    open_line=cand.get("open_line", ""),
+                    fence_lang=cand.get("fence_lang")):
+                truncated.append({
+                    "kind": kind,
+                    "path": cand.get("path", ""),
+                    "part": 1,
+                    "parts": 1,
+                    "offset_chars": 0,
+                    "shown_chars": 0,
+                    "total_chars": total,
+                    "dropped_chars": total,
+                    "next_offset_chars": 0,
+                    "remaining_chars": total,
+                    "budget_chars_remaining": 0,
+                })
+                continue
+            block, meta = _render_attachment(
+                kind, cand.get("path", ""), cand.get("open_line", ""),
+                cand.get("fence_lang"), cand.get("text", ""), room,
+                offset=cand.get("offset", 0))
+            rendered.append((cand, block, meta))
+            used += len(block)
+            if _group:
+                group_used[_group] = group_used.get(_group, 0) + (
+                    meta["shown_chars"] if meta is not None else total)
+            if meta is not None:
+                meta["budget_chars_remaining"] = max(0, available - used)
+                truncated.append(meta)
+    info = {
+        "attachment_budget_chars": available,
+        "attachment_chars_used": used,
+        "attachment_chars_remaining": max(0, available - used),
+    }
+    return rendered, truncated, info
+
+
+def _task_candidate(
+    task_id: object, project_root: Optional[str] = None
+) -> Optional[dict]:
+    """Full task-file attachment candidate (diff stripped).
+
+    ``None`` when the task file is unresolvable — the caller then sends no
+    task attachment, exactly as before. Raises ``ValueError`` when the
+    configured cap environment value is malformed: a bad configuration
+    must fail loudly, never be reported as an unavailable attachment.
+    """
+    # Read the configured cap OUTSIDE the try: a malformed environment
+    # value is a configuration error and must propagate out of the turn.
+    cap = _task_attach_cap()
+    try:
+        path = _resolve_task_file(task_id, project_root=project_root)
+        if path is None:
+            return None
+        text = path.read_text(encoding="utf-8", errors="replace")
+        try:
+            rel = path.resolve().relative_to(
+                _workspace_root().resolve()).as_posix()
+        except (OSError, ValueError):
+            rel = path.name
+        cleaned, _omitted, _truncated = _strip_task_diff(text, rel)
+        tid = task_id.strip() if isinstance(task_id, str) else "task"
+        return {
+            "kind": "task",
+            "path": rel,
+            "open_line": f"{_TASK_FILE_MARKER}{tid}: {rel}]",
+            "fence_lang": "markdown",
+            "text": _fence_guard(cleaned),
+            "cap": cap,
+        }
+    except Exception as exc:  # never fail a turn on attach problems
+        print(f"brain-bridge: task attach skipped ({exc})", file=sys.stderr)
+        return None
+
+
+def _diff_candidate(
+    task_id: object, project_root: Optional[str] = None
+) -> dict:
+    """Full changed-hunks candidate; an inline note when unresolved/empty.
+
+    The inline notes matter: stderr is invisible to the model, so a silent
+    "" made the Brain reject blind. ``inline`` marks an unbreakable label
+    whose text lives in ``open_line``. Raises ``ValueError`` when the
+    configured cap environment value is malformed; otherwise never raises.
+    """
+    tid = task_id.strip() if isinstance(task_id, str) else "task"
+    # Same rule as _task_candidate: a malformed cap env value is a
+    # configuration error and must propagate out of the turn.
+    cap = _task_diff_cap()
+    try:
+        path = _resolve_task_file(task_id, project_root=project_root)
+        if path is None:
+            print(f"brain-bridge: diff attach skipped "
+                  f"(task file unresolvable for {task_id!r})",
+                  file=sys.stderr)
+            return {
+                "kind": "diff",
+                "path": str(task_id),
+                "open_line": (
+                    f"[changed-hunks:{tid}: UNAVAILABLE — task file "
+                    f"unresolvable for {task_id!r}. The server could not "
+                    "find the task file (wrong project_root, or the task "
+                    "lives in another install). Remedy: retry with the "
+                    "correct project_root, or paste the Factual Git Diff "
+                    "hunks inline. Do NOT reject blind on missing hunks."),
+                "fence_lang": None,
+                "text": "",
+                "inline": True,
+            }
+        text = path.read_text(encoding="utf-8", errors="replace")
+        diff = extract_task_diff(text)
+        if not diff.strip():
+            print(f"brain-bridge: diff attach skipped "
+                  f"(no Factual Git Diff block in {path.name})",
+                  file=sys.stderr)
+            return {
+                "kind": "diff",
+                "path": path.name,
+                "open_line": (
+                    f"[changed-hunks:{tid}: EMPTY — no Factual Git Diff "
+                    f"block in {path.name} yet. Stage the diff first "
+                    "(stage_and_inject_diff), then re-run this turn. "
+                    "Do NOT reject blind on missing hunks."),
+                "fence_lang": None,
+                "text": "",
+                "inline": True,
+            }
+        try:
+            rel = path.resolve().relative_to(
+                _workspace_root().resolve()).as_posix()
+        except (OSError, ValueError):
+            rel = path.name
+        return {
+            "kind": "diff",
+            "path": rel,
+            "open_line": f"[changed-hunks:{tid}: {rel}]",
+            "fence_lang": "diff",
+            "text": _fence_guard(diff),
+            "cap": cap,
+        }
+    except Exception as exc:  # never fail a turn on attach problems
+        print(f"brain-bridge: diff attach skipped ({exc})", file=sys.stderr)
+        return {
+            "kind": "diff",
+            "path": str(task_id),
+            "open_line": (
+                f"[changed-hunks:{tid}: UNAVAILABLE — attach raised "
+                f"({exc}). Retry the turn; if it persists, paste the "
+                "Factual Git Diff hunks inline. Do NOT reject blind "
+                "on missing hunks."),
+            "fence_lang": None,
+            "text": "",
+            "inline": True,
+        }
+
+
+def _inline_path_candidate(rel: str, note: str) -> dict:
+    """An unbreakable one-line label candidate for ``context_paths``."""
+    return {
+        "kind": "context_path",
+        "path": rel.strip(),
+        "open_line": note,
+        "fence_lang": None,
+        "text": "",
+        "inline": True,
+    }
+
+
+def _path_candidates(
+    paths: object, project_root: Optional[str] = None
+) -> list[dict]:
+    """Full-text candidates for ``context_paths`` ('' labels kept explicit).
+
+    Escapes, missing files, and unsupported suffixes become explicit
+    ``[unavailable: ...]`` labels, never silent drops. Raises
+    ``ValueError`` when a configured cap environment value is malformed;
+    otherwise never raises.
+    """
+    if not isinstance(paths, (list, tuple)):
+        return []
+    wanted = [p for p in paths if isinstance(p, str) and p.strip()]
+    if not wanted:
+        return []
+    # Configuration is read once, OUTSIDE the per-file I/O handling: a
+    # malformed or non-positive cap must fail loudly, never be reported
+    # as an unavailable attachment.
+    per_file = _ctx_paths_per_file_cap()
+    total_cap = _ctx_paths_total_cap()
+    out: list[dict] = []
+    base = _paths_base(project_root)
+    for rel in wanted:
+        try:
+            resolved = _resolve_under_root(rel, root=base)
+        except ValueError:
+            out.append(_inline_path_candidate(
+                rel, f"[unavailable: {rel.strip()} — outside workspace]"))
+            continue
+        if resolved.suffix.lower() not in _ALLOWED_READ_SUFFIXES:
+            out.append(_inline_path_candidate(
+                rel, f"[unavailable: {rel.strip()} — unsupported extension]"))
+            continue
+        try:
+            if resolved.stat().st_size > _READ_MAX_BYTES:
+                out.append(_inline_path_candidate(
+                    rel, f"[unavailable: {rel.strip()} — file too large]"))
+                continue
+            text = resolved.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            out.append(_inline_path_candidate(
+                rel, f"[unavailable: {rel.strip()} — unreadable]"))
+            continue
+        if not text.strip():
+            out.append(_inline_path_candidate(
+                rel, f"[unavailable: {rel.strip()} — empty file]"))
+            continue
+        out.append({
+            "kind": "context_path",
+            "path": rel.strip(),
+            "open_line": f"[path-injected: {rel.strip()}]",
+            "fence_lang": None,
+            "text": text,
+            "cap": per_file,
+            # Every context_paths file shares one configured total budget;
+            # the allocator enforces the aggregate because the candidates
+            # are allocated independently.
+            "group": "context_path",
+            "group_cap": total_cap,
+        })
+    return out
 
 
 def _note_checkpoint(
@@ -2133,6 +2737,7 @@ def brain_turn(
     include_bundle: bool = True,
     include_diff: bool = False,
     context_paths: Optional[list[str]] = None,
+    attachment_resume: Optional[dict] = None,
     project_root: Optional[str] = None,
     risk_tier: Optional[str] = None,
     session_id: Optional[str] = None,
@@ -2276,7 +2881,15 @@ def brain_turn(
             "xml_blocks": [],
             "output": _format_relay_block(exc),
             "model": _get_brain_model(),
+            # Same field set as a successful turn so callers never face
+            # two incompatible response schemas.
+            "history_turns_dropped": 0,
             "truncated_count": 0,
+            "attachments_truncated": [],
+            "attachment_parts": [],
+            "attachment_budget_chars": 0,
+            "attachment_chars_used": 0,
+            "attachment_chars_remaining": 0,
             "budget_chars": 0,
             "retry_count": 0,
             "prompt_cache_split": None,
@@ -2294,69 +2907,80 @@ def brain_turn(
     diff_append_text = ""
     failsafe_text = ""
     fed_text = ""
+
+    # Attachment candidates are gathered here WITHOUT final budgeting.
+    # One shared allocator below renders them against the chars actually
+    # left in the input budget, so stacked attachments can never each
+    # assume the whole window and starve the rest of the turn.
+    candidates: list[dict] = []
     if include_bundle and _BUNDLE_MARKER not in user_prompt:
-        bundle_text = _build_context_bundle()
-        effective_prompt = bundle_text + "\n\n---\n\n" + user_prompt
+        candidates.append({
+            "kind": "bundle",
+            "path": "small-file bundle",
+            "slot": "bundle",
+            "open_line": "",
+            "fence_lang": None,
+            "text": _build_context_bundle(),
+        })
     if include_bundle and task_id:
-        try:
-            attach = _build_task_attach(task_id, project_root=project_root)
-            _ns = (
-                f"{_TASK_FILE_MARKER}{task_id.strip()}: "
-                if isinstance(task_id, str)
-                else _TASK_FILE_MARKER
-            )
-            if attach and _ns not in user_prompt:
-                task_attach_text = attach
-                effective_prompt = attach + "\n\n---\n\n" + effective_prompt
-        except Exception as exc:  # never fail a turn on attach problems
-            print(f"brain-bridge: task attach skipped ({exc})", file=sys.stderr)
+        _ns = (
+            f"{_TASK_FILE_MARKER}{task_id.strip()}: "
+            if isinstance(task_id, str)
+            else _TASK_FILE_MARKER
+        )
+        _task_cand = _task_candidate(task_id, project_root=project_root)
+        if _task_cand is not None and _ns not in user_prompt:
+            _task_cand["slot"] = "task"
+            candidates.append(_task_cand)
     if context_paths:
         # File-path injection: the server reads big artifacts (context,
         # tree, signature reports) from disk instead of the Hands pasting
-        # them. Counts toward the input budget below like any prompt text.
+        # them. Explicitly requested files outrank the small-file bundle
+        # on review/QA turns.
         try:
-            paths_attach = build_paths_attach(
-                context_paths, project_root=project_root)
-            if paths_attach:
-                paths_text = paths_attach
-                effective_prompt = (
-                    effective_prompt + "\n\n---\n\n" + paths_attach)
-        except Exception as exc:  # never fail a turn on attach problems
+            for _pcand in _path_candidates(
+                    context_paths, project_root=project_root):
+                _pcand["slot"] = "paths"
+                candidates.append(_pcand)
+        except OSError as exc:  # I/O only: a bad cap value fails loudly
             print(f"brain-bridge: paths attach skipped ({exc})",
                   file=sys.stderr)
-    # Explicit flag stands alone: a lean turn (include_bundle=False,
-    # the documented EMPTY_OUTPUT_RETRY shape) with include_diff=True
-    # MUST still carry the hunks — gating the diff on the bundle
-    # silently dropped QA diffs on every lean retry.
-    if include_diff and task_id:
-        try:
-            dattach = build_diff_attach(
-                task_id.strip() if isinstance(task_id, str) else "",
-                project_root=project_root)
-            if dattach:
-                diff_append_text = dattach
-                effective_prompt = effective_prompt + "\n\n---\n\n" + dattach
-            else:
-                print("brain-bridge: include_diff=True but no hunks "
-                      "attached (see reason above)", file=sys.stderr)
-        except Exception as exc:  # never fail a turn on attach problems
-            print(f"brain-bridge: diff attach skipped ({exc})", file=sys.stderr)
-    if not include_diff and task_id:
-        # Fail-safe: QA/reviewer-like prompts carry the changed hunks even
-        # when the caller forgot the flag — a silent drop would let the
-        # Brain judge a summary instead of the changes. Keyword gate only;
-        # normal turns are untouched when the flag is False.
-        try:
-            dattach = _failsafe_qa_attach(
-                user_prompt, task_id, project_root=project_root)
-            if dattach:
-                print("brain-bridge: QA turn without include_diff, "
-                      "auto-attaching diff", file=sys.stderr)
-                failsafe_text = dattach
-                effective_prompt = (effective_prompt + "\n\n---\n\n"
-                                    + dattach)
-        except Exception as exc:  # never fail a turn on attach problems
-            print(f"brain-bridge: diff attach skipped ({exc})",
+    if task_id:
+        # Explicit flag stands alone: a lean turn (include_bundle=False,
+        # the documented EMPTY_OUTPUT_RETRY shape) with include_diff=True
+        # MUST still carry the hunks — gating the diff on the bundle
+        # silently dropped QA diffs on every lean retry. The fail-safe
+        # adds them for QA/reviewer-like prompts even when the caller
+        # forgot the flag (keyword gate only).
+        _failsafe = (not include_diff) and _qa_like_prompt(user_prompt)
+        if include_diff or _failsafe:
+            _diff_cand = _diff_candidate(task_id, project_root=project_root)
+            if _diff_cand is not None:
+                # The failsafe attach hashes into its OWN cache-split slot
+                # so it is never confused with an explicitly requested diff.
+                _diff_cand["slot"] = "failsafe" if _failsafe else "diff"
+                candidates.append(_diff_cand)
+                if _failsafe:
+                    print("brain-bridge: QA turn without include_diff, "
+                          "auto-attaching diff", file=sys.stderr)
+                elif _diff_cand.get("inline"):
+                    print("brain-bridge: include_diff=True but no hunks "
+                          "attached (see reason above)", file=sys.stderr)
+
+    # Chunk continuation: a caller that saw an [NEXT_ATTACHMENT_PART]
+    # marker (or an attachment_parts entry) can resume exactly that
+    # attachment at exactly that offset instead of re-sending everything.
+    _resume = _validate_attachment_resume(attachment_resume)
+    if _resume is not None:
+        _matched = False
+        for _cand in candidates:
+            if (_cand.get("kind") == _resume["kind"]
+                    and _cand.get("path") == _resume["path"]):
+                _cand["offset"] = _resume["offset_chars"]
+                _matched = True
+        if not _matched:
+            print("brain-bridge: attachment_resume matched no attachment "
+                  f"(kind={_resume['kind']} path={_resume['path']!r})",
                   file=sys.stderr)
     # Tier precedence: an explicit ``risk_tier`` wins; otherwise the
     # tier is derived from the turn stage (Task 261). A missing or
@@ -2382,36 +3006,84 @@ def brain_turn(
         # the transcript, so compaction and the middle drop below can never
         # silently remove it; it still counts toward the input budget.
         try:
-            fed = extract_fed_context(effective_prompt)
+            fed = extract_fed_context(user_prompt)
             if fed:
                 save_fed_context(history_key, fed, project_root=project_root)
             pinned = load_fed_context(history_key, project_root=project_root)
-            if pinned and "[pinned-fed-context]" not in effective_prompt:
-                fed_text = pinned
-                effective_prompt = (
-                    "[pinned-fed-context]\n" + pinned
-                    + "\n[/pinned-fed-context]\n\n---\n\n"
-                    + effective_prompt)
+            if pinned and "[pinned-fed-context]" not in user_prompt:
+                candidates.append({
+                    "kind": "fed_context",
+                    "path": "pinned fed-context",
+                    "slot": "fed",
+                    "open_line": "[pinned-fed-context]",
+                    "fence_lang": None,
+                    "text": pinned + "\n[/pinned-fed-context]",
+                    "cap": _FED_CONTEXT_CAP,
+                })
         except Exception as exc:  # never fail a turn on pin problems
             print(f"brain-bridge: fed-context skipped ({exc})",
                   file=sys.stderr)
-    # Input budget: system + user + history chars count against
-    # _INPUT_BUDGET. The FIRST history turn is grounding and survives;
-    # oldest MIDDLE turns truncate first. Token estimate (chars//4) is
-    # informational in the stderr log; counts (never content) are logged.
+
     def _hist_chars() -> int:
         return sum(len(turn["content"]) for turn in history)
 
-    truncated_count = 0
+    # Shared budget: ONE allocator renders every attachment against the
+    # chars left after the system prompt and the caller's prompt. History
+    # is deliberately NOT subtracted here — the shipped transcript is the
+    # LAST fallback, so its length can never shrink an attachment and the
+    # static prompt-cache prefix stays stable across turns.
+    rendered, attachments_truncated, budget_info = _allocate_attachments(
+        candidates,
+        _attachment_priority(stage),
+        system_chars=len(system_prompt),
+        user_chars=len(user_prompt),
+        history_chars=0,
+        budget=_input_budget_cap(),
+    )
+    def _slot(name: str) -> str:
+        return "\n\n---\n\n".join(
+            block for cand, block, _meta in rendered
+            if cand.get("slot") == name)
+
+    before_blocks: list[str] = []
+    for _kind in ("fed_context", "task", "bundle"):
+        before_blocks.extend(
+            block for cand, block, _meta in rendered
+            if cand.get("kind") == _kind)
+    after_blocks: list[str] = []
+    for _kind in ("context_path", "diff"):
+        after_blocks.extend(
+            block for cand, block, _meta in rendered
+            if cand.get("kind") == _kind)
+    # Prompt-cache split segments reflect what actually landed in the
+    # prompt, including any truncated rendering.
+    bundle_text = _slot("bundle")
+    task_attach_text = _slot("task")
+    fed_text = _slot("fed")
+    paths_text = _slot("paths")
+    diff_append_text = _slot("diff")
+    failsafe_text = _slot("failsafe")
+    _blocks = [b for b in before_blocks if b] + [user_prompt]
+    _blocks.extend(b for b in after_blocks if b)
+    effective_prompt = "\n\n---\n\n".join(_blocks)
+
+    # Input budget: system + prompt + history chars count against the
+    # configured ceiling. The allocator already reserved the shipped
+    # history, so this loop is the LAST-resort safety net. The FIRST
+    # history turn is grounding and survives; oldest MIDDLE turns drop
+    # first. History loss is reported separately from attachment loss.
+    history_turns_dropped = 0
     while (
         history
         and len(history) > 1
-        and len(system_prompt) + len(effective_prompt) + _hist_chars() > _INPUT_BUDGET
+        and len(system_prompt) + len(effective_prompt) + _hist_chars()
+        > _input_budget_cap()
     ):
         history.pop(1)
-        truncated_count += 1
+        history_turns_dropped += 1
+    truncated_count = history_turns_dropped
     budget_chars = len(system_prompt) + len(effective_prompt) + _hist_chars()
-    util_pct = budget_chars * 100 // _MODEL_WINDOW_CHARS
+    util_pct = budget_chars * 100 // _model_window_chars()
     # Sidecar only: the split descriptor never touches wire bytes —
     # effective_prompt, chat payload, and prompt_hash stay identical.
     cache_split = build_prompt_cache_split(
@@ -2427,7 +3099,7 @@ def brain_turn(
         print(
             f"brain-bridge: prompt is large (budget_chars={budget_chars} "
             f"est_tokens~{budget_chars // 4} util~{util_pct}% of "
-            f"{_MODEL_WINDOW_CHARS}ch window); oversized prompts have returned "
+            f"{_model_window_chars()}ch window); oversized prompts have returned "
             "empty output before — if this turn comes back empty, retry lean "
             "(include_bundle=false, same task_id, short prompt)",
             file=sys.stderr,
@@ -2516,7 +3188,12 @@ def brain_turn(
     fence_drops = list(_last_fence_drops)
     if history_key:
         prompt_hash = hashlib.sha256(effective_prompt.encode("utf-8")).hexdigest()
-        append_turn(history_key, "user", effective_prompt, model=model,
+        # Store the compact form: attachment markers, not attachment
+        # bodies. The transcript is replayed every turn, so the full
+        # assembled prompt here would make each turn re-send the last
+        # turn's attachments (see _transcript_form).
+        append_turn(history_key, "user",
+                    _transcript_form(user_prompt, rendered), model=model,
                     prompt_hash=prompt_hash, truncated=truncated_count,
                     project_root=project_root)
         append_turn(history_key, "assistant", output, model=model,
@@ -2527,7 +3204,20 @@ def brain_turn(
         "xml_blocks": xml_blocks,
         "output": output,
         "model": model,
+        # History loss and attachment loss are two different failures and
+        # are reported separately. ``history_turns_dropped`` is canonical;
+        # ``truncated_count`` stays as the back-compat alias (older
+        # callers and the ledger keep reading it).
+        "history_turns_dropped": history_turns_dropped,
         "truncated_count": truncated_count,
+        "attachments_truncated": attachments_truncated,
+        "attachment_parts": [
+            meta for _cand, _block, meta in rendered if meta is not None
+        ],
+        "attachment_budget_chars": budget_info["attachment_budget_chars"],
+        "attachment_chars_used": budget_info["attachment_chars_used"],
+        "attachment_chars_remaining": budget_info[
+            "attachment_chars_remaining"],
         "budget_chars": budget_chars,
         "retry_count": attempts,
         "prompt_cache_split": cache_split,

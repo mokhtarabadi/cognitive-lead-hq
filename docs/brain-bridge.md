@@ -33,6 +33,26 @@ task under `BRAIN_SESSIONS_ROOT`
 full conversation first, then appends both new turns. Each task
 keeps its own ChatGPT-style context from first message to close.
 
+The transcript is replayed on every later turn, so a stored turn
+must stay small. The user turn is therefore stored in compact form:
+the caller's own prompt plus one `[stored-attachment kind=… path=…
+shown_chars=… total_chars=… part=a/b]` marker line per attachment,
+never the attachment bodies. Persisting the bodies made each turn
+re-pay the previous turn's attachments — a single QA turn stored a
+64,547-char user turn and every turn after it inherited that cost.
+The wire prompt is unaffected: the full content is re-derived from
+disk each turn (task file, diff, `context_paths`, bundle), so the
+Brain sees the same evidence while storage stays flat.
+
+The transcript file is append-only: every turn ever written stays on
+disk. Only the load VIEW is compacted in memory — one deterministic
+digest record plus the newest records — so a task keeps its full
+history while the send path stays bounded. The earlier lossy rewrite
+(which replaced the file with the digest) was removed. This matches
+the industry pattern: OpenCode, Claude Code, and Codex all persist the
+full transcript and compact only what they send; OpenCode keeps full
+session history in SQLite.
+
 ## File pull tools
 
 The Brain cannot read the Hands' disk — it only sees what a `brain_turn`
@@ -83,6 +103,77 @@ helper and is not a public tool.
 | `BRAIN_MODEL_LOW`   | `deepseek/deepseek-v4.1-flash` for `T0` turns; **unset** = built-in default, **blank** = `BRAIN_MODEL` |
 | `BRAIN_MODEL_HIGH`  | `openai/gpt-5.6-luna` for `T1`/`T2` turns; **unset** = built-in default, **blank** = `BRAIN_MODEL` |
 | `BRAIN_STAGE_TIERS` | `plan:T2,review:T2,implement:T0,qa:T0,closure:T0`    |
+| `BRAIN_TASK_ATTACH_CAP` | `60000` — task-file attachment chars; blank/unset = default |
+| `BRAIN_TASK_DIFF_CAP` | `200000` — changed-hunks chars per part; blank/unset = default |
+| `BRAIN_CTX_PER_FILE_CAP` | `60000` — per `context_paths` file; blank/unset = default |
+| `BRAIN_CTX_TOTAL_CAP` | `200000` — all `context_paths` per turn; blank/unset = default |
+| `BRAIN_INPUT_BUDGET` | `200000` — hard send ceiling (system + prompt), chars |
+| `BRAIN_MODEL_WINDOW_CHARS` | `200000` — utilization monitor only, never a send cap |
+
+`BRAIN_INPUT_BUDGET` defaults to the model-window estimate above. The
+assembly string for the Hands system prompt measures ~87.6k chars, so the
+older 100k ceiling left only ~12k for the change set a reviewer must read
+— which starved the very attachments this ceiling exists to bound. At the
+measured ~4.6 chars/token, 200k chars is ~43k input tokens. Set
+`BRAIN_INPUT_BUDGET` to a smaller positive integer to restore a tighter
+ceiling.
+
+Every cap above follows the blank-means-unset rule: an unset **or blank**
+variable applies the documented default, and a real non-empty value wins.
+A malformed or non-positive value raises a configuration error instead of
+being silently clamped.
+
+## Attachment budgeting
+
+Attachments are not appended independently any more: one shared allocator
+renders every candidate against the chars actually left in
+`BRAIN_INPUT_BUDGET` after the system prompt and the caller's prompt. The
+configured caps above bound a single attachment; the allocator bounds the
+whole turn, so stacked attachments can never each assume the full window.
+
+Priority is stage-aware. On `qa` and `review` turns the order is
+**context_paths → diff → task → fed context → bundle**: explicit evidence
+outranks the general small-file bundle, so a reviewer never loses the
+changed hunks to boilerplate. Every other stage keeps the historical
+order (bundle → task → context_paths → diff → fed). Conversation history
+is always the last fallback; it is deliberately not subtracted from the
+attachment budget, which keeps the prompt-cache static prefix stable
+across turns.
+
+When an attachment exceeds its room, the block is chunked instead of
+silently cut — numbered parts with an exact resume offset:
+
+```text
+[ATTACHMENT kind=diff path="tasks/qa/12-x.md" part=1/3 offset_chars=0 shown_chars=80000 total_chars=250000]
+...content...
+[END ATTACHMENT kind=diff path="tasks/qa/12-x.md" part=1/3]
+[NEXT_ATTACHMENT_PART kind=diff path="tasks/qa/12-x.md" next_offset_chars=80000 remaining_chars=170000]
+```
+
+Pass `attachment_resume={"kind": "diff", "path": "...",
+"offset_chars": N}` on the next turn to continue from that offset. A
+malformed resume is ignored with a stderr note and never breaks a turn.
+
+## Response payload: two different truncations
+
+The result dict reports attachment loss and history loss separately —
+they are different failures:
+
+- `history_turns_dropped` — canonical count of middle transcript turns
+  dropped to fit the budget. `truncated_count` remains as the
+  back-compat alias and always equals it. Both are `0` on a
+  capability-blocked turn.
+- `attachments_truncated` — a list (empty when nothing was cut) whose
+  entries carry `kind` (`diff` | `task` | `context_path` | `bundle` |
+  `fed_context`), `path`, `shown_chars`, `total_chars`, `dropped_chars`,
+  `part`, `parts`, `offset_chars`, `next_offset_chars`,
+  `remaining_chars`, and `budget_chars_remaining`.
+- `attachment_parts` — resume metadata for every chunked attachment.
+- `attachment_budget_chars` / `attachment_chars_used` /
+  `attachment_chars_remaining` — the attachment budget accounting.
+
+A capability-blocked turn returns the same field set (with `status:
+"REPORT"`), so callers never face two incompatible schemas.
 
 ## Routing
 

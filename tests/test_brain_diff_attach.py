@@ -23,6 +23,44 @@ def _task_text(diff_body: str) -> str:
     )
 
 
+def _injected_task_text(diff_body: str) -> str:
+    """The shape stage_and_inject_diff writes: a fenced diff body."""
+    return (
+        "# Task 99: Sample\n\nSome working content.\n\n"
+        "<!-- BEGIN_GIT_DIFF -->\n\n```diff\n" + diff_body
+        + "\n```\n<!-- END_GIT_DIFF -->\n"
+    )
+
+
+def test_extract_diff_survives_embedded_end_marker():
+    # A change set that edits this very module carries the END marker as
+    # source text inside its own hunk, so the FIRST marker is not the
+    # block end. Extraction must keep the whole body (the seat was judging
+    # a change set that stopped two lines into the file it was reviewing).
+    embedded = (
+        '+_TASK_DIFF_END = "<!-- END_GIT_DIFF -->"\n'
+        "+tail-sentinel"
+    )
+    text = _injected_task_text(embedded)
+    diff = bridge.extract_task_diff(text)
+    assert "_TASK_DIFF_END" in diff
+    assert "tail-sentinel" in diff
+
+
+def test_strip_task_diff_survives_embedded_end_marker():
+    embedded = (
+        '+_TASK_DIFF_END = "<!-- END_GIT_DIFF -->"\n'
+        "+tail-sentinel"
+    )
+    text = _injected_task_text(embedded)
+    cleaned, omitted, truncated = bridge._strip_task_diff(text, "99-sample.md")
+    assert "tail-sentinel" not in cleaned
+    assert "_TASK_DIFF_END" not in cleaned
+    assert "Some working content." in cleaned
+    assert omitted > 0
+    assert truncated is False
+
+
 def test_extract_diff_present():
     text = _task_text("diff --git a/x b/x\n+new line")
     out = bridge.extract_task_diff(text)

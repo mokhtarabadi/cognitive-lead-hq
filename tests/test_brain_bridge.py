@@ -454,16 +454,25 @@ def test_brain_turn_task_attach_in_body(tmp_path, monkeypatch):
     _mk_sys_prompt(tmp_path, monkeypatch)
     monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
     monkeypatch.delenv("BRAIN_TEMPERATURE", raising=False)
-    _mk_bridge_client(monkeypatch, [_FakeResp(200, "fine", _ok_payload("ok"))])
+    holder: dict = {}
+    _mk_bridge_client(
+        monkeypatch, [_FakeResp(200, "fine", _ok_payload("ok"))], holder)
     call = bridge.brain_turn
     target = call.fn if hasattr(call, "fn") else call
     result = target("q", task_id="200", project_root=str(tmp_path))
     assert result["status"] == "REPORT"
+    # The wire prompt — what the model actually reads — carries the
+    # task attach with its Goal text and without the diff block.
+    wire = holder["body"]["input"][-1]["content"]
+    assert "[task-file:200:" in wire
+    assert "Goal line." in wire
+    assert "DIFFSTUFF" not in wire
+    # The stored transcript keeps a marker, never the body: it is
+    # replayed on every later turn.
     user_line = (tmp_path / "sessions" / "200" / "transcript.jsonl").read_text(
         encoding="utf-8").splitlines()[0]
-    assert "[task-file:200:" in user_line
-    assert "Goal line." in user_line
-    assert "DIFFSTUFF" not in user_line
+    assert "[stored-attachment kind=task" in user_line
+    assert "Goal line." not in user_line
 
 
 def test_brain_turn_task_attach_no_duplicate(tmp_path, monkeypatch):
@@ -691,6 +700,8 @@ def test_load_history_skips_monster_lines(tmp_path, monkeypatch):
 # --- hotfix follow-up: merge + atomicity + bounds (QA_REJECTED round 1) ---
 
 def test_compact_merges_prior_summary(tmp_path, monkeypatch):
+    # Storage is append-only, so the digest counts every stored turn
+    # exactly once and no prior summary ever has to be merged back in.
     monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
     _fill_turns("merge", 35)
     first = bridge.load_history("merge")
@@ -699,8 +710,26 @@ def test_compact_merges_prior_summary(tmp_path, monkeypatch):
     _fill_turns("merge", 25, prefix="more")
     second = bridge.load_history("merge")
     assert len(second) == 11
-    assert second[0].get("compacted_count") == 35 + 35
+    assert second[0].get("compacted_count") == 60
     assert "compacted" in second[0]
+    # The file keeps every turn: only the load view is bounded.
+    raw = bridge._transcript_path("merge").read_text(encoding="utf-8")
+    assert len([ln for ln in raw.splitlines() if ln.strip()]) == 60
+
+
+def test_transcript_is_append_only_across_loads(tmp_path, monkeypatch):
+    # Keep ALL history per task: loading a large transcript must never
+    # rewrite or shrink the stored file, only the view sent to the model.
+    monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
+    _fill_turns("keepall", 50)
+    path = bridge._transcript_path("keepall")
+    before = path.read_text(encoding="utf-8")
+    for _ in range(3):
+        view = bridge.load_history("keepall")
+        assert len(view) == 11
+    after = path.read_text(encoding="utf-8")
+    assert after == before
+    assert len([ln for ln in after.splitlines() if ln.strip()]) == 50
 
 
 def test_compact_skips_corrupt_lines(tmp_path, monkeypatch):
@@ -1128,6 +1157,7 @@ def test_task_attach_truncates_big_file(tmp_path, monkeypatch):
     d.mkdir(parents=True, exist_ok=True)
     (d / "200-foo.md").write_text("# T\n" + ("y" * 30000), encoding="utf-8")
     monkeypatch.setattr(bridge, "_workspace_root", lambda: tmp_path)
+    monkeypatch.setattr(bridge, "_TASK_ATTACH_CAP", 1000)
     attach = bridge._build_task_attach("200-foo")
     assert "[...truncated" in attach
     assert "read_file(" not in attach
@@ -1165,6 +1195,7 @@ def test_task_attach_truncation_has_pull_path(tmp_path, monkeypatch):
     d.mkdir(parents=True, exist_ok=True)
     (d / "200-foo.md").write_text("# T\n" + ("y" * 30000), encoding="utf-8")
     monkeypatch.setattr(bridge, "_workspace_root", lambda: tmp_path)
+    monkeypatch.setattr(bridge, "_TASK_ATTACH_CAP", 1000)
     attach = bridge._build_task_attach("200-foo")
     assert "read_file(" not in attach
     assert "no file tools" in attach and "Hands" in attach
@@ -1332,7 +1363,9 @@ def test_paths_attach_per_file_cap(tmp_path, monkeypatch):
 
 def test_paths_attach_total_budget(tmp_path, monkeypatch):
     _ws(tmp_path, monkeypatch)
-    chunk = "z" * bridge._CTX_PATHS_TOTAL
+    monkeypatch.setattr(bridge, "_CTX_PATHS_PER_FILE", 1000)
+    monkeypatch.setattr(bridge, "_CTX_PATHS_TOTAL", 1500)
+    chunk = "z" * 1000
     (tmp_path / "a.md").write_text(chunk, encoding="utf-8")
     (tmp_path / "b.md").write_text(chunk, encoding="utf-8")
     (tmp_path / "c.md").write_text("tiny\n", encoding="utf-8")
@@ -1394,6 +1427,7 @@ def test_paths_attach_ignores_cwd(tmp_path, monkeypatch):
 
 def test_paths_attach_size_pattern_truncates_never_blanks(tmp_path, monkeypatch):
     _ws(tmp_path, monkeypatch)
+    monkeypatch.setattr(bridge, "_CTX_PATHS_PER_FILE", 40000)
     (tmp_path / "small.md").write_text("s\n", encoding="utf-8")
     (tmp_path / "mid.md").write_text("m" * 6000 + "\n", encoding="utf-8")
     (tmp_path / "big.md").write_text("b" * 47000 + "\n", encoding="utf-8")
@@ -2691,3 +2725,360 @@ def test_cache_split_static_lookup_skips_hash(monkeypatch):
     assert (first["static_prefix_sha256"]
             == second["static_prefix_sha256"])
     assert len(calls) == 3
+
+
+# --- Configurable attachment caps + budgeting (issue 23) ---------------
+
+
+def test_env_positive_int_blank_means_default(monkeypatch):
+    monkeypatch.setenv("BRAIN_TASK_DIFF_CAP", "")
+    assert bridge._task_diff_cap() == bridge._TASK_DIFF_CAP
+    monkeypatch.delenv("BRAIN_TASK_DIFF_CAP", raising=False)
+    assert bridge._task_diff_cap() == bridge._TASK_DIFF_CAP
+
+
+def test_env_positive_int_override_and_guards(monkeypatch):
+    monkeypatch.setenv("BRAIN_TASK_DIFF_CAP", "12345")
+    assert bridge._task_diff_cap() == 12345
+    for bad in ("0", "-5", "abc"):
+        monkeypatch.setenv("BRAIN_TASK_DIFF_CAP", bad)
+        with pytest.raises(ValueError):
+            bridge._task_diff_cap()
+
+
+def test_default_caps_meet_issue_thresholds():
+    assert bridge._TASK_DIFF_CAP >= 200000
+    assert bridge._TASK_ATTACH_CAP >= 60000
+    assert bridge._CTX_PATHS_PER_FILE >= 60000
+    assert bridge._CTX_PATHS_TOTAL >= 200000
+    assert bridge._INPUT_BUDGET >= 200000
+
+
+def test_paths_attach_60k_file_untruncated(tmp_path, monkeypatch):
+    monkeypatch.setattr(bridge, "_workspace_root", lambda: tmp_path)
+    payload = "p" * 60000
+    (tmp_path / "big.md").write_text(payload, encoding="utf-8")
+    out = bridge.build_paths_attach(["big.md"])
+    assert "truncated" not in out
+    assert "[path-injected: big.md]" in out
+    assert out.endswith(payload)
+
+
+def test_render_attachment_complete_has_no_markers():
+    block, meta = bridge._render_attachment(
+        "diff", "x.diff", "[changed-hunks:1: x.diff]", "diff", "short", 40000)
+    assert meta is None
+    assert "NEXT_ATTACHMENT_PART" not in block
+    assert "short" in block
+
+
+def test_render_attachment_parts_and_resume():
+    text = "abcdefghij" * 100
+    block, meta = bridge._render_attachment(
+        "diff", "x.diff", "[changed-hunks:1: x.diff]", "diff", text, 600)
+    assert meta is not None
+    assert meta["part"] == 1
+    assert meta["parts"] > 1
+    assert f"next_offset_chars={meta['next_offset_chars']}" in block
+    assert "NEXT_ATTACHMENT_PART" in block
+    block2, meta2 = bridge._render_attachment(
+        "diff", "x.diff", "[changed-hunks:1: x.diff]", "diff", text, 100000,
+        offset=meta["next_offset_chars"])
+    assert meta2 is None
+    assert text[meta["next_offset_chars"]:] in block2
+
+
+def test_validate_attachment_resume_shape():
+    assert bridge._validate_attachment_resume(None) is None
+    assert bridge._validate_attachment_resume("nope") is None
+    assert bridge._validate_attachment_resume(
+        {"kind": "bogus", "path": "x"}) is None
+    ok = bridge._validate_attachment_resume(
+        {"kind": "diff", "path": "a.diff", "offset_chars": 5})
+    assert ok == {"kind": "diff", "path": "a.diff", "offset_chars": 5}
+    assert bridge._validate_attachment_resume(
+        {"kind": "diff", "path": "a.diff"})["offset_chars"] == 0
+
+
+def test_attachment_priority_review_prefers_evidence():
+    review = bridge._attachment_priority("review")
+    assert review.index("diff") < review.index("bundle")
+    assert review.index("context_path") < review.index("bundle")
+    assert bridge._attachment_priority("qa") == review
+    plain = bridge._attachment_priority(None)
+    assert plain.index("bundle") < plain.index("diff")
+
+
+def _turn_setup(tmp_path, monkeypatch):
+    monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    monkeypatch.delenv("BRAIN_TEMPERATURE", raising=False)
+    _mk_sys_prompt(tmp_path, monkeypatch)
+
+
+def _big_diff_task(tmp_path, chars=250000):
+    d = tmp_path / "tasks" / "backlog"
+    d.mkdir(parents=True, exist_ok=True)
+    body = "+line\n" * ((chars // 6) + 1)
+    (d / "200-foo.md").write_text(
+        "# T\n\nGoal line.\n\n<!-- BEGIN_GIT_DIFF -->\n" + body
+        + "<!-- END_GIT_DIFF -->\n", encoding="utf-8")
+    return d / "200-foo.md"
+
+
+def _call_turn(monkeypatch, *args, **kwargs):
+    _mk_bridge_client(monkeypatch, [_FakeResp(200, "fine", _ok_payload("ok"))])
+    target = (bridge.brain_turn.fn if hasattr(bridge.brain_turn, "fn")
+              else bridge.brain_turn)
+    return target(*args, **kwargs)
+
+
+def test_small_review_turn_reports_no_attachment_truncation(
+        tmp_path, monkeypatch):
+    _mk_tasks_root(tmp_path)
+    _turn_setup(tmp_path, monkeypatch)
+    result = _call_turn(
+        monkeypatch, "code reviewer, adversarial review", task_id="200",
+        include_bundle=False, include_diff=True, project_root=str(tmp_path))
+    assert result["attachments_truncated"] == []
+    assert result["attachment_parts"] == []
+    assert result["history_turns_dropped"] == 0
+    assert result["truncated_count"] == 0
+
+
+def test_review_turn_reports_attachment_truncation_separately(
+        tmp_path, monkeypatch):
+    _big_diff_task(tmp_path)
+    _turn_setup(tmp_path, monkeypatch)
+    monkeypatch.setattr(bridge, "_TASK_DIFF_CAP", 4000)
+    result = _call_turn(
+        monkeypatch, "code reviewer, adversarial review", task_id="200",
+        include_bundle=False, include_diff=True, project_root=str(tmp_path))
+    assert result["history_turns_dropped"] == 0
+    assert result["truncated_count"] == 0
+    assert result["attachments_truncated"], "truncation must be reported"
+    entry = result["attachments_truncated"][0]
+    assert set(("kind", "path", "shown_chars", "total_chars",
+                "dropped_chars", "part", "parts")) <= set(entry)
+    assert entry["kind"] == "diff"
+    assert entry["shown_chars"] < entry["total_chars"]
+    assert (entry["shown_chars"] + entry["dropped_chars"]
+            == entry["total_chars"])
+    assert result["attachment_parts"]
+    assert result["attachment_budget_chars"] >= 0
+
+
+def test_review_turn_can_resume_the_dropped_remainder(tmp_path, monkeypatch):
+    _big_diff_task(tmp_path)
+    _turn_setup(tmp_path, monkeypatch)
+    monkeypatch.setattr(bridge, "_TASK_DIFF_CAP", 4000)
+    first = _call_turn(
+        monkeypatch, "code reviewer, adversarial review", task_id="200",
+        include_bundle=False, include_diff=True, project_root=str(tmp_path))
+    entry = first["attachments_truncated"][0]
+    monkeypatch.setattr(bridge, "_TASK_DIFF_CAP", 10000000)
+    second = _call_turn(
+        monkeypatch, "code reviewer, adversarial review", task_id="200",
+        include_bundle=False, include_diff=True, project_root=str(tmp_path),
+        attachment_resume={
+            "kind": "diff", "path": entry["path"],
+            "offset_chars": entry["next_offset_chars"]})
+    assert second["attachment_chars_used"] > 0
+    resumed = second["attachment_parts"]
+    if resumed:
+        assert resumed[0]["offset_chars"] == entry["next_offset_chars"]
+    else:
+        assert second["attachments_truncated"] == []
+
+
+def test_big_change_set_chunks_into_numbered_parts(tmp_path, monkeypatch):
+    path = _big_diff_task(tmp_path, chars=260000)
+    assert len(path.read_text(encoding="utf-8")) > 250000
+    _turn_setup(tmp_path, monkeypatch)
+    result = _call_turn(
+        monkeypatch, "code reviewer, adversarial review", task_id="200",
+        include_bundle=False, include_diff=True, project_root=str(tmp_path))
+    entry = result["attachments_truncated"][0]
+    assert entry["kind"] == "diff"
+    assert entry["part"] == 1 and entry["parts"] > 1
+    assert entry["next_offset_chars"] > 0
+    assert entry["next_offset_chars"] == entry["shown_chars"]
+
+
+def test_review_turn_prioritises_diff_over_bundle(tmp_path, monkeypatch):
+    _big_diff_task(tmp_path, chars=300000)
+    _turn_setup(tmp_path, monkeypatch)
+    monkeypatch.setenv("BRAIN_INPUT_BUDGET", "50000")
+    result = _call_turn(
+        monkeypatch, "code reviewer, adversarial review", task_id="200",
+        include_bundle=True, include_diff=True, stage="review",
+        project_root=str(tmp_path))
+    diff_entries = [e for e in result["attachments_truncated"]
+                    if e["kind"] == "diff"]
+    bundle_entries = [e for e in result["attachments_truncated"]
+                      if e["kind"] == "bundle"]
+    assert diff_entries and diff_entries[0]["shown_chars"] > 0
+    assert bundle_entries and bundle_entries[0]["shown_chars"] == 0
+
+
+def test_review_turn_delivers_60k_context_path_untruncated(
+        tmp_path, monkeypatch):
+    # Turn-level proof, not just the standalone builder: the shared
+    # allocator must hand the seat a 60k report whole. The older 100k
+    # send ceiling starved this to ~12k once the system prompt was paid.
+    _big_diff_task(tmp_path)
+    _turn_setup(tmp_path, monkeypatch)
+    payload = "p" * 60000
+    (tmp_path / "report.md").write_text(payload, encoding="utf-8")
+    result = _call_turn(
+        monkeypatch, "review the attached report against the change set",
+        task_id="200", stage="review",
+        include_bundle=False, include_diff=False,
+        context_paths=["report.md"], project_root=str(tmp_path))
+    assert result["attachments_truncated"] == []
+    assert result["attachment_chars_used"] >= 60000
+    assert result["attachment_parts"] == []
+    assert result["history_turns_dropped"] == 0
+
+
+def test_transcript_stores_markers_not_attachment_bodies(
+        tmp_path, monkeypatch):
+    # The transcript is replayed on every later turn, so persisting the
+    # assembled prompt with the attachment bodies inside it made each
+    # turn re-pay the previous turn's attachments (one QA turn stored a
+    # 64,547-char user turn and every turn after it inherited the cost).
+    # Storage now keeps a marker line per segment; the wire prompt is
+    # untouched because the attachments are re-derived from disk.
+    _big_diff_task(tmp_path)
+    _turn_setup(tmp_path, monkeypatch)
+    result = _call_turn(
+        monkeypatch, "code reviewer, adversarial review", task_id="200",
+        include_bundle=False, include_diff=True, stage="review",
+        project_root=str(tmp_path))
+    assert result["attachment_chars_used"] > 100000
+    turns = bridge.load_history("200", project_root=str(tmp_path))
+    stored = [t for t in turns if t["role"] == "user"][-1]["content"]
+    assert "[stored-attachment kind=diff" in stored
+    assert len(stored) < 5000
+
+
+def test_malformed_task_attach_cap_raises(tmp_path, monkeypatch):
+    # A malformed configuration value must fail loudly, never be reported
+    # as an unavailable attachment: the cap is read outside the guard so
+    # the configuration error reaches the caller.
+    monkeypatch.setenv("BRAIN_TASK_ATTACH_CAP", "abc")
+    monkeypatch.setattr(bridge, "_workspace_root", lambda: tmp_path)
+    with pytest.raises(ValueError):
+        bridge._task_candidate("200")
+
+
+def test_nonpositive_task_diff_cap_raises(tmp_path, monkeypatch):
+    monkeypatch.setenv("BRAIN_TASK_DIFF_CAP", "0")
+    monkeypatch.setattr(bridge, "_workspace_root", lambda: tmp_path)
+    with pytest.raises(ValueError):
+        bridge._diff_candidate("200")
+
+
+def test_malformed_cap_fails_the_turn(tmp_path, monkeypatch):
+    # Turn-level proof: the configuration error is not swallowed into a
+    # silently-skipped attachment.
+    _big_diff_task(tmp_path)
+    _turn_setup(tmp_path, monkeypatch)
+    monkeypatch.setenv("BRAIN_TASK_DIFF_CAP", "0")
+    with pytest.raises(ValueError):
+        _call_turn(
+            monkeypatch, "review the change set", task_id="200",
+            stage="review", include_diff=True,
+            project_root=str(tmp_path))
+
+
+def test_render_attachment_fenced_respects_exact_room():
+    # The wrapper — open line, fences and their separators — is part of
+    # the block, so it must be priced against the room granted. Comparing
+    # only the body length let a rendered block exceed its budget.
+    block, meta = bridge._render_attachment(
+        "diff", "x.diff", "[changed-hunks:1: x.diff]", "diff",
+        "x" * 500, 500)
+    assert len(block) <= 500
+    assert meta is not None
+    assert meta["shown_chars"] < 500
+
+
+def test_render_attachment_unfenced_respects_exact_room():
+    block, meta = bridge._render_attachment(
+        "task", "x.md", "[task-file:1: x.md]", None, "x" * 500, 500)
+    assert len(block) <= 500
+    assert meta is not None
+
+
+def test_render_attachment_short_fit_keeps_no_markers():
+    # An exact/whole fit still renders without part markers: no phantom
+    # split for content that fits.
+    block, meta = bridge._render_attachment(
+        "diff", "x.diff", "[changed-hunks:1: x.diff]", "diff", "x" * 10, 500)
+    assert meta is None
+    assert len(block) <= 500
+    assert "[ATTACHMENT" not in block
+    assert "[NEXT_ATTACHMENT_PART" not in block
+
+
+def test_render_attachment_fenced_split_resumes_exactly():
+    block, meta = bridge._render_attachment(
+        "diff", "x.diff", "[changed-hunks:1: x.diff]", "diff",
+        "abcdefghij" * 100, 400)
+    assert len(block) <= 400
+    assert meta["next_offset_chars"] == meta["shown_chars"]
+    assert meta["remaining_chars"] == meta["total_chars"] - meta["shown_chars"]
+    resumed, _meta = bridge._render_attachment(
+        "diff", "x.diff", "[changed-hunks:1: x.diff]", "diff",
+        "abcdefghij" * 100, 400, offset=meta["next_offset_chars"])
+    assert "abcdefghij" * 100 not in block
+    assert len(resumed) <= 400
+
+
+def test_ctx_paths_total_cap_enforced_across_files(tmp_path, monkeypatch):
+    # Every context_paths file shares one configured total budget. The
+    # candidates are allocated independently, so the aggregate must be
+    # enforced by the allocator — otherwise the combined content sails
+    # past BRAIN_CTX_TOTAL_CAP bounded only by the input budget.
+    _big_diff_task(tmp_path)
+    _turn_setup(tmp_path, monkeypatch)
+    (tmp_path / "a.md").write_text("a" * 600, encoding="utf-8")
+    (tmp_path / "b.md").write_text("b" * 600, encoding="utf-8")
+    monkeypatch.setenv("BRAIN_CTX_PER_FILE_CAP", "60000")
+    monkeypatch.setenv("BRAIN_CTX_TOTAL_CAP", "1000")
+    result = _call_turn(
+        monkeypatch, "review the attached reports", task_id="200",
+        stage="review", include_bundle=False, include_diff=False,
+        context_paths=["a.md", "b.md"], project_root=str(tmp_path))
+    entries = [e for e in result["attachments_truncated"]
+               if e["kind"] == "context_path"]
+    assert entries, "the overflow must be reported, never silent"
+    # The second file can only show the group's remaining share.
+    assert all(e["shown_chars"] <= 400 for e in entries)
+    assert all(e["total_chars"] == 600 for e in entries)
+
+
+def test_malformed_ctx_per_file_cap_fails_the_turn(tmp_path, monkeypatch):
+    _big_diff_task(tmp_path)
+    _turn_setup(tmp_path, monkeypatch)
+    (tmp_path / "report.md").write_text("r" * 100, encoding="utf-8")
+    monkeypatch.setenv("BRAIN_CTX_PER_FILE_CAP", "abc")
+    with pytest.raises(ValueError):
+        _call_turn(
+            monkeypatch, "review the attached report", task_id="200",
+            stage="review", include_bundle=False, include_diff=False,
+            context_paths=["report.md"], project_root=str(tmp_path))
+
+
+def test_nonpositive_ctx_per_file_cap_fails_the_turn(tmp_path, monkeypatch):
+    _big_diff_task(tmp_path)
+    _turn_setup(tmp_path, monkeypatch)
+    (tmp_path / "report.md").write_text("r" * 100, encoding="utf-8")
+    monkeypatch.setenv("BRAIN_CTX_PER_FILE_CAP", "0")
+    with pytest.raises(ValueError):
+        _call_turn(
+            monkeypatch, "review the attached report", task_id="200",
+            stage="review", include_bundle=False, include_diff=False,
+            context_paths=["report.md"], project_root=str(tmp_path))
+
