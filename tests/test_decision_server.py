@@ -448,6 +448,77 @@ def test_extract_parses_stubbed_llm_json(srv, tmp_path, monkeypatch):
     assert target(1, transcript_path=str(transcript)) == candidates
 
 
+def test_extract_truncates_oversized_transcript_with_note(
+        srv, tmp_path, monkeypatch):
+    # The transcript is sent whole, so an oversized session produced an
+    # unbounded prompt — the exact starvation the cap exists to bound. The
+    # prompt now carries the capped text plus an explicit dropped count.
+    lines = [
+        json.dumps({"role": "user", "content": "x" * 40}) for _ in range(5)
+    ]
+    transcript = tmp_path / "transcript.jsonl"
+    transcript.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    joined = "\n".join(f"[user] {'x' * 40}" for _ in range(5))
+    monkeypatch.setenv("DECISION_TRANSCRIPT_MAX_CHARS", "20")
+
+    captured: dict = {}
+    stub_resp = types.SimpleNamespace(
+        status_code=200, text="stub", headers={},
+        raise_for_status=lambda: None,
+        json=lambda: {
+            "output": [
+                {"type": "message",
+                 "content": [{"type": "output_text", "text": "[]"}]}
+            ]
+        },
+    )
+
+    class _FakeClient:
+        def __init__(self, *a, **k):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def post(self, *a, **k):
+            captured["kwargs"] = k
+            return stub_resp
+
+    stub = types.ModuleType("httpx")
+    stub.Client = _FakeClient
+    stub.TimeoutException = type("TimeoutException", (Exception,), {})
+    stub.TransportError = type("TransportError", (Exception,), {})
+
+    class _Timeout:
+        def __init__(self, *a, **k):
+            pass
+
+    stub.Timeout = _Timeout
+    monkeypatch.setitem(sys.modules, "httpx", stub)
+    call = srv.extract_session_decisions
+    target = call.fn if hasattr(call, "fn") else call
+    assert target(1, transcript_path=str(transcript)) == []
+
+    kwargs = captured["kwargs"]
+    sent = kwargs.get("json")
+    if sent is None:
+        raw = kwargs.get("content")
+        sent = json.loads(raw) if isinstance(raw, (str, bytes)) else None
+    assert isinstance(sent, dict), kwargs
+    # The request shape is unchanged: the same core fields, nothing new.
+    assert {"model", "input", "max_output_tokens"} <= set(sent)
+    assert set(sent) <= {"model", "input", "max_output_tokens",
+                         "reasoning", "temperature"}
+    content = sent["input"][0]["content"]
+    dropped = len(joined) - 20
+    assert f"[...truncated at {dropped} chars]" in content
+    # The uncapped tail never reached the provider.
+    assert content.count("x" * 40) == 0
+
+
 def test_load_env_files_from_cwd_and_never_overrides(srv, tmp_path, monkeypatch):
     (tmp_path / ".env").write_text(
         "DECISION_TEST_PROBE=probe-value-456\n", encoding="utf-8"
@@ -541,10 +612,54 @@ def test_decision_temperature_default_and_overrides(srv, monkeypatch):
     assert srv._get_decision_temperature() == 1.0
     monkeypatch.setenv("DECISION_TEMPERATURE", "0.2")
     assert srv._get_decision_temperature() == 0.2
-    monkeypatch.setenv("DECISION_TEMPERATURE", "not-a-float")
+    # Blank means unset: the default wins.
+    monkeypatch.setenv("DECISION_TEMPERATURE", "")
     assert srv._get_decision_temperature() == 1.0
-    monkeypatch.setenv("DECISION_TEMPERATURE", "9.9")
-    assert srv._get_decision_temperature() == 1.0  # Clamped, never crashes.
+    # A bad configuration fails loudly instead of being clamped away.
+    for bad in ("not-a-float", "9.9", "-0.5"):
+        monkeypatch.setenv("DECISION_TEMPERATURE", bad)
+        with pytest.raises(ValueError) as err:
+            srv._get_decision_temperature()
+        assert "DECISION_TEMPERATURE" in str(err.value)
+
+
+def test_decision_transcript_max_chars_default_blank_and_override(
+        srv, monkeypatch):
+    # Blank means unset: the documented default wins.
+    monkeypatch.delenv("DECISION_TRANSCRIPT_MAX_CHARS", raising=False)
+    assert srv._get_decision_transcript_max_chars() == 131072
+    monkeypatch.setenv("DECISION_TRANSCRIPT_MAX_CHARS", "")
+    assert srv._get_decision_transcript_max_chars() == 131072
+    monkeypatch.setenv("DECISION_TRANSCRIPT_MAX_CHARS", "4096")
+    assert srv._get_decision_transcript_max_chars() == 4096
+
+
+def test_decision_transcript_max_chars_rejects_bad_values(srv, monkeypatch):
+    # An oversized transcript is exactly what this cap exists to bound, so
+    # a bad configuration must fail loudly rather than fall back.
+    for bad in ("abc", "0", "-5"):
+        monkeypatch.setenv("DECISION_TRANSCRIPT_MAX_CHARS", bad)
+        with pytest.raises(ValueError) as err:
+            srv._get_decision_transcript_max_chars()
+        assert "DECISION_TRANSCRIPT_MAX_CHARS" in str(err.value)
+
+
+def test_decision_max_tokens_default_blank_and_override(srv, monkeypatch):
+    monkeypatch.delenv("DECISION_MAX_TOKENS", raising=False)
+    assert srv._get_decision_max_tokens() == 16384
+    monkeypatch.setenv("DECISION_MAX_TOKENS", "")
+    assert srv._get_decision_max_tokens() == 16384
+    monkeypatch.setenv("DECISION_MAX_TOKENS", "2048")
+    assert srv._get_decision_max_tokens() == 2048
+
+
+def test_decision_max_tokens_rejects_bad_values(srv, monkeypatch):
+    # Previously a malformed value silently fell back to 16384.
+    for bad in ("abc", "0", "-1"):
+        monkeypatch.setenv("DECISION_MAX_TOKENS", bad)
+        with pytest.raises(ValueError) as err:
+            srv._get_decision_max_tokens()
+        assert "DECISION_MAX_TOKENS" in str(err.value)
 
 
 def test_repo_root_falls_back_when_cwd_blocked(srv, tmp_path, monkeypatch):

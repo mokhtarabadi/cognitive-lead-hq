@@ -202,18 +202,63 @@ PROVIDER_ERROR = "PROVIDER_ERROR"
 PROVIDER_REFUSAL = "PROVIDER_REFUSAL"
 
 
+#: Default character cap for the joined session transcript sent to the model.
+_DECISION_TRANSCRIPT_MAX_CHARS_DEFAULT = 131072
+
+#: Default output-token ceiling for extraction turns.
+_DECISION_MAX_TOKENS_DEFAULT = 16384
+
+
+def _get_decision_transcript_max_chars() -> int:
+    """Character cap for the session transcript sent to the model.
+
+    Override via ``DECISION_TRANSCRIPT_MAX_CHARS`` (default 131072). Blank
+    means unset — the default wins. A malformed, zero, or negative value
+    raises instead of letting an unbounded prompt reach the provider: an
+    oversized transcript is the exact failure this cap exists to bound.
+    """
+    raw = os.environ.get("DECISION_TRANSCRIPT_MAX_CHARS", "").strip()
+    if not raw:
+        return _DECISION_TRANSCRIPT_MAX_CHARS_DEFAULT
+    try:
+        value = int(raw)
+    except ValueError:
+        raise ValueError(
+            f"DECISION_TRANSCRIPT_MAX_CHARS={raw!r} is not an integer; "
+            "set a positive integer or leave it blank"
+        )
+    if value <= 0:
+        raise ValueError(
+            f"DECISION_TRANSCRIPT_MAX_CHARS={value} must be positive"
+        )
+    return value
+
+
 def _get_decision_temperature() -> float:
     """Extraction sampling temperature; override via ``DECISION_TEMPERATURE``.
 
     Defaults to 1.0 (matches the house temperature policy; the old hardcoded
-    0.2 was a Gemini-era leftover). Out-of-range or unparsable values clamp
-    to 1.0 instead of crashing a live turn.
+    0.2 was a Gemini-era leftover). Blank means unset — the default wins. A
+    malformed or out-of-range value raises instead of being clamped: a bad
+    configuration must fail loudly, never be silently replaced by a default
+    the operator did not choose.
     """
-    try:
-        value = float(os.environ.get("DECISION_TEMPERATURE", "1.0") or 1.0)
-    except ValueError:
+    raw = os.environ.get("DECISION_TEMPERATURE", "").strip()
+    if not raw:
         return 1.0
-    return value if 0.0 <= value <= 2.0 else 1.0
+    try:
+        value = float(raw)
+    except ValueError:
+        raise ValueError(
+            f"DECISION_TEMPERATURE={raw!r} is not a number; "
+            "set a value between 0.0 and 2.0 or leave it blank"
+        )
+    if not 0.0 <= value <= 2.0:
+        raise ValueError(
+            f"DECISION_TEMPERATURE={raw!r} is out of range; "
+            "use 0.0-2.0 or leave it blank"
+        )
+    return value
 
 
 def _get_decision_model() -> str:
@@ -253,12 +298,23 @@ def _get_decision_max_tokens() -> int:
     The extraction call used to send no cap at all, leaving the ceiling to
     the provider. Reasoning tokens are billed as output and count against
     this cap on most providers, so an explicit value keeps the cost and the
-    truncation boundary predictable.
+    truncation boundary predictable. Blank means unset — the default wins.
+    A malformed, zero, or negative value raises instead of silently falling
+    back, so a bad configuration can never masquerade as the default.
     """
+    raw = os.environ.get("DECISION_MAX_TOKENS", "").strip()
+    if not raw:
+        return _DECISION_MAX_TOKENS_DEFAULT
     try:
-        return int(os.environ.get("DECISION_MAX_TOKENS", "16384").strip() or "16384")
+        value = int(raw)
     except ValueError:
-        return 16384
+        raise ValueError(
+            f"DECISION_MAX_TOKENS={raw!r} is not an integer; "
+            "set a positive integer or leave it blank"
+        )
+    if value <= 0:
+        raise ValueError(f"DECISION_MAX_TOKENS={value} must be positive")
+    return value
 
 
 #: Advertised reasoning-effort support for the models this server ships a
@@ -1234,16 +1290,27 @@ def extract_session_decisions(
             f"decision transcript {path} exists but holds zero turns — "
             f"refusing to treat a broken pipeline as 'no rulings'"
         )
+    # The transcript is sent whole, so an oversized session produced an
+    # unbounded prompt — the exact starvation this cap exists to bound.
+    # Cap the joined text BEFORE the prompt is built and report the
+    # dropped size, never silently.
+    transcript_bytes = path.read_bytes()
+    transcript_text = "\n".join(turns)
+    _max_chars = _get_decision_transcript_max_chars()
+    if len(transcript_text) > _max_chars:
+        dropped_chars = len(transcript_text) - _max_chars
+        transcript_text = (
+            transcript_text[:_max_chars]
+            + f"\n[...truncated at {dropped_chars} chars]"
+        )
     prompt = (
         "Extract the MANAGER's decisions, trade-offs, and rulings from this session "
         "transcript. Preserve each ruling's verbatim quote. Reply with a JSON array; "
         "each item: {verbatim_quote: {original, english_translation}, "
         "extracted_decision: {summary, category, rationale, alternatives[], tradeoffs}}. "
         "Use categories: architecture/process/scope/quality-gate/tooling/release/other. "
-        "Empty array when the session holds no manager rulings.\n\n" + "\n".join(turns)
+        "Empty array when the session holds no manager rulings.\n\n" + transcript_text
     )
-    transcript_bytes = path.read_bytes()
-    transcript_text = "\n".join(turns)
     effort = _get_decision_effort()  # Validated always; sent when no explicit temp.
     # Temperature-vs-effort rule (mirrors the Brain bridge): an explicitly
     # set temperature wins (temperature sent, effort dropped — Responses
