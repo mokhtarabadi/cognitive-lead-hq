@@ -1350,7 +1350,8 @@ def extract_session_decisions(
         "transcript. Preserve each ruling's verbatim quote. Reply with a JSON array; "
         "each item: {verbatim_quote: {original, english_translation}, "
         "extracted_decision: {summary, category, rationale, alternatives[], tradeoffs}}. "
-        "Use categories: architecture/process/scope/quality-gate/tooling/release/other. "
+        "Use categories: architecture/process/scope/quality-gate/tooling/release/other/"
+        "autopilot-cycle. "
         "Empty array when the session holds no manager rulings.\n\n" + transcript_text
     )
     effort = _get_decision_effort()  # Validated always; sent when no explicit temp.
@@ -1573,8 +1574,24 @@ def record_manager_decision(decision: dict[str, Any]) -> str:
     only — it is never written to a record.
 
     Args:
-        decision: Candidate object (verbatim_quote + extracted_decision;
-            decision_id/timestamp assigned here when absent).
+        decision: Candidate object. Required fields (validator
+            `_validate_against_schema`): `decision_id`, `timestamp`,
+            `project_name`, `verbatim_quote`, `extracted_decision`,
+            `redaction_verified`.
+
+            `decision_id`/`timestamp`/`fingerprint` are assigned here when
+            absent, and `redaction_verified` is set here. `project_name` is
+            NOT defaulted, so omitting it raises `ValueError: decision
+            schema violations: missing required field: project_name`.
+
+            Shape: `verbatim_quote` is a mapping
+            `{original, english_translation}` of non-empty strings.
+            `extracted_decision` is a mapping
+            `{summary, category, rationale, alternatives[], tradeoffs}` where
+            `summary`/`category`/`rationale`/`tradeoffs` are strings,
+            `alternatives` is a list of strings, and `category` is one of
+            `_VALID_CATEGORIES`: architecture, process, scope, quality-gate,
+            tooling, release, other, autopilot-cycle.
 
     Returns:
         Human-readable confirmation including the decision id and paths.

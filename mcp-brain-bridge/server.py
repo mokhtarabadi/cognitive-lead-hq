@@ -9,12 +9,16 @@
 
 """Unified Brain bridge MCP server (Task 190).
 
-One tool, ``brain_turn``: the Hands builds a user prompt from its current
-machine state (e.g. "QA engineer please make the adversarial testing" +
-the task file), the server prepends the latest system prompt (read from
-the global install) as the system message, calls the LLM over the
-OpenAI Responses API via httpx,
-and returns the output — with any machine XML blocks extracted.
+Four tools. ``brain_turn`` is the automation path; ``get_context_bundle``,
+``grep_files`` and ``read_file`` let the Hands locate a hit and pull only
+the range a turn needs.
+
+``brain_turn``: the Hands builds a user prompt from its current machine
+state (e.g. "QA engineer please make the adversarial testing" + the task
+file), the server prepends the latest system prompt (read from the global
+install) as the system message, calls the LLM over the OpenAI Responses
+API via httpx, and returns the output — with any machine XML blocks
+extracted.
 
 Manager rule: if the output has XML, the Hands takes only the XML; if
 no XML, the Hands takes the whole output. Admin questions inside the
@@ -27,10 +31,13 @@ Per-task chat history (manager order, Task 190): the LLM is stateless,
 so every ``brain_turn`` with a ``task_id`` loads that task's prior
 user/assistant messages from its transcript file and sends them along
 — like a chat interface, first message to last, until the task closes.
-Each task keeps its own conversation under the sessions root
-(``BRAIN_SESSIONS_ROOT``, default ``~/.config/opencode/brain-sessions``,
-``<task_id>/transcript.jsonl``, JSON lines). History is bounded (last
-40 messages) so long tasks cannot overflow the context.
+Each task keeps its own conversation under the project's sessions root
+(``<project>/tasks/.sessions/<task_id>/transcript.jsonl``, JSON lines).
+``BRAIN_SESSIONS_ROOT`` overrides that location. The old global directory
+(``~/.config/opencode/brain-sessions``) is a read-only fallback for
+history written before the per-project move; writes never land there.
+History is bounded (last 40 messages) so long tasks cannot overflow the
+context.
 
 Transport: stdio FastMCP, mirroring the other servers. The model is
 called over the OpenAI Responses API (``{api_base}/responses``) via
@@ -823,6 +830,14 @@ def read_file(
 
     ``project_root`` pins the tree ``path`` resolves against (issue #24);
     omit it to auto-resolve the active project root.
+
+    Returns ``{"path", "offset", "limit", "total_lines", "lines"}``. Each
+    entry in ``lines`` is already numbered as ``"N: text"``, so do not add
+    another prefix. ``limit`` clamps to 2000 lines, and a file over
+    2,000,000 bytes is refused. Bad input — a blank path, an ``offset``
+    below 1, a ``limit`` below 1, a non-allowlisted extension, or an
+    oversized file — raises ``ValueError`` instead of returning a partial
+    result.
     """
     return _read_file_impl(path, offset, limit, project_root)
 
@@ -835,6 +850,14 @@ def grep_files(
 
     ``project_root`` pins the tree searched (issue #24); omit it to
     auto-resolve the active project root.
+
+    Scope: only the six read suffixes are searched — ``.md``, ``.txt``,
+    ``.json``, ``.yaml``, ``.yml``, ``.toml``. Source files such as
+    ``.py`` are never opened, so an empty result for them means "not
+    searched", not "no match". ``.git``, ``__pycache__``, ``.venv``,
+    ``node_modules`` and ``.pytest_cache`` are skipped. Lines longer than
+    4000 chars are skipped unsearched, and a pattern longer than 500 chars
+    raises ``ValueError`` (the ReDoS bound).
     """
     return _grep_files_impl(pattern, subdir, project_root)
 
@@ -2893,6 +2916,13 @@ def brain_turn(
             under the workspace root with the read suffix allowlist;
             per-file cap plus total budget apply, problems become explicit
             unavailable labels. Default off. Small pulls stay inline.
+        attachment_resume: Optional continuation token from a previous
+            response whose attachments were truncated. Accepts
+            ``{"kind": "diff"|"context_path", "path": str,
+            "offset_chars": int >= 0}`` — the shape the response payload
+            and the ``[NEXT_ATTACHMENT_PART]`` marker publish. A malformed
+            resume is ignored with a stderr note and never fails the turn.
+            Omit it for a fresh turn.
         project_root: Optional project dir holding ``tasks/``. Its
             ``tasks/.sessions/`` stores this turn's history (per-project
             sessions), and its ``tasks/`` lanes resolve the task file
