@@ -166,6 +166,7 @@ cp .env.example .env
 - [Blowsh Web Skill](skill-templates/blowsh/SKILL.md) — live-web search/fetch/crawl via the blowsh MCP server
 - [Cognitive Executor Agent](agents/cognitive-executor.md) (Bridge + Autopilot sections)
 - [Setup Guide](docs/setup.md)
+- [Manager-Decisions MCP Server](docs/manager-decisions.md) — tool schemas and usage contract for the six decision tools
 
 ---
 
@@ -188,6 +189,7 @@ cp .env.example .env
 ├── docs/
 │   ├── conventions.md                  # Syntax rules and automation conventions
 │   ├── setup.md                        # Platform tool setup and installation guide
+│   ├── manager-decisions.md            # manager_decisions MCP tool schemas and usage contract
 │   ├── history/                        # Milestone compaction summaries
 │   └── opencode/                       # OpenCode documentation mirror
 ├── mcp-context-server/
@@ -196,6 +198,8 @@ cp .env.example .env
 │   └── server.py                       # FastMCP server for task file linting
 ├── mcp-memory-server/
 │   └── server.py                       # FastMCP server for persistent project memory
+├── mcp-decision-server/
+│   └── server.py                       # FastMCP server for Manager-decision capture & consultation
 ├── mcp-brain-bridge/                  # Unified Brain bridge
 │   └── server.py                       # FastMCP `BrainBridge`: brain_turn (prompt loader + LLM + XML extract)
 ├── prompts/                            # System prompt source tree (fragments + shared partials)
@@ -285,21 +289,21 @@ cp .env.example .env
 
 ### General & Workflow Skills
 
-| Skill Name                | Purpose                                                                                                                                                                                                                                    |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `audit-agents`            | Enforces Zero-Autonomous-Commit (ZAC) workflows and generates/audits `AGENTS.md` for new and existing projects.                                                                                                                            |
-| `code-search`             | Mandatory for discovery. Uses MCP tools (`get_directory_tree`, `read_source_files`, `extract_signatures`) to explore the codebase without token bloat.                                                                                     |
-| `debug-instrumentation`   | Diagnoses complex runtime bugs, deadlocks, race conditions, and silent failures via strategic temporary logging and tracing.                                                                                                               |
-| `design-md`               | Extracts a comprehensive design system (`DESIGN.md`) directly from frontend source code — React, Vue, Svelte, Angular, plain HTML/CSS, or any web framework.                                                                               |
-| `doc-coauthoring`         | Guides users through a structured 3-stage workflow (Context Gathering, Refinement & Structure, Reader Testing) for co-authoring documentation with AI.                                                                                     |
-| `github`                  | GitHub CLI (gh) workflow for pull request triage, issue management, CI/CD run analysis, and API queries.                                                                                                                                   |
-| `prompt-refactor`         | Meta-cognitive skill that refactors basic human prompts into elite, highly constrained, XML-tagged instructions optimized for AI agent reasoning.                                                                                          |
+| Skill Name                | Purpose                                                                                                                                                                                                                         |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `audit-agents`            | Enforces Zero-Autonomous-Commit (ZAC) workflows and generates/audits `AGENTS.md` for new and existing projects.                                                                                                                 |
+| `code-search`             | Mandatory for discovery. Uses MCP tools (`get_directory_tree`, `read_source_files`, `extract_signatures`) to explore the codebase without token bloat.                                                                          |
+| `debug-instrumentation`   | Diagnoses complex runtime bugs, deadlocks, race conditions, and silent failures via strategic temporary logging and tracing.                                                                                                    |
+| `design-md`               | Extracts a comprehensive design system (`DESIGN.md`) directly from frontend source code — React, Vue, Svelte, Angular, plain HTML/CSS, or any web framework.                                                                    |
+| `doc-coauthoring`         | Guides users through a structured 3-stage workflow (Context Gathering, Refinement & Structure, Reader Testing) for co-authoring documentation with AI.                                                                          |
+| `github`                  | GitHub CLI (gh) workflow for pull request triage, issue management, CI/CD run analysis, and API queries.                                                                                                                        |
+| `prompt-refactor`         | Meta-cognitive skill that refactors basic human prompts into elite, highly constrained, XML-tagged instructions optimized for AI agent reasoning.                                                                               |
 | `bundle-tasks`            | Deterministic meta-task bundling — bundles 2–6 small related tasks into one META for unified execution with verbatim preservation and auto-archive. Pure-MCP tool `bundle_tasks` — see `skill-templates/bundle-tasks/SKILL.md`. |
-| `blowsh`                  | Live-web research via the blowsh MCP server (Docker): `search_web`, `fetch_web`, `fetch_web_batch`, `crawl_web`, `extract_links` — rendered engines, JS rendering, sitemap-aware crawls. See `skill-templates/blowsh/SKILL.md`.            |
-| `task-generator`          | Automatically generates decentralized task files based on Manager instructions, with correct `<!-- BEGIN_GIT_DIFF -->` / `<!-- END_GIT_DIFF -->` markers.                                                                                  |
-| `telegram-issue-sync`     | Syncs Telegram supergroup topics into local task files and GitHub issues, using embedded Python scripts for deterministic JSON state management.                                                                                           |
-| `telegram-message-export` | Intelligently exports a range of Telegram messages (text, media, voice notes) into a numbered folder, capturing reply hierarchies, and packing them into a ZIP archive.                                                                    |
-| `versioning-and-release`  | Standardizes Semantic Versioning (SemVer), Keep a Changelog formats, Conventional Commits, and Safe Push Protocols across all repositories.                                                                                                |
+| `blowsh`                  | Live-web research via the blowsh MCP server (Docker): `search_web`, `fetch_web`, `fetch_web_batch`, `crawl_web`, `extract_links` — rendered engines, JS rendering, sitemap-aware crawls. See `skill-templates/blowsh/SKILL.md`. |
+| `task-generator`          | Automatically generates decentralized task files based on Manager instructions, with correct `<!-- BEGIN_GIT_DIFF -->` / `<!-- END_GIT_DIFF -->` markers.                                                                       |
+| `telegram-issue-sync`     | Syncs Telegram supergroup topics into local task files and GitHub issues, using embedded Python scripts for deterministic JSON state management.                                                                                |
+| `telegram-message-export` | Intelligently exports a range of Telegram messages (text, media, voice notes) into a numbered folder, capturing reply hierarchies, and packing them into a ZIP archive.                                                         |
+| `versioning-and-release`  | Standardizes Semantic Versioning (SemVer), Keep a Changelog formats, Conventional Commits, and Safe Push Protocols across all repositories.                                                                                     |
 
 ### Stack-Specific Blueprints
 

@@ -51,13 +51,13 @@ gh auth login
 
 The project uses five FastMCP Python servers, all run via `uv`:
 
-| Server               | Purpose                                           | Start Command                         |
-| -------------------- | ------------------------------------------------- | ------------------------------------- |
-| `mcp-context-server` | `.gitignore`-aware file reading, tree exploration | `uv run mcp-context-server/server.py` |
-| `mcp-memory-server`  | Persistent project memory (namespaces + index)    | `uv run mcp-memory-server/server.py`  |
-| `mcp-lint-server`    | Task file linting and Markdown validation         | `uv run mcp-lint-server/server.py`    |
-| `mcp-decision-server` | Manager-decision capture and consultation        | `uv run mcp-decision-server/server.py` |
-| `mcp-brain-bridge` | Unified Brain bridge: `brain_turn` (system-prompt loader + LLM + XML extract) | `uv run mcp-brain-bridge/server.py` |
+| Server                                        | Purpose                                                                       | Start Command                          |
+| --------------------------------------------- | ----------------------------------------------------------------------------- | -------------------------------------- |
+| `mcp-context-server`                          | `.gitignore`-aware file reading, tree exploration                             | `uv run mcp-context-server/server.py`  |
+| `mcp-memory-server`                           | Persistent project memory (namespaces + index)                                | `uv run mcp-memory-server/server.py`   |
+| `mcp-lint-server`                             | Task file linting and Markdown validation                                     | `uv run mcp-lint-server/server.py`     |
+| [`mcp-decision-server`](manager-decisions.md) | Manager-decision capture and consultation                                     | `uv run mcp-decision-server/server.py` |
+| `mcp-brain-bridge`                            | Unified Brain bridge: `brain_turn` (system-prompt loader + LLM + XML extract) | `uv run mcp-brain-bridge/server.py`    |
 
 These are configured in `opencode.json` and auto-start with OpenCode.
 
