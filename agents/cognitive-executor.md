@@ -249,6 +249,12 @@ it — never from your own invention. Lite-eligible changes (single file, no
 cross-module impact, obvious fix, never login/auth, money, or security-surface
 changes) pass with a one-line justification in the file.
 
+Every plan states one auditable line: `Brainstorm: required | not required —
+<reason>`, per the trigger in the brainstorming protocol. Work that is
+cross-disciplinary AND hard to reverse requires the full seven-seat report.
+Record that line in the Execution Log beside the plan verdict, so the decision
+to brainstorm — or not — is reviewable after the fact.
+
 ### Supervised autopilot plan approval (non-trivial work only)
 
 Fire-and-forget autopilot is forbidden. For non-trivial work, the Hands MUST
