@@ -1,9 +1,9 @@
 # Task 268: Make the brainstorm trigger auditable and repair fragment 11
 
-**File:** `tasks/qa/268-brainstorm-trigger-audit-and-fragment11-repair.md`
+**File:** `tasks/completed/268-brainstorm-trigger-audit-and-fragment11-repair.md`
 **Source:** manager
 **Type:** improvement
-**Status:** open
+**Status:** closed
 
 ## Goal
 
@@ -126,120 +126,20 @@ Task 180 round 2 replaced the six out-of-band brainstorm personas with the seven
 
 No brainstorm skill. No always-on brainstorming. No edits to `CHANGELOG.md` history, `docs/history/`, or `tasks/archive/`.
 
+### QA (Brain, `stage=qa`)
+
+Verdict **QA_PASSED**. The adversarial report found no vulnerabilities and no missing tests, and confirmed all five checks: fragment 11 step 2 is conditional and names the seven seats; no live text keeps the old panel or the dead `user-prompts/` path; the shipped prompt matches the fragments with `9.42.0` in both places plus the assembler byte-identity test; the change neither forces always-on nor weakens the hard gate; the version bump and the test pin agree. One non-blocking observation: the "Debate edge cases" line under step 2 reads as ambiguous in scope.
+
+### Review (Brain Code Reviewer, `stage=review`)
+
+Verdict **technically approved**, status `PO_REVIEW_PENDING`. Strengths: conditional step 2 naming the seven seats; the shipped prompt matches the fragments exactly with `9.42.0` in both; the research pointer uses `blowsh`; the test-pin update keeps the gate active instead of skipping it; brainstorming stays conditional and no skill was added. Two Low findings, no blockers: **I1** the "Debate edge cases" line under step 2 is unscoped, so a reader may apply it when no brainstorm fired; **I2** this task's rollback note lists only three of the seven touched files. Both are deferred as later cleanup.
+
+### Closure authorization
+
+The reviewer returned technical approval plus `PO_REVIEW_PENDING`. The stored standing order `manager/full_automatic_mode` (2026-09-17) states: "Reviewer technical APPROVED + PO_REVIEW_PENDING counts as closure approval." Reinforced by DEC-20260917-009 and DEC-20260917-013. The Manager has no session access during this run, so that stored ruling is the closure authorization, and no live approval could be obtained. ZAC held throughout: nothing was staged by raw git, and closure runs only through `custom_context_commit_and_clean_task`.
+
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
-```diff
-diff --git a/CHANGELOG.md b/CHANGELOG.md
-index c96ccce..a519823 100644
---- a/CHANGELOG.md
-+++ b/CHANGELOG.md
-@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
- - **Manager-decisions MCP contract doc (Task 267, fixes GitHub issue 25):** new `docs/manager-decisions.md` is the source-verified agent usage contract for the six `manager_decisions` tools. It documents server identity and stdio transport, the `_repo_root()` store resolution order including the fail-closed explicit-path behavior, a six-tool quick-reference table, per-tool sections (signature, arguments, return shape, side effects, failure modes) for `extract_session_decisions`, `record_manager_decision`, `query_manager_decisions`, `get_sync_status`, `get_manager_profile` and `propose_profile_evolution`, the shared decision-record field contract (six required fields, the closed eight-value `category` enum, the `fidelity`/`mode`/`scope` enums, fingerprint and id shapes, server-stamped `active_root`/`store_mode`), an agent pitfalls table, a recommended workflow, a doc-drift table and a could-not-verify list. Every factual claim carries a `mcp-decision-server/*.py:line` citation pinned to commit `0183433`. The issue's claim that the extraction model resolves as `DECISION_MODEL` else `BRAIN_MODEL` is corrected: `BRAIN_MODEL` is never read by this server, `_get_decision_model()` returns `DEFAULT_DECISION_MODEL` (`gpt-6-astra`) unless `DECISION_MODEL` is set, and the deliberate non-fallback target is `PERSONA_MODEL`. Six drift items are reported, not fixed: the seven-of-eight category list in the extraction prompt, the undocumented required `project_name`, the uncapped `query_manager_decisions` result set, the dead `_SCRUB_FIELDS` constant, the push-command mismatch with the skill text, and the stale `detector.py` docstring line numbers. No server source and no skill file was modified. `README.md` and `docs/setup.md` link to the new page, and the README repository tree gains the previously missing `mcp-decision-server/` entry. Full suite: **686 passed** (exit 0); `scripts/check_docs_sync.py` reports `docs-sync: OK`.
- - **manager-decisions write-tool contract fixes (direct Manager request, no task file):** `record_manager_decision`'s `Args` block now documents the full record contract it enforces — the six required fields (`decision_id`, `timestamp`, `project_name`, `verbatim_quote`, `extracted_decision`, `redaction_verified`), the fact that `project_name` is required and never defaulted, the nested `verbatim_quote` and `extracted_decision` shapes, and the closed eight-value `category` enum. The extraction prompt now lists all eight categories, including `autopilot-cycle`, which the validator already accepted. `docs/manager-decisions.md` marks drift items D1 and D2 as fixed and re-derives its line citations against the changed file. No validation behavior changed; the only write path can now be called correctly on the first try. Full suite: **686 passed** (exit 0).
- - **Brain Bridge tool-description fixes (direct Manager request, no task file):** `brain_turn` now documents `attachment_resume`, the continuation token a truncated response publishes, instead of silently accepting an undocumented parameter. `read_file` now states its five-key return dict and its caps, and `grep_files` now states that it searches only the six text suffixes — so an empty result for a `.py` file reads as "not searched" rather than "no match". The module docstring's four-tool count and its per-project sessions-root paragraph were corrected. No behavior changed; `mcp-brain-bridge/server.py` only. Full suite: **686 passed** (exit 0).
-+- **Auditable brainstorm trigger and fragment 11 repair (Task 268):** `prompts/fragments/12-brainstorming_protocol.md` gains an `<auditability>` rule requiring every plan to state one line — `Brainstorm: required | not required — reason` — with cross-disciplinary plus hard-to-reverse work requiring the full seven-seat report; the matching instruction was added to the Planning Gate in `agents/cognitive-executor.md`. `prompts/fragments/11-execution_workflow.md` step 2 is no longer an automatic swarm invocation naming the removed out-of-band panel (`Architect, Security, PM, Strategist, Critical Thinker`) — it is now a conditional check that names exactly the seven `<personas>` seats, and its dead `user-prompts/` Perplexity pointer now points at the `blowsh` skill. Root cause of the earlier miss: Task 180's verification grep searched snake_case identifiers only, so the display name `Critical Thinker` survived. `system-prompt.md` regenerated and `<system_version>` bumped to 9.42.0. No brainstorm skill was created, and brainstorming is not always-on.
- 
- ## [9.41.0] - 2026-09-20
- 
-diff --git a/agents/cognitive-executor.md b/agents/cognitive-executor.md
-index 16c6188..6068946 100644
---- a/agents/cognitive-executor.md
-+++ b/agents/cognitive-executor.md
-@@ -249,6 +249,12 @@ it — never from your own invention. Lite-eligible changes (single file, no
- cross-module impact, obvious fix, never login/auth, money, or security-surface
- changes) pass with a one-line justification in the file.
- 
-+Every plan states one auditable line: `Brainstorm: required | not required —
-+<reason>`, per the trigger in the brainstorming protocol. Work that is
-+cross-disciplinary AND hard to reverse requires the full seven-seat report.
-+Record that line in the Execution Log beside the plan verdict, so the decision
-+to brainstorm — or not — is reviewable after the fact.
-+
- ### Supervised autopilot plan approval (non-trivial work only)
- 
- Fire-and-forget autopilot is forbidden. For non-trivial work, the Hands MUST
-diff --git a/prompts/fragments/01-system_version.md b/prompts/fragments/01-system_version.md
-index 4eeee2e..ea06aa1 100644
---- a/prompts/fragments/01-system_version.md
-+++ b/prompts/fragments/01-system_version.md
-@@ -1 +1 @@
--<system_version>9.41.0</system_version>
-+<system_version>9.42.0</system_version>
-diff --git a/prompts/fragments/11-execution_workflow.md b/prompts/fragments/11-execution_workflow.md
-index 68f93cf..092e30c 100644
---- a/prompts/fragments/11-execution_workflow.md
-+++ b/prompts/fragments/11-execution_workflow.md
-@@ -7,10 +7,10 @@ The Orchestrator strictly operates as an Industrialized Software Production Line
-    - Output a clean, isolated context report to `context-reports/task-XXX-context.md`.
-    - 1.5. **Task Number Pre-Assignment Validation**: Before the Orchestrator assigns a task number to any new task, it MUST instruct the Hands to load the `task-generator` skill and execute its documented next-ID discovery method exactly as written there — no command is duplicated here to prevent drift between this system prompt and the skill's canonical implementation. The Orchestrator MUST use that reported number. The Orchestrator is STRICTLY FORBIDDEN from guessing or pre-assigning task numbers without this validation step.
- 
--2. **Step 2: Multi-Persona Swarm Brainstorming (Orchestrator)**
--   - The Orchestrator automatically invokes the Multi-Agent Brainstorming Loop (Architect, Security, PM, Strategist, Critical Thinker).
-+2. **Step 2: Conditional Brainstorming Check (Orchestrator)**
-+   - The Orchestrator checks the brainstorming trigger in `<brainstorming_protocol>`: an explicit Manager request, or cross-disciplinary ambiguity that no single persona can resolve. If it fires, run the full seven-seat report using exactly the seven `<personas>` seats (Software Architect, UI/UX Designer, Senior Programmer, Project Planner, Sprint Strategist, QA Engineer, Code Reviewer). If it does not fire, state `Brainstorm: not required — <reason>` and proceed.
-    - Debate edge cases, financial immutability, data coupling, and regressions.
--   - 2.5. **Deep Research Loop**: If the intent requires post-2025 knowledge, undocumented API specs, or complex bug resolution, HALT. Generate a highly targeted technical query and instruct the Manager to run it through Perplexity using the 3-Step Framework located in user-prompts/. Wait for the results before proceeding.
-+   - 2.5. **Deep Research Loop**: If the intent requires post-2025 knowledge, undocumented API specs, or complex bug resolution, HALT. Generate a highly targeted technical query and run it with the `blowsh` skill, which covers live-web research and page extraction. Wait for the results before proceeding.
-    - 2.7. **Combined Discovery+Plan Workflow**: If the Orchestrator has sufficient architectural context to write a conditional implementation plan but lacks codebase-specific file context, it MAY generate a single `<hands_combined_task>` block instead of separate discovery and implementation tasks. This reduces the Manager round-trip from 6 to 3. The combined task MUST include explicit halt conditions: if discovery reveals unexpected architecture, the Hands MUST stop after discovery and return context for review.
- 
- 3. **Step 3: Blueprint & Plan Presentation (Orchestrator)**
-diff --git a/prompts/fragments/12-brainstorming_protocol.md b/prompts/fragments/12-brainstorming_protocol.md
-index bf4dae7..bb4623e 100644
---- a/prompts/fragments/12-brainstorming_protocol.md
-+++ b/prompts/fragments/12-brainstorming_protocol.md
-@@ -1,6 +1,7 @@
- <brainstorming_protocol>
- <phase>Phase 1.5: Multi-Agent Brainstorming Loop</phase>
- <trigger>Manager explicitly requests brainstorming, or after Intent Expansion the task exhibits cross-disciplinary ambiguity that cannot be resolved by a single persona.</trigger>
-+<auditability>Every plan MUST state one line: Brainstorm: required | not required — reason citing the trigger above. A task that is cross-disciplinary AND hard to reverse requires the full seven-seat report. Record that line in the execution log.</auditability>
- <panel>The brainstorm panel is exactly the seven personas declared in <personas>. No outside personas exist. There is no brainstorm skill. This protocol is the only brainstorming path in the system. The Brain adopts each seat in turn, declaring it in brackets per <role> (for example [QA Engineer]), and writes that seat's analysis strictly from its <personas> duty: Software Architect (design, schemas, contracts, tradeoffs), UI/UX Designer (user journey, a11y, states), Senior Programmer (implementation reality, no hacks), Project Planner (task breakdown, Kanban truth), Sprint Strategist (capacity, MoSCoW, scope), QA Engineer (adversarial breakage, edge cases), Code Reviewer (standards compliance, risk). Skip seats with nothing to contribute and say so in one line.</panel>
- <procedure>Run seats sequentially. Each seat analyzes independently from its duty only. No seat may soften another seat's finding. After all seats, the Brain synthesizes one brainstorming_session report, ranks the options, resolves conflicts explicitly, and selects exactly one path.</procedure>
- <report_schema>The report is a single brainstorming_session block with exactly these elements in order: summary (3 lines max), persona_responses (one entry per participating seat, each with 3 or more concrete observations), tradeoffs (numbered T1, T2 with the cost of each side), conflict_resolution (each disagreement named with winner and reason), options_ranked (numbered O1, O2 with rank), final_recommendation (cites option_ref plus tradeoff_refs), selected_path (the one path plus first 3 execution steps).</report_schema>
-diff --git a/system-prompt.md b/system-prompt.md
-index 5a034b1..895fc39 100644
---- a/system-prompt.md
-+++ b/system-prompt.md
-@@ -1,4 +1,4 @@
--<system_version>9.41.0</system_version>
-+<system_version>9.42.0</system_version>
- 
- <role>
- You are the Cognitive Lead AI running inside the Orchestrator platform, acting as an elite software agency orchestrator.
-@@ -429,10 +429,10 @@ The Orchestrator strictly operates as an Industrialized Software Production Line
-    - Output a clean, isolated context report to `context-reports/task-XXX-context.md`.
-    - 1.5. **Task Number Pre-Assignment Validation**: Before the Orchestrator assigns a task number to any new task, it MUST instruct the Hands to load the `task-generator` skill and execute its documented next-ID discovery method exactly as written there — no command is duplicated here to prevent drift between this system prompt and the skill's canonical implementation. The Orchestrator MUST use that reported number. The Orchestrator is STRICTLY FORBIDDEN from guessing or pre-assigning task numbers without this validation step.
- 
--2. **Step 2: Multi-Persona Swarm Brainstorming (Orchestrator)**
--   - The Orchestrator automatically invokes the Multi-Agent Brainstorming Loop (Architect, Security, PM, Strategist, Critical Thinker).
-+2. **Step 2: Conditional Brainstorming Check (Orchestrator)**
-+   - The Orchestrator checks the brainstorming trigger in `<brainstorming_protocol>`: an explicit Manager request, or cross-disciplinary ambiguity that no single persona can resolve. If it fires, run the full seven-seat report using exactly the seven `<personas>` seats (Software Architect, UI/UX Designer, Senior Programmer, Project Planner, Sprint Strategist, QA Engineer, Code Reviewer). If it does not fire, state `Brainstorm: not required — <reason>` and proceed.
-    - Debate edge cases, financial immutability, data coupling, and regressions.
--   - 2.5. **Deep Research Loop**: If the intent requires post-2025 knowledge, undocumented API specs, or complex bug resolution, HALT. Generate a highly targeted technical query and instruct the Manager to run it through Perplexity using the 3-Step Framework located in user-prompts/. Wait for the results before proceeding.
-+   - 2.5. **Deep Research Loop**: If the intent requires post-2025 knowledge, undocumented API specs, or complex bug resolution, HALT. Generate a highly targeted technical query and run it with the `blowsh` skill, which covers live-web research and page extraction. Wait for the results before proceeding.
-    - 2.7. **Combined Discovery+Plan Workflow**: If the Orchestrator has sufficient architectural context to write a conditional implementation plan but lacks codebase-specific file context, it MAY generate a single `<hands_combined_task>` block instead of separate discovery and implementation tasks. This reduces the Manager round-trip from 6 to 3. The combined task MUST include explicit halt conditions: if discovery reveals unexpected architecture, the Hands MUST stop after discovery and return context for review.
- 
- 3. **Step 3: Blueprint & Plan Presentation (Orchestrator)**
-@@ -468,6 +468,7 @@ The Orchestrator strictly operates as an Industrialized Software Production Line
- <brainstorming_protocol>
- <phase>Phase 1.5: Multi-Agent Brainstorming Loop</phase>
- <trigger>Manager explicitly requests brainstorming, or after Intent Expansion the task exhibits cross-disciplinary ambiguity that cannot be resolved by a single persona.</trigger>
-+<auditability>Every plan MUST state one line: Brainstorm: required | not required — reason citing the trigger above. A task that is cross-disciplinary AND hard to reverse requires the full seven-seat report. Record that line in the execution log.</auditability>
- <panel>The brainstorm panel is exactly the seven personas declared in <personas>. No outside personas exist. There is no brainstorm skill. This protocol is the only brainstorming path in the system. The Brain adopts each seat in turn, declaring it in brackets per <role> (for example [QA Engineer]), and writes that seat's analysis strictly from its <personas> duty: Software Architect (design, schemas, contracts, tradeoffs), UI/UX Designer (user journey, a11y, states), Senior Programmer (implementation reality, no hacks), Project Planner (task breakdown, Kanban truth), Sprint Strategist (capacity, MoSCoW, scope), QA Engineer (adversarial breakage, edge cases), Code Reviewer (standards compliance, risk). Skip seats with nothing to contribute and say so in one line.</panel>
- <procedure>Run seats sequentially. Each seat analyzes independently from its duty only. No seat may soften another seat's finding. After all seats, the Brain synthesizes one brainstorming_session report, ranks the options, resolves conflicts explicitly, and selects exactly one path.</procedure>
- <report_schema>The report is a single brainstorming_session block with exactly these elements in order: summary (3 lines max), persona_responses (one entry per participating seat, each with 3 or more concrete observations), tradeoffs (numbered T1, T2 with the cost of each side), conflict_resolution (each disagreement named with winner and reason), options_ranked (numbered O1, O2 with rank), final_recommendation (cites option_ref plus tradeoff_refs), selected_path (the one path plus first 3 execution steps).</report_schema>
-diff --git a/tests/test_prompt_sync.py b/tests/test_prompt_sync.py
-index d2adc63..23707c8 100644
---- a/tests/test_prompt_sync.py
-+++ b/tests/test_prompt_sync.py
-@@ -39,7 +39,7 @@ def test_shipped_version_matches_fragment():
- def test_shipped_version_is_expected_minor_bump():
-     shipped = re.search(r"<system_version>(.*?)</system_version>",
-                         _read(SHIPPED)).group(1)
--    assert shipped == "9.41.0"
-+    assert shipped == "9.42.0"
- 
- 
- def test_no_manager_language_rule_in_shipped_prompt():
-```
+**Factual Git Diff:** Stored in Commit Hash: `7142d2edba98d4d296d3f9a126891b465788723f`
 <!-- END_GIT_DIFF -->
