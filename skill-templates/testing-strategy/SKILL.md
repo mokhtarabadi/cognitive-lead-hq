@@ -34,5 +34,5 @@ Trivial single-file changes with zero behavior delta (typo fixes, comment-only, 
 
 ## Verification Contract
 
-- Run the project's test command BEFORE claiming done (see each stack's `toolchain.test_cmd`).
+- Run the project's test command BEFORE claiming done — see the active stack skill's **Strict Tooling Gate** section for the exact `test` step and its prerequisites (format, lint, typecheck, and security must pass first).
 - Failing tests are fixed in code, never deleted or weakened to pass. A deleted failing test is a QA rejection.

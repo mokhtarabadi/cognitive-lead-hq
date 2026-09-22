@@ -39,7 +39,7 @@ def test_shipped_version_matches_fragment():
 def test_shipped_version_is_expected_minor_bump():
     shipped = re.search(r"<system_version>(.*?)</system_version>",
                         _read(SHIPPED)).group(1)
-    assert shipped == "9.43.0"
+    assert shipped == "9.45.0"
 
 
 def test_no_manager_language_rule_in_shipped_prompt():

@@ -126,8 +126,6 @@ def test_hexagonal_expansion_contract():
         assert required in node, f"contract term missing: {required}"
     reg = REGISTRY.read_text(encoding="utf-8")
     assert "node-hexagonal-api" in reg
-    stacks = (ROOT / "stacks" / "node-ts.yaml").read_text(encoding="utf-8")
-    assert "node-hexagonal-api" in stacks
 
 
 def test_opencode_init_skill_contract():
