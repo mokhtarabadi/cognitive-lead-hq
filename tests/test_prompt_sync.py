@@ -39,7 +39,7 @@ def test_shipped_version_matches_fragment():
 def test_shipped_version_is_expected_minor_bump():
     shipped = re.search(r"<system_version>(.*?)</system_version>",
                         _read(SHIPPED)).group(1)
-    assert shipped == "9.45.0"
+    assert shipped == "9.46.0"
 
 
 def test_no_manager_language_rule_in_shipped_prompt():
@@ -74,3 +74,20 @@ def test_executor_evidence_records_rtk_command():
 def test_task_generator_template_prescribes_rtk():
     text = _read(TASKGEN_SKILL)
     assert "rtk test [exact command]" in text
+
+
+def test_handoff_contract_requires_complete_code_samples():
+    text = _read(SHIPPED)
+    assert "complete code sample or unified diff" in text
+    assert "PLACEHOLDER BAN" in text
+
+
+def test_handoff_contract_forbids_placeholder_only_instructions():
+    text = _read(SHIPPED)
+    assert "placeholder-only instructions" in text
+    assert "omitted code are forbidden" in text
+
+
+def test_code_block_ban_removed_from_shipped_prompt():
+    text = _read(SHIPPED)
+    assert "Do NOT paste full code blocks for the Hands to copy" not in text
