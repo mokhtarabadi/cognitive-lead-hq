@@ -49,6 +49,14 @@ openchamber update                        # update OpenChamber later
 - **Restart order (both):** `systemctl --user restart opencode-server` first, then `systemctl --user restart openchamber` (chamber re-attaches on boot via `After=`). During the switch window two opencode processes briefly coexist — telegram MCP shared-lock mode (upstream v3.2.33) covers the overlap.
 - **Ownership note:** OpenChamber updates (`openchamber update`) no longer restart your OpenCode server; `opencode` binary updates via `~/.opencode/bin` as before, then `restart opencode-server`.
 
+### 2d. Outbound proxy for opencode-server via mihomo-subs (2026-09-23)
+
+- **Why:** route all outbound LLM API traffic through the `mihomo-subs` pool (`127.0.0.1:7890`, 53 free-pool nodes, 6h refresh) instead of direct egress.
+- **How:** OpenCode respects standard proxy env vars (upstream: https://opencode.ai/docs/network). Set as `Environment=` lines in `~/.config/systemd/user/opencode-server.service` (NOT in `~/.config/opencode/.env` — that file is for secrets/keys; the proxy URL is non-secret loopback config):
+  `HTTP_PROXY=http://127.0.0.1:7890`, `HTTPS_PROXY=http://127.0.0.1:7890` (plain `http://` scheme — 7890 is a mixed HTTP+SOCKS port, TLS to providers is tunnelled via CONNECT), `NO_PROXY=localhost,127.0.0.1,::1` **required** (server/TUI loopback `:4096` must bypass the proxy or you get a routing loop), plus lowercase twins (`http_proxy`/`https_proxy`/`no_proxy`) for the Bun/Node runtime.
+- **Apply:** `systemctl --user daemon-reload && systemctl --user restart opencode-server.service`. Verify env on the live process: `tr '\0' '\n' < /proc/$(systemctl --user show -p MainPID --value opencode-server.service)/environ | grep -i proxy` (all six vars). Health: `curl http://127.0.0.1:4096/` still direct (NO_PROXY working); proxy itself: `curl -x http://127.0.0.1:7890 https://www.gstatic.com/generate_204` → `204`.
+- **Rollback:** delete the six `Environment=` lines, `daemon-reload`, restart → direct egress returns.
+
 ## 3. Connect from a PC (mohammad-pc-1 / cando — Tailscale)
 
 1. Join the same tailnet on the PC (`tailscale status` must show `vm15996266`).
