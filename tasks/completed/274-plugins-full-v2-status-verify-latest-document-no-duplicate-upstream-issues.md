@@ -76,57 +76,5 @@ Seat Check: single domain (docs + plugin audit) → Code Reviewer seat not neede
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
-```diff
-diff --git a/CHANGELOG.md b/CHANGELOG.md
-index 333e46a..904f324 100644
---- a/CHANGELOG.md
-+++ b/CHANGELOG.md
-@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
- 
- ## [Unreleased]
- 
-+### Added
-+
-+- **Plugin full-V2 status verification + docs (Task 274):** verified both plugins are at their latest stable V2-capable versions — `@prevalentware/opencode-goal-plugin@0.1.52` (released 2026-09-26; upstream V2 port PR #49 + PR #58) and `@tarquinen/opencode-dcp@3.2.0` (stable 2026-09-20 is newest; 3.2.1–3.2.8 betas are stale experiments; V2 `setup()` via `session` hooks; `compress.permission: ask` unsupported in V2 by DCP design, default `allow` stands). `opencode plugin list` is documented as the source of truth (`~/.cache/opencode/packages/` is metadata-only). Upstream-issue policy recorded in `README.md` and `LLM.txt` §7.7: search open threads first, never duplicate (DCP V2 threads #627/#628/#631/#632 already active) — no issues were filed.
-+
- ## [9.46.0] - 2026-09-26
- 
- ### Added
-diff --git a/LLM.txt b/LLM.txt
-index fd3329f..51f8314 100644
---- a/LLM.txt
-+++ b/LLM.txt
-@@ -384,6 +384,15 @@ Defaults are applied automatically (enabled, autoUpdate, pruneNotification detai
- 
- > **Upstream note:** DCP development has slowed; new context-management work moved to `sleev` (`npm i -g sleev`). DCP remains available for OpenCode plugin users. If starting fresh and Sleev fits, prefer it; otherwise DCP stays supported here.
- 
-+### Plugin V2 status (verified 2026-09-26, opencode 2.0.18)
-+
-+Both plugins are at their latest stable versions and both are V2-capable upstream — no upgrade work remains:
-+
-+- **goal `@prevalentware/opencode-goal-plugin@0.1.52`** (released 2026-09-26; 0.1.50 Sep 21, 0.1.51 Sep 22): upstream V2 port merged via PR #49 (2026-09-14: beta-19425 contract, compaction context, restart transcript recovery, dual `[id, server, setup]` shape, V2 lifecycle smoke PASS) and PR #58 (merged + released same day: V2 task-recovery scoping). Open issue #54 is a V1-host registration bug whose body confirms `setupV2` targets V2 hosts.
-+- **DCP `@tarquinen/opencode-dcp@3.2.0`** (stable, 2026-09-20): V2 `setup()` registers `session` hooks (`context`, `compaction`) — the documented V2 equivalents of V1 `experimental.chat.messages.transform`. The 3.2.1–3.2.8 betas are stale Mar/Apr experiments; stable 3.2.0 is newest. Known V2 gap, baked into DCP source: `compress.permission: ask` throws "not supported by OpenCode V2 public plugin API yet" — keep the default `allow`.
-+- **Verification:** `opencode plugin list` must show `0.1.52` + `3.2.0` with zero errors — this is the source of truth (`~/.cache/opencode/packages/` holds metadata only, no `dist/`; the V2 host resolves npm at runtime).
-+- **Upstream-issue policy:** search before filing, never duplicate. Goal repo: prevalentWare/opencode-goal-plugin. DCP repo: Opencode-DCP/opencode-dynamic-context-pruning (V2 threads #627 compat, #628 `/dcp-compress` palette, #631 V2 setup, #632 compact tags all active — file nothing there).
-+
- ---
- 
- ## 7.8. Worktree Support — OpenChamber Native (owt Removed 2026-09-08)
-diff --git a/README.md b/README.md
-index d01c387..8cd3d4d 100644
---- a/README.md
-+++ b/README.md
-@@ -478,9 +478,9 @@ opencode --agent cognitive-executor
- Both the repo (`opencode.json` + `tui.json`) and global (`~/.config/opencode/`) configs load two plugins:
- 
- - **`@prevalentware/opencode-goal-plugin`** — `/goal` command with sidebar indicator, persistent state, idle continuation and plan-mode safety. Restored 2026-09-08 after the OpenChamber rollout; it coexists with OpenChamber Session Goals (TUI/CLI goals + web-UI Goals complement each other).
--- **`@tarquinen/opencode-dcp@latest`** — token saving via compress tool, deduplication and purge-errors.
-+- **`@tarquinen/opencode-dcp@latest`** (currently 3.2.0) — token saving via compress tool, deduplication and purge-errors.
- 
--Opencode V2 reads `plugins` from `opencode.json` (server/tools) and from the single global `~/.config/opencode/cli.json` (terminal client) — keep the entries identical. V1 fallbacks (`plugin` in `opencode.json` + `tui.json`) are kept alongside until V1 is fully retired. V2 prefers `permission.shell` over `permission.bash` (both kept). Full install/verify steps live in `LLM.txt` §7.
-+Opencode V2 reads `plugins` from `opencode.json` (server/tools) and from the single global `~/.config/opencode/cli.json` (terminal client) — keep the entries identical. V1 fallbacks (`plugin` in `opencode.json` + `tui.json`) are kept alongside until V1 is fully retired. V2 prefers `permission.shell` over `permission.bash` (both kept). Both plugins are verified V2-capable at their latest stable versions: `@prevalentware/opencode-goal-plugin@0.1.52` (upstream V2 port: PR #49 dual runtime shape + PR #58 task-recovery scoping, 2026-09-26) and `@tarquinen/opencode-dcp@3.2.0` (V2 `setup()` via `session` hooks; stable 3.2.0 is newest — the 3.2.x betas are stale experiments). Verify with `opencode plugin list` (source of truth; cache dirs under `~/.cache/opencode/packages/` are metadata-only). Upstream-issue policy: search open threads first (goal: prevalentWare/opencode-goal-plugin; DCP: Opencode-DCP/opencode-dynamic-context-pruning — V2 threads #627/#628/#631/#632 already active) and never file duplicates. Full install/verify steps live in `LLM.txt` §7.
- 
- > Install both plugins globally, then verify the packages actually landed (config references alone do not install them) and restart OpenCode before using `/goal` or `/dcp-compress`:
- >
-```
+**Factual Git Diff:** Stored in Commit Hash: `41e90839def94202fb1481699cdda434da80faf5`
 <!-- END_GIT_DIFF -->
