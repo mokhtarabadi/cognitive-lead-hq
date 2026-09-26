@@ -11,7 +11,9 @@
 | manager-decisions | autopilot_consult_all_personas | Session 2026-09-14 (tasks 230+231 closure): the Manager ordered that in autopilot the Hands must consult ALL Brain pe... |  |
 | manager-decisions | task_closure_protocol_one_by_one | Session 2026-09-14: task closure protocol ordered by the Manager — close tasks ONE BY ONE (verify, git mv to tasks/co... |  |
 | opencode_config | global_goal_plugin_upgrade_2026_08_27 | # Global Goal Plugin Upgrade — 2026-08-27 |  |
+| opencode_config | opencode_v2_upgrade_2026_09_26 | # OpenCode V2 Upgrade — 2026-09-26 |  |
 | opencode_config | plugin_policy_dcp_only_2026_09_08 | 2026-09-08 (Task 165): goal plugin (@prevalentware/opencode-goal-plugin) removed from all 4 opencode configs (global ... |  |
+| opencode_config | v2_server_password_sync_2026_09_26 | # V2 Server-Password Sync (OpenChamber external mode) — 2026-09-26 |  |
 | project | absent-file-policy | Absent-File Policy: If a referenced core file does not exist (e.g., DESIGN.md, docs/architecture.md, docs/data_model.... |  |
 | project | fragment-edit-regenerate-workflow | # Fragment-Edit → Regenerate Workflow (Task 129, 2026-08-30) |  |
 | project | mcp_tool_audit_2026_09_18 | MCP tool audit 2026-09-18: 28 tools across 5 servers. Strong: decision-server (WHEN TO CALL on all 6), lint-server (4... |  |
