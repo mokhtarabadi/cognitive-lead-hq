@@ -6,7 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [9.46.0] - 2026-09-26
+
 ### Added
+
+- **Release ceremony: milestone-21 archive + v9.46.0 push tooling (Task 273):** the 7 completed tasks (266-272) were compacted into `docs/history/milestone-21-summary.md` and moved to `tasks/archive/` **before** the release, the accumulated CHANGELOG `[Unreleased]` backlog was moved under `## [9.46.0] - 2026-09-26` leaving `[Unreleased]` empty, and an executable push script `/tmp/cognitive-lead-push-release.sh` was generated for Manager-run tagging, pushing and GitHub Release creation (strict mode, clean-tree and `gh auth` preflight, annotated tag created only if missing, release created or verified). `system-prompt.md` version unchanged — the shipped prompt was already built at 9.46.0.
 
 - **V2 401 fix + V2-major docs (Task 272 round 3):** fixed `Startup failed / OpenCode info endpoint responded with status 401` — V2 `opencode serve` randomizes its Basic-auth password every boot; synced one stable password (`~/.config/opencode/.server-password`, chmod 600) across `opencode-server.service.d/10-password.conf` and the `OPENCODE_SERVER_PASSWORD` line in `~/.config/openchamber/startup.env` (EnvironmentFile wins over drop-ins). Verified `/api/info` → 200 with auth, zero 401s, `[PushWatcher] connected`; stored as memory `opencode_config/v2_server_password_sync_2026_09_26`. Made the repo teach V2 to newcomers: `LLM.txt` gains an "Installing OpenCode V2" subsection plus V2 `plugins`/`cli.json`/`permission.shell` wording and a password-sync runbook (§7.9) with a `startup enable` re-apply warning; `README.md` plugins paragraph rewritten for V2; `docs/openchamber-tailscale.md` gains §2c-password, a corrected `:4096` health check (V2 needs auth), and a 401 troubleshooting row. All 1.22.2 pins → 2.x.
 
