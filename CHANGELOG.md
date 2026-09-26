@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- **Plugin full-V2 status verification + docs (Task 274):** verified both plugins are at their latest stable V2-capable versions — `@prevalentware/opencode-goal-plugin@0.1.52` (released 2026-09-26; upstream V2 port PR #49 + PR #58) and `@tarquinen/opencode-dcp@3.2.0` (stable 2026-09-20 is newest; 3.2.1–3.2.8 betas are stale experiments; V2 `setup()` via `session` hooks; `compress.permission: ask` unsupported in V2 by DCP design, default `allow` stands). `opencode plugin list` is documented as the source of truth (`~/.cache/opencode/packages/` is metadata-only). Upstream-issue policy recorded in `README.md` and `LLM.txt` §7.7: search open threads first, never duplicate (DCP V2 threads #627/#628/#631/#632 already active) — no issues were filed.
+
 ## [9.46.0] - 2026-09-26
 
 ### Added

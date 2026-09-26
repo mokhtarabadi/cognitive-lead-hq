@@ -478,9 +478,9 @@ opencode --agent cognitive-executor
 Both the repo (`opencode.json` + `tui.json`) and global (`~/.config/opencode/`) configs load two plugins:
 
 - **`@prevalentware/opencode-goal-plugin`** — `/goal` command with sidebar indicator, persistent state, idle continuation and plan-mode safety. Restored 2026-09-08 after the OpenChamber rollout; it coexists with OpenChamber Session Goals (TUI/CLI goals + web-UI Goals complement each other).
-- **`@tarquinen/opencode-dcp@latest`** — token saving via compress tool, deduplication and purge-errors.
+- **`@tarquinen/opencode-dcp@latest`** (currently 3.2.0) — token saving via compress tool, deduplication and purge-errors.
 
-Opencode V2 reads `plugins` from `opencode.json` (server/tools) and from the single global `~/.config/opencode/cli.json` (terminal client) — keep the entries identical. V1 fallbacks (`plugin` in `opencode.json` + `tui.json`) are kept alongside until V1 is fully retired. V2 prefers `permission.shell` over `permission.bash` (both kept). Full install/verify steps live in `LLM.txt` §7.
+Opencode V2 reads `plugins` from `opencode.json` (server/tools) and from the single global `~/.config/opencode/cli.json` (terminal client) — keep the entries identical. V1 fallbacks (`plugin` in `opencode.json` + `tui.json`) are kept alongside until V1 is fully retired. V2 prefers `permission.shell` over `permission.bash` (both kept). Both plugins are verified V2-capable at their latest stable versions: `@prevalentware/opencode-goal-plugin@0.1.52` (upstream V2 port: PR #49 dual runtime shape + PR #58 task-recovery scoping, 2026-09-26) and `@tarquinen/opencode-dcp@3.2.0` (V2 `setup()` via `session` hooks; stable 3.2.0 is newest — the 3.2.x betas are stale experiments). Verify with `opencode plugin list` (source of truth; cache dirs under `~/.cache/opencode/packages/` are metadata-only). Upstream-issue policy: search open threads first (goal: prevalentWare/opencode-goal-plugin; DCP: Opencode-DCP/opencode-dynamic-context-pruning — V2 threads #627/#628/#631/#632 already active) and never file duplicates. Full install/verify steps live in `LLM.txt` §7.
 
 > Install both plugins globally, then verify the packages actually landed (config references alone do not install them) and restart OpenCode before using `/goal` or `/dcp-compress`:
 >
