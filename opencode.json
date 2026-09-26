@@ -1,6 +1,14 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "default_agent": "cognitive-executor",
+  "plugin": [
+    "@prevalentware/opencode-goal-plugin",
+    "@tarquinen/opencode-dcp@latest"
+  ],
+  "plugins": [
+    "@prevalentware/opencode-goal-plugin",
+    "@tarquinen/opencode-dcp@latest"
+  ],
   "instructions": [
     "docs/opencode-shell-strategy.md"
   ],
@@ -32,6 +40,16 @@
       "/tmp/**": "allow"
     },
     "bash": {
+      "git add": "deny",
+      "git add *": "deny",
+      "git checkout": "deny",
+      "git checkout *": "deny",
+      "git commit": "deny",
+      "git commit *": "deny",
+      "git push": "deny",
+      "git push *": "deny"
+    },
+    "shell": {
       "git add": "deny",
       "git add *": "deny",
       "git checkout": "deny",

@@ -61,6 +61,19 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 
 Then add uv to your PATH and continue.
 
+### Installing OpenCode V2 (if missing, or still on V1)
+
+This project requires **OpenCode ≥ 2** and **OpenChamber ≥ 2**. V1 configs keep working (V2 normalizes them in memory), but fresh installs must go straight to V2:
+
+```bash
+curl -fsSL https://opencode.ai/v2/install | bash
+opencode --version   # expect 2.x
+```
+
+If `opencode --version` shows 1.x, back up `~/.config/opencode/opencode.json` + `tui.json` first, then run the installer above (it replaces the V1 binary; both versions share the same config locations, so never point V1 at converted V2-only files). OpenChamber upgrades via `openchamber update` (expect 2.x). Full V1→V2 field map: `plugin`→`plugins`, `permission.bash`→`permission.shell`, layered `tui.json`→single global `cli.json` — see https://opencode.ai/v2/docs/migrate-v1/.
+
+> V2 keeps dual keys during transition: `opencode.json` carries both `plugin` (V1) and `plugins` (V2); permission blocks carry both `bash` and `shell` denies. When both forms set the same value, native V2 wins.
+
 ---
 
 ## 2. Clone the Repository to a Temporary Location
@@ -331,7 +344,7 @@ Telemetry-free cache/SSRF defaults (`CACHE_TTL_MS=300000`, `ALLOW_PRIVATE_URLS=f
 
 ## 7.7. Install Dynamic Context Pruning (DCP) Plugin
 
-DCP (`@tarquinen/opencode-dcp`, 4.2k stars, AGPL-3.0) reduces token usage via compress tool + automatic deduplication + purge-errors. Mirrors the goal-plugin install — same `plugin` arrays in `opencode.json` + `tui.json`, project and global identical.
+DCP (`@tarquinen/opencode-dcp`, 4.2k stars, AGPL-3.0) reduces token usage via compress tool + automatic deduplication + purge-errors. Mirrors the goal-plugin install — same plugin entries in `opencode.json` (`plugins` on V2, `plugin` fallback on V1) + global `cli.json`, project and global identical.
 
 ```bash
 opencode plugin @tarquinen/opencode-dcp@latest --global
@@ -375,7 +388,7 @@ Defaults are applied automatically (enabled, autoUpdate, pruneNotification detai
 
 ## 7.8. Worktree Support — OpenChamber Native (owt Removed 2026-09-08)
 
-owt (`@nano-step/opencode-worktree-plugin`, npm, MIT) was installed (`npm install -g @nano-step/opencode-worktree-plugin` + `owt-setup install` → plugin + 7 slash commands, `.gitignore` guards) and later disabled (`.disabled`). **On 2026-09-08 it was fully removed** (`npm uninstall -g @nano-step/opencode-worktree-plugin` + `rm` plugin + 7 `command/*.md`) because **OpenChamber 1.22.2 provides first-class worktrees natively**: [Worktree Sessions](https://docs.openchamber.dev/worktrees/) (new-worktree dialog: new/existing branch, `OpenChamber makes the branch, sets up the folder, and starts a session in it`), [Multi-run](https://docs.openchamber.dev/multi-run/) (`isolate runs` → each run its own worktree/branch, up to 5 models), Fusion, and Git view → Integrate (merge worktree commits onto main). Use OpenChamber sidebar/dialogs for worktrees — owt is redundant when OpenChamber is running (confirmed via `packages/ui/src/lib/worktreeSessionCreator.ts`, `packages/docs/content/docs/worktrees.mdx`). No `openchamber --worktree` CLI flag exists — worktrees are GUI-driven.
+owt (`@nano-step/opencode-worktree-plugin`, npm, MIT) was installed (`npm install -g @nano-step/opencode-worktree-plugin` + `owt-setup install` → plugin + 7 slash commands, `.gitignore` guards) and later disabled (`.disabled`). **On 2026-09-08 it was fully removed** (`npm uninstall -g @nano-step/opencode-worktree-plugin` + `rm` plugin + 7 `command/*.md`) because **OpenChamber 2.0.2 (2.x series; 1.22.2 at removal time) provides first-class worktrees natively**: [Worktree Sessions](https://docs.openchamber.dev/worktrees/) (new-worktree dialog: new/existing branch, `OpenChamber makes the branch, sets up the folder, and starts a session in it`), [Multi-run](https://docs.openchamber.dev/multi-run/) (`isolate runs` → each run its own worktree/branch, up to 5 models), Fusion, and Git view → Integrate (merge worktree commits onto main). Use OpenChamber sidebar/dialogs for worktrees — owt is redundant when OpenChamber is running (confirmed via `packages/ui/src/lib/worktreeSessionCreator.ts`, `packages/docs/content/docs/worktrees.mdx`). No `openchamber --worktree` CLI flag exists — worktrees are GUI-driven.
 
 If you need CLI/headless worktrees **without** OpenChamber (SSH/CI), reinstall owt:
 
@@ -391,7 +404,7 @@ Worktree state (owt, now removed): was under `.opencode/worktrees/` + `.opencode
 
 ## 7.9. (Optional) Install OpenChamber — Multi-Device Remote Access (Ask User First)
 
-OpenChamber (`@openchamber/web` 1.22.2, MIT, Node≥22) is the web/mobile/ desktop workspace that runs **on top of OpenCode** (this repo's agent harness). It gives you phone/PC remote access to the same OpenCode sessions via Tailscale, LAN, or Cloudflare Tunnel, plus native worktrees (see §7.8), Session Goals, Multi-run + Fusion, and GitHub integration. **You MUST ask the user before installing:**
+OpenChamber (`@openchamber/web` 2.0.2, MIT, Node≥22) is the web/mobile/ desktop workspace that runs **on top of OpenCode** (this repo's agent harness). It gives you phone/PC remote access to the same OpenCode sessions via Tailscale, LAN, or Cloudflare Tunnel, plus native worktrees (see §7.8), Session Goals, Multi-run + Fusion, and GitHub integration. **You MUST ask the user before installing:**
 
 > "OpenChamber adds multi-device remote access (phone/PC) via Tailscale or Cloudflare Tunnel. Do you need multi-device remote access? If yes I will install it on a Tailscale-only port; if not, skip this section."
 
@@ -414,7 +427,7 @@ Skip entirely if the user says no — the core OpenCode + MCP servers already wo
 ```bash
 # 1. Install globally (Node≥22 required)
 npm install -g @openchamber/web
-openchamber --version   # expect 1.22.2
+openchamber --version   # expect 2.x
 
 # 2. UI password — never commit, chmod 600, pass via env to avoid ps exposure
 mkdir -p ~/.secrets
@@ -454,6 +467,41 @@ openchamber connect-url --port 3005 --host 100.82.29.19 --qr   # or Settings →
 
 Full runbook (daily commands, §2b auto-start, troubleshooting, security notes): `docs/openchamber-tailscale.md` — auto-generated after install and kept in repo.
 
+### OpenCode server password sync (external `opencode-server.service` mode, V2 only)
+
+V2 `opencode serve` requires Basic auth and mints a **random password every boot** unless `OPENCODE_PASSWORD`/`OPENCODE_SERVER_PASSWORD` is set — an external OpenChamber (`OPENCODE_HOST` + `OPENCODE_SKIP_START=true`) then fails with `401` on `/api/info` and `PushWatcher disconnected / upstream_unavailable`. Fix with one stable password shared by both units (USER runs the restarts, never the agent):
+
+```bash
+# 1. Stable password file (chmod 600, generated once, reused forever)
+[ -f ~/.config/opencode/.server-password ] || python3 -c "import secrets; print(secrets.token_urlsafe(32))" > ~/.config/opencode/.server-password
+chmod 600 ~/.config/opencode/.server-password
+
+# 2. Pin it on the OpenCode server unit (else random every boot)
+mkdir -p ~/.config/systemd/user/opencode-server.service.d
+PASS=$(cat ~/.config/opencode/.server-password)
+printf '[Service]\nEnvironment=OPENCODE_SERVER_PASSWORD=%s\n' "$PASS" > ~/.config/systemd/user/opencode-server.service.d/10-password.conf
+chmod 600 ~/.config/systemd/user/opencode-server.service.d/10-password.conf
+
+# 3. Same value is the OpenChamber client credential: it loads via
+#    EnvironmentFile=startup.env, so update that line (NOT a drop-in —
+#    the EnvironmentFile value wins over drop-in Environment):
+python3 -c "
+import re;
+stable = open('$HOME/.config/opencode/.server-password').read().strip();
+p = '$HOME/.config/openchamber/startup.env';
+s = open(p).read();
+open(p, 'w').write(re.sub(r'OPENCODE_SERVER_PASSWORD=.*', 'OPENCODE_SERVER_PASSWORD=\"' + stable + '\"', s, count=1));
+"
+
+# 4. Reload + restart (USER action), then verify zero 401s
+systemctl --user daemon-reload
+systemctl --user restart opencode-server openchamber
+journalctl --user -u openchamber -n 20 --no-pager | grep -c 'status: 401' || true   # expect 0
+journalctl --user -u openchamber --since '2 minutes ago' --no-pager | grep -m 2 'PushWatcher.*connected'
+```
+
+Root cause of a recurrence is always the same: the two sides hold different passwords (server re-randomized, or `startup.env` went stale). Re-run steps 2–4; never delete `~/.config/opencode/.server-password` (rotating it means re-syncing both sides).
+
 ### Cloudflare Tunnel (deferred)
 
 Cloudflare Tunnel (`managed-remote` with your domain + account token) is the next step for public URLs without Tailscale. **Do NOT run a Quick tunnel with the real UI password for anything beyond a smoke test.** That step is intentionally deferred to a follow-up task — finish Tailscale first.
@@ -481,6 +529,12 @@ sessions, so the USER runs it, never the agent. Verify with
 As process env these vars outrank every `.env` file fallback, so all projects
 served by the daemon share them. Per-project overrides still work via that
 project's own `.env` only for keys the daemon env does NOT set.
+
+The same unit also pins the V2 server password (see §7.9 password-sync):
+`opencode-server.service.d/10-password.conf` sets
+`OPENCODE_SERVER_PASSWORD` from `~/.config/opencode/.server-password`
+(chmod 600). Without it every boot mints a random password and the external
+OpenChamber gets `401` on `/api/info`.
 
 ---
 
@@ -547,10 +601,10 @@ After completing all steps, verify:
 - [ ] `~/.config/opencode/agents/cognitive-executor.md` exists
 - [ ] `~/.config/opencode/agents/cognitive-discovery.md` exists
 - [ ] `~/.config/opencode/opencode.json` exists with **absolute paths** (not `~` or relative paths) and 6 `mcp` entries (`custom_context`, `project_memory`, `lint`, `brain`, `blowsh`, `telegram`) + `blowsh_*`/`telegram_*`/`brain_turn` permissions, no former browser entry
-- [ ] `~/.config/opencode/opencode.json` + `tui.json` `plugin` arrays contain both `@prevalentware/opencode-goal-plugin` and `@tarquinen/opencode-dcp` (`grep -q "@tarquinen/opencode-dcp" ~/.config/opencode/opencode.json && grep -q "@tarquinen/opencode-dcp" ~/.config/opencode/tui.json`); project `opencode.json` + `tui.json` match (`diff -q tui.json ~/.config/opencode/tui.json`)
+- [ ] `~/.config/opencode/opencode.json` + global `cli.json` `plugins` arrays contain both `@prevalentware/opencode-goal-plugin` and `@tarquinen/opencode-dcp` (V2 keys; V1 `plugin` arrays in `opencode.json` + `tui.json` kept as fallback); project `opencode.json` matches (`grep -q "@tarquinen/opencode-dcp" opencode.json && grep -q "@tarquinen/opencode-dcp" ~/.config/opencode/opencode.json`)
 - [ ] DCP loads: `opencode plugin list` shows `@tarquinen/opencode-dcp`, `/dcp` panel opens, `~/.config/opencode/dcp.jsonc` created on first run (project `.opencode/dcp.jsonc` overrides if present)
 - [ ] worktrees: OpenChamber native via sidebar/dialog (`https://docs.openchamber.dev/worktrees/`) — no `owt` required; if owt reinstalled, `owt help` + `~/.config/opencode/plugins/worktree-plugin.js` + `/init-worktree` after restart
-- [ ] (optional) OpenChamber: if user requested multi-device, `npm list -g @openchamber/web` shows 1.22.2, `openchamber status` password:yes, `ss -tlnp | grep 3005` shows `100.82.29.19:3005` (not 0.0.0.0), `curl http://100.82.29.19:3005/ → 200` / public `194.76.154.73:3005 → refused`, `openchamber startup status` shows enabled+active+lingering, `docs/openchamber-tailscale.md` present; if not requested, this check is N/A
+- [ ] (optional) OpenChamber: if user requested multi-device, `npm list -g @openchamber/web` shows 2.x, `openchamber status` password:yes, `ss -tlnp | grep 3005` shows `100.82.29.19:3005` (not 0.0.0.0), `curl http://100.82.29.19:3005/ → 200` / public `194.76.154.73:3005 → refused`, `openchamber startup status` shows enabled+active+lingering, `docs/openchamber-tailscale.md` present; if not requested, this check is N/A
 - [ ] `~/.config/opencode/opencode.json` `blowsh` uses `docker run --rm -i ghcr.io/mokhtarabadi/blowsh-mcp:latest` (120s timeout) and `telegram` uses `uv --directory $HOME/.config/opencode/mcp-telegram-server run main.py` with allowed roots (`/tmp/telegram-mcp` + config dir downloads)
 - [ ] `~/.config/opencode/opencode-shell-strategy.md` exists (instructions file referenced by the `instructions` key)
 - [ ] `/tmp/cognitive-lead-hq` no longer exists
