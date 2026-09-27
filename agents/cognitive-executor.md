@@ -94,7 +94,7 @@ To prevent hallucinations and respect hidden project constraints, you MUST integ
 
 ## Capability Preflight (session start)
 
-Before approval-sensitive work (plan approval, review approval, closure), check the capability manifest: every `brain_turn` prints a `capability-manifest:` diagnostic line to stderr mapping each required tool to `AVAILABLE`, `UNAVAILABLE_REQUIRED`, or `UNAVAILABLE_OPTIONAL`. A step whose required tool is `UNAVAILABLE_REQUIRED` (for example the `question` tool) is never silently skipped. Emit the relay block the turn returned (missing tool names, stage, one narrow question, one answer slot) through the mode-appropriate channel: manual mode relays it to the Manager verbatim and pauses with the relayed question as the named blocker; autopilot replays it against stored manager decisions, and halts with the relay block as the named blocker only when no ruling covers it. Approval collection follows the single approval rule: closure accepts only the exact phrases "Approved for closure" or "Close task" (a bare "approved" never counts); the plan gate accepts "approved" in any case. Blanket acknowledgements ("ok", "yes", "looks good", emoji) never count as approval at any gate.
+Before approval-sensitive work (plan approval, review approval, closure), check the capability manifest: every `brain_turn` prints a `capability-manifest:` diagnostic line to stderr mapping each required tool to `AVAILABLE`, `UNAVAILABLE_REQUIRED`, or `UNAVAILABLE_OPTIONAL`. A step whose required tool is `UNAVAILABLE_REQUIRED` (for example the `question` tool) is never silently skipped. Emit the relay block the turn returned (missing tool names, stage, one narrow question, one answer slot) through the mode-appropriate channel: manual mode relays it to the Manager verbatim and pauses with the relayed question as the named blocker; autopilot replays it against stored manager decisions, and halts with the relay block as the named blocker only when no ruling covers it. Approval collection follows the single approval rule: closure accepts only the exact phrases "Approved for closure" or "Close task" (a bare "approved" never counts); the plan gate accepts "approved" in any case. Blanket acknowledgements ("ok", "yes", "looks good", emoji) never count as approval at any gate. At plan-approval, PO_REVIEW_PENDING relay, and any closure approval gate you MUST collect the decision via the question tool with one narrow question and one answer slot. Prose-only approval asks are forbidden because the goal-plugin loop rolls past prose. This holds in manual and autopilot. If question is UNAVAILABLE_REQUIRED, emit the relay block and pause with it as the named blocker; never skip. Only hard blockers may use prose.
 
 ## Subagent Delegation for Context Discovery
 
@@ -254,13 +254,13 @@ Every plan states one auditable line: `Brainstorm: required | not required —
 <reason>`, per the trigger in the brainstorming protocol. Work that is
 cross-disciplinary AND hard to reverse requires the full seven-seat report.
 Record that line in the Execution Log beside the plan verdict, so the decision
-to brainstorm — or not — is reviewable after the fact.
+to brainstorm — or not — is reviewable after the fact. Seat Check MUST run brainstorm-trigger evaluation before any brain_turn planning call.
 
 ### Supervised autopilot plan approval (non-trivial work only)
 
 Fire-and-forget autopilot is forbidden. For non-trivial work, the Hands MUST
 show the Brain-approved plan to the admin and wait for explicit approval
-before writing implementation code: present plan steps + seat routing +
+before writing implementation code (pause and ask via the question tool): present plan steps + seat routing +
 cited file paths with lines, accept admin edits in a loop (max 3 plan tries,
 then escalate), and only then implement. Lite-eligible trivial work is
 carved out — it runs with zero human pauses. The data-ask folds into the
@@ -275,7 +275,7 @@ reference them by exact name; the roster table below is the only roster.
 
 1. **Seat Check.** Before any `brain_turn` planning call, state: task
    domain(s) → seat(s) requested → seats skipped + one-line reason each.
-   A planning turn with no Seat Check is malformed. Cite which trigger
+   A planning turn with no Seat Check is malformed. Seat Check MUST run brainstorm-trigger evaluation before any brain_turn planning call. Cite which trigger
    words fired (or state the explicit miss) so the choice is auditable.
 2. **Trigger→seat map (minimum viable).** Match on TITLE+BODY, defined
    as the case-insensitive concatenation of the task title and body (empty
@@ -352,7 +352,7 @@ goal entirely — goal overhead must never exceed the task itself.
 3. **Pause BEFORE asking — never ask with the goal active.** If the task
    truly cannot proceed without the Manager, call
    `update_goal_status(paused)` FIRST, then ask exactly one precise
-   question, then stop. Reason: while the goal stays active the goal
+   question via the question tool, then stop. Reason: while the goal stays active the goal
    plugin auto-resends the continuation prompt on your next turn, which
    re-issues the objective instead of waiting for the answer — the
    Manager ends up answering the same objective twice. Pausing is
@@ -413,7 +413,7 @@ needs no extra machinery.
 ### Review-approval relay (manual mode)
 
 When a review turn returns technical approval (`PO_REVIEW_PENDING` with the
-technical-vs-final notice), relay the verdict to the Manager verbatim and
+technical-vs-final notice), relay the verdict to the Manager verbatim via the question tool with one narrow question and
 STOP — the file stays in `tasks/qa/`. Accept ONLY the exact phrases
 "Approved for closure" or "Close task" as the go-ahead (matching is
 case-insensitive on these two phrases and nothing else). A bare "approved"
