@@ -11,7 +11,7 @@
       "task"
     ]
   },
-  "last_processed_message_id": 609,
+  "last_processed_message_id": 627,
   "processed_ids": [
     458,
     465,
@@ -116,7 +116,25 @@
     606,
     607,
     608,
-    609
+    609,
+    610,
+    611,
+    612,
+    613,
+    614,
+    615,
+    616,
+    617,
+    618,
+    619,
+    620,
+    621,
+    622,
+    623,
+    624,
+    625,
+    626,
+    627
   ],
   "sync_registry": {
     "466": {
@@ -233,6 +251,20 @@
       "task_file": "tasks/backlog/216-separate-manager-decisions-repo-and-consult-skill.md",
       "gh_issue": "https://github.com/mokhtarabadi/cognitive-lead-hq/issues/13",
       "type": "TASK"
+    },
+    "626": {
+      "task_file": "tasks/completed/280-autopilot-plan-approval-loop-fix-and-cutoff-update.md",
+      "gh_issue": "https://github.com/mokhtarabadi/cognitive-lead-hq/issues/26",
+      "type": "TASK",
+      "status": "closed",
+      "closed_at": "2026-09-29"
+    },
+    "627": {
+      "task_file": "tasks/completed/281-mode-aware-system-prompt-manual-vs-automatic.md",
+      "gh_issue": "https://github.com/mokhtarabadi/cognitive-lead-hq/issues/27",
+      "type": "BUG",
+      "status": "closed",
+      "closed_at": "2026-09-29"
     }
   }
 }
