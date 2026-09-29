@@ -6,10 +6,11 @@ Wants=network-online.target
 [Service]
 Type=simple
 WorkingDirectory=%h/.config/opencode/mcp-telegram-server
-# Trailing args are the two allowed file roots (temp state + media exports).
+# Trailing args are the allowed file roots (temp state + media exports +
+# operator home so uploads work from anywhere under $HOME).
 # Adjust them here if you cloned telegram-mcp elsewhere; keep them inside
 # $HOME or /tmp so telegram_download_media can write there.
-ExecStart=%h/.config/opencode/mcp-telegram-server/.venv/bin/python %h/.config/opencode/mcp-telegram-server/main.py /tmp/telegram-mcp %h/.config/opencode/mcp-telegram-server/downloads
+ExecStart=%h/.config/opencode/mcp-telegram-server/.venv/bin/python %h/.config/opencode/mcp-telegram-server/main.py /tmp/telegram-mcp %h/.config/opencode/mcp-telegram-server/downloads %h
 Environment=MCP_TRANSPORT=http
 Environment=MCP_HOST=127.0.0.1
 Environment=MCP_PORT=8106

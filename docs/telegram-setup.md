@@ -105,11 +105,11 @@ Each process claims a free slot via advisory lock; if all slots claimed the serv
 
 ### 4.4 Allowed roots (file tools)
 
-`send_file`, `download_media`, `upload_file`, `send_voice`, etc. are **disabled until allowed roots exist**. Set via CLI args (fallback) or MCP Roots (client-provided, replaces CLI).
+`send_file`, `download_media`, `upload_file`, `send_voice`, etc. are **disabled until allowed roots exist**. Set via CLI args (fallback) or MCP Roots (client-provided, replaces CLI). NOTE: with zero or unreachable client Roots the server falls back to CLI roots only — every upload path must live under one of them (`Path is outside allowed roots` otherwise); our unit adds `$HOME` as third root so home files upload.
 
 ```bash
 # server CLI (installed in opencode config dir, absolute paths, direct venv — never `uv run`)
-$HOME/.config/opencode/mcp-telegram-server/.venv/bin/python $HOME/.config/opencode/mcp-telegram-server/main.py /tmp/telegram-mcp $HOME/.config/opencode/mcp-telegram-server/downloads
+$HOME/.config/opencode/mcp-telegram-server/.venv/bin/python $HOME/.config/opencode/mcp-telegram-server/main.py /tmp/telegram-mcp $HOME/.config/opencode/mcp-telegram-server/downloads $HOME
 
 # opencode.json example (V2 `mcp.<name>` shape: `type: local` + command array; global, absolute paths only — $HOME replaced with real absolute path per LLM.txt Step 3)
 {
