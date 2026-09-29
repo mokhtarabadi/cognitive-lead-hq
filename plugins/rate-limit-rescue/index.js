@@ -2,7 +2,16 @@ import { execFile } from "node:child_process"
 import { appendFile, mkdir } from "node:fs/promises"
 import { dirname } from "node:path"
 import { homedir } from "node:os"
-import { Plugin } from "@opencode/plugin"
+
+// The server loader sometimes cannot resolve @opencode/plugin from a
+// path-installed plugin dir (observed: "Cannot find package"). Fall back
+// to a passthrough shape — Plugin.define tags {id, setup}, nothing more.
+let Plugin
+try {
+  ;({ Plugin } = await import("@opencode/plugin"))
+} catch {
+  Plugin = { define: (d) => d }
+}
 
 // Free-tier 429 rescue (Task 282). SCOPE: free-tier rate limits ONLY.
 // Every other error passes through untouched.
