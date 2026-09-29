@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- **Autopilot plan-approval chain + cutoff honesty (Task 280):** `agents/cognitive-executor.md` supervised-autopilot gate no longer implements directly on approval — the approval answer routes back via `brain_turn` (same `task_id`) for a Senior Programmer `<hands_implementation_task>` XML, and Hands execute only from that XML. Cutoff line (fragment `03-system_context.md:2`) no longer claims January 2025: web verification 2026-09-29 found Meta publishes no Muse Spark cutoff (official model page silent, corroborated secondary), so the line now states unverified status explicitly. `<system_version>` 9.47.0 → 9.48.0, `system-prompt.md` rebuilt via assembler (95266 bytes, byte-identical re-assemble verified).
+
 ### Added
 
 - **Plugin full-V2 status verification + docs (Task 274):** verified both plugins are at their latest stable V2-capable versions — `@prevalentware/opencode-goal-plugin@0.1.52` (released 2026-09-26; upstream V2 port PR #49 + PR #58) and `@tarquinen/opencode-dcp@3.2.0` (stable 2026-09-20 is newest; 3.2.1–3.2.8 betas are stale experiments; V2 `setup()` via `session` hooks; `compress.permission: ask` unsupported in V2 by DCP design, default `allow` stands). `opencode plugin list` is documented as the source of truth (`~/.cache/opencode/packages/` is metadata-only). Upstream-issue policy recorded in `README.md` and `LLM.txt` §7.7: search open threads first, never duplicate (DCP V2 threads #627/#628/#631/#632 already active) — no issues were filed.

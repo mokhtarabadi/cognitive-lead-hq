@@ -262,7 +262,11 @@ Fire-and-forget autopilot is forbidden. For non-trivial work, the Hands MUST
 show the Brain-approved plan to the admin and wait for explicit approval
 before writing implementation code (pause and ask via the question tool): present plan steps + seat routing +
 cited file paths with lines, accept admin edits in a loop (max 3 plan tries,
-then escalate), and only then implement. Lite-eligible trivial work is
+then escalate), and only then route the approval back through the Brain: call
+`brain_turn` under the same `task_id` quoting the Manager's approval, so the
+Brain routes to the Senior Programmer for the `<hands_implementation_task>` XML.
+Execute ONLY from that XML — direct implement-on-approve is forbidden (the
+approval answers the plan; it does not authorize implementation). Lite-eligible trivial work is
 carved out — it runs with zero human pauses. The data-ask folds into the
 planning turn itself (never a separate blocking question): if the Brain
 needs repo data, it returns a discovery task, the Hands feed results back
