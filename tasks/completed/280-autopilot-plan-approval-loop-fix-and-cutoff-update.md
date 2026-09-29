@@ -1,9 +1,9 @@
 # Task 280: Autopilot plan-approval loop fix and Muse cutoff update
 
-**File:** `tasks/qa/280-autopilot-plan-approval-loop-fix-and-cutoff-update.md`
+**File:** `tasks/completed/280-autopilot-plan-approval-loop-fix-and-cutoff-update.md`
 **Source:** telegram
 **Type:** improvement
-**Status:** open
+**Status:** closed
 
 ## Source Context
 
@@ -110,76 +110,7 @@ _(The Hands: Manually log your technical changes, file edits, and architectural 
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
-```diff
-diff --git a/CHANGELOG.md b/CHANGELOG.md
-index 6a5c2c9..0f5ef8a 100644
---- a/CHANGELOG.md
-+++ b/CHANGELOG.md
-@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
- 
- ## [Unreleased]
- 
-+### Fixed
-+
-+- **Autopilot plan-approval chain + cutoff honesty (Task 280):** `agents/cognitive-executor.md` supervised-autopilot gate no longer implements directly on approval — the approval answer routes back via `brain_turn` (same `task_id`) for a Senior Programmer `<hands_implementation_task>` XML, and Hands execute only from that XML. Cutoff line (fragment `03-system_context.md:2`) no longer claims January 2025: web verification 2026-09-29 found Meta publishes no Muse Spark cutoff (official model page silent, corroborated secondary), so the line now states unverified status explicitly. `<system_version>` 9.47.0 → 9.48.0, `system-prompt.md` rebuilt via assembler (95266 bytes, byte-identical re-assemble verified).
-+
- ### Added
- 
- - **Plugin full-V2 status verification + docs (Task 274):** verified both plugins are at their latest stable V2-capable versions — `@prevalentware/opencode-goal-plugin@0.1.52` (released 2026-09-26; upstream V2 port PR #49 + PR #58) and `@tarquinen/opencode-dcp@3.2.0` (stable 2026-09-20 is newest; 3.2.1–3.2.8 betas are stale experiments; V2 `setup()` via `session` hooks; `compress.permission: ask` unsupported in V2 by DCP design, default `allow` stands). `opencode plugin list` is documented as the source of truth (`~/.cache/opencode/packages/` is metadata-only). Upstream-issue policy recorded in `README.md` and `LLM.txt` §7.7: search open threads first, never duplicate (DCP V2 threads #627/#628/#631/#632 already active) — no issues were filed.
-diff --git a/agents/cognitive-executor.md b/agents/cognitive-executor.md
-index 09a577f..724f71c 100644
---- a/agents/cognitive-executor.md
-+++ b/agents/cognitive-executor.md
-@@ -262,7 +262,11 @@ Fire-and-forget autopilot is forbidden. For non-trivial work, the Hands MUST
- show the Brain-approved plan to the admin and wait for explicit approval
- before writing implementation code (pause and ask via the question tool): present plan steps + seat routing +
- cited file paths with lines, accept admin edits in a loop (max 3 plan tries,
--then escalate), and only then implement. Lite-eligible trivial work is
-+then escalate), and only then route the approval back through the Brain: call
-+`brain_turn` under the same `task_id` quoting the Manager's approval, so the
-+Brain routes to the Senior Programmer for the `<hands_implementation_task>` XML.
-+Execute ONLY from that XML — direct implement-on-approve is forbidden (the
-+approval answers the plan; it does not authorize implementation). Lite-eligible trivial work is
- carved out — it runs with zero human pauses. The data-ask folds into the
- planning turn itself (never a separate blocking question): if the Brain
- needs repo data, it returns a discovery task, the Hands feed results back
-diff --git a/prompts/fragments/01-system_version.md b/prompts/fragments/01-system_version.md
-index 7db808f..5702a1a 100644
---- a/prompts/fragments/01-system_version.md
-+++ b/prompts/fragments/01-system_version.md
-@@ -1 +1 @@
--<system_version>9.47.0</system_version>
-+<system_version>9.48.0</system_version>
-diff --git a/prompts/fragments/03-system_context.md b/prompts/fragments/03-system_context.md
-index c39be89..ae2e53e 100644
---- a/prompts/fragments/03-system_context.md
-+++ b/prompts/fragments/03-system_context.md
-@@ -1,4 +1,4 @@
- <system_context>
--Your knowledge cutoff date is January 2025. Remember it is 2026 this year.
-+Your knowledge cutoff date is not published by Meta for this model line (verified 2026-09-29: no cutoff on the official Muse Spark page). Treat post-2025 facts as unverified and use web search for time-sensitive queries. Remember it is 2026 this year.
- For time-sensitive queries that require up-to-date information, you must instruct the Hands to use their web search tools locally.
- </system_context>
-\ No newline at end of file
-diff --git a/system-prompt.md b/system-prompt.md
-index b12d0b4..0aee37b 100644
---- a/system-prompt.md
-+++ b/system-prompt.md
-@@ -1,4 +1,4 @@
--<system_version>9.47.0</system_version>
-+<system_version>9.48.0</system_version>
- 
- <role>
- You are the Cognitive Lead AI running inside the Orchestrator platform, acting as an elite software agency orchestrator.
-@@ -9,7 +9,7 @@ ALWAYS start your response by declaring your active persona in brackets, e.g., *
- </role>
- 
- <system_context>
--Your knowledge cutoff date is January 2025. Remember it is 2026 this year.
-+Your knowledge cutoff date is not published by Meta for this model line (verified 2026-09-29: no cutoff on the official Muse Spark page). Treat post-2025 facts as unverified and use web search for time-sensitive queries. Remember it is 2026 this year.
- For time-sensitive queries that require up-to-date information, you must instruct the Hands to use their web search tools locally.
- </system_context>
-```
+**Factual Git Diff:** Stored in Commit Hash: `bd415c950a5d4e1fa273b78e5587d682c671f725`
 <!-- END_GIT_DIFF -->
 
 ## Execution Log & Reasoning
@@ -206,3 +137,8 @@ index b12d0b4..0aee37b 100644
 - QA Engineer: QA_PASSED — routing restored, no Lite bypass, no cutoff invention, rebuild proven.
 - Code Reviewer (stage=review): APPROVED — no defects remain, no changes needed before PO acceptance.
 - Status: PO_REVIEW_PENDING. File stays in tasks/qa/. Closure only on explicit approval word.
+
+## Closure
+
+- Manager accept quote: "Approved for closure" (via approval gate, 2026-09-29).
+- Preconditions verified: file in tasks/qa/, PO_REVIEW_PENDING + QA_PASSED + APPROVED logged, staged diff injected, lint clean.
