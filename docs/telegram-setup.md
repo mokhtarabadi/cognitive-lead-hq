@@ -125,6 +125,7 @@ $HOME/.config/opencode/mcp-telegram-server/.venv/bin/python $HOME/.config/openco
 ```
 
 - Empty client Roots → deny-all by default. Set `TELEGRAM_ALLOW_SERVER_ROOTS_FALLBACK=1` to fall back to CLI roots when client advertises empty Roots.
+- Known symptom: `upload_file is disabled because the MCP client never answered the roots/list request` — the remote client never replies to `roots/list`, so file-path tools disable themselves. Fix: CLI roots configured (see ExecStart above) **plus** `TELEGRAM_ALLOW_SERVER_ROOTS_FALLBACK=1` (shipped in `services/mcp-telegram.service`); alternatively raise `TELEGRAM_ROOTS_TIMEOUT_SECONDS`.
 - Paths are real-path resolved, traversal/wildcard/null-byte rejected, relative paths resolve under first root, downloads default to `<first_root>/downloads/`.
 - Override alias file: `TELEGRAM_ALIASES_FILE`; feed file: `TELEGRAM_EVENT_FEED_FILE` / `TELEGRAM_EVENT_FEED=1`.
 

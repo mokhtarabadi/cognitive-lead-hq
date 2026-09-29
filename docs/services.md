@@ -33,7 +33,9 @@ singletons, so an unset variable must not silently drop into stdio while
 the unit reports active; explicit `MCP_TRANSPORT=stdio` still works for
 local debugging). Telegram is third-party and honors `stdio | http | sse`
 (`http` in its unit files) plus `MCP_HOST` / `MCP_PORT` (defaults
-`127.0.0.1:8106`).
+`127.0.0.1:8106`) plus `TELEGRAM_ALLOW_SERVER_ROOTS_FALLBACK=1` (falls back
+to CLI roots when the client never answers `roots/list`, else `upload_file`
+is disabled).
 
 OpenCode connects via
 `type: "remote"` entries in the global `opencode.json`:

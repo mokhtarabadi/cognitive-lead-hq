@@ -94,3 +94,16 @@ test("empty env falls back to defaults", () => {
   assert.match(cfg.command, /rr$/)
   delete process.env.RATE_LIMIT_COMMAND
 })
+
+test("ECONNRESET transport fault is rescued with kind=transport", async () => {
+  const event = {
+    error: { message: "Opencode failed to send message with error: ECONNRESET: The socket connection was closed unexpectedly. For more information, pass `verbose: true` in the second argument to fetch()" },
+    attempt: 1,
+    sessionID: "st",
+    model: FREE,
+  }
+  assert.equal(await handleRetry(event, { command: "echo rotated", metricsPath: "/tmp/rlr-t.jsonl" }), "rescued")
+  assert.equal(event.decision.delay, 30_000)
+  const line = JSON.parse(await readFile("/tmp/rlr-t.jsonl", "utf8"))
+  assert.equal(line.kind, "transport")
+})

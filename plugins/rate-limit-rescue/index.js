@@ -36,6 +36,15 @@ export function isFreeTierLimit(error, model) {
   return mid.includes("free") || mid.includes("contributor") || /free|tier/.test(hay)
 }
 
+// Transient transport failures (explicit Manager order 2026-09-29): e.g.
+// "ECONNRESET: The socket connection was closed unexpectedly". These are
+// proxy/node faults, not quota — rr rotation is the fix, same 30s retry.
+export function isTransportFault(error) {
+  if (!error) return false
+  const hay = `${error.message ?? ""} ${error.type ?? ""} ${error.code ?? ""} ${error.name ?? ""}`.toLowerCase()
+  return /econnreset|socket hang up|etimedout|epipe|socket connection was closed|network socket/.test(hay)
+}
+
 export function resolveConfig(options) {
   return {
     command: options?.command || process.env.RATE_LIMIT_COMMAND || `${homedir()}/.local/bin/rr`,
@@ -61,7 +70,9 @@ export async function appendMetrics(path, record) {
 }
 
 export async function handleRetry(event, options) {
-  if (!isFreeTierLimit(event?.error, event?.model)) return "pass"
+  const quota = isFreeTierLimit(event?.error, event?.model)
+  const transport = !quota && isTransportFault(event?.error)
+  if (!quota && !transport) return "pass"
   const cfg = resolveConfig(options)
   // Never let observability break the retry: command/metrics failures are
   // recorded but the 30s decision is always set on a free-tier match.
@@ -74,6 +85,7 @@ export async function handleRetry(event, options) {
   try {
     await appendMetrics(cfg.metricsPath, {
       ts: new Date().toISOString(),
+      kind: quota ? "quota" : "transport",
       sessionID: event.sessionID,
       providerID: event.model?.providerID,
       modelID: event.model?.id,

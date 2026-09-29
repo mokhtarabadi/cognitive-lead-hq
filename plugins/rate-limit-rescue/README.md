@@ -8,8 +8,12 @@ Fires **only** on free-tier rate limits — every other error passes through unt
 On a free-tier 429-class failure it:
 
 1. Runs the env-configured command (default `~/.local/bin/rr` — rotates the balancer node).
-2. Appends one JSONL metrics line (default `~/.local/share/opencode/ratelimit-metrics.jsonl`).
+2. Appends one JSONL metrics line (default `~/.local/share/opencode/ratelimit-metrics.jsonl`), tagged `kind: "quota"` or `kind: "transport"`.
 3. Overrides the wait to 30s (`event.decision = { retry: true, delay: 30_000 }`).
+
+It also rescues transient transport faults (`ECONNRESET`, socket hang-up/closed,
+`ETIMEDOUT`, `EPIPE`) the same way — these are proxy/node faults where `rr`
+rotation is the fix.
 
 ## Detection ground truth
 

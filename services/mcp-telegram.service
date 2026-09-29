@@ -13,6 +13,9 @@ ExecStart=%h/.config/opencode/mcp-telegram-server/.venv/bin/python %h/.config/op
 Environment=MCP_TRANSPORT=http
 Environment=MCP_HOST=127.0.0.1
 Environment=MCP_PORT=8106
+# Allow server CLI roots (/tmp/telegram-mcp + downloads, see ExecStart) when
+# the MCP client never answers roots/list (else upload_file is disabled).
+Environment=TELEGRAM_ALLOW_SERVER_ROOTS_FALLBACK=1
 # Telegram API creds resolve from <server-dir>/.env (see LLM.txt 7.6).
 Restart=always
 RestartSec=3
