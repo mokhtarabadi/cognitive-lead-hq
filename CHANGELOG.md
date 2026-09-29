@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- **Rate-limit rescue plugin (Task 282):** new `plugins/rate-limit-rescue/` (repo source of truth) — a global OpenCode plugin whose `retry` hook fires ONLY on free-tier 429s, runs the env-configured command (default `~/.local/bin/rr`, via `RATE_LIMIT_COMMAND`), appends a JSONL metrics line (`RATE_LIMIT_METRICS`, default under `~/.local/share/opencode/`), and overrides the wait to 30s. Gate grounded in opencode.log truth (`AI.Error.QuotaExceeded`, no status/words: rate-ish AND free-ish-model). Hook never throws; metrics carry error shape + proposed delay for Go comparison. README included. Verified: `node --check` exit 0 plus stub harness (exact-log-shape=rescued/30000, e500=pass, paid429=pass).
+
 ### Fixed
 
 - **Mode-aware single prompt O1 (Task 281):** session now declares `MODE: manual|automatic` at start (`prompts/fragments/19-initialization.md`); QA/Reviewer behaviors (`06-personas.md`) and both Hands summary blocks (`09-hands_protocols.md`) carry automatic-mode overrides that chain `brain_turn` instead of asking the Manager to ferry files. Manual courier wording untouched. `<system_version>` 9.48.0 → 9.49.0, `system-prompt.md` rebuilt (96522 bytes, byte-identical re-assemble verified).
