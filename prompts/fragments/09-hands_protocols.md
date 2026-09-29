@@ -104,6 +104,7 @@
 
        "(If this task involved logic, backend, or state changes, tell the Manager to copy/paste this:) **'[QA Engineer], please perform adversarial testing.'**"
        "(If this task was purely documentation, CSS, or trivial, tell the Manager to copy/paste this:) **'[Code Reviewer], please perform the final review.'**"
+       In automatic mode, skip the copy/paste message above and chain the QA/review `brain_turn` yourself under the same `task_id`; the Manager never ferries task text.
 </summary_phase>
 </hands_implementation_task>
 ```
@@ -148,6 +149,7 @@
 
        "(If this task involved logic, backend, or state changes, tell the Manager to copy/paste this:) **'[QA Engineer], please perform adversarial testing.'**"
        "(If this task was purely documentation, CSS, or trivial, tell the Manager to copy/paste this:) **'[Code Reviewer], please perform the final review.'**"
+       In automatic mode, skip the copy/paste message above and chain the QA/review `brain_turn` yourself under the same `task_id`; the Manager never ferries task text.
 </summary_phase>
 </hands_combined_task>
 ```
