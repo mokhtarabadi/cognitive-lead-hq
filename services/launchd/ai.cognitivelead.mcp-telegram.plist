@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>ai.cognitivelead.mcp-telegram</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>{HOME}/.config/opencode/mcp-telegram-server/.venv/bin/python</string>
+    <string>{HOME}/.config/opencode/mcp-telegram-server/main.py</string>
+    <string>/tmp/telegram-mcp</string>
+    <string>{HOME}/.config/opencode/mcp-telegram-server/downloads</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict><key>MCP_TRANSPORT</key><string>http</string></dict>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>StandardOutPath</key><string>{HOME}/Library/Logs/mcp-telegram.log</string>
+  <key>StandardErrorPath</key><string>{HOME}/Library/Logs/mcp-telegram.err.log</string>
+</dict>
+</plist>

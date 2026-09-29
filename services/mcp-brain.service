@@ -1,0 +1,18 @@
+[Unit]
+Description=MCP Brain Bridge singleton (streamable HTTP, loopback only)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=%h/.config/opencode/mcp-brain-bridge/.venv/bin/python %h/.config/opencode/mcp-brain-bridge/server.py
+Environment=MCP_TRANSPORT=streamable-http
+# Credentials resolve via the bridge's own .env self-load
+# (<server-dir>/.env -> install-root .env -> <cwd>/.env, never
+# overriding real environment). Export BRAIN_* before launching
+# opencode-server only if you want env to win over files.
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=default.target

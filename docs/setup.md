@@ -49,17 +49,17 @@ gh auth login
 
 ## MCP Servers
 
-The project uses five FastMCP Python servers, all run via `uv`:
+The project uses five FastMCP Python servers, all running as supervised singletons (one process each, shared across sessions) on loopback HTTP (`MCP_TRANSPORT=streamable-http`, ports 8101–8105; telegram 8106, blowsh 8107 — see `docs/services.md`). `opencode.json` points at them via `type: "remote"` — no stdio entries remain.
 
-| Server                                        | Purpose                                                                       | Start Command                          |
-| --------------------------------------------- | ----------------------------------------------------------------------------- | -------------------------------------- |
-| `mcp-context-server`                          | `.gitignore`-aware file reading, tree exploration                             | `uv run mcp-context-server/server.py`  |
-| `mcp-memory-server`                           | Persistent project memory (namespaces + index)                                | `uv run mcp-memory-server/server.py`   |
-| `mcp-lint-server`                             | Task file linting and Markdown validation                                     | `uv run mcp-lint-server/server.py`     |
-| [`mcp-decision-server`](manager-decisions.md) | Manager-decision capture and consultation                                     | `uv run mcp-decision-server/server.py` |
-| `mcp-brain-bridge`                            | Unified Brain bridge: `brain_turn` (system-prompt loader + LLM + XML extract) | `uv run mcp-brain-bridge/server.py`    |
+| Server                                        | Purpose                                                                       | Singleton (port)              |
+| --------------------------------------------- | ----------------------------------------------------------------------------- | ----------------------------- |
+| `mcp-context-server`                          | `.gitignore`-aware file reading, tree exploration                             | 8102 (`mcp-context.service`)  |
+| `mcp-memory-server`                           | Persistent project memory (namespaces + index)                                | 8103 (`mcp-memory.service`)   |
+| `mcp-lint-server`                             | Task file linting and Markdown validation                                     | 8101 (`mcp-lint.service`)     |
+| [`mcp-decision-server`](manager-decisions.md) | Manager-decision capture and consultation                                     | 8104 (`mcp-decision.service`) |
+| `mcp-brain-bridge`                            | Unified Brain bridge: `brain_turn` (system-prompt loader + LLM + XML extract) | 8105 (`mcp-brain.service`)    |
 
-These are configured in `opencode.json` and auto-start with OpenCode.
+Each unit launches its server via the persistent venv interpreter (`<dir>/.venv/bin/python <dir>/server.py`, never `uv run` — `uv` startup exceeds the V2 connect timeout under multi-session spawn load, 2026-09-29 fix), with `MCP_TRANSPORT=streamable-http` plus `MCP_HOST`/`MCP_PORT` in the unit environment.
 
 > **Brain Bridge active:** QA/review run through one MCP
 > (`brain_turn`).

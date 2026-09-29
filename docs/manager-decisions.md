@@ -25,7 +25,7 @@ Out of scope: changing server behavior. The drift reported here was found by rea
 | Transport                 | stdio, entered under the `__main__` guard | `mcp-decision-server/server.py:1837-1838`                     |
 | Package                   | `mcp-decision-server`, version `1.0.0`    | `mcp-decision-server/pyproject.toml:2-3`                      |
 | Script entry point        | none declared                             | `mcp-decision-server/pyproject.toml` (no `[project.scripts]`) |
-| Launch                    | `uv run mcp-decision-server/server.py`    | `docs/setup.md:59`                                            |
+| Launch                    | `$HOME/.config/opencode/mcp-decision-server/.venv/bin/python $HOME/.config/opencode/mcp-decision-server/server.py` (direct venv, never `uv run`) | global `opencode.json` (`mcp.manager_decisions`) |
 | Extraction model constant | `DEFAULT_DECISION_MODEL = "gpt-6-astra"`  | `mcp-decision-server/server.py:196`                           |
 | Model override env        | `DECISION_MODEL`                          | `mcp-decision-server/server.py:265-275`                       |
 

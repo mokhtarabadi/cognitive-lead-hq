@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-16"?>
+<!-- Windows Task Scheduler template: one task per MCP singleton (import via schtasks /create /xml). Replace {HOME}, {NAME}, {PORT}. HQ Python servers default to streamable-http with loopback host/port hardcoded, so no env block is needed for them; telegram-mcp defaults to stdio and only accepts stdio|http|sse, so a telegram task MUST set MCP_TRANSPORT=http as a system/user environment variable first. -->
+<Task version="1.4" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+  <RegistrationInfo><Description>Cognitive Lead MCP singleton {NAME} on 127.0.0.1:{PORT}</Description></RegistrationInfo>
+  <Triggers><LogonTrigger><Enabled>true</Enabled></LogonTrigger></Triggers>
+  <Principals><Principal id="Author"><LogonType>InteractiveToken</LogonType><RunLevel>LeastPrivilege</RunLevel></Principal></Principals>
+  <Settings><MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy><RestartOnFailure><Count>3</Count><Interval>PT1M</Interval></RestartOnFailure></Settings>
+  <Actions Context="Author">
+    <Exec>
+      <Command>{HOME}\.config\opencode\mcp-{NAME}-server\.venv\Scripts\python.exe</Command>
+      <Arguments>{HOME}\.config\opencode\mcp-{NAME}-server\server.py</Arguments>
+    </Exec>
+  </Actions>
+</Task>

@@ -1,6 +1,6 @@
 # Telegram MCP — Work/Personal Setup & Skill Usage
 
-> **Source:** Fork https://github.com/mokhtarabadi/telegram-mcp (tracks upstream https://github.com/chigwell/telegram-mcp v2.0.1+; fork adds `fix/allowed-root-automkdir-and-topic-filter` — auto-mkdir for allowed roots + `topic_id` filter on `get_history`, merged to `main`). Local checkout used by this HQ: `$HOME/.config/opencode/mcp-telegram-server` (`uv --directory ... run main.py` over stdio; `origin` = chigwell, `fork` = mokhtarabadi, active branch `main` = fork patched). For global OpenCode install see `LLM.txt` Steps 7/7.6.
+> **Source:** Fork https://github.com/mokhtarabadi/telegram-mcp (tracks upstream https://github.com/chigwell/telegram-mcp v2.0.1+; fork adds `fix/allowed-root-automkdir-and-topic-filter` — auto-mkdir for allowed roots + `topic_id` filter on `get_history`, merged to `main`). Local checkout used by this HQ: `$HOME/.config/opencode/mcp-telegram-server` (`<dir>/.venv/bin/python <dir>/main.py` over stdio — direct venv launch, never `uv run`; `origin` = chigwell, `fork` = mokhtarabadi, active branch `main` = fork patched). For global OpenCode install see `LLM.txt` Steps 7/7.6.
 
 ## 1. What the Telegram MCP Does (80+ tools)
 
@@ -108,15 +108,17 @@ Each process claims a free slot via advisory lock; if all slots claimed the serv
 `send_file`, `download_media`, `upload_file`, `send_voice`, etc. are **disabled until allowed roots exist**. Set via CLI args (fallback) or MCP Roots (client-provided, replaces CLI).
 
 ```bash
-# server CLI (installed in opencode config dir, absolute paths)
-uv run main.py /tmp/telegram-mcp $HOME/.config/opencode/mcp-telegram-server/downloads
+# server CLI (installed in opencode config dir, absolute paths, direct venv — never `uv run`)
+$HOME/.config/opencode/mcp-telegram-server/.venv/bin/python $HOME/.config/opencode/mcp-telegram-server/main.py /tmp/telegram-mcp $HOME/.config/opencode/mcp-telegram-server/downloads
 
-# opencode.json example (global, absolute paths only — $HOME replaced with real absolute path per LLM.txt Step 3)
+# opencode.json example (V2 `mcp.<name>` shape: `type: local` + command array; global, absolute paths only — $HOME replaced with real absolute path per LLM.txt Step 3)
 {
-  "mcpServers": {
+  "mcp": {
     "telegram": {
-      "command": "uv",
-      "args": ["--directory", "$HOME/.config/opencode/mcp-telegram-server", "run", "main.py", "/tmp/telegram-mcp", "$HOME/.config/opencode/mcp-telegram-server/downloads"]
+      "type": "local",
+      "command": ["$HOME/.config/opencode/mcp-telegram-server/.venv/bin/python", "$HOME/.config/opencode/mcp-telegram-server/main.py", "/tmp/telegram-mcp", "$HOME/.config/opencode/mcp-telegram-server/downloads"],
+      "enabled": true,
+      "timeout": 30000
     }
   }
 }
@@ -145,9 +147,9 @@ uv run main.py /tmp/telegram-mcp $HOME/.config/opencode/mcp-telegram-server/down
   "mcp": {
     "telegram": {
       "type": "local",
-      "command": ["uv", "--directory", "$HOME/.config/opencode/mcp-telegram-server", "run", "main.py", "/tmp/telegram-mcp", "$HOME/.config/opencode/mcp-telegram-server/downloads"],
+      "command": ["$HOME/.config/opencode/mcp-telegram-server/.venv/bin/python", "$HOME/.config/opencode/mcp-telegram-server/main.py", "/tmp/telegram-mcp", "$HOME/.config/opencode/mcp-telegram-server/downloads"],
       "enabled": true,
-      "timeout": 15000
+      "timeout": 30000
     }
   },
   "permission": { "telegram_*": "allow" }

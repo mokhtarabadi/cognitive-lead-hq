@@ -154,7 +154,7 @@ cp .env.example .env
 # Edit .env with your keys (BRAIN_API_KEY, BRAIN_API_BASE, BRAIN_MODEL)
 
 # 2. Register servers (global install, absolute paths) or use the repo opencode.json locally
-# mcp-brain-bridge runs via `uv run` stdio FastMCP, zero-install deps
+# mcp-brain-bridge runs as a supervised singleton (systemd `mcp-brain` on 127.0.0.1:8105); the global config points at it via `type: "remote"` — never `uv run`, never per-session stdio
 
 # 3. Invoke in OpenCode
 # brain_turn → XML executes, REPORT triages, questions relay to Manager
@@ -326,7 +326,9 @@ cp .env.example .env
 
 ## 🔌 Custom Code Context FastMCP
 
-This system uses a local **FastMCP** Python server (`mcp-context-server/server.py`) that runs via `uv run` with zero-install dependency management. It provides deterministic, `.gitignore`-aware file reading and directory tree exploration, using far fewer tokens than raw `grep`/`glob` operations.
+> **Current path:** supervised remote singletons on `127.0.0.1:8101–8107` — see `docs/services.md`. What follows is the **legacy per-project stdio fallback** (kept for offline/air-gapped use, not the default).
+
+This system uses a local **FastMCP** Python server (`mcp-context-server/server.py`) that runs via its persistent venv interpreter (`<dir>/.venv/bin/python <dir>/server.py`, never `uv run`) with locked dependency management. It provides deterministic, `.gitignore`-aware file reading and directory tree exploration, using far fewer tokens than raw `grep`/`glob` operations.
 
 ### Setup Instructions
 
@@ -337,15 +339,19 @@ This server can be installed locally per-project, or globally for all OpenCode s
 Best for keeping project dependencies isolated.
 
 1. Copy `mcp-context-server/server.py` into your project root.
-2. Ensure it is executable: `chmod +x mcp-context-server/server.py`.
-3. Add the following to your project's `./opencode.json`:
+2. Create a persistent venv once (deps match the `# dependencies` header in `server.py`): `cd mcp-context-server && uv venv .venv && uv pip install --python .venv/bin/python pathspec "mcp[cli]>=1.0,<2.0" tree-sitter tree-sitter-python tree-sitter-javascript tree-sitter-typescript tree-sitter-go tree-sitter-java tree-sitter-rust tree-sitter-kotlin`.
+3. Ensure it is executable: `chmod +x mcp-context-server/server.py`.
+4. Add the following to your project's `./opencode.json` (absolute paths — OpenCode does not expand `~` or env vars in `command`):
 
 ```json
 {
   "mcp": {
     "custom_context": {
       "type": "local",
-      "command": ["uv", "run", "mcp-context-server/server.py"],
+      "command": [
+        "/abs/path/mcp-context-server/.venv/bin/python",
+        "/abs/path/mcp-context-server/server.py"
+      ],
       "enabled": true,
       "timeout": 15000
     }
@@ -365,8 +371,9 @@ Best if you want this codebase exploration tool available in _every_ terminal di
 
 1. Create a global directory for the server: `mkdir -p ~/.config/opencode/mcp-context-server`
 2. Copy the `server.py` script into that directory.
-3. Make it executable: `chmod +x ~/.config/opencode/mcp-context-server/server.py`.
-4. Open your global config at `~/.config/opencode/opencode.json` and add the absolute path:
+3. Create the persistent venv once: `cd ~/.config/opencode/mcp-context-server && uv venv .venv && uv pip install --python .venv/bin/python pathspec "mcp[cli]>=1.0,<2.0" tree-sitter tree-sitter-python tree-sitter-javascript tree-sitter-typescript tree-sitter-go tree-sitter-java tree-sitter-rust tree-sitter-kotlin` (deps match the `# dependencies` header in `server.py`).
+4. Make it executable: `chmod +x ~/.config/opencode/mcp-context-server/server.py`.
+5. Open your global config at `~/.config/opencode/opencode.json` and add the absolute path:
 
 ```json
 {
@@ -374,8 +381,7 @@ Best if you want this codebase exploration tool available in _every_ terminal di
     "custom_context": {
       "type": "local",
       "command": [
-        "uv",
-        "run",
+        "/Users/<YOUR_USER>/.config/opencode/mcp-context-server/.venv/bin/python",
         "/Users/<YOUR_USER>/.config/opencode/mcp-context-server/server.py"
       ],
       "enabled": true,
@@ -417,7 +423,7 @@ _(Note: Replace `/Users/<YOUR_USER>` with your actual home directory path)._
 **Optional — auto-installed via `LLM.txt` Step 7.6:**
 
 - `blowsh` (Docker `ghcr.io/mokhtarabadi/blowsh-mcp:latest`, 5 tools) — **JS-capable browsing (retired browser MCP replacement).** `fetch_web` (plain/html/markdown/pdf + selector/max_chars/wait_ms + focus/toc/must_contain/archive/stitch probes), `search_web` (DuckDuckGo+Bing+Brave+Mojeek consensus, intent verticals), `extract_links`, `fetch_web_batch` (10 URLs), `crawl_web` (sitemap-aware multi-page docs/API refs/wikis with focus/depth/char budgets). SSRF guard, TTL cache. Timeout 120s. See https://github.com/mokhtarabadi/blowsh-mcp, `skill-templates/blowsh/SKILL.md`, and `docs/telegram-setup.md` (setup maps to same global install).
-- `telegram` (Telethon, 80+ tools, `uv --directory $HOME/.config/opencode/mcp-telegram-server run main.py` over absolute path in opencode config dir) — Accounts (`list_accounts`, multi-account `account` param), chats/groups, messages (`send_message`/`reply_to_message` with `account="personal"`/`"work"`), contacts/aliases, media (`send_file`/`download_media`), events (`wait_for_settled_message`, `enable_incoming_feed`). File roots required for media tools (`/tmp/telegram-mcp` + `$HOME/.config/opencode/mcp-telegram-server/downloads`). Used by `skill-templates/telegram-issue-sync/SKILL.md` (supergroup → tasks) and `telegram-message-export/SKILL.md` (range → ZIP) — see `docs/telegram-setup.md` §6 for the full skill→tool→config table. Single vs work/personal setup documented there plus `LLM.txt` 7.6 (absolute paths, installed in `~/.config/opencode/`).
+- `telegram` (Telethon, 80+ tools, `$HOME/.config/opencode/mcp-telegram-server/.venv/bin/python` + absolute `main.py` path in opencode config dir) — Accounts (`list_accounts`, multi-account `account` param), chats/groups, messages (`send_message`/`reply_to_message` with `account="personal"`/`"work"`), contacts/aliases, media (`send_file`/`download_media`), events (`wait_for_settled_message`, `enable_incoming_feed`). File roots required for media tools (`/tmp/telegram-mcp` + `$HOME/.config/opencode/mcp-telegram-server/downloads`). Used by `skill-templates/telegram-issue-sync/SKILL.md` (supergroup → tasks) and `telegram-message-export/SKILL.md` (range → ZIP) — see `docs/telegram-setup.md` §6 for the full skill→tool→config table. Single vs work/personal setup documented there plus `LLM.txt` 7.6 (absolute paths, installed in `~/.config/opencode/`).
 
 ### Meta-Task Bundling — Pure MCP (No CLI Required)
 

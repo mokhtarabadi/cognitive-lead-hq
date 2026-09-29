@@ -7,8 +7,11 @@
 # ]
 # ///
 
+import contextvars
+import functools
 import os
 import re
+import sys
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
@@ -19,16 +22,69 @@ from mcp.server.fastmcp import FastMCP
 
 MEMORY_DIR = Path(".opencode/memory")
 
-mcp = FastMCP("ProjectMemory")
+mcp = FastMCP("ProjectMemory", host="127.0.0.1", port=8103)
 
-def _validate_and_resolve(namespace: str, key: Optional[str] = None) -> Path:
+# Client-visible project-isolation warning (Task 279 F6/V1); see
+# mcp-context-server for rationale. No absolute paths echoed (privacy).
+_FALLBACK_FIRED: contextvars.ContextVar[bool] = contextvars.ContextVar(
+    "project_memory_fallback_fired", default=False)
+ROOT_FALLBACK_WARNING = (
+    "WARNING [project-isolation]: project_root was omitted, so this call "
+    "was scoped to the singleton server's own directory instead of the "
+    "calling project. Pass an absolute project_root on every call.")
+
+
+def _project_tool(fn):
+    """Register an MCP tool that surfaces root-fallback client-visibly."""
+    @functools.wraps(fn)
+    def wrapper(*args, **kwargs):
+        _FALLBACK_FIRED.set(False)
+        out = fn(*args, **kwargs)
+        if not _FALLBACK_FIRED.get():
+            return out
+        if isinstance(out, str):
+            return ROOT_FALLBACK_WARNING + "\n" + out
+        return out
+    return mcp.tool()(wrapper)
+
+def _explicit_project_root(project_root: str | None, tool_name: str) -> Path:
+    """Validate a per-call project root (Task 279 project_path).
+
+    Returns the resolved absolute directory. When omitted, falls back to
+    the server working directory with a stderr warning (backward
+    compatible single-project behavior). Raises ValueError naming the
+    field for relative, missing, or non-directory input.
+    """
+    if project_root is None:
+        root = Path.cwd().resolve()
+        _FALLBACK_FIRED.set(True)
+        print(f"Warning: {tool_name}: project_root omitted, falling back to server cwd {root}", file=sys.stderr)
+        return root
+    if not isinstance(project_root, str) or not project_root:
+        raise ValueError("project_root must be a non-empty absolute path string.")
+    if not Path(project_root).is_absolute():
+        raise ValueError(f"project_root must be absolute, got: {project_root!r}.")
+    root = Path(project_root).resolve()
+    if not root.is_dir():
+        raise ValueError(f"project_root must be an existing directory, got: {project_root!r}.")
+    return root
+
+def _memory_dir(project_root: str | None, tool_name: str) -> Path:
+    """Per-call memory base dir: <project_root>/.opencode/memory, else legacy server-cwd MEMORY_DIR."""
+    if project_root is None:
+        _FALLBACK_FIRED.set(True)
+        print(f"Warning: {tool_name}: project_root omitted, using server memory dir {MEMORY_DIR.resolve()}", file=sys.stderr)
+        return MEMORY_DIR
+    return _explicit_project_root(project_root, tool_name) / ".opencode" / "memory"
+
+def _validate_and_resolve(namespace: str, key: Optional[str] = None, base_dir: Optional[Path] = None) -> Path:
     if not re.match(r"^[a-zA-Z0-9_-]+$", namespace):
         raise ValueError(f"Invalid namespace '{namespace}'. Only alphanumeric, hyphens, and underscores are allowed.")
 
     if key is not None and not re.match(r"^[a-zA-Z0-9_-]+$", key):
         raise ValueError(f"Invalid key '{key}'. Only alphanumeric, hyphens, and underscores are allowed.")
 
-    base_dir = MEMORY_DIR.resolve()
+    base_dir = (base_dir or MEMORY_DIR).resolve()
     target_path = (base_dir / namespace).resolve()
 
     if not target_path.is_relative_to(base_dir):
@@ -36,12 +92,12 @@ def _validate_and_resolve(namespace: str, key: Optional[str] = None) -> Path:
 
     return target_path
 
-def _ensure_namespace(namespace: str) -> Path:
-    ns_dir = _validate_and_resolve(namespace)
+def _ensure_namespace(namespace: str, base_dir: Optional[Path] = None) -> Path:
+    ns_dir = _validate_and_resolve(namespace, base_dir=base_dir)
     ns_dir.mkdir(parents=True, exist_ok=True)
     return ns_dir
 
-def build_memory_index() -> str:
+def build_memory_index(base_dir: Optional[Path] = None) -> str:
     """
     Scans MEMORY_DIR for all Markdown memories and builds a sorted, pipe-escaped
     Markdown table index at MEMORY_DIR / "index.md".
@@ -58,13 +114,14 @@ def build_memory_index() -> str:
         Status message describing the build result (row count or empty notice).
     """
     try:
+        mem_dir = base_dir or MEMORY_DIR
         # Ensure memory directory exists so mkstemp has a valid dir
-        MEMORY_DIR.mkdir(parents=True, exist_ok=True)
+        mem_dir.mkdir(parents=True, exist_ok=True)
 
         # Collect all memory files, excluding the derived index itself and
         # any nested goals or non-Markdown artifacts.
         memory_files = []
-        for md_file in MEMORY_DIR.rglob("*.md"):
+        for md_file in mem_dir.rglob("*.md"):
             # Skip the derived index itself to avoid self-reference
             if md_file.name == "index.md":
                 continue
@@ -79,7 +136,7 @@ def build_memory_index() -> str:
                 # Derive namespace (parent dir name) and key (stem)
                 # For .opencode/memory/<namespace>/<key>.md, parent is namespace
                 # For deeper nesting, use relative parent
-                rel = md_file.relative_to(MEMORY_DIR)
+                rel = md_file.relative_to(mem_dir)
                 # Namespace is first part of relative path (e.g., "workflows" in "workflows/foo.md")
                 namespace = rel.parts[0] if len(rel.parts) >= 2 else rel.parent.name or "root"
                 # Key is file stem (without .md)
@@ -151,9 +208,9 @@ def build_memory_index() -> str:
 
         full_content = header + body
 
-        # Atomic write to MEMORY_DIR / "index.md"
-        index_path = MEMORY_DIR / "index.md"
-        fd, temp_path = tempfile.mkstemp(dir=MEMORY_DIR, text=True)
+        # Atomic write to <mem_dir> / "index.md"
+        index_path = mem_dir / "index.md"
+        fd, temp_path = tempfile.mkstemp(dir=mem_dir, text=True)
         try:
             with os.fdopen(fd, 'w', encoding='utf-8') as f:
                 f.write(full_content)
@@ -173,7 +230,7 @@ def build_memory_index() -> str:
 
         # Best-effort fsync parent directory for durability (ignore if not supported)
         try:
-            dir_fd = os.open(MEMORY_DIR, os.O_DIRECTORY)
+            dir_fd = os.open(mem_dir, os.O_DIRECTORY)
             try:
                 os.fsync(dir_fd)
             finally:
@@ -190,12 +247,13 @@ def build_memory_index() -> str:
         print(f"[build_memory_index] unexpected error: {e}", flush=True)
         return f"Error building index: {e}"
 
-@mcp.tool()
-def store_memory(namespace: str, key: str, content: str, overwrite: bool = True) -> str:
-    """Stores a memory snippet as a markdown file. Uses atomic writes to prevent race conditions. Use when saving an explicit project rule or reusable constraint. Use search_memory instead when finding existing memory without writing."""
+@_project_tool
+def store_memory(namespace: str, key: str, content: str, overwrite: bool = True, project_root: str | None = None) -> str:
+    """Stores a memory snippet as a markdown file. Uses atomic writes to prevent race conditions. Use when saving an explicit project rule or reusable constraint. Use search_memory instead when finding existing memory without writing. project_root: absolute path to the calling project's repository root. Used to scope file resolution to that project. If omitted, falls back to the server working directory for backward compatibility."""
     try:
-        ns_dir = _ensure_namespace(namespace)
-        _validate_and_resolve(namespace, key)
+        base_dir = _memory_dir(project_root, "store_memory")
+        ns_dir = _ensure_namespace(namespace, base_dir=base_dir)
+        _validate_and_resolve(namespace, key, base_dir=base_dir)
         file_path = ns_dir / f"{key}.md"
 
         if file_path.exists() and not overwrite:
@@ -223,7 +281,7 @@ def store_memory(namespace: str, key: str, content: str, overwrite: bool = True)
 
         # Best-effort: rebuild memory index after successful store (derived state, never fail parent)
         try:
-            build_memory_index()
+            build_memory_index(base_dir)
         except Exception as e:
             print(f"[store_memory] index rebuild failed: {e}", flush=True)
 
@@ -231,11 +289,11 @@ def store_memory(namespace: str, key: str, content: str, overwrite: bool = True)
     except Exception as e:
         return f"Error storing memory: {str(e)}"
 
-@mcp.tool()
-def read_memory(namespace: str, key: str) -> str:
-    """Reads a specific memory snippet. Use when opening one known namespace and key already found via list or search."""
+@_project_tool
+def read_memory(namespace: str, key: str, project_root: str | None = None) -> str:
+    """Reads a specific memory snippet. Use when opening one known namespace and key already found via list or search. project_root: absolute path to the calling project's repository root. Used to scope file resolution to that project. If omitted, falls back to the server working directory for backward compatibility."""
     try:
-        ns_dir = _validate_and_resolve(namespace, key)
+        ns_dir = _validate_and_resolve(namespace, key, base_dir=_memory_dir(project_root, "read_memory"))
         file_path = ns_dir / f"{key}.md"
         if not file_path.is_file():
             return f"Error: Memory '{key}' not found in namespace '{namespace}'."
@@ -245,11 +303,12 @@ def read_memory(namespace: str, key: str) -> str:
     except Exception as e:
         return f"Error reading memory: {str(e)}"
 
-@mcp.tool()
-def delete_memory(namespace: str, key: str) -> str:
-    """Deletes a specific memory snippet if it is no longer relevant. Use only for an obsolete rule after manager approval, never for routine lookups."""
+@_project_tool
+def delete_memory(namespace: str, key: str, project_root: str | None = None) -> str:
+    """Deletes a specific memory snippet if it is no longer relevant. Use only for an obsolete rule after manager approval, never for routine lookups. project_root: absolute path to the calling project's repository root. Used to scope file resolution to that project. If omitted, falls back to the server working directory for backward compatibility."""
     try:
-        ns_dir = _validate_and_resolve(namespace, key)
+        base_dir = _memory_dir(project_root, "delete_memory")
+        ns_dir = _validate_and_resolve(namespace, key, base_dir=base_dir)
         file_path = ns_dir / f"{key}.md"
 
         if not file_path.is_file():
@@ -262,7 +321,7 @@ def delete_memory(namespace: str, key: str) -> str:
 
         # Best-effort: rebuild memory index after successful delete
         try:
-            build_memory_index()
+            build_memory_index(base_dir)
         except Exception as e:
             print(f"[delete_memory] index rebuild failed: {e}", flush=True)
 
@@ -270,19 +329,21 @@ def delete_memory(namespace: str, key: str) -> str:
     except Exception as e:
         return f"Error deleting memory: {str(e)}"
 
-@mcp.tool()
-def search_memory(query: str, namespace: Optional[str] = None) -> str:
+@_project_tool
+def search_memory(query: str, namespace: Optional[str] = None, project_root: str | None = None) -> str:
     """Performs a full-text search across memories. If namespace is provided, limits search to that slice.
     Use when finding existing memory without writing, and before asking the manager about a past ruling.
 
     Supports tag filtering: include `tag:xxx` in the query to filter by frontmatter tag.
     Results are ranked: exact key matches rank higher than content-only matches.
+    project_root: absolute path to the calling project's repository root. Used to scope file resolution to that project. If omitted, falls back to the server working directory for backward compatibility.
     """
-    if not MEMORY_DIR.exists():
+    base_dir = _memory_dir(project_root, "search_memory")
+    if not base_dir.exists():
         return "No memories recorded yet."
 
     try:
-        target_dir = _validate_and_resolve(namespace) if namespace else MEMORY_DIR
+        target_dir = _validate_and_resolve(namespace, base_dir=base_dir) if namespace else base_dir
     except ValueError as e:
         return f"Error: {str(e)}"
 
@@ -301,7 +362,7 @@ def search_memory(query: str, namespace: Optional[str] = None) -> str:
     results = []
     for md_file in target_dir.rglob("*.md"):
         try:
-            file_rel = md_file.relative_to(MEMORY_DIR)
+            file_rel = md_file.relative_to(base_dir)
             with open(md_file, 'r', encoding='utf-8') as f:
                 content = f.read()
 
@@ -352,14 +413,15 @@ def search_memory(query: str, namespace: Optional[str] = None) -> str:
 
     return "### Search Results\n\n" + "\n---\n".join(ranked_results)
 
-@mcp.tool()
-def list_namespaces() -> str:
-    """Lists all active memory namespaces and their keys. Use when discovering what is remembered before reading or searching."""
-    if not MEMORY_DIR.exists():
+@_project_tool
+def list_namespaces(project_root: str | None = None) -> str:
+    """Lists all active memory namespaces and their keys. Use when discovering what is remembered before reading or searching. project_root: absolute path to the calling project's repository root. Used to scope file resolution to that project. If omitted, falls back to the server working directory for backward compatibility."""
+    base_dir = _memory_dir(project_root, "list_namespaces")
+    if not base_dir.exists():
         return "No memory namespaces found."
 
     tree = []
-    for ns_dir in sorted(MEMORY_DIR.iterdir()):
+    for ns_dir in sorted(base_dir.iterdir()):
         if ns_dir.is_dir():
             keys = [f.stem for f in ns_dir.glob("*.md")]
             tree.append(f"- {ns_dir.name}/")
@@ -368,8 +430,8 @@ def list_namespaces() -> str:
 
     return "\n".join(tree) if tree else "Memory bank is empty."
 
-@mcp.tool()
-def rebuild_memory_index() -> str:
+@_project_tool
+def rebuild_memory_index(project_root: str | None = None) -> str:
     """
     Rebuilds the project memory index at .opencode/memory/index.md.
 
@@ -381,8 +443,14 @@ def rebuild_memory_index() -> str:
 
     The tool is exposed as an MCP tool so agents and managers can
     trigger a rebuild on demand without needing a store/delete cycle.
+    project_root: absolute path to the calling project's repository root. Used to scope file resolution to that project. If omitted, falls back to the server working directory for backward compatibility.
     """
-    return build_memory_index()
+    return build_memory_index(_memory_dir(project_root, "rebuild_memory_index"))
 
 if __name__ == "__main__":
-    mcp.run(transport="stdio")
+    _transport = os.environ.get("MCP_TRANSPORT", "streamable-http")
+    # Singleton default (Task 279 V3): all callers consume these servers as
+    # remote http singletons, so an unset MCP_TRANSPORT must not silently
+    # drop into stdio while the unit reports active. Explicit "stdio"
+    # still works for local debugging.
+    mcp.run(transport=_transport)

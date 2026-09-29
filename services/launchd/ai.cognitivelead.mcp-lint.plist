@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>ai.cognitivelead.mcp-lint</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>{HOME}/.config/opencode/mcp-lint-server/.venv/bin/python</string>
+    <string>{HOME}/.config/opencode/mcp-lint-server/server.py</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict><key>MCP_TRANSPORT</key><string>streamable-http</string></dict>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>StandardOutPath</key><string>{HOME}/Library/Logs/mcp-lint.log</string>
+  <key>StandardErrorPath</key><string>{HOME}/Library/Logs/mcp-lint.err.log</string>
+</dict>
+</plist>

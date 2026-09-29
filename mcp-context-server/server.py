@@ -15,6 +15,8 @@
 # ]
 # ///
 
+import contextvars
+import functools
 import importlib
 import os
 import re
@@ -414,18 +416,50 @@ def _ensure_context_reports_ignored() -> None:
         except Exception as e:
             print(f"Warning: Failed to update .gitignore: {e}", file=sys.stderr)
 
-mcp = FastMCP("CustomContext")
+mcp = FastMCP("CustomContext", host="127.0.0.1", port=8102)
 
-@mcp.tool()
-def get_directory_tree(target_path: str = ".") -> str:
-    """Generates an ASCII tree representation of the directory, respecting .gitignore. Use this to discover codebase structure with immediate inline output. Use create_tree_report instead when a persistent saved report file is required."""
+# Client-visible project-isolation warning (Task 279 F6/V1). When a caller
+# omits project_root the helper below falls back to the server cwd; stderr
+# never reaches MCP clients, so the fallback is recorded here and surfaced
+# by @_project_tool in the tool result. No absolute paths are echoed
+# (layout privacy, cf. decision-server _active_root_info).
+_FALLBACK_FIRED: contextvars.ContextVar[bool] = contextvars.ContextVar(
+    "custom_context_fallback_fired", default=False)
+ROOT_FALLBACK_WARNING = (
+    "WARNING [project-isolation]: project_root was omitted, so this call "
+    "was scoped to the singleton server's own directory instead of the "
+    "calling project. Pass an absolute project_root on every call.")
+
+
+def _project_tool(fn):
+    """Register an MCP tool that surfaces root-fallback client-visibly."""
+    @functools.wraps(fn)
+    def wrapper(*args, **kwargs):
+        _FALLBACK_FIRED.set(False)
+        out = fn(*args, **kwargs)
+        if not _FALLBACK_FIRED.get():
+            return out
+        if isinstance(out, str):
+            return ROOT_FALLBACK_WARNING + "\n" + out
+        return out
+    return mcp.tool()(wrapper)
+
+@_project_tool
+def get_directory_tree(target_path: str = ".", project_root: str | None = None) -> str:
+    """Generates an ASCII tree representation of the directory, respecting .gitignore. Use this to discover codebase structure with immediate inline output. Use create_tree_report instead when a persistent saved report file is required. project_root: absolute path to the calling project's repository root. Used to scope file resolution to that project. If omitted, falls back to the server working directory for backward compatibility."""
     # Security: mirror create_tree_report — coerce bad types, resolve against
     # the workspace root, reject escapes. Previously a bare "/" walked the
     # whole filesystem and wedged the single-threaded server (Task 177).
     if not isinstance(target_path, str):
         target_path = "."
-    workspace_root = Path.cwd().resolve()
-    tree_path = Path(target_path).resolve()
+    try:
+        workspace_root = _explicit_project_root(project_root, "get_directory_tree")
+    except ValueError as e:
+        return f"Error: {e}"
+    if Path(target_path).is_absolute():
+        tree_path = Path(target_path).resolve()
+    else:
+        tree_path = (workspace_root / target_path).resolve()
     try:
         tree_path.relative_to(workspace_root)
     except ValueError:
@@ -438,11 +472,16 @@ def get_directory_tree(target_path: str = ".") -> str:
         return f"Warning: Target tree path is ignored by .gitignore: {target_path}"
     return f"## Directory Tree: `{tree_path}`\n\n" + generate_tree(tree_path, ignore_filter)
 
-@mcp.tool()
-def read_source_files(paths: list[str], max_size: int = 1048576, no_line_numbers: bool = False) -> str:
-    """Reads multiple source files/directories, compiles their contents into a Markdown file under context-reports/, and returns the report file path. Use when exact source content from named files is required. Returns a path, not inline content. Use extract_signatures instead for a structural outline without file bodies."""
+@_project_tool
+def read_source_files(paths: list[str], max_size: int = 1048576, no_line_numbers: bool = False, project_root: str | None = None) -> str:
+    """Reads multiple source files/directories, compiles their contents into a Markdown file under context-reports/, and returns the report file path. Use when exact source content from named files is required. Returns a path, not inline content. Use extract_signatures instead for a structural outline without file bodies. project_root: absolute path to the calling project's repository root. Used to scope file resolution to that project. If omitted, falls back to the server working directory for backward compatibility."""
     # Safeguard: Append context-reports/ to .gitignore if not present
     _ensure_context_reports_ignored()
+
+    try:
+        workspace_root = _explicit_project_root(project_root, "read_source_files")
+    except ValueError as e:
+        return f"Error: {e}"
 
     ignore_filter = GitIgnoreFilter()
     files_to_process: dict[Path, Path] = {}
@@ -450,7 +489,8 @@ def read_source_files(paths: list[str], max_size: int = 1048576, no_line_numbers
         # Safeguard: Do not recursively scan our own reports directory
         if "context-reports" in Path(src).parts:
             continue
-        for p in collect_files(src, ignore_filter):
+        src_path = src if Path(src).is_absolute() else str(workspace_root / src)
+        for p in collect_files(src_path, ignore_filter):
             if "context-reports" in p.parts:
                 continue
             files_to_process[p.resolve()] = p
@@ -502,9 +542,9 @@ def read_source_files(paths: list[str], max_size: int = 1048576, no_line_numbers
         f"Manager: You can now open `{report_file}` in your local editor to view the codebase context or copy/paste it directly for the AI."
     )
 
-@mcp.tool()
-def create_tree_report(target_path: str = ".") -> str:
-    """Creates a .gitignore-aware directory tree of a path or the entire project and saves it as a Markdown file under context-reports/ (named tree_report_<timestamp>_<uuid>.md). Use when the Manager asks to 'create a tree of the project' or 'create a tree of <path>'. Security: target_path is resolved against the workspace root and rejected if it escapes the project (path traversal prevention)."""
+@_project_tool
+def create_tree_report(target_path: str = ".", project_root: str | None = None) -> str:
+    """Creates a .gitignore-aware directory tree of a path or the entire project and saves it as a Markdown file under context-reports/ (named tree_report_<timestamp>_<uuid>.md). Use when the Manager asks to 'create a tree of the project' or 'create a tree of <path>'. Security: target_path is resolved against the workspace root and rejected if it escapes the project (path traversal prevention). project_root: absolute path to the calling project's repository root. Used to scope file resolution to that project. If omitted, falls back to the server working directory for backward compatibility."""
     # Safeguard: Append context-reports/ to .gitignore if not present
     _ensure_context_reports_ignored()
 
@@ -516,8 +556,14 @@ def create_tree_report(target_path: str = ".") -> str:
     # Security: Resolve the target against the workspace root and reject any
     # path that escapes it. Path traversal prevention — the tool must never
     # walk directories outside the project the server is running in.
-    workspace_root = Path.cwd().resolve()
-    tree_path = Path(target_path).resolve()
+    try:
+        workspace_root = _explicit_project_root(project_root, "create_tree_report")
+    except ValueError as e:
+        return f"Error: {e}"
+    if Path(target_path).is_absolute():
+        tree_path = Path(target_path).resolve()
+    else:
+        tree_path = (workspace_root / target_path).resolve()
     try:
         tree_path.relative_to(workspace_root)
     except ValueError:
@@ -560,15 +606,22 @@ def create_tree_report(target_path: str = ".") -> str:
         f"Manager: You can now open `{report_file}` in your local editor to view the project tree or copy/paste it directly for the AI."
     )
 
-@mcp.tool()
-def extract_signatures(file_path: str) -> str:
-    """Extracts structural signatures (classes, functions, methods) from source files using tree-sitter AST. Falls back to regex when no tree-sitter grammar is available for the language. Saves the result to a Markdown file under context-reports/ and returns the report file path. Use for a structural API outline without file bodies. Use read_source_files instead when full source content is required."""
+@_project_tool
+def extract_signatures(file_path: str, project_root: str | None = None) -> str:
+    """Extracts structural signatures (classes, functions, methods) from source files using tree-sitter AST. Falls back to regex when no tree-sitter grammar is available for the language. Saves the result to a Markdown file under context-reports/ and returns the report file path. Use for a structural API outline without file bodies. Use read_source_files instead when full source content is required. project_root: absolute path to the calling project's repository root. Used to scope file resolution to that project. If omitted, falls back to the server working directory for backward compatibility."""
     # Master try/except: ensure extract_signatures never crashes the MCP server
     try:
         # Safeguard: Append context-reports/ to .gitignore if not present
         _ensure_context_reports_ignored()
 
+        try:
+            workspace_root = _explicit_project_root(project_root, "extract_signatures")
+        except ValueError as e:
+            return f"Error: {e}"
+
         path = Path(file_path)
+        if not path.is_absolute():
+            path = workspace_root / file_path
         if not path.is_file():
             return f"Error: File not found: {file_path}"
 
@@ -627,8 +680,51 @@ def extract_signatures(file_path: str) -> str:
     except Exception as e:
         return f"Error extracting signatures from {file_path}: {str(e)}"
 
-@mcp.tool()
-def stage_and_inject_diff(task_file_path: str, modified_files: list[str] = []) -> str:
+def _repo_root(start_path: str, project_root: str | None = None) -> Path:
+    """Resolve the git repo root for git subprocess calls.
+
+    CWD fix: this server inherits opencode-server's CWD, which is usually
+    NOT the caller project, so bare `git` calls fail with exit 128.
+    Resolution order: explicit project_root override first, then walk up
+    from absolute task paths to the enclosing `.git`, then CWD fallback
+    (git errors honestly if that is not a repo).
+    """
+    if project_root:
+        return Path(project_root).resolve()
+    p = Path(start_path)
+    start = (p if p.is_dir() else p.parent) if p.is_absolute() else (Path.cwd() / p).parent
+    for cand in [start, *start.parents]:
+        if (cand / ".git").exists():
+            return cand
+    return start
+
+
+def _explicit_project_root(project_root: str | None, tool_name: str) -> Path:
+    """Validate a per-call project root (Task 279 project_path).
+
+    Returns the resolved absolute directory. When omitted, falls back to
+    the server working directory with a stderr warning (backward
+    compatible single-project behavior). Raises ValueError naming the
+    field for relative, missing, or non-directory input.
+    """
+    if project_root is None:
+        root = Path.cwd().resolve()
+        _FALLBACK_FIRED.set(True)
+        print(f"Warning: {tool_name}: project_root omitted, falling back to server cwd {root}",
+              file=sys.stderr)
+        return root
+    if not isinstance(project_root, str) or not project_root:
+        raise ValueError("project_root must be a non-empty absolute path string.")
+    if not Path(project_root).is_absolute():
+        raise ValueError(f"project_root must be absolute, got: {project_root!r}.")
+    root = Path(project_root).resolve()
+    if not root.is_dir():
+        raise ValueError(f"project_root must be an existing directory, got: {project_root!r}.")
+    return root
+
+
+@_project_tool
+def stage_and_inject_diff(task_file_path: str, modified_files: list[str] = [], project_root: str | None = None) -> str:
     """Stages ONLY the explicitly listed modified files plus the task file, then intelligently injects the staged diff into the task file's Git Diff block.
 
     F5 fix (Task 90): explicit path scoping replaces the old blind `git add -A .`,
@@ -642,12 +738,13 @@ def stage_and_inject_diff(task_file_path: str, modified_files: list[str] = []) -
         # 1. F5 Fix: Explicit path scoping. Stage ONLY the files OpenCode modified + the task file.
         #    This prevents cross-session contamination and keeps the diff table clean for the Brain.
         files_to_stage = modified_files + [task_file_path]
-        subprocess.run(["git", "add", "--"] + files_to_stage, check=True, capture_output=True)
+        repo = str(_repo_root(task_file_path, project_root))
+        subprocess.run(["git", "add", "--"] + files_to_stage, check=True, capture_output=True, cwd=repo)
         
         # 2. Extract the diff (EXCLUDING the entire tasks/ directory to prevent recursive diff bloat)
         # Using git pathspec magic ':!tasks/' to ignore the entire task folder
         diff_cmd = ["git", "diff", "--staged", "--", ".", ":!tasks/"]
-        diff_process = subprocess.run(diff_cmd, capture_output=True, text=True)
+        diff_process = subprocess.run(diff_cmd, capture_output=True, text=True, cwd=repo)
         diff_text = diff_process.stdout.strip()
         
         if not diff_text:
@@ -678,8 +775,8 @@ def stage_and_inject_diff(task_file_path: str, modified_files: list[str] = []) -
     except Exception as e:
         return f"❌ Error staging or updating task file: {str(e)}"
 
-@mcp.tool()
-def qa_transition(task_file_path: str, modified_files: list[str] = []) -> str:
+@_project_tool
+def qa_transition(task_file_path: str, modified_files: list[str] = [], project_root: str | None = None) -> str:
     """
     Atomically transitions a task from tasks/in-progress/ to tasks/qa/:
     1. Validates path and ensures task resides in tasks/in-progress/
@@ -691,8 +788,9 @@ def qa_transition(task_file_path: str, modified_files: list[str] = []) -> str:
     7. Validates header consistency and returns confirmation
     """
     try:
-        workspace_root = Path.cwd().resolve()
+        workspace_root = _repo_root(task_file_path, project_root)
         src = Path(task_file_path)
+        src = src if src.is_absolute() else workspace_root / src
 
         # Path traversal guard: must be within workspace
         try:
@@ -727,7 +825,7 @@ def qa_transition(task_file_path: str, modified_files: list[str] = []) -> str:
 
         # 2. Move task file to tasks/qa/ via git mv (fallback to shutil.move + git add)
         try:
-            result = subprocess.run(["git", "mv", str(src_resolved), str(dest)], capture_output=True, text=True)
+            result = subprocess.run(["git", "mv", str(src_resolved), str(dest)], capture_output=True, text=True, cwd=str(workspace_root))
             if result.returncode != 0:
                 raise RuntimeError(result.stderr.strip() or result.stdout.strip() or "git mv failed")
         except Exception as e:
@@ -743,7 +841,7 @@ def qa_transition(task_file_path: str, modified_files: list[str] = []) -> str:
                 if src_resolved.exists():
                     shutil.move(str(src_resolved), str(dest))
                 # Stage the moved file
-                subprocess.run(["git", "add", "--", str(dest)], check=True, capture_output=True)
+                subprocess.run(["git", "add", "--", str(dest)], check=True, capture_output=True, cwd=str(workspace_root))
             except Exception as move_err:
                 return f"❌ Error: Fallback move failed: {src_resolved} → {dest}: {move_err}"
 
@@ -764,13 +862,13 @@ def qa_transition(task_file_path: str, modified_files: list[str] = []) -> str:
         # 4. Stages modified_files + destination task file (explicit staging)
         files_to_stage = list(modified_files) + [str(dest)]
         try:
-            subprocess.run(["git", "add", "--"] + files_to_stage, check=True, capture_output=True)
+            subprocess.run(["git", "add", "--"] + files_to_stage, check=True, capture_output=True, cwd=str(workspace_root))
         except subprocess.CalledProcessError as e:
             return f"❌ Error staging files {files_to_stage}: {e.stderr.decode() if hasattr(e.stderr, 'decode') else e.stderr}"
 
         # 5. Extracts staged diff excluding tasks/ (:!tasks/)
         try:
-            diff_proc = subprocess.run(["git", "diff", "--staged", "--", ".", ":!tasks/"], capture_output=True, text=True)
+            diff_proc = subprocess.run(["git", "diff", "--staged", "--", ".", ":!tasks/"], capture_output=True, text=True, cwd=str(workspace_root))
             diff_text = diff_proc.stdout.strip()
         except Exception as e:
             return f"❌ Error extracting staged diff: {e}"
@@ -793,7 +891,7 @@ def qa_transition(task_file_path: str, modified_files: list[str] = []) -> str:
             return f"❌ Error writing diff injection to {dest}: {e}"
         # Re-stage the task file after injection so final QA state is staged (header + diff)
         try:
-            subprocess.run(["git", "add", "--", str(dest)], check=True, capture_output=True)
+            subprocess.run(["git", "add", "--", str(dest)], check=True, capture_output=True, cwd=str(workspace_root))
         except Exception as e:
             return f"❌ Error re-staging QA task file after injection: {e}"
 
@@ -853,8 +951,8 @@ def _check_conventional_commit(commit_message: str) -> Optional[str]:
         )
     return None
 
-@mcp.tool()
-def commit_and_clean_task(task_file_path: str, commit_message: str) -> str:
+@_project_tool
+def commit_and_clean_task(task_file_path: str, commit_message: str, project_root: str | None = None) -> str:
     """Commits staged changes, captures the feature commit hash, replaces the raw diff in the task file with the hash reference, and commits the cleaned task file as a separate closure commit. The stored hash always points to the feature commit, which stays reachable forever (no amend, no orphaned commits)."""
     try:
         # 0. Idempotency guard: skip if the task file was already cleaned.
@@ -864,6 +962,9 @@ def commit_and_clean_task(task_file_path: str, commit_message: str) -> str:
         #    the diff of this very guard or its CHANGELOG entry), causing a false
         #    positive that blocks legitimate closures.
         path = Path(task_file_path)
+        repo = str(_repo_root(task_file_path, project_root))
+        if not path.is_absolute():
+            path = Path(repo) / path
         if path.is_file():
             with open(path, 'r', encoding='utf-8') as f:
                 existing = f.read()
@@ -882,16 +983,16 @@ def commit_and_clean_task(task_file_path: str, commit_message: str) -> str:
             return conventional_error
 
         # 0.5 Safety check before commit
-        staged_check = subprocess.run(["git", "diff", "--staged", "--quiet"], capture_output=True)
+        staged_check = subprocess.run(["git", "diff", "--staged", "--quiet"], capture_output=True, cwd=repo)
         if staged_check.returncode == 0:
             return "⚠️ No staged changes to commit."
 
         # 1. Commit staged changes (feature commit H1)
-        subprocess.run(["git", "commit", "-m", commit_message], check=True, capture_output=True, text=True)
+        subprocess.run(["git", "commit", "-m", commit_message], check=True, capture_output=True, text=True, cwd=repo)
 
         # 2. Capture H1 — the feature commit hash. It stays reachable forever
         #    as the parent of the closure commit (step 5). NEVER amend it.
-        hash_proc = subprocess.run(["git", "rev-parse", "HEAD"], check=True, capture_output=True, text=True)
+        hash_proc = subprocess.run(["git", "rev-parse", "HEAD"], check=True, capture_output=True, text=True, cwd=repo)
         commit_hash = hash_proc.stdout.strip()
 
         # 3. Read task file and replace raw diff with the hash reference
@@ -909,14 +1010,14 @@ def commit_and_clean_task(task_file_path: str, commit_message: str) -> str:
 
         # 4. Stage the cleaned task file ONLY (F5 fix: never `git add -A tasks/`,
         #    which swept foreign/parallel-session task files into this commit).
-        subprocess.run(["git", "add", "--", task_file_path], check=True, capture_output=True)
+        subprocess.run(["git", "add", "--", task_file_path], check=True, capture_output=True, cwd=repo)
 
         # 5. Commit the cleaned task file as a separate closure commit.
         #    A plain commit (NOT --amend) keeps H1 reachable from HEAD.
         slug = _derive_task_slug(task_file_path)
         staged_after = subprocess.run(["git", "diff", "--staged", "--quiet"], capture_output=True)
         if staged_after.returncode != 0:
-            subprocess.run(["git", "commit", "-m", f"chore: close {slug}"], check=True, capture_output=True, text=True)
+            subprocess.run(["git", "commit", "-m", f"chore: close {slug}"], check=True, capture_output=True, text=True, cwd=repo)
 
         return f"✅ Success: Code committed (Hash: `{commit_hash}`). Task file {task_file_path} cleaned; closure commit `chore: close {slug}` created on top."
     except subprocess.CalledProcessError as e:
@@ -1065,13 +1166,14 @@ def _verify_verbatim_checksums(source_data: list[tuple[str, Path, str, str]], me
 
 def _git_mv_or_fallback(src: Path, dst: Path) -> bool:
     dst.parent.mkdir(parents=True, exist_ok=True)
-    result = subprocess.run(["git", "mv", str(src), str(dst)], capture_output=True, text=True)
+    repo = str(_repo_root(str(src)))
+    result = subprocess.run(["git", "mv", str(src), str(dst)], capture_output=True, text=True, cwd=repo)
     if result.returncode == 0:
         return True
     if "not under version control" in result.stderr or "not tracked" in result.stderr.lower():
         try:
             src.rename(dst)
-            subprocess.run(["git", "add", "--", str(dst)], check=True, capture_output=True)
+            subprocess.run(["git", "add", "--", str(dst)], check=True, capture_output=True, cwd=repo)
             return True
         except Exception:
             return False
@@ -1262,8 +1364,8 @@ def _build_meta_content(meta_id: int, meta_slug: str, meta_title: str, source_id
     return content
 
 
-@mcp.tool()
-def bundle_tasks(task_ids: list[str], title: str, dry_run: bool = False, force: bool = False) -> str:
+@_project_tool
+def bundle_tasks(task_ids: list[str], title: str, dry_run: bool = False, force: bool = False, project_root: str | None = None) -> str:
     """
     Bundle multiple small related tasks into a single META task with auto-archive (Task 110).
 
@@ -1322,7 +1424,9 @@ def bundle_tasks(task_ids: list[str], title: str, dry_run: bool = False, force: 
             pass
 
         # --- Resolve sources (active Kanban only) ---
-        tasks_root = Path("tasks")
+        # CWD fix: tasks_root anchors at explicit project_root, else CWD.
+        base = Path(project_root).resolve() if project_root else Path.cwd()
+        tasks_root = base / "tasks"
         source_data: list[tuple[str, Path, str, str]] = []
         missing: list[str] = []
         for tid in task_ids:
@@ -1495,4 +1599,9 @@ def bundle_tasks(task_ids: list[str], title: str, dry_run: bool = False, force: 
 
 
 if __name__ == "__main__":
-    mcp.run(transport="stdio")
+    _transport = os.environ.get("MCP_TRANSPORT", "streamable-http")
+    # Singleton default (Task 279 V3): all callers consume these servers as
+    # remote http singletons, so an unset MCP_TRANSPORT must not silently
+    # drop into stdio while the unit reports active. Explicit "stdio"
+    # still works for local debugging.
+    mcp.run(transport=_transport)

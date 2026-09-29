@@ -172,7 +172,7 @@ except ImportError:
         failure_signature as _failure_signature,
     )
 
-mcp = FastMCP("BrainBridge")
+mcp = FastMCP("BrainBridge", host="127.0.0.1", port=8105)
 
 # XML blocks the Brain may emit. Hands executes these; everything else
 # is conversation. Kept as plain names (no angle brackets) for the regex.
@@ -3684,4 +3684,9 @@ def parse_responses_text(data: dict) -> str:
 
 
 if __name__ == "__main__":
-    mcp.run()
+    _transport = os.environ.get("MCP_TRANSPORT", "streamable-http")
+    # Singleton default (Task 279 V3): all callers consume these servers as
+    # remote http singletons, so an unset MCP_TRANSPORT must not silently
+    # drop into stdio while the unit reports active. Explicit "stdio"
+    # still works for local debugging.
+    mcp.run(transport=_transport)

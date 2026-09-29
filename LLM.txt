@@ -188,7 +188,7 @@ After this, the `cognitive-executor` will be available as a primary agent, enfor
 
 Create or update `~/.config/opencode/opencode.json`. You MUST use **absolute paths** in the `command` array — resolve the `~` to the full home directory path discovered in Step 3. The project ships **7 MCP servers** (3 core + `manager_decisions` + `brain` bridge + `blowsh` browsing + `telegram` account routing); the persona server and the previous browser automation MCP are retired — use `blowsh` for JS-heavy browsing.
 
-Write the following JSON (replace `$HOME` with the actual home directory path, and adjust the `telegram` `--directory` if you cloned `telegram-mcp` elsewhere):
+Write the following JSON (replace `$HOME` with the actual home directory path only where it still appears — the `mcp` entries are loopback URLs shared by every session and project, so they contain no paths at all). V2 structure per https://opencode.ai/docs/mcp-servers/ (verified 2026-09-29): each MCP runs as **one supervised singleton** on `127.0.0.1` (see `docs/services.md` + Step 7.5), and OpenCode connects via `type: "remote"` + `url` + `enabled` + `timeout` (default 5000ms; ours are raised — 15s standard, 30s telegram, 120s blowsh, 600s LLM bridges). No session ever spawns its own server processes: with 2+ sessions open the OS process count per server stays exactly one.
 
 ```json
 {
@@ -198,44 +198,46 @@ Write the following JSON (replace `$HOME` with the actual home directory path, a
   "plugin": ["@prevalentware/opencode-goal-plugin", "@tarquinen/opencode-dcp@latest"],
   "mcp": {
     "custom_context": {
-      "type": "local",
-      "command": ["uv", "run", "--project", "$HOME/.config/opencode/mcp-context-server", "$HOME/.config/opencode/mcp-context-server/server.py"],
+      "type": "remote",
+      "url": "http://127.0.0.1:8102/mcp",
       "enabled": true,
       "timeout": 15000
     },
     "project_memory": {
-      "type": "local",
-      "command": ["uv", "run", "--project", "$HOME/.config/opencode/mcp-memory-server", "$HOME/.config/opencode/mcp-memory-server/server.py"],
+      "type": "remote",
+      "url": "http://127.0.0.1:8103/mcp",
       "enabled": true,
       "timeout": 15000
     },
     "lint": {
-      "type": "local",
-      "command": ["uv", "run", "--project", "$HOME/.config/opencode/mcp-lint-server", "$HOME/.config/opencode/mcp-lint-server/server.py"],
+      "type": "remote",
+      "url": "http://127.0.0.1:8101/mcp",
       "enabled": true,
       "timeout": 15000
     },
-    "brain": {
-      "type": "local",
-      "command": ["uv", "run", "--project", "$HOME/.config/opencode/mcp-brain-bridge", "$HOME/.config/opencode/mcp-brain-bridge/server.py"],
+    "manager_decisions": {
+      "type": "remote",
+      "url": "http://127.0.0.1:8104/mcp",
       "enabled": true,
-      "timeout": 120000,
-      "environment": {
-        "OPENROUTER_API_KEY": "{env:OPENROUTER_API_KEY}",
-        "BRAIN_MODEL": "{env:BRAIN_MODEL}"
-      }
+      "timeout": 600000
+    },
+    "brain": {
+      "type": "remote",
+      "url": "http://127.0.0.1:8105/mcp",
+      "enabled": true,
+      "timeout": 600000
     },
     "blowsh": {
-      "type": "local",
-      "command": ["docker", "run", "--rm", "-i", "ghcr.io/mokhtarabadi/blowsh-mcp:latest"],
+      "type": "remote",
+      "url": "http://127.0.0.1:8107/mcp",
       "enabled": true,
       "timeout": 120000
     },
     "telegram": {
-      "type": "local",
-      "command": ["uv", "--directory", "$HOME/.config/opencode/mcp-telegram-server", "run", "main.py", "/tmp/telegram-mcp", "$HOME/.config/opencode/mcp-telegram-server/downloads"],
+      "type": "remote",
+      "url": "http://127.0.0.1:8106/mcp",
       "enabled": true,
-      "timeout": 15000
+      "timeout": 30000
     }
   },
   "permission": {
@@ -282,13 +284,46 @@ OpenCode 1 reads `plugin` from **both** `opencode.json` (server/tools) and `tui.
 
 **Important:** Replace `$HOME` with the actual absolute path resolved in Step 3 (e.g., `/home/alice` or `/Users/alice`). This is critical — MCP servers will NOT work with relative paths or `~` in the global config because OpenCode may be invoked from any working directory.
 
-**Launch form + credentials:** all local servers launch as `uv run --project <server-dir> <server-dir>/server.py` so dependencies resolve from each server's committed `uv.lock` (reproducible installs). The brain bridge timeout is 600000ms (10 min) — LLM turns need it. The `environment` block uses `{env:VAR}` substitution — it forwards vars from OpenCode's own process environment, so **export your `.env` before launching OpenCode** (`set -a; source ~/.config/opencode/.env; set +a`) or the bridge starts keyless. Belt and suspenders: the server also self-loads `.env` files at import (`<server-dir>/.env` → install-root `.env` → `<cwd>/.env`, never overriding real env), so project runs work even when the parent env is bare.
+**Launch form + credentials:** no session spawns servers anymore — the 7 singletons run as supervised services on `127.0.0.1:8101-8107` (started in Step 7.5, full map in `docs/services.md`), and the config above only points at them via `type: "remote"`. The old per-session stdio storm (and its `mcp connect failed: Request timed out` failures, ~200/day before the 2026-09-29 singleton fix) is gone by construction. The brain/decision timeouts stay 600000ms (10 min) — LLM turns need it. Credentials (`BRAIN_*`, `DECISION_*`, telegram session) live in each singleton's own environment (systemd unit `Environment=` lines or the server dir `.env`), NOT in the OpenCode config — the servers self-load `.env` at import (`<server-dir>/.env` → install-root `.env` → `<cwd>/.env`, never overriding real env). Telegram prerequisites (clone + `uv sync` + `.env` + allowed-root dirs) are still installed per §7.6 — only the launch moved into the `mcp-telegram` service.
 
 **QA/review run through the bridge:** the Hands calls `brain_turn` with the instruction + task file (see the Bridge section in `agents/cognitive-executor.md`). No per-persona commands or learning stores.
 
-> **Project vs Global `opencode.json` + `tui.json` (Option A fix 2026-08-25, updated 2026-08-28 for @prevalentware, 2026-09-05 for @tarquinen/opencode-dcp):** The **repo's** `opencode.json` (committed) intentionally uses **relative** paths for the 4 local servers — `mcp-context-server/server.py`, `mcp-memory-server/server.py`, `mcp-lint-server/server.py`, `mcp-brain-bridge/server.py` — so `opencode mcp list` inside the clone shows `✓ connected` without shell expansion (verified `uv run $HOME/...` fails with `No such file or directory`). Using literal `$HOME` in the repo's `command` array breaks local launches because OpenCode does not expand env vars. The **global** `~/.config/opencode/opencode.json` (created here) **must** use absolute paths as in the JSON above. `plugin` arrays (goal + DCP) are **identical** in project and global by design — no relative/absolute split for plugins. `blowsh` (docker) and `telegram` stay `enabled:false` with `$HOME` placeholders in the repo (they require the global install at `~/.config/opencode/mcp-telegram-server/`), while the global enables them `true` with absolute roots. New installations and `global-install-upgrade` (Step 5 in `.opencode/memory/workflows/global-install-upgrade.md`) must keep this split — `diff -q opencode.json ~/.config/opencode/opencode.json` will always differ (relative vs absolute) by design; verify project shows `uv run mcp-*-server/server.py` and global shows `/home/...`. Verify parity with `diff -q tui.json ~/.config/opencode/tui.json && echo "tui.json in sync ✓"` and `grep -q "@tarquinen/opencode-dcp" opencode.json && grep -q "@tarquinen/opencode-dcp" ~/.config/opencode/opencode.json && echo "DCP plugin both ✓"`.
+> **Project vs Global `opencode.json` + `tui.json` (Option A fix 2026-08-25, updated 2026-08-28 for @prevalentware, 2026-09-05 for @tarquinen/opencode-dcp, 2026-09-29 singleton cutover):** The **repo's** `opencode.json` (committed) carries **no `mcp` section at all** — all 7 servers live in the **global** `~/.config/opencode/opencode.json` (created here) as `type: "remote"` loopback URLs (`http://127.0.0.1:8101-8107/mcp`, identical for every user — no per-machine paths). `plugin` arrays (goal + DCP) are **identical** in project and global by design. New installations and `global-install-upgrade` (Step 5 in `.opencode/memory/workflows/global-install-upgrade.md`) must keep this split — `diff -q opencode.json ~/.config/opencode/opencode.json` will always differ (repo has no `mcp`, global has 7 remote entries) by design; verify global shows 7 `127.0.0.1:810*/mcp` URLs. Verify parity with `diff -q tui.json ~/.config/opencode/tui.json && echo "tui.json in sync ✓"` and `grep -q "@tarquinen/opencode-dcp" opencode.json && grep -q "@tarquinen/opencode-dcp" ~/.config/opencode/opencode.json && echo "DCP plugin both ✓"`.
 
-**Telegram is optional but auto-configured:** the entry above points at `~/.config/opencode/mcp-telegram-server` (installed in the opencode config dir per global-install-upgrade, absolute path required) with two allowed roots (`/tmp/telegram-mcp` for temp state + `~/.config/opencode/mcp-telegram-server/downloads` for exported media). If you cloned elsewhere, update the `--directory` and the trailing roots — keep them inside `$HOME` or `/tmp` and ensure `telegram_download_media` can write there. The server is installed in Step 7.6 even before you have API credentials; it stays idle (no `TELEGRAM_SESSION_STRING`) until you finish 7.6. For Docker blowsh no host binary is needed — `docker pull ghcr.io/mokhtarabadi/blowsh-mcp:latest` on first `fetch_web` run.
+**Telegram is optional but auto-configured:** the entry above points at `~/.config/opencode/mcp-telegram-server` (installed in the opencode config dir per global-install-upgrade, absolute path required) with two allowed roots (`/tmp/telegram-mcp` for temp state + `~/.config/opencode/mcp-telegram-server/downloads` for exported media). If you cloned elsewhere, update the venv-python path, the `main.py` path and the trailing roots — keep them inside `$HOME` or `/tmp` and ensure `telegram_download_media` can write there. The server is installed in Step 7.6 even before you have API credentials; it stays idle (no `TELEGRAM_SESSION_STRING`) until you finish 7.6. For Docker blowsh no host binary is needed — `docker pull ghcr.io/mokhtarabadi/blowsh-mcp:latest` on first `fetch_web` run.
+
+---
+
+## 7.5. Start the Singleton Services (Required)
+
+The config in Step 7 points at services — they must be running before OpenCode connects. Full reference: `docs/services.md`.
+
+```bash
+# Python singletons (Linux): install + start the 6 systemd user units
+# (run from your clone of this repo — services/ ships in the clone, no /tmp copy needed)
+mkdir -p ~/.config/systemd/user
+cp services/mcp-*.service ~/.config/systemd/user/
+systemctl --user daemon-reload
+for s in lint context memory decision brain telegram; do
+  systemctl --user enable --now mcp-$s
+done
+
+# Blowsh singleton (any OS with Docker): one persistent container
+docker run -d --name blowsh-singleton --restart unless-stopped \
+  -p 127.0.0.1:8107:8107 \
+  -e MCP_TRANSPORT=http -e MCP_HOST=0.0.0.0 -e MCP_PORT=8107 \
+  -e BROWSH_PROFILE_DIR=/data/browsh-profile \
+  -v blowsh-profile:/data/browsh-profile \
+  ghcr.io/mokhtarabadi/blowsh-mcp:latest
+```
+
+macOS/Windows equivalents (launchd plist template, Task Scheduler/NSSM): `docs/services.md`.
+
+Verify before continuing:
+
+```bash
+opencode mcp list   # 7/7 connected
+```
 
 ---
 
@@ -334,7 +369,7 @@ Do **not** `pip install telegram-mcp` / `uvx telegram-mcp` — that name on PyPI
 - Requires Docker only (no Firefox/Browsh on host):
 ```bash
 docker pull ghcr.io/mokhtarabadi/blowsh-mcp:latest
-docker run --rm -i ghcr.io/mokhtarabadi/blowsh-mcp:latest  # smoke test: should wait for JSON-RPC on stdin
+docker run --rm ghcr.io/mokhtarabadi/blowsh-mcp:latest node -e "console.log('image ok')"  # image smoke test (server itself runs as the persistent singleton, not stdio)
 ```
 - If you cannot use Docker, install natively: Node 20.18+, Firefox in PATH, Browsh CLI, `html2markdown` — see https://github.com/mokhtarabadi/blowsh-mcp#installation. Then change the `blowsh` command to `["node", "dist/server.js"]` with the native checkout path.
 
@@ -614,7 +649,7 @@ After completing all steps, verify:
 - [ ] DCP loads: `opencode plugin list` shows `@tarquinen/opencode-dcp`, `/dcp` panel opens, `~/.config/opencode/dcp.jsonc` created on first run (project `.opencode/dcp.jsonc` overrides if present)
 - [ ] worktrees: OpenChamber native via sidebar/dialog (`https://docs.openchamber.dev/worktrees/`) — no `owt` required; if owt reinstalled, `owt help` + `~/.config/opencode/plugins/worktree-plugin.js` + `/init-worktree` after restart
 - [ ] (optional) OpenChamber: if user requested multi-device, `npm list -g @openchamber/web` shows 2.x, `openchamber status` password:yes, `ss -tlnp | grep 3005` shows `100.82.29.19:3005` (not 0.0.0.0), `curl http://100.82.29.19:3005/ → 200` / public `194.76.154.73:3005 → refused`, `openchamber startup status` shows enabled+active+lingering, `docs/openchamber-tailscale.md` present; if not requested, this check is N/A
-- [ ] `~/.config/opencode/opencode.json` `blowsh` uses `docker run --rm -i ghcr.io/mokhtarabadi/blowsh-mcp:latest` (120s timeout) and `telegram` uses `uv --directory $HOME/.config/opencode/mcp-telegram-server run main.py` with allowed roots (`/tmp/telegram-mcp` + config dir downloads)
+- [ ] `~/.config/opencode/opencode.json` all 7 `mcp` entries are `type: "remote"` loopback URLs (8101 lint, 8102 context, 8103 memory, 8104 decisions, 8105 brain, 8106 telegram timeout 30000, 8107 blowsh timeout 120000) served by the supervised singletons — no stdio/`uv run` entries remain
 - [ ] `~/.config/opencode/opencode-shell-strategy.md` exists (instructions file referenced by the `instructions` key)
 - [ ] `/tmp/cognitive-lead-hq` no longer exists
 - [ ] `docker pull ghcr.io/mokhtarabadi/blowsh-mcp:latest` succeeds (or `docker` not installed → blowsh stays disabled, document it)
@@ -622,12 +657,12 @@ After completing all steps, verify:
 - [ ] Telegram smoke check (only if `TELEGRAM_SESSION_STRING` set): `telegram_get_messages` or `list_accounts` returns without `No Telegram session configured`
 - [ ] No former browser MCP remains in configs: `grep -R "former-browser" opencode.json LLM.txt docs/ ~/.config/opencode/opencode.json ~/.agents/mcp.json` check described here validates that removal is complete (automated check in task 111 greps for the retired browser name)
 - [ ] `docs/telegram-setup.md` exists and is linked from `README.md` and this file
-- [ ] Start each local MCP server to verify it launches without errors (locked `--project` form):
+- [ ] Start each local MCP server to verify it launches without errors (direct venv form):
   ```bash
-  uv run --project ~/.config/opencode/mcp-context-server ~/.config/opencode/mcp-context-server/server.py &
-  uv run --project ~/.config/opencode/mcp-memory-server ~/.config/opencode/mcp-memory-server/server.py &
-  uv run --project ~/.config/opencode/mcp-lint-server ~/.config/opencode/mcp-lint-server/server.py &
-  uv run --project ~/.config/opencode/mcp-brain-bridge ~/.config/opencode/mcp-brain-bridge/server.py &
+  ~/.config/opencode/mcp-context-server/.venv/bin/python ~/.config/opencode/mcp-context-server/server.py &
+  ~/.config/opencode/mcp-memory-server/.venv/bin/python ~/.config/opencode/mcp-memory-server/server.py &
+  ~/.config/opencode/mcp-lint-server/.venv/bin/python ~/.config/opencode/mcp-lint-server/server.py &
+  ~/.config/opencode/mcp-brain-bridge/.venv/bin/python ~/.config/opencode/mcp-brain-bridge/server.py &
   ```
 
 ---

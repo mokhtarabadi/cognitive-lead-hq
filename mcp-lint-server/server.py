@@ -14,8 +14,11 @@ task file template. Uses regex-based checks to avoid heavy dependencies
 while covering the most critical formatting and structural rules.
 """
 
+import contextvars
+import functools
 import re
 import os
+import sys
 import tempfile
 import difflib
 from pathlib import Path
@@ -25,7 +28,31 @@ from mcp.server.fastmcp import FastMCP
 
 # --- FastMCP Application ---
 
-mcp = FastMCP("LintServer")
+mcp = FastMCP("LintServer", host="127.0.0.1", port=8101)
+
+
+# Client-visible project-isolation warning (Task 279 F6/V1); see
+# mcp-context-server for rationale. No absolute paths echoed (privacy).
+_FALLBACK_FIRED: contextvars.ContextVar[bool] = contextvars.ContextVar(
+    "lint_fallback_fired", default=False)
+ROOT_FALLBACK_WARNING = (
+    "WARNING [project-isolation]: project_root was omitted, so this call "
+    "was scoped to the singleton server's own directory instead of the "
+    "calling project. Pass an absolute project_root on every call.")
+
+
+def _project_tool(fn):
+    """Register an MCP tool that surfaces root-fallback client-visibly."""
+    @functools.wraps(fn)
+    def wrapper(*args, **kwargs):
+        _FALLBACK_FIRED.set(False)
+        out = fn(*args, **kwargs)
+        if not _FALLBACK_FIRED.get():
+            return out
+        if isinstance(out, str):
+            return ROOT_FALLBACK_WARNING + "\n" + out
+        return out
+    return mcp.tool()(wrapper)
 
 
 # --- Internal Linting Functions ---
@@ -395,8 +422,31 @@ def _check_report_evidence_body(pre_diff: str) -> list[str]:
 
 # --- MCP Tools ---
 
-@mcp.tool()
-def lint_markdown(file_path: str) -> str:
+def _explicit_project_root(project_root: str | None, tool_name: str) -> Path:
+    """Validate a per-call project root (Task 279 project_path).
+
+    Returns the resolved absolute directory. When omitted, falls back to
+    the server working directory with a stderr warning (backward
+    compatible single-project behavior). Raises ValueError naming the
+    field for relative, missing, or non-directory input.
+    """
+    if project_root is None:
+        root = Path.cwd().resolve()
+        _FALLBACK_FIRED.set(True)
+        print(f"Warning: {tool_name}: project_root omitted, falling back to server cwd {root}",
+              file=sys.stderr)
+        return root
+    if not isinstance(project_root, str) or not project_root:
+        raise ValueError("project_root must be a non-empty absolute path string.")
+    if not Path(project_root).is_absolute():
+        raise ValueError(f"project_root must be absolute, got: {project_root!r}.")
+    root = Path(project_root).resolve()
+    if not root.is_dir():
+        raise ValueError(f"project_root must be an existing directory, got: {project_root!r}.")
+    return root
+
+@_project_tool
+def lint_markdown(file_path: str, project_root: str | None = None) -> str:
     """
     Lint a Markdown file for basic formatting issues.
 
@@ -405,11 +455,16 @@ def lint_markdown(file_path: str) -> str:
 
     Args:
         file_path: Absolute or relative path to the Markdown file.
+        project_root: Absolute path to the calling project's repository root. Used to scope file resolution to that project. If omitted, falls back to the server working directory for backward compatibility.
 
     Returns:
         A success message or a list of formatting issues found.
     """
-    path = Path(file_path)
+    try:
+        workspace_root = _explicit_project_root(project_root, "lint_markdown")
+    except ValueError as e:
+        return f"Error: {e}"
+    path = Path(file_path) if Path(file_path).is_absolute() else workspace_root / file_path
     if not path.is_file():
         return f"Error: File not found: {file_path}"
 
@@ -427,8 +482,8 @@ def lint_markdown(file_path: str) -> str:
     return f"⚠️ {len(issues)} issues found in {file_path}:\n" + "\n".join(f"- {i}" for i in issues)
 
 
-@mcp.tool()
-def lint_task_file(task_file_path: str) -> str:
+@_project_tool
+def lint_task_file(task_file_path: str, project_root: str | None = None) -> str:
     """
     Validate a task file against the canonical template.
 
@@ -438,11 +493,16 @@ def lint_task_file(task_file_path: str) -> str:
 
     Args:
         task_file_path: Absolute or relative path to the task .md file.
+        project_root: Absolute path to the calling project's repository root. Used to scope file resolution to that project. If omitted, falls back to the server working directory for backward compatibility.
 
     Returns:
         A success message or a combined list of structural and formatting issues.
     """
-    path = Path(task_file_path)
+    try:
+        workspace_root = _explicit_project_root(project_root, "lint_task_file")
+    except ValueError as e:
+        return f"Error: {e}"
+    path = Path(task_file_path) if Path(task_file_path).is_absolute() else workspace_root / task_file_path
     if not path.is_file():
         return f"Error: File not found: {task_file_path}"
 
@@ -466,8 +526,8 @@ def lint_task_file(task_file_path: str) -> str:
     )
 
 
-@mcp.tool()
-def lint_all_tasks(include_archive: bool = False) -> str:
+@_project_tool
+def lint_all_tasks(include_archive: bool = False, project_root: str | None = None) -> str:
     """
     Run lint_task_file on ALL task files across the ACTIVE Kanban subdirectories.
 
@@ -478,11 +538,16 @@ def lint_all_tasks(include_archive: bool = False) -> str:
 
     Args:
         include_archive: If True, also scans tasks/archive/ (default False).
+        project_root: Absolute path to the calling project's repository root. Used to scope file resolution to that project. If omitted, falls back to the server working directory for backward compatibility.
 
     Returns:
         A summary report of the linting results.
     """
-    tasks_dir = Path("tasks")
+    try:
+        workspace_root = _explicit_project_root(project_root, "lint_all_tasks")
+    except ValueError as e:
+        return f"Error: {e}"
+    tasks_dir = workspace_root / "tasks"
     if not tasks_dir.is_dir():
         return "Error: `tasks/` directory not found."
 
@@ -679,8 +744,8 @@ def _check_system_prompt_sync(
             pass
 
 
-@mcp.tool()
-def lint_system_prompt_sync() -> str:
+@_project_tool
+def lint_system_prompt_sync(project_root: str | None = None) -> str:
     """
     Verify that the committed system-prompt.md is byte-identical to the output
     of assembling prompts/fragments/ + prompts/shared/.
@@ -690,15 +755,32 @@ def lint_system_prompt_sync() -> str:
     committed system-prompt.md. Use it before any commit to confirm the
     fragments (the true source of truth) and the generated file are in sync.
 
+    Args:
+        project_root: Absolute path to the calling project's repository root. Used to scope file resolution to that project. If omitted, falls back to the server working directory for backward compatibility.
+
     Returns:
         "✅ system-prompt.md is in sync with prompts/" when in sync, or a
         "⚠️ DRIFT DETECTED" message with a diff summary when they differ.
     """
-    in_sync, message = _check_system_prompt_sync()
+    try:
+        workspace_root = _explicit_project_root(project_root, "lint_system_prompt_sync")
+    except ValueError as e:
+        return f"Error: {e}"
+    in_sync, message = _check_system_prompt_sync(
+        fragments_dir=str(workspace_root / "prompts/fragments"),
+        shared_dir=str(workspace_root / "prompts/shared"),
+        manifest_path=str(workspace_root / "prompts/manifest.txt"),
+        system_prompt_path=str(workspace_root / "system-prompt.md"),
+    )
     return message
 
 
 # --- Entry Point ---
 
 if __name__ == "__main__":
-    mcp.run(transport="stdio")
+    _transport = os.environ.get("MCP_TRANSPORT", "streamable-http")
+    # Singleton default (Task 279 V3): all callers consume these servers as
+    # remote http singletons, so an unset MCP_TRANSPORT must not silently
+    # drop into stdio while the unit reports active. Explicit "stdio"
+    # still works for local debugging.
+    mcp.run(transport=_transport)

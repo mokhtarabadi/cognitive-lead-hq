@@ -15,7 +15,7 @@ Updates the machine-global installations of the Cognitive Lead AI HQ (MCP server
 
 | Component      | OpenCode                                                                                                       |
 | -------------- | -------------------------------------------------------------------------------------------------------------- |
-| MCP servers    | `~/.config/opencode/mcp-{context,memory,lint}-server/` + `~/.config/opencode/mcp-persona-server/` (4 modules, Task 167) + `~/.config/opencode/mcp-decision-server/` (2 modules, Task 168) + `~/.config/opencode/mcp-common/` (shared lib, Task 170); each with `pyproject.toml` + committed `uv.lock`, launched via `uv run --project <dir> <dir>/server.py` |
+| MCP servers    | `~/.config/opencode/mcp-{context,memory,lint}-server/` + `~/.config/opencode/mcp-persona-server/` (4 modules, Task 167) + `~/.config/opencode/mcp-decision-server/` (2 modules, Task 168) + `~/.config/opencode/mcp-common/` (shared lib, Task 170); each with `pyproject.toml` + committed `uv.lock`, launched via `<dir>/.venv/bin/python <dir>/server.py` (direct venv, never `uv run` — uv startup exceeds the V2 connect timeout under multi-session spawn load, 2026-09-29) |
 | Telegram MCP   | `~/.config/opencode/mcp-telegram-server/` (upstream clone of chigwell/telegram-mcp — no fork) |
 | Skills         | `~/.config/opencode/skills/<name>/SKILL.md` (synced 1:1 with `skill-templates/` — count varies, verify by diff not by number) |
 | Custom agents  | `~/.config/opencode/agents/{cognitive-executor,cognitive-discovery}.md` |
@@ -41,6 +41,16 @@ Updates the machine-global installations of the Cognitive Lead AI HQ (MCP server
 4. **Smoke-test**: `opencode mcp list` (expect ONLY the currently-enabled servers connected) + repo persona test suite (`rtk test uv run --project mcp-persona-server --with pytest --with pathspec pytest tests/ -q`).
 4b. **RTK install** (rule added 2026-09-12): the token-trimming runner from `docs/opencode-shell-strategy.md` §8. Install the musl binary when missing (`mkdir -p ~/.local/bin && curl -fsSL -o ~/.local/bin/rtk <release-url>/rtk-x86_64-unknown-linux-musl && chmod +x ~/.local/bin/rtk`), verify `rtk --version`. Never run `rtk init -g` — it rewrites the global OpenCode config.
 5. **Telegram MCP step 2.5** (upstream chigwell/telegram-mcp): lag check via `rev-list --count HEAD..origin/main`; run backup+rsync upgrade only when lag > 0. **Update-only — do NOT run telegram's own pytest suite** (its live-network tests hang ~300s on this machine and add nothing; `opencode mcp list` 5/5 is the sufficient smoke test). Rule set 2026-09-10 per Manager.
+
+## Migration Path: stdio to singleton remote (2026-09-29, Task 277/278)
+
+Existing users on per-session stdio entries migrate without reinstalling server code:
+
+1. **Backup global config:** `cp ~/.config/opencode/opencode.json ~/.config/opencode/opencode.json.bak-$(date +%Y%m%d-%H%M%S)`.
+2. **Start the singletons:** install `services/mcp-*.service` to `~/.config/systemd/user/`, `systemctl --user daemon-reload`, enable+start all six; start `blowsh-singleton` (`docker run -d --name blowsh-singleton --restart unless-stopped -p 127.0.0.1:8107:8107 -e MCP_TRANSPORT=http -e MCP_HOST=0.0.0.0 -e MCP_PORT=8107 -e BROWSH_PROFILE_DIR=/data/browsh-profile -v blowsh-profile:/data/browsh-profile <image>`).
+3. **Cut config:** replace each stdio `mcp.<name>` block with `{type: remote, url: http://127.0.0.1:<port>/mcp, enabled: true, timeout: <ms>}` (ports docs/services.md; telegram 30000, blowsh 120000, rest 15000). Validate JSON.
+4. **Verify:** `opencode mcp list` 7/7 connected in two sessions; exactly one process per server (`ps aux | grep -E 'mcp-|telegram_mcp' | grep -v grep`).
+5. **Rollback:** restore the backup config, restart sessions. HQ servers default to `streamable-http` when `MCP_TRANSPORT` is unset (explicit `stdio` still works for local debugging); telegram-mcp accepts `stdio|http|sse`.
 
 ## Key Facts
 

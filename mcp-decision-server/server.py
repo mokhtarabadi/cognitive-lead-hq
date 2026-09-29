@@ -26,7 +26,9 @@ never need network or credentials.
 
 from __future__ import annotations
 
+import contextvars
 import copy
+import functools
 import hashlib
 import json
 import os
@@ -75,7 +77,7 @@ if _loaded_from is not None:
 INSTALL_ROOT = Path(__file__).resolve().parent.parent
 
 
-def _repo_root() -> Path:
+def _repo_root(explicit_root: Optional[str] = None) -> Path:
     """Resolve (creating) the decision store — project-aware.
 
     Install-once configuration (B1): set ``DECISION_REPO_PATH`` ONCE in the
@@ -83,12 +85,35 @@ def _repo_root() -> Path:
     NEVER asked per call — every tool resolves the same path silently, and
     every record logs which store it landed in via ``_active_root_info``.
 
-    Order: explicit ``DECISION_REPO_PATH`` env, then
-    ``<cwd>/.opencode/decisions`` (each project keeps its OWN manager
-    notes — opencode launches servers with the project as cwd), then
-    ``<install-root>/.opencode/decisions`` as fallback. Creation failures
-    (e.g. read-only cwd) fall through to the next candidate.
+    Per-call override (Task 279 project_path): pass an explicit absolute
+    ``project_root`` to scope this call to another project's store
+    (``<project_root>/.opencode/decisions``). Invalid roots raise
+    ValueError naming the field; creation failures fail closed.
+
+    Order: per-call explicit root, explicit ``DECISION_REPO_PATH`` env, then
+    ``<cwd>/.opencode/decisions`` and ``<install-root>/.opencode/decisions``
+    as fallbacks. Under the Task 279 singleton the server cwd is the install
+    dir, NOT the calling project, so reaching either fallback candidate with
+    no explicit root arms a client-visible warning (Task 279 F6/V1).
+    Creation failures (e.g. read-only cwd) fall through to the next candidate.
     """
+    if explicit_root is not None:
+        if not isinstance(explicit_root, str) or not explicit_root:
+            raise ValueError("project_root must be a non-empty absolute path string.")
+        if not Path(explicit_root).is_absolute():
+            raise ValueError(f"project_root must be absolute, got: {explicit_root!r}.")
+        root = Path(explicit_root).resolve()
+        if not root.is_dir():
+            raise ValueError(f"project_root must be an existing directory, got: {explicit_root!r}.")
+        candidate = root / ".opencode" / "decisions"
+        try:
+            candidate.mkdir(parents=True, exist_ok=True)
+        except OSError as exc:
+            raise RuntimeError(
+                f"project_root {explicit_root!r} store is not usable ({exc}); "
+                "fix the path or omit it to use the default store"
+            ) from exc
+        return candidate
     explicit = os.environ.get("DECISION_REPO_PATH", "").strip()
     if explicit:
         root = Path(explicit)
@@ -104,6 +129,7 @@ def _repo_root() -> Path:
             ) from exc
         return root
     for base in (Path.cwd(), INSTALL_ROOT):
+        _FALLBACK_FIRED.set(True)
         candidate = base / ".opencode" / "decisions"
         try:
             candidate.mkdir(parents=True, exist_ok=True)
@@ -187,7 +213,34 @@ def _unpushed_report(repo: Path) -> str:
             f"git commit -m \"docs: record manager decisions\" && git push`.")
 
 
-mcp = FastMCP("ManagerDecisions")
+mcp = FastMCP("ManagerDecisions", host="127.0.0.1", port=8104)
+
+# Client-visible project-isolation warning (Task 279 F6/V1); see
+# mcp-context-server for rationale. No absolute paths echoed (P7 privacy).
+_FALLBACK_FIRED: contextvars.ContextVar[bool] = contextvars.ContextVar(
+    "decision_fallback_fired", default=False)
+ROOT_FALLBACK_WARNING = (
+    "WARNING [project-isolation]: project_root was omitted, so this call "
+    "was scoped to the singleton server's default store instead of the "
+    "calling project. Pass an absolute project_root on every call.")
+
+
+def _project_tool(fn):
+    """Register an MCP tool that surfaces root-fallback client-visibly."""
+    @functools.wraps(fn)
+    def wrapper(*args, **kwargs):
+        _FALLBACK_FIRED.set(False)
+        out = fn(*args, **kwargs)
+        if not _FALLBACK_FIRED.get():
+            return out
+        if isinstance(out, str):
+            return ROOT_FALLBACK_WARNING + "\n" + out
+        if isinstance(out, dict):
+            out = dict(out)
+            out.setdefault("project_root_warning", ROOT_FALLBACK_WARNING)
+            return out
+        return out
+    return mcp.tool()(wrapper)
 
 # Free-text fields that must pass verify_clean before any write.
 _SCRUB_FIELDS = ("original", "english_translation", "summary", "rationale", "tradeoffs")
@@ -1255,11 +1308,12 @@ def _sanitize_session_id(sid: object) -> str:
     return sid
 
 
-@mcp.tool()
+@_project_tool
 def extract_session_decisions(
     task_id: Optional[Union[int, str]] = None,
     transcript_path: Optional[str] = None,
     session_id: Optional[str] = None,
+    project_root: Optional[str] = None,
 ) -> list[dict[str, Any]]:
     """Extract manager trade-offs/rulings from a session transcript.
 
@@ -1282,6 +1336,10 @@ def extract_session_decisions(
         session_id: Taskless session scope
             (`tasks/.sessions/{session_id}/transcript.jsonl`) for turns
             that carry no task binding (GitHub issue 19, P5).
+        project_root: Absolute path to the calling project's repository
+            root. Used to scope file resolution to that project (transcript
+            lookup under `<root>/tasks/.sessions/`). If omitted, falls back
+            to the server working directory for backward compatibility.
 
     Returns:
         List of candidate decision dicts (may be empty when the session
@@ -1296,6 +1354,16 @@ def extract_session_decisions(
     if transcript_path:
         path = Path(transcript_path)
     else:
+        if project_root is not None:
+            if not isinstance(project_root, str) or not project_root:
+                raise ValueError("project_root must be a non-empty absolute path string.")
+            if not Path(project_root).is_absolute():
+                raise ValueError(f"project_root must be absolute, got: {project_root!r}.")
+            sessions_base = Path(project_root).resolve()
+            if not sessions_base.is_dir():
+                raise ValueError(f"project_root must be an existing directory, got: {project_root!r}.")
+        else:
+            sessions_base = Path.cwd()
         scope = session_id if session_id is not None else task_id
         if scope is None:
             raise ValueError(
@@ -1307,11 +1375,11 @@ def extract_session_decisions(
         ):
             sid = _sanitize_session_id(str(scope))
             path = (
-                Path.cwd() / "tasks" / ".sessions" / sid / "transcript.jsonl"
+                sessions_base / "tasks" / ".sessions" / sid / "transcript.jsonl"
             )
         else:
             path = (
-                Path.cwd() / "tasks" / ".sessions"
+                sessions_base / "tasks" / ".sessions"
                 / str(int(scope)) / "transcript.jsonl"
             )
     if not path.is_file():
@@ -1548,8 +1616,8 @@ def extract_session_decisions(
     return candidates
 
 
-@mcp.tool()
-def record_manager_decision(decision: dict[str, Any]) -> str:
+@_project_tool
+def record_manager_decision(decision: dict[str, Any], project_root: Optional[str] = None) -> str:
     """Redact, validate, and persist one manager decision; return its id.
 
     WHEN TO CALL (automatic): immediately after `extract_session_decisions`
@@ -1596,11 +1664,19 @@ def record_manager_decision(decision: dict[str, Any]) -> str:
     Returns:
         Human-readable confirmation including the decision id and paths.
 
+    project_root: Absolute path to the calling project's repository root.
+        Used to scope file resolution to that project (decision store under
+        `<root>/.opencode/decisions`). If omitted, falls back to the server
+        working directory for backward compatibility.
+
     Raises:
         ValueError: On redaction failure or schema violations — nothing is
             written in that case (append-only store stays clean).
     """
-    repo = _repo_root()
+    try:
+        repo = _repo_root(project_root)
+    except (ValueError, RuntimeError) as e:
+        return f"Error: {e}"
     print(f"decision-server: active store: {_active_root_info(repo)}", file=sys.stderr)
     (repo / "decisions").mkdir(parents=True, exist_ok=True)
     _ensure_fresh(repo)
@@ -1656,8 +1732,8 @@ def record_manager_decision(decision: dict[str, Any]) -> str:
             f"{_unpushed_report(repo)}")
 
 
-@mcp.tool()
-def query_manager_decisions(query: str, category: Optional[str] = None) -> str:
+@_project_tool
+def query_manager_decisions(query: str, category: Optional[str] = None, project_root: Optional[str] = None) -> str:
     """Search stored decisions by keyword (+ optional category).
 
     WHEN TO CALL (automatic): BEFORE paging the human manager with a
@@ -1675,8 +1751,12 @@ def query_manager_decisions(query: str, category: Optional[str] = None) -> str:
     Args:
         query: Keyword(s); blank returns everything in the category.
         category: Optional category filter (see schema enum).
+        project_root: Absolute path to the calling project's repository root. Used to scope file resolution to that project (decision store under `<root>/.opencode/decisions`). If omitted, falls back to the server working directory for backward compatibility.
     """
-    repo = _repo_root()
+    try:
+        repo = _repo_root(project_root)
+    except (ValueError, RuntimeError) as e:
+        return f"Error: {e}"
     try:
         _ensure_fresh(repo)
     except RuntimeError as exc:
@@ -1759,13 +1839,17 @@ def query_manager_decisions(query: str, category: Optional[str] = None) -> str:
     return f"{len(hits)} decision(s) match:\n\n" + "\n\n".join(hits)
 
 
-@mcp.tool()
-def get_sync_status() -> str:
+@_project_tool
+def get_sync_status(project_root: Optional[str] = None) -> str:
     """Report pending push debt at session start (M3): uncommitted files and
     unpushed commits in the decision store, plus which store is active.
     Read-only; never pushes or commits (ZAC). Call it when a session opens
-    so silent sync debt is visible before new records land."""
-    repo = _repo_root()
+    so silent sync debt is visible before new records land.
+    project_root: Absolute path to the calling project's repository root. Used to scope file resolution to that project (decision store under `<root>/.opencode/decisions`). If omitted, falls back to the server working directory for backward compatibility."""
+    try:
+        repo = _repo_root(project_root)
+    except (ValueError, RuntimeError) as e:
+        return f"Error: {e}"
     try:
         fresh = _ensure_fresh(repo)
     except RuntimeError as exc:
@@ -1773,8 +1857,8 @@ def get_sync_status() -> str:
     return f"{_active_root_info(repo)}; {fresh}; {_unpushed_report(repo)}"
 
 
-@mcp.tool()
-def get_manager_profile() -> str:
+@_project_tool
+def get_manager_profile(project_root: Optional[str] = None) -> str:
     """Return `samples/manager_profile.md` for agent context injection.
 
     WHEN TO CALL (automatic): inject its output into your reasoning whenever
@@ -1785,8 +1869,12 @@ def get_manager_profile() -> str:
     The baseline section is curated; the generated aggregate (if any) comes
     from reviewed compilations only — this tool never synthesizes guidance.
     Returns an explanatory message (not an error) when the sample is absent.
+    project_root: Absolute path to the calling project's repository root. Used to scope file resolution to that project (decision store under `<root>/.opencode/decisions`). If omitted, falls back to the server working directory for backward compatibility.
     """
-    profile = _repo_root() / "samples" / "manager_profile.md"
+    try:
+        profile = _repo_root(project_root) / "samples" / "manager_profile.md"
+    except (ValueError, RuntimeError) as e:
+        return f"Error: {e}"
     try:
         _ensure_fresh(profile.parent.parent)
     except RuntimeError as exc:
@@ -1798,8 +1886,8 @@ def get_manager_profile() -> str:
     return profile.read_text(encoding="utf-8")
 
 
-@mcp.tool()
-def propose_profile_evolution() -> dict[str, Any]:
+@_project_tool
+def propose_profile_evolution(project_root: Optional[str] = None) -> dict[str, Any]:
     """Draft a profile update for MANAGER approval (review gate enforced).
 
     WHEN TO CALL (automatic): only when new recorded decisions exist that
@@ -1814,8 +1902,12 @@ def propose_profile_evolution() -> dict[str, Any]:
     Returns:
         Dict with `status` (`"DRAFT_READY"` / `"EMPTY"` / `"ERROR"`) and the
         `draft` text (or reason). Never raises — failures arrive as ERROR.
+        project_root: Absolute path to the calling project's repository root. Used to scope file resolution to that project (decision store under `<root>/.opencode/decisions`). If omitted, falls back to the server working directory for backward compatibility.
     """
-    repo = _repo_root()
+    try:
+        repo = _repo_root(project_root)
+    except (ValueError, RuntimeError) as e:
+        return {"status": "ERROR", "draft": f"Error: {e}"}
     script = repo / "scripts" / "compile_profile.py"
     if not script.is_file():
         return {"status": "ERROR", "draft": f"compile script missing: {script}"}
@@ -1835,4 +1927,9 @@ def propose_profile_evolution() -> dict[str, Any]:
 
 
 if __name__ == "__main__":
-    mcp.run(transport="stdio")
+    _transport = os.environ.get("MCP_TRANSPORT", "streamable-http")
+    # Singleton default (Task 279 V3): all callers consume these servers as
+    # remote http singletons, so an unset MCP_TRANSPORT must not silently
+    # drop into stdio while the unit reports active. Explicit "stdio"
+    # still works for local debugging.
+    mcp.run(transport=_transport)

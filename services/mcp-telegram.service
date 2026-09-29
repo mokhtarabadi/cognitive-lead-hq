@@ -1,0 +1,21 @@
+[Unit]
+Description=MCP Telegram Server singleton (native HTTP, loopback only)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/.config/opencode/mcp-telegram-server
+# Trailing args are the two allowed file roots (temp state + media exports).
+# Adjust them here if you cloned telegram-mcp elsewhere; keep them inside
+# $HOME or /tmp so telegram_download_media can write there.
+ExecStart=%h/.config/opencode/mcp-telegram-server/.venv/bin/python %h/.config/opencode/mcp-telegram-server/main.py /tmp/telegram-mcp %h/.config/opencode/mcp-telegram-server/downloads
+Environment=MCP_TRANSPORT=http
+Environment=MCP_HOST=127.0.0.1
+Environment=MCP_PORT=8106
+# Telegram API creds resolve from <server-dir>/.env (see LLM.txt 7.6).
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=default.target
