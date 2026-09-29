@@ -34,6 +34,8 @@ the unit reports active; explicit `MCP_TRANSPORT=stdio` still works for
 local debugging). Telegram is third-party and honors `stdio | http | sse`
 (`http` in its unit files) plus `MCP_HOST` / `MCP_PORT` (defaults
 `127.0.0.1:8106`).
+
+OpenCode connects via
 `type: "remote"` entries in the global `opencode.json`:
 
 ```json
@@ -55,9 +57,6 @@ local debugging). Telegram is third-party and honors `stdio | http | sse`
 > carries a client-visible `WARNING [project-isolation]` line (plus the
 > existing stderr warning). Pass an absolute `project_root` on every
 > call.
-
-Telegram honors `MCP_HOST` / `MCP_PORT` (defaults
-`127.0.0.1:8106`).
 
 ## Linux (systemd user units)
 

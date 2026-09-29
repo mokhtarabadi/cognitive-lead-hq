@@ -493,7 +493,12 @@ def read_source_files(paths: list[str], max_size: int = 1048576, no_line_numbers
         for p in collect_files(src_path, ignore_filter):
             if "context-reports" in p.parts:
                 continue
-            files_to_process[p.resolve()] = p
+            resolved = p.resolve()
+            try:
+                resolved.relative_to(workspace_root)
+            except ValueError:
+                continue  # symlink/traversal escape: never read outside the project
+            files_to_process[resolved] = p
 
     if not files_to_process:
         return "No files found or all files were ignored."
@@ -624,6 +629,10 @@ def extract_signatures(file_path: str, project_root: str | None = None) -> str:
             path = workspace_root / file_path
         if not path.is_file():
             return f"Error: File not found: {file_path}"
+        try:
+            path.resolve().relative_to(workspace_root)
+        except ValueError:
+            return f"Error: path escapes project: {file_path}"
 
         result_content = None
 
