@@ -1,6 +1,6 @@
 # Task 276: Question-tool approval gates and brainstorming auto-load
 
-**File:** `tasks/qa/276-question-tool-gates-and-brainstorming-autoload.md`
+**File:** `tasks/completed/276-question-tool-gates-and-brainstorming-autoload.md`
 **Source:** manager
 **Type:** improvement
 **Status:** closed
@@ -72,6 +72,7 @@ Brain QA round 2026-09-27 (autopilot, same task_id): QA Engineer QA_PASSED with 
 Review Step 6 DONE 2026-09-27: Manager ran regen separately — `Assembled 95089 bytes -> system-prompt.md`; suite re-run — 689 passed, 10 warnings in 10.59s, exit 0. Ready for re-review.
 Re-review 2026-09-27 (Code Reviewer): APPROVED, PO_REVIEW_PENDING — "Code approved technically. PO, please review UX/Business logic. Reply 'Approved for closure' to commit and finish." No blocking issues. File stays in tasks/qa/ awaiting the exact PO phrase.
 Closure 2026-09-27: Manager replied "Approved for closure" (exact accept phrase). PO_REVIEW_PENDING verified (glob confirms file in tasks/qa/, grep confirms verdict in log). Status set closed. Deviation from closure XML: no shell tool exists in this runtime, so the `git mv tasks/qa/ → tasks/completed/` step cannot run here — `**File:**` header stays truthful at the qa path and the Manager runs the move plus push manually (same precedent as prior tool-only closure). Closure XML otherwise executed exactly once (single issuance).
+Kanban finalization 2026-10-01: the previously blocked `git mv tasks/qa/ → tasks/completed/` was completed now that a shell is available (`git mv` exit 0). `**File:**` header synced to the completed path; header was stale at the qa path since the closure turn. No content change beyond the path header.
 
 ## Factual Git Diff
 
