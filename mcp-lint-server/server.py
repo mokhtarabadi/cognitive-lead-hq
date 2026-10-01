@@ -600,20 +600,39 @@ def lint_all_tasks(include_archive: bool = False, project_root: str | None = Non
 # rule in opencode.json, so no permissions change is needed.
 
 
-def _load_assembler():
+def _load_assembler(base_dir: "Path | None" = None):
     """Dynamically import the assemble_system_prompt module from scripts/.
 
-    Uses importlib so the lint server (run via `uv run mcp-lint-server/server.py`
-    from the project root) can load the assembler without a package dependency.
+    Uses importlib so the lint server can load the assembler without a package
+    dependency.
+
+    Resolution order (first existing file wins):
+    1. ``<base_dir>/scripts/prompt-build/assemble_system_prompt.py`` — the
+       calling project's own assembler. This is required for the GLOBAL install,
+       where ``__file__`` lives under ``~/.config/opencode/mcp-lint-server/``
+       and the project tree is elsewhere; resolving only from ``__file__`` would
+       look for the assembler under ``~/.config/opencode/scripts/...`` and fail.
+    2. ``<this-file>/../scripts/prompt-build/assemble_system_prompt.py`` — the
+       repo layout, and the fallback used by tests whose temp ``system_prompt.md``
+       has no sibling ``scripts/`` tree.
     """
     import importlib.util
 
-    assembler_path = (
+    candidates = []
+    if base_dir is not None:
+        candidates.append(
+            Path(base_dir).resolve()
+            / "scripts"
+            / "prompt-build"
+            / "assemble_system_prompt.py"
+        )
+    candidates.append(
         Path(__file__).resolve().parent.parent
         / "scripts"
         / "prompt-build"
         / "assemble_system_prompt.py"
     )
+    assembler_path = next((p for p in candidates if p.is_file()), candidates[-1])
     spec = importlib.util.spec_from_file_location(
         "assemble_system_prompt", assembler_path
     )
@@ -656,8 +675,13 @@ def _check_system_prompt_sync(
     if not sp_path.is_file():
         return False, f"Error: File not found: {system_prompt_path}"
 
+    # Resolve the assembler from the workspace that owns system_prompt_path —
+    # NOT from this server file's location. In a global install the server runs
+    # from ~/.config/opencode/mcp-lint-server/, so a __file__-only resolution
+    # would miss the project's scripts/prompt-build/ tree.
+    base_dir = sp_path.resolve().parent
     try:
-        assembler = _load_assembler()
+        assembler = _load_assembler(base_dir)
     except FileNotFoundError as e:
         return False, f"Error: Assembler not found at {e}"
     except Exception as e:

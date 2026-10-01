@@ -1403,11 +1403,20 @@ def test_lint_system_prompt_sync_detects_drift():
         shutil.copy(repo_root / "prompts" / "manifest.txt", manifest)
 
         # Mutate a fragment in the temp copy.
+        # Target a string present in the CURRENT fragment — the old
+        # "January 2025" cutoff text was removed by Task 280, which left this
+        # guard silently passing (no mutation => no drift => false clean).
         fpath = frag_dir / "03-system_context.md"
         original = fpath.read_text(encoding="utf-8")
-        fpath.write_text(
-            original.replace("January 2025", "January 2099"), encoding="utf-8"
+        mutated = original.replace(
+            "post-2025 facts as unverified",
+            "post-2025 facts as ABSOLUTELY VERIFIED (mutated)",
         )
+        assert mutated != original, (
+            "drift-guard fixture is stale: mutation target missing from "
+            "03-system_context.md"
+        )
+        fpath.write_text(mutated, encoding="utf-8")
 
         # The committed system-prompt.md is unchanged — drift must be detected.
         in_sync, msg = mod._check_system_prompt_sync(
@@ -1925,7 +1934,9 @@ def test_lint_system_prompt_sync_handles_assembler_load_failure(monkeypatch):
     spec.loader.exec_module(mod)
 
     # Replace _load_assembler with a synthetic failing loader.
-    def _failing_loader():
+    # Accept arbitrary args: _check_system_prompt_sync now passes the resolved
+    # workspace base_dir, and this stub only needs to raise.
+    def _failing_loader(*args, **kwargs):
         raise SyntaxError("synthetic assembler load failure")
 
     monkeypatch.setattr(mod, "_load_assembler", _failing_loader)
