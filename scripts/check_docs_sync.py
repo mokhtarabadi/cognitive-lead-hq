@@ -2,7 +2,7 @@
 """Docs-sync gate: permission denies vs docs table, plus orphan-script scan.
 
 Check 1 (strict, exit non-zero on drift): the repo and global
-opencode.json `permission.bash` deny sets must match, and every denied
+opencode.json `permission.shell` deny sets must match, and every denied
 verb must appear in the Denied commands table in
 docs/opencode-shell-strategy.md.
 
@@ -28,7 +28,7 @@ TEXT_SUFFIXES = {".md", ".json", ".py", ".toml", ".txt", ".js"}
 
 def _deny_set(path: Path) -> set[str]:
     data = json.loads(path.read_text(encoding="utf-8"))
-    return set(data.get("permission", {}).get("bash", {}))
+    return set(data.get("permission", {}).get("shell", {}))
 
 
 def _check_denies() -> list[str]:
@@ -37,7 +37,11 @@ def _check_denies() -> list[str]:
     global_cfg = GLOBAL / "opencode.json"
     if global_cfg.is_file():
         glob = _deny_set(global_cfg)
-        if repo != glob:
+        # Only compare when the platform is installed globally (its deny set
+        # exists). A minimal/global config without permission.shell means the
+        # cognitive platform is not installed on this machine — nothing to
+        # compare, so skip the equality check.
+        if glob and repo != glob:
             errors.append(
                 f"deny sets differ: repo-only={sorted(repo - glob)} "
                 f"global-only={sorted(glob - repo)}")

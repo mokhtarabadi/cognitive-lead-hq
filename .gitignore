@@ -42,14 +42,12 @@ context-reports/
 # Telegram Downloads
 downloads/
 
-# Goal plugin state (per-project)
+# OpenCode runtime state (goal/session/worktree dirs if a tool recreates them)
 .opencode/goals/
-
-# worktree state (owt removed 2026-09-08 — keep guards if owt reinstalled; OpenChamber worktrees are SDK-managed)
-.opencode/worktrees/
 .opencode/worktree-sessions.json
+.opencode/worktrees/
 
-# Persona session transcripts (runtime audit trail, never committed)
+# Tracked task transcripts (runtime audit trail for Brain sessions)
 tasks/.sessions/
 
 # Python/pytest runtime caches (never committed)

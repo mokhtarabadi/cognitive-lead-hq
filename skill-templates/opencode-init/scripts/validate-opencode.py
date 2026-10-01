@@ -113,7 +113,7 @@ def validate(cfg: dict) -> list[str]:
                 continue
             if isinstance(decision, dict):
                 # Scoped sub-map (e.g. external_directory): leaves must be
-                # allow|ask|deny. The golden file proves this V1 shape.
+                # allow|ask|deny. The golden file proves this V2 shape.
                 for scope, leaf in decision.items():
                     if leaf not in ("allow", "ask", "deny"):
                         errors.append(
@@ -121,13 +121,13 @@ def validate(cfg: dict) -> list[str]:
                         )
             elif decision not in ("allow", "ask", "deny"):
                 errors.append(f"permission[{tool!r}] must be allow|ask|deny")
-        bash = perm.get("bash")
-        if not isinstance(bash, dict):
-            errors.append("permission.bash must be a command-pattern map")
+        shell = perm.get("shell")
+        if not isinstance(shell, dict):
+            errors.append("permission.shell must be a command-pattern map")
         else:
             for pattern in ZAC_DENIES:
-                if bash.get(pattern) != "deny":
-                    errors.append(f"permission.bash[{pattern!r}] must be 'deny'")
+                if shell.get(pattern) != "deny":
+                    errors.append(f"permission.shell[{pattern!r}] must be 'deny'")
     if "mcp" in cfg:
         errors.append(
             "mcp is global-only (install in ~/.config/opencode/opencode.json); "

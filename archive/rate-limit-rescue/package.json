@@ -1,7 +1,7 @@
 {
   "name": "rate-limit-rescue",
   "version": "1.0.0",
-  "description": "Free-tier 429 rescue: runs the env-configured command, logs JSONL metrics, retries after 30s. All other errors untouched.",
+  "description": "Free-tier 429 rescue: runs the env-configured command, logs JSONL metrics, retries after 2s. All other errors untouched.",
   "type": "module",
   "main": "./index.js",
   "dependencies": {

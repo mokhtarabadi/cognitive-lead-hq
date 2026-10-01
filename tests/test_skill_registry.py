@@ -181,11 +181,11 @@ def test_validate_opencode_script():
     base = json.loads(golden.read_text(encoding="utf-8"))
     assert run(base) == (0, ""), "golden file must validate clean"
     v2 = dict(base)
-    v2["permissions"] = [{"permission": "bash", "pattern": "*", "decision": "deny"}]
+    v2["permissions"] = [{"permission": "shell", "pattern": "*", "decision": "deny"}]
     code, out = run(v2)
     assert code == 1 and "permissions[]" in out
     no_zac = json.loads(json.dumps(base))
-    del no_zac["permission"]["bash"]["git push *"]
+    del no_zac["permission"]["shell"]["git push *"]
     code, out = run(no_zac)
     assert code == 1 and "git push *" in out
     secret = json.loads(json.dumps(base))
@@ -336,7 +336,7 @@ def test_validate_mcp_rejected_global_only():
 
 def test_validate_partial_zac_rejected():
     cfg = _fresh_golden()
-    del cfg["permission"]["bash"]["git commit"]
+    del cfg["permission"]["shell"]["git commit"]
     code, out = _run_validator(cfg)
     assert code == 1 and "git commit" in out
 

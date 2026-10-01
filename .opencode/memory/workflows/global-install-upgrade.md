@@ -15,18 +15,18 @@ Updates the machine-global installations of the Cognitive Lead AI HQ (MCP server
 
 | Component      | OpenCode                                                                                                       |
 | -------------- | -------------------------------------------------------------------------------------------------------------- |
-| MCP servers    | `~/.config/opencode/mcp-{context,memory,lint}-server/` + `~/.config/opencode/mcp-persona-server/` (4 modules, Task 167) + `~/.config/opencode/mcp-decision-server/` (2 modules, Task 168) + `~/.config/opencode/mcp-common/` (shared lib, Task 170); each with `pyproject.toml` + committed `uv.lock`, launched via `<dir>/.venv/bin/python <dir>/server.py` (direct venv, never `uv run` — uv startup exceeds the V2 connect timeout under multi-session spawn load, 2026-09-29) |
+| MCP servers    | `~/.config/opencode/mcp-{context,memory,lint,brain}-server/` (brain bridge = `mcp-brain-bridge/`) + `~/.config/opencode/mcp-decision-server/` + `~/.config/opencode/mcp-common/` (shared lib); each with `pyproject.toml` + committed `uv.lock`, launched via `<dir>/.venv/bin/python <dir>/server.py` (direct venv, never `uv run` — uv startup exceeds the V2 connect timeout under multi-session spawn load, 2026-09-29) |
 | Telegram MCP   | `~/.config/opencode/mcp-telegram-server/` (upstream clone of chigwell/telegram-mcp — no fork) |
 | Skills         | `~/.config/opencode/skills/<name>/SKILL.md` (synced 1:1 with `skill-templates/` — count varies, verify by diff not by number) |
 | Custom agents  | `~/.config/opencode/agents/{cognitive-executor,cognitive-discovery}.md` |
 | Shell strategy | `~/.config/opencode/opencode-shell-strategy.md` |
 | System prompt  | `~/.config/opencode/system-prompt.md` |
-| Credentials    | `~/.config/opencode/.env` (chmod 600 backup of project `.env`; project copy stays authoritative since opencode loads project env for servers) |
+| Credentials    | `~/.config/opencode/.env` (chmod 600). The MCP servers self-load `.env` at import (`<server-dir>/.env` → `<server-dir>/../.env` → `<cwd>/.env`); for the global install that is this file, for repo runs the repo-root `.env`. Keep it seeded so both the CLI and the singleton services get the keys. |
 
 ## Source Files (repo)
 
 - `mcp-context-server/server.py`, `mcp-memory-server/server.py`, `mcp-lint-server/server.py`
-- `mcp-persona-server/*.py` (server, dual_dispatch, session, telegram), `mcp-decision-server/*.py` (server, redactor)
+- `mcp-brain-bridge/*.py` (server + capability/preflight/loop_guard/session_ledger/transport_learning/authority_retrieval), `mcp-decision-server/*.py` (server, redactor, detector)
 - `mcp-common/src/mcp_common/` (shared dotenv loader) + every server dir's `pyproject.toml` + `uv.lock` (Task 170; sync all three file kinds globally)
 - `skill-templates/*/` (all skills, synced 1:1 — never hardcode the count)
 - `agents/cognitive-executor.md`, `agents/cognitive-discovery.md`
@@ -34,11 +34,11 @@ Updates the machine-global installations of the Cognitive Lead AI HQ (MCP server
 
 ## Upgrade Steps
 
-1. **Audit drift** (diff repo vs installed — same loops as originally specified over servers, agents, shell-strategy, system-prompt, skills, tui.json, goal-plugin greps).
+1. **Audit drift** (diff repo vs installed — same loops as originally specified over servers, agents, shell-strategy, system-prompt, skills).
 2. **Copy drifted files** with `cp` + `chmod +x` (only those that differ). Multi-module servers copy `*.py` (never `__pycache__/`). For `opencode.json` do NOT blind copy — repo uses relative paths, global uses absolute paths; edit surgically and validate JSON after every edit.
 2b. **Delete global orphans** (rule added 2026-09-11: `cp` never removes, so deletions need this step). Any skill dir present under `~/.config/opencode/skills/` but absent from repo `skill-templates/` MUST be removed with `rm -rf` — that is how skill drops (e.g. brainstorm-swarm, perplexity-research) propagate globally. Same for MCP server dirs and custom agents missing from the repo. Never delete in the reverse direction (repo is source of truth).
 3. **Re-verify** with the same diff commands — expect no DRIFT output except the expected `opencode.json` relative vs absolute.
-4. **Smoke-test**: `opencode mcp list` (expect ONLY the currently-enabled servers connected) + repo persona test suite (`rtk test uv run --project mcp-persona-server --with pytest --with pathspec pytest tests/ -q`).
+4. **Smoke-test**: `opencode mcp list` (expect ONLY the currently-enabled servers connected) + `rtk test uv run --with pytest --with 'mcp[cli]>=1.0,<2.0' --with pathspec --with pyyaml pytest tests/ -q`.
 4b. **RTK install** (rule added 2026-09-12): the token-trimming runner from `docs/opencode-shell-strategy.md` §8. Install the musl binary when missing (`mkdir -p ~/.local/bin && curl -fsSL -o ~/.local/bin/rtk <release-url>/rtk-x86_64-unknown-linux-musl && chmod +x ~/.local/bin/rtk`), verify `rtk --version`. Never run `rtk init -g` — it rewrites the global OpenCode config.
 5. **Telegram MCP step 2.5** (upstream chigwell/telegram-mcp): lag check via `rev-list --count HEAD..origin/main`; run backup+rsync upgrade only when lag > 0. **Update-only — do NOT run telegram's own pytest suite** (its live-network tests hang ~300s on this machine and add nothing; `opencode mcp list` 5/5 is the sufficient smoke test). Rule set 2026-09-10 per Manager.
 

@@ -142,7 +142,7 @@ All Git commit/add/push operations are strictly handled by the `custom_context_s
 **ZAC (Zero-Autonomous-Commit) precedence:** the Git reference table in section 5 is overridden for this platform. `git add`, `git commit`, and `git push` MUST NOT be executed by agents under any circumstances — even with non-interactive flags such as `git commit -m "msg"` or `git add <file>`; they are denied at the permission layer. `git mv` remains permitted ONLY for moving task files between Kanban directories (`backlog`, `in-progress`, `qa`, `completed`, `archive`). All other Git commands (status, diff, log, show, ls-files, grep, reset -- <path> for unstage) remain governed by the non-interactive rules in section 5 (`git --no-pager log`, `git diff`, etc.).
 
 **Denied commands (mirrors `opencode.json` permission layer).** The
-`permission.bash` block denies these for agents — the deny fires before
+`permission.shell` block denies these for agents — the deny fires before
 execution, so the command never runs:
 
 | Denied pattern | Covers |

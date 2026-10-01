@@ -9,8 +9,8 @@ ExecStart=%h/.config/opencode/mcp-brain-bridge/.venv/bin/python %h/.config/openc
 Environment=MCP_TRANSPORT=streamable-http
 # Credentials resolve via the bridge's own .env self-load
 # (<server-dir>/.env -> install-root .env -> <cwd>/.env, never
-# overriding real environment). Export BRAIN_* before launching
-# opencode-server only if you want env to win over files.
+# overriding real environment). Export BRAIN_* in the environment
+# that launches OpenChamber only if you want env to win over files.
 Restart=always
 RestartSec=3
 

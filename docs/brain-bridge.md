@@ -88,6 +88,12 @@ helper and is not a public tool.
 
 ## Environment
 
+These variables are read from the server's self-loaded `.env` (search
+order `<server-dir>/.env` → `<server-dir>/../.env` → `<cwd>/.env`; for the
+global install that is **`~/.config/opencode/.env`**, for repo runs the
+repo-root `.env`). Real process env wins; blank counts as unset. See
+`docs/services.md` §Credentials.
+
 | Variable            | Default                                              |
 | ------------------- | ---------------------------------------------------- |
 | `BRAIN_API_BASE`    | _(Manager-owned endpoint, e.g. local proxy URL)_     |

@@ -55,6 +55,14 @@ For headless/runbook use pass `--qr` or `--phone` explicitly; without a flag the
 
 ## 4. Configure Environment
 
+> **Where this `.env` lives.** The Telegram server self-loads `.env` at
+> import (search order `<server-dir>/.env` → `<server-dir>/../.env` →
+> `<cwd>/.env`). When it runs as the global singleton
+> (`~/.config/opencode/mcp-telegram-server/`), the effective file is
+> **`~/.config/opencode/.env`**; when run from the repo clone it is the
+> repo-root `.env`. Keep it `chmod 600` and never commit it. See
+> `docs/services.md` §Credentials.
+
 ### 4.1 Single-account (personal)
 
 ```bash

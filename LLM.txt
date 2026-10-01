@@ -70,9 +70,9 @@ curl -fsSL https://opencode.ai/v2/install | bash
 opencode --version   # expect 2.x
 ```
 
-If `opencode --version` shows 1.x, back up `~/.config/opencode/opencode.json` + `tui.json` first, then run the installer above (it replaces the V1 binary; both versions share the same config locations, so never point V1 at converted V2-only files). OpenChamber upgrades via `openchamber update` (expect 2.x). Full V1→V2 field map: `plugin`→`plugins`, `permission.bash`→`permission.shell`, layered `tui.json`→single global `cli.json` — see https://opencode.ai/v2/docs/migrate-v1/.
+If `opencode --version` shows 1.x, back up `~/.config/opencode/opencode.json` first, then run the installer above (it replaces the V1 binary). OpenChamber upgrades via `openchamber update` (expect 2.x). Full V1→V2 field map: `plugin`→`plugins`, `permission.bash`→`permission.shell`, layered `tui.json`→single global `cli.json`, flat `mcp`→`mcp.servers` — see https://opencode.ai/v2/docs/migrate-v1/.
 
-> V2 keeps dual keys during transition: `opencode.json` carries both `plugin` (V1) and `plugins` (V2); permission blocks carry both `bash` and `shell` denies. When both forms set the same value, native V2 wins.
+> V2 native only: `opencode.json` carries `plugins` (not `plugin`); permission blocks carry `shell` denies (not `bash`); `tui.json` is deleted — the terminal client reads the single global `~/.config/opencode/cli.json`.
 
 ---
 
@@ -106,11 +106,9 @@ Store this value — you will use it to construct absolute paths in the global c
 Create the global OpenCode directories:
 
 ```bash
-mkdir -p ~/.config/opencode/mcp-context-server
-mkdir -p ~/.config/opencode/mcp-memory-server
-mkdir -p ~/.config/opencode/mcp-lint-server
-mkdir -p ~/.config/opencode/mcp-brain-bridge
-mkdir -p ~/.config/opencode/mcp-common
+for d in mcp-context-server mcp-memory-server mcp-lint-server mcp-brain-bridge mcp-decision-server mcp-common; do
+  mkdir -p ~/.config/opencode/$d
+done
 mkdir -p ~/.config/opencode/skills
 ```
 
@@ -118,28 +116,49 @@ mkdir -p ~/.config/opencode/skills
 
 ## 5. Copy MCP Servers and Make Them Executable
 
-Copy the MCP server scripts from the cloned repo (brain bridge is a single module). Every server dir also carries `pyproject.toml` + committed `uv.lock` — copy those too so launches resolve locked deps:
+Copy the MCP server modules from the cloned repo. Every server is multi-module (`brain-bridge` = `server.py` + `capability.py`/`preflight.py`/`loop_guard.py`/`session_ledger.py`/`transport_learning.py`/`authority_retrieval.py`/`eval_harness.py`/`golden_replay.py`; `decision-server` = `server.py` + `redactor.py` + `detector.py`), so copy **all `*.py`**. Each dir also carries `pyproject.toml` + committed `uv.lock` — copy those too so launches resolve locked deps:
 
 ```bash
-cp /tmp/cognitive-lead-hq/mcp-context-server/server.py ~/.config/opencode/mcp-context-server/
-cp /tmp/cognitive-lead-hq/mcp-memory-server/server.py ~/.config/opencode/mcp-memory-server/
-cp /tmp/cognitive-lead-hq/mcp-lint-server/server.py ~/.config/opencode/mcp-lint-server/
-cp /tmp/cognitive-lead-hq/mcp-brain-bridge/server.py ~/.config/opencode/mcp-brain-bridge/
-cp -r /tmp/cognitive-lead-hq/mcp-common ~/.config/opencode/mcp-common
-for d in context-server memory-server lint-server; do
-  cp /tmp/cognitive-lead-hq/mcp-$d/pyproject.toml /tmp/cognitive-lead-hq/mcp-$d/uv.lock ~/.config/opencode/mcp-$d/
+for d in mcp-context-server mcp-memory-server mcp-lint-server mcp-brain-bridge mcp-decision-server; do
+  cp /tmp/cognitive-lead-hq/$d/*.py ~/.config/opencode/$d/
+  cp /tmp/cognitive-lead-hq/$d/pyproject.toml /tmp/cognitive-lead-hq/$d/uv.lock ~/.config/opencode/$d/
+  chmod +x ~/.config/opencode/$d/server.py
 done
-cp /tmp/cognitive-lead-hq/mcp-brain-bridge/pyproject.toml /tmp/cognitive-lead-hq/mcp-brain-bridge/uv.lock ~/.config/opencode/mcp-brain-bridge/
-chmod +x ~/.config/opencode/mcp-context-server/server.py
-chmod +x ~/.config/opencode/mcp-memory-server/server.py
-chmod +x ~/.config/opencode/mcp-lint-server/server.py
-chmod +x ~/.config/opencode/mcp-brain-bridge/server.py
+# mcp-common: copy CONTENTS into the pre-created dir (the trailing "/." avoids
+# nesting to mcp-common/mcp-common when the destination already exists).
+cp -a /tmp/cognitive-lead-hq/mcp-common/. ~/.config/opencode/mcp-common/
 
 # Preserve system-prompt.md globally for the user's Orchestrator
 cp /tmp/cognitive-lead-hq/system-prompt.md ~/.config/opencode/system-prompt.md
 
 # Vendor the non-interactive shell strategy globally (instructions file)
 cp /tmp/cognitive-lead-hq/docs/opencode-shell-strategy.md ~/.config/opencode/opencode-shell-strategy.md
+
+# --- credentials: create the repo .env, then seed it globally ---------------
+# 1. Create the repo .env from the template and fill the keys:
+#      cp /tmp/cognitive-lead-hq/.env.example /tmp/cognitive-lead-hq/.env
+#      # edit: BRAIN_API_BASE, BRAIN_API_KEY, (optional) BRAIN_MODEL,
+#      #       DECISION_* , TELEGRAM_*
+#    The MCP servers self-load .env at import in this order (first match wins):
+#      <server-dir>/.env  ->  <server-dir>/../.env  ->  <cwd>/.env
+#    - repo runs use /tmp/cognitive-lead-hq/.env (= <server-dir>/../.env)
+#    - global installs use ~/.config/opencode/.env (= <server-dir>/../.env)
+# 2. Seed the global copy. NEVER clobber a live file silently: back up an
+#    existing ~/.config/opencode/.env first, and abort if the source has no
+#    real keys yet (still identical to .env.example) so placeholders cannot
+#    overwrite working credentials.
+if [ ! -f /tmp/cognitive-lead-hq/.env ]; then
+  cp /tmp/cognitive-lead-hq/.env.example /tmp/cognitive-lead-hq/.env
+  echo ">> Edit /tmp/cognitive-lead-hq/.env with your keys, then re-run this block."
+fi
+if cmp -s /tmp/cognitive-lead-hq/.env /tmp/cognitive-lead-hq/.env.example; then
+  echo "!! /tmp/cognitive-lead-hq/.env still matches .env.example (placeholders). Fill it in; skipping global seed."
+else
+  if [ -f ~/.config/opencode/.env ]; then
+    cp -a ~/.config/opencode/.env ~/.config/opencode/.env.bak-$(date -u +%Y%m%d-%H%M%S)
+  fi
+  install -m 600 /tmp/cognitive-lead-hq/.env ~/.config/opencode/.env
+fi
 ```
 
 ---
@@ -188,56 +207,57 @@ After this, the `cognitive-executor` will be available as a primary agent, enfor
 
 Create or update `~/.config/opencode/opencode.json`. You MUST use **absolute paths** in the `command` array — resolve the `~` to the full home directory path discovered in Step 3. The project ships **7 MCP servers** (3 core + `manager_decisions` + `brain` bridge + `blowsh` browsing + `telegram` account routing); the persona server and the previous browser automation MCP are retired — use `blowsh` for JS-heavy browsing.
 
-Write the following JSON (replace `$HOME` with the actual home directory path only where it still appears — the `mcp` entries are loopback URLs shared by every session and project, so they contain no paths at all). V2 structure per https://opencode.ai/docs/mcp-servers/ (verified 2026-09-29): each MCP runs as **one supervised singleton** on `127.0.0.1` (see `docs/services.md` + Step 7.5), and OpenCode connects via `type: "remote"` + `url` + `enabled` + `timeout` (default 5000ms; ours are raised — 15s standard, 30s telegram, 120s blowsh, 600s LLM bridges). No session ever spawns its own server processes: with 2+ sessions open the OS process count per server stays exactly one.
+Write the following JSON (replace `$HOME` with the actual home directory path only where it still appears — the `mcp` entries are loopback URLs shared by every session and project, so they contain no paths at all). V2 structure per https://opencode.ai/v2/docs/mcp-servers/ (verified 2026-09-29): each MCP runs as **one supervised singleton** on `127.0.0.1` (see `docs/services.md` + Step 7.5), and OpenCode connects via `mcp.servers` entries with `type: "remote"` + `url` + `disabled: false` + `timeout: {catalog, execution}` (ours are raised above the 5000ms default — 15s standard, 30s telegram, 120s blowsh, 600s LLM bridges). No session ever spawns its own server processes: with 2+ sessions open the OS process count per server stays exactly one.
 
 ```json
 {
   "$schema": "https://opencode.ai/config.json",
   "default_agent": "cognitive-executor",
   "instructions": ["$HOME/.config/opencode/opencode-shell-strategy.md"],
-  "plugin": ["@prevalentware/opencode-goal-plugin", "@tarquinen/opencode-dcp@latest"],
   "mcp": {
-    "custom_context": {
-      "type": "remote",
-      "url": "http://127.0.0.1:8102/mcp",
-      "enabled": true,
-      "timeout": 15000
-    },
-    "project_memory": {
-      "type": "remote",
-      "url": "http://127.0.0.1:8103/mcp",
-      "enabled": true,
-      "timeout": 15000
-    },
-    "lint": {
-      "type": "remote",
-      "url": "http://127.0.0.1:8101/mcp",
-      "enabled": true,
-      "timeout": 15000
-    },
-    "manager_decisions": {
-      "type": "remote",
-      "url": "http://127.0.0.1:8104/mcp",
-      "enabled": true,
-      "timeout": 600000
-    },
-    "brain": {
-      "type": "remote",
-      "url": "http://127.0.0.1:8105/mcp",
-      "enabled": true,
-      "timeout": 600000
-    },
-    "blowsh": {
-      "type": "remote",
-      "url": "http://127.0.0.1:8107/mcp",
-      "enabled": true,
-      "timeout": 120000
-    },
-    "telegram": {
-      "type": "remote",
-      "url": "http://127.0.0.1:8106/mcp",
-      "enabled": true,
-      "timeout": 30000
+    "servers": {
+      "custom_context": {
+        "type": "remote",
+        "url": "http://127.0.0.1:8102/mcp",
+        "disabled": false,
+        "timeout": { "catalog": 15000, "execution": 15000 }
+      },
+      "project_memory": {
+        "type": "remote",
+        "url": "http://127.0.0.1:8103/mcp",
+        "disabled": false,
+        "timeout": { "catalog": 15000, "execution": 15000 }
+      },
+      "lint": {
+        "type": "remote",
+        "url": "http://127.0.0.1:8101/mcp",
+        "disabled": false,
+        "timeout": { "catalog": 15000, "execution": 15000 }
+      },
+      "manager_decisions": {
+        "type": "remote",
+        "url": "http://127.0.0.1:8104/mcp",
+        "disabled": false,
+        "timeout": { "catalog": 600000, "execution": 600000 }
+      },
+      "brain": {
+        "type": "remote",
+        "url": "http://127.0.0.1:8105/mcp",
+        "disabled": false,
+        "timeout": { "catalog": 600000, "execution": 600000 }
+      },
+      "blowsh": {
+        "type": "remote",
+        "url": "http://127.0.0.1:8107/mcp",
+        "disabled": false,
+        "timeout": { "catalog": 120000, "execution": 120000 }
+      },
+      "telegram": {
+        "type": "remote",
+        "url": "http://127.0.0.1:8106/mcp",
+        "disabled": false,
+        "timeout": { "catalog": 30000, "execution": 30000 }
+      }
     }
   },
   "permission": {
@@ -266,29 +286,21 @@ Write the following JSON (replace `$HOME` with the actual home directory path on
 }
 ```
 
-Also create the TUI parity file for OpenCode 1 stable (required for the goal sidebar/palette — prevalentware docs — plus DCP panel):
+No OpenCode plugins are installed. The terminal client config `~/.config/opencode/cli.json` is V2-native (no project `cli.json`, no `tui.json`):
 
-```bash
-cat > ~/.config/opencode/tui.json <<'JSON'
+```json
 {
-  "plugin": [
-    "@prevalentware/opencode-goal-plugin",
-    "@tarquinen/opencode-dcp@latest"
-  ]
+  "$schema": "https://opencode.ai/v2/cli.json"
 }
-JSON
-cat tui.json  # project root — same plugin content (formatting may differ single vs multi-line, verify with grep)
 ```
-
-OpenCode 1 reads `plugin` from **both** `opencode.json` (server/tools) and `tui.json` (sidebar/palette). Without the `tui.json` entry the `/goal` command works but the TUI goal indicator stays hidden. DCP (`/dcp`, `/dcp-compress`) likewise loads from the same `plugin` arrays.
 
 **Important:** Replace `$HOME` with the actual absolute path resolved in Step 3 (e.g., `/home/alice` or `/Users/alice`). This is critical — MCP servers will NOT work with relative paths or `~` in the global config because OpenCode may be invoked from any working directory.
 
-**Launch form + credentials:** no session spawns servers anymore — the 7 singletons run as supervised services on `127.0.0.1:8101-8107` (started in Step 7.5, full map in `docs/services.md`), and the config above only points at them via `type: "remote"`. The old per-session stdio storm (and its `mcp connect failed: Request timed out` failures, ~200/day before the 2026-09-29 singleton fix) is gone by construction. The brain/decision timeouts stay 600000ms (10 min) — LLM turns need it. Credentials (`BRAIN_*`, `DECISION_*`, telegram session) live in each singleton's own environment (systemd unit `Environment=` lines or the server dir `.env`), NOT in the OpenCode config — the servers self-load `.env` at import (`<server-dir>/.env` → install-root `.env` → `<cwd>/.env`, never overriding real env). Telegram prerequisites (clone + `uv sync` + `.env` + allowed-root dirs) are still installed per §7.6 — only the launch moved into the `mcp-telegram` service.
+**Launch form + credentials:** no session spawns servers anymore — the 7 singletons run as supervised services on `127.0.0.1:8101-8107` (started in Step 7.5, full map in `docs/services.md`), and the config above only points at them via `type: "remote"`. The old per-session stdio storm (and its `mcp connect failed: Request timed out` failures, ~200/day before the 2026-09-29 singleton fix) is gone by construction. The brain/decision timeouts stay 600000ms (10 min) — LLM turns need it. Credentials (`BRAIN_*`, `DECISION_*`, `TELEGRAM_*`) are **not** in the OpenCode config: each server self-loads `.env` at import, in order `<server-dir>/.env` → `<server-dir>/../.env` → `<cwd>/.env`, never overriding real process env. For the global install that effective file is **`~/.config/opencode/.env`** (seeded in Step 5, `chmod 600`); for servers run straight from the repo it is the repo-root `.env`. The systemd/launchd/Windows units therefore need **no** `EnvironmentFile=` for these keys. Telegram prerequisites (clone + `uv sync` + `.env` + allowed-root dirs) are still installed per §7.6 — only the launch moved into the `mcp-telegram` service.
 
 **QA/review run through the bridge:** the Hands calls `brain_turn` with the instruction + task file (see the Bridge section in `agents/cognitive-executor.md`). No per-persona commands or learning stores.
 
-> **Project vs Global `opencode.json` + `tui.json` (Option A fix 2026-08-25, updated 2026-08-28 for @prevalentware, 2026-09-05 for @tarquinen/opencode-dcp, 2026-09-29 singleton cutover):** The **repo's** `opencode.json` (committed) carries **no `mcp` section at all** — all 7 servers live in the **global** `~/.config/opencode/opencode.json` (created here) as `type: "remote"` loopback URLs (`http://127.0.0.1:8101-8107/mcp`, identical for every user — no per-machine paths). `plugin` arrays (goal + DCP) are **identical** in project and global by design. New installations and `global-install-upgrade` (Step 5 in `.opencode/memory/workflows/global-install-upgrade.md`) must keep this split — `diff -q opencode.json ~/.config/opencode/opencode.json` will always differ (repo has no `mcp`, global has 7 remote entries) by design; verify global shows 7 `127.0.0.1:810*/mcp` URLs. Verify parity with `diff -q tui.json ~/.config/opencode/tui.json && echo "tui.json in sync ✓"` and `grep -q "@tarquinen/opencode-dcp" opencode.json && grep -q "@tarquinen/opencode-dcp" ~/.config/opencode/opencode.json && echo "DCP plugin both ✓"`.
+> **Project vs Global `opencode.json` (full V2, 2026-10-01):** The **repo's** `opencode.json` (committed) carries **no `mcp` section at all** — all 7 servers live in the **global** `~/.config/opencode/opencode.json` (created here) under `mcp.servers` as `type: "remote"` loopback URLs (`http://127.0.0.1:8101-8107/mcp`, identical for every user — no per-machine paths). New installations and `global-install-upgrade` (Step 5 in `.opencode/memory/workflows/global-install-upgrade.md`) must keep this split — `diff` of repo vs global `opencode.json` will always differ (repo has no `mcp`, global has 7 remote entries) by design; verify global shows 7 `127.0.0.1:810*/mcp` URLs.
 
 **Telegram is optional but auto-configured:** the entry above points at `~/.config/opencode/mcp-telegram-server` (installed in the opencode config dir per global-install-upgrade, absolute path required) with three allowed roots (`/tmp/telegram-mcp` for temp state + `~/.config/opencode/mcp-telegram-server/downloads` for exported media + `$HOME` so home files upload). If you cloned elsewhere, update the venv-python path, the `main.py` path and the trailing roots — keep them inside `$HOME` or `/tmp` and ensure `telegram_download_media` can write there. The server is installed in Step 7.6 even before you have API credentials; it stays idle (no `TELEGRAM_SESSION_STRING`) until you finish 7.6. For Docker blowsh no host binary is needed — `docker pull ghcr.io/mokhtarabadi/blowsh-mcp:latest` on first `fetch_web` run.
 
@@ -377,208 +389,76 @@ Telemetry-free cache/SSRF defaults (`CACHE_TTL_MS=300000`, `ALLOW_PRIVATE_URLS=f
 
 ---
 
-## 7.7. Install Dynamic Context Pruning (DCP) Plugin
+## 7.7. Plugins
 
-DCP (`@tarquinen/opencode-dcp`, 4.2k stars, AGPL-3.0) reduces token usage via compress tool + automatic deduplication + purge-errors. Mirrors the goal-plugin install — same plugin entries in `opencode.json` (`plugins` on V2, `plugin` fallback on V1) + global `cli.json`, project and global identical.
-
-```bash
-opencode plugin @tarquinen/opencode-dcp@latest --global
-opencode plugin @prevalentware/opencode-goal-plugin --global
-```
-
-This adds both plugins to `~/.config/opencode/opencode.json` + `tui.json`. Ensure the project files match (already committed in this repo):
-
-```bash
-grep -q "@tarquinen/opencode-dcp" opencode.json && echo "project opencode.json DCP ✓"
-grep -q "@tarquinen/opencode-dcp" tui.json && echo "project tui.json DCP ✓"
-grep -q "@tarquinen/opencode-dcp" ~/.config/opencode/opencode.json && echo "global opencode.json DCP ✓"
-grep -q "@tarquinen/opencode-dcp" ~/.config/opencode/tui.json && echo "global tui.json DCP ✓"
-```
-
-> **References ≠ installed:** config entries alone do NOT install plugins — the packages must land in `~/.cache/opencode/packages/`, and slash commands (`/goal`, `/dcp`, `/dcp-compress`) only appear after an OpenCode **restart**. Always verify:
->
-> ```bash
-> ls -d ~/.cache/opencode/packages/@tarquinen/opencode-dcp@latest ~/.cache/opencode/packages/@prevalentware/opencode-goal-plugin@latest && echo "plugins installed ✓"
-> ```
->
-> Then restart OpenCode before testing `/goal` or `/dcp-compress`.
-
-### DCP configuration (dcp.jsonc)
-
-DCP uses its own config file, searched in order (project overrides global). Restart OpenCode after changes:
-
-1. Global: `~/.config/opencode/dcp.jsonc` (created automatically on first run)
-2. Project: `.opencode/dcp.jsonc` in your project's `.opencode` directory
-
-Defaults are applied automatically (enabled, autoUpdate, pruneNotification detailed, compress range mode with min 50k / max 100k, deduplication + purgeErrors on). If you use small-context models, lower `compress.minContextLimit` / `maxContextLimit` to match.
-
-### DCP commands
-
-- `/dcp` — opens the DCP panel with context, stats, manual-mode controls
-- `/dcp-compress [focus]` — one compression pass, optional focus text
-
-> **Upstream note:** DCP development has slowed; new context-management work moved to `sleev` (`npm i -g sleev`). DCP remains available for OpenCode plugin users. If starting fresh and Sleev fits, prefer it; otherwise DCP stays supported here.
-
-### Plugin V2 status (verified 2026-09-26, opencode 2.0.18)
-
-Both plugins are at their latest stable versions and both are V2-capable upstream — no upgrade work remains:
-
-- **goal `@prevalentware/opencode-goal-plugin@0.1.52`** (released 2026-09-26; 0.1.50 Sep 21, 0.1.51 Sep 22): upstream V2 port merged via PR #49 (2026-09-14: beta-19425 contract, compaction context, restart transcript recovery, dual `[id, server, setup]` shape, V2 lifecycle smoke PASS) and PR #58 (merged + released same day: V2 task-recovery scoping). Open issue #54 is a V1-host registration bug whose body confirms `setupV2` targets V2 hosts.
-- **DCP `@tarquinen/opencode-dcp@3.2.0`** (stable, 2026-09-20): V2 `setup()` registers `session` hooks (`context`, `compaction`) — the documented V2 equivalents of V1 `experimental.chat.messages.transform`. The 3.2.1–3.2.8 betas are stale Mar/Apr experiments; stable 3.2.0 is newest. Known V2 gap, baked into DCP source: `compress.permission: ask` throws "not supported by OpenCode V2 public plugin API yet" — keep the default `allow`.
-- **Verification:** `opencode plugin list` must show `0.1.52` + `3.2.0` with zero errors — this is the source of truth (`~/.cache/opencode/packages/` holds metadata only, no `dist/`; the V2 host resolves npm at runtime).
-- **Upstream-issue policy:** search before filing, never duplicate. Goal repo: prevalentWare/opencode-goal-plugin. DCP repo: Opencode-DCP/opencode-dynamic-context-pruning (V2 threads #627 compat, #628 `/dcp-compress` palette, #631 V2 setup, #632 compact tags all active — file nothing there).
+None. This platform runs OpenCode with **no plugins** — goal tracking comes from OpenChamber's built-in **Session Goals**, and context compaction is native to OpenCode V2. The repo and global `opencode.json`/`cli.json` carry no plugin entries.
 
 ---
 
-## 7.8. Worktree Support — OpenChamber Native (owt Removed 2026-09-08)
+## 7.8. Worktrees — OpenChamber Native
 
-owt (`@nano-step/opencode-worktree-plugin`, npm, MIT) was installed (`npm install -g @nano-step/opencode-worktree-plugin` + `owt-setup install` → plugin + 7 slash commands, `.gitignore` guards) and later disabled (`.disabled`). **On 2026-09-08 it was fully removed** (`npm uninstall -g @nano-step/opencode-worktree-plugin` + `rm` plugin + 7 `command/*.md`) because **OpenChamber 2.0.2 (2.x series; 1.22.2 at removal time) provides first-class worktrees natively**: [Worktree Sessions](https://docs.openchamber.dev/worktrees/) (new-worktree dialog: new/existing branch, `OpenChamber makes the branch, sets up the folder, and starts a session in it`), [Multi-run](https://docs.openchamber.dev/multi-run/) (`isolate runs` → each run its own worktree/branch, up to 5 models), Fusion, and Git view → Integrate (merge worktree commits onto main). Use OpenChamber sidebar/dialogs for worktrees — owt is redundant when OpenChamber is running (confirmed via `packages/ui/src/lib/worktreeSessionCreator.ts`, `packages/docs/content/docs/worktrees.mdx`). No `openchamber --worktree` CLI flag exists — worktrees are GUI-driven.
-
-If you need CLI/headless worktrees **without** OpenChamber (SSH/CI), reinstall owt:
-
-```bash
-npm install -g @nano-step/opencode-worktree-plugin
-owt-setup install  # restores plugin + 7 commands; restart OpenCode
-# optional: owt hook --global  # strips Co-authored-by via commit-msg hook (left disabled originally)
-```
-
-Worktree state (owt, now removed): was under `.opencode/worktrees/` + `.opencode/worktree-sessions.json` (gitignored). OpenChamber worktrees are SDK-managed (probed via `git worktree list`, not that path).
+Worktrees are a first-class OpenChamber feature (no plugin): [Worktree Sessions](https://docs.openchamber.dev/worktrees/) (new/existing branch, OpenChamber creates the branch, sets up the folder, and starts a session in it), [Multi-run](https://docs.openchamber.dev/multi-run/) (`isolate runs` → each run its own worktree/branch, up to 5 models), Fusion, and Git view → Integrate. Use the sidebar/dialogs — there is no `openchamber --worktree` CLI flag.
 
 ---
 
-## 7.9. (Optional) Install OpenChamber — Multi-Device Remote Access (Ask User First)
+## 7.9. Install OpenChamber (it manages OpenCode for you)
 
-OpenChamber (`@openchamber/web` 2.0.2, MIT, Node≥22) is the web/mobile/ desktop workspace that runs **on top of OpenCode** (this repo's agent harness). It gives you phone/PC remote access to the same OpenCode sessions via Tailscale, LAN, or Cloudflare Tunnel, plus native worktrees (see §7.8), Session Goals, Multi-run + Fusion, and GitHub integration. **You MUST ask the user before installing:**
+OpenChamber (`@openchamber/web`, MIT, Node ≥22) is the web/mobile/desktop workspace that runs **on top of OpenCode**. OpenChamber starts and manages its own OpenCode server — you do **not** run a separate `opencode serve` unit, and you never set `OPENCODE_SKIP_START`.
 
-> "OpenChamber adds multi-device remote access (phone/PC) via Tailscale or Cloudflare Tunnel. Do you need multi-device remote access? If yes I will install it on a Tailscale-only port; if not, skip this section."
+Ask the user first:
 
-Skip entirely if the user says no — the core OpenCode + MCP servers already work without it.
+> "OpenChamber adds a web/mobile workspace for your OpenCode sessions. Do you want it? If yes I will install it and enable start-at-boot."
 
-> **Coexistence note (2026-09-08):** installing OpenChamber does NOT remove any plugin. The goal plugin (`@prevalentware/opencode-goal-plugin`) stays enabled in all 4 configs — `/goal` and OpenChamber Session Goals complement each other. Only the `owt` worktree plugin was removed (OpenChamber worktrees replace it, see §7.8).
+### Prerequisites
 
-### When to install
+- `node --version` ≥ 22, `opencode --version` prints 2.x.
+- In this HQ setup `:3000` is the Next.js app and `:8080` is code-server — use an alt port (recommended `:3005`).
 
-- User wants to steer/review coding sessions from phone or a second PC (tailscale `100.x` or LAN IP).
-- User needs the OpenChamber UI (worktrees dialog, Multi-run ≤5, Fusion, walkthroughs) rather than bare `opencode` CLI.
-
-### Prerequisites (verify, do not assume)
-
-- `node --version` ≥22 (`lts/*`), `opencode --version` works, `tailscale status` shows peers if using Tailscale.
-- Default `:3000` is the Next.js (fa/en) app and `:8080` is code-server in this HQ setup — **do NOT use 3000** for OpenChamber; pick an alt port (recommended `:3005`).
-
-### Install + first run (Tailscale-only hardened)
+### Install + first run
 
 ```bash
-# 1. Install globally (Node≥22 required)
+# 1. Install globally (Node >= 22)
 npm install -g @openchamber/web
-openchamber --version   # expect 2.x
+openchamber --version          # expect 2.x
 
-# 2. UI password — never commit, chmod 600, pass via env to avoid ps exposure
+# 2. UI password — chmod 600, never committed
 mkdir -p ~/.secrets
 openssl rand -base64 24 > ~/.secrets/openchamber-ui-password
 chmod 600 ~/.secrets/openchamber-ui-password
 export OPENCHAMBER_UI_PASSWORD="$(cat ~/.secrets/openchamber-ui-password)"
 
-# 3. Pick Tailscale IP and start daemon — bind ONLY to the tailnet (not 0.0.0.0)
-#    ss -tlnp must later show 100.82.29.19:3005, not 0.0.0.0:3005; public IP → refused is correct
-tailscale ip -4   # e.g. 100.82.29.19 — use this as --host
-openchamber status   # check nothing on :3005
-openchamber --lan --port 3005 --host 100.82.29.19 --server http://100.82.29.19:3005
-# alternative foreground form that startup uses:
-# openchamber serve --foreground --port 3005 --host 100.82.29.19 --ui-password "$OPENCHAMBER_UI_PASSWORD"
+# 3. Start — managed OpenCode server, loopback bind
+openchamber --port 3005 --host 127.0.0.1 --ui-password "$OPENCHAMBER_UI_PASSWORD"
 
-# 4. Verify: Tailscale 200, public refused, loopback refused (when tailscale-bound)
-curl -s -o /dev/null -w "%{http_code}\n" http://100.82.29.19:3005/   # 200
-curl -s -m 5 -o /dev/null -w "%{http_code}\n" http://194.76.154.73:3005/ && echo "PUBLIC OPEN" || echo "public refused (good)"
-curl -s -m 2 -o /dev/null -w "%{http_code}\n" http://127.0.0.1:3005/ || echo "loopback refused when tailscale-bound (expected)"
-openchamber status   # mode + password: yes
-ss -tlnp | grep 3005   # 100.82.29.19:3005 LISTEN
-
-# 5. Auto-start at boot (systemd user service, survives reboot/logout/crash)
-export OPENCHAMBER_UI_PASSWORD="$(cat ~/.secrets/openchamber-ui-password)"
-openchamber startup enable --port 3005 --host 100.82.29.19
-sudo loginctl enable-linger $USER
-openchamber startup status   # startup enabled, service active, lingering enabled
-systemctl --user is-enabled openchamber   # enabled
-systemctl --user is-active openchamber    # active
-# restart test: openchamber stop --port 3005; sleep 6; systemctl --user is-active openchamber → active
-
-# 6. Pair a PC/phone (single-use expiring QR, revoke-able)
-openchamber connect-url --port 3005 --host 100.82.29.19 --qr   # or Settings → Remote Instances → Add device → Scope Anywhere/Home network only
-# PC on same tailnet: open http://100.82.29.19:3005 (Tailscale must show vm15996266)
-# Phone: Tailscale app joined to same tailnet, then open the same URL or scan QR in OpenChamber mobile/PWA
+# 4. Verify
+openchamber status                                   # running, password: yes
+ss -tlnp | grep 3005                                 # 127.0.0.1:3005 LISTEN
+curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:3005/   # 200
 ```
 
-Full runbook (daily commands, §2b auto-start, troubleshooting, security notes): `docs/openchamber-tailscale.md` — auto-generated after install and kept in repo.
+### Start at boot — use OpenChamber's own integration
 
-### OpenCode server password sync (external `opencode-server.service` mode, V2 only)
-
-V2 `opencode serve` requires Basic auth and mints a **random password every boot** unless `OPENCODE_PASSWORD`/`OPENCODE_SERVER_PASSWORD` is set — an external OpenChamber (`OPENCODE_HOST` + `OPENCODE_SKIP_START=true`) then fails with `401` on `/api/info` and `PushWatcher disconnected / upstream_unavailable`. Fix with one stable password shared by both units (USER runs the restarts, never the agent):
+OpenChamber writes the systemd user unit for you (it snapshots the environment and remembers port/host/password). Do **not** hand-author a unit.
 
 ```bash
-# 1. Stable password file (chmod 600, generated once, reused forever)
-[ -f ~/.config/opencode/.server-password ] || python3 -c "import secrets; print(secrets.token_urlsafe(32))" > ~/.config/opencode/.server-password
-chmod 600 ~/.config/opencode/.server-password
-
-# 2. Pin it on the OpenCode server unit (else random every boot)
-mkdir -p ~/.config/systemd/user/opencode-server.service.d
-PASS=$(cat ~/.config/opencode/.server-password)
-printf '[Service]\nEnvironment=OPENCODE_SERVER_PASSWORD=%s\n' "$PASS" > ~/.config/systemd/user/opencode-server.service.d/10-password.conf
-chmod 600 ~/.config/systemd/user/opencode-server.service.d/10-password.conf
-
-# 3. Same value is the OpenChamber client credential: it loads via
-#    EnvironmentFile=startup.env, so update that line (NOT a drop-in —
-#    the EnvironmentFile value wins over drop-in Environment):
-python3 -c "
-import re;
-stable = open('$HOME/.config/opencode/.server-password').read().strip();
-p = '$HOME/.config/openchamber/startup.env';
-s = open(p).read();
-open(p, 'w').write(re.sub(r'OPENCODE_SERVER_PASSWORD=.*', 'OPENCODE_SERVER_PASSWORD=\"' + stable + '\"', s, count=1));
-"
-
-# 4. Reload + restart (USER action), then verify zero 401s
-systemctl --user daemon-reload
-systemctl --user restart opencode-server openchamber
-journalctl --user -u openchamber -n 20 --no-pager | grep -c 'status: 401' || true   # expect 0
-journalctl --user -u openchamber --since '2 minutes ago' --no-pager | grep -m 2 'PushWatcher.*connected'
+export OPENCHAMBER_UI_PASSWORD="$(cat ~/.secrets/openchamber-ui-password)"
+openchamber startup enable --port 3005 --host 127.0.0.1
+openchamber startup status                 # startup enabled + service active
+sudo loginctl enable-linger $USER          # start at boot without login
 ```
 
-Root cause of a recurrence is always the same: the two sides hold different passwords (server re-randomized, or `startup.env` went stale). Re-run steps 2–4; never delete `~/.config/opencode/.server-password` (rotating it means re-syncing both sides).
+Re-run `openchamber startup enable` after any env/password change (it rewrites `startup.env`). Remove with `openchamber startup disable`.
 
-### Cloudflare Tunnel (deferred)
+### Remote access (optional)
 
-Cloudflare Tunnel (`managed-remote` with your domain + account token) is the next step for public URLs without Tailscale. **Do NOT run a Quick tunnel with the real UI password for anything beyond a smoke test.** That step is intentionally deferred to a follow-up task — finish Tailscale first.
-
----
-
-## 7.10. Systemd User Service Env (If OpenCode Runs as a Daemon)
-
-If the user runs OpenCode via a systemd user unit (e.g. `opencode-server.service`
-for OpenChamber), the daemon starts with a bare environment — shell exports do
-not apply and `{env:VAR}` forwarding in `opencode.json` resolves empty. Add the
-env file to the unit so the bridge/decision servers start with keys:
-
-```ini
-[Service]
-# Project env (keys + model pins). '-' = unit still starts if file is missing.
-EnvironmentFile=-<project-path>/.env
-# Portable alternative: EnvironmentFile=%h/.config/opencode/.env
+```bash
+openchamber tunnel start --port 3005        # ngrok-backed, or use your own reverse proxy
+openchamber connect-url --port 3005 --qr    # single-use pairing link
 ```
 
-Then `systemctl --user daemon-reload` (safe anytime). The vars take effect on the
-next `systemctl --user restart opencode-server` — the restart kills live
-sessions, so the USER runs it, never the agent. Verify with
-`systemctl --user show opencode-server.service -p EnvironmentFiles`.
-As process env these vars outrank every `.env` file fallback, so all projects
-served by the daemon share them. Per-project overrides still work via that
-project's own `.env` only for keys the daemon env does NOT set.
+When binding beyond loopback keep a strong UI password and prefer `--api-only` for headless clients.
 
-The same unit also pins the V2 server password (see §7.9 password-sync):
-`opencode-server.service.d/10-password.conf` sets
-`OPENCODE_SERVER_PASSWORD` from `~/.config/opencode/.server-password`
-(chmod 600). Without it every boot mints a random password and the external
-OpenChamber gets `401` on `/api/info`.
+Full runbook: `docs/openchamber.md`. Official docs: https://docs.openchamber.dev
 
 ---
 
@@ -600,12 +480,11 @@ export DECISION_REPO_PATH="$HOME/manager-decisions"   # clone/checkout path
 
 Without `DECISION_REPO_PATH` the server falls back to per-project
 `.opencode/decisions/` (write-through cache + offline fallback) and logs it —
-records still land, personality just stays local. Forward it in
-`opencode.json` as `{env:DECISION_REPO_PATH}`, the same interpolation form the
-sibling keys use (`{env:BRAIN_*}`): the daemon passes the variable through and
-the value stays per-user in the shell env or `.env`. Never hardcode a literal
-path in the shared `opencode.json` environment block — one global literal
-would break per-user resolution.
+records still land, personality just stays local. Set it in the server's own
+`.env` (`~/.config/opencode/.env` for the global install, repo-root `.env` for
+repo runs) — the decision server self-loads that file, so no `opencode.json`
+`{env:}` block is needed. Never hardcode a literal path in a shared config —
+one global literal would break per-user resolution.
 
 ---
 
@@ -640,22 +519,24 @@ After completing all steps, verify:
 - [ ] `~/.config/opencode/mcp-context-server/server.py` exists and is executable
 - [ ] `~/.config/opencode/mcp-memory-server/server.py` exists and is executable
 - [ ] `~/.config/opencode/mcp-lint-server/server.py` exists and is executable
-- [ ] `~/.config/opencode/mcp-brain-bridge/server.py` exists and is executable
+- [ ] `~/.config/opencode/mcp-brain-bridge/server.py` exists and is executable (plus its sibling modules `capability.py`, `preflight.py`, `loop_guard.py`, `session_ledger.py`, `transport_learning.py`, `authority_retrieval.py`, `eval_harness.py`, `golden_replay.py`)
+- [ ] `~/.config/opencode/mcp-decision-server/server.py` exists and is executable (plus `redactor.py`, `detector.py`)
+- [ ] `~/.config/opencode/mcp-common/src/mcp_common/env.py` exists
 - [ ] Skills are installed under `~/.config/opencode/skills/` (at least one subfolder exists) — should include `bundle-tasks` (31 skills total)
 - [ ] `~/.config/opencode/agents/cognitive-executor.md` exists
 - [ ] `~/.config/opencode/agents/cognitive-discovery.md` exists
 - [ ] `~/.config/opencode/opencode.json` exists with **absolute paths** (not `~` or relative paths) and 6 `mcp` entries (`custom_context`, `project_memory`, `lint`, `brain`, `blowsh`, `telegram`) + `blowsh_*`/`telegram_*`/`brain_turn` permissions, no former browser entry
-- [ ] `~/.config/opencode/opencode.json` + global `cli.json` `plugins` arrays contain both `@prevalentware/opencode-goal-plugin` and `@tarquinen/opencode-dcp` (V2 keys; V1 `plugin` arrays in `opencode.json` + `tui.json` kept as fallback); project `opencode.json` matches (`grep -q "@tarquinen/opencode-dcp" opencode.json && grep -q "@tarquinen/opencode-dcp" ~/.config/opencode/opencode.json`)
-- [ ] DCP loads: `opencode plugin list` shows `@tarquinen/opencode-dcp`, `/dcp` panel opens, `~/.config/opencode/dcp.jsonc` created on first run (project `.opencode/dcp.jsonc` overrides if present)
-- [ ] worktrees: OpenChamber native via sidebar/dialog (`https://docs.openchamber.dev/worktrees/`) — no `owt` required; if owt reinstalled, `owt help` + `~/.config/opencode/plugins/worktree-plugin.js` + `/init-worktree` after restart
-- [ ] (optional) OpenChamber: if user requested multi-device, `npm list -g @openchamber/web` shows 2.x, `openchamber status` password:yes, `ss -tlnp | grep 3005` shows `100.82.29.19:3005` (not 0.0.0.0), `curl http://100.82.29.19:3005/ → 200` / public `194.76.154.73:3005 → refused`, `openchamber startup status` shows enabled+active+lingering, `docs/openchamber-tailscale.md` present; if not requested, this check is N/A
+- [ ] repo `opencode.json`, global `opencode.json`, and global `cli.json` carry **no `plugins` entries** (this platform uses no OpenCode plugins)
+- [ ] `opencode plugin list` shows no goal/dcp entries
+- [ ] worktrees: OpenChamber native via sidebar/dialog (`https://docs.openchamber.dev/worktrees/`) — no plugin required
+- [ ] (optional) OpenChamber: if installed, `npm list -g @openchamber/web` shows 2.x, `openchamber status` password:yes, `openchamber startup status` shows enabled+active+lingering, `docs/openchamber.md` present; if not requested, this check is N/A
 - [ ] `~/.config/opencode/opencode.json` all 7 `mcp` entries are `type: "remote"` loopback URLs (8101 lint, 8102 context, 8103 memory, 8104 decisions, 8105 brain, 8106 telegram timeout 30000, 8107 blowsh timeout 120000) served by the supervised singletons — no stdio/`uv run` entries remain
 - [ ] `~/.config/opencode/opencode-shell-strategy.md` exists (instructions file referenced by the `instructions` key)
 - [ ] `/tmp/cognitive-lead-hq` no longer exists
 - [ ] `docker pull ghcr.io/mokhtarabadi/blowsh-mcp:latest` succeeds (or `docker` not installed → blowsh stays disabled, document it)
 - [ ] `~/.config/opencode/mcp-telegram-server/main.py` exists if telegram enabled (`ls $HOME/.config/opencode/mcp-telegram-server/main.py`); otherwise server stays `enabled:false` and no crash
 - [ ] Telegram smoke check (only if `TELEGRAM_SESSION_STRING` set): `telegram_get_messages` or `list_accounts` returns without `No Telegram session configured`
-- [ ] No former browser MCP remains in configs: `grep -R "former-browser" opencode.json LLM.txt docs/ ~/.config/opencode/opencode.json ~/.agents/mcp.json` check described here validates that removal is complete (automated check in task 111 greps for the retired browser name)
+- [ ] `.env` is seeded (repo-root `.env` for CLI runs and `~/.config/opencode/.env` for the singleton services; `chmod 600`) — verify `grep -c BRAIN_API_KEY .env ~/.config/opencode/.env`
 - [ ] `docs/telegram-setup.md` exists and is linked from `README.md` and this file
 - [ ] Start each local MCP server to verify it launches without errors (direct venv form):
   ```bash

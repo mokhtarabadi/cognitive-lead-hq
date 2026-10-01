@@ -4,7 +4,7 @@
 | ---- | -------------- | ----------- |
 | Top level (project) | `$schema`, `default_agent`, `instructions[]`, `formatter`, `lsp`, `permission{}` | `permissions[]` array; `mcp{}` and `plugin[]` (global-only) |
 | Permission entries | `"tool-name": "allow\|ask\|deny"` flat map | `{permission: ..., pattern: ...}` objects |
-| Bash rules | `permission.bash = {"git commit": "deny", ...}` string map | Structured rule objects |
+| Bash rules | `permission.shell = {"git commit": "deny", ...}` string map | Structured rule objects |
 | MCP | GLOBAL-ONLY — install in `~/.config/opencode/opencode.json`; banned from project output | Any `mcp{}` block in a generated project file |
 | Plugin | GLOBAL-ONLY — npm spec in global config or `.opencode/plugins/` / `~/.config/opencode/plugins/`; banned from project output | Any `plugin[]` list in a generated project file |
 | LSP (project guidance) | flat map `{name: {command, extensions?, env?, initialization?, disabled?}}` — e.g. `{"typescript": {"command": [...]}}`; `true`/`false` also valid; server install stays host/global side | `language-server` wrapper (`{language-server: {name: ...}}`), `environment` (LSP uses `env`), unknown keys |

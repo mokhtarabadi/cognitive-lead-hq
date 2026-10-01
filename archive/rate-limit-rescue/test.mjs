@@ -7,7 +7,7 @@ const FREE = { providerID: "opencode", id: "muse-spark-1.3-contributor-free" }
 const PAID = { providerID: "anthropic", id: "paid-model" }
 const TMP = "/tmp/rlr-test-metrics.jsonl"
 
-test("exact log shape on free model is rescued with 30s delay", async () => {
+test("exact log shape on free model is rescued with 2s delay", async () => {
   await rm(TMP, { force: true })
   const event = {
     error: { message: "Rate limit exceeded. Please try again later." },
@@ -16,10 +16,10 @@ test("exact log shape on free model is rescued with 30s delay", async () => {
     model: FREE,
   }
   assert.equal(await handleRetry(event, { command: "echo rotated", metricsPath: TMP }), "rescued")
-  assert.equal(event.decision.delay, 30_000)
+  assert.equal(event.decision.delay, 2_000)
   const line = JSON.parse(await readFile(TMP, "utf8"))
   assert.equal(line.modelID, FREE.id)
-  assert.equal(line.retryDelayMs, 30_000)
+  assert.equal(line.retryDelayMs, 2_000)
   assert.equal(line.commandOk, true)
 })
 
@@ -44,7 +44,7 @@ test("paid model 429 passes untouched", async () => {
   assert.equal(await handleRetry(event, {}), "pass")
 })
 
-test("command failure still sets the 30s decision", async () => {
+test("command failure still sets the 2s decision", async () => {
   const event = {
     error: { status: 429, message: "free tier quota hit" },
     attempt: 1,
@@ -52,10 +52,10 @@ test("command failure still sets the 30s decision", async () => {
     model: FREE,
   }
   assert.equal(await handleRetry(event, { command: "false", metricsPath: TMP }), "rescued")
-  assert.equal(event.decision.delay, 30_000)
+  assert.equal(event.decision.delay, 2_000)
 })
 
-test("unwritable metrics path still sets the 30s decision", async (t) => {
+test("unwritable metrics path still sets the 2s decision", async (t) => {
   // A regular file as parent dir fails fast (ENOTDIR). NOTE: never use /proc
   // here — recursive mkdir under /proc hangs at kernel level (found 2026-09-29).
   const parent = "/tmp/rlr-parent-file"
@@ -67,7 +67,7 @@ test("unwritable metrics path still sets the 30s decision", async (t) => {
     model: FREE,
   }
   assert.equal(await handleRetry(event, { command: "echo ok", metricsPath: `${parent}/child.jsonl` }), "rescued")
-  assert.equal(event.decision.delay, 30_000)
+  assert.equal(event.decision.delay, 2_000)
 })
 
 test("env overrides resolve", () => {
@@ -103,7 +103,7 @@ test("ECONNRESET transport fault is rescued with kind=transport", async () => {
     model: FREE,
   }
   assert.equal(await handleRetry(event, { command: "echo rotated", metricsPath: "/tmp/rlr-t.jsonl" }), "rescued")
-  assert.equal(event.decision.delay, 30_000)
+  assert.equal(event.decision.delay, 2_000)
   const line = JSON.parse(await readFile("/tmp/rlr-t.jsonl", "utf8"))
   assert.equal(line.kind, "transport")
 })

@@ -24,6 +24,43 @@ already running on this machine can reach them. Do not rebind to
 container `MCP_HOST=0.0.0.0` is required, but the published port stays
 `-p 127.0.0.1:8107:8107`.)
 
+## Credentials (`.env`) — how the servers read keys
+
+The Python servers (`context`, `memory`, `lint`, `decision`, `brain`) load
+`.env` themselves at import via `mcp_common.env.load_env_files`. Search
+order, **first file holding a key wins**:
+
+1. `<server-dir>/.env`
+2. `<server-dir>/../.env`
+3. `<cwd>/.env`
+
+Real process environment always wins over the file; an empty value counts
+as **unset** (so a blank `{env:}` injection never shadows a real file
+value).
+
+Consequence for the global singleton install (`<server-dir>` =
+`~/.config/opencode/mcp-*/`): the effective file is
+**`~/.config/opencode/.env`** (`<server-dir>/../.env`). For servers run
+straight from the repo, that is the repo-root `.env`. Telegram is
+third-party and reads its own `.env` in its install dir.
+
+Therefore the unit files need **no** `EnvironmentFile=` for `BRAIN_*` /
+`DECISION_*` / `TELEGRAM_*`; just keep the keys in the right `.env`:
+
+```bash
+# global install: seed once, keep chmod 600
+install -m 600 /path/to/repo/.env ~/.config/opencode/.env
+# or start from the template:
+# install -m 600 /path/to/repo/.env.example ~/.config/opencode/.env   # then edit keys
+```
+
+After changing any key, restart the affected unit
+(`systemctl --user restart mcp-brain mcp-decision mcp-telegram`).
+
+> Note: this is separate from OpenCode's own `{env:VAR}` forwarding for a
+> managed/daemon server — that concerns variables you want the OpenCode
+> process itself to see. The MCP servers above do not need it.
+
 ## How it works
 
 Each HQ Python server (lint, context, memory, decision, brain) reads
@@ -103,7 +140,10 @@ path for `{HOME}`); the inline template below shows the shape
 ```
 
 Load with `launchctl load ~/Library/LaunchAgents/mcp-<name>.plist`.
-Repeat for ports 8102-8106 with the matching server directory.
+Repeat for ports 8102-8106 with the matching server directory. Credentials
+are self-loaded by each server from `~/.config/opencode/.env`
+(`<server-dir>/../.env`) — no `EnvironmentVariables` entry is needed for
+`BRAIN_*`/`DECISION_*` (see the Credentials section above).
 
 ## Windows
 
@@ -119,6 +159,11 @@ GUI/NSSM alternative (also untested on Windows):
 - **NSSM alternative:** `nssm install mcp-lint <python> <server.py>`,
   then set `MCP_TRANSPORT` under the Environment tab. NSSM gives
   `Restart=always` equivalent behavior.
+
+Credentials (`BRAIN_*`/`DECISION_*`/`TELEGRAM_*`) are self-loaded by each
+server from `%USERPROFILE%\.config\opencode\.env`
+(`<server-dir>/../.env`); you do not need to set them in the task/service
+environment (see the Credentials section above).
 
 ## Verification
 

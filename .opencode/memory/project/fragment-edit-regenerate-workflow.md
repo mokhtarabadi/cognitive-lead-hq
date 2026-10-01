@@ -16,7 +16,7 @@ Verified end-to-end workflow for editing `prompts/fragments/` and keeping `syste
 5. **Verify**:
    - `grep -n "<system_version>" prompts/fragments/01-system_version.md system-prompt.md` — both MUST show the SAME bumped version.
    - `grep -n "<new-section-name>" system-prompt.md` — the new content MUST be present in the assembled artifact.
-   - `git diff --stat -- 'loop-engine/' '*.py'` — MUST be empty (zero out-of-scope changes).
+   - `git status --porcelain` — only the intended files (fragment(s) + `system-prompt.md` + docs) should appear (zero out-of-scope changes).
    - Optionally `lint_system_prompt_sync()` (lint MCP server) or `python3 scripts/prompt-build/assemble_system_prompt.py --output /tmp/check.md && diff /tmp/check.md system-prompt.md` before commit.
 6. **Sync docs**: update `CHANGELOG.md` (Parse-Then-Append under the new version header), the active task file, and any affected skill templates/audit checks.
 

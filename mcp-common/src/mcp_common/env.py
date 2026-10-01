@@ -1,7 +1,7 @@
 """Explicit `.env` file loading for MCP servers (Task 170, extracted).
 
-Single home for the loader previously duplicated in mcp-persona-server and
-mcp-decision-server. Standard library only — no third-party imports.
+Single home for the loader previously duplicated inside the servers.
+Standard library only — no third-party imports.
 """
 
 from __future__ import annotations

@@ -65,25 +65,39 @@ Each unit launches its server via the persistent venv interpreter (`<dir>/.venv/
 > (`brain_turn`).
 > Global installs additionally run `blowsh` + `telegram`.
 
-### Systemd user service env
+### Environment: MCP servers vs the managed OpenCode server
 
-When OpenCode runs as a systemd user service (`opencode-server.service`),
-the daemon starts with a bare environment — no shell exports apply. Give
-it the project env explicitly so `{env:VAR}` forwarding in `opencode.json`
-resolves and the bridge/decision servers start with keys:
+Two separate env paths — don't mix them:
 
-```ini
-[Service]
-EnvironmentFile=-/home/mohammad/Develop/Projects/cognitive-lead-hq/.env
+**1. MCP servers self-load `.env`.** Each Python server reads
+`<server-dir>/.env` → `<server-dir>/../.env` → `<cwd>/.env` at import
+(first match wins; real process env wins over files; blank = unset). For a
+global install that effective file is **`~/.config/opencode/.env`**; for
+repo runs it is the repo-root `.env`. So keep `BRAIN_*`/`DECISION_*`/
+`TELEGRAM_*` in that file (`chmod 600`) and no unit needs an
+`EnvironmentFile=`. Full detail: `docs/services.md` §Credentials.
+
+```bash
+# seed/refresh the global MCP credentials file
+install -m 600 .env ~/.config/opencode/.env
+systemctl --user restart mcp-brain mcp-decision mcp-telegram   # after key changes
 ```
 
-Portable form for other machines: `EnvironmentFile=%h/.config/opencode/.env`.
-After editing: `systemctl --user daemon-reload` (safe anytime), then
-`systemctl --user restart opencode-server` to take effect — the restart
-kills live sessions, so the manager runs it, never the Hands. Verify with
-`systemctl --user show opencode-server.service -p EnvironmentFiles`.
-As process env, these vars outrank every `.env` file fallback, so all
-projects served by the daemon share them.
+**2. The OpenChamber-managed OpenCode server** inherits the environment of
+the shell that started it. `openchamber startup enable` snapshots that env
+into the service, so export anything you want the OpenCode process itself
+to see (used by `{env:VAR}` forwarding) before enabling:
+
+```bash
+export DECISION_REPO_PATH="$HOME/Develop/Projects/manager-decisions"
+export OPENCHAMBER_UI_PASSWORD="$(cat ~/.secrets/openchamber-ui-password)"
+openchamber startup enable --port 3005 --host 127.0.0.1
+```
+
+Re-run `openchamber startup enable` after changing any env var. If you run
+OpenCode as your own daemon instead, give that unit an `EnvironmentFile=`
+(e.g. `EnvironmentFile=%h/.config/opencode/.env`) and restart it; the
+manager runs that restart, never the Hands.
 
 ## Development Tools
 

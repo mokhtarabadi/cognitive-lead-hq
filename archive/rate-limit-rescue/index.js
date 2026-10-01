@@ -15,7 +15,7 @@ try {
 
 // Free-tier 429 rescue (Task 282). SCOPE: free-tier rate limits ONLY.
 // Every other error passes through untouched.
-const RETRY_DELAY_MS = 30_000
+const RETRY_DELAY_MS = 2_000
 
 export function isFreeTierLimit(error, model) {
   if (!error) return false
@@ -38,7 +38,7 @@ export function isFreeTierLimit(error, model) {
 
 // Transient transport failures (explicit Manager order 2026-09-29): e.g.
 // "ECONNRESET: The socket connection was closed unexpectedly". These are
-// proxy/node faults, not quota — rr rotation is the fix, same 30s retry.
+// proxy/node faults, not quota — rr rotation is the fix, same 2s retry.
 export function isTransportFault(error) {
   if (!error) return false
   const hay = `${error.message ?? ""} ${error.type ?? ""} ${error.code ?? ""} ${error.name ?? ""}`.toLowerCase()
@@ -75,7 +75,7 @@ export async function handleRetry(event, options) {
   if (!quota && !transport) return "pass"
   const cfg = resolveConfig(options)
   // Never let observability break the retry: command/metrics failures are
-  // recorded but the 30s decision is always set on a free-tier match.
+  // recorded but the 2s decision is always set on a free-tier match.
   let cmdResult = { ok: false, code: -1, stdout: "", stderr: "hook-guard" }
   try {
     cmdResult = await runCommand(cfg.command)

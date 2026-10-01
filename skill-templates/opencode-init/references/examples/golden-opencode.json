@@ -37,7 +37,7 @@
       "*": "ask",
       "/tmp/**": "allow"
     },
-    "bash": {
+    "shell": {
       "git add": "deny",
       "git add *": "deny",
       "git checkout": "deny",
