@@ -4,6 +4,7 @@
   "instructions": [
     "docs/opencode-shell-strategy.md"
   ],
+  "formatter": true,
   "permission": {
     "custom_context_*": "allow",
     "project_memory_*": "allow",
