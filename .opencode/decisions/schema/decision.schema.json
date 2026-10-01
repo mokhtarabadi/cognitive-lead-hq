@@ -68,7 +68,8 @@
             "quality-gate",
             "tooling",
             "release",
-            "other"
+            "other",
+            "autopilot-cycle"
           ]
         },
         "rationale": {

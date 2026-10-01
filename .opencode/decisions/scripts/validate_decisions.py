@@ -26,6 +26,7 @@ SCHEMA_NAME = "decision.schema.json"
 
 CATEGORIES = {
     "architecture", "process", "scope", "quality-gate", "tooling", "release", "other",
+    "autopilot-cycle",
 }
 ID_RE = re.compile(r"^DEC-[0-9]{8}-[0-9]{3}$")
 

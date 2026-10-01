@@ -90,13 +90,33 @@ def _repo_root(explicit_root: Optional[str] = None) -> Path:
     (``<project_root>/.opencode/decisions``). Invalid roots raise
     ValueError naming the field; creation failures fail closed.
 
-    Order: per-call explicit root, explicit ``DECISION_REPO_PATH`` env, then
+    Order (AUTHORITATIVE-FIRST, wrong-place fix): explicit
+    ``DECISION_REPO_PATH`` env, then per-call ``project_root``, then
     ``<cwd>/.opencode/decisions`` and ``<install-root>/.opencode/decisions``
-    as fallbacks. Under the Task 279 singleton the server cwd is the install
-    dir, NOT the calling project, so reaching either fallback candidate with
-    no explicit root arms a client-visible warning (Task 279 F6/V1).
+    as fallbacks. The configured personal repo ALWAYS wins over a per-call
+    ``project_root`` so a decision can never silently land in a project-local
+    store and vanish from the authoritative personality repo — the defect that
+    scattered decisions into ``<project>/.opencode/decisions``. The per-call
+    root remains usable as the fallback store when ``DECISION_REPO_PATH`` is
+    unset. Under the Task 279 singleton the server cwd is the install dir, NOT
+    the calling project, so reaching either fallback candidate with no
+    ``DECISION_REPO_PATH`` arms a client-visible warning (Task 279 F6/V1).
     Creation failures (e.g. read-only cwd) fall through to the next candidate.
     """
+    explicit = os.environ.get("DECISION_REPO_PATH", "").strip()
+    if explicit:
+        root = Path(explicit)
+        try:
+            root.mkdir(parents=True, exist_ok=True)
+        except OSError as exc:
+            # Fail CLOSED with a clear error: never silently fall back to a
+            # per-project store (that would split personality without a
+            # trace), and never write before the scrub gate runs.
+            raise RuntimeError(
+                f"DECISION_REPO_PATH={explicit!r} is not usable ({exc}); "
+                "fix the path or unset it to use the per-project fallback"
+            ) from exc
+        return root
     if explicit_root is not None:
         if not isinstance(explicit_root, str) or not explicit_root:
             raise ValueError("project_root must be a non-empty absolute path string.")
@@ -114,20 +134,6 @@ def _repo_root(explicit_root: Optional[str] = None) -> Path:
                 "fix the path or omit it to use the default store"
             ) from exc
         return candidate
-    explicit = os.environ.get("DECISION_REPO_PATH", "").strip()
-    if explicit:
-        root = Path(explicit)
-        try:
-            root.mkdir(parents=True, exist_ok=True)
-        except OSError as exc:
-            # Fail CLOSED with a clear error: never silently fall back to a
-            # per-project store (that would split personality without a
-            # trace), and never write before the scrub gate runs.
-            raise RuntimeError(
-                f"DECISION_REPO_PATH={explicit!r} is not usable ({exc}); "
-                "fix the path or unset it to use the per-project fallback"
-            ) from exc
-        return root
     for base in (Path.cwd(), INSTALL_ROOT):
         _FALLBACK_FIRED.set(True)
         candidate = base / ".opencode" / "decisions"
@@ -1039,6 +1045,41 @@ def _extract_cache_key(
     return digest.hexdigest()
 
 
+def _coerce_extracted_candidate(item: Any) -> None:
+    """Normalize model-shaped candidate fields in place (extraction bugfix).
+
+    The light extraction model frequently emits a LIST for ``tradeoffs`` (the
+    schema types it as a single string), a composite ``category`` (e.g.
+    "process/quality-gate"), or a bare-string ``alternatives``. Left alone,
+    the validator DROPPED every such candidate, so an entire session could
+    extract to ``[]`` and the manager's rulings were silently lost. Coerce the
+    shapes to the schema so a valid ruling is never discarded over formatting.
+    """
+    if not isinstance(item, dict):
+        return
+    extracted = item.get("extracted_decision")
+    if not isinstance(extracted, dict):
+        return
+    tradeoffs = extracted.get("tradeoffs")
+    if isinstance(tradeoffs, list):
+        extracted["tradeoffs"] = "; ".join(
+            str(x).strip() for x in tradeoffs if str(x).strip()
+        )
+    elif tradeoffs is None:
+        extracted["tradeoffs"] = ""
+    alternatives = extracted.get("alternatives")
+    if isinstance(alternatives, str):
+        extracted["alternatives"] = [alternatives] if alternatives.strip() else []
+    elif not isinstance(alternatives, list):
+        extracted["alternatives"] = []
+    category = extracted.get("category")
+    if category not in _VALID_CATEGORIES:
+        parts = [p.strip() for p in str(category or "").replace(",", "/").split("/")]
+        extracted["category"] = next(
+            (p for p in parts if p in _VALID_CATEGORIES), "other"
+        )
+
+
 def _validate_extracted_candidates(
     candidates: list[dict[str, Any]], transcript_text: Optional[str] = None
 ) -> None:
@@ -1065,6 +1106,7 @@ def _validate_extracted_candidates(
     """
     _drop_idxs: list[int] = []
     for idx, item in enumerate(candidates):
+        _coerce_extracted_candidate(item)
         quote = item.get("verbatim_quote") if isinstance(item, dict) else None
         if not isinstance(quote, dict):
             raise RuntimeError(
@@ -1123,11 +1165,17 @@ def _validate_extracted_candidates(
             continue
         if transcript_text is not None:
             if quote["original"] not in transcript_text:
-                raise RuntimeError(
-                    f"decision candidate {idx} verbatim original is not an "
-                    f"exact substring of the transcript (quotes must be "
-                    f"verbatim): {quote['original'][:200]}"
+                # A paraphrased/hallucinated quote must never persist, but one
+                # bad quote must not nuke a session full of valid rulings
+                # (the same drop-in-place policy the tradeoffs guard uses).
+                print(
+                    f"decision-server: dropped candidate {idx} with a "
+                    f"non-verbatim quote (not an exact transcript substring): "
+                    f"{quote['original'][:200]}",
+                    file=sys.stderr,
                 )
+                _drop_idxs.append(idx)
+                continue
             for extra_key in [
                 key for key in item
                 if "evidence" in key.lower() and key not in ("verbatim_quote",)
@@ -1418,8 +1466,10 @@ def extract_session_decisions(
         "transcript. Preserve each ruling's verbatim quote. Reply with a JSON array; "
         "each item: {verbatim_quote: {original, english_translation}, "
         "extracted_decision: {summary, category, rationale, alternatives[], tradeoffs}}. "
-        "Use categories: architecture/process/scope/quality-gate/tooling/release/other/"
-        "autopilot-cycle. "
+        "verbatim_quote.original MUST be an exact substring of the transcript. "
+        "alternatives is an array of strings; tradeoffs is ONE string (join multiple "
+        "points with '; '). Use categories: architecture/process/scope/quality-gate/"
+        "tooling/release/other/autopilot-cycle. "
         "Empty array when the session holds no manager rulings.\n\n" + transcript_text
     )
     effort = _get_decision_effort()  # Validated always; sent when no explicit temp.
