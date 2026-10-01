@@ -2149,6 +2149,19 @@ def _load_context_server_hardening():
     return mod
 
 
+def _tree_result(mod, *args, **kwargs):
+    """Call get_directory_tree and strip the client-visible project-isolation
+    warning added in the singleton rollout. These traversal/gitignore tests
+    deliberately omit project_root to exercise the server-cwd fallback, so the
+    warning that now decorates that fallback must not break their exact-prefix
+    assertions."""
+    out = mod.get_directory_tree(*args, **kwargs)
+    prefix = getattr(mod, "ROOT_FALLBACK_WARNING", None)
+    if prefix and isinstance(out, str) and out.startswith(prefix):
+        out = out[len(prefix):].lstrip("\n")
+    return out
+
+
 def test_tree_rejects_absolute_escape():
     """get_directory_tree('/') must refuse instead of walking the filesystem."""
     import os
@@ -2160,7 +2173,7 @@ def test_tree_rejects_absolute_escape():
         old_cwd = os.getcwd()
         os.chdir(tmpdir)
         try:
-            result = mod.get_directory_tree("/")
+            result = _tree_result(mod, "/")
             assert result.startswith("Error: Path traversal detected"), result[:120]
         finally:
             os.chdir(old_cwd)
@@ -2176,7 +2189,7 @@ def test_tree_rejects_parent_escape():
         old_cwd = os.getcwd()
         os.chdir(tmpdir)
         try:
-            result = mod.get_directory_tree("..")
+            result = _tree_result(mod, "..")
             assert result.startswith("Error: Path traversal detected"), result[:120]
         finally:
             os.chdir(old_cwd)
@@ -2201,7 +2214,7 @@ def test_tree_dot_not_ignored_by_parent_gitignore():
         old_cwd = os.getcwd()
         os.chdir(repo)
         try:
-            result = mod.get_directory_tree(".")
+            result = _tree_result(mod, ".")
             assert result.startswith("## Directory Tree:"), result[:120]
             assert "kept.txt" in result
             assert "ignored-dir" not in result
@@ -2226,7 +2239,7 @@ def test_tree_outer_gitignore_naming_inner_file_does_not_apply():
         old_cwd = os.getcwd()
         os.chdir(repo)
         try:
-            result = mod.get_directory_tree(".")
+            result = _tree_result(mod, ".")
             assert result.startswith("## Directory Tree:"), result[:120]
             assert "kept.txt" in result
         finally:
@@ -2251,7 +2264,7 @@ def test_tree_git_file_stops_upward_walk():
         old_cwd = os.getcwd()
         os.chdir(repo)
         try:
-            result = mod.get_directory_tree(".")
+            result = _tree_result(mod, ".")
             assert result.startswith("## Directory Tree:"), result[:120]
             assert "kept.txt" in result
         finally:
@@ -2270,7 +2283,7 @@ def test_tree_none_defaults_to_workspace_root():
         old_cwd = os.getcwd()
         os.chdir(tmpdir)
         try:
-            result = mod.get_directory_tree(None)
+            result = _tree_result(mod, None)
             assert result.startswith("## Directory Tree:"), result[:120]
             assert "probe.txt" in result
         finally:

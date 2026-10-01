@@ -6,7 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [9.49.0] - 2026-10-01
+
 ### Added
+
+- **Release ceremony: milestone-22 archive + v9.49.0 push tooling (Task 284):** the 9 completed tasks (273-283) were compacted into `docs/history/milestone-22-summary.md` and moved to `tasks/archive/` **before** the release; the accumulated CHANGELOG `[Unreleased]` backlog was moved under `## [9.49.0] - 2026-10-01` leaving `[Unreleased]` empty; and an executable push script `/tmp/cognitive-lead-push-release.sh` was generated for Manager-run tagging, pushing and GitHub Release creation (strict mode, clean-tree and `gh auth` preflight, annotated tag created only if missing, release created or verified). `system-prompt.md` version unchanged — the shipped prompt was already built at 9.49.0.
 
 - **Task 283 — OpenCode V2 + OpenChamber 2 migration and global install:** single OpenChamber-managed OpenCode instance (background shared service disabled via `service.json` `disabled:true`); no custom `opencode-server.service`; all OpenCode plugins removed and the retry plugin archived; docs rewritten to V2 (`docs/openchamber.md`, no Tailscale, no plugin content); orphan/leftover cleanup; and the `LLM.txt` global install corrected + executed (all server modules, `mcp-common` contents-copy, `.env` seed with placeholder-guard + backup), with Telegram credentials recovered from the 2026-09-29 backup and both accounts verified.
 

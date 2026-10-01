@@ -1821,8 +1821,12 @@ def test_record_file_as_path_fails_closed_and_clear(srv, tmp_path, monkeypatch):
     blocker = tmp_path / "not-a-dir"
     blocker.write_text("x", encoding="utf-8")
     monkeypatch.setenv("DECISION_REPO_PATH", str(blocker))
-    with pytest.raises(RuntimeError, match="DECISION_REPO_PATH"):
-        _record(srv.record_manager_decision, _candidate())
+    # record_manager_decision is an MCP tool: it surfaces the fail-closed
+    # resolution as an "Error: ..." string (never raises to the client) while
+    # still writing nothing. Assert both the clear message and the empty store.
+    out = _record(srv.record_manager_decision, _candidate())
+    assert "DECISION_REPO_PATH" in out
+    assert out.startswith("Error:")
     assert list(tmp_path.rglob("DEC-*.json")) == []
 
 
