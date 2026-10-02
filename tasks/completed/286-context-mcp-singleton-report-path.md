@@ -1,9 +1,9 @@
 # Task 286: Context MCP Singleton Report Write Path
 
-**File:** `tasks/qa/286-context-mcp-singleton-report-path.md`
+**File:** `tasks/completed/286-context-mcp-singleton-report-path.md`
 **Source:** manager
 **Type:** bug
-**Status:** open
+**Status:** closed
 
 ## Goal
 
@@ -81,10 +81,10 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 
 **Formatting-churn follow-up (same task):** the first staged diff was ~600 lines in `mcp-context-server/server.py` because the auto-formatter rewrote the whole file on edit. That oversized diff also tripped `lint_task_file`: the context server's own source contains the diff-begin/end HTML-comment markers on their own lines, and when the diff carried them as context lines the linter's diff-skip region ended early. Both files were restored from HEAD and only the functional changes re-applied via a script (shell writes bypass the formatter), yielding a clean 56/48-line diff; lint then passes. The linter's marker-detection fragility is a separate, pre-existing robustness issue left as a follow-up, not fixed here. A related trap: never write the raw begin/end marker text into task prose, because the injection tool's dot-all regex will consume the span between a prose marker and the real end marker.
 
+**Closure executed** on Manager quote "Approved for closure": file moved from `tasks/qa/` to `tasks/completed/` with Status `closed`.
+
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
-
-_(Git diff will be automatically injected here by the MCP tool. Do not edit this block manually)_
-
+**Factual Git Diff:** Stored in Commit Hash: `611a93db4238071ca44d0d2f198f1b111758f014`
 <!-- END_GIT_DIFF -->
