@@ -2506,3 +2506,51 @@ def test_planning_gate_reject_bounded_and_lite_scoped():
     gate = _read_executor_gate()
     assert "second reject" in gate
     assert "2-line Seat Check" in gate
+
+
+def test_context_reports_follow_project_root_not_singleton_cwd():
+    """Singleton regression: reports must land in <project_root>/context-reports,
+    never in the server process cwd. Discovered via the task 285 smoke test,
+    where a fresh tree report landed in the global install dir."""
+    import importlib
+    import os
+    import tempfile
+
+    server_path = Path(__file__).parent.parent / "mcp-context-server" / "server.py"
+    spec = importlib.util.spec_from_file_location(
+        "context_server_projroot", server_path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    with tempfile.TemporaryDirectory() as repo_dir, \
+            tempfile.TemporaryDirectory() as foreign_dir:
+        repo = Path(repo_dir)
+        foreign = Path(foreign_dir)
+        (repo / "src").mkdir()
+        (repo / "src" / "app.py").write_text("def f():\n    return 1\n")
+        (repo / ".gitignore").write_text("")
+
+        old_cwd = os.getcwd()
+        os.chdir(foreign)  # stand in for the singleton server's own cwd
+        try:
+            tree = mod.create_tree_report(".", project_root=str(repo))
+            read = mod.read_source_files(
+                ["src/app.py"], project_root=str(repo))
+            sig = mod.extract_signatures(
+                "src/app.py", project_root=str(repo))
+        finally:
+            os.chdir(old_cwd)
+
+        assert "✅ Success" in tree, tree
+        assert "✅ Success" in read, read
+        assert "✅ Success" in sig, sig
+
+        names = {p.name for p in (repo / "context-reports").glob("*.md")}
+        assert any(n.startswith("tree_report_") for n in names), names
+        assert any(n.startswith("context_report_") for n in names), names
+        assert any(n.startswith("signatures_report_") for n in names), names
+
+        assert not (foreign / "context-reports").exists(), (
+            "reports must never be written into the singleton server cwd")
+        assert "context-reports/" in (repo / ".gitignore").read_text(), (
+            "the .gitignore safeguard must target the project root")

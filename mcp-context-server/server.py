@@ -400,13 +400,17 @@ def collect_files(
                 collected.append(file_path)
     return collected
 
-def _ensure_context_reports_ignored() -> None:
-    """Safeguard: Append context-reports/ to .gitignore if not present.
+def _ensure_context_reports_ignored(workspace_root: Path | None = None) -> None:
+    """Safeguard: Append context-reports/ to <workspace_root>/.gitignore.
 
-    Both report-producing tools (read_source_files and create_tree_report)
-    call this so generated reports are never accidentally committed.
+    Every report-producing tool calls this so generated reports are never
+    accidentally committed. The target is the caller's project root, not the
+    process cwd: under the singleton the server runs from the global install
+    dir, so a bare ``Path(".gitignore")`` edited the wrong file. A ``None``
+    root keeps the old cwd behavior for project_root-omitted calls.
     """
-    gitignore = Path(".gitignore")
+    base = workspace_root if workspace_root is not None else Path.cwd()
+    gitignore = base / ".gitignore"
     if gitignore.is_file():
         try:
             with open(gitignore, "r+", encoding="utf-8") as f:
@@ -475,13 +479,13 @@ def get_directory_tree(target_path: str = ".", project_root: str | None = None) 
 @_project_tool
 def read_source_files(paths: list[str], max_size: int = 1048576, no_line_numbers: bool = False, project_root: str | None = None) -> str:
     """Reads multiple source files/directories, compiles their contents into a Markdown file under context-reports/, and returns the report file path. Use when exact source content from named files is required. Returns a path, not inline content. Use extract_signatures instead for a structural outline without file bodies. project_root: absolute path to the calling project's repository root. Used to scope file resolution to that project. If omitted, falls back to the server working directory for backward compatibility."""
-    # Safeguard: Append context-reports/ to .gitignore if not present
-    _ensure_context_reports_ignored()
-
     try:
         workspace_root = _explicit_project_root(project_root, "read_source_files")
     except ValueError as e:
         return f"Error: {e}"
+
+    # Safeguard: Append context-reports/ to the PROJECT's .gitignore.
+    _ensure_context_reports_ignored(workspace_root)
 
     ignore_filter = GitIgnoreFilter()
     files_to_process: dict[Path, Path] = {}
@@ -521,9 +525,9 @@ def read_source_files(paths: list[str], max_size: int = 1048576, no_line_numbers
 
     result_content = "\n".join(output_lines)
 
-    # Ensure output directory exists
-    report_dir = Path("context-reports")
-    report_dir.mkdir(exist_ok=True)
+    # Ensure the PROJECT's output directory exists (never the server cwd).
+    report_dir = workspace_root / "context-reports"
+    report_dir.mkdir(parents=True, exist_ok=True)
 
     # Generate timestamped filename with a UUID suffix.
     # F4 Fix: UUID suffix prevents same-second TOCTOU overwrite, mirroring create_tree_report logic.
@@ -550,9 +554,6 @@ def read_source_files(paths: list[str], max_size: int = 1048576, no_line_numbers
 @_project_tool
 def create_tree_report(target_path: str = ".", project_root: str | None = None) -> str:
     """Creates a .gitignore-aware directory tree of a path or the entire project and saves it as a Markdown file under context-reports/ (named tree_report_<timestamp>_<uuid>.md). Use when the Manager asks to 'create a tree of the project' or 'create a tree of <path>'. Security: target_path is resolved against the workspace root and rejected if it escapes the project (path traversal prevention). project_root: absolute path to the calling project's repository root. Used to scope file resolution to that project. If omitted, falls back to the server working directory for backward compatibility."""
-    # Safeguard: Append context-reports/ to .gitignore if not present
-    _ensure_context_reports_ignored()
-
     # Security: Coerce None or invalid types back to the whole-project default
     # so a malformed tool invocation degrades gracefully instead of crashing.
     if not isinstance(target_path, str):
@@ -565,6 +566,9 @@ def create_tree_report(target_path: str = ".", project_root: str | None = None) 
         workspace_root = _explicit_project_root(project_root, "create_tree_report")
     except ValueError as e:
         return f"Error: {e}"
+
+    # Safeguard: Append context-reports/ to the PROJECT's .gitignore.
+    _ensure_context_reports_ignored(workspace_root)
     if Path(target_path).is_absolute():
         tree_path = Path(target_path).resolve()
     else:
@@ -582,9 +586,9 @@ def create_tree_report(target_path: str = ".", project_root: str | None = None) 
 
     tree_text = generate_tree(tree_path, ignore_filter)
 
-    # Ensure output directory exists
-    report_dir = Path("context-reports")
-    report_dir.mkdir(exist_ok=True)
+    # Ensure the PROJECT's output directory exists (never the server cwd).
+    report_dir = workspace_root / "context-reports"
+    report_dir.mkdir(parents=True, exist_ok=True)
 
     # Unique filename: timestamp + random UUID suffix. The UUID guarantees
     # collision-free naming without a TOCTOU-prone exists()/open() check loop.
@@ -616,13 +620,13 @@ def extract_signatures(file_path: str, project_root: str | None = None) -> str:
     """Extracts structural signatures (classes, functions, methods) from source files using tree-sitter AST. Falls back to regex when no tree-sitter grammar is available for the language. Saves the result to a Markdown file under context-reports/ and returns the report file path. Use for a structural API outline without file bodies. Use read_source_files instead when full source content is required. project_root: absolute path to the calling project's repository root. Used to scope file resolution to that project. If omitted, falls back to the server working directory for backward compatibility."""
     # Master try/except: ensure extract_signatures never crashes the MCP server
     try:
-        # Safeguard: Append context-reports/ to .gitignore if not present
-        _ensure_context_reports_ignored()
-
         try:
             workspace_root = _explicit_project_root(project_root, "extract_signatures")
         except ValueError as e:
             return f"Error: {e}"
+
+        # Safeguard: Append context-reports/ to the PROJECT's .gitignore.
+        _ensure_context_reports_ignored(workspace_root)
 
         path = Path(file_path)
         if not path.is_absolute():
@@ -647,7 +651,9 @@ def extract_signatures(file_path: str, project_root: str | None = None) -> str:
 
         # Fallback to regex if tree-sitter did not produce results
         if result_content is None:
-            with open(file_path, 'r', encoding='utf-8') as f:
+            # Read the RESOLVED path: under the singleton the raw relative
+            # file_path resolves against the server cwd, not the project root.
+            with open(path, 'r', encoding='utf-8') as f:
                 content = f.read()
 
             # Match class, function, def, interface, type — with access modifiers
@@ -668,9 +674,9 @@ def extract_signatures(file_path: str, project_root: str | None = None) -> str:
 
             result_content = f"### Signatures in {file_path}\n" + "\n".join(all_matches)
 
-        # Ensure output directory exists
-        report_dir = Path("context-reports")
-        report_dir.mkdir(exist_ok=True)
+        # Ensure the PROJECT's output directory exists (never the server cwd).
+        report_dir = workspace_root / "context-reports"
+        report_dir.mkdir(parents=True, exist_ok=True)
 
         # Generate timestamped filename with UUID suffix (mirrors read_source_files / create_tree_report)
         timestamp = time.strftime("%Y%m%d_%H%M%S")
