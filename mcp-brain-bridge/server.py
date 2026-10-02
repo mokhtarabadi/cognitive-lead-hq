@@ -237,12 +237,15 @@ def _strip_fences(text: str) -> tuple[str, list[str]]:
     dropped: list[str] = []
     clean = text
     for pat in _FENCE_RES:
+
         def _collect(m: re.Match) -> str:
             dropped.append(m.group(0)[:200])
             return ""
+
         clean = pat.sub(_collect, clean)
     _last_fence_drops = list(dropped)
     return clean, dropped
+
 
 # Task ids become directory names. Strict allowlist: anything else
 # (``..``, separators, empty) raises instead of being mangled.
@@ -266,6 +269,7 @@ def _require_task_number(task_id: object) -> str:
     """
     return require_bare_task_id(task_id)
 
+
 # Small context files bundled into every brain_turn (unless opted out).
 # Task files can be huge — never stuffed whole; pulled via tools instead.
 _BUNDLE_FILES = (
@@ -283,10 +287,19 @@ _BUNDLE_FILE_CAP = 60000
 #: stay lean and never time out on context size.
 _BUNDLE_TOTAL_CAP = 150000
 
+# Structural context pack: the newest generated tree report (written by the
+# Hands via ``custom_context.create_tree_report``) is auto-appended to the
+# bundle so a planning turn always starts with a real codebase map instead
+# of guessing. The section is included ONLY when at least one report exists
+# — an absent pack contributes nothing, never a noisy marker on every turn.
+# ``_STRUCTURAL_FILE_CAP`` bounds the section; the shared
+# ``_BUNDLE_TOTAL_CAP`` still bounds the whole bundle.
+_STRUCTURAL_REPORT_GLOB = "context-reports/tree_report_*.md"
+_STRUCTURAL_FILE_CAP = 40000
+_STRUCTURAL_MARKER = "=== context-reports/tree_report (latest) ==="
+
 # Text extensions readable via read_file / searchable via grep_files.
-_ALLOWED_READ_SUFFIXES = frozenset(
-    {".md", ".txt", ".json", ".yaml", ".yml", ".toml"}
-)
+_ALLOWED_READ_SUFFIXES = frozenset({".md", ".txt", ".json", ".yaml", ".yml", ".toml"})
 
 # Directories never descended into by grep_files.
 _SKIP_DIRS = frozenset(
@@ -294,10 +307,10 @@ _SKIP_DIRS = frozenset(
 )
 
 # Guardrails for the file-pull tools (state-machine hotfix round).
-_READ_MAX_LINES = 2000        # read_file limit clamp — pulls stay pull-sized
-_READ_MAX_BYTES = 2_000_000   # read_file refuses bigger files outright
-_GREP_PATTERN_MAX = 500       # Brain-supplied regex length cap (ReDoS bound)
-_GREP_MAX_LINE_CHARS = 4000   # overlong lines are skipped, never searched
+_READ_MAX_LINES = 2000  # read_file limit clamp — pulls stay pull-sized
+_READ_MAX_BYTES = 2_000_000  # read_file refuses bigger files outright
+_GREP_PATTERN_MAX = 500  # Brain-supplied regex length cap (ReDoS bound)
+_GREP_MAX_LINE_CHARS = 4000  # overlong lines are skipped, never searched
 
 
 def _workspace_root() -> Path:
@@ -368,9 +381,7 @@ def _task_id_ok(tid: object) -> bool:
     return isinstance(tid, str) and bool(_TASK_ID_RE.match(tid))
 
 
-def _resolve_task_file(
-    task_id: str, project_root: Optional[str] = None
-) -> Path | None:
+def _resolve_task_file(task_id: str, project_root: Optional[str] = None) -> Path | None:
     """Resolve a Brain task_id to its task file (None when unresolvable).
 
     Tries `<task_id>-*.md` in each Kanban dir (lane order: in-progress,
@@ -403,8 +414,7 @@ def _resolve_task_file(
                 pass
         roots.append(_workspace_root() / "tasks")
         candidates = [tid]
-        for _suffix in ("-qa", "-backlog", "-in-progress", "-completed",
-                        "-archive"):
+        for _suffix in ("-qa", "-backlog", "-in-progress", "-completed", "-archive"):
             if candidates[-1].endswith(_suffix) and len(candidates[-1]) > len(_suffix):
                 candidates.append(candidates[-1][: -len(_suffix)])
         _head = candidates[-1].split("-", 1)[0]
@@ -467,14 +477,14 @@ def _strip_task_diff(text: str, rel: str) -> tuple[str, int, bool]:
             parts.append(rest)
             break
         parts.append(rest[:start])
-        tail = rest[start + len(_TASK_DIFF_BEGIN):]
+        tail = rest[start + len(_TASK_DIFF_BEGIN) :]
         end = _diff_block_end(tail)
         if end < 0:
             omitted += tail.count("\n") + 1
             truncated = True
             break
         omitted += tail.count("\n", 0, end) + 1
-        rest = tail[end + len(_TASK_DIFF_END):]
+        rest = tail[end + len(_TASK_DIFF_END) :]
     if not omitted:
         return text, 0, False
     note = (
@@ -484,14 +494,14 @@ def _strip_task_diff(text: str, rel: str) -> tuple[str, int, bool]:
         + "task_id.]"
     )
     if truncated:
-        note += (" [diff truncated: unclosed block cut to EOF — scope past "
-                 "the cut is UNVERIFIABLE, never REJECTED]")
+        note += (
+            " [diff truncated: unclosed block cut to EOF — scope past "
+            "the cut is UNVERIFIABLE, never REJECTED]"
+        )
     return "".join(parts) + note, omitted, truncated
 
 
-def _build_task_attach(
-    task_id: str, project_root: Optional[str] = None
-) -> str:
+def _build_task_attach(task_id: str, project_root: Optional[str] = None) -> str:
     """Assemble the labeled task-file block ('' when unresolvable).
 
     Contains the task file's working content (Goal/Notes/TODOs/AC/
@@ -505,8 +515,7 @@ def _build_task_attach(
             return ""
         text = path.read_text(encoding="utf-8", errors="replace")
         try:
-            rel = path.resolve().relative_to(
-                _workspace_root().resolve()).as_posix()
+            rel = path.resolve().relative_to(_workspace_root().resolve()).as_posix()
         except (OSError, ValueError):
             rel = path.name
         cleaned, _omitted, _truncated = _strip_task_diff(text, rel)
@@ -524,8 +533,7 @@ def _build_task_attach(
         # task content cannot close our block early.
         cleaned = cleaned.replace(chr(96) * 3, chr(96) * 2 + chr(8203) + chr(96))
         return (
-            f"{_TASK_FILE_MARKER}{tid}: {rel}]\n"
-            + "```markdown\n" + cleaned + "\n```"
+            f"{_TASK_FILE_MARKER}{tid}: {rel}]\n" + "```markdown\n" + cleaned + "\n```"
         )
     except Exception as exc:  # never fail a turn on attach problems
         print(f"brain-bridge: task attach skipped ({exc})", file=sys.stderr)
@@ -543,19 +551,17 @@ def extract_task_diff(text: str) -> str:
         start = rest.find(_TASK_DIFF_BEGIN)
         if start < 0:
             break
-        tail = rest[start + len(_TASK_DIFF_BEGIN):]
+        tail = rest[start + len(_TASK_DIFF_BEGIN) :]
         end = _diff_block_end(tail)
         if end < 0:
             bodies.append(tail)
             break
         bodies.append(tail[:end])
-        rest = tail[end + len(_TASK_DIFF_END):]
+        rest = tail[end + len(_TASK_DIFF_END) :]
     return "\n".join(bodies)
 
 
-def build_diff_attach(
-    task_id: str, project_root: Optional[str] = None
-) -> str:
+def build_diff_attach(task_id: str, project_root: Optional[str] = None) -> str:
     """Assemble the labeled changed-hunks block.
 
     Contains the task file's Factual Git Diff content verbatim so QA and
@@ -573,9 +579,11 @@ def build_diff_attach(
         tid = task_id.strip() if isinstance(task_id, str) else "task"
         path = _resolve_task_file(task_id, project_root=project_root)
         if path is None:
-            print(f"brain-bridge: diff attach skipped "
-                  f"(task file unresolvable for {task_id!r})",
-                  file=sys.stderr)
+            print(
+                f"brain-bridge: diff attach skipped "
+                f"(task file unresolvable for {task_id!r})",
+                file=sys.stderr,
+            )
             return (
                 f"[changed-hunks:{tid}: UNAVAILABLE — task file "
                 f"unresolvable for {task_id!r}. The server could not "
@@ -587,9 +595,11 @@ def build_diff_attach(
         text = path.read_text(encoding="utf-8", errors="replace")
         diff = extract_task_diff(text)
         if not diff.strip():
-            print(f"brain-bridge: diff attach skipped "
-                  f"(no Factual Git Diff block in {path.name})",
-                  file=sys.stderr)
+            print(
+                f"brain-bridge: diff attach skipped "
+                f"(no Factual Git Diff block in {path.name})",
+                file=sys.stderr,
+            )
             return (
                 f"[changed-hunks:{tid}: EMPTY — no Factual Git Diff "
                 f"block in {path.name} yet. Stage the diff first "
@@ -597,8 +607,7 @@ def build_diff_attach(
                 f"Do NOT reject blind on missing hunks."
             )
         try:
-            rel = path.resolve().relative_to(
-                _workspace_root().resolve()).as_posix()
+            rel = path.resolve().relative_to(_workspace_root().resolve()).as_posix()
         except (OSError, ValueError):
             rel = path.name
         _cap = _task_diff_cap()
@@ -618,14 +627,10 @@ def build_diff_attach(
         # Same V1 guard as the task attach: break fence parsing invisibly
         # so embedded fences in diff content cannot close our block early.
         diff = diff.replace(chr(96) * 3, chr(96) * 2 + chr(8203) + chr(96))
-        return (
-            f"[changed-hunks:{tid}: {rel}]\n"
-            + "```diff\n" + diff + "\n```"
-        )
+        return f"[changed-hunks:{tid}: {rel}]\n" + "```diff\n" + diff + "\n```"
     except Exception as exc:  # never fail a turn on attach problems
         print(f"brain-bridge: diff attach skipped ({exc})", file=sys.stderr)
-        tid = (task_id.strip() if isinstance(task_id, str)
-               else "task")
+        tid = task_id.strip() if isinstance(task_id, str) else "task"
         return (
             f"[changed-hunks:{tid}: UNAVAILABLE — attach raised "
             f"({exc}). Retry the turn; if it persists, paste the "
@@ -635,7 +640,8 @@ def build_diff_attach(
 
 
 def _failsafe_qa_attach(
-    user_prompt: object, task_id: object,
+    user_prompt: object,
+    task_id: object,
     project_root: Optional[str] = None,
 ) -> str:
     """Return the diff-attach block for QA-like prompts ('' otherwise).
@@ -648,8 +654,76 @@ def _failsafe_qa_attach(
     if _qa_like_prompt(user_prompt):
         return build_diff_attach(
             task_id.strip() if isinstance(task_id, str) else "",
-            project_root=project_root)
+            project_root=project_root,
+        )
     return ""
+
+
+def _latest_report_path(root: object, pattern: str) -> Optional[Path]:
+    """Newest file matching ``pattern`` under ``root`` (mtime, then name).
+
+    Accepts a ``Path`` OR a path-like/``str`` root (normalized here, so a
+    caller passing a string never hits ``str.glob``). Returns ``None`` when
+    nothing matches or the glob/stat fails. Never raises — a broken
+    workspace must not fail a bundle build.
+    """
+    try:
+        base = root if isinstance(root, Path) else Path(root)  # type: ignore[arg-type]
+        matches = [p for p in base.glob(pattern) if p.is_file()]
+        if not matches:
+            return None
+        return max(matches, key=lambda p: (p.stat().st_mtime, p.name))
+    except Exception:  # never raise on a malformed/racing workspace
+        return None
+
+
+def _build_structural_pack(root: Optional[object] = None) -> str:
+    """Labeled newest tree report for the Brain bundle ('' when none).
+
+    The Hands generate the tree with
+    ``custom_context.create_tree_report``; carrying it in the bundle gives
+    the Brain a codebase map on the first planning turn without ever
+    handing it code file tools — the ask-the-Hands loop stays intact.
+
+    Robustness contract (never raises, and never leaks outside content):
+    a ``str``/path-like root is normalized; a report that resolves outside
+    the workspace root (symlink escape) is skipped, mirroring the file-pull
+    tools; a zero-byte or whitespace-only report is treated as no grounding
+    (''); the read is capped at ``_STRUCTURAL_FILE_CAP`` chars so an
+    oversized report can never be slurped whole; triple backticks are
+    neutralized with an invisible break so report fences cannot close a
+    surrounding fence downstream. A present, non-empty report returns the
+    labeled section with an honest ``[truncated]`` marker when it exceeds
+    the cap.
+    """
+    try:
+        base = root if root is not None else _workspace_root()
+        base = base if isinstance(base, Path) else Path(base)  # type: ignore[arg-type]
+        root_resolved = base.resolve()
+        path = _latest_report_path(base, _STRUCTURAL_REPORT_GLOB)
+        if path is None:
+            return ""
+        resolved = path.resolve()
+        if resolved != root_resolved and root_resolved not in resolved.parents:
+            return ""  # symlink escaped the workspace root — skip, never read
+        try:
+            if resolved.stat().st_size == 0:
+                return ""
+        except OSError:
+            return ""
+        with open(resolved, "r", encoding="utf-8", errors="replace") as handle:
+            text = handle.read(_STRUCTURAL_FILE_CAP + 1)
+        if not text.strip():
+            return ""
+        if len(text) > _STRUCTURAL_FILE_CAP:
+            text = text[:_STRUCTURAL_FILE_CAP] + "\n[truncated: structural pack cap]"
+        # Fence guard: same invisible-break trick the task and diff attaches
+        # use, so an embedded ``` cannot close a fence in a later consumer.
+        text = text.replace(chr(96) * 3, chr(96) * 2 + chr(8203) + chr(96))
+        rel = resolved.relative_to(root_resolved).as_posix()
+        return f"{_STRUCTURAL_MARKER} ({rel})\n{text}"
+    except Exception:  # never raise: a bad report must not fail a bundle
+        return ""
 
 
 def _build_context_bundle(root: Optional[str] = None) -> str:
@@ -691,7 +765,7 @@ def _build_context_bundle(root: Optional[str] = None) -> str:
         if total + len(chunk) > _BUNDLE_TOTAL_CAP:
             room = _BUNDLE_TOTAL_CAP - total
             if room > len(header) + 64 + len(suffix):
-                parts.append(chunk[:room - len(suffix)] + suffix)
+                parts.append(chunk[: room - len(suffix)] + suffix)
             else:
                 parts.append(header + "\n[skipped: bundle total cap]")
             total = _BUNDLE_TOTAL_CAP
@@ -699,6 +773,28 @@ def _build_context_bundle(root: Optional[str] = None) -> str:
             continue
         parts.append(chunk)
         total += len(chunk)
+    # Structural context pack appended LAST so the stable doc files keep
+    # their positions in the prefix. Absent pack contributes nothing; the
+    # shared total cap still bounds the whole bundle, with an honest
+    # skip/truncate marker when the pack does not fit.
+    _struct_text = _build_structural_pack(root)
+    if _struct_text:
+        _struct_header = _STRUCTURAL_MARKER
+        _room = _BUNDLE_TOTAL_CAP - total
+        # A skipped pack must NOT carry the grounding marker: the marker is
+        # the signal `context_sufficiency_gaps` keys on, so emitting it with
+        # no tree content would falsely report the turn as grounded.
+        if capped or _room <= 0:
+            parts.append("[structural pack skipped: bundle total cap]")
+        elif len(_struct_text) <= _room:
+            parts.append(_struct_text)
+        elif _room > len(_struct_header) + 64 + len(suffix):
+            parts.append(_struct_text[: _room - len(suffix)] + suffix)
+        else:
+            parts.append("[structural pack skipped: bundle total cap]")
+        # The structural section is appended LAST, so pin the running total
+        # to the cap and keep the "never exceeds the cap" invariant honest.
+        total = _BUNDLE_TOTAL_CAP
     if missing:
         print(
             f"brain-bridge: context bundle skipped {missing} missing files",
@@ -734,8 +830,8 @@ def _read_file_impl(
     try:
         if resolved.stat().st_size > _READ_MAX_BYTES:
             raise ValueError(
-                f"file too large for read_file: {path!r} "
-                f"(>{_READ_MAX_BYTES} bytes)")
+                f"file too large for read_file: {path!r} (>{_READ_MAX_BYTES} bytes)"
+            )
     except OSError:
         pass  # stat failed — the read below raises the real error
     text = resolved.read_text(encoding="utf-8", errors="replace")
@@ -768,8 +864,7 @@ def _grep_files_impl(
     if not isinstance(pattern, str) or not pattern:
         raise ValueError(f"bad regex: {pattern!r}")
     if len(pattern) > _GREP_PATTERN_MAX:
-        raise ValueError(
-            f"regex too long ({len(pattern)} > {_GREP_PATTERN_MAX})")
+        raise ValueError(f"regex too long ({len(pattern)} > {_GREP_PATTERN_MAX})")
     try:
         rx = re.compile(pattern)
     except re.error as exc:
@@ -861,6 +956,7 @@ def grep_files(
     """
     return _grep_files_impl(pattern, subdir, project_root)
 
+
 # Prompt overrides must be real prompt files: .md only, resolved under
 # the repo root or ~/.config/opencode (the two legitimate homes).
 _PROMPT_SUFFIX = ".md"
@@ -897,8 +993,7 @@ def load_system_prompt(explicit_path: Optional[str] = None) -> str:
         if path.is_file():
             return path.read_text(encoding="utf-8")
     raise FileNotFoundError(
-        "No system prompt found; checked: "
-        + ", ".join(str(p) for p in candidates)
+        "No system prompt found; checked: " + ", ".join(str(p) for p in candidates)
     )
 
 
@@ -925,14 +1020,14 @@ def _extract_unclosed_tail(text: str) -> str | None:
         close_re = re.compile(r"</" + name + r"\s*>", re.IGNORECASE)
         if close_re.search(text, m.end()):
             continue
-        lines = text[m.start():].split("\n")
+        lines = text[m.start() :].split("\n")
         cut = len(lines)
         for i, line in enumerate(lines):
             if line.strip():
                 continue
             # Blank line: peek at the next non-blank line. XML continues
             # only when it opens another tag; prose ends the block here.
-            for nxt in lines[i + 1:]:
+            for nxt in lines[i + 1 :]:
                 if not nxt.strip():
                     continue
                 if not nxt.lstrip().startswith("<"):
@@ -981,11 +1076,19 @@ def extract_xml_blocks(output: str) -> list[str]:
 #: so prose mentions count and only genuinely phaseless blocks fail.
 _HANDS_REQUIRED_PHASES = {
     "hands_discovery_task": (
-        "validation_phase", "context_phase", "execution_phase",
-        "summary_phase"),
+        "validation_phase",
+        "context_phase",
+        "execution_phase",
+        "summary_phase",
+    ),
     "hands_implementation_task": (
-        "validation_phase", "context_phase", "execution_phase",
-        "bash_phase", "documentation_phase", "summary_phase"),
+        "validation_phase",
+        "context_phase",
+        "execution_phase",
+        "bash_phase",
+        "documentation_phase",
+        "summary_phase",
+    ),
     "hands_combined_task": ("validation_phase", "discovery_phase"),
     "failure_report": (),
     "hotfix": (),
@@ -1003,8 +1106,7 @@ def _phase_element_present(body: str, phase: str) -> bool:
     body never satisfy the gate — only ``<phase>`` or ``<phase ...>``
     inside the root counts.
     """
-    return bool(re.search(
-        rf"<\s*{re.escape(phase)}(?:\s[^>]*)?>", body, re.IGNORECASE))
+    return bool(re.search(rf"<\s*{re.escape(phase)}(?:\s[^>]*)?>", body, re.IGNORECASE))
 
 
 def validate_hands_xml_blocks(blocks: object) -> list[str]:
@@ -1026,21 +1128,19 @@ def validate_hands_xml_blocks(blocks: object) -> list[str]:
         m = _ROOT_RE.match(block)
         root = m.group(1).lower() if m else ""
         if root not in _HANDS_REQUIRED_PHASES:
-            problems.append(
-                f"block {i}: unexpected root <{root or '?'}>")
+            problems.append(f"block {i}: unexpected root <{root or '?'}>")
             continue
         tag = m.group(1) if m else root
-        close_m = re.search(rf"</\s*{re.escape(tag)}\s*>",
-                            block, re.IGNORECASE)
+        close_m = re.search(rf"</\s*{re.escape(tag)}\s*>", block, re.IGNORECASE)
         if not close_m:
-            problems.append(
-                f"block {i} <{root}>: missing close tag (truncated?)")
+            problems.append(f"block {i} <{root}>: missing close tag (truncated?)")
             continue
-        open_m = re.search(rf"<\s*{re.escape(tag)}(?:\s[^>]*)?>",
-                           block, re.IGNORECASE)
-        raw_body = (block[open_m.end():close_m.start()]
-                    if open_m and close_m.start() >= open_m.end()
-                    else "")
+        open_m = re.search(rf"<\s*{re.escape(tag)}(?:\s[^>]*)?>", block, re.IGNORECASE)
+        raw_body = (
+            block[open_m.end() : close_m.start()]
+            if open_m and close_m.start() >= open_m.end()
+            else ""
+        )
         body = _COMMENT_RE.sub("", raw_body)
         if not body.strip():
             problems.append(f"block {i} <{root}>: empty body")
@@ -1048,8 +1148,8 @@ def validate_hands_xml_blocks(blocks: object) -> list[str]:
         for phase in _HANDS_REQUIRED_PHASES[root]:
             if not _phase_element_present(body, phase):
                 problems.append(
-                    f"block {i} <{root}>: missing required "
-                    f"<{phase}> element")
+                    f"block {i} <{root}>: missing required <{phase}> element"
+                )
     return problems
 
 
@@ -1075,13 +1175,58 @@ def validate_plan_verdict(plan_text: object) -> list[str]:
     if not isinstance(plan_text, str) or not plan_text.strip():
         return ["plan text is empty"]
     lowered = plan_text.lower()
-    problems = [f"plan text missing {field!r} field"
-                for field in _PLAN_VERDICT_FIELDS
-                if not re.search(rf"\b{re.escape(field)}\b", lowered)]
-    if ("cites" not in problems
-            and not re.search(r"\S+\.\w+:\d+", plan_text)):
+    problems = [
+        f"plan text missing {field!r} field"
+        for field in _PLAN_VERDICT_FIELDS
+        if not re.search(rf"\b{re.escape(field)}\b", lowered)
+    ]
+    if "cites" not in problems and not re.search(r"\S+\.\w+:\d+", plan_text):
         problems.append("plan cites carry no file path with lines")
     return problems
+
+
+#: Stages whose output is a plan the Brain must ground in repo context.
+#: Only ``plan`` is gated; every other stage stays silent.
+_PLAN_STAGE = "plan"
+
+#: Markers that prove the Brain carries grounding this turn: the structural
+#: pack section and the discovery-fed context block.
+_FED_CONTEXT_MARKER = "[fed-context]"
+_PINNED_FED_MARKER = "[pinned-fed-context]"
+
+
+def context_sufficiency_gaps(
+    stage: Optional[str],
+    user_prompt: object,
+    bundle_text: object,
+    bundle_included: bool = True,
+) -> list[str]:
+    """Pure: grounding gaps for a planning turn ([] when sufficient).
+
+    A ``plan``-stage turn is grounded only when BOTH hold: the bundle
+    carries the structural pack, and the prompt/rendered text carries a
+    fed-context block. Only ``plan`` is gated; every other stage (and a
+    missing stage) returns ``[]`` so unrelated turns never warn.
+
+    ``bundle_included`` reflects the caller's ``include_bundle`` choice:
+    when the caller opted out of the bundle, the structural requirement is
+    suppressed (there was never going to be a pack) instead of producing a
+    false positive. Takes values only — no environment, no filesystem, no
+    network, and never the diff or the API key.
+    """
+    if (stage or "").strip().lower() != _PLAN_STAGE:
+        return []
+    bundle = bundle_text if isinstance(bundle_text, str) else ""
+    prompt = user_prompt if isinstance(user_prompt, str) else ""
+    gaps: list[str] = []
+    if bundle_included and _STRUCTURAL_MARKER not in bundle:
+        gaps.append(
+            "no structural pack (run create_tree_report, or ask the Hands "
+            "for repo context before planning)"
+        )
+    if _FED_CONTEXT_MARKER not in prompt and _PINNED_FED_MARKER not in prompt:
+        gaps.append("no fed-context block")
+    return gaps
 
 
 _CLOSURE_APPROVAL_WORDS = ("approved for closure", "close task")
@@ -1113,14 +1258,14 @@ def validate_closure_checklist(task_text: object) -> list[str]:
     if not re.search(r"\bextract_session_decisions\b", task_text):
         problems.append("task text shows no extract_session_decisions run")
     diff_match = re.search(
-        r"<!-- BEGIN_GIT_DIFF -->(.*?)<!-- END_GIT_DIFF -->",
-        task_text, re.DOTALL)
+        r"<!-- BEGIN_GIT_DIFF -->(.*?)<!-- END_GIT_DIFF -->", task_text, re.DOTALL
+    )
     if diff_match is None:
         problems.append("task text missing Factual Git Diff block")
     else:
         inner = diff_match.group(1).strip()
         inner = re.sub(r"```diff|```", "", inner).strip()
-        if (not inner or "will be automatically injected" in inner):
+        if not inner or "will be automatically injected" in inner:
             problems.append("Factual Git Diff block is empty")
     return problems
 
@@ -1215,8 +1360,9 @@ def _get_stage_tiers() -> dict[str, str]:
     return mapping
 
 
-def resolve_stage_tier(stage: Optional[str],
-                       stage_tiers: dict[str, str]) -> Optional[str]:
+def resolve_stage_tier(
+    stage: Optional[str], stage_tiers: dict[str, str]
+) -> Optional[str]:
     """Pure stage-to-tier resolver (Task 261).
 
     Takes values only — no environment reads. Returns ``None`` for a
@@ -1228,9 +1374,13 @@ def resolve_stage_tier(stage: Optional[str],
     return stage_tiers.get(key)
 
 
-def resolve_routed_model(enabled: bool, risk_tier: Optional[str],
-                         default_model: str, model_low: str,
-                         model_high: str) -> str:
+def resolve_routed_model(
+    enabled: bool,
+    risk_tier: Optional[str],
+    default_model: str,
+    model_low: str,
+    model_high: str,
+) -> str:
     """Pure tier-to-model resolver (Task 246).
 
     Takes values only — no environment reads, no network, and never
@@ -1280,12 +1430,20 @@ def _frame_segment(label: str, text: str) -> bytes:
     and two different segment lists can never frame identically."""
     lab = label.encode("utf-8")
     data = text.encode("utf-8")
-    return (str(len(lab)).encode() + b"\x00" + lab + b"\x00"
-            + str(len(data)).encode() + b"\x00" + data)
+    return (
+        str(len(lab)).encode()
+        + b"\x00"
+        + lab
+        + b"\x00"
+        + str(len(data)).encode()
+        + b"\x00"
+        + data
+    )
 
 
-def _static_prefix_hash(system_prompt: str, bundle_text: str,
-                        task_attach_text: str) -> str:
+def _static_prefix_hash(
+    system_prompt: str, bundle_text: str, task_attach_text: str
+) -> str:
     """SHA-256 over the framed static segments, memoized (Task 247).
 
     The lookup key is the static input tuple itself, so a repeat
@@ -1296,11 +1454,13 @@ def _static_prefix_hash(system_prompt: str, bundle_text: str,
     cached = _STATIC_SPLIT_CACHE.get(key)
     if cached is not None:
         return cached
-    framed = (b"".join((
-        _frame_segment("system_prompt", system_prompt),
-        _frame_segment("bundle_prepend", bundle_text),
-        _frame_segment("task_attach_prepend", task_attach_text),
-    )))
+    framed = b"".join(
+        (
+            _frame_segment("system_prompt", system_prompt),
+            _frame_segment("bundle_prepend", bundle_text),
+            _frame_segment("task_attach_prepend", task_attach_text),
+        )
+    )
     digest = hashlib.sha256(framed).hexdigest()
     _STATIC_SPLIT_COMPUTES += 1
     if len(_STATIC_SPLIT_CACHE) >= _STATIC_SPLIT_CACHE_MAX:
@@ -1310,10 +1470,16 @@ def _static_prefix_hash(system_prompt: str, bundle_text: str,
 
 
 def build_prompt_cache_split(
-        system_prompt: str, bundle_text: str, task_attach_text: str,
-        user_prompt: str, paths_text: str = "", diff_text: str = "",
-        failsafe_text: str = "", fed_text: str = "",
-        history: Optional[list] = None) -> dict[str, str]:
+    system_prompt: str,
+    bundle_text: str,
+    task_attach_text: str,
+    user_prompt: str,
+    paths_text: str = "",
+    diff_text: str = "",
+    failsafe_text: str = "",
+    fed_text: str = "",
+    history: Optional[list] = None,
+) -> dict[str, str]:
     """Pure static/dynamic split descriptor (Task 247).
 
     Provider-neutral sidecar metadata: hashes and fixed labels only —
@@ -1323,8 +1489,7 @@ def build_prompt_cache_split(
     turn (user input, path/diff/failsafe/fed-context appends, and
     the shipped history). Takes values only — no environment reads,
     no network, no mutation of the prompt."""
-    static_hash = _static_prefix_hash(
-        system_prompt, bundle_text, task_attach_text)
+    static_hash = _static_prefix_hash(system_prompt, bundle_text, task_attach_text)
     frames = [
         _frame_segment("user_prompt", user_prompt),
         _frame_segment("paths_attach", paths_text),
@@ -1605,70 +1770,91 @@ def _send_with_learning(
             try:
                 resp, attempts = _post_with_retry(client, url, body)
             except RuntimeError as exc:
-                attempts_total += int(
-                    getattr(exc, "transport_attempts", 0) or 0)
+                attempts_total += int(getattr(exc, "transport_attempts", 0) or 0)
                 correction = _classify_transport_error(exc, body)
                 if correction is None:
                     # Repeat of an already-applied correction (provider
                     # echoing the same rejection after the key was
                     # dropped): the fix did not stick — escalate.
                     repeat_sig = _failure_signature(exc)
-                    if (repeat_sig is not None
-                            and memory.already_corrected(repeat_sig)):
-                        message = _escalation_message(
-                            task_key, repeat_sig, repeats=2)
+                    if repeat_sig is not None and memory.already_corrected(repeat_sig):
+                        message = _escalation_message(task_key, repeat_sig, repeats=2)
                         if project_root is not None:
                             try:
                                 _append_ledger_event(
                                     "transport_escalation",
                                     task_id=task_id,
                                     session_id=session_id,
-                                    data={"task_key": task_key,
-                                          "class": repeat_sig,
-                                          "fingerprint": repeat_sig},
-                                    project_root=project_root)
+                                    data={
+                                        "task_key": task_key,
+                                        "class": repeat_sig,
+                                        "fingerprint": repeat_sig,
+                                    },
+                                    project_root=project_root,
+                                )
                             except Exception as ledger_exc:
-                                print("brain-bridge: ledger event skipped "
-                                      f"({ledger_exc})", file=sys.stderr)
-                        _note_checkpoint("transport_correction_or_escalation",
-                                         task_id=task_id,
-                                         session_id=session_id,
-                                         project_root=project_root)
+                                print(
+                                    "brain-bridge: ledger event skipped "
+                                    f"({ledger_exc})",
+                                    file=sys.stderr,
+                                )
+                        _note_checkpoint(
+                            "transport_correction_or_escalation",
+                            task_id=task_id,
+                            session_id=session_id,
+                            project_root=project_root,
+                        )
                         raise TransportEscalationError(message) from exc
                     raise
                 if memory.seen(correction.fingerprint):
                     message = _escalation_message(
-                        task_key, correction.fingerprint, repeats=2)
+                        task_key, correction.fingerprint, repeats=2
+                    )
                     if project_root is not None:
                         try:
                             _append_ledger_event(
                                 "transport_escalation",
-                                task_id=task_id, session_id=session_id,
-                                data={"task_key": task_key,
-                                      "class": correction.failure_class,
-                                      "param": correction.param,
-                                      "fingerprint":
-                                          correction.fingerprint},
-                                project_root=project_root)
+                                task_id=task_id,
+                                session_id=session_id,
+                                data={
+                                    "task_key": task_key,
+                                    "class": correction.failure_class,
+                                    "param": correction.param,
+                                    "fingerprint": correction.fingerprint,
+                                },
+                                project_root=project_root,
+                            )
                         except Exception as ledger_exc:
-                            print("brain-bridge: ledger event skipped "
-                                  f"({ledger_exc})", file=sys.stderr)
-                    _note_checkpoint("transport_correction_or_escalation",
-                                     task_id=task_id,
-                                     session_id=session_id,
-                                     project_root=project_root)
+                            print(
+                                f"brain-bridge: ledger event skipped ({ledger_exc})",
+                                file=sys.stderr,
+                            )
+                    _note_checkpoint(
+                        "transport_correction_or_escalation",
+                        task_id=task_id,
+                        session_id=session_id,
+                        project_root=project_root,
+                    )
                     raise TransportEscalationError(message) from exc
                 body = correction.apply(body)
                 memory.record(
-                    correction, task_id=task_id, session_id=session_id,
-                    project_root=project_root)
-                _note_checkpoint("transport_correction_or_escalation",
-                                 task_id=task_id,
-                                 session_id=session_id,
-                                 project_root=project_root)
-                print("brain-bridge: transport correction applied "
-                      f"({correction.fingerprint}); retrying once with "
-                      "corrected body", file=sys.stderr)
+                    correction,
+                    task_id=task_id,
+                    session_id=session_id,
+                    project_root=project_root,
+                )
+                _note_checkpoint(
+                    "transport_correction_or_escalation",
+                    task_id=task_id,
+                    session_id=session_id,
+                    project_root=project_root,
+                )
+                print(
+                    "brain-bridge: transport correction applied "
+                    f"({correction.fingerprint}); retrying once with "
+                    "corrected body",
+                    file=sys.stderr,
+                )
                 continue
             return resp, attempts_total + attempts
 
@@ -1883,14 +2069,11 @@ def _sanitize_task_id(task_id: str) -> str:
 
 def _transcript_path(task_id: str, project_root: Optional[str] = None) -> Path:
     return (
-        _sessions_root(project_root)
-        / _sanitize_task_id(task_id)
-        / "transcript.jsonl"
+        _sessions_root(project_root) / _sanitize_task_id(task_id) / "transcript.jsonl"
     )
 
 
-def _write_transcript_path(task_id: str,
-                           project_root: Optional[str] = None) -> Path:
+def _write_transcript_path(task_id: str, project_root: Optional[str] = None) -> Path:
     """Transcript path for WRITES (per-project; never legacy global)."""
     return (
         _write_sessions_root(project_root)
@@ -1901,11 +2084,7 @@ def _write_transcript_path(task_id: str,
 
 def _legacy_transcript_path(task_id: str) -> Path:
     """Legacy global transcript (read fallback until migration copies it)."""
-    return (
-        _legacy_sessions_root()
-        / _sanitize_task_id(task_id)
-        / "transcript.jsonl"
-    )
+    return _legacy_sessions_root() / _sanitize_task_id(task_id) / "transcript.jsonl"
 
 
 #: Per-line size guard (R5): one monster line can't blow memory on read.
@@ -1929,8 +2108,15 @@ _SUMMARY_MAX_CHARS = 4000
 _COMPACT_FILE_BYTES = 200_000
 
 #: Record keys preserved across load/compact cycles (traceability).
-_META_KEYS = ("model", "prompt_hash", "truncated", "compacted", "models",
-              "truncated_total", "compacted_count")
+_META_KEYS = (
+    "model",
+    "prompt_hash",
+    "truncated",
+    "compacted",
+    "models",
+    "truncated_total",
+    "compacted_count",
+)
 
 
 def _parse_turns(raw: str) -> tuple[list[dict[str, Any]], int]:
@@ -1959,8 +2145,7 @@ def _parse_turns(raw: str) -> tuple[list[dict[str, Any]], int]:
             and entry.get("role") in ("user", "assistant")
             and isinstance(entry.get("content"), str)
         ):
-            turn: dict[str, Any] = {
-                "role": entry["role"], "content": entry["content"]}
+            turn: dict[str, Any] = {"role": entry["role"], "content": entry["content"]}
             for key in _META_KEYS:
                 if key in entry:
                     turn[key] = entry[key]
@@ -1992,8 +2177,7 @@ def _build_compacted(turns: list[dict[str, Any]]) -> list[dict[str, Any]]:
             models.add(m)
     trunc = sum(int(t.get("truncated") or 0) for t in fresh)
     trunc += sum(int(p.get("truncated_total") or 0) for p in prior)
-    chain = " | ".join(
-        str(p.get("content", ""))[:500] for p in prior[-2:])
+    chain = " | ".join(str(p.get("content", ""))[:500] for p in prior[-2:])
     digest = (
         f"[compacted {total} turns: {users} user + "
         f"{len(fresh) - users} assistant; models={sorted(models)}; "
@@ -2003,15 +2187,19 @@ def _build_compacted(turns: list[dict[str, Any]]) -> list[dict[str, Any]]:
         digest += f" prior: {chain}"
     digest = digest[:_SUMMARY_MAX_CHARS]
     summary: dict[str, Any] = {
-        "role": "assistant", "content": digest, "compacted": True,
-        "compacted_count": total, "models": sorted(models),
+        "role": "assistant",
+        "content": digest,
+        "compacted": True,
+        "compacted_count": total,
+        "models": sorted(models),
         "truncated_total": trunc,
     }
     return [summary] + fresh[-_COMPACT_KEEP_LAST:]
 
 
-def load_history(task_id: str, limit: int = _HISTORY_LIMIT,
-                  project_root: Optional[str] = None) -> list[dict[str, str]]:
+def load_history(
+    task_id: str, limit: int = _HISTORY_LIMIT, project_root: Optional[str] = None
+) -> list[dict[str, str]]:
     """Read a task's prior turns (oldest first), capped at ``limit``.
     Missing file means a fresh task — returns []. Corrupt lines are
     skipped, never fatal; per-load stats land in ``_last_load_stats``
@@ -2030,11 +2218,12 @@ def load_history(task_id: str, limit: int = _HISTORY_LIMIT,
         # with its own sessions dir but no file for this id gets a
         # fresh history — never another project's turns.
         legacy = _legacy_transcript_path(task_id)
-        if (_sessions_root(project_root) == _legacy_sessions_root()
-                and legacy.is_file()):
-            print("brain-bridge: reading legacy global session "
-                  f"({task_id}); migrate it under tasks/.sessions/",
-                  file=sys.stderr)
+        if _sessions_root(project_root) == _legacy_sessions_root() and legacy.is_file():
+            print(
+                "brain-bridge: reading legacy global session "
+                f"({task_id}); migrate it under tasks/.sessions/",
+                file=sys.stderr,
+            )
             path = legacy
     if not path.is_file():
         _last_load_stats.update({"kept": 0, "skipped": 0})
@@ -2105,9 +2294,15 @@ def _transcript_form(user_prompt: str, rendered: list) -> str:
     return "\n".join(markers) + "\n\n---\n\n" + user_prompt
 
 
-def append_turn(task_id: str, role: str, content: str, model: Optional[str] = None,
-                prompt_hash: Optional[str] = None, truncated: int = 0,
-                project_root: Optional[str] = None) -> None:
+def append_turn(
+    task_id: str,
+    role: str,
+    content: str,
+    model: Optional[str] = None,
+    prompt_hash: Optional[str] = None,
+    truncated: int = 0,
+    project_root: Optional[str] = None,
+) -> None:
     """Append one turn to the task transcript (creates dirs as needed).
 
     Traceability keys ride on every record; unset stays None/0 so
@@ -2116,8 +2311,11 @@ def append_turn(task_id: str, role: str, content: str, model: Optional[str] = No
     path = _write_transcript_path(task_id, project_root)
     path.parent.mkdir(parents=True, exist_ok=True)
     record: dict[str, Any] = {
-        "role": role, "content": content, "model": model,
-        "prompt_hash": prompt_hash, "truncated": truncated,
+        "role": role,
+        "content": content,
+        "model": model,
+        "prompt_hash": prompt_hash,
+        "truncated": truncated,
     }
     with path.open("a", encoding="utf-8") as fh:
         fcntl.flock(fh, fcntl.LOCK_EX)
@@ -2143,27 +2341,17 @@ _FED_CONTEXT_FILE = "fed_context.md"
 _FED_CONTEXT_CAP = 20000
 
 
-def _fed_context_path(task_id: str,
-                        project_root: Optional[str] = None) -> Path:
+def _fed_context_path(task_id: str, project_root: Optional[str] = None) -> Path:
     """Pinned fed-context file for a task (raises ValueError on bad id)."""
-    return (
-        _sessions_root(project_root)
-        / _sanitize_task_id(task_id)
-        / _FED_CONTEXT_FILE
-    )
+    return _sessions_root(project_root) / _sanitize_task_id(task_id) / _FED_CONTEXT_FILE
 
 
 def _legacy_fed_context_path(task_id: str) -> Path:
     """Legacy global fed-context file (read fallback until migrated)."""
-    return (
-        _legacy_sessions_root()
-        / _sanitize_task_id(task_id)
-        / _FED_CONTEXT_FILE
-    )
+    return _legacy_sessions_root() / _sanitize_task_id(task_id) / _FED_CONTEXT_FILE
 
 
-def _write_fed_context_path(task_id: str,
-                              project_root: Optional[str] = None) -> Path:
+def _write_fed_context_path(task_id: str, project_root: Optional[str] = None) -> Path:
     """Fed-context path for WRITES (per-project; never legacy global)."""
     return (
         _write_sessions_root(project_root)
@@ -2196,8 +2384,9 @@ def extract_fed_context(prompt: object) -> str:
     return "\n".join(lines[start:end]).strip()
 
 
-def save_fed_context(task_id: str, content: str,
-                     project_root: Optional[str] = None) -> None:
+def save_fed_context(
+    task_id: str, content: str, project_root: Optional[str] = None
+) -> None:
     """Pin fed discovery context (atomic write, capped).
 
     Raises ValueError on invalid task id; IO problems are logged and
@@ -2209,13 +2398,14 @@ def save_fed_context(task_id: str, content: str,
         try:
             path.unlink(missing_ok=True)
         except OSError as exc:
-            print(f"brain-bridge: fed-context clear skipped ({exc})",
-                  file=sys.stderr)
+            print(f"brain-bridge: fed-context clear skipped ({exc})", file=sys.stderr)
         return
     if len(content) > _FED_CONTEXT_CAP:
-        content = (content[:_FED_CONTEXT_CAP]
-                   + f"\n[...fed context truncated at {_FED_CONTEXT_CAP} "
-                   + "chars]")
+        content = (
+            content[:_FED_CONTEXT_CAP]
+            + f"\n[...fed context truncated at {_FED_CONTEXT_CAP} "
+            + "chars]"
+        )
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_name(f"{path.name}.tmp-{os.getpid()}")
     try:
@@ -2225,12 +2415,10 @@ def save_fed_context(task_id: str, content: str,
             os.fsync(fh.fileno())
         os.replace(tmp, path)
     except OSError as exc:
-        print(f"brain-bridge: fed-context save skipped ({exc})",
-              file=sys.stderr)
+        print(f"brain-bridge: fed-context save skipped ({exc})", file=sys.stderr)
 
 
-def load_fed_context(task_id: str,
-                     project_root: Optional[str] = None) -> str:
+def load_fed_context(task_id: str, project_root: Optional[str] = None) -> str:
     """Read pinned fed context ('' when none; never raises).
 
     Falls back to the legacy global file ONLY when no per-project
@@ -2238,15 +2426,21 @@ def load_fed_context(task_id: str,
     gets '' — never another project's pin. New pins are always
     written per-project."""
     try:
-        return _fed_context_path(task_id, project_root).read_text(
-            encoding="utf-8", errors="replace").strip()
+        return (
+            _fed_context_path(task_id, project_root)
+            .read_text(encoding="utf-8", errors="replace")
+            .strip()
+        )
     except (OSError, ValueError):
         pass
     if _sessions_root(project_root) != _legacy_sessions_root():
         return ""
     try:
-        return _legacy_fed_context_path(task_id).read_text(
-            encoding="utf-8", errors="replace").strip()
+        return (
+            _legacy_fed_context_path(task_id)
+            .read_text(encoding="utf-8", errors="replace")
+            .strip()
+        )
     except (OSError, ValueError):
         return ""
 
@@ -2277,7 +2471,8 @@ def _paths_base(project_root: Optional[str] = None) -> Path:
         try:
             if not isinstance(project_root, (str, os.PathLike)):
                 raise TypeError(
-                    f"project_root is not path-like: {type(project_root)!r}")
+                    f"project_root is not path-like: {type(project_root)!r}"
+                )
             pr = Path(project_root).expanduser()
             if pr.is_dir():
                 return pr.resolve()
@@ -2286,9 +2481,7 @@ def _paths_base(project_root: Optional[str] = None) -> Path:
     return _workspace_root()
 
 
-def build_paths_attach(
-    paths: object, project_root: Optional[str] = None
-) -> str:
+def build_paths_attach(paths: object, project_root: Optional[str] = None) -> str:
     """Read workspace files for path injection ('' when none).
 
     Relative paths resolve under the explicit ``project_root`` when one
@@ -2313,13 +2506,11 @@ def build_paths_attach(
             blocks.append(f"[unavailable: {rel.strip()} — outside workspace]")
             continue
         if resolved.suffix.lower() not in _ALLOWED_READ_SUFFIXES:
-            blocks.append(
-                f"[unavailable: {rel.strip()} — unsupported extension]")
+            blocks.append(f"[unavailable: {rel.strip()} — unsupported extension]")
             continue
         try:
             if resolved.stat().st_size > _READ_MAX_BYTES:
-                blocks.append(
-                    f"[unavailable: {rel.strip()} — file too large]")
+                blocks.append(f"[unavailable: {rel.strip()} — file too large]")
                 continue
             text = resolved.read_text(encoding="utf-8", errors="replace")
         except OSError:
@@ -2331,12 +2522,11 @@ def build_paths_attach(
         _per_file = _ctx_paths_per_file_cap()
         _total_cap = _ctx_paths_total_cap()
         if len(text) > _per_file:
-            text = (text[:_per_file]
-                    + f"\n[...truncated at {_per_file} chars]")
+            text = text[:_per_file] + f"\n[...truncated at {_per_file} chars]"
         if used + len(text) > _total_cap:
             blocks.append(
-                f"[skipped: {rel.strip()} — total budget "
-                f"{_total_cap} chars reached]")
+                f"[skipped: {rel.strip()} — total budget {_total_cap} chars reached]"
+            )
             continue
         used += len(text)
         blocks.append(f"[path-injected: {rel.strip()}]\n{text}")
@@ -2368,8 +2558,11 @@ _ATTACHMENT_MARKER_ROOM = 200
 def _qa_like_prompt(user_prompt: object) -> bool:
     """Keyword gate for QA/reviewer-shaped prompts (never raises)."""
     lowered = user_prompt.lower() if isinstance(user_prompt, str) else ""
-    return ("qa engineer" in lowered or "code reviewer" in lowered
-            or "adversarial" in lowered)
+    return (
+        "qa engineer" in lowered
+        or "code reviewer" in lowered
+        or "adversarial" in lowered
+    )
 
 
 def _validate_attachment_resume(resume: object) -> Optional[dict]:
@@ -2381,24 +2574,30 @@ def _validate_attachment_resume(resume: object) -> Optional[dict]:
     ignored with a stderr note so it can never break a turn.
     """
     if not isinstance(resume, dict):
-        print("brain-bridge: attachment_resume ignored (not a mapping)",
-              file=sys.stderr)
+        print(
+            "brain-bridge: attachment_resume ignored (not a mapping)", file=sys.stderr
+        )
         return None
     kind = resume.get("kind")
     path = resume.get("path")
-    if kind not in ("diff", "context_path") or not isinstance(path, str) \
-            or not path.strip():
-        print("brain-bridge: attachment_resume ignored (bad kind/path)",
-              file=sys.stderr)
+    if (
+        kind not in ("diff", "context_path")
+        or not isinstance(path, str)
+        or not path.strip()
+    ):
+        print(
+            "brain-bridge: attachment_resume ignored (bad kind/path)", file=sys.stderr
+        )
         return None
     try:
         offset = int(resume.get("offset_chars", 0))
     except (TypeError, ValueError):
-        print("brain-bridge: attachment_resume ignored (bad offset_chars)",
-              file=sys.stderr)
+        print(
+            "brain-bridge: attachment_resume ignored (bad offset_chars)",
+            file=sys.stderr,
+        )
         return None
-    return {"kind": kind, "path": path.strip(),
-            "offset_chars": max(0, offset)}
+    return {"kind": kind, "path": path.strip(), "offset_chars": max(0, offset)}
 
 
 def _attachment_priority(stage: Optional[str]) -> tuple:
@@ -2436,8 +2635,11 @@ def _open_overhead(open_line: str, fence_lang: Optional[str]) -> int:
 
 
 def _marker_room(
-    kind: str, path: str, total: int,
-    open_line: str = "", fence_lang: Optional[str] = None,
+    kind: str,
+    path: str,
+    total: int,
+    open_line: str = "",
+    fence_lang: Optional[str] = None,
 ) -> int:
     """Complete wrapper overhead (chars) for a SPLIT attachment.
 
@@ -2504,9 +2706,12 @@ def _render_attachment(
     # can never exceed the room the allocator granted. An exact fit still
     # renders with no part markers.
     fits = (total - offset) + _open_overhead(open_line, fence_lang) <= room
-    part_size = max(1, room - _marker_room(
-        kind, path, total, open_line=open_line, fence_lang=fence_lang))
-    body = text[offset:] if fits else text[offset:offset + part_size]
+    part_size = max(
+        1,
+        room
+        - _marker_room(kind, path, total, open_line=open_line, fence_lang=fence_lang),
+    )
+    body = text[offset:] if fits else text[offset : offset + part_size]
     shown = len(body)
     next_offset = offset + shown
     remaining = total - next_offset
@@ -2520,15 +2725,18 @@ def _render_attachment(
         lines.append("```")
     if remaining <= 0:
         return "\n".join(lines), None
-    lines.insert(0, (
-        f'[ATTACHMENT kind={kind} path="{path}" part={part}/{parts} '
-        f"offset_chars={offset} shown_chars={shown} total_chars={total}]"
-    ))
-    lines.append(
-        f'[END ATTACHMENT kind={kind} path="{path}" part={part}/{parts}]')
+    lines.insert(
+        0,
+        (
+            f'[ATTACHMENT kind={kind} path="{path}" part={part}/{parts} '
+            f"offset_chars={offset} shown_chars={shown} total_chars={total}]"
+        ),
+    )
+    lines.append(f'[END ATTACHMENT kind={kind} path="{path}" part={part}/{parts}]')
     lines.append(
         f'[NEXT_ATTACHMENT_PART kind={kind} path="{path}" '
-        f"next_offset_chars={next_offset} remaining_chars={remaining}]")
+        f"next_offset_chars={next_offset} remaining_chars={remaining}]"
+    )
     return "\n".join(lines), {
         "kind": kind,
         "path": path,
@@ -2564,7 +2772,8 @@ def _allocate_attachments(
     """
     available = max(
         0,
-        budget - (system_chars + user_chars + history_chars)
+        budget
+        - (system_chars + user_chars + history_chars)
         - _SEP_LEN * (len(priority) + 1),
     )
     used = 0
@@ -2585,10 +2794,14 @@ def _allocate_attachments(
                 # few marker characters.
                 room = min(
                     room,
-                    int(_cap) + _marker_room(
-                        kind, cand.get("path", ""), total,
+                    int(_cap)
+                    + _marker_room(
+                        kind,
+                        cand.get("path", ""),
+                        total,
                         open_line=cand.get("open_line", ""),
-                        fence_lang=cand.get("fence_lang")),
+                        fence_lang=cand.get("fence_lang"),
+                    ),
                 )
             _group = cand.get("group")
             _gcap = int(cand.get("group_cap") or 0)
@@ -2601,38 +2814,52 @@ def _allocate_attachments(
                 # The group cap bounds CONTENT: grant the remaining
                 # content plus the wrapper that carries it, so a file
                 # that still fits its share arrives whole.
-                room = min(room, _gleft + _open_overhead(
-                    cand.get("open_line", ""), cand.get("fence_lang")))
+                room = min(
+                    room,
+                    _gleft
+                    + _open_overhead(cand.get("open_line", ""), cand.get("fence_lang")),
+                )
             # Below the marker envelope the attachment could only render
             # as an unreadable stub that also overflows the budget, so
             # report it as fully dropped instead of spending the room.
             if room <= _marker_room(
-                    kind, cand.get("path", ""), total,
-                    open_line=cand.get("open_line", ""),
-                    fence_lang=cand.get("fence_lang")):
-                truncated.append({
-                    "kind": kind,
-                    "path": cand.get("path", ""),
-                    "part": 1,
-                    "parts": 1,
-                    "offset_chars": 0,
-                    "shown_chars": 0,
-                    "total_chars": total,
-                    "dropped_chars": total,
-                    "next_offset_chars": 0,
-                    "remaining_chars": total,
-                    "budget_chars_remaining": 0,
-                })
+                kind,
+                cand.get("path", ""),
+                total,
+                open_line=cand.get("open_line", ""),
+                fence_lang=cand.get("fence_lang"),
+            ):
+                truncated.append(
+                    {
+                        "kind": kind,
+                        "path": cand.get("path", ""),
+                        "part": 1,
+                        "parts": 1,
+                        "offset_chars": 0,
+                        "shown_chars": 0,
+                        "total_chars": total,
+                        "dropped_chars": total,
+                        "next_offset_chars": 0,
+                        "remaining_chars": total,
+                        "budget_chars_remaining": 0,
+                    }
+                )
                 continue
             block, meta = _render_attachment(
-                kind, cand.get("path", ""), cand.get("open_line", ""),
-                cand.get("fence_lang"), cand.get("text", ""), room,
-                offset=cand.get("offset", 0))
+                kind,
+                cand.get("path", ""),
+                cand.get("open_line", ""),
+                cand.get("fence_lang"),
+                cand.get("text", ""),
+                room,
+                offset=cand.get("offset", 0),
+            )
             rendered.append((cand, block, meta))
             used += len(block)
             if _group:
                 group_used[_group] = group_used.get(_group, 0) + (
-                    meta["shown_chars"] if meta is not None else total)
+                    meta["shown_chars"] if meta is not None else total
+                )
             if meta is not None:
                 meta["budget_chars_remaining"] = max(0, available - used)
                 truncated.append(meta)
@@ -2663,8 +2890,7 @@ def _task_candidate(
             return None
         text = path.read_text(encoding="utf-8", errors="replace")
         try:
-            rel = path.resolve().relative_to(
-                _workspace_root().resolve()).as_posix()
+            rel = path.resolve().relative_to(_workspace_root().resolve()).as_posix()
         except (OSError, ValueError):
             rel = path.name
         cleaned, _omitted, _truncated = _strip_task_diff(text, rel)
@@ -2682,9 +2908,7 @@ def _task_candidate(
         return None
 
 
-def _diff_candidate(
-    task_id: object, project_root: Optional[str] = None
-) -> dict:
+def _diff_candidate(task_id: object, project_root: Optional[str] = None) -> dict:
     """Full changed-hunks candidate; an inline note when unresolved/empty.
 
     The inline notes matter: stderr is invisible to the model, so a silent
@@ -2699,9 +2923,11 @@ def _diff_candidate(
     try:
         path = _resolve_task_file(task_id, project_root=project_root)
         if path is None:
-            print(f"brain-bridge: diff attach skipped "
-                  f"(task file unresolvable for {task_id!r})",
-                  file=sys.stderr)
+            print(
+                f"brain-bridge: diff attach skipped "
+                f"(task file unresolvable for {task_id!r})",
+                file=sys.stderr,
+            )
             return {
                 "kind": "diff",
                 "path": str(task_id),
@@ -2711,7 +2937,8 @@ def _diff_candidate(
                     "find the task file (wrong project_root, or the task "
                     "lives in another install). Remedy: retry with the "
                     "correct project_root, or paste the Factual Git Diff "
-                    "hunks inline. Do NOT reject blind on missing hunks."),
+                    "hunks inline. Do NOT reject blind on missing hunks."
+                ),
                 "fence_lang": None,
                 "text": "",
                 "inline": True,
@@ -2719,9 +2946,11 @@ def _diff_candidate(
         text = path.read_text(encoding="utf-8", errors="replace")
         diff = extract_task_diff(text)
         if not diff.strip():
-            print(f"brain-bridge: diff attach skipped "
-                  f"(no Factual Git Diff block in {path.name})",
-                  file=sys.stderr)
+            print(
+                f"brain-bridge: diff attach skipped "
+                f"(no Factual Git Diff block in {path.name})",
+                file=sys.stderr,
+            )
             return {
                 "kind": "diff",
                 "path": path.name,
@@ -2729,14 +2958,14 @@ def _diff_candidate(
                     f"[changed-hunks:{tid}: EMPTY — no Factual Git Diff "
                     f"block in {path.name} yet. Stage the diff first "
                     "(stage_and_inject_diff), then re-run this turn. "
-                    "Do NOT reject blind on missing hunks."),
+                    "Do NOT reject blind on missing hunks."
+                ),
                 "fence_lang": None,
                 "text": "",
                 "inline": True,
             }
         try:
-            rel = path.resolve().relative_to(
-                _workspace_root().resolve()).as_posix()
+            rel = path.resolve().relative_to(_workspace_root().resolve()).as_posix()
         except (OSError, ValueError):
             rel = path.name
         return {
@@ -2756,7 +2985,8 @@ def _diff_candidate(
                 f"[changed-hunks:{tid}: UNAVAILABLE — attach raised "
                 f"({exc}). Retry the turn; if it persists, paste the "
                 "Factual Git Diff hunks inline. Do NOT reject blind "
-                "on missing hunks."),
+                "on missing hunks."
+            ),
             "fence_lang": None,
             "text": "",
             "inline": True,
@@ -2775,9 +3005,7 @@ def _inline_path_candidate(rel: str, note: str) -> dict:
     }
 
 
-def _path_candidates(
-    paths: object, project_root: Optional[str] = None
-) -> list[dict]:
+def _path_candidates(paths: object, project_root: Optional[str] = None) -> list[dict]:
     """Full-text candidates for ``context_paths`` ('' labels kept explicit).
 
     Escapes, missing files, and unsupported suffixes become explicit
@@ -2801,40 +3029,57 @@ def _path_candidates(
         try:
             resolved = _resolve_under_root(rel, root=base)
         except ValueError:
-            out.append(_inline_path_candidate(
-                rel, f"[unavailable: {rel.strip()} — outside workspace]"))
+            out.append(
+                _inline_path_candidate(
+                    rel, f"[unavailable: {rel.strip()} — outside workspace]"
+                )
+            )
             continue
         if resolved.suffix.lower() not in _ALLOWED_READ_SUFFIXES:
-            out.append(_inline_path_candidate(
-                rel, f"[unavailable: {rel.strip()} — unsupported extension]"))
+            out.append(
+                _inline_path_candidate(
+                    rel, f"[unavailable: {rel.strip()} — unsupported extension]"
+                )
+            )
             continue
         try:
             if resolved.stat().st_size > _READ_MAX_BYTES:
-                out.append(_inline_path_candidate(
-                    rel, f"[unavailable: {rel.strip()} — file too large]"))
+                out.append(
+                    _inline_path_candidate(
+                        rel, f"[unavailable: {rel.strip()} — file too large]"
+                    )
+                )
                 continue
             text = resolved.read_text(encoding="utf-8", errors="replace")
         except OSError:
-            out.append(_inline_path_candidate(
-                rel, f"[unavailable: {rel.strip()} — unreadable]"))
+            out.append(
+                _inline_path_candidate(
+                    rel, f"[unavailable: {rel.strip()} — unreadable]"
+                )
+            )
             continue
         if not text.strip():
-            out.append(_inline_path_candidate(
-                rel, f"[unavailable: {rel.strip()} — empty file]"))
+            out.append(
+                _inline_path_candidate(
+                    rel, f"[unavailable: {rel.strip()} — empty file]"
+                )
+            )
             continue
-        out.append({
-            "kind": "context_path",
-            "path": rel.strip(),
-            "open_line": f"[path-injected: {rel.strip()}]",
-            "fence_lang": None,
-            "text": text,
-            "cap": per_file,
-            # Every context_paths file shares one configured total budget;
-            # the allocator enforces the aggregate because the candidates
-            # are allocated independently.
-            "group": "context_path",
-            "group_cap": total_cap,
-        })
+        out.append(
+            {
+                "kind": "context_path",
+                "path": rel.strip(),
+                "open_line": f"[path-injected: {rel.strip()}]",
+                "fence_lang": None,
+                "text": text,
+                "cap": per_file,
+                # Every context_paths file shares one configured total budget;
+                # the allocator enforces the aggregate because the candidates
+                # are allocated independently.
+                "group": "context_path",
+                "group_cap": total_cap,
+            }
+        )
     return out
 
 
@@ -2853,8 +3098,7 @@ def _note_checkpoint(
     if scope is None or project_root is None:
         return
     try:
-        _ledger_checkpoint(
-            scope, name, task_id=task_id, project_root=project_root)
+        _ledger_checkpoint(scope, name, task_id=task_id, project_root=project_root)
     except Exception as exc:  # never fail a turn on ledger problems
         print(f"brain-bridge: checkpoint skipped ({exc})", file=sys.stderr)
 
@@ -2971,14 +3215,18 @@ def brain_turn(
     # downstream resolver so attaches and history share one root.
     _requested_root = project_root
     _pre = _validate_request(
-        project_root=project_root, task_id=task_id, session_id=session_id,
-        kanban_path=kanban_path, stage=stage,
-        include_bundle=include_bundle, include_diff=include_diff,
-        required_tools=required_tools)
+        project_root=project_root,
+        task_id=task_id,
+        session_id=session_id,
+        kanban_path=kanban_path,
+        stage=stage,
+        include_bundle=include_bundle,
+        include_diff=include_diff,
+        required_tools=required_tools,
+    )
     task_id = _pre.task_id
     session_id = _pre.session_id
-    project_root = (str(_pre.project_root)
-                    if _pre.project_root is not None else None)
+    project_root = str(_pre.project_root) if _pre.project_root is not None else None
     # One-off turns intentionally keep no project binding (they persist
     # nothing), so preflight drops an explicit project_root. An explicitly
     # passed root must still pin the BUNDLE and file-pull attaches to the
@@ -2990,10 +3238,18 @@ def brain_turn(
         if _pinned is not None and _pinned.is_dir():
             project_root = str(_pinned)
     history_key = _pre.history_key
-    _note_checkpoint("request_accepted", task_id=task_id,
-                     session_id=session_id, project_root=project_root)
-    _note_checkpoint("preflight_completed", task_id=task_id,
-                     session_id=session_id, project_root=project_root)
+    _note_checkpoint(
+        "request_accepted",
+        task_id=task_id,
+        session_id=session_id,
+        project_root=project_root,
+    )
+    _note_checkpoint(
+        "preflight_completed",
+        task_id=task_id,
+        session_id=session_id,
+        project_root=project_root,
+    )
 
     # Capability preflight SECOND (GitHub issue 16): the manifest maps
     # every required tool (caller-declared plus stage-implied) to
@@ -3007,18 +3263,27 @@ def brain_turn(
     manifest = _evaluate_capability(
         referenced=list(_pre.required_tools),
         required=list(_pre.required_tools),
-        stage=stage)
+        stage=stage,
+    )
     print(
         "capability-manifest: task=%s session=%s stage=%s %s"
-        % (task_id, session_id, stage,
-           " ".join(f"{k}={v}" for k, v in sorted(manifest.items()))
-           or "(no tools referenced)"),
-        file=sys.stderr)
+        % (
+            task_id,
+            session_id,
+            stage,
+            " ".join(f"{k}={v}" for k, v in sorted(manifest.items()))
+            or "(no tools referenced)",
+        ),
+        file=sys.stderr,
+    )
     try:
         _append_ledger_event(
-            "capability_manifest", task_id=task_id, session_id=session_id,
+            "capability_manifest",
+            task_id=task_id,
+            session_id=session_id,
             data={"stage": stage, "manifest": manifest},
-            project_root=project_root)
+            project_root=project_root,
+        )
     except Exception as exc:  # never fail a turn on ledger problems
         print(f"brain-bridge: ledger event skipped ({exc})", file=sys.stderr)
     try:
@@ -3042,8 +3307,12 @@ def brain_turn(
             "retry_count": 0,
             "prompt_cache_split": None,
         }
-    _note_checkpoint("capability_completed", task_id=task_id,
-                     session_id=session_id, project_root=project_root)
+    _note_checkpoint(
+        "capability_completed",
+        task_id=task_id,
+        session_id=session_id,
+        project_root=project_root,
+    )
 
     system_prompt = load_system_prompt(system_prompt_path)
     effective_prompt = user_prompt
@@ -3065,14 +3334,16 @@ def brain_turn(
         # Read the bundle from the SAME project root this turn resolved for
         # the task file and context paths (issue #24): without the explicit
         # root the bundle silently fell back to the bridge install dir.
-        candidates.append({
-            "kind": "bundle",
-            "path": "small-file bundle",
-            "slot": "bundle",
-            "open_line": "",
-            "fence_lang": None,
-            "text": _build_context_bundle(project_root),
-        })
+        candidates.append(
+            {
+                "kind": "bundle",
+                "path": "small-file bundle",
+                "slot": "bundle",
+                "open_line": "",
+                "fence_lang": None,
+                "text": _build_context_bundle(project_root),
+            }
+        )
     if include_bundle and task_id:
         _ns = (
             f"{_TASK_FILE_MARKER}{task_id.strip()}: "
@@ -3089,13 +3360,11 @@ def brain_turn(
         # them. Explicitly requested files outrank the small-file bundle
         # on review/QA turns.
         try:
-            for _pcand in _path_candidates(
-                    context_paths, project_root=project_root):
+            for _pcand in _path_candidates(context_paths, project_root=project_root):
                 _pcand["slot"] = "paths"
                 candidates.append(_pcand)
         except OSError as exc:  # I/O only: a bad cap value fails loudly
-            print(f"brain-bridge: paths attach skipped ({exc})",
-                  file=sys.stderr)
+            print(f"brain-bridge: paths attach skipped ({exc})", file=sys.stderr)
     if task_id:
         # Explicit flag stands alone: a lean turn (include_bundle=False,
         # the documented EMPTY_OUTPUT_RETRY shape) with include_diff=True
@@ -3112,11 +3381,17 @@ def brain_turn(
                 _diff_cand["slot"] = "failsafe" if _failsafe else "diff"
                 candidates.append(_diff_cand)
                 if _failsafe:
-                    print("brain-bridge: QA turn without include_diff, "
-                          "auto-attaching diff", file=sys.stderr)
+                    print(
+                        "brain-bridge: QA turn without include_diff, "
+                        "auto-attaching diff",
+                        file=sys.stderr,
+                    )
                 elif _diff_cand.get("inline"):
-                    print("brain-bridge: include_diff=True but no hunks "
-                          "attached (see reason above)", file=sys.stderr)
+                    print(
+                        "brain-bridge: include_diff=True but no hunks "
+                        "attached (see reason above)",
+                        file=sys.stderr,
+                    )
 
     # Chunk continuation: a caller that saw an [NEXT_ATTACHMENT_PART]
     # marker (or an attachment_parts entry) can resume exactly that
@@ -3125,31 +3400,44 @@ def brain_turn(
     if _resume is not None:
         _matched = False
         for _cand in candidates:
-            if (_cand.get("kind") == _resume["kind"]
-                    and _cand.get("path") == _resume["path"]):
+            if (
+                _cand.get("kind") == _resume["kind"]
+                and _cand.get("path") == _resume["path"]
+            ):
                 _cand["offset"] = _resume["offset_chars"]
                 _matched = True
         if not _matched:
-            print("brain-bridge: attachment_resume matched no attachment "
-                  f"(kind={_resume['kind']} path={_resume['path']!r})",
-                  file=sys.stderr)
+            print(
+                "brain-bridge: attachment_resume matched no attachment "
+                f"(kind={_resume['kind']} path={_resume['path']!r})",
+                file=sys.stderr,
+            )
     # Tier precedence: an explicit ``risk_tier`` wins; otherwise the
     # tier is derived from the turn stage (Task 261). A missing or
     # unknown stage leaves the tier empty, and the resolver returns
     # ``BRAIN_MODEL`` for it.
     effective_tier = (risk_tier or "").strip() or resolve_stage_tier(
-        stage, _get_stage_tiers())
+        stage, _get_stage_tiers()
+    )
     model = resolve_routed_model(
-        _routing_enabled(), effective_tier, _get_brain_model(),
-        _get_model_low(), _get_model_high())
+        _routing_enabled(),
+        effective_tier,
+        _get_brain_model(),
+        _get_model_low(),
+        _get_model_high(),
+    )
     if history_key:
         # Sessions-root visibility: one debug line per turn so a
         # misrouted project is observable in stderr, never silent.
         _scope = "task" if task_id is not None else "session"
-        print(f"brain-bridge: sessions root {_sessions_root(project_root)} "
-              f"({_scope} {history_key})", file=sys.stderr)
-    history = (load_history(history_key, project_root=project_root)
-               if history_key else [])
+        print(
+            f"brain-bridge: sessions root {_sessions_root(project_root)} "
+            f"({_scope} {history_key})",
+            file=sys.stderr,
+        )
+    history = (
+        load_history(history_key, project_root=project_root) if history_key else []
+    )
     if history_key:
         # Discovery-fed planning: a [fed-context] block in this prompt is
         # pinned to the session, then the pin (not just this turn's copy)
@@ -3162,18 +3450,19 @@ def brain_turn(
                 save_fed_context(history_key, fed, project_root=project_root)
             pinned = load_fed_context(history_key, project_root=project_root)
             if pinned and "[pinned-fed-context]" not in user_prompt:
-                candidates.append({
-                    "kind": "fed_context",
-                    "path": "pinned fed-context",
-                    "slot": "fed",
-                    "open_line": "[pinned-fed-context]",
-                    "fence_lang": None,
-                    "text": pinned + "\n[/pinned-fed-context]",
-                    "cap": _FED_CONTEXT_CAP,
-                })
+                candidates.append(
+                    {
+                        "kind": "fed_context",
+                        "path": "pinned fed-context",
+                        "slot": "fed",
+                        "open_line": "[pinned-fed-context]",
+                        "fence_lang": None,
+                        "text": pinned + "\n[/pinned-fed-context]",
+                        "cap": _FED_CONTEXT_CAP,
+                    }
+                )
         except Exception as exc:  # never fail a turn on pin problems
-            print(f"brain-bridge: fed-context skipped ({exc})",
-                  file=sys.stderr)
+            print(f"brain-bridge: fed-context skipped ({exc})", file=sys.stderr)
 
     def _hist_chars() -> int:
         return sum(len(turn["content"]) for turn in history)
@@ -3191,21 +3480,46 @@ def brain_turn(
         history_chars=0,
         budget=_input_budget_cap(),
     )
+
     def _slot(name: str) -> str:
         return "\n\n---\n\n".join(
-            block for cand, block, _meta in rendered
-            if cand.get("slot") == name)
+            block for cand, block, _meta in rendered if cand.get("slot") == name
+        )
+
+    # Context-sufficiency diagnostic (plan turns only): make a blind plan
+    # observable instead of silent. Non-blocking by design — stderr only,
+    # never a status or xml_blocks change, so no caller behavior shifts. It
+    # reads the FINAL rendered bundle (post-allocation, so a cap-truncated
+    # pack is seen as absent) and the combined prompt text including any
+    # pinned fed-context block, so a turn that reloads fed context from
+    # history is never falsely reported as ungrounded.
+    _rendered_bundle = _slot("bundle")
+    _rendered_fed = _slot("fed")
+    _combined_prompt = (
+        user_prompt + "\n" + _rendered_fed if _rendered_fed else user_prompt
+    )
+    _sufficiency_gaps = context_sufficiency_gaps(
+        stage, _combined_prompt, _rendered_bundle, bundle_included=bool(include_bundle)
+    )
+    if _sufficiency_gaps:
+        print(
+            "brain-bridge: context-sufficiency warning (stage=plan): "
+            + "; ".join(_sufficiency_gaps)
+            + " — Brain must request the missing context from the Hands "
+            "before committing to a plan",
+            file=sys.stderr,
+        )
 
     before_blocks: list[str] = []
     for _kind in ("fed_context", "task", "bundle"):
         before_blocks.extend(
-            block for cand, block, _meta in rendered
-            if cand.get("kind") == _kind)
+            block for cand, block, _meta in rendered if cand.get("kind") == _kind
+        )
     after_blocks: list[str] = []
     for _kind in ("context_path", "diff"):
         after_blocks.extend(
-            block for cand, block, _meta in rendered
-            if cand.get("kind") == _kind)
+            block for cand, block, _meta in rendered if cand.get("kind") == _kind
+        )
     # Prompt-cache split segments reflect what actually landed in the
     # prompt, including any truncated rendering.
     bundle_text = _slot("bundle")
@@ -3238,14 +3552,25 @@ def brain_turn(
     # Sidecar only: the split descriptor never touches wire bytes —
     # effective_prompt, chat payload, and prompt_hash stay identical.
     cache_split = build_prompt_cache_split(
-        system_prompt, bundle_text, task_attach_text, user_prompt,
-        paths_text=paths_text, diff_text=diff_append_text,
-        failsafe_text=failsafe_text, fed_text=fed_text,
-        history=history)
-    _append_context_ledger(history_key, project_root, budget_chars,
-                           truncated_count, model=model,
-                           risk_tier=effective_tier,
-                           prompt_cache_split=cache_split)
+        system_prompt,
+        bundle_text,
+        task_attach_text,
+        user_prompt,
+        paths_text=paths_text,
+        diff_text=diff_append_text,
+        failsafe_text=failsafe_text,
+        fed_text=fed_text,
+        history=history,
+    )
+    _append_context_ledger(
+        history_key,
+        project_root,
+        budget_chars,
+        truncated_count,
+        model=model,
+        risk_tier=effective_tier,
+        prompt_cache_split=cache_split,
+    )
     if budget_chars > _PROMPT_WARN_CHARS:
         print(
             f"brain-bridge: prompt is large (budget_chars={budget_chars} "
@@ -3292,17 +3617,31 @@ def brain_turn(
         # against max_output_tokens, so high/xhigh effort with a small cap
         # can exhaust the budget and finish with reasoning-only output.
         _maybe_warn_reasoning_budget(
-            body["reasoning"]["effort"], body["max_output_tokens"])
-    _note_checkpoint("transport_started", task_id=task_id,
-                     session_id=session_id, project_root=project_root)
+            body["reasoning"]["effort"], body["max_output_tokens"]
+        )
+    _note_checkpoint(
+        "transport_started",
+        task_id=task_id,
+        session_id=session_id,
+        project_root=project_root,
+    )
     resp, attempts = _send_with_learning(
-        _make_client, _responses_url(), body,
-        task_key=history_key, task_id=task_id, session_id=session_id,
-        project_root=project_root)
+        _make_client,
+        _responses_url(),
+        body,
+        task_key=history_key,
+        task_id=task_id,
+        session_id=session_id,
+        project_root=project_root,
+    )
     resp_data = _resp_json(resp)
     output = parse_responses_text(resp_data)
-    _note_checkpoint("response_parsed", task_id=task_id,
-                     session_id=session_id, project_root=project_root)
+    _note_checkpoint(
+        "response_parsed",
+        task_id=task_id,
+        session_id=session_id,
+        project_root=project_root,
+    )
     xml_blocks = extract_xml_blocks(output)
     if xml_blocks:
         # Semantic gate (Task 245): syntactically valid but contract-
@@ -3310,11 +3649,17 @@ def brain_turn(
         # the Hands executes only whole contracts, never fragments.
         sem_problems = validate_hands_xml_blocks(xml_blocks)
         if sem_problems:
-            print("brain-bridge: xml failed semantic validation "
-                  f"({len(sem_problems)} problems)", file=sys.stderr)
-            output = ("[xml-semantic-reject]\n"
-                      + "\n".join(f"- {p}" for p in sem_problems)
-                      + "\n[/xml-semantic-reject]\n" + output)
+            print(
+                "brain-bridge: xml failed semantic validation "
+                f"({len(sem_problems)} problems)",
+                file=sys.stderr,
+            )
+            output = (
+                "[xml-semantic-reject]\n"
+                + "\n".join(f"- {p}" for p in sem_problems)
+                + "\n[/xml-semantic-reject]\n"
+                + output
+            )
             xml_blocks = []
     diag = parse_responses_diagnostics(resp_data)
     _log_provider_diagnostics(diag)
@@ -3327,8 +3672,10 @@ def brain_turn(
             output = _provider_error_hint(diag["error"])
         elif diag["refusal"]:
             output = _provider_refusal_hint(diag["refusal"])
-        elif (diag["status"] == "incomplete"
-              and diag["incomplete_reason"] == "max_output_tokens"):
+        elif (
+            diag["status"] == "incomplete"
+            and diag["incomplete_reason"] == "max_output_tokens"
+        ):
             output = _output_budget_hint(diag, task_id, state)
         else:
             # Transport/model flake (Task 232): never return a silent
@@ -3343,13 +3690,24 @@ def brain_turn(
         # bodies. The transcript is replayed every turn, so the full
         # assembled prompt here would make each turn re-send the last
         # turn's attachments (see _transcript_form).
-        append_turn(history_key, "user",
-                    _transcript_form(user_prompt, rendered), model=model,
-                    prompt_hash=prompt_hash, truncated=truncated_count,
-                    project_root=project_root)
-        append_turn(history_key, "assistant", output, model=model,
-                    prompt_hash=prompt_hash, truncated=truncated_count,
-                    project_root=project_root)
+        append_turn(
+            history_key,
+            "user",
+            _transcript_form(user_prompt, rendered),
+            model=model,
+            prompt_hash=prompt_hash,
+            truncated=truncated_count,
+            project_root=project_root,
+        )
+        append_turn(
+            history_key,
+            "assistant",
+            output,
+            model=model,
+            prompt_hash=prompt_hash,
+            truncated=truncated_count,
+            project_root=project_root,
+        )
     result: dict[str, Any] = {
         "status": "XML_EXTRACTED" if xml_blocks else "REPORT",
         "xml_blocks": xml_blocks,
@@ -3367,8 +3725,7 @@ def brain_turn(
         ],
         "attachment_budget_chars": budget_info["attachment_budget_chars"],
         "attachment_chars_used": budget_info["attachment_chars_used"],
-        "attachment_chars_remaining": budget_info[
-            "attachment_chars_remaining"],
+        "attachment_chars_remaining": budget_info["attachment_chars_remaining"],
         "budget_chars": budget_chars,
         "retry_count": attempts,
         "prompt_cache_split": cache_split,
@@ -3403,9 +3760,7 @@ def _get_reasoning_effort() -> str:
     return val
 
 
-def _task_state_note(
-    task_id: Optional[str], project_root: Optional[str] = None
-) -> str:
+def _task_state_note(task_id: Optional[str], project_root: Optional[str] = None) -> str:
     """One-line state note for the empty-output retry hint (never raises).
 
     Format: ``path | status | diff-hash``. Lets the retry-er judge whether
@@ -3419,8 +3774,7 @@ def _task_state_note(
         if path is None:
             return "unknown"
         try:
-            rel = path.resolve().relative_to(
-                _workspace_root().resolve()).as_posix()
+            rel = path.resolve().relative_to(_workspace_root().resolve()).as_posix()
         except (OSError, ValueError):
             rel = path.name
         text = path.read_text(encoding="utf-8", errors="replace")
@@ -3429,15 +3783,19 @@ def _task_state_note(
         if m:
             status = m.group(1)[:32]
         diff = extract_task_diff(text)
-        dh = (hashlib.sha256(diff.encode("utf-8")).hexdigest()[:8]
-              if diff.strip() else "no-diff")
+        dh = (
+            hashlib.sha256(diff.encode("utf-8")).hexdigest()[:8]
+            if diff.strip()
+            else "no-diff"
+        )
         return f"{rel} | status={status} | diff={dh}"
     except Exception:
         return "unknown"
 
 
-def _empty_output_hint(task_id: Optional[str] = None,
-                       state: Optional[str] = None) -> str:
+def _empty_output_hint(
+    task_id: Optional[str] = None, state: Optional[str] = None
+) -> str:
     """Retry instruction substituted for a blank model output.
 
     Pure function (no I/O) so tests can assert the contract directly.
@@ -3456,8 +3814,7 @@ def _empty_output_hint(task_id: Optional[str] = None,
         "answer judges stale or missing context (wrong file version, no diff "
         "seen), re-run ONCE with the full bundle plus diff "
         "(include_bundle=true, include_diff=true) before escalating. "
-        "If the full-context call is still empty, escalate to the Manager."
-        + note
+        "If the full-context call is still empty, escalate to the Manager." + note
     )
 
 
@@ -3521,8 +3878,7 @@ def parse_responses_diagnostics(data: Any) -> dict:
         diag["usage"]["total_tokens"] = _as_int(usage.get("total_tokens"))
         details = usage.get("output_tokens_details")
         if isinstance(details, dict):
-            diag["usage"]["reasoning_tokens"] = _as_int(
-                details.get("reasoning_tokens"))
+            diag["usage"]["reasoning_tokens"] = _as_int(details.get("reasoning_tokens"))
 
     error = data.get("error")
     if isinstance(error, str) and error.strip():
@@ -3558,8 +3914,7 @@ def parse_responses_diagnostics(data: Any) -> dict:
                 if not isinstance(content, list):
                     continue
                 for chunk in content:
-                    if (isinstance(chunk, dict)
-                            and chunk.get("type") == "refusal"):
+                    if isinstance(chunk, dict) and chunk.get("type") == "refusal":
                         text = chunk.get("refusal")
                         if isinstance(text, str) and text.strip():
                             diag["refusal"] = text.strip()
@@ -3594,7 +3949,8 @@ def _log_provider_diagnostics(diag: dict) -> None:
         f"visible_tokens={visible_tokens} "
         f"total_tokens={usage.get('total_tokens')} "
         f"error={diag.get('error')!r} refusal={diag.get('refusal')!r}",
-        file=sys.stderr)
+        file=sys.stderr,
+    )
 
 
 def _provider_error_hint(error: str) -> str:
@@ -3615,8 +3971,9 @@ def _provider_refusal_hint(refusal: str) -> str:
     )
 
 
-def _output_budget_hint(diag: dict, task_id: Optional[str] = None,
-                        state: Optional[str] = None) -> str:
+def _output_budget_hint(
+    diag: dict, task_id: Optional[str] = None, state: Optional[str] = None
+) -> str:
     """Terminal hint for a reasoning-exhausted output budget (Task 259).
 
     Deliberately NOT ``EMPTY_OUTPUT_RETRY``: a lean retry reuses the same
@@ -3658,7 +4015,8 @@ def _maybe_warn_reasoning_budget(effort: str, max_tokens: int) -> None:
             f"max_output_tokens={max_tokens} (< {_REASONING_BUDGET_FLOOR}) "
             "can exhaust the output budget and return blank text; raise "
             "BRAIN_MAX_TOKENS or lower BRAIN_REASONING_EFFORT.",
-            file=sys.stderr)
+            file=sys.stderr,
+        )
 
 
 def parse_responses_text(data: dict) -> str:

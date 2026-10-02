@@ -56,8 +56,7 @@ def test_load_system_prompt_missing_raises(tmp_path, monkeypatch):
     monkeypatch.delenv("BRAIN_SYSTEM_PROMPT", raising=False)
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
     with pytest.raises(FileNotFoundError):
-        bridge.load_system_prompt(
-            str(tmp_path / ".config" / "opencode" / "nope.md"))
+        bridge.load_system_prompt(str(tmp_path / ".config" / "opencode" / "nope.md"))
 
 
 def test_load_system_prompt_prefers_env(tmp_path, monkeypatch):
@@ -89,10 +88,20 @@ def test_history_append_load_roundtrip(tmp_path, monkeypatch):
     bridge.append_turn("task-9", "assistant", "hello hands")
     history = bridge.load_history("task-9")
     assert history == [
-        {"role": "user", "content": "hello brain",
-         "model": None, "prompt_hash": None, "truncated": 0},
-        {"role": "assistant", "content": "hello hands",
-         "model": None, "prompt_hash": None, "truncated": 0},
+        {
+            "role": "user",
+            "content": "hello brain",
+            "model": None,
+            "prompt_hash": None,
+            "truncated": 0,
+        },
+        {
+            "role": "assistant",
+            "content": "hello hands",
+            "model": None,
+            "prompt_hash": None,
+            "truncated": 0,
+        },
     ]
 
 
@@ -104,8 +113,13 @@ def test_history_skips_corrupt_lines(tmp_path, monkeypatch):
         fh.write("not json at all\n")
         fh.write('{"role": "alien", "content": "x"}\n')
     assert bridge.load_history("task-7") == [
-        {"role": "user", "content": "good line",
-         "model": None, "prompt_hash": None, "truncated": 0}
+        {
+            "role": "user",
+            "content": "good line",
+            "model": None,
+            "prompt_hash": None,
+            "truncated": 0,
+        }
     ]
 
 
@@ -166,7 +180,9 @@ import types as _types
 
 
 class _FakeResp:
-    def __init__(self, status_code=200, text="", payload=None, ctype="application/json"):
+    def __init__(
+        self, status_code=200, text="", payload=None, ctype="application/json"
+    ):
         self.status_code = status_code
         self.text = text
         self._payload = payload
@@ -200,8 +216,11 @@ class _FakeClient:
 
 
 def _ok_payload(text="ok"):
-    return {"output": [{"type": "message",
-                        "content": [{"type": "output_text", "text": text}]}]}
+    return {
+        "output": [
+            {"type": "message", "content": [{"type": "output_text", "text": text}]}
+        ]
+    }
 
 
 def _stub_httpx(monkeypatch):
@@ -221,6 +240,7 @@ def _stub_httpx(monkeypatch):
 def test_api_key_empty_raises(monkeypatch):
     monkeypatch.delenv("BRAIN_API_KEY", raising=False)
     import pytest as _pt
+
     with _pt.raises(RuntimeError, match="empty"):
         bridge._get_api_key()
 
@@ -229,10 +249,10 @@ def test_post_retry_succeeds_after_429(monkeypatch):
     _stub_httpx(monkeypatch)
     monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
     monkeypatch.setattr(_time, "sleep", lambda s: None)
-    script = [_FakeResp(429, "slow down"),
-              _FakeResp(200, "fine", _ok_payload())]
+    script = [_FakeResp(429, "slow down"), _FakeResp(200, "fine", _ok_payload())]
     resp, attempts = bridge._post_with_retry(
-        _FakeClient(script), "http://x/responses", {})
+        _FakeClient(script), "http://x/responses", {}
+    )
     assert resp.status_code == 200
     assert attempts == 2
 
@@ -243,6 +263,7 @@ def test_post_final_500_raises_without_key_leak(monkeypatch):
     monkeypatch.setattr(_time, "sleep", lambda s: None)
     script = [_FakeResp(500, "boom")]
     import pytest as _pt
+
     with _pt.raises(RuntimeError) as exc:
         bridge._post_with_retry(_FakeClient(script), "http://x/responses", {})
     msg = str(exc.value)
@@ -252,6 +273,7 @@ def test_post_final_500_raises_without_key_leak(monkeypatch):
 
 def test_resp_json_non_json_raises():
     import pytest as _pt
+
     resp = _FakeResp(200, "<html>not json</html>", ValueError("bad"), "text/html")
     with _pt.raises(RuntimeError, match="non-JSON"):
         bridge._resp_json(resp)
@@ -259,6 +281,7 @@ def test_resp_json_non_json_raises():
 
 def test_task_id_allowlist_rejects_separators(tmp_path, monkeypatch):
     import pytest as _pt
+
     monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
     with _pt.raises(ValueError):
         bridge.load_history("a/b")
@@ -267,9 +290,11 @@ def test_task_id_allowlist_rejects_separators(tmp_path, monkeypatch):
 
 
 def test_extract_ignores_fenced_blocks():
-    fenced = "```json\n<hands_implementation_task>{\"a\": 1}</hands_implementation_task>\n```"
+    fenced = (
+        '```json\n<hands_implementation_task>{"a": 1}</hands_implementation_task>\n```'
+    )
     assert bridge.extract_xml_blocks(fenced) == []
-    mixed = fenced + "\n<hands_implementation_task>{\"b\": 2}</hands_implementation_task>"
+    mixed = fenced + '\n<hands_implementation_task>{"b": 2}</hands_implementation_task>'
     blocks = bridge.extract_xml_blocks(mixed)
     assert len(blocks) == 1
     assert '"b": 2' in blocks[0]
@@ -309,12 +334,14 @@ def test_brain_turn_truncates_oldest_history(tmp_path, monkeypatch):
     result = target("q", task_id="215")
     assert result["status"] == "REPORT"
     assert result["output"] == "ok"
-    big_turns = [t for t in holder["body"]["input"]
-                 if t.get("content", "").startswith("x")]
+    big_turns = [
+        t for t in holder["body"]["input"] if t.get("content", "").startswith("x")
+    ]
     assert 1 <= len(big_turns) < 10
 
 
 # --- Hotfix-2 new tests (mocked httpx only) ---
+
 
 def _mk_bridge_client(monkeypatch, script, holder=None):
     class _CapClient(_FakeClient):
@@ -351,9 +378,11 @@ def test_post_overall_deadline_fast_fail(monkeypatch):
     monkeypatch.setattr(_time, "sleep", lambda s: None)
     monkeypatch.setattr(bridge, "_OVERALL_DEADLINE_S", 0)
     import pytest as _pt
+
     with _pt.raises(RuntimeError, match="deadline"):
         bridge._post_with_retry(
-            _FakeClient([_FakeResp(500, "boom")]), "http://x/responses", {})
+            _FakeClient([_FakeResp(500, "boom")]), "http://x/responses", {}
+        )
 
 
 def test_post_retry_after_honored(monkeypatch):
@@ -364,18 +393,19 @@ def test_post_retry_after_honored(monkeypatch):
     r429 = _FakeResp(429, "slow down")
     r429.headers["Retry-After"] = "2"
     script = [r429, _FakeResp(200, "fine", _ok_payload())]
-    resp, _ = bridge._post_with_retry(
-        _FakeClient(script), "http://x/responses", {})
+    resp, _ = bridge._post_with_retry(_FakeClient(script), "http://x/responses", {})
     assert resp.status_code == 200
     assert sleeps and sleeps[0] >= 2
 
 
 def test_strip_quadruple_tilde_unclosed_fences():
-    quad = "````\n<hands_implementation_task>{\"a\": 1}</hands_implementation_task>\n````"
+    quad = '````\n<hands_implementation_task>{"a": 1}</hands_implementation_task>\n````'
     assert bridge.extract_xml_blocks(quad) == []
-    tilde = "~~~\n<hands_implementation_task>{\"a\": 1}</hands_implementation_task>\n~~~"
+    tilde = '~~~\n<hands_implementation_task>{"a": 1}</hands_implementation_task>\n~~~'
     assert bridge.extract_xml_blocks(tilde) == []
-    unclosed = "```json\n<hands_implementation_task>{\"a\": 1}</hands_implementation_task>\n"
+    unclosed = (
+        '```json\n<hands_implementation_task>{"a": 1}</hands_implementation_task>\n'
+    )
     assert bridge.extract_xml_blocks(unclosed) == []
     assert bridge._last_fence_drops, "drops must be recorded"
 
@@ -385,7 +415,7 @@ def test_brain_turn_fence_only_reports_debug(tmp_path, monkeypatch):
     _mk_sys_prompt(tmp_path, monkeypatch)
     monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
     monkeypatch.delenv("BRAIN_TEMPERATURE", raising=False)
-    fenced = "```json\n{\"note\": \"just docs\"}\n```"
+    fenced = '```json\n{"note": "just docs"}\n```'
     _mk_bridge_client(monkeypatch, [_FakeResp(200, "fine", _ok_payload(fenced))])
     call = bridge.brain_turn
     target = call.fn if hasattr(call, "fn") else call
@@ -414,14 +444,15 @@ def _mk_tasks_root(tmp_path):
     tasks.mkdir(parents=True)
     (tasks / "200-foo.md").write_text(
         "# T\n\nGoal line.\n\n<!-- BEGIN_GIT_DIFF -->\nDIFFSTUFF\n<!-- END_GIT_DIFF -->\n",
-        encoding="utf-8")
+        encoding="utf-8",
+    )
     return tmp_path
 
 
 def test_task_attach_strip_pure():
     cleaned, omitted, truncated = bridge._strip_task_diff(
-        "head\n<!-- BEGIN_GIT_DIFF -->\na\nb\n<!-- END_GIT_DIFF -->\ntail",
-        "tasks/x.md")
+        "head\n<!-- BEGIN_GIT_DIFF -->\na\nb\n<!-- END_GIT_DIFF -->\ntail", "tasks/x.md"
+    )
     assert "DIFFSTUFF" not in cleaned and "a\nb" not in cleaned
     assert "head" in cleaned and "tail" in cleaned
     assert omitted == 4  # block lines incl. markers (impl counts span newlines + 1)
@@ -456,8 +487,7 @@ def test_brain_turn_task_attach_in_body(tmp_path, monkeypatch):
     monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
     monkeypatch.delenv("BRAIN_TEMPERATURE", raising=False)
     holder: dict = {}
-    _mk_bridge_client(
-        monkeypatch, [_FakeResp(200, "fine", _ok_payload("ok"))], holder)
+    _mk_bridge_client(monkeypatch, [_FakeResp(200, "fine", _ok_payload("ok"))], holder)
     call = bridge.brain_turn
     target = call.fn if hasattr(call, "fn") else call
     result = target("q", task_id="200", project_root=str(tmp_path))
@@ -470,8 +500,11 @@ def test_brain_turn_task_attach_in_body(tmp_path, monkeypatch):
     assert "DIFFSTUFF" not in wire
     # The stored transcript keeps a marker, never the body: it is
     # replayed on every later turn.
-    user_line = (tmp_path / "sessions" / "200" / "transcript.jsonl").read_text(
-        encoding="utf-8").splitlines()[0]
+    user_line = (
+        (tmp_path / "sessions" / "200" / "transcript.jsonl")
+        .read_text(encoding="utf-8")
+        .splitlines()[0]
+    )
     assert "[stored-attachment kind=task" in user_line
     assert "Goal line." not in user_line
 
@@ -488,8 +521,11 @@ def test_brain_turn_task_attach_no_duplicate(tmp_path, monkeypatch):
     target = call.fn if hasattr(call, "fn") else call
     result = target("[task-file:200: 200-foo.md]\nq", task_id="200")
     assert result["status"] == "REPORT"
-    user_line = (tmp_path / "sessions" / "200" / "transcript.jsonl").read_text(
-        encoding="utf-8").splitlines()[0]
+    user_line = (
+        (tmp_path / "sessions" / "200" / "transcript.jsonl")
+        .read_text(encoding="utf-8")
+        .splitlines()[0]
+    )
     assert user_line.count("[task-file:200:") == 1
 
 
@@ -531,6 +567,7 @@ def test_brain_turn_temperature_omitted_unless_set(tmp_path, monkeypatch):
 def test_long_task_id_error_carries_migration_hint(tmp_path, monkeypatch):
     monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
     import pytest as _pt
+
     with _pt.raises(ValueError, match="migrat"):
         bridge.load_history("a" * 65)
 
@@ -538,11 +575,13 @@ def test_long_task_id_error_carries_migration_hint(tmp_path, monkeypatch):
 def test_invalid_effort_value_raises(monkeypatch):
     monkeypatch.setenv("BRAIN_REASONING_EFFORT", "bad effort!!")
     import pytest as _pt
+
     with _pt.raises(ValueError):
         bridge._get_reasoning_effort()
 
 
 # --- context bundle / file tools (mocked/offline only) ---
+
 
 def _unwrap(tool):
     return tool.fn if hasattr(tool, "fn") else tool
@@ -558,10 +597,13 @@ def _mk_workspace(tmp_path, files):
 
 
 def test_bundle_skips_missing_file_with_marker(tmp_path, monkeypatch):
-    ws = _mk_workspace(tmp_path, {
-        "agents/cognitive-executor.md": "exec content",
-        "docs/conventions.md": "conv",
-    })
+    ws = _mk_workspace(
+        tmp_path,
+        {
+            "agents/cognitive-executor.md": "exec content",
+            "docs/conventions.md": "conv",
+        },
+    )
     monkeypatch.setenv("BRAIN_WORKSPACE_ROOT", str(ws))
     out = _unwrap(bridge.get_context_bundle)()
     assert "=== agents/cognitive-executor.md ===" in out
@@ -585,19 +627,24 @@ def test_bundle_truncates_large_file(tmp_path, monkeypatch):
 # project the turn runs in, never the bridge install dir (the ambient
 # BRAIN_WORKSPACE_ROOT decoy below stands in for that install dir).
 
-def test_build_context_bundle_explicit_root_beats_env_decoy(
-        tmp_path, monkeypatch):
-    decoy = _mk_workspace(tmp_path, {
-        "agents/cognitive-executor.md": "DECOY_BUNDLE_CONTENT",
-    })
+
+def test_build_context_bundle_explicit_root_beats_env_decoy(tmp_path, monkeypatch):
+    decoy = _mk_workspace(
+        tmp_path,
+        {
+            "agents/cognitive-executor.md": "DECOY_BUNDLE_CONTENT",
+        },
+    )
     monkeypatch.setenv("BRAIN_WORKSPACE_ROOT", str(decoy))
     project = tmp_path / "project"
     (project / "agents").mkdir(parents=True)
     (project / "agents" / "cognitive-executor.md").write_text(
-        "REAL_BUNDLE_CONTENT", encoding="utf-8")
+        "REAL_BUNDLE_CONTENT", encoding="utf-8"
+    )
     (project / "docs").mkdir()
     (project / "docs" / "conventions.md").write_text(
-        "real conventions", encoding="utf-8")
+        "real conventions", encoding="utf-8"
+    )
 
     out = bridge._build_context_bundle(str(project))
 
@@ -611,14 +658,18 @@ def test_build_context_bundle_explicit_root_beats_env_decoy(
 
 
 def test_get_context_bundle_tool_honours_project_root(tmp_path, monkeypatch):
-    decoy = _mk_workspace(tmp_path, {
-        "agents/cognitive-executor.md": "DECOY_TOOL_CONTENT",
-    })
+    decoy = _mk_workspace(
+        tmp_path,
+        {
+            "agents/cognitive-executor.md": "DECOY_TOOL_CONTENT",
+        },
+    )
     monkeypatch.setenv("BRAIN_WORKSPACE_ROOT", str(decoy))
     project = tmp_path / "project"
     (project / "agents").mkdir(parents=True)
     (project / "agents" / "cognitive-executor.md").write_text(
-        "REAL_TOOL_CONTENT", encoding="utf-8")
+        "REAL_TOOL_CONTENT", encoding="utf-8"
+    )
 
     out = _unwrap(bridge.get_context_bundle)(str(project))
 
@@ -633,7 +684,8 @@ def test_workspace_root_follows_cwd_walkup(tmp_path, monkeypatch):
     project = _mk_project(tmp_path, "walkup_project")
     (project / "agents").mkdir()
     (project / "agents" / "cognitive-executor.md").write_text(
-        "WALKUP_BUNDLE_CONTENT", encoding="utf-8")
+        "WALKUP_BUNDLE_CONTENT", encoding="utf-8"
+    )
     nested = project / "a" / "b"
     nested.mkdir(parents=True)
     monkeypatch.chdir(nested)
@@ -647,23 +699,25 @@ def test_read_and_grep_honour_explicit_project_root(tmp_path, monkeypatch):
     monkeypatch.setenv("BRAIN_WORKSPACE_ROOT", str(decoy))
     project = tmp_path / "project"
     project.mkdir()
-    (project / "notes.md").write_text(
-        "alpha\nREAL_NEEDLE beta\n", encoding="utf-8")
+    (project / "notes.md").write_text("alpha\nREAL_NEEDLE beta\n", encoding="utf-8")
 
     result = _unwrap(bridge.read_file)(
-        "notes.md", offset=2, limit=1, project_root=str(project))
+        "notes.md", offset=2, limit=1, project_root=str(project)
+    )
     assert result["lines"] == ["2: REAL_NEEDLE beta"]
 
-    hits = _unwrap(bridge.grep_files)(
-        "REAL_NEEDLE", project_root=str(project))
+    hits = _unwrap(bridge.grep_files)("REAL_NEEDLE", project_root=str(project))
     assert any("notes.md:2:" in h for h in hits)
     assert not any("DECOY_NEEDLE" in h for h in hits)
 
 
 def test_brain_turn_bundle_follows_project_root(tmp_path, monkeypatch):
-    decoy = _mk_workspace(tmp_path, {
-        "agents/cognitive-executor.md": "DECOY_TURN_CONTENT",
-    })
+    decoy = _mk_workspace(
+        tmp_path,
+        {
+            "agents/cognitive-executor.md": "DECOY_TURN_CONTENT",
+        },
+    )
     monkeypatch.setenv("BRAIN_WORKSPACE_ROOT", str(decoy))
     monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
     monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
@@ -672,11 +726,11 @@ def test_brain_turn_bundle_follows_project_root(tmp_path, monkeypatch):
     project = _mk_project(tmp_path, "turn_project")
     (project / "agents").mkdir()
     (project / "agents" / "cognitive-executor.md").write_text(
-        "REAL_TURN_CONTENT", encoding="utf-8")
+        "REAL_TURN_CONTENT", encoding="utf-8"
+    )
 
     holder = {}
-    _mk_bridge_client(
-        monkeypatch, [_FakeResp(200, "fine", _ok_payload())], holder)
+    _mk_bridge_client(monkeypatch, [_FakeResp(200, "fine", _ok_payload())], holder)
     target = _unwrap(bridge.brain_turn)
     target("tiny question", project_root=str(project))
 
@@ -699,6 +753,7 @@ def test_read_file_rejects_traversal(tmp_path, monkeypatch):
     ws = _mk_workspace(tmp_path, {"notes.md": "hi\n"})
     monkeypatch.setenv("BRAIN_WORKSPACE_ROOT", str(ws))
     import pytest as _pt
+
     with _pt.raises(ValueError):
         _unwrap(bridge.read_file)("../evil.md")
     outside = tmp_path / "outside.md"
@@ -711,24 +766,31 @@ def test_read_file_rejects_bad_extension(tmp_path, monkeypatch):
     ws = _mk_workspace(tmp_path, {"run.py": "print(1)\n"})
     monkeypatch.setenv("BRAIN_WORKSPACE_ROOT", str(ws))
     import pytest as _pt
+
     with _pt.raises(ValueError):
         _unwrap(bridge.read_file)("run.py")
 
 
 def test_grep_finds_planted_string(tmp_path, monkeypatch):
-    ws = _mk_workspace(tmp_path, {
-        "docs/a.md": "hello PLANTED_NEEDLE world\nsecond line\n",
-        "notes.txt": "nothing here\n",
-    })
+    ws = _mk_workspace(
+        tmp_path,
+        {
+            "docs/a.md": "hello PLANTED_NEEDLE world\nsecond line\n",
+            "notes.txt": "nothing here\n",
+        },
+    )
     monkeypatch.setenv("BRAIN_WORKSPACE_ROOT", str(ws))
     hits = _unwrap(bridge.grep_files)("PLANTED_NEEDLE")
     assert any("docs/a.md:1:" in h and "PLANTED_NEEDLE" in h for h in hits)
 
 
 def test_grep_skips_git(tmp_path, monkeypatch):
-    ws = _mk_workspace(tmp_path, {
-        "notes.md": "visible SKIPME_GIT_TEST\n",
-    })
+    ws = _mk_workspace(
+        tmp_path,
+        {
+            "notes.md": "visible SKIPME_GIT_TEST\n",
+        },
+    )
     git_file = ws / ".git" / "hidden.md"
     git_file.parent.mkdir(parents=True, exist_ok=True)
     git_file.write_text("hidden SKIPME_GIT_TEST\n", encoding="utf-8")
@@ -739,9 +801,12 @@ def test_grep_skips_git(tmp_path, monkeypatch):
 
 
 def _mk_bundle_ws(tmp_path, monkeypatch):
-    ws = _mk_workspace(tmp_path, {
-        "agents/cognitive-executor.md": "bundle-content",
-    })
+    ws = _mk_workspace(
+        tmp_path,
+        {
+            "agents/cognitive-executor.md": "bundle-content",
+        },
+    )
     monkeypatch.setenv("BRAIN_WORKSPACE_ROOT", str(ws))
     monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
     _mk_sys_prompt(tmp_path, monkeypatch)
@@ -762,7 +827,10 @@ def test_brain_turn_include_bundle_prepends(tmp_path, monkeypatch):
     assert user_msgs[-1]["content"].rstrip().endswith("tiny question")
     # system prompt untouched by the bundle
     assert holder["body"]["input"][0]["role"] == "system"
-    assert "=== agents/cognitive-executor.md ===" not in holder["body"]["input"][0]["content"]
+    assert (
+        "=== agents/cognitive-executor.md ==="
+        not in holder["body"]["input"][0]["content"]
+    )
 
 
 def test_brain_turn_include_bundle_false_skips(tmp_path, monkeypatch):
@@ -792,9 +860,9 @@ def test_load_history_skips_monster_lines(tmp_path, monkeypatch):
     path = bridge._transcript_path("big")
     path.parent.mkdir(parents=True, exist_ok=True)
     import json as _json
+
     good = _json.dumps({"role": "user", "content": "hello"})
-    path.write_text(good + "\n" + "z" * 200_001 + "\n" + good + "\n",
-                    encoding="utf-8")
+    path.write_text(good + "\n" + "z" * 200_001 + "\n" + good + "\n", encoding="utf-8")
     turns = bridge.load_history("big")
     # File exceeds _COMPACT_FILE_BYTES (monster line) → byte trigger
     # compacts: junk purged, summary + the 2 valid turns kept.
@@ -806,6 +874,7 @@ def test_load_history_skips_monster_lines(tmp_path, monkeypatch):
 
 
 # --- hotfix follow-up: merge + atomicity + bounds (QA_REJECTED round 1) ---
+
 
 def test_compact_merges_prior_summary(tmp_path, monkeypatch):
     # Storage is append-only, so the digest counts every stored turn
@@ -842,6 +911,7 @@ def test_transcript_is_append_only_across_loads(tmp_path, monkeypatch):
 
 def test_compact_skips_corrupt_lines(tmp_path, monkeypatch):
     import json as _json
+
     monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
     path = bridge._transcript_path("corrupt")
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -859,8 +929,7 @@ def test_compact_skips_corrupt_lines(tmp_path, monkeypatch):
 def test_payload_contains_only_role_content(tmp_path, monkeypatch):
     monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
     monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
-    bridge.append_turn("217", "user", "hi", model="m",
-                       prompt_hash="h", truncated=3)
+    bridge.append_turn("217", "user", "hi", model="m", prompt_hash="h", truncated=3)
     holder = {}
     _mk_bridge_client(monkeypatch, [_FakeResp(200, "fine", _ok_payload())], holder)
     target = _unwrap(bridge.brain_turn)
@@ -871,16 +940,22 @@ def test_payload_contains_only_role_content(tmp_path, monkeypatch):
 
 def test_old_records_without_metadata_load(tmp_path, monkeypatch):
     import json as _json
+
     monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
     path = bridge._transcript_path("legacy")
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
-        _json.dumps({"role": "user", "content": "old"}) + "\n"
-        + _json.dumps({"role": "assistant", "content": "older"}) + "\n",
-        encoding="utf-8")
+        _json.dumps({"role": "user", "content": "old"})
+        + "\n"
+        + _json.dumps({"role": "assistant", "content": "older"})
+        + "\n",
+        encoding="utf-8",
+    )
     turns = bridge.load_history("legacy")
-    assert turns == [{"role": "user", "content": "old"},
-                     {"role": "assistant", "content": "older"}]
+    assert turns == [
+        {"role": "user", "content": "old"},
+        {"role": "assistant", "content": "older"},
+    ]
 
 
 def test_large_turns_trigger_byte_compaction(tmp_path, monkeypatch):
@@ -893,6 +968,7 @@ def test_large_turns_trigger_byte_compaction(tmp_path, monkeypatch):
 
 
 # --- Task 194: transcript compaction + per-record traceability ---
+
 
 def _fill_turns(task, n, prefix="msg"):
     for i in range(n):
@@ -920,8 +996,9 @@ def test_compact_summary_bounded_and_idempotent(tmp_path, monkeypatch):
 
 def test_records_carry_metadata_keys(tmp_path, monkeypatch):
     monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
-    bridge.append_turn("m1", "user", "hi", model="m-x",
-                       prompt_hash="ab" * 32, truncated=3)
+    bridge.append_turn(
+        "m1", "user", "hi", model="m-x", prompt_hash="ab" * 32, truncated=3
+    )
     (turn,) = bridge.load_history("m1")
     assert turn["model"] == "m-x"
     assert turn["prompt_hash"] == "ab" * 32
@@ -994,24 +1071,29 @@ def test_taxonomy_fatal_401_no_retry(monkeypatch):
 
 def test_taxonomy_retryable_503_then_200(monkeypatch):
     import time as _tmod
+
     _stub_httpx(monkeypatch)
     monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
     monkeypatch.setattr(_tmod, "sleep", lambda s: None)
     script = [_FakeResp(503, "busy"), _FakeResp(200, "fine", {"ok": True})]
-    resp, attempts = bridge._post_with_retry(_FakeClient(script), "http://x/responses", {})
+    resp, attempts = bridge._post_with_retry(
+        _FakeClient(script), "http://x/responses", {}
+    )
     assert resp.status_code == 200
     assert attempts == 2
 
 
 # --- hotfix taxonomy per-class tests (Step 4-9, direct _post unit) ---
 
+
 def _ensure_httpx_exc(monkeypatch):
     import sys as _sysmod
+
     _stub_httpx(monkeypatch)
     _sysmod.modules["httpx"].TimeoutException = type(
-        "TimeoutException", (Exception,), {})
-    _sysmod.modules["httpx"].TransportError = type(
-        "TransportError", (Exception,), {})
+        "TimeoutException", (Exception,), {}
+    )
+    _sysmod.modules["httpx"].TransportError = type("TransportError", (Exception,), {})
     return _sysmod.modules["httpx"]
 
 
@@ -1044,25 +1126,31 @@ def test_taxonomy_fatal_422_no_retry(monkeypatch):
 
 def test_taxonomy_retryable_429_then_200(monkeypatch):
     import time as _tmod
+
     _ensure_httpx_exc(monkeypatch)
     monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
     monkeypatch.setattr(_tmod, "sleep", lambda s: None)
     script = [_FakeResp(429, "slow"), _FakeResp(200, "fine", {"ok": True})]
     resp, attempts = bridge._post_with_retry(
-        _FakeClient(script), "http://x/responses", {})
+        _FakeClient(script), "http://x/responses", {}
+    )
     assert resp.status_code == 200
     assert attempts == 2
 
 
 def test_taxonomy_timeout_then_200(monkeypatch):
     import time as _tmod
+
     httpx_stub = _ensure_httpx_exc(monkeypatch)
     monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
     monkeypatch.setattr(_tmod, "sleep", lambda s: None)
-    script = [httpx_stub.TimeoutException("timed out"),
-              _FakeResp(200, "fine", {"ok": True})]
+    script = [
+        httpx_stub.TimeoutException("timed out"),
+        _FakeResp(200, "fine", {"ok": True}),
+    ]
     resp, attempts = bridge._post_with_retry(
-        _FakeClient(script), "http://x/responses", {})
+        _FakeClient(script), "http://x/responses", {}
+    )
     assert resp.status_code == 200
     assert attempts == 2
 
@@ -1080,6 +1168,7 @@ def test_taxonomy_message_contract(monkeypatch):
 
 def test_taxonomy_sleep_skipped_on_fatal(monkeypatch):
     import time as _tmod
+
     _ensure_httpx_exc(monkeypatch)
     monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
     sleeps = []
@@ -1113,7 +1202,8 @@ def test_task_attach_escapes_embedded_fences(tmp_path, monkeypatch):
     d = tmp_path / "tasks" / "backlog"
     d.mkdir(parents=True, exist_ok=True)
     (d / "200-foo.md").write_text(
-        "# T\nGoal line.\n```\nevil()\n```\n", encoding="utf-8")
+        "# T\nGoal line.\n```\nevil()\n```\n", encoding="utf-8"
+    )
     monkeypatch.setattr(bridge, "_workspace_root", lambda: tmp_path)
     attach = bridge._build_task_attach("200-foo")
     lines = attach.splitlines()
@@ -1126,7 +1216,8 @@ def test_task_attach_omitted_note_has_offset_relpath(tmp_path, monkeypatch):
     d = tmp_path / "tasks" / "backlog"
     d.mkdir(parents=True, exist_ok=True)
     (d / "200-foo.md").write_text(
-        "# T\n<!-- BEGIN_GIT_DIFF -->\nx\n<!-- END_GIT_DIFF -->\n", encoding="utf-8")
+        "# T\n<!-- BEGIN_GIT_DIFF -->\nx\n<!-- END_GIT_DIFF -->\n", encoding="utf-8"
+    )
     monkeypatch.setattr(bridge, "_workspace_root", lambda: tmp_path)
     attach = bridge._build_task_attach("200-foo")
     # Task 241 Bug 1: the Brain has no file tools — the note must route
@@ -1169,9 +1260,13 @@ def test_brain_turn_lean_diff_attaches_without_bundle(tmp_path, monkeypatch):
     _mk_bridge_client(monkeypatch, [_FakeResp(200, "fine", _ok_payload("ok"))], holder)
     call = bridge.brain_turn
     target = call.fn if hasattr(call, "fn") else call
-    result = target("q", task_id="200",
-                     include_bundle=False, include_diff=True,
-                     project_root=str(tmp_path))
+    result = target(
+        "q",
+        task_id="200",
+        include_bundle=False,
+        include_diff=True,
+        project_root=str(tmp_path),
+    )
     assert result["status"] == "REPORT"
     user_contents = [t["content"] for t in holder["body"]["input"]]
     assert any("[changed-hunks:" in c for c in user_contents)
@@ -1191,15 +1286,15 @@ def test_brain_turn_failsafe_fires_without_bundle(tmp_path, monkeypatch):
     _mk_bridge_client(monkeypatch, [_FakeResp(200, "fine", _ok_payload("ok"))], holder)
     call = bridge.brain_turn
     target = call.fn if hasattr(call, "fn") else call
-    result = target("qa engineer, adversarial review please",
-                     task_id="200", include_bundle=False)
+    result = target(
+        "qa engineer, adversarial review please", task_id="200", include_bundle=False
+    )
     assert result["status"] == "REPORT"
     user_contents = [t["content"] for t in holder["body"]["input"]]
     assert any("[changed-hunks:" in c for c in user_contents)
 
 
-def test_brain_turn_include_diff_unresolvable_warns(tmp_path, monkeypatch,
-                                                     capsys):
+def test_brain_turn_include_diff_unresolvable_warns(tmp_path, monkeypatch, capsys):
     # Loud skip: flag set but no file — stderr must say why instead
     # of silently sending a diff-less QA turn. The fixture root holds
     # tasks/ lanes (preflight resolves) but no task-200 file, so the
@@ -1217,8 +1312,7 @@ def test_brain_turn_include_diff_unresolvable_warns(tmp_path, monkeypatch,
     _mk_bridge_client(monkeypatch, [_FakeResp(200, "fine", _ok_payload("ok"))], holder)
     call = bridge.brain_turn
     target = call.fn if hasattr(call, "fn") else call
-    result = target("q", task_id="200", include_diff=True,
-                    project_root=str(tmp_path))
+    result = target("q", task_id="200", include_diff=True, project_root=str(tmp_path))
     assert result["status"] == "REPORT"
     assert "unresolvable" in capsys.readouterr().err
     # Re-QA repair: the model itself must see WHY — the inline note
@@ -1232,7 +1326,8 @@ def test_task_resolve_tmp_root_integration(tmp_path, monkeypatch):
         d = tmp_path / "tasks" / lane
         d.mkdir(parents=True, exist_ok=True)
     (tmp_path / "tasks" / "qa" / "200-foo.md").write_text(
-        "# T\nGoal line.\n", encoding="utf-8")
+        "# T\nGoal line.\n", encoding="utf-8"
+    )
     monkeypatch.setattr(bridge, "_workspace_root", lambda: tmp_path)
     found = bridge._resolve_task_file("200-foo")
     assert found is not None and found.name == "200-foo.md"
@@ -1274,8 +1369,10 @@ def test_task_attach_truncates_big_file(tmp_path, monkeypatch):
 
 
 def test_strip_multi_unclosed_lone_markers():
-    two = ("a\n<!-- BEGIN_GIT_DIFF -->\nx\n<!-- END_GIT_DIFF -->\nmid\n"
-           "<!-- BEGIN_GIT_DIFF -->\ny\n<!-- END_GIT_DIFF -->\nz")
+    two = (
+        "a\n<!-- BEGIN_GIT_DIFF -->\nx\n<!-- END_GIT_DIFF -->\nmid\n"
+        "<!-- BEGIN_GIT_DIFF -->\ny\n<!-- END_GIT_DIFF -->\nz"
+    )
     cleaned, omitted, truncated = bridge._strip_task_diff(two, "t.md")
     assert "x\n" not in cleaned and "\ny\n" not in cleaned
     assert "a\n" in cleaned and "mid\n" in cleaned and "z[Factual" in cleaned
@@ -1314,8 +1411,8 @@ def test_task_attach_pull_path_is_lane_relative_and_live(tmp_path, monkeypatch):
     d = tmp_path / "tasks" / "backlog"
     d.mkdir(parents=True, exist_ok=True)
     (d / "200-foo.md").write_text(
-        "# T\n<!-- BEGIN_GIT_DIFF -->\nx\n<!-- END_GIT_DIFF -->\n",
-        encoding="utf-8")
+        "# T\n<!-- BEGIN_GIT_DIFF -->\nx\n<!-- END_GIT_DIFF -->\n", encoding="utf-8"
+    )
     monkeypatch.setattr(bridge, "_workspace_root", lambda: tmp_path)
     attach = bridge._build_task_attach("200-foo")
     assert "tasks/backlog/200-foo.md" in attach
@@ -1338,9 +1435,10 @@ def test_grep_skips_symlink_escape(tmp_path, monkeypatch):
 
 def test_read_file_limit_clamped(tmp_path, monkeypatch):
     (tmp_path / "big.md").write_text(
-        "".join(f"line {n}\n" for n in range(2500)), encoding="utf-8")
+        "".join(f"line {n}\n" for n in range(2500)), encoding="utf-8"
+    )
     monkeypatch.setattr(bridge, "_workspace_root", lambda: tmp_path)
-    result = bridge._read_file_impl("big.md", limit=10 ** 9)
+    result = bridge._read_file_impl("big.md", limit=10**9)
     assert result["limit"] == bridge._READ_MAX_LINES
     assert len(result["lines"]) == bridge._READ_MAX_LINES
 
@@ -1362,7 +1460,8 @@ def test_grep_skips_overlong_lines(tmp_path, monkeypatch):
     sub = tmp_path / "docs"
     sub.mkdir()
     (sub / "mix.md").write_text(
-        "MATCH " + ("z" * 5000) + "\nplain MATCH line\n", encoding="utf-8")
+        "MATCH " + ("z" * 5000) + "\nplain MATCH line\n", encoding="utf-8"
+    )
     monkeypatch.setattr(bridge, "_workspace_root", lambda: tmp_path)
     hits = bridge._grep_files_impl("MATCH", "docs")
     assert len(hits) == 1 and ":2:" in hits[0]
@@ -1464,7 +1563,8 @@ def test_paths_attach_empty_labelled(tmp_path, monkeypatch):
 def test_paths_attach_per_file_cap(tmp_path, monkeypatch):
     _ws(tmp_path, monkeypatch)
     (tmp_path / "big.md").write_text(
-        "y" * (bridge._CTX_PATHS_PER_FILE + 10), encoding="utf-8")
+        "y" * (bridge._CTX_PATHS_PER_FILE + 10), encoding="utf-8"
+    )
     out = bridge.build_paths_attach(["big.md"])
     assert "truncated" in out
 
@@ -1499,10 +1599,8 @@ def test_paths_attach_project_root_wins_over_workspace(tmp_path, monkeypatch):
     _ws(tmp_path, monkeypatch)  # server install dir lacks the report
     proj = tmp_path / "proj"
     (proj / "context-reports").mkdir(parents=True)
-    (proj / "context-reports" / "r.md").write_text(
-        "# real\nbody\n", encoding="utf-8")
-    out = bridge.build_paths_attach(
-        ["context-reports/r.md"], project_root=str(proj))
+    (proj / "context-reports" / "r.md").write_text("# real\nbody\n", encoding="utf-8")
+    out = bridge.build_paths_attach(["context-reports/r.md"], project_root=str(proj))
     assert "[path-injected: context-reports/r.md]" in out
     assert "body" in out
 
@@ -1518,8 +1616,7 @@ def test_paths_attach_project_root_missing_stays_labelled(tmp_path, monkeypatch)
 def test_paths_attach_project_root_invalid_falls_back(tmp_path, monkeypatch):
     _ws(tmp_path, monkeypatch)
     (tmp_path / "ctx.md").write_text("# ctx\nbody\n", encoding="utf-8")
-    out = bridge.build_paths_attach(
-        ["ctx.md"], project_root=str(tmp_path / "nope"))
+    out = bridge.build_paths_attach(["ctx.md"], project_root=str(tmp_path / "nope"))
     assert "[path-injected: ctx.md]" in out
 
 
@@ -1565,29 +1662,41 @@ _DISC_OK = (
 def test_validate_hands_xml_accepts_valid_blocks():
     assert bridge.validate_hands_xml_blocks([_IMPL_OK, _DISC_OK]) == []
     assert bridge.validate_hands_xml_blocks(["<hotfix>do X</hotfix>"]) == []
-    assert bridge.validate_hands_xml_blocks(
-        ["<failure_report>boom</failure_report>"]) == []
-    assert bridge.validate_hands_xml_blocks(
-        ["<hands_combined_task><!--INCLUDE:shared/validation-phase.md-->"
-         "<validation_phase>v</validation_phase>"
-         "<discovery_phase>x</discovery_phase>"
-         "</hands_combined_task>"]) == []
+    assert (
+        bridge.validate_hands_xml_blocks(["<failure_report>boom</failure_report>"])
+        == []
+    )
+    assert (
+        bridge.validate_hands_xml_blocks(
+            [
+                "<hands_combined_task><!--INCLUDE:shared/validation-phase.md-->"
+                "<validation_phase>v</validation_phase>"
+                "<discovery_phase>x</discovery_phase>"
+                "</hands_combined_task>"
+            ]
+        )
+        == []
+    )
 
 
 def test_validate_hands_xml_rejects_missing_phase():
-    bad = ("<hands_implementation_task><context_phase>x</context_phase>"
-           "</hands_implementation_task>")
+    bad = (
+        "<hands_implementation_task><context_phase>x</context_phase>"
+        "</hands_implementation_task>"
+    )
     problems = bridge.validate_hands_xml_blocks([bad])
     assert problems
     assert any("summary_phase" in p for p in problems)
 
 
 def test_validate_hands_xml_rejects_missing_bash_phase():
-    bad = ("<hands_implementation_task>"
-           "<validation_phase>v</validation_phase>"
-           "<context_phase>x</context_phase>"
-           "<execution_phase>y</execution_phase>"
-           "<summary_phase>z</summary_phase></hands_implementation_task>")
+    bad = (
+        "<hands_implementation_task>"
+        "<validation_phase>v</validation_phase>"
+        "<context_phase>x</context_phase>"
+        "<execution_phase>y</execution_phase>"
+        "<summary_phase>z</summary_phase></hands_implementation_task>"
+    )
     problems = bridge.validate_hands_xml_blocks([bad])
     assert problems
     assert any("bash_phase" in p for p in problems)
@@ -1602,41 +1711,45 @@ def test_paths_attach_project_root_non_string_falls_back(tmp_path, monkeypatch):
 
 def test_validate_hands_xml_rejects_empty_and_unclosed():
     assert bridge.validate_hands_xml_blocks(["<hotfix>   </hotfix>"])
-    assert bridge.validate_hands_xml_blocks(
-        ["<hands_discovery_task><context_phase>x"])
+    assert bridge.validate_hands_xml_blocks(["<hands_discovery_task><context_phase>x"])
 
 
 def test_validate_hands_xml_rejects_unknown_root_and_empty_input():
-    assert bridge.validate_hands_xml_blocks(
-        ["<reasoning_log>hi</reasoning_log>"])
+    assert bridge.validate_hands_xml_blocks(["<reasoning_log>hi</reasoning_log>"])
     assert bridge.validate_hands_xml_blocks([])
 
 
 def test_validate_hands_xml_rejects_bare_phase_words():
-    bare = ("<hands_implementation_task>\n"
-            "  validation_phase context_phase execution_phase bash_phase\n"
-            "  documentation_phase summary_phase\n"
-            "</hands_implementation_task>")
+    bare = (
+        "<hands_implementation_task>\n"
+        "  validation_phase context_phase execution_phase bash_phase\n"
+        "  documentation_phase summary_phase\n"
+        "</hands_implementation_task>"
+    )
     problems = bridge.validate_hands_xml_blocks([bare])
     assert problems
     assert any("<context_phase>" in p for p in problems)
 
 
 def test_validate_hands_xml_rejects_comment_only_phases():
-    commented = ("<hands_implementation_task>\n"
-                 "<!-- validation_phase context_phase execution_phase -->\n"
-                 "<!-- bash_phase documentation_phase summary_phase -->\n"
-                 "please implement the thing\n"
-                 "</hands_implementation_task>")
+    commented = (
+        "<hands_implementation_task>\n"
+        "<!-- validation_phase context_phase execution_phase -->\n"
+        "<!-- bash_phase documentation_phase summary_phase -->\n"
+        "please implement the thing\n"
+        "</hands_implementation_task>"
+    )
     problems = bridge.validate_hands_xml_blocks([commented])
     assert problems
 
 
 def test_validate_hands_xml_rejects_post_close_phases():
-    after = ("<hands_implementation_task><summary_phase>z</summary_phase>"
-             "</hands_implementation_task>\n"
-             "<context_phase>x</context_phase>"
-             "<execution_phase>y</execution_phase>")
+    after = (
+        "<hands_implementation_task><summary_phase>z</summary_phase>"
+        "</hands_implementation_task>\n"
+        "<context_phase>x</context_phase>"
+        "<execution_phase>y</execution_phase>"
+    )
     problems = bridge.validate_hands_xml_blocks([after])
     assert problems
     assert any("context_phase" in p for p in problems)
@@ -1647,11 +1760,12 @@ def test_brain_turn_semantic_reject_reports(tmp_path, monkeypatch):
     _mk_sys_prompt(tmp_path, monkeypatch)
     monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
     monkeypatch.delenv("BRAIN_TEMPERATURE", raising=False)
-    incomplete = ("<hands_implementation_task>"
-                  "<context_phase>x</context_phase>"
-                  "</hands_implementation_task>")
-    _mk_bridge_client(
-        monkeypatch, [_FakeResp(200, "fine", _ok_payload(incomplete))])
+    incomplete = (
+        "<hands_implementation_task>"
+        "<context_phase>x</context_phase>"
+        "</hands_implementation_task>"
+    )
+    _mk_bridge_client(monkeypatch, [_FakeResp(200, "fine", _ok_payload(incomplete))])
     call = bridge.brain_turn
     target = call.fn if hasattr(call, "fn") else call
     result = target("q", include_bundle=False)
@@ -1661,6 +1775,7 @@ def test_brain_turn_semantic_reject_reports(tmp_path, monkeypatch):
 
 
 # --- Task 215: reviewer hotfix XML must extract (bare + xml-fenced) ---
+
 
 def test_extract_hotfix_bare_block():
     # Incident: Code Reviewer emitted a hotfix instruction block, but the
@@ -1723,6 +1838,7 @@ def test_extract_unfenced_wins_over_fenced_xml():
 
 # --- Task 215 QA follow-ups (A1-A4 + attribute lock) ---
 
+
 def test_extract_multiple_xml_fences_in_order():
     out = "```xml\n<hotfix>first</hotfix>\n```\ntext\n```xml\n<failure_report>second</failure_report>\n```"
     blocks = bridge.extract_xml_blocks(out)
@@ -1777,6 +1893,7 @@ def test_extract_quad_xml_fence_stays_ignored():
 
 # --- Task 238 fix loop: tolerance + truncation fallback ---
 
+
 def test_extract_mismatched_close_stays_ignored():
     # Mid-line so the truncation fallback (line-start only) stays out.
     assert bridge.extract_xml_blocks("note <hotfix>x</failure_report> tail") == []
@@ -1788,7 +1905,9 @@ def test_extract_non_allowlisted_tag_never_extracts():
     assert bridge.extract_xml_blocks("<reasoning_log>x</reasoning_log>") == []
     assert bridge.extract_xml_blocks("<REASONING_LOG>x</REASONING_LOG>") == []
     assert bridge.extract_xml_blocks('<reasoning_log tone="t">x</reasoning_log>') == []
-    assert bridge.extract_xml_blocks("```xml\n<reasoning_log>x</reasoning_log>\n```") == []
+    assert (
+        bridge.extract_xml_blocks("```xml\n<reasoning_log>x</reasoning_log>\n```") == []
+    )
     assert bridge.extract_xml_blocks("notes\n<reasoning_log>truncated") == []
 
 
@@ -1818,14 +1937,14 @@ def test_extract_plain_prose_angle_brackets_never_extracts():
 def test_extract_unclosed_uppercase_with_attrs_surfaced():
     # QA hotfix V2: case and attributes never affect the allowlist
     # decision — the tag NAME alone decides.
-    out = "notes\n<HOTFIX ID=\"7\">do step 1"
+    out = 'notes\n<HOTFIX ID="7">do step 1'
     blocks = bridge.extract_xml_blocks(out)
     assert len(blocks) == 1
     assert blocks[0].startswith("<HOTFIX")
 
 
 def test_extract_truncated_block_with_attributes_surfaced():
-    out = "thinking\n<HANDS_IMPLEMENTATION_TASK retry=\"2\">do step 1"
+    out = 'thinking\n<HANDS_IMPLEMENTATION_TASK retry="2">do step 1'
     blocks = bridge.extract_xml_blocks(out)
     assert len(blocks) == 1
 
@@ -1848,9 +1967,11 @@ def test_extract_closed_block_wins_over_truncated_tail():
     assert len(blocks) == 1
     assert blocks[0].startswith("<failure_report>")
 
+
 # --- Task-number gate: task_id is a bare number, never suffixed ---
 # (Session finding: "215qa"/"215rev"/"215plan" forked one task's history
 # into separate transcript dirs. The tool entry now rejects them.)
+
 
 def test_require_task_number_accepts_bare_digits():
     assert bridge._require_task_number("215") == "215"
@@ -1859,6 +1980,7 @@ def test_require_task_number_accepts_bare_digits():
 
 def test_require_task_number_rejects_session_suffixes():
     import pytest as _pt
+
     for bad in ("215qa", "215rev", "215plan", "224qa", "219rev"):
         with _pt.raises(ValueError, match="bare task number"):
             bridge._require_task_number(bad)
@@ -1866,6 +1988,7 @@ def test_require_task_number_rejects_session_suffixes():
 
 def test_require_task_number_rejects_slugs_and_empty():
     import pytest as _pt
+
     for bad in ("200-foo", "nope-no-file", "", "   ", "21 5", None, 215):
         with _pt.raises(ValueError, match="bare task number"):
             bridge._require_task_number(bad)
@@ -1874,7 +1997,10 @@ def test_require_task_number_rejects_slugs_and_empty():
 def test_brain_turn_rejects_suffixed_id_before_any_work(tmp_path, monkeypatch):
     monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
     import pytest as _pt
-    target = bridge.brain_turn.fn if hasattr(bridge.brain_turn, "fn") else bridge.brain_turn
+
+    target = (
+        bridge.brain_turn.fn if hasattr(bridge.brain_turn, "fn") else bridge.brain_turn
+    )
     with _pt.raises(ValueError, match="identical number on every"):
         target("q", task_id="215qa")
     assert not (tmp_path / "sessions").exists()
@@ -1893,7 +2019,9 @@ def test_empty_output_hint_contract():
     assert bridge.EMPTY_OUTPUT_RETRY in bare
     assert "escalate" in bare
     assert "stale" in hint  # lean retries drop context; stale answers re-run full
-    noted = bridge._empty_output_hint("232", "tasks/qa/x.md | status=open | diff=abc123")
+    noted = bridge._empty_output_hint(
+        "232", "tasks/qa/x.md | status=open | diff=abc123"
+    )
     assert "Current state: tasks/qa/x.md" in noted
     assert bridge._task_state_note("no-such-task-xyz") == "unknown"
     assert bridge._task_state_note(None) == "unknown"
@@ -1904,7 +2032,9 @@ def _run_turn(monkeypatch, tmp_path, payload, prompt="q", task_id="232"):
     _mk_sys_prompt(tmp_path, monkeypatch)
     monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
     _mk_bridge_client(monkeypatch, [_FakeResp(200, "fine", payload)])
-    target = bridge.brain_turn.fn if hasattr(bridge.brain_turn, "fn") else bridge.brain_turn
+    target = (
+        bridge.brain_turn.fn if hasattr(bridge.brain_turn, "fn") else bridge.brain_turn
+    )
     return target(prompt, task_id=task_id)
 
 
@@ -1966,41 +2096,58 @@ def test_parse_responses_diagnostics_full_payload():
 def test_parse_responses_diagnostics_tolerates_malformed():
     for bad in ({}, {"output": None}, {"usage": "nope"}, {"error": {}}, []):
         diag = bridge.parse_responses_diagnostics(bad)
-        assert set(diag) == {
-            "status", "incomplete_reason", "usage", "error", "refusal"}
+        assert set(diag) == {"status", "incomplete_reason", "usage", "error", "refusal"}
         assert set(diag["usage"]) == {
-            "input_tokens", "output_tokens", "reasoning_tokens",
-            "total_tokens"}
+            "input_tokens",
+            "output_tokens",
+            "reasoning_tokens",
+            "total_tokens",
+        }
     assert bridge.parse_responses_diagnostics(None)["status"] is None
 
 
 def test_parse_responses_diagnostics_refusal_direct_and_nested():
     direct = bridge.parse_responses_diagnostics(
-        {"output": [{"type": "refusal", "refusal": "I cannot help."}]})
+        {"output": [{"type": "refusal", "refusal": "I cannot help."}]}
+    )
     assert direct["refusal"] == "I cannot help."
     nested = bridge.parse_responses_diagnostics(
-        {"output": [{"type": "message", "content": [
-            {"type": "refusal", "refusal": "Nested refusal text"}]}]})
+        {
+            "output": [
+                {
+                    "type": "message",
+                    "content": [{"type": "refusal", "refusal": "Nested refusal text"}],
+                }
+            ]
+        }
+    )
     assert nested["refusal"] == "Nested refusal text"
 
 
 def test_parse_responses_diagnostics_error_shapes():
-    assert bridge.parse_responses_diagnostics(
-        {"error": "boom"})["error"] == "boom"
-    assert bridge.parse_responses_diagnostics(
-        {"error": {"message": "boom2", "type": "x"}})["error"] == "boom2"
+    assert bridge.parse_responses_diagnostics({"error": "boom"})["error"] == "boom"
+    assert (
+        bridge.parse_responses_diagnostics(
+            {"error": {"message": "boom2", "type": "x"}}
+        )["error"]
+        == "boom2"
+    )
 
 
 def test_output_budget_hint_contract():
-    diag = bridge.parse_responses_diagnostics({
-        "status": "incomplete",
-        "incomplete_details": {"reason": "max_output_tokens"},
-        "usage": {"input_tokens": 10, "output_tokens": 20,
-                  "total_tokens": 30,
-                  "output_tokens_details": {"reasoning_tokens": 18}},
-    })
-    hint = bridge._output_budget_hint(
-        diag, "259", "tasks/qa/x.md | status=open")
+    diag = bridge.parse_responses_diagnostics(
+        {
+            "status": "incomplete",
+            "incomplete_details": {"reason": "max_output_tokens"},
+            "usage": {
+                "input_tokens": 10,
+                "output_tokens": 20,
+                "total_tokens": 30,
+                "output_tokens_details": {"reasoning_tokens": 18},
+            },
+        }
+    )
+    hint = bridge._output_budget_hint(diag, "259", "tasks/qa/x.md | status=open")
     assert bridge.OUTPUT_BUDGET_EXHAUSTED in hint
     assert bridge.EMPTY_OUTPUT_RETRY not in hint
     assert "include_bundle=false" not in hint
@@ -2018,14 +2165,20 @@ def test_log_provider_diagnostics_reports_visible_tokens(capsys):
     the whole output budget, so the field is the measurement the budget fix
     relies on.
     """
-    bridge._log_provider_diagnostics({
-        "status": "completed",
-        "incomplete_reason": None,
-        "usage": {"input_tokens": 10, "output_tokens": 100,
-                  "reasoning_tokens": 90, "total_tokens": 110},
-        "error": None,
-        "refusal": None,
-    })
+    bridge._log_provider_diagnostics(
+        {
+            "status": "completed",
+            "incomplete_reason": None,
+            "usage": {
+                "input_tokens": 10,
+                "output_tokens": 100,
+                "reasoning_tokens": 90,
+                "total_tokens": 110,
+            },
+            "error": None,
+            "refusal": None,
+        }
+    )
     err = capsys.readouterr().err
     assert "visible_tokens=10" in err
     assert "reasoning_tokens=90" in err
@@ -2033,13 +2186,15 @@ def test_log_provider_diagnostics_reports_visible_tokens(capsys):
 
 def test_log_provider_diagnostics_visible_tokens_none_without_usage(capsys):
     """Missing usage must not crash or invent a visible count."""
-    bridge._log_provider_diagnostics({
-        "status": "incomplete",
-        "incomplete_reason": "max_output_tokens",
-        "usage": {},
-        "error": None,
-        "refusal": None,
-    })
+    bridge._log_provider_diagnostics(
+        {
+            "status": "incomplete",
+            "incomplete_reason": "max_output_tokens",
+            "usage": {},
+            "error": None,
+            "refusal": None,
+        }
+    )
     assert "visible_tokens=None" in capsys.readouterr().err
 
 
@@ -2047,9 +2202,12 @@ def test_brain_turn_budget_exhaustion_is_terminal(tmp_path, monkeypatch, capsys)
     payload = {
         "status": "incomplete",
         "incomplete_details": {"reason": "max_output_tokens"},
-        "usage": {"input_tokens": 500, "output_tokens": 16384,
-                  "total_tokens": 16884,
-                  "output_tokens_details": {"reasoning_tokens": 16000}},
+        "usage": {
+            "input_tokens": 500,
+            "output_tokens": 16384,
+            "total_tokens": 16884,
+            "output_tokens_details": {"reasoning_tokens": 16000},
+        },
         "output": [{"type": "reasoning", "summary": []}],
     }
     result = _run_turn(monkeypatch, tmp_path, payload)
@@ -2087,7 +2245,12 @@ def test_brain_turn_debug_provider_on_success(tmp_path, monkeypatch):
     result = _run_turn(monkeypatch, tmp_path, _ok_payload("a real verdict"))
     assert result["output"] == "a real verdict"
     assert set(result["debug"]["provider"]) == {
-        "status", "incomplete_reason", "usage", "error", "refusal"}
+        "status",
+        "incomplete_reason",
+        "usage",
+        "error",
+        "refusal",
+    }
 
 
 def test_brain_turn_high_effort_budget_warning(tmp_path, monkeypatch, capsys):
@@ -2103,8 +2266,7 @@ def test_brain_turn_high_effort_budget_warning(tmp_path, monkeypatch, capsys):
     assert "BRAIN_MAX_TOKENS" in err
 
 
-def test_brain_turn_low_effort_skips_budget_warning(tmp_path, monkeypatch,
-                                                    capsys):
+def test_brain_turn_low_effort_skips_budget_warning(tmp_path, monkeypatch, capsys):
     monkeypatch.setenv("BRAIN_REASONING_EFFORT", "low")
     monkeypatch.setenv("BRAIN_MAX_TOKENS", "16384")
     result = _run_turn(monkeypatch, tmp_path, _ok_payload("ok"))
@@ -2116,25 +2278,30 @@ def test_parse_responses_diagnostics_scalar_content_does_not_raise():
     # A malformed nested "content" scalar must not abort diagnosis (QA F1).
     for bad_content in (1, "text", {"type": "refusal"}, True):
         diag = bridge.parse_responses_diagnostics(
-            {"output": [{"type": "message", "content": bad_content}]})
-        assert set(diag) == {
-            "status", "incomplete_reason", "usage", "error", "refusal"}
+            {"output": [{"type": "message", "content": bad_content}]}
+        )
+        assert set(diag) == {"status", "incomplete_reason", "usage", "error", "refusal"}
         assert diag["refusal"] is None
 
 
 def test_parse_responses_diagnostics_non_finite_usage_is_none():
     # nan/inf raise inside int(); the parser must swallow them (QA F2).
-    diag = bridge.parse_responses_diagnostics({
-        "usage": {
-            "input_tokens": float("nan"),
-            "output_tokens": float("inf"),
-            "total_tokens": float("-inf"),
-            "output_tokens_details": {"reasoning_tokens": float("nan")},
-        },
-    })
+    diag = bridge.parse_responses_diagnostics(
+        {
+            "usage": {
+                "input_tokens": float("nan"),
+                "output_tokens": float("inf"),
+                "total_tokens": float("-inf"),
+                "output_tokens_details": {"reasoning_tokens": float("nan")},
+            },
+        }
+    )
     assert diag["usage"] == {
-        "input_tokens": None, "output_tokens": None,
-        "reasoning_tokens": None, "total_tokens": None}
+        "input_tokens": None,
+        "output_tokens": None,
+        "reasoning_tokens": None,
+        "total_tokens": None,
+    }
 
 
 def test_brain_turn_large_prompt_warns_on_stderr(tmp_path, monkeypatch, capsys):
@@ -2183,8 +2350,10 @@ def test_fed_context_persists_across_second_turn(tmp_path, monkeypatch):
 
 
 def test_plan_verdict_valid():
-    plan = ("verdict: PLAN APPROVED\nseats: Architect\npath: implement\n"
-            "steps: edit files\ncites: server.py:100, skill.md:20")
+    plan = (
+        "verdict: PLAN APPROVED\nseats: Architect\npath: implement\n"
+        "steps: edit files\ncites: server.py:100, skill.md:20"
+    )
     assert bridge.validate_plan_verdict(plan) == []
 
 
@@ -2201,12 +2370,14 @@ def test_plan_verdict_cites_without_lines():
 
 
 def _close_ready_task():
-    return ("VERDICT: QA_PASSED\nstate PO_REVIEW_PENDING\n"
-            "Manager wrote: \"Approved for closure\".\n"
-            "Ran extract_session_decisions(241): [] loudly, nothing queued.\n"
-            "<!-- BEGIN_GIT_DIFF -->\n```diff\n"
-            "diff --git a/f.py b/f.py\n+fix\n"
-            "```\n<!-- END_GIT_DIFF -->")
+    return (
+        "VERDICT: QA_PASSED\nstate PO_REVIEW_PENDING\n"
+        'Manager wrote: "Approved for closure".\n'
+        "Ran extract_session_decisions(241): [] loudly, nothing queued.\n"
+        "<!-- BEGIN_GIT_DIFF -->\n```diff\n"
+        "diff --git a/f.py b/f.py\n+fix\n"
+        "```\n<!-- END_GIT_DIFF -->"
+    )
 
 
 def test_closure_checklist_ready():
@@ -2215,26 +2386,39 @@ def test_closure_checklist_ready():
 
 def test_closure_checklist_missing_each():
     base = _close_ready_task()
-    assert any("QA_PASSED" in p for p in
-               bridge.validate_closure_checklist("no verdict here"))
-    assert any("PO_REVIEW_PENDING" in p for p in
-               bridge.validate_closure_checklist(
-                   base.replace("PO_REVIEW_PENDING", "review done")))
+    assert any(
+        "QA_PASSED" in p for p in bridge.validate_closure_checklist("no verdict here")
+    )
+    assert any(
+        "PO_REVIEW_PENDING" in p
+        for p in bridge.validate_closure_checklist(
+            base.replace("PO_REVIEW_PENDING", "review done")
+        )
+    )
     # Bare "approved" never counts — only the exact approval words.
-    assert any("approval-word" in p for p in
-               bridge.validate_closure_checklist(
-                   base.replace('"Approved for closure"',
-                                'manager said approved')))
-    assert any("Diff block is empty" in p for p in
-               bridge.validate_closure_checklist(
-                   base.replace("diff --git a/f.py b/f.py\n+fix",
-                                "_(Git diff will be automatically "
-                                "injected here)_")))
-    assert any("extract_session_decisions" in p for p in
-               bridge.validate_closure_checklist(
-                   base.replace("Ran extract_session_decisions(241): "
-                                "[] loudly, nothing queued.\n", "")))
-
+    assert any(
+        "approval-word" in p
+        for p in bridge.validate_closure_checklist(
+            base.replace('"Approved for closure"', "manager said approved")
+        )
+    )
+    assert any(
+        "Diff block is empty" in p
+        for p in bridge.validate_closure_checklist(
+            base.replace(
+                "diff --git a/f.py b/f.py\n+fix",
+                "_(Git diff will be automatically injected here)_",
+            )
+        )
+    )
+    assert any(
+        "extract_session_decisions" in p
+        for p in bridge.validate_closure_checklist(
+            base.replace(
+                "Ran extract_session_decisions(241): [] loudly, nothing queued.\n", ""
+            )
+        )
+    )
 
 
 def _mk_project(tmp_path, name):
@@ -2244,8 +2428,7 @@ def _mk_project(tmp_path, name):
 
 
 def _clean_session_env(monkeypatch):
-    for key in ("BRAIN_SESSIONS_ROOT", "BRAIN_PROJECT_ROOT",
-                "BRAIN_WORKSPACE_ROOT"):
+    for key in ("BRAIN_SESSIONS_ROOT", "BRAIN_PROJECT_ROOT", "BRAIN_WORKSPACE_ROOT"):
         monkeypatch.delenv(key, raising=False)
 
 
@@ -2279,12 +2462,20 @@ def test_legacy_global_transcript_read_through(tmp_path, monkeypatch):
     # Plant a pre-migration global file directly: append_turn now refuses
     # to write to the legacy global dir (no-global-write rule), so the
     # legacy fixture must be written by hand.
-    planted = (fake_home / ".config" / "opencode" / "brain-sessions"
-               / "t3legacy" / "transcript.jsonl")
+    planted = (
+        fake_home
+        / ".config"
+        / "opencode"
+        / "brain-sessions"
+        / "t3legacy"
+        / "transcript.jsonl"
+    )
     planted.parent.mkdir(parents=True, exist_ok=True)
     planted.write_text(
         '{"role": "user", "content": "legacy hello", "model": null, '
-        '"prompt_hash": null, "truncated": 0}\n', encoding="utf-8")
+        '"prompt_hash": null, "truncated": 0}\n',
+        encoding="utf-8",
+    )
     assert planted.is_file()
     # Read from the bare dir: no per-project root resolves there, so the
     # legacy global fallback (pre-migration read path) still applies.
@@ -2292,8 +2483,7 @@ def test_legacy_global_transcript_read_through(tmp_path, monkeypatch):
     assert any(t.get("content") == "legacy hello" for t in turns)
 
 
-def test_no_cross_project_bleed_for_project_with_sessions_dir(
-        tmp_path, monkeypatch):
+def test_no_cross_project_bleed_for_project_with_sessions_dir(tmp_path, monkeypatch):
     # Task 241 Bug 2: a project with its own sessions dir must NEVER read
     # another project's turns or pin from the legacy global store — the
     # fallback applies only when no per-project root resolves.
@@ -2301,14 +2491,14 @@ def test_no_cross_project_bleed_for_project_with_sessions_dir(
     fake_home.mkdir()
     monkeypatch.setenv("HOME", str(fake_home))
     _clean_session_env(monkeypatch)
-    legacy_dir = (fake_home / ".config" / "opencode" / "brain-sessions"
-                  / "bleed")
+    legacy_dir = fake_home / ".config" / "opencode" / "brain-sessions" / "bleed"
     legacy_dir.mkdir(parents=True)
     (legacy_dir / "transcript.jsonl").write_text(
         '{"role": "user", "content": "foreign hello", "model": null, '
-        '"prompt_hash": null, "truncated": 0}\n', encoding="utf-8")
-    (legacy_dir / "fed_context.md").write_text(
-        "foreign pin\n", encoding="utf-8")
+        '"prompt_hash": null, "truncated": 0}\n',
+        encoding="utf-8",
+    )
+    (legacy_dir / "fed_context.md").write_text("foreign pin\n", encoding="utf-8")
     proj = _mk_project(tmp_path, "proj_bleed")
     monkeypatch.chdir(proj)
     assert bridge.load_history("bleed") == []
@@ -2320,7 +2510,7 @@ def test_fresh_write_goes_per_project(tmp_path, monkeypatch):
     proj = _mk_project(tmp_path, "proj_write")
     monkeypatch.chdir(proj)
     bridge.append_turn("t4fresh", "user", "fresh hello")
-    fresh = (proj / "tasks" / ".sessions" / "t4fresh" / "transcript.jsonl")
+    fresh = proj / "tasks" / ".sessions" / "t4fresh" / "transcript.jsonl"
     assert fresh.is_file()
     assert "fresh hello" in fresh.read_text(encoding="utf-8")
 
@@ -2338,8 +2528,14 @@ def test_writes_avoid_legacy_global_when_no_root(tmp_path, monkeypatch, capsys):
     bridge.append_turn("t5noglobal", "user", "no bleed")
     local = bare / "tasks" / ".sessions" / "t5noglobal" / "transcript.jsonl"
     assert local.is_file()
-    legacy = (fake_home / ".config" / "opencode" / "brain-sessions"
-              / "t5noglobal" / "transcript.jsonl")
+    legacy = (
+        fake_home
+        / ".config"
+        / "opencode"
+        / "brain-sessions"
+        / "t5noglobal"
+        / "transcript.jsonl"
+    )
     assert not legacy.exists()
     assert "instead of legacy global" in capsys.readouterr().err
 
@@ -2347,6 +2543,7 @@ def test_writes_avoid_legacy_global_when_no_root(tmp_path, monkeypatch, capsys):
 def test_loop_guard_isolation_by_project(tmp_path, monkeypatch):
     # T6: same task id in two projects keeps separate spin state.
     from loop_guard import record_attempt
+
     _clean_session_env(monkeypatch)
     proj_a = _mk_project(tmp_path, "proj_ga")
     proj_b = _mk_project(tmp_path, "proj_gb")
@@ -2368,29 +2565,38 @@ def test_sibling_missing_still_resolves_per_project(tmp_path, monkeypatch):
     monkeypatch.setattr(bridge, "_shared_legacy_root", None)
     assert bridge._sessions_root() == proj / "tasks" / ".sessions"
     assert bridge._sessions_root(project_root=str(proj)) == (
-        proj / "tasks" / ".sessions")
+        proj / "tasks" / ".sessions"
+    )
 
 
 # --- Risk-aware routing (RED: resolver + wiring do not exist yet) ---
 
+
 def _clean_routing_env(monkeypatch):
-    for var in ("BRAIN_RISK_ROUTING_ENABLED", "BRAIN_MODEL_LOW",
-                "BRAIN_MODEL_HIGH", "BRAIN_MODEL", "BRAIN_STAGE_TIERS",
-                "BRAIN_REASONING_EFFORT", "BRAIN_MAX_TOKENS"):
+    for var in (
+        "BRAIN_RISK_ROUTING_ENABLED",
+        "BRAIN_MODEL_LOW",
+        "BRAIN_MODEL_HIGH",
+        "BRAIN_MODEL",
+        "BRAIN_STAGE_TIERS",
+        "BRAIN_REASONING_EFFORT",
+        "BRAIN_MAX_TOKENS",
+    ):
         monkeypatch.delenv(var, raising=False)
 
 
-def _run_turn_capture(monkeypatch, tmp_path, payload, prompt="q",
-                      task_id="232", **kwargs):
+def _run_turn_capture(
+    monkeypatch, tmp_path, payload, prompt="q", task_id="232", **kwargs
+):
     monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
     _mk_sys_prompt(tmp_path, monkeypatch)
     monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
     monkeypatch.delenv("BRAIN_TEMPERATURE", raising=False)
     holder = {}
-    _mk_bridge_client(monkeypatch, [_FakeResp(200, "fine", payload)],
-                      holder=holder)
-    target = (bridge.brain_turn.fn if hasattr(bridge.brain_turn, "fn")
-              else bridge.brain_turn)
+    _mk_bridge_client(monkeypatch, [_FakeResp(200, "fine", payload)], holder=holder)
+    target = (
+        bridge.brain_turn.fn if hasattr(bridge.brain_turn, "fn") else bridge.brain_turn
+    )
     result = target(prompt, task_id=task_id, **kwargs)
     return result, holder
 
@@ -2435,7 +2641,8 @@ def test_routing_explicitly_disabled_preserves_behavior(tmp_path, monkeypatch):
     monkeypatch.setenv("BRAIN_RISK_ROUTING_ENABLED", "false")
     assert bridge._routing_enabled() is False
     result, holder = _run_turn_capture(
-        monkeypatch, tmp_path, _ok_payload("ok"), risk_tier="T0")
+        monkeypatch, tmp_path, _ok_payload("ok"), risk_tier="T0"
+    )
     assert result["output"] == "ok"
     assert holder["body"]["model"] == "gpt-6-astra"
 
@@ -2471,8 +2678,9 @@ def test_unknown_stage_is_rejected_by_preflight(tmp_path, monkeypatch):
 
     _clean_routing_env(monkeypatch)
     with _pytest.raises(_preflight.PreflightError, match="stage"):
-        _run_turn_capture(monkeypatch, tmp_path, _ok_payload("ok"),
-                          task_id="233", stage="nonsense")
+        _run_turn_capture(
+            monkeypatch, tmp_path, _ok_payload("ok"), task_id="233", stage="nonsense"
+        )
 
 
 def test_routing_model_defaults_are_built_in_and_overridable(monkeypatch):
@@ -2500,8 +2708,7 @@ def test_stage_tier_mapping_defaults_and_override(monkeypatch):
     assert r(None, tiers) is None
     assert r("", tiers) is None
     # Env override merges onto the default; unusable pairs are ignored.
-    monkeypatch.setenv("BRAIN_STAGE_TIERS",
-                       " plan:T0 ,qa:T2,bogus:T9,:T1,review")
+    monkeypatch.setenv("BRAIN_STAGE_TIERS", " plan:T0 ,qa:T2,bogus:T9,:T1,review")
     overridden = bridge._get_stage_tiers()
     assert overridden["plan"] == "T0"
     assert overridden["qa"] == "T2"
@@ -2515,15 +2722,22 @@ def test_stage_derived_tier_routes_the_turn(tmp_path, monkeypatch):
     monkeypatch.setenv("BRAIN_MODEL_LOW", "low-m")
     monkeypatch.setenv("BRAIN_MODEL_HIGH", "high-m")
     _, holder = _run_turn_capture(
-        monkeypatch, tmp_path, _ok_payload("ok"), stage="plan")
+        monkeypatch, tmp_path, _ok_payload("ok"), stage="plan"
+    )
     assert holder["body"]["model"] == "high-m"
     _, holder = _run_turn_capture(
-        monkeypatch, tmp_path, _ok_payload("ok"), task_id="233", stage="qa")
+        monkeypatch, tmp_path, _ok_payload("ok"), task_id="233", stage="qa"
+    )
     assert holder["body"]["model"] == "low-m"
     # An explicit risk_tier still wins over the stage-derived tier.
     _, holder = _run_turn_capture(
-        monkeypatch, tmp_path, _ok_payload("ok"), task_id="234",
-        stage="plan", risk_tier="T0")
+        monkeypatch,
+        tmp_path,
+        _ok_payload("ok"),
+        task_id="234",
+        stage="plan",
+        risk_tier="T0",
+    )
     assert holder["body"]["model"] == "low-m"
 
 
@@ -2549,26 +2763,29 @@ def test_routed_body_uses_selected_model(tmp_path, monkeypatch):
     monkeypatch.setenv("BRAIN_MODEL_LOW", "low-m")
     monkeypatch.setenv("BRAIN_MODEL_HIGH", "high-m")
     result, holder = _run_turn_capture(
-        monkeypatch, tmp_path, _ok_payload("ok"), risk_tier="T0")
+        monkeypatch, tmp_path, _ok_payload("ok"), risk_tier="T0"
+    )
     assert result["output"] == "ok"
     assert result["model"] == "low-m"
     assert holder["body"]["model"] == "low-m"
     assert holder["body"]["reasoning"] == {"effort": "medium"}
     assert holder["body"]["max_output_tokens"] == 32768
     result, holder = _run_turn_capture(
-        monkeypatch, tmp_path, _ok_payload("ok"), task_id="233",
-        risk_tier="T2")
+        monkeypatch, tmp_path, _ok_payload("ok"), task_id="233", risk_tier="T2"
+    )
     assert holder["body"]["model"] == "high-m"
 
 
 def test_ledger_carries_model_tier_and_cache_split(tmp_path, monkeypatch):
     import json
+
     _clean_routing_env(monkeypatch)
     monkeypatch.setenv("BRAIN_RISK_ROUTING_ENABLED", "true")
     monkeypatch.setenv("BRAIN_MODEL_LOW", "low-m")
     secret_prompt = "ledger-leak-probe-zz9"
-    result, _ = _run_turn_capture(monkeypatch, tmp_path, _ok_payload("ok"),
-                                  prompt=secret_prompt, risk_tier="T0")
+    result, _ = _run_turn_capture(
+        monkeypatch, tmp_path, _ok_payload("ok"), prompt=secret_prompt, risk_tier="T0"
+    )
     ledger = tmp_path / "sessions" / bridge._CONTEXT_LEDGER_NAME
     blob = ledger.read_text(encoding="utf-8").strip().split("\n")[-1]
     row = json.loads(blob)
@@ -2576,17 +2793,28 @@ def test_ledger_carries_model_tier_and_cache_split(tmp_path, monkeypatch):
     assert row["risk_tier"] == "T0"
     assert row["prompt_cache_split"] == result["prompt_cache_split"]
     assert set(row["prompt_cache_split"]) == {
-        "schema_version", "split_boundary", "static_prefix_sha256",
-        "dynamic_suffix_sha256"}
+        "schema_version",
+        "split_boundary",
+        "static_prefix_sha256",
+        "dynamic_suffix_sha256",
+    }
     assert secret_prompt not in blob
     assert "sk-test-key" not in blob
-    assert set(row) == {"task_id", "budget_chars", "est_tokens",
-                        "util_pct", "truncated", "model", "risk_tier",
-                        "prompt_cache_split"}
+    assert set(row) == {
+        "task_id",
+        "budget_chars",
+        "est_tokens",
+        "util_pct",
+        "truncated",
+        "model",
+        "risk_tier",
+        "prompt_cache_split",
+    }
 
 
 def test_ledger_carries_stage_derived_tier_and_model(tmp_path, monkeypatch):
     import json
+
     _clean_routing_env(monkeypatch)
     monkeypatch.setenv("BRAIN_MODEL_LOW", "low-m")
     monkeypatch.setenv("BRAIN_MODEL_HIGH", "high-m")
@@ -2597,8 +2825,9 @@ def test_ledger_carries_stage_derived_tier_and_model(tmp_path, monkeypatch):
     assert row["model"] == "high-m"
     assert row["risk_tier"] == "T2"
     # A light stage derives the low tier and the cheap model.
-    _run_turn_capture(monkeypatch, tmp_path, _ok_payload("ok"),
-                      task_id="233", stage="qa")
+    _run_turn_capture(
+        monkeypatch, tmp_path, _ok_payload("ok"), task_id="233", stage="qa"
+    )
     row = json.loads(ledger.read_text(encoding="utf-8").strip().split("\n")[-1])
     assert row["model"] == "low-m"
     assert row["risk_tier"] == "T0"
@@ -2606,29 +2835,47 @@ def test_ledger_carries_stage_derived_tier_and_model(tmp_path, monkeypatch):
 
 def test_resolver_takes_no_prompt_diff_or_key():
     import inspect
+
     params = set(inspect.signature(bridge.resolve_routed_model).parameters)
-    assert params == {"enabled", "risk_tier", "default_model",
-                      "model_low", "model_high"}
+    assert params == {
+        "enabled",
+        "risk_tier",
+        "default_model",
+        "model_low",
+        "model_high",
+    }
 
 
 def _split_kwargs(**over):
-    base = dict(system_prompt="sys", bundle_text="bundle",
-                task_attach_text="attach", user_prompt="q",
-                paths_text="", diff_text="", failsafe_text="",
-                fed_text="", history=[])
+    base = dict(
+        system_prompt="sys",
+        bundle_text="bundle",
+        task_attach_text="attach",
+        user_prompt="q",
+        paths_text="",
+        diff_text="",
+        failsafe_text="",
+        fed_text="",
+        history=[],
+    )
     base.update(over)
     return base
 
 
 def test_cache_split_static_stable_dynamic_varies():
     a = bridge.build_prompt_cache_split(**_split_kwargs())
-    b = bridge.build_prompt_cache_split(**_split_kwargs(
-        user_prompt="q2", paths_text="p", diff_text="d",
-        failsafe_text="f", fed_text="fed",
-        history=[{"role": "user", "content": "h"}]))
+    b = bridge.build_prompt_cache_split(
+        **_split_kwargs(
+            user_prompt="q2",
+            paths_text="p",
+            diff_text="d",
+            failsafe_text="f",
+            fed_text="fed",
+            history=[{"role": "user", "content": "h"}],
+        )
+    )
     assert a["schema_version"] == bridge._CACHE_SPLIT_SCHEMA_VERSION
-    assert (a["split_boundary"]
-            == "after_system_bundle_task_attach")
+    assert a["split_boundary"] == "after_system_bundle_task_attach"
     assert a["static_prefix_sha256"] == b["static_prefix_sha256"]
     assert a["dynamic_suffix_sha256"] != b["dynamic_suffix_sha256"]
     assert len(a["static_prefix_sha256"]) == 64
@@ -2637,17 +2884,19 @@ def test_cache_split_static_stable_dynamic_varies():
 
 def test_cache_split_each_dynamic_segment_flips_dynamic():
     base = bridge.build_prompt_cache_split(**_split_kwargs())
-    for field, val in (("user_prompt", "x"), ("paths_text", "x"),
-                       ("diff_text", "x"), ("failsafe_text", "x"),
-                       ("fed_text", "x")):
-        other = bridge.build_prompt_cache_split(
-            **_split_kwargs(**{field: val}))
-        assert (other["dynamic_suffix_sha256"]
-                != base["dynamic_suffix_sha256"])
-        assert (other["static_prefix_sha256"]
-                == base["static_prefix_sha256"])
-    hist = bridge.build_prompt_cache_split(**_split_kwargs(
-        history=[{"role": "assistant", "content": "x"}]))
+    for field, val in (
+        ("user_prompt", "x"),
+        ("paths_text", "x"),
+        ("diff_text", "x"),
+        ("failsafe_text", "x"),
+        ("fed_text", "x"),
+    ):
+        other = bridge.build_prompt_cache_split(**_split_kwargs(**{field: val}))
+        assert other["dynamic_suffix_sha256"] != base["dynamic_suffix_sha256"]
+        assert other["static_prefix_sha256"] == base["static_prefix_sha256"]
+    hist = bridge.build_prompt_cache_split(
+        **_split_kwargs(history=[{"role": "assistant", "content": "x"}])
+    )
     assert hist["dynamic_suffix_sha256"] != base["dynamic_suffix_sha256"]
     assert hist["static_prefix_sha256"] == base["static_prefix_sha256"]
 
@@ -2655,10 +2904,8 @@ def test_cache_split_each_dynamic_segment_flips_dynamic():
 def test_cache_split_static_change_flips_static_only():
     base = bridge.build_prompt_cache_split(**_split_kwargs())
     for field in ("system_prompt", "bundle_text", "task_attach_text"):
-        other = bridge.build_prompt_cache_split(
-            **_split_kwargs(**{field: "changed"}))
-        assert (other["static_prefix_sha256"]
-                != base["static_prefix_sha256"])
+        other = bridge.build_prompt_cache_split(**_split_kwargs(**{field: "changed"}))
+        assert other["static_prefix_sha256"] != base["static_prefix_sha256"]
 
 
 def test_cache_split_memoizes_static_computation(monkeypatch):
@@ -2675,55 +2922,73 @@ def test_cache_split_memoizes_static_computation(monkeypatch):
 
 def test_cache_split_result_and_ledger(tmp_path, monkeypatch):
     import json
+
     _clean_routing_env(monkeypatch)
     result, holder = _run_turn_capture(
-        monkeypatch, tmp_path, _ok_payload("ok"), prompt="cache-q")
+        monkeypatch, tmp_path, _ok_payload("ok"), prompt="cache-q"
+    )
     split = result["prompt_cache_split"]
     assert split["schema_version"] == bridge._CACHE_SPLIT_SCHEMA_VERSION
     assert split["split_boundary"] == "after_system_bundle_task_attach"
     assert len(split["static_prefix_sha256"]) == 64
     assert len(split["dynamic_suffix_sha256"]) == 64
-    assert set(split) == {"schema_version", "split_boundary",
-                          "static_prefix_sha256",
-                          "dynamic_suffix_sha256"}
+    assert set(split) == {
+        "schema_version",
+        "split_boundary",
+        "static_prefix_sha256",
+        "dynamic_suffix_sha256",
+    }
     # Wire untouched: no cache params on the provider body.
-    assert set(holder["body"]) == {"model", "input", "reasoning",
-                                   "max_output_tokens"}
+    assert set(holder["body"]) == {"model", "input", "reasoning", "max_output_tokens"}
     ledger = tmp_path / "sessions" / bridge._CONTEXT_LEDGER_NAME
-    row = json.loads(ledger.read_text(encoding="utf-8").strip()
-                     .split("\n")[-1])
+    row = json.loads(ledger.read_text(encoding="utf-8").strip().split("\n")[-1])
     assert row["prompt_cache_split"] == split
-    assert set(row) == {"task_id", "budget_chars", "est_tokens",
-                        "util_pct", "truncated", "model", "risk_tier",
-                        "prompt_cache_split"}
+    assert set(row) == {
+        "task_id",
+        "budget_chars",
+        "est_tokens",
+        "util_pct",
+        "truncated",
+        "model",
+        "risk_tier",
+        "prompt_cache_split",
+    }
 
 
 def test_cache_split_stable_across_turns(tmp_path, monkeypatch):
     _clean_routing_env(monkeypatch)
-    monkeypatch.setenv("BRAIN_SESSIONS_ROOT",
-                       str(tmp_path / "sessions"))
+    monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
     _mk_sys_prompt(tmp_path, monkeypatch)
     monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
     holder = {}
-    _mk_bridge_client(monkeypatch, [_FakeResp(200, "a", _ok_payload("a")),
-                                    _FakeResp(200, "b", _ok_payload("b"))],
-                      holder=holder)
-    target = (bridge.brain_turn.fn if hasattr(bridge.brain_turn, "fn")
-              else bridge.brain_turn)
+    _mk_bridge_client(
+        monkeypatch,
+        [_FakeResp(200, "a", _ok_payload("a")), _FakeResp(200, "b", _ok_payload("b"))],
+        holder=holder,
+    )
+    target = (
+        bridge.brain_turn.fn if hasattr(bridge.brain_turn, "fn") else bridge.brain_turn
+    )
     first = target("first-question", task_id="234")
     second = target("second-question", task_id="234")
-    assert (first["prompt_cache_split"]["static_prefix_sha256"]
-            == second["prompt_cache_split"]["static_prefix_sha256"])
-    assert (first["prompt_cache_split"]["dynamic_suffix_sha256"]
-            != second["prompt_cache_split"]["dynamic_suffix_sha256"])
+    assert (
+        first["prompt_cache_split"]["static_prefix_sha256"]
+        == second["prompt_cache_split"]["static_prefix_sha256"]
+    )
+    assert (
+        first["prompt_cache_split"]["dynamic_suffix_sha256"]
+        != second["prompt_cache_split"]["dynamic_suffix_sha256"]
+    )
 
 
 def test_cache_split_leaks_nothing(tmp_path, monkeypatch):
     import json
+
     _clean_routing_env(monkeypatch)
     sentinel = "cache-leak-sentinel-zz7"
     result, _ = _run_turn_capture(
-        monkeypatch, tmp_path, _ok_payload("ok"), prompt=sentinel)
+        monkeypatch, tmp_path, _ok_payload("ok"), prompt=sentinel
+    )
     assert sentinel not in json.dumps(result["prompt_cache_split"])
     ledger = tmp_path / "sessions" / bridge._CONTEXT_LEDGER_NAME
     blob = ledger.read_text(encoding="utf-8")
@@ -2732,6 +2997,7 @@ def test_cache_split_leaks_nothing(tmp_path, monkeypatch):
 
 
 # --- Prompt-cache split hotfix (QA_REJECTED F1-F4 -> M1-M4, Task 247) ---
+
 
 def _failsafe_turn_setup(monkeypatch, tmp_path):
     _clean_routing_env(monkeypatch)
@@ -2748,27 +3014,31 @@ def test_cache_split_failsafe_wires_own_slot(tmp_path, monkeypatch):
     # slot, never merged into the diff slot (F1).
     _failsafe_turn_setup(monkeypatch, tmp_path)
     holder = {}
-    _mk_bridge_client(monkeypatch, [_FakeResp(200, "fine", _ok_payload("ok"))],
-                      holder=holder)
-    target = (bridge.brain_turn.fn if hasattr(bridge.brain_turn, "fn")
-              else bridge.brain_turn)
+    _mk_bridge_client(
+        monkeypatch, [_FakeResp(200, "fine", _ok_payload("ok"))], holder=holder
+    )
+    target = (
+        bridge.brain_turn.fn if hasattr(bridge.brain_turn, "fn") else bridge.brain_turn
+    )
     prompt = "qa engineer, adversarial review please"
     # Preflight seam (issue 18): the turn must resolve the same fixture
     # root the direct attach call below sees via the mocked workspace.
-    result = target(prompt, task_id="200", include_bundle=False,
-                    project_root=str(tmp_path))
+    result = target(
+        prompt, task_id="200", include_bundle=False, project_root=str(tmp_path)
+    )
     hunks = bridge._failsafe_qa_attach(prompt, "200")
     assert hunks  # guard: the failsafe really fired for this prompt
     expected = bridge.build_prompt_cache_split(
-        "sys", "", "", prompt, diff_text="", failsafe_text=hunks,
-        history=[])
-    assert (result["prompt_cache_split"]["dynamic_suffix_sha256"]
-            == expected["dynamic_suffix_sha256"])
+        "sys", "", "", prompt, diff_text="", failsafe_text=hunks, history=[]
+    )
+    assert (
+        result["prompt_cache_split"]["dynamic_suffix_sha256"]
+        == expected["dynamic_suffix_sha256"]
+    )
     swapped = bridge.build_prompt_cache_split(
-        "sys", "", "", prompt, diff_text=hunks, failsafe_text="",
-        history=[])
-    assert (swapped["dynamic_suffix_sha256"]
-            != expected["dynamic_suffix_sha256"])
+        "sys", "", "", prompt, diff_text=hunks, failsafe_text="", history=[]
+    )
+    assert swapped["dynamic_suffix_sha256"] != expected["dynamic_suffix_sha256"]
 
 
 def test_cache_split_nul_role_cannot_collide():
@@ -2777,16 +3047,16 @@ def test_cache_split_nul_role_cannot_collide():
     # dynamic bytes: label "history[0].r" + content "q\x001\x00Y"
     # framed identically to role "r\x005\x00q" + content "Y".
     assert len("q\x001\x00Y") == 5  # honest length the collision pivots on
-    a = bridge.build_prompt_cache_split(**_split_kwargs(
-        history=[{"role": "r", "content": "q\x001\x00Y"}]))
-    b = bridge.build_prompt_cache_split(**_split_kwargs(
-        history=[{"role": "r\x005\x00q", "content": "Y"}]))
-    assert (a["dynamic_suffix_sha256"]
-            != b["dynamic_suffix_sha256"])
+    a = bridge.build_prompt_cache_split(
+        **_split_kwargs(history=[{"role": "r", "content": "q\x001\x00Y"}])
+    )
+    b = bridge.build_prompt_cache_split(
+        **_split_kwargs(history=[{"role": "r\x005\x00q", "content": "Y"}])
+    )
+    assert a["dynamic_suffix_sha256"] != b["dynamic_suffix_sha256"]
 
 
-def test_cache_split_descriptor_matches_post_truncation_wire(
-        tmp_path, monkeypatch):
+def test_cache_split_descriptor_matches_post_truncation_wire(tmp_path, monkeypatch):
     # M3: the descriptor must describe the SHIPPED (post-truncation)
     # wire, never the pre-truncation assembly (F3).
     _clean_routing_env(monkeypatch)
@@ -2796,22 +3066,30 @@ def test_cache_split_descriptor_matches_post_truncation_wire(
     monkeypatch.delenv("BRAIN_TEMPERATURE", raising=False)
     monkeypatch.setattr(bridge, "_INPUT_BUDGET", 20)
     holder = {}
-    _mk_bridge_client(monkeypatch, [_FakeResp(200, "a", _ok_payload("a")),
-                                    _FakeResp(200, "b", _ok_payload("b"))],
-                      holder=holder)
-    target = (bridge.brain_turn.fn if hasattr(bridge.brain_turn, "fn")
-              else bridge.brain_turn)
+    _mk_bridge_client(
+        monkeypatch,
+        [_FakeResp(200, "a", _ok_payload("a")), _FakeResp(200, "b", _ok_payload("b"))],
+        holder=holder,
+    )
+    target = (
+        bridge.brain_turn.fn if hasattr(bridge.brain_turn, "fn") else bridge.brain_turn
+    )
     target("first-question", task_id="234", include_bundle=False)
     second = target("second-question", task_id="234", include_bundle=False)
     shipped = holder["body"]["input"]
     shipped_history = [t for t in shipped[1:-1]]
     assert len(shipped_history) < 2  # the middle drop really fired
     expected = bridge.build_prompt_cache_split(
-        "sys", "", "", "second-question", history=shipped_history)
-    assert (second["prompt_cache_split"]["dynamic_suffix_sha256"]
-            == expected["dynamic_suffix_sha256"])
-    assert (second["prompt_cache_split"]["static_prefix_sha256"]
-            == expected["static_prefix_sha256"])
+        "sys", "", "", "second-question", history=shipped_history
+    )
+    assert (
+        second["prompt_cache_split"]["dynamic_suffix_sha256"]
+        == expected["dynamic_suffix_sha256"]
+    )
+    assert (
+        second["prompt_cache_split"]["static_prefix_sha256"]
+        == expected["static_prefix_sha256"]
+    )
 
 
 def test_cache_split_static_lookup_skips_hash(monkeypatch):
@@ -2831,8 +3109,7 @@ def test_cache_split_static_lookup_skips_hash(monkeypatch):
     kw = _split_kwargs()
     first = bridge.build_prompt_cache_split(**kw)
     second = bridge.build_prompt_cache_split(**kw)
-    assert (first["static_prefix_sha256"]
-            == second["static_prefix_sha256"])
+    assert first["static_prefix_sha256"] == second["static_prefix_sha256"]
     assert len(calls) == 3
 
 
@@ -2875,7 +3152,8 @@ def test_paths_attach_60k_file_untruncated(tmp_path, monkeypatch):
 
 def test_render_attachment_complete_has_no_markers():
     block, meta = bridge._render_attachment(
-        "diff", "x.diff", "[changed-hunks:1: x.diff]", "diff", "short", 40000)
+        "diff", "x.diff", "[changed-hunks:1: x.diff]", "diff", "short", 40000
+    )
     assert meta is None
     assert "NEXT_ATTACHMENT_PART" not in block
     assert "short" in block
@@ -2884,29 +3162,40 @@ def test_render_attachment_complete_has_no_markers():
 def test_render_attachment_parts_and_resume():
     text = "abcdefghij" * 100
     block, meta = bridge._render_attachment(
-        "diff", "x.diff", "[changed-hunks:1: x.diff]", "diff", text, 600)
+        "diff", "x.diff", "[changed-hunks:1: x.diff]", "diff", text, 600
+    )
     assert meta is not None
     assert meta["part"] == 1
     assert meta["parts"] > 1
     assert f"next_offset_chars={meta['next_offset_chars']}" in block
     assert "NEXT_ATTACHMENT_PART" in block
     block2, meta2 = bridge._render_attachment(
-        "diff", "x.diff", "[changed-hunks:1: x.diff]", "diff", text, 100000,
-        offset=meta["next_offset_chars"])
+        "diff",
+        "x.diff",
+        "[changed-hunks:1: x.diff]",
+        "diff",
+        text,
+        100000,
+        offset=meta["next_offset_chars"],
+    )
     assert meta2 is None
-    assert text[meta["next_offset_chars"]:] in block2
+    assert text[meta["next_offset_chars"] :] in block2
 
 
 def test_validate_attachment_resume_shape():
     assert bridge._validate_attachment_resume(None) is None
     assert bridge._validate_attachment_resume("nope") is None
-    assert bridge._validate_attachment_resume(
-        {"kind": "bogus", "path": "x"}) is None
+    assert bridge._validate_attachment_resume({"kind": "bogus", "path": "x"}) is None
     ok = bridge._validate_attachment_resume(
-        {"kind": "diff", "path": "a.diff", "offset_chars": 5})
+        {"kind": "diff", "path": "a.diff", "offset_chars": 5}
+    )
     assert ok == {"kind": "diff", "path": "a.diff", "offset_chars": 5}
-    assert bridge._validate_attachment_resume(
-        {"kind": "diff", "path": "a.diff"})["offset_chars"] == 0
+    assert (
+        bridge._validate_attachment_resume({"kind": "diff", "path": "a.diff"})[
+            "offset_chars"
+        ]
+        == 0
+    )
 
 
 def test_attachment_priority_review_prefers_evidence():
@@ -2930,49 +3219,61 @@ def _big_diff_task(tmp_path, chars=250000):
     d.mkdir(parents=True, exist_ok=True)
     body = "+line\n" * ((chars // 6) + 1)
     (d / "200-foo.md").write_text(
-        "# T\n\nGoal line.\n\n<!-- BEGIN_GIT_DIFF -->\n" + body
-        + "<!-- END_GIT_DIFF -->\n", encoding="utf-8")
+        "# T\n\nGoal line.\n\n<!-- BEGIN_GIT_DIFF -->\n"
+        + body
+        + "<!-- END_GIT_DIFF -->\n",
+        encoding="utf-8",
+    )
     return d / "200-foo.md"
 
 
 def _call_turn(monkeypatch, *args, **kwargs):
     _mk_bridge_client(monkeypatch, [_FakeResp(200, "fine", _ok_payload("ok"))])
-    target = (bridge.brain_turn.fn if hasattr(bridge.brain_turn, "fn")
-              else bridge.brain_turn)
+    target = (
+        bridge.brain_turn.fn if hasattr(bridge.brain_turn, "fn") else bridge.brain_turn
+    )
     return target(*args, **kwargs)
 
 
-def test_small_review_turn_reports_no_attachment_truncation(
-        tmp_path, monkeypatch):
+def test_small_review_turn_reports_no_attachment_truncation(tmp_path, monkeypatch):
     _mk_tasks_root(tmp_path)
     _turn_setup(tmp_path, monkeypatch)
     result = _call_turn(
-        monkeypatch, "code reviewer, adversarial review", task_id="200",
-        include_bundle=False, include_diff=True, project_root=str(tmp_path))
+        monkeypatch,
+        "code reviewer, adversarial review",
+        task_id="200",
+        include_bundle=False,
+        include_diff=True,
+        project_root=str(tmp_path),
+    )
     assert result["attachments_truncated"] == []
     assert result["attachment_parts"] == []
     assert result["history_turns_dropped"] == 0
     assert result["truncated_count"] == 0
 
 
-def test_review_turn_reports_attachment_truncation_separately(
-        tmp_path, monkeypatch):
+def test_review_turn_reports_attachment_truncation_separately(tmp_path, monkeypatch):
     _big_diff_task(tmp_path)
     _turn_setup(tmp_path, monkeypatch)
     monkeypatch.setattr(bridge, "_TASK_DIFF_CAP", 4000)
     result = _call_turn(
-        monkeypatch, "code reviewer, adversarial review", task_id="200",
-        include_bundle=False, include_diff=True, project_root=str(tmp_path))
+        monkeypatch,
+        "code reviewer, adversarial review",
+        task_id="200",
+        include_bundle=False,
+        include_diff=True,
+        project_root=str(tmp_path),
+    )
     assert result["history_turns_dropped"] == 0
     assert result["truncated_count"] == 0
     assert result["attachments_truncated"], "truncation must be reported"
     entry = result["attachments_truncated"][0]
-    assert set(("kind", "path", "shown_chars", "total_chars",
-                "dropped_chars", "part", "parts")) <= set(entry)
+    assert set(
+        ("kind", "path", "shown_chars", "total_chars", "dropped_chars", "part", "parts")
+    ) <= set(entry)
     assert entry["kind"] == "diff"
     assert entry["shown_chars"] < entry["total_chars"]
-    assert (entry["shown_chars"] + entry["dropped_chars"]
-            == entry["total_chars"])
+    assert entry["shown_chars"] + entry["dropped_chars"] == entry["total_chars"]
     assert result["attachment_parts"]
     assert result["attachment_budget_chars"] >= 0
 
@@ -2982,16 +3283,28 @@ def test_review_turn_can_resume_the_dropped_remainder(tmp_path, monkeypatch):
     _turn_setup(tmp_path, monkeypatch)
     monkeypatch.setattr(bridge, "_TASK_DIFF_CAP", 4000)
     first = _call_turn(
-        monkeypatch, "code reviewer, adversarial review", task_id="200",
-        include_bundle=False, include_diff=True, project_root=str(tmp_path))
+        monkeypatch,
+        "code reviewer, adversarial review",
+        task_id="200",
+        include_bundle=False,
+        include_diff=True,
+        project_root=str(tmp_path),
+    )
     entry = first["attachments_truncated"][0]
     monkeypatch.setattr(bridge, "_TASK_DIFF_CAP", 10000000)
     second = _call_turn(
-        monkeypatch, "code reviewer, adversarial review", task_id="200",
-        include_bundle=False, include_diff=True, project_root=str(tmp_path),
+        monkeypatch,
+        "code reviewer, adversarial review",
+        task_id="200",
+        include_bundle=False,
+        include_diff=True,
+        project_root=str(tmp_path),
         attachment_resume={
-            "kind": "diff", "path": entry["path"],
-            "offset_chars": entry["next_offset_chars"]})
+            "kind": "diff",
+            "path": entry["path"],
+            "offset_chars": entry["next_offset_chars"],
+        },
+    )
     assert second["attachment_chars_used"] > 0
     resumed = second["attachment_parts"]
     if resumed:
@@ -3005,8 +3318,13 @@ def test_big_change_set_chunks_into_numbered_parts(tmp_path, monkeypatch):
     assert len(path.read_text(encoding="utf-8")) > 250000
     _turn_setup(tmp_path, monkeypatch)
     result = _call_turn(
-        monkeypatch, "code reviewer, adversarial review", task_id="200",
-        include_bundle=False, include_diff=True, project_root=str(tmp_path))
+        monkeypatch,
+        "code reviewer, adversarial review",
+        task_id="200",
+        include_bundle=False,
+        include_diff=True,
+        project_root=str(tmp_path),
+    )
     entry = result["attachments_truncated"][0]
     assert entry["kind"] == "diff"
     assert entry["part"] == 1 and entry["parts"] > 1
@@ -3019,19 +3337,23 @@ def test_review_turn_prioritises_diff_over_bundle(tmp_path, monkeypatch):
     _turn_setup(tmp_path, monkeypatch)
     monkeypatch.setenv("BRAIN_INPUT_BUDGET", "50000")
     result = _call_turn(
-        monkeypatch, "code reviewer, adversarial review", task_id="200",
-        include_bundle=True, include_diff=True, stage="review",
-        project_root=str(tmp_path))
-    diff_entries = [e for e in result["attachments_truncated"]
-                    if e["kind"] == "diff"]
-    bundle_entries = [e for e in result["attachments_truncated"]
-                      if e["kind"] == "bundle"]
+        monkeypatch,
+        "code reviewer, adversarial review",
+        task_id="200",
+        include_bundle=True,
+        include_diff=True,
+        stage="review",
+        project_root=str(tmp_path),
+    )
+    diff_entries = [e for e in result["attachments_truncated"] if e["kind"] == "diff"]
+    bundle_entries = [
+        e for e in result["attachments_truncated"] if e["kind"] == "bundle"
+    ]
     assert diff_entries and diff_entries[0]["shown_chars"] > 0
     assert bundle_entries and bundle_entries[0]["shown_chars"] == 0
 
 
-def test_review_turn_delivers_60k_context_path_untruncated(
-        tmp_path, monkeypatch):
+def test_review_turn_delivers_60k_context_path_untruncated(tmp_path, monkeypatch):
     # Turn-level proof, not just the standalone builder: the shared
     # allocator must hand the seat a 60k report whole. The older 100k
     # send ceiling starved this to ~12k once the system prompt was paid.
@@ -3040,18 +3362,22 @@ def test_review_turn_delivers_60k_context_path_untruncated(
     payload = "p" * 60000
     (tmp_path / "report.md").write_text(payload, encoding="utf-8")
     result = _call_turn(
-        monkeypatch, "review the attached report against the change set",
-        task_id="200", stage="review",
-        include_bundle=False, include_diff=False,
-        context_paths=["report.md"], project_root=str(tmp_path))
+        monkeypatch,
+        "review the attached report against the change set",
+        task_id="200",
+        stage="review",
+        include_bundle=False,
+        include_diff=False,
+        context_paths=["report.md"],
+        project_root=str(tmp_path),
+    )
     assert result["attachments_truncated"] == []
     assert result["attachment_chars_used"] >= 60000
     assert result["attachment_parts"] == []
     assert result["history_turns_dropped"] == 0
 
 
-def test_transcript_stores_markers_not_attachment_bodies(
-        tmp_path, monkeypatch):
+def test_transcript_stores_markers_not_attachment_bodies(tmp_path, monkeypatch):
     # The transcript is replayed on every later turn, so persisting the
     # assembled prompt with the attachment bodies inside it made each
     # turn re-pay the previous turn's attachments (one QA turn stored a
@@ -3061,9 +3387,14 @@ def test_transcript_stores_markers_not_attachment_bodies(
     _big_diff_task(tmp_path)
     _turn_setup(tmp_path, monkeypatch)
     result = _call_turn(
-        monkeypatch, "code reviewer, adversarial review", task_id="200",
-        include_bundle=False, include_diff=True, stage="review",
-        project_root=str(tmp_path))
+        monkeypatch,
+        "code reviewer, adversarial review",
+        task_id="200",
+        include_bundle=False,
+        include_diff=True,
+        stage="review",
+        project_root=str(tmp_path),
+    )
     assert result["attachment_chars_used"] > 100000
     turns = bridge.load_history("200", project_root=str(tmp_path))
     stored = [t for t in turns if t["role"] == "user"][-1]["content"]
@@ -3096,9 +3427,13 @@ def test_malformed_cap_fails_the_turn(tmp_path, monkeypatch):
     monkeypatch.setenv("BRAIN_TASK_DIFF_CAP", "0")
     with pytest.raises(ValueError):
         _call_turn(
-            monkeypatch, "review the change set", task_id="200",
-            stage="review", include_diff=True,
-            project_root=str(tmp_path))
+            monkeypatch,
+            "review the change set",
+            task_id="200",
+            stage="review",
+            include_diff=True,
+            project_root=str(tmp_path),
+        )
 
 
 def test_render_attachment_fenced_respects_exact_room():
@@ -3106,8 +3441,8 @@ def test_render_attachment_fenced_respects_exact_room():
     # the block, so it must be priced against the room granted. Comparing
     # only the body length let a rendered block exceed its budget.
     block, meta = bridge._render_attachment(
-        "diff", "x.diff", "[changed-hunks:1: x.diff]", "diff",
-        "x" * 500, 500)
+        "diff", "x.diff", "[changed-hunks:1: x.diff]", "diff", "x" * 500, 500
+    )
     assert len(block) <= 500
     assert meta is not None
     assert meta["shown_chars"] < 500
@@ -3115,7 +3450,8 @@ def test_render_attachment_fenced_respects_exact_room():
 
 def test_render_attachment_unfenced_respects_exact_room():
     block, meta = bridge._render_attachment(
-        "task", "x.md", "[task-file:1: x.md]", None, "x" * 500, 500)
+        "task", "x.md", "[task-file:1: x.md]", None, "x" * 500, 500
+    )
     assert len(block) <= 500
     assert meta is not None
 
@@ -3124,7 +3460,8 @@ def test_render_attachment_short_fit_keeps_no_markers():
     # An exact/whole fit still renders without part markers: no phantom
     # split for content that fits.
     block, meta = bridge._render_attachment(
-        "diff", "x.diff", "[changed-hunks:1: x.diff]", "diff", "x" * 10, 500)
+        "diff", "x.diff", "[changed-hunks:1: x.diff]", "diff", "x" * 10, 500
+    )
     assert meta is None
     assert len(block) <= 500
     assert "[ATTACHMENT" not in block
@@ -3133,14 +3470,20 @@ def test_render_attachment_short_fit_keeps_no_markers():
 
 def test_render_attachment_fenced_split_resumes_exactly():
     block, meta = bridge._render_attachment(
-        "diff", "x.diff", "[changed-hunks:1: x.diff]", "diff",
-        "abcdefghij" * 100, 400)
+        "diff", "x.diff", "[changed-hunks:1: x.diff]", "diff", "abcdefghij" * 100, 400
+    )
     assert len(block) <= 400
     assert meta["next_offset_chars"] == meta["shown_chars"]
     assert meta["remaining_chars"] == meta["total_chars"] - meta["shown_chars"]
     resumed, _meta = bridge._render_attachment(
-        "diff", "x.diff", "[changed-hunks:1: x.diff]", "diff",
-        "abcdefghij" * 100, 400, offset=meta["next_offset_chars"])
+        "diff",
+        "x.diff",
+        "[changed-hunks:1: x.diff]",
+        "diff",
+        "abcdefghij" * 100,
+        400,
+        offset=meta["next_offset_chars"],
+    )
     assert "abcdefghij" * 100 not in block
     assert len(resumed) <= 400
 
@@ -3157,11 +3500,18 @@ def test_ctx_paths_total_cap_enforced_across_files(tmp_path, monkeypatch):
     monkeypatch.setenv("BRAIN_CTX_PER_FILE_CAP", "60000")
     monkeypatch.setenv("BRAIN_CTX_TOTAL_CAP", "1000")
     result = _call_turn(
-        monkeypatch, "review the attached reports", task_id="200",
-        stage="review", include_bundle=False, include_diff=False,
-        context_paths=["a.md", "b.md"], project_root=str(tmp_path))
-    entries = [e for e in result["attachments_truncated"]
-               if e["kind"] == "context_path"]
+        monkeypatch,
+        "review the attached reports",
+        task_id="200",
+        stage="review",
+        include_bundle=False,
+        include_diff=False,
+        context_paths=["a.md", "b.md"],
+        project_root=str(tmp_path),
+    )
+    entries = [
+        e for e in result["attachments_truncated"] if e["kind"] == "context_path"
+    ]
     assert entries, "the overflow must be reported, never silent"
     # The second file can only show the group's remaining share.
     assert all(e["shown_chars"] <= 400 for e in entries)
@@ -3175,9 +3525,15 @@ def test_malformed_ctx_per_file_cap_fails_the_turn(tmp_path, monkeypatch):
     monkeypatch.setenv("BRAIN_CTX_PER_FILE_CAP", "abc")
     with pytest.raises(ValueError):
         _call_turn(
-            monkeypatch, "review the attached report", task_id="200",
-            stage="review", include_bundle=False, include_diff=False,
-            context_paths=["report.md"], project_root=str(tmp_path))
+            monkeypatch,
+            "review the attached report",
+            task_id="200",
+            stage="review",
+            include_bundle=False,
+            include_diff=False,
+            context_paths=["report.md"],
+            project_root=str(tmp_path),
+        )
 
 
 def test_nonpositive_ctx_per_file_cap_fails_the_turn(tmp_path, monkeypatch):
@@ -3187,9 +3543,15 @@ def test_nonpositive_ctx_per_file_cap_fails_the_turn(tmp_path, monkeypatch):
     monkeypatch.setenv("BRAIN_CTX_PER_FILE_CAP", "0")
     with pytest.raises(ValueError):
         _call_turn(
-            monkeypatch, "review the attached report", task_id="200",
-            stage="review", include_bundle=False, include_diff=False,
-            context_paths=["report.md"], project_root=str(tmp_path))
+            monkeypatch,
+            "review the attached report",
+            task_id="200",
+            stage="review",
+            include_bundle=False,
+            include_diff=False,
+            context_paths=["report.md"],
+            project_root=str(tmp_path),
+        )
 
 
 # --- R1: HTTPS scheme guard (Task 265) ---
@@ -3243,3 +3605,225 @@ def test_read_timeout_rejects_nonpositive(monkeypatch):
     with pytest.raises(RuntimeError):
         bridge._get_read_timeout()
 
+
+# --- structural context pack + context-sufficiency gate ---------------
+
+
+def _mk_tree_report(root, name, text):
+    d = root / "context-reports"
+    d.mkdir(parents=True, exist_ok=True)
+    path = d / name
+    path.write_text(text, encoding="utf-8")
+    return path
+
+
+def test_structural_pack_empty_when_no_report(tmp_path, monkeypatch):
+    monkeypatch.setenv("BRAIN_WORKSPACE_ROOT", str(tmp_path))
+    assert bridge._build_structural_pack() == ""
+
+
+def test_structural_pack_reads_newest_report(tmp_path):
+    import time
+
+    _mk_tree_report(tmp_path, "tree_report_20260101_000000_aaaa.md", "OLD_TREE")
+    newest = _mk_tree_report(
+        tmp_path, "tree_report_20260202_000000_bbbb.md", "NEW_TREE"
+    )
+    os.utime(newest, (time.time() + 10, time.time() + 10))
+
+    out = bridge._build_structural_pack(tmp_path)
+
+    assert bridge._STRUCTURAL_MARKER in out
+    assert "NEW_TREE" in out
+    assert "OLD_TREE" not in out
+    assert "tree_report_20260202_000000_bbbb.md" in out
+
+
+def test_structural_pack_truncates(tmp_path, monkeypatch):
+    monkeypatch.setattr(bridge, "_STRUCTURAL_FILE_CAP", 50)
+    _mk_tree_report(tmp_path, "tree_report_20260101_000000_aaaa.md", "X" * 500)
+
+    out = bridge._build_structural_pack(tmp_path)
+
+    assert "structural pack cap" in out
+    assert len(out) < 500
+
+
+def test_bundle_appends_structural_pack(tmp_path):
+    _mk_tree_report(
+        tmp_path, "tree_report_20260101_000000_aaaa.md", "TREE_CONTENT_UNIQUE"
+    )
+
+    out = bridge._build_context_bundle(str(tmp_path))
+
+    assert bridge._STRUCTURAL_MARKER in out
+    assert "TREE_CONTENT_UNIQUE" in out
+
+
+def test_bundle_omits_structural_pack_when_absent(tmp_path, monkeypatch):
+    monkeypatch.setenv("BRAIN_WORKSPACE_ROOT", str(tmp_path))
+    out = bridge._build_context_bundle()
+    assert bridge._STRUCTURAL_MARKER not in out
+
+
+def test_structural_pack_accepts_string_root(tmp_path):
+    _mk_tree_report(tmp_path, "tree_report_20260101_000000_aaaa.md", "STR_ROOT")
+    out = bridge._build_structural_pack(str(tmp_path))
+    assert "STR_ROOT" in out
+
+
+def test_structural_pack_skips_symlink_outside_root(tmp_path):
+    outside = tmp_path / "outside.md"
+    outside.write_text("SECRET_OUTSIDE", encoding="utf-8")
+    d = tmp_path / "ws" / "context-reports"
+    d.mkdir(parents=True)
+    os.symlink(outside, d / "tree_report_20260101_000000_aaaa.md")
+
+    out = bridge._build_structural_pack(tmp_path / "ws")
+
+    assert "SECRET_OUTSIDE" not in out
+    assert out == ""
+
+
+def test_structural_pack_empty_report_is_no_grounding(tmp_path):
+    _mk_tree_report(tmp_path, "tree_report_20260101_000000_aaaa.md", "   \n")
+    assert bridge._build_structural_pack(tmp_path) == ""
+
+
+def test_structural_pack_oversize_is_truncated(tmp_path, monkeypatch):
+    monkeypatch.setattr(bridge, "_STRUCTURAL_FILE_CAP", 100)
+    _mk_tree_report(tmp_path, "tree_report_20260101_000000_aaaa.md", "Y" * 5000)
+
+    out = bridge._build_structural_pack(tmp_path)
+
+    assert "structural pack cap" in out
+    assert "Y" * 5000 not in out
+
+
+def test_structural_pack_escapes_triple_backtick(tmp_path):
+    _mk_tree_report(tmp_path, "tree_report_20260101_000000_aaaa.md", "```text\nx\n```")
+
+    out = bridge._build_structural_pack(tmp_path)
+
+    assert "```text" not in out
+
+
+def test_bundle_structural_skipped_when_budget_exhausted(tmp_path, monkeypatch):
+    _mk_tree_report(tmp_path, "tree_report_20260101_000000_aaaa.md", "PACK" * 200)
+    monkeypatch.setattr(bridge, "_BUNDLE_TOTAL_CAP", 50)
+
+    out = bridge._build_context_bundle(str(tmp_path))
+
+    assert "[structural pack skipped: bundle total cap]" in out
+    assert "PACKPACKPACK" not in out
+
+
+def test_structural_skip_counts_as_absent(tmp_path, monkeypatch):
+    _mk_tree_report(tmp_path, "tree_report_20260101_000000_aaaa.md", "PACK" * 200)
+    monkeypatch.setattr(bridge, "_BUNDLE_TOTAL_CAP", 50)
+
+    out = bridge._build_context_bundle(str(tmp_path))
+
+    # A skipped pack carries no grounding marker, so the gap checker must
+    # report the structural gap instead of a false "grounded" verdict.
+    assert bridge._STRUCTURAL_MARKER not in out
+    gaps = bridge.context_sufficiency_gaps(
+        "plan", "please plan", out, bundle_included=True
+    )
+    assert any("structural pack" in gap for gap in gaps)
+
+
+def test_pinned_fed_context_suppresses_plan_warning(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(bridge, "_build_structural_pack", lambda *a, **k: "")
+    monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
+    bridge.save_fed_context("232", "[fed-context] src/app.py:1")
+
+    _run_turn_capture(
+        monkeypatch,
+        tmp_path,
+        _ok_payload("plan"),
+        prompt="make a plan for the change",
+        stage="plan",
+    )
+
+    err = capsys.readouterr().err
+    assert "no fed-context block" not in err
+
+
+def test_include_bundle_false_suppresses_structural_warning(
+    tmp_path, monkeypatch, capsys
+):
+    monkeypatch.setattr(bridge, "_build_structural_pack", lambda *a, **k: "")
+
+    _run_turn_capture(
+        monkeypatch,
+        tmp_path,
+        _ok_payload("plan"),
+        prompt="[fed-context] src/a.py:1 plan it",
+        stage="plan",
+        include_bundle=False,
+    )
+
+    err = capsys.readouterr().err
+    assert "context-sufficiency warning" not in err
+
+
+def test_sufficiency_gaps_plan_ungrounded_reports_both():
+    gaps = bridge.context_sufficiency_gaps("plan", "please plan", "docs only")
+    assert len(gaps) == 2
+    assert "structural pack" in gaps[0]
+
+
+def test_sufficiency_gaps_plan_with_structural_pack_only():
+    gaps = bridge.context_sufficiency_gaps(
+        "plan", "please plan", bridge._STRUCTURAL_MARKER + "\ntree"
+    )
+    assert gaps == ["no fed-context block"]
+
+
+def test_sufficiency_gaps_plan_with_fed_context_only():
+    gaps = bridge.context_sufficiency_gaps(
+        "plan", "[fed-context] src/app.py:10", "docs only"
+    )
+    assert len(gaps) == 1
+    assert "structural pack" in gaps[0]
+
+
+def test_sufficiency_gaps_plan_fully_grounded_is_empty():
+    prompt = "[pinned-fed-context] src/app.py:10"
+    assert (
+        bridge.context_sufficiency_gaps("plan", prompt, bridge._STRUCTURAL_MARKER) == []
+    )
+
+
+def test_sufficiency_gaps_non_plan_stages_are_silent():
+    assert bridge.context_sufficiency_gaps("qa", "x", "") == []
+    assert bridge.context_sufficiency_gaps("implement", "x", "") == []
+    assert bridge.context_sufficiency_gaps(None, "x", "") == []
+
+
+def test_brain_turn_plan_warns_without_grounding(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(bridge, "_build_structural_pack", lambda *a, **k: "")
+    result, _ = _run_turn_capture(
+        monkeypatch,
+        tmp_path,
+        _ok_payload("plan requested"),
+        prompt="make a plan for the change",
+        stage="plan",
+    )
+    err = capsys.readouterr().err
+    assert result["status"] in {"REPORT", "XML_EXTRACTED"}
+    assert "context-sufficiency warning" in err
+
+
+def test_brain_turn_non_plan_stage_stays_silent(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(bridge, "_build_structural_pack", lambda *a, **k: "")
+    _run_turn_capture(
+        monkeypatch,
+        tmp_path,
+        _ok_payload("qa ok"),
+        prompt="adversarial test the change",
+        stage="qa",
+    )
+    err = capsys.readouterr().err
+    assert "context-sufficiency warning" not in err
