@@ -1774,6 +1774,223 @@ def test_brain_turn_semantic_reject_reports(tmp_path, monkeypatch):
     assert result["xml_blocks"] == []
 
 
+# --- Task 291: partial-truncation server-side recovery ---
+
+import copy as _copy
+
+
+def _incomplete_payload(text):
+    payload = _ok_payload(text)
+    payload["status"] = "incomplete"
+    payload["incomplete_details"] = {"reason": "max_output_tokens"}
+    payload["usage"] = {
+        "input_tokens": 40000,
+        "output_tokens": 900000,
+        "output_tokens_details": {"reasoning_tokens": 895000},
+        "total_tokens": 940000,
+    }
+    return payload
+
+
+class _SeqClient(_FakeClient):
+    """Capture EVERY request body in order (holder["bodies"])."""
+
+    def __init__(self, script, holder):
+        super().__init__(script)
+        # Share (don't copy) the script: sequential turns in one test
+        # consume it in order. (_FakeClient copies, which would replay
+        # item 0 for every fresh client.)
+        self._script = script
+        self._holder = holder
+
+    def post(self, url, json=None, headers=None, **kwargs):
+        # Deep-copy: brain_turn mutates the live body dict on recovery
+        # (effort step-down), so a reference would rewrite history.
+        self._holder.setdefault("bodies", []).append(_copy.deepcopy(json))
+        return super().post(url, json=json, headers=headers, **kwargs)
+
+
+def _mk_seq_client(monkeypatch, script, holder):
+    stub = _types.ModuleType("httpx")
+    stub.Client = lambda *a, **k: _SeqClient(script, holder)
+    stub.TimeoutException = type("TimeoutException", (Exception,), {})
+    stub.TransportError = type("TransportError", (Exception,), {})
+
+    class _Timeout:
+        def __init__(self, *a, **k):
+            self.args, self.kwargs = a, k
+
+    stub.Timeout = _Timeout
+    monkeypatch.setitem(sys.modules, "httpx", stub)
+    return stub
+
+
+_TRUNCATED_IMPLEMENT = (
+    "<hands_implementation_task>\n<context_phase>partial plan text, cut off"
+)
+
+_VALID_REPORT = "<failure_report>recovered and complete</failure_report>"
+
+
+def _run_recovery_turn(monkeypatch, tmp_path, script, holder, effort="xhigh"):
+    monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
+    _mk_sys_prompt(tmp_path, monkeypatch)
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    monkeypatch.delenv("BRAIN_TEMPERATURE", raising=False)
+    monkeypatch.setenv("BRAIN_REASONING_EFFORT", effort)
+    _mk_seq_client(monkeypatch, script, holder)
+    call = bridge.brain_turn
+    target = call.fn if hasattr(call, "fn") else call
+    return target("q", include_bundle=False)
+
+
+def test_step_down_effort_map():
+    assert bridge._step_down_effort("xhigh") == "high"
+    assert bridge._step_down_effort("high") == "medium"
+    assert bridge._step_down_effort("medium") == "low"
+    assert bridge._step_down_effort("max") == "xhigh"
+    assert bridge._step_down_effort("XHIGH") == "high"
+    assert bridge._step_down_effort("low") == "low"
+    assert bridge._step_down_effort("turbo") == "medium"
+    assert bridge._step_down_effort("") == "medium"
+    assert bridge._step_down_effort(None) == "medium"
+
+
+def test_truncation_exhausted_hint_is_terminal():
+    hint = bridge._truncation_exhausted_hint(
+        {
+            "usage": {
+                "input_tokens": 1,
+                "output_tokens": 2,
+                "reasoning_tokens": 3,
+                "total_tokens": 4,
+            }
+        },
+        "291",
+        "tasks/in-progress/291-x.md | status=open | diff=ab12cd34",
+        "xhigh",
+        "high",
+    )
+    assert bridge.TRUNCATION_UNRECOVERABLE in hint
+    assert "do NOT retry" in hint
+    assert "BRAIN_REASONING_EFFORT" in hint
+
+
+def test_brain_turn_recovers_partial_truncation_once(tmp_path, monkeypatch):
+    holder = {}
+    script = [
+        _FakeResp(200, "cut", _incomplete_payload(_TRUNCATED_IMPLEMENT)),
+        _FakeResp(200, "whole", _ok_payload(_VALID_REPORT)),
+    ]
+    result = _run_recovery_turn(monkeypatch, tmp_path, script, holder)
+    assert result["status"] == "XML_EXTRACTED"
+    assert result["xml_blocks"] == [_VALID_REPORT]
+    assert "partial plan text" not in result["output"]
+    assert len(holder["bodies"]) == 2
+    assert holder["bodies"][0]["reasoning"]["effort"] == "xhigh"
+    assert holder["bodies"][1]["reasoning"]["effort"] == "high"
+    assert "[xml-semantic-reject]" not in result["output"]
+
+
+def test_brain_turn_truncation_exhausted_is_terminal(tmp_path, monkeypatch):
+    holder = {}
+    script = [
+        _FakeResp(200, "cut1", _incomplete_payload(_TRUNCATED_IMPLEMENT)),
+        _FakeResp(200, "cut2", _incomplete_payload("more partial prose")),
+    ]
+    result = _run_recovery_turn(monkeypatch, tmp_path, script, holder)
+    assert result["status"] == "REPORT"
+    assert result["xml_blocks"] == []
+    assert bridge.TRUNCATION_UNRECOVERABLE in result["output"]
+    assert bridge.EMPTY_OUTPUT_RETRY not in result["output"]
+    assert "more partial prose" not in result["output"]
+    # Bounded: exactly one recovery call, never a third.
+    assert len(holder["bodies"]) == 2
+
+
+def test_brain_turn_no_recovery_when_complete(tmp_path, monkeypatch):
+    holder = {}
+    script = [_FakeResp(200, "whole", _ok_payload(_VALID_REPORT))]
+    result = _run_recovery_turn(monkeypatch, tmp_path, script, holder)
+    assert result["status"] == "XML_EXTRACTED"
+    assert len(holder["bodies"]) == 1
+
+
+def test_brain_turn_no_recovery_at_effort_floor(tmp_path, monkeypatch):
+    holder = {}
+    script = [
+        _FakeResp(200, "cut", _incomplete_payload(_TRUNCATED_IMPLEMENT)),
+    ]
+    result = _run_recovery_turn(monkeypatch, tmp_path, script, holder, effort="low")
+    assert result["status"] == "REPORT"
+    assert bridge.TRUNCATION_UNRECOVERABLE in result["output"]
+    assert "partial plan text" not in result["output"]
+    assert len(holder["bodies"]) == 1
+
+
+def test_brain_turn_empty_truncation_stays_budget_terminal(tmp_path, monkeypatch):
+    holder = {}
+    script = [_FakeResp(200, "blank", _incomplete_payload(""))]
+    result = _run_recovery_turn(monkeypatch, tmp_path, script, holder)
+    assert result["status"] == "REPORT"
+    assert bridge.OUTPUT_BUDGET_EXHAUSTED in result["output"]
+    assert bridge.TRUNCATION_UNRECOVERABLE not in result["output"]
+    assert len(holder["bodies"]) == 1
+
+
+def test_brain_turn_temperature_truncation_is_terminal(tmp_path, monkeypatch):
+    holder = {}
+    script = [
+        _FakeResp(200, "cut", _incomplete_payload("temperature prose, cut")),
+    ]
+    monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
+    _mk_sys_prompt(tmp_path, monkeypatch)
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    monkeypatch.setenv("BRAIN_TEMPERATURE", "0.7")
+    monkeypatch.setenv("BRAIN_REASONING_EFFORT", "xhigh")
+    _mk_seq_client(monkeypatch, script, holder)
+    call = bridge.brain_turn
+    target = call.fn if hasattr(call, "fn") else call
+    result = target("q", include_bundle=False)
+    assert "reasoning" not in holder["bodies"][0]
+    assert result["status"] == "REPORT"
+    assert bridge.TRUNCATION_UNRECOVERABLE in result["output"]
+    assert len(holder["bodies"]) == 1
+
+
+def test_brain_turn_complete_xml_with_incomplete_status_no_recovery(
+    tmp_path, monkeypatch
+):
+    holder = {}
+    script = [_FakeResp(200, "whole", _incomplete_payload(_VALID_REPORT))]
+    result = _run_recovery_turn(monkeypatch, tmp_path, script, holder)
+    assert result["status"] == "XML_EXTRACTED"
+    assert result["xml_blocks"] == [_VALID_REPORT]
+    assert len(holder["bodies"]) == 1
+
+
+def test_brain_turn_uppercase_low_floor_no_second_call(tmp_path, monkeypatch):
+    holder = {}
+    script = [
+        _FakeResp(200, "cut", _incomplete_payload(_TRUNCATED_IMPLEMENT)),
+    ]
+    result = _run_recovery_turn(monkeypatch, tmp_path, script, holder, effort="LOW")
+    assert result["status"] == "REPORT"
+    assert bridge.TRUNCATION_UNRECOVERABLE in result["output"]
+    assert len(holder["bodies"]) == 1
+
+
+def test_brain_turn_prose_only_floor_truncation_is_terminal(tmp_path, monkeypatch):
+    holder = {}
+    script = [
+        _FakeResp(200, "cut", _incomplete_payload("plain prose, cut mid-way")),
+    ]
+    result = _run_recovery_turn(monkeypatch, tmp_path, script, holder, effort="low")
+    assert result["status"] == "REPORT"
+    assert bridge.TRUNCATION_UNRECOVERABLE in result["output"]
+    assert len(holder["bodies"]) == 1
+
+
 # --- Task 215: reviewer hotfix XML must extract (bare + xml-fenced) ---
 
 

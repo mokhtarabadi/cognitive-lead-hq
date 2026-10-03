@@ -3205,6 +3205,11 @@ def brain_turn(
         Questions for the admin travel inside ``output`` — relay them to
         the Manager and feed the answer back as the next ``user_prompt``
         (with the same ``task_id`` so history continues).
+        Recovery (Task 291): a partial truncation (non-empty model text,
+        status=incomplete/reason=max_output_tokens, no usable XML) is
+        re-issued ONCE server-side with stepped-down reasoning effort;
+        if that also truncates, ``output`` carries
+        TRUNCATION_UNRECOVERABLE and the caller must not retry as-is.
     """
     # Request preflight FIRST (GitHub issue 18): local validation before
     # any load, attach, import, or model call. An explicit project_root
@@ -3619,70 +3624,142 @@ def brain_turn(
         _maybe_warn_reasoning_budget(
             body["reasoning"]["effort"], body["max_output_tokens"]
         )
-    _note_checkpoint(
-        "transport_started",
-        task_id=task_id,
-        session_id=session_id,
-        project_root=project_root,
+    _total_attempts = 0
+    _recovery_used = False
+    _recovery_effort: Optional[str] = None
+    _reasoning_cfg = body.get("reasoning")
+    _first_effort: Optional[str] = (
+        _reasoning_cfg.get("effort") if isinstance(_reasoning_cfg, dict) else None
     )
-    resp, attempts = _send_with_learning(
-        _make_client,
-        _responses_url(),
-        body,
-        task_key=history_key,
-        task_id=task_id,
-        session_id=session_id,
-        project_root=project_root,
-    )
-    resp_data = _resp_json(resp)
-    output = parse_responses_text(resp_data)
-    _note_checkpoint(
-        "response_parsed",
-        task_id=task_id,
-        session_id=session_id,
-        project_root=project_root,
-    )
-    xml_blocks = extract_xml_blocks(output)
-    if xml_blocks:
-        # Semantic gate (Task 245): syntactically valid but contract-
-        # incomplete XML must triage as REPORT with explicit reasons —
-        # the Hands executes only whole contracts, never fragments.
-        sem_problems = validate_hands_xml_blocks(xml_blocks)
-        if sem_problems:
-            print(
-                "brain-bridge: xml failed semantic validation "
-                f"({len(sem_problems)} problems)",
-                file=sys.stderr,
-            )
-            output = (
-                "[xml-semantic-reject]\n"
-                + "\n".join(f"- {p}" for p in sem_problems)
-                + "\n[/xml-semantic-reject]\n"
-                + output
-            )
-            xml_blocks = []
-    diag = parse_responses_diagnostics(resp_data)
-    _log_provider_diagnostics(diag)
-    if not xml_blocks and not output.strip():
-        # Empty-output triage (Task 259): classify the provider diagnosis
-        # BEFORE falling back to the flake hint. Order is load-bearing:
-        # top-level error -> refusal -> output-budget exhaustion -> flake.
-        state = _task_state_note(history_key, project_root)
-        if diag["error"]:
-            output = _provider_error_hint(diag["error"])
-        elif diag["refusal"]:
-            output = _provider_refusal_hint(diag["refusal"])
-        elif (
-            diag["status"] == "incomplete"
+    # Transport loop (Task 291): at most TWO provider calls. Pass 0 is the
+    # normal turn. When pass 0 returns a PARTIAL truncation (non-empty
+    # output, status=incomplete/reason=max_output_tokens, no usable XML),
+    # the fragment is discarded and pass 1 re-issues the whole turn once
+    # server-side with stepped-down reasoning effort. Structured output
+    # must never stitch a fragment — the whole call is retried with more
+    # visible-answer headroom instead.
+    for _transport_pass in (0, 1):
+        _note_checkpoint(
+            "transport_started",
+            task_id=task_id,
+            session_id=session_id,
+            project_root=project_root,
+        )
+        resp, attempts = _send_with_learning(
+            _make_client,
+            _responses_url(),
+            body,
+            task_key=history_key,
+            task_id=task_id,
+            session_id=session_id,
+            project_root=project_root,
+        )
+        _total_attempts += attempts
+        resp_data = _resp_json(resp)
+        output = parse_responses_text(resp_data)
+        # Eligibility is judged on the RAW model text: the triage below
+        # rewrites blank output into hint text, and a rewritten hint must
+        # never qualify as a "partial" truncation (Task 259 stays terminal).
+        _raw_text_present = bool(output.strip())
+        _note_checkpoint(
+            "response_parsed",
+            task_id=task_id,
+            session_id=session_id,
+            project_root=project_root,
+        )
+        xml_blocks = extract_xml_blocks(output)
+        if xml_blocks:
+            # Semantic gate (Task 245): syntactically valid but contract-
+            # incomplete XML must triage as REPORT with explicit reasons —
+            # the Hands executes only whole contracts, never fragments.
+            sem_problems = validate_hands_xml_blocks(xml_blocks)
+            if sem_problems:
+                print(
+                    "brain-bridge: xml failed semantic validation "
+                    f"({len(sem_problems)} problems)",
+                    file=sys.stderr,
+                )
+                output = (
+                    "[xml-semantic-reject]\n"
+                    + "\n".join(f"- {p}" for p in sem_problems)
+                    + "\n[/xml-semantic-reject]\n"
+                    + output
+                )
+                xml_blocks = []
+        diag = parse_responses_diagnostics(resp_data)
+        _log_provider_diagnostics(diag)
+        if not xml_blocks and not output.strip():
+            # Empty-output triage (Task 259): classify the provider diagnosis
+            # BEFORE falling back to the flake hint. Order is load-bearing:
+            # top-level error -> refusal -> output-budget exhaustion -> flake.
+            state = _task_state_note(history_key, project_root)
+            if diag["error"]:
+                output = _provider_error_hint(diag["error"])
+            elif diag["refusal"]:
+                output = _provider_refusal_hint(diag["refusal"])
+            elif (
+                diag["status"] == "incomplete"
+                and diag["incomplete_reason"] == "max_output_tokens"
+            ):
+                output = _output_budget_hint(diag, task_id, state)
+            else:
+                # Transport/model flake (Task 232): never return a silent
+                # blank REPORT. Substitute the retry hint; status stays
+                # REPORT so old callers keep working. The transcript below
+                # records the hint, not a verdict.
+                output = _empty_output_hint(task_id, state)
+        if (
+            _transport_pass == 0
+            and _raw_text_present
+            and not xml_blocks
+            and diag["status"] == "incomplete"
             and diag["incomplete_reason"] == "max_output_tokens"
+            and isinstance(body.get("reasoning"), dict)
         ):
-            output = _output_budget_hint(diag, task_id, state)
-        else:
-            # Transport/model flake (Task 232): never return a silent
-            # blank REPORT. Substitute the retry hint; status stays
-            # REPORT so old callers keep working. The transcript below
-            # records the hint, not a verdict.
-            output = _empty_output_hint(task_id, state)
+            _current_effort = body["reasoning"].get("effort")
+            _next_effort = _step_down_effort(_current_effort)
+            _current_norm = (
+                _current_effort.strip().lower()
+                if isinstance(_current_effort, str) and _current_effort.strip()
+                else _current_effort
+            )
+            # Case-insensitive floor guard (Task 291 hotfix): a normalized
+            # equal means the floor is reached — re-issuing would bill a
+            # full turn for an identical shape.
+            if _next_effort != _current_norm:
+                _recovery_effort = _next_effort
+                body["reasoning"]["effort"] = _next_effort
+                _maybe_warn_reasoning_budget(_next_effort, body["max_output_tokens"])
+                print(
+                    "brain-bridge: partial truncation "
+                    "(status=incomplete, reason=max_output_tokens, no "
+                    "usable XML); discarding fragment and re-issuing once "
+                    "server-side with reasoning effort "
+                    f"{_next_effort!r} (was {_first_effort!r})",
+                    file=sys.stderr,
+                )
+                _recovery_used = True
+                continue
+        break
+    if (
+        not xml_blocks
+        and _raw_text_present
+        and diag["status"] == "incomplete"
+        and diag["incomplete_reason"] == "max_output_tokens"
+        and TRUNCATION_UNRECOVERABLE not in output
+    ):
+        # Terminal for ANY unrecovered partial truncation (Task 291
+        # hotfix): floor and temperature-mode first passes never recover,
+        # so gating on _recovery_used alone would return a silent
+        # fragment. Empty-output keeps _raw_text_present false, so the
+        # Task 259 budget/flake hints stay terminal as before; usable
+        # XML keeps xml_blocks non-empty, so complete-XML never converts.
+        # Only the transcript below records this.
+        _exhaust_state = _task_state_note(history_key, project_root)
+        output = _truncation_exhausted_hint(
+            diag, task_id, _exhaust_state, _first_effort, _recovery_effort
+        )
+        xml_blocks = []
     fence_drops = list(_last_fence_drops)
     if history_key:
         prompt_hash = hashlib.sha256(effective_prompt.encode("utf-8")).hexdigest()
@@ -3727,7 +3804,7 @@ def brain_turn(
         "attachment_chars_used": budget_info["attachment_chars_used"],
         "attachment_chars_remaining": budget_info["attachment_chars_remaining"],
         "budget_chars": budget_chars,
-        "retry_count": attempts,
+        "retry_count": _total_attempts,
         "prompt_cache_split": cache_split,
     }
     debug: dict[str, Any] = {"provider": diag}
@@ -3992,6 +4069,73 @@ def _output_budget_hint(
         "Remediate by lowering BRAIN_REASONING_EFFORT (e.g. to medium or low) "
         "or raising BRAIN_MAX_TOKENS (recommend 32768 or higher when the "
         "model supports it), then re-run the turn with full context. "
+        f"Usage: input={usage.get('input_tokens')} "
+        f"output={usage.get('output_tokens')} "
+        f"reasoning={usage.get('reasoning_tokens')} "
+        f"total={usage.get('total_tokens')}." + note
+    )
+
+
+#: Machine token: partial truncation still unrecovered after the single
+#: server-side re-issue (Task 291). Terminal for the turn: the caller
+#: MUST NOT retry as-is — a same-shape retry re-bills the full input +
+#: reasoning budget and fails identically. Remediate via config (lower
+#: effort / smaller prompt), then re-run. NEVER rename without a task:
+#: callers and regression tests match this exact string.
+TRUNCATION_UNRECOVERABLE = "TRUNCATION_UNRECOVERABLE"
+
+#: One-notch reasoning-effort step-down for truncation recovery (Task
+#: 291). Lower effort frees visible-answer share inside the same
+#: ``max_output_tokens`` cap — the only headroom source once the cap
+#: already sits at the model ceiling. Unknown/non-string values fail
+#: safe to ``medium``; ``low`` is the floor (a second step down from
+#: ``low`` would change nothing, so the caller treats equality as
+#: no-recovery).
+_EFFORT_STEPDOWN = {
+    "max": "xhigh",
+    "xhigh": "high",
+    "high": "medium",
+    "medium": "low",
+    "low": "low",
+}
+
+
+def _step_down_effort(effort: object) -> str:
+    """Return one notch below ``effort`` (pure, offline)."""
+    if isinstance(effort, str) and effort.strip():
+        key = effort.strip().lower()
+        if key in _EFFORT_STEPDOWN:
+            return _EFFORT_STEPDOWN[key]
+    return "medium"
+
+
+def _truncation_exhausted_hint(
+    diag: dict,
+    task_id: Optional[str] = None,
+    state: Optional[str] = None,
+    first_effort: Optional[str] = None,
+    recovery_effort: Optional[str] = None,
+) -> str:
+    """Terminal hint after recovery also truncated (Task 291).
+
+    Pure function (no I/O) so tests assert the contract directly. The
+    bridge already spent its one bounded re-issue — the caller must not
+    spend more turns looping on this shape.
+    """
+    where = f" for task {task_id}" if task_id else ""
+    note = f" Current state: {state}." if state else ""
+    usage = diag.get("usage") or {}
+    return (
+        f"{TRUNCATION_UNRECOVERABLE}: the turn truncated twice{where} "
+        "(status=incomplete, reason=max_output_tokens, no usable XML even "
+        "after one server-side re-issue with stepped-down reasoning effort). "
+        "This is NOT a transport flake: do NOT retry this turn as-is and do "
+        "NOT count it as a rejection — the same shape would fail identically "
+        "while re-billing the full input + reasoning budget. Remediate by "
+        "lowering BRAIN_REASONING_EFFORT (e.g. to medium or low) or shrinking "
+        "the prompt (include_bundle=false, shorter instruction), then re-run "
+        "the turn with full context. "
+        f"First effort={first_effort} recovery effort={recovery_effort}. "
         f"Usage: input={usage.get('input_tokens')} "
         f"output={usage.get('output_tokens')} "
         f"reasoning={usage.get('reasoning_tokens')} "
