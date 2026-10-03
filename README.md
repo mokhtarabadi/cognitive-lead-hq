@@ -481,7 +481,7 @@ opencode --agent cognitive-executor
 
 ### OpenCode Plugins
 
-None. This platform runs OpenCode with **no plugins**; goal tracking comes from OpenChamber's built-in Session Goals and compaction is native to OpenCode V2.
+One plugin: **`magic-compact`** — lossless, manual context compaction. Native OpenCode V2 compaction stays on as the automatic safety net (`compaction.auto` + `keep.tokens: 20000`); Magic Compact adds the high-fidelity layer: user messages stay verbatim, each old assistant turn becomes its own summary, and bulky tool I/O is pruned into a retrievable cache. Commands: `/magic-compact [N]`, `/magic-trim [N]`, `/magic-stats`. Install with `opencode plugin add magic-compact@1.2.2`; full guide in [`docs/compaction.md`](docs/compaction.md). Goal tracking still comes from OpenChamber's built-in Session Goals. Upstream note: Magic Compact development is paused in favor of Operator Memory; the pinned `1.2.2` release remains fully functional.
 
 ---
 

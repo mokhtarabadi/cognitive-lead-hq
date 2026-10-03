@@ -18,3 +18,4 @@
 19-initialization.md
 20-communication_examples.md
 21-self_improvement_protocol.md
+22-compaction_protocol.md

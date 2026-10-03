@@ -40,10 +40,10 @@ Why a stack-free explicit-tag-list approach is used for parsing:
     (<workflow>, <personas>, <output_schema>, <brainstorming_session>, etc.)
     and the <personas> tag name recurs at column 0 both as a top-level tag and
     nested inside brainstorming_protocol. Instead this script uses the
-    EXPLICITLY ordered list of 20 expected top-level tag names and, for each,
+    EXPLICITLY ordered list of 21 expected top-level tag names and, for each,
     finds the first column-0 opening line <tag> and the first closing line
     </tag> (at any indentation, since some nested closers are indented) after
-    the previous block. This     deterministically isolates the 20 top-level blocks
+    the previous block. This     deterministically isolates the 21 top-level blocks
     without a full XML parser, and verifies their order matches the contract.
 """
 
@@ -58,9 +58,9 @@ from typing import List, Tuple
 # Configuration
 # ---------------------------------------------------------------------------
 
-# The 20 top-level XML tags in system-prompt.md (v9.9.0), in document order.
+# The 21 top-level XML tags in system-prompt.md (v9.50.0), in document order.
 # This explicit ordered list is the authoritative contract for the split: the
-# script verifies that these (and only these) 20 tags appear at the top level,
+# script verifies that these (and only these) 21 tags appear at the top level,
 # in this exact order. Nested tags (e.g. <phase>/<workflow>/<personas> inside
 # <brainstorming_protocol>) are part of their parent block's content and are
 # NOT split out separately.
@@ -85,6 +85,7 @@ TOP_LEVEL_TAGS: List[str] = [
     "initialization",
     "communication_examples",
     "self_improvement_protocol",
+    "compaction_protocol",
 ]
 
 # Regex patterns for locating top-level tag boundaries.
@@ -103,6 +104,7 @@ _SELF_RE = re.compile(r"^<([a-zA-Z_][a-zA-Z0-9_]*)>.*</\1>$")
 # Core parsing
 # ---------------------------------------------------------------------------
 
+
 def _halt(msg: str) -> None:
     """Print a HALT message to stderr and exit non-zero.
 
@@ -116,7 +118,7 @@ def _halt(msg: str) -> None:
 def _find_block_ranges(lines: List[str]) -> List[Tuple[str, int, int]]:
     """Locate the (tag_name, start_index, end_index) for each top-level tag.
 
-    Uses the explicit TOP_LEVEL_TAGS list in document order (20 tags). For each tag it
+    Uses the explicit TOP_LEVEL_TAGS list in document order (21 tags). For each tag it
     finds the first column-0 opening line `<tag>` after the previous tag's
     closing line, then the first closing line `</tag>` (at any indentation)
     after that opening. This correctly handles tags whose closing lines are
@@ -267,6 +269,7 @@ def _extract_and_verify_validation_phases(
 # Public API
 # ---------------------------------------------------------------------------
 
+
 def split_system_prompt(
     source_path: str = "system-prompt.md",
     fragments_dir: str = "prompts/fragments",
@@ -275,7 +278,7 @@ def split_system_prompt(
 ) -> List[str]:
     """Split system-prompt.md into per-tag fragment files.
 
-    Reads the monolithic system-prompt.md, extracts the 20 top-level XML tags in
+    Reads the monolithic system-prompt.md, extracts the 21 top-level XML tags in
     document order as verbatim fragment files, extracts the duplicated
     <validation_phase> block into a shared partial with include markers, and
     writes a manifest listing the fragment filenames in assembly order.
@@ -294,11 +297,11 @@ def split_system_prompt(
     content = src.read_text(encoding="utf-8")
     lines = content.split("\n")
 
-    # --- 1. Locate the 20 top-level block ranges ---
+    # --- 1. Locate the 21 top-level block ranges ---
     ranges = _find_block_ranges(lines)
     if len(ranges) != len(TOP_LEVEL_TAGS):
         _halt(
-            f"Expected {len(TOP_LEVEL_TAGS)} top-level blocks, found {len(ranges)}."  # V9.3.0: 20 tags
+            f"Expected {len(TOP_LEVEL_TAGS)} top-level blocks, found {len(ranges)}."  # 21 tags
         )
 
     # --- 2. Extract block text for each tag ---
@@ -347,6 +350,7 @@ def split_system_prompt(
 # ---------------------------------------------------------------------------
 # CLI entry point
 # ---------------------------------------------------------------------------
+
 
 def main() -> None:
     """Command-line entry point: split the default system-prompt.md."""

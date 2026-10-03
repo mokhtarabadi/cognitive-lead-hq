@@ -282,11 +282,20 @@ Write the following JSON (replace `$HOME` with the actual home directory path on
       "*": "ask",
       "/tmp/**": "allow"
     }
+  },
+  "plugins": [
+    "magic-compact"
+  ],
+  "compaction": {
+    "auto": true,
+    "keep": {
+      "tokens": 20000
+    }
   }
 }
 ```
 
-No OpenCode plugins are installed. The terminal client config `~/.config/opencode/cli.json` is V2-native (no project `cli.json`, no `tui.json`):
+The `plugins` entry loads **`magic-compact`** (install it with `opencode plugin add magic-compact@1.2.2` — Step 7.7). The `compaction` block keeps OpenCode's native auto-compaction on as the safety net while retaining a larger recent tail; Magic Compact then provides the manual high-fidelity layer. The terminal client config `~/.config/opencode/cli.json` is V2-native (no project `cli.json`, no `tui.json`):
 
 ```json
 {
@@ -391,7 +400,15 @@ Telemetry-free cache/SSRF defaults (`CACHE_TTL_MS=300000`, `ALLOW_PRIVATE_URLS=f
 
 ## 7.7. Plugins
 
-None. This platform runs OpenCode with **no plugins** — goal tracking comes from OpenChamber's built-in **Session Goals**, and context compaction is native to OpenCode V2. The repo and global `opencode.json`/`cli.json` carry no plugin entries.
+Install the one platform plugin — **`magic-compact`** (lossless, manual context compaction):
+
+```bash
+opencode plugin add magic-compact@1.2.2
+```
+
+This installs the package from npm and writes `plugins: ["magic-compact"]` into `~/.config/opencode/opencode.json` (OpenCode auto-installs/loads it at startup). It needs npm registry access: if the machine's `~/.npmrc` points at a dead proxy, remove the `proxy`/`https-proxy` lines first — direct registry access works and the plugin otherwise fails with `NPMInstallFailedError`.
+
+Native OpenCode compaction stays enabled as the automatic safety net (the `compaction` block in Step 7). Goal tracking still comes from OpenChamber's built-in **Session Goals**. Upstream note: Magic Compact development is paused in favor of [Operator Memory](https://github.com/aerovato/operator-memory); the pinned `1.2.2` release remains fully functional. Full guide: [`docs/compaction.md`](docs/compaction.md).
 
 ---
 
