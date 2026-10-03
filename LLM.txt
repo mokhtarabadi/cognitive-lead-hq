@@ -284,7 +284,7 @@ Write the following JSON (replace `$HOME` with the actual home directory path on
     }
   },
   "plugins": [
-    "magic-compact"
+    "github:mokhtarabadi/opencode-smart-compact"
   ],
   "compaction": {
     "auto": true,
@@ -295,7 +295,7 @@ Write the following JSON (replace `$HOME` with the actual home directory path on
 }
 ```
 
-The `plugins` entry loads **`magic-compact`** (install it with `opencode plugin add magic-compact@1.2.2` — Step 7.7). The `compaction` block keeps OpenCode's native auto-compaction on as the safety net while retaining a larger recent tail; Magic Compact then provides the manual high-fidelity layer. The terminal client config `~/.config/opencode/cli.json` is V2-native (no project `cli.json`, no `tui.json`):
+The `plugins` entry loads **`smart-compact`** (install it with `opencode plugin add github:mokhtarabadi/opencode-smart-compact` — Step 7.7). The `compaction` block keeps OpenCode's native auto-compaction on as the safety net while retaining a larger recent tail; Smart Compact then provides the manual high-fidelity layer. The terminal client config `~/.config/opencode/cli.json` is V2-native (no project `cli.json`, no `tui.json`):
 
 ```json
 {
@@ -400,15 +400,20 @@ Telemetry-free cache/SSRF defaults (`CACHE_TTL_MS=300000`, `ALLOW_PRIVATE_URLS=f
 
 ## 7.7. Plugins
 
-Install the one platform plugin — **`magic-compact`** (lossless, manual context compaction):
+Install the one platform plugin — **`smart-compact`** (`@mokhtarabadi/opencode-smart-compact`, lossless V2-native context compaction, maintained in its own repo):
 
 ```bash
-opencode plugin add magic-compact@1.2.2
+# Interim (works now, installs from the pushed repo):
+opencode plugin add github:mokhtarabadi/opencode-smart-compact
+# Once published to npm:
+opencode plugin add @mokhtarabadi/opencode-smart-compact
 ```
 
-This installs the package from npm and writes `plugins: ["magic-compact"]` into `~/.config/opencode/opencode.json` (OpenCode auto-installs/loads it at startup). It needs npm registry access: if the machine's `~/.npmrc` points at a dead proxy, remove the `proxy`/`https-proxy` lines first — direct registry access works and the plugin otherwise fails with `NPMInstallFailedError`.
+This writes the spec into `plugins` in `~/.config/opencode/opencode.json`; OpenCode loads it at startup. `opencode plugin add` accepts npm registry packages or Git specs only — a bare local directory path is rejected, so use the Git spec (or list the directory in `plugins` and restart) while developing. It needs registry access: if the machine's `~/.npmrc` points at a dead proxy, remove the `proxy`/`https-proxy` lines first — direct registry access works and the install otherwise fails with `NPMInstallFailedError`.
 
-Native OpenCode compaction stays enabled as the automatic safety net (the `compaction` block in Step 7). Goal tracking still comes from OpenChamber's built-in **Session Goals**. Upstream note: Magic Compact development is paused in favor of [Operator Memory](https://github.com/aerovato/operator-memory); the pinned `1.2.2` release remains fully functional. Full guide: [`docs/compaction.md`](docs/compaction.md).
+The V1-era `magic-compact` package does not load on OpenCode V2 (it exports the V1 plugin shape); `smart-compact` is the V2-native replacement, so do not add `magic-compact` to `plugins`.
+
+Native OpenCode compaction stays enabled as the automatic safety net (the `compaction` block in Step 7). Goal tracking still comes from OpenChamber's built-in **Session Goals**. Full guide: [`docs/compaction.md`](docs/compaction.md).
 
 ---
 

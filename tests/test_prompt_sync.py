@@ -43,13 +43,13 @@ def test_shipped_version_is_expected_minor_bump():
     shipped = re.search(
         r"<system_version>(.*?)</system_version>", _read(SHIPPED)
     ).group(1)
-    assert shipped == "9.50.0"
+    assert shipped == "9.51.0"
 
 
 def test_compaction_protocol_in_shipped_prompt():
     text = _read(SHIPPED)
     assert "<compaction_protocol>" in text
-    assert "magic-compact" in text
+    assert "smart-compact" in text
     assert "read_omitted_content" in text
     assert "What must survive any compaction" in text
 
@@ -57,7 +57,7 @@ def test_compaction_protocol_in_shipped_prompt():
 def test_executor_carries_compaction_guidance():
     text = _read(EXECUTOR)
     assert "compaction" in text.lower()
-    assert "magic-compact" in text
+    assert "smart-compact" in text
 
 
 def test_no_manager_language_rule_in_shipped_prompt():
