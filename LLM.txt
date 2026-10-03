@@ -284,7 +284,8 @@ Write the following JSON (replace `$HOME` with the actual home directory path on
     }
   },
   "plugins": [
-    "github:mokhtarabadi/opencode-smart-compact"
+    "github:mokhtarabadi/opencode-smart-compact",
+    "opencode-todolist"
   ],
   "compaction": {
     "auto": true,
@@ -295,13 +296,18 @@ Write the following JSON (replace `$HOME` with the actual home directory path on
 }
 ```
 
-The `plugins` entry loads **`smart-compact`** (install it with `opencode plugin add github:mokhtarabadi/opencode-smart-compact` — Step 7.7). The `compaction` block keeps OpenCode's native auto-compaction on as the safety net while retaining a larger recent tail; Smart Compact then provides the manual high-fidelity layer. The terminal client config `~/.config/opencode/cli.json` is V2-native (no project `cli.json`, no `tui.json`):
+The `plugins` entry loads **`smart-compact`** (install it with `opencode plugin add github:mokhtarabadi/opencode-smart-compact` — Step 7.7) plus **`opencode-todolist`** (install it with `opencode plugin add opencode-todolist` — Step 7.7, restores V1 `todowrite`/`todoread` plus the TUI sidebar strip). The `compaction` block keeps OpenCode's native auto-compaction on as the safety net while retaining a larger recent tail; Smart Compact then provides the manual high-fidelity layer. The terminal client config `~/.config/opencode/cli.json` is V2-native (no project `cli.json`, no `tui.json`):
 
 ```json
 {
-  "$schema": "https://opencode.ai/v2/cli.json"
+  "$schema": "https://opencode.ai/v2/cli.json",
+  "plugins": [
+    "opencode-todolist"
+  ]
 }
 ```
+
+The `cli.json` `plugins` entry enables the todolist TUI sidebar strip.
 
 **Important:** Replace `$HOME` with the actual absolute path resolved in Step 3 (e.g., `/home/alice` or `/Users/alice`). This is critical — MCP servers will NOT work with relative paths or `~` in the global config because OpenCode may be invoked from any working directory.
 
@@ -400,14 +406,29 @@ Telemetry-free cache/SSRF defaults (`CACHE_TTL_MS=300000`, `ALLOW_PRIVATE_URLS=f
 
 ## 7.7. Plugins
 
-Install the one platform plugin — **`smart-compact`** (`@mokhtarabadi/opencode-smart-compact`, lossless V2-native context compaction, maintained in its own repo):
+Install the two platform plugins — **`smart-compact`** (`@mokhtarabadi/opencode-smart-compact`, lossless V2-native context compaction, maintained in its own repo) plus **`todolist`** (`opencode-todolist`, restores V1 `todowrite`/`todoread` plus the TUI sidebar strip removed in V2):
 
 ```bash
 # Interim (works now, installs from the pushed repo):
 opencode plugin add github:mokhtarabadi/opencode-smart-compact
 # Once published to npm:
 opencode plugin add @mokhtarabadi/opencode-smart-compact
+# Todo list (npm):
+opencode plugin add opencode-todolist
 ```
+
+This writes the spec into `plugins` in `~/.config/opencode/opencode.json`; OpenCode loads it at startup. `opencode plugin add` accepts npm registry packages or Git specs only — a bare local directory path is rejected, so use the Git spec (or list the directory in `plugins` and restart) while developing. It needs registry access: if the machine's `~/.npmrc` points at a dead proxy, remove the `proxy`/`https-proxy` lines first — direct registry access works and the install otherwise fails with `NPMInstallFailedError`.
+
+Enable the todolist sidebar strip via `~/.config/opencode/cli.json`:
+
+```json
+{
+  "$schema": "https://opencode.ai/v2/cli.json",
+  "plugins": ["opencode-todolist"]
+}
+```
+
+Restart OpenCode after install, then smoke-test: ask the agent to make a todo list (`todowrite`) and read it back (`todoread`); the TUI sidebar shows the live strip.
 
 This writes the spec into `plugins` in `~/.config/opencode/opencode.json`; OpenCode loads it at startup. `opencode plugin add` accepts npm registry packages or Git specs only — a bare local directory path is rejected, so use the Git spec (or list the directory in `plugins` and restart) while developing. It needs registry access: if the machine's `~/.npmrc` points at a dead proxy, remove the `proxy`/`https-proxy` lines first — direct registry access works and the install otherwise fails with `NPMInstallFailedError`.
 
@@ -548,8 +569,8 @@ After completing all steps, verify:
 - [ ] `~/.config/opencode/agents/cognitive-executor.md` exists
 - [ ] `~/.config/opencode/agents/cognitive-discovery.md` exists
 - [ ] `~/.config/opencode/opencode.json` exists with **absolute paths** (not `~` or relative paths) and 6 `mcp` entries (`custom_context`, `project_memory`, `lint`, `brain`, `blowsh`, `telegram`) + `blowsh_*`/`telegram_*`/`brain_turn` permissions, no former browser entry
-- [ ] repo `opencode.json`, global `opencode.json`, and global `cli.json` carry **no `plugins` entries** (this platform uses no OpenCode plugins)
-- [ ] `opencode plugin list` shows no goal/dcp entries
+- [ ] `~/.config/opencode/opencode.json` `plugins` carries `smart-compact` plus `opencode-todolist`, and `~/.config/opencode/cli.json` `plugins` carries `opencode-todolist` for the sidebar strip
+- [ ] `opencode plugin list` shows smart-compact and todolist entries (after restart)
 - [ ] worktrees: OpenChamber native via sidebar/dialog (`https://docs.openchamber.dev/worktrees/`) — no plugin required
 - [ ] (optional) OpenChamber: if installed, `npm list -g @openchamber/web` shows 2.x, `openchamber status` password:yes, `openchamber startup status` shows enabled+active+lingering, `docs/openchamber.md` present; if not requested, this check is N/A
 - [ ] `~/.config/opencode/opencode.json` all 7 `mcp` entries are `type: "remote"` loopback URLs (8101 lint, 8102 context, 8103 memory, 8104 decisions, 8105 brain, 8106 telegram timeout 30000, 8107 blowsh timeout 120000) served by the supervised singletons — no stdio/`uv run` entries remain
