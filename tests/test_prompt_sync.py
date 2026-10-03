@@ -43,13 +43,15 @@ def test_shipped_version_is_expected_minor_bump():
     shipped = re.search(
         r"<system_version>(.*?)</system_version>", _read(SHIPPED)
     ).group(1)
-    assert shipped == "9.51.0"
+    assert shipped == "9.52.0"
 
 
 def test_compaction_protocol_in_shipped_prompt():
     text = _read(SHIPPED)
     assert "<compaction_protocol>" in text
     assert "smart-compact" in text
+    assert "compact_context" in text
+    assert "keepTurns" in text
     assert "read_omitted_content" in text
     assert "What must survive any compaction" in text
 

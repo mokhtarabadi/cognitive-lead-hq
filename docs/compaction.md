@@ -49,6 +49,17 @@ This writes the package (or path) into `plugins` in the global config; OpenCode 
 
 Compaction is scheduled by the command and applied on the next model request; summaries are generated at command time with the session's own model.
 
+### Agent-callable tool
+
+The agent can compress the session itself with the `compact_context` tool, which runs the same logic as `/magic-compact` (shared `src/actions.ts` in the plugin, so the paths cannot drift):
+
+| Input | Effect |
+| --- | --- |
+| `keepTurns` (optional) | Most recent turns to keep unsummarized. Default `0` summarizes all. |
+| `mode` (optional) | `compact` (default) summarizes and prunes; `trim` prunes tool output only. |
+
+Invalid input returns a friendly message instead of failing. The slash commands remain available for the Manager.
+
 ### Pruning rules
 
 - Completed tool results over the configured limit (default 1024 chars / 128 words) are pruned to a notice; the original is cached.
