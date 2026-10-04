@@ -31,6 +31,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - **Lean session-first Brain bridge refactor (Task 292):** Removed dead tools `read_file`, `grep_files`, and `get_context_bundle` from `mcp-brain-bridge` (Hands use native OpenCode `read`/`grep`/`glob`; the five-file bundle still auto-attaches internally). Removed the multipart chunking allocator (`_allocate_attachments`, `_render_attachment`, `_marker_room`, `_open_overhead`, `_validate_attachment_resume`, `_attachment_priority`, priority tuples) and the `attachment_resume` turn parameter, plus the `history.pop(1)` middle-turn drop loop and the `_read_file_impl` / `_grep_files_impl` helpers with their grep/read guardrail constants.
 
+## [9.53.0] - 2026-10-04
+
+### Added
+
+- **Ambient session auto-detection (Task 293):** `mcp-brain-bridge` preflight now detects ambient `OPENCODE_SESSION_ID` from the process environment (set by OpenCode V2 for every session) when `session_id` is omitted — OpenCode turns automatically bind to the active session thread with zero caller flags. Explicit `session_id` always wins; blank/unset means no ambient binding. New unit test `test_preflight_uses_ambient_opencode_session_id` pins the behavior; existing binding tests hardened to clear the ambient variable for hermetic assertions.
+
+### Changed
+
+- **Bumped system prompt to 9.53.0 (Task 293):** updated prompt fragments (`01-system_version` 9.52.0 → 9.53.0; `09-hands_protocols` automatic-mode chaining now runs under the active session thread instead of the same `task_id`; `22-compaction_protocol` survival contract gains the active session ID), reassembled `system-prompt.md` (byte-verified via assembler), and updated the `test_prompt_sync` version pin. Docs synced: `docs/brain-bridge.md` (session-first history + Environment table document ambient auto-detection), `docs/services.md` (mcp-brain lists `brain_turn` as the singular exposed automation tool), `README.md` + `LLM.txt` (session-thread summaries). Purged deleted file-pull tools (`grep_files`, `read_file`) from `agents/cognitive-executor.md` (new `File context retrieval` section uses native `read`/`grep`/`glob` + `[fed-context]`) and documented ambient `OPENCODE_SESSION_ID` detection in the Brain Bridge state machine. Aligned downstream `skill-templates/audit-agents/SKILL.md` (Buffer Isolation + End-Of-Task Sequence now carry session-thread persistence, project-agnostic wording).
+
 ## [9.49.0] - 2026-10-01
 
 ### Added

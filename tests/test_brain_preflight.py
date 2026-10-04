@@ -25,7 +25,7 @@ def _mk_project(tmp_path, name="proj"):
 
 
 def _clean_env(monkeypatch):
-    for key in ("BRAIN_PROJECT_ROOT", "BRAIN_WORKSPACE_ROOT"):
+    for key in ("BRAIN_PROJECT_ROOT", "BRAIN_WORKSPACE_ROOT", "OPENCODE_SESSION_ID"):
         monkeypatch.delenv(key, raising=False)
 
 
@@ -100,7 +100,8 @@ def test_nothing_resolves_raises_with_remedy(tmp_path, monkeypatch):
 # --- task / session binding ---
 
 
-def test_task_id_bare_digits_ok(tmp_path):
+def test_task_id_bare_digits_ok(tmp_path, monkeypatch):
+    monkeypatch.delenv("OPENCODE_SESSION_ID", raising=False)
     proj = _mk_project(tmp_path)
     req = preflight.validate_request(task_id="257", project_root=str(proj))
     assert req.binding == "task"
@@ -108,26 +109,30 @@ def test_task_id_bare_digits_ok(tmp_path):
     assert req.session_id is None
 
 
-def test_task_id_suffix_rejected(tmp_path):
+def test_task_id_suffix_rejected(tmp_path, monkeypatch):
+    monkeypatch.delenv("OPENCODE_SESSION_ID", raising=False)
     proj = _mk_project(tmp_path)
     with pytest.raises(preflight.PreflightError, match="task_id"):
         preflight.validate_request(task_id="215qa", project_root=str(proj))
 
 
-def test_session_id_ok(tmp_path):
+def test_session_id_ok(tmp_path, monkeypatch):
+    monkeypatch.delenv("OPENCODE_SESSION_ID", raising=False)
     proj = _mk_project(tmp_path)
     req = preflight.validate_request(session_id="cando-828", project_root=str(proj))
     assert req.binding == "session"
     assert req.session_id == "cando-828"
 
 
-def test_session_id_bad_chars_rejected(tmp_path):
+def test_session_id_bad_chars_rejected(tmp_path, monkeypatch):
+    monkeypatch.delenv("OPENCODE_SESSION_ID", raising=False)
     proj = _mk_project(tmp_path)
     with pytest.raises(preflight.PreflightError, match="session_id"):
         preflight.validate_request(session_id="a/b", project_root=str(proj))
 
 
-def test_both_ids_coexist_session_first(tmp_path):
+def test_both_ids_coexist_session_first(tmp_path, monkeypatch):
+    monkeypatch.delenv("OPENCODE_SESSION_ID", raising=False)
     proj = _mk_project(tmp_path)
     req = preflight.validate_request(
         task_id="257", session_id="s", project_root=str(proj)
@@ -138,11 +143,21 @@ def test_both_ids_coexist_session_first(tmp_path):
     assert req.history_key == "s"
 
 
-def test_session_only_binds_session(tmp_path):
+def test_session_only_binds_session(tmp_path, monkeypatch):
+    monkeypatch.delenv("OPENCODE_SESSION_ID", raising=False)
     proj = _mk_project(tmp_path)
     req = preflight.validate_request(session_id="s", project_root=str(proj))
     assert req.binding == "session"
     assert req.history_key == "s"
+
+
+def test_preflight_uses_ambient_opencode_session_id(tmp_path, monkeypatch):
+    proj = _mk_project(tmp_path)
+    monkeypatch.setenv("OPENCODE_SESSION_ID", "ses_test123")
+    req = preflight.validate_request(project_root=str(proj))
+    assert req.binding == "session"
+    assert req.session_id == "ses_test123"
+    assert req.history_key == "ses_test123"
 
 
 def test_neither_id_is_oneoff_without_root(tmp_path, monkeypatch):
@@ -321,6 +336,7 @@ def test_brain_turn_task_and_session_coexist_under_session(tmp_path, monkeypatch
 
 
 def test_brain_turn_legacy_shape_still_works(tmp_path, monkeypatch):
+    monkeypatch.delenv("OPENCODE_SESSION_ID", raising=False)
     proj = _mk_project(tmp_path)
     _mk_sys_prompt(tmp_path, monkeypatch)
     monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")

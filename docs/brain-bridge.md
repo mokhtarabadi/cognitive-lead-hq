@@ -31,9 +31,13 @@ The LLM is stateless, so the bridge keeps a JSONL transcript per
 (default `~/.config/opencode/brain-sessions`), capped at the last
 40 messages. Pass `session_id` (e.g. `sess-1`) alongside `task_id` and
 every call loads the full session conversation first, then appends both
-new turns. One session thread spans every task in the work session or
-sprint — planning, implementation, QA, and review all share the same
-context. A bare `task_id` with no `session_id` falls back to the
+new turns. When `session_id` is omitted, the bridge automatically
+detects ambient `OPENCODE_SESSION_ID` from the process environment (set
+by OpenCode V2 for every session) — explicit `session_id` always wins,
+and a blank/unset variable means no ambient binding. One session thread
+spans every task in the work session or sprint — planning,
+implementation, QA, and review all share the same context. A bare
+`task_id` with neither explicit nor ambient session id falls back to the
 task-keyed transcript for backward compatibility.
 
 The transcript is replayed on every later turn, so a stored turn
@@ -99,6 +103,7 @@ repo-root `.env`). Real process env wins; blank counts as unset. See
 | `BRAIN_MAX_TOKENS`  | `32768`                                              |
 | `BRAIN_SYSTEM_PROMPT` | `~/.config/opencode/system-prompt.md`              |
 | `BRAIN_SESSIONS_ROOT` | `~/.config/opencode/brain-sessions`                |
+| `OPENCODE_SESSION_ID` | _(ambient, set by OpenCode V2)_ — auto-binds the turn to the active session when `session_id` is omitted; explicit `session_id` always wins |
 | `DECISION_MODEL`    | _(falls back to `BRAIN_MODEL` default)_              |
 | `DECISION_TEMPERATURE` | `1.0`                                             |
 | `BRAIN_RISK_ROUTING_ENABLED` | `true` (routing ON; set a falsy value to disable) |

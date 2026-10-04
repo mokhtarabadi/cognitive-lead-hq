@@ -233,9 +233,17 @@ def validate_request(
     cwd: Optional[Path] = None,
 ) -> ValidatedRequest:
     """Validate a ``brain_turn`` request before any load, attach, or
-    transport. Raises PreflightError on the first malformed field."""
+    transport. Raises PreflightError on the first malformed field.
+    When ``session_id`` is omitted, ambient ``OPENCODE_SESSION_ID``
+    from the environment auto-binds the turn to the active session
+    (session-first) — explicit ``session_id`` always wins."""
+    environ = os.environ if env is None else env
     clean_task = require_bare_task_id(task_id) if task_id is not None else None
-    clean_session = require_session_id(session_id) if session_id is not None else None
+    if session_id is not None:
+        clean_session = require_session_id(session_id)
+    else:
+        _ambient = (environ.get("OPENCODE_SESSION_ID") or "").strip()
+        clean_session = require_session_id(_ambient) if _ambient else None
     binding = (
         "session"
         if clean_session is not None

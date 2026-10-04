@@ -23,18 +23,25 @@ import capability
 import server as bridge
 
 
+@pytest.fixture(autouse=True)
+def _no_ambient_session(monkeypatch):
+    """Hermetic default: ambient ``OPENCODE_SESSION_ID`` from the
+    developer's shell must never hijack task-keyed turns."""
+    monkeypatch.delenv("OPENCODE_SESSION_ID", raising=False)
+
+
 # --- manifest producer ---
+
 
 def test_all_available_tools_report_available():
     manifest = capability.build_manifest(
-        referenced=["lint_task_file", "brain_turn"], required=[])
-    assert manifest == {"lint_task_file": "AVAILABLE",
-                        "brain_turn": "AVAILABLE"}
+        referenced=["lint_task_file", "brain_turn"], required=[]
+    )
+    assert manifest == {"lint_task_file": "AVAILABLE", "brain_turn": "AVAILABLE"}
 
 
 def test_question_tool_is_available():
-    manifest = capability.build_manifest(
-        referenced=["question"], required=["question"])
+    manifest = capability.build_manifest(referenced=["question"], required=["question"])
     assert manifest == {"question": "AVAILABLE"}
 
 
@@ -44,27 +51,29 @@ def test_known_unavailable_registry_is_empty():
 
 def test_unknown_required_tool_fails_closed():
     manifest = capability.build_manifest(
-        referenced=["frobnicate"], required=["frobnicate"])
+        referenced=["frobnicate"], required=["frobnicate"]
+    )
     assert manifest == {"frobnicate": "UNAVAILABLE_REQUIRED"}
 
 
 def test_unknown_optional_tool_is_unavailable_optional():
-    manifest = capability.build_manifest(
-        referenced=["frobnicate"], required=[])
+    manifest = capability.build_manifest(referenced=["frobnicate"], required=[])
     assert manifest == {"frobnicate": "UNAVAILABLE_OPTIONAL"}
 
 
 def test_caller_available_override_wins():
     manifest = capability.build_manifest(
-        referenced=["frobnicate"], required=["frobnicate"],
-        available={"frobnicate"})
+        referenced=["frobnicate"], required=["frobnicate"], available={"frobnicate"}
+    )
     assert manifest == {"frobnicate": "AVAILABLE"}
 
 
 def test_caller_unavailable_override_marks_required():
     manifest = capability.build_manifest(
-        referenced=["lint_task_file"], required=["lint_task_file"],
-        unavailable={"lint_task_file"})
+        referenced=["lint_task_file"],
+        required=["lint_task_file"],
+        unavailable={"lint_task_file"},
+    )
     assert manifest == {"lint_task_file": "UNAVAILABLE_REQUIRED"}
 
 
@@ -75,25 +84,28 @@ def test_unavailable_override_demotes_granted_question_tool():
     for a registry-available name rather than an unknown one.
     """
     manifest = capability.build_manifest(
-        referenced=["question"], required=["question"],
-        unavailable={"question"})
+        referenced=["question"], required=["question"], unavailable={"question"}
+    )
     assert manifest == {"question": "UNAVAILABLE_REQUIRED"}
 
 
 def test_only_three_statuses_exist():
     assert capability.STATUSES == (
-        "AVAILABLE", "UNAVAILABLE_REQUIRED", "UNAVAILABLE_OPTIONAL")
+        "AVAILABLE",
+        "UNAVAILABLE_REQUIRED",
+        "UNAVAILABLE_OPTIONAL",
+    )
     manifest = capability.build_manifest(
-        referenced=["brain_turn", "question", "frobnicate"],
-        required=["frobnicate"])
+        referenced=["brain_turn", "question", "frobnicate"], required=["frobnicate"]
+    )
     assert set(manifest.values()) <= set(capability.STATUSES)
 
 
 def test_internal_registry_name_never_emitted_as_status():
     manifest = capability.build_manifest(
-        referenced=["brain_turn", "question", "frobnicate",
-                    "lint_task_file"],
-        required=["brain_turn", "frobnicate", "lint_task_file"])
+        referenced=["brain_turn", "question", "frobnicate", "lint_task_file"],
+        required=["brain_turn", "frobnicate", "lint_task_file"],
+    )
     assert "KNOWN_UNAVAILABLE" not in manifest.values()
     assert manifest["frobnicate"] == "UNAVAILABLE_REQUIRED"
     assert manifest["question"] == "AVAILABLE"
@@ -105,16 +117,18 @@ def test_empty_referenced_gives_empty_manifest():
 
 # --- gate ---
 
+
 def test_gate_passes_with_no_missing_required():
     manifest = capability.build_manifest(
-        referenced=["lint_task_file", "frobnicate"],
-        required=["lint_task_file"])
+        referenced=["lint_task_file", "frobnicate"], required=["lint_task_file"]
+    )
     assert capability.gate(manifest, stage="qa") is None
 
 
 def test_gate_raises_naming_missing_tools():
     manifest = capability.build_manifest(
-        referenced=["frobnicate"], required=["frobnicate"])
+        referenced=["frobnicate"], required=["frobnicate"]
+    )
     with pytest.raises(capability.CapabilityBlockedError) as exc:
         capability.gate(manifest, stage="review")
     assert "frobnicate" in str(exc.value)
@@ -123,7 +137,8 @@ def test_gate_raises_naming_missing_tools():
 
 def test_gate_error_carries_relay_block():
     manifest = capability.build_manifest(
-        referenced=["frobnicate"], required=["frobnicate"])
+        referenced=["frobnicate"], required=["frobnicate"]
+    )
     with pytest.raises(capability.CapabilityBlockedError) as exc:
         capability.gate(manifest, stage="review")
     block = capability.format_relay_block(exc.value)
@@ -132,6 +147,7 @@ def test_gate_error_carries_relay_block():
 
 
 # --- single approval rule ---
+
 
 def test_closure_approval_only_exact_phrases():
     assert capability.is_approval("Approved for closure", "closure") is True
@@ -155,26 +171,31 @@ def test_unknown_gate_never_approves():
 
 # --- stage-implied requirements ---
 
+
 def test_stage_implied_requirements_cover_key_gates():
     assert "lint_task_file" in capability.STAGE_REQUIRED_TOOLS["qa"]
-    assert ("custom_context_commit_and_clean_task"
-            in capability.STAGE_REQUIRED_TOOLS["closure"])
+    assert (
+        "custom_context_commit_and_clean_task"
+        in capability.STAGE_REQUIRED_TOOLS["closure"]
+    )
     assert "brain_turn" in capability.STAGE_REQUIRED_TOOLS["plan"]
 
 
 def test_stage_implied_missing_blocks_even_when_unlisted():
     manifest = capability.evaluate(
-        referenced=[], required=[], stage="qa",
-        unavailable={"lint_task_file"})
+        referenced=[], required=[], stage="qa", unavailable={"lint_task_file"}
+    )
     with pytest.raises(capability.CapabilityBlockedError):
         capability.gate(manifest, stage="qa")
 
 
 # --- brain_turn wiring ---
 
+
 class _FakeResp:
-    def __init__(self, status_code=200, text="", payload=None,
-                 ctype="application/json"):
+    def __init__(
+        self, status_code=200, text="", payload=None, ctype="application/json"
+    ):
         self.status_code = status_code
         self.text = text
         self._payload = payload
@@ -187,9 +208,11 @@ class _FakeResp:
 
 
 def _ok_payload(text="ok"):
-    return {"output": [{"type": "message",
-                        "content": [{"type": "output_text",
-                                     "text": text}]}]}
+    return {
+        "output": [
+            {"type": "message", "content": [{"type": "output_text", "text": text}]}
+        ]
+    }
 
 
 def _stub_httpx(monkeypatch, script, holder):
@@ -233,18 +256,29 @@ def _mk_env(tmp_path, monkeypatch):
 
 
 def test_brain_turn_missing_required_returns_non_verdict_report(
-        tmp_path, monkeypatch, capsys):
+    tmp_path, monkeypatch, capsys
+):
     proj = _mk_env(tmp_path, monkeypatch)
     holder = {}
     _stub_httpx(monkeypatch, [_FakeResp(200, "fine", _ok_payload())], holder)
     call = bridge.brain_turn
     target = call.fn if hasattr(call, "fn") else call
-    result = target("review this", task_id="257", project_root=str(proj),
-                    stage="review", required_tools=["frobnicate"])
+    result = target(
+        "review this",
+        task_id="257",
+        project_root=str(proj),
+        stage="review",
+        required_tools=["frobnicate"],
+    )
     assert result["status"] == "REPORT"
     assert "frobnicate" in result["output"]
-    for verdict in ("QA_PASSED", "QA_REJECTED", "VERDICT:",
-                    "PO_REVIEW_PENDING", "APPROVED"):
+    for verdict in (
+        "QA_PASSED",
+        "QA_REJECTED",
+        "VERDICT:",
+        "PO_REVIEW_PENDING",
+        "APPROVED",
+    ):
         assert verdict not in result["output"]
     assert holder.get("calls", 0) == 0
     assert result["retry_count"] == 0
@@ -256,15 +290,21 @@ def test_brain_turn_all_available_reaches_transport(tmp_path, monkeypatch):
     _stub_httpx(monkeypatch, [_FakeResp(200, "fine", _ok_payload())], holder)
     call = bridge.brain_turn
     target = call.fn if hasattr(call, "fn") else call
-    result = target("review this", task_id="257", project_root=str(proj),
-                    stage="review", required_tools=["brain_turn"])
+    result = target(
+        "review this",
+        task_id="257",
+        project_root=str(proj),
+        stage="review",
+        required_tools=["brain_turn"],
+    )
     assert result["status"] == "REPORT"
     assert result["output"] == "ok"
     assert holder.get("calls", 0) == 1
 
 
 def test_brain_turn_emits_session_start_manifest_diagnostic(
-        tmp_path, monkeypatch, capsys):
+    tmp_path, monkeypatch, capsys
+):
     proj = _mk_env(tmp_path, monkeypatch)
     holder = {}
     _stub_httpx(monkeypatch, [_FakeResp(200, "fine", _ok_payload())], holder)
@@ -284,8 +324,9 @@ def test_brain_turn_persists_manifest_ledger_event(tmp_path, monkeypatch):
     target("hello", task_id="257", project_root=str(proj))
     ledger = proj / "tasks" / ".sessions" / "session_ledger.jsonl"
     assert ledger.is_file()
-    events = [json.loads(line) for line in
-              ledger.read_text(encoding="utf-8").splitlines()]
+    events = [
+        json.loads(line) for line in ledger.read_text(encoding="utf-8").splitlines()
+    ]
     manifests = [e for e in events if e.get("event") == "capability_manifest"]
     assert len(manifests) == 1
     assert manifests[0]["task_id"] == "257"

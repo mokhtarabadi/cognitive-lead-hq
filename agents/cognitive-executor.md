@@ -403,7 +403,9 @@ needs no extra machinery.
    `session_id` alongside `task_id` (session-first): one thread spans
    the whole work session, while the task file and diff still resolve
    from `task_id`. A bare `task_id` with no `session_id` keeps the
-   legacy task-keyed transcript.
+   legacy task-keyed transcript. When `session_id` is omitted,
+   `brain_turn` automatically detects `OPENCODE_SESSION_ID` from the
+   environment, ensuring seamless session continuity across tasks.
 2. **Call** `brain_turn`. Read `status`:
    - `XML_EXTRACTED` — execute `xml_blocks` as the next instruction set,
      exactly like an Orchestrator XML block.
@@ -508,13 +510,9 @@ capability-blocked step (missing required tool) with no replayable
 ruling is a hard blocker: halt with the relay block as the named
 blocker instead of skipping it.
 
-### File pull for big tasks
+### File context retrieval
 
-The Brain cannot read your disk — it only sees what a `brain_turn`
-carries. For big task files, never paste the whole file: grep first via
-the bridge `grep_files`, then pull only the needed ranges with
-`read_file(path, offset, limit)`. The five-file bundle rides every call
-automatically; full files are pulled on demand, never stuffed.
+The Brain has no direct file-system access — it sees only what a `brain_turn` carries. For file inspection, use your own native OpenCode tools (`read`, `grep`, `glob`) to pull the needed code ranges and feed them into the next turn as `[fed-context]`. The five-file context bundle attaches automatically.
 
 ## Personas Roster (local seat resolution)
 

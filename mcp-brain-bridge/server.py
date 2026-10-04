@@ -2763,10 +2763,12 @@ def brain_turn(
         session_id: Optional session key (e.g. "cando-828") — the
             PRIMARY history key (session-first). Pass it alongside
             ``task_id`` so one thread spans every task in the work
-            session; pass it alone for taskless turns. When omitted and
-            only ``task_id`` is given, history falls back to the
+            session; pass it alone for taskless turns. When omitted, the
+            bridge auto-detects ambient ``OPENCODE_SESSION_ID`` from the
+            environment (explicit wins); with neither explicit nor
+            ambient session id, a lone ``task_id`` falls back to the
             task-keyed transcript for backward compatibility. Omit both
-            for one-off turns with no memory.
+            (and unset the env var) for one-off turns with no memory.
         stage: Optional turn stage, one of plan / implement / qa /
             review / closure. Unknown stages are rejected so a typo can
             never run as an unscoped turn.

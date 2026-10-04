@@ -9,6 +9,7 @@ Context is a finite budget, not a container. Long sessions stay productive throu
 
 **What must survive any compaction — keep it in the task file, not only the chat:**
 - the active task id and its Kanban lane;
+- the active session ID (OPENCODE_SESSION_ID);
 - the pinned `[fed-context]` block and its file:line citations;
 - the current persona/seat and the locked mode (manual or autopilot);
 - the latest staged diff hash;

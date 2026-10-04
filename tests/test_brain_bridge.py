@@ -17,6 +17,15 @@ sys.path.insert(0, str(BRIDGE_DIR))
 import server as bridge
 
 
+@pytest.fixture(autouse=True)
+def _no_ambient_session(monkeypatch):
+    """Hermetic default: ambient ``OPENCODE_SESSION_ID`` from the
+    developer's shell must never hijack task-keyed turns. Tests that
+    need ambient binding set it explicitly via ``monkeypatch.setenv``
+    in the test body (which runs after this fixture)."""
+    monkeypatch.delenv("OPENCODE_SESSION_ID", raising=False)
+
+
 def test_extract_single_implementation_block():
     out = 'Think <hands_implementation_task>{"a": 1}</hands_implementation_task> tail'
     blocks = bridge.extract_xml_blocks(out)

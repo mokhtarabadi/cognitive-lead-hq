@@ -97,6 +97,11 @@ OpenCode connects via
 > existing stderr warning). Pass an absolute `project_root` on every
 > call.
 
+> **Brain tool surface:** `mcp-brain` exposes `brain_turn` as its singular
+> automation tool — the only path for planning, QA, and review turns.
+> File inspection uses the caller's native tools (`read`, `grep`, `glob`);
+> the former server-side file helpers were removed.
+
 ## Linux (systemd user units)
 
 Unit files live in `services/`. Install:

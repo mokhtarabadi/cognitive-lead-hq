@@ -89,7 +89,7 @@ This is the canonical pure-MCP cycle:
 2. **Orchestrator issues architectural blueprint & awaits approval** — Brain reviews context, proposes plan, and halts for explicit Manager `Approved`.
 3. **Hands receives the implementation XML and runs locally with ZAC enforcement** — no pasting between chats; the Hands calls the Brain itself.
 4. **Hands executes code, runs tests, and invokes `custom_context_qa_transition`** — stages `modified_files`, injects factual diff, and moves task `tasks/in-progress/` → `tasks/qa/` via pure MCP.
-5. **Hands sends the QA task file to the Brain for QA Engineer adversarial testing and Code Reviewer architectural review via `brain_turn`** — no pasting; history continues under the same task id.
+5. **Hands sends the QA task file to the Brain for QA Engineer adversarial testing and Code Reviewer architectural review via `brain_turn`** — no pasting; history continues under the active session thread.
 6. **Manager approves closure and Hands commits atomically via `custom_context_commit_and_clean_task`** — commits staged diff, replaces raw diff with hash reference, and moves task to `tasks/completed/` — the only commit path.
 
 All transitions use pure FastMCP tools (`custom_context_qa_transition`, `bundle_tasks`, `custom_context_commit_and_clean_task`) — no `uv run scripts/...` CLI required.
