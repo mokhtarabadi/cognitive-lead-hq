@@ -41,6 +41,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - **Bumped system prompt to 9.53.0 (Task 293):** updated prompt fragments (`01-system_version` 9.52.0 → 9.53.0; `09-hands_protocols` automatic-mode chaining now runs under the active session thread instead of the same `task_id`; `22-compaction_protocol` survival contract gains the active session ID), reassembled `system-prompt.md` (byte-verified via assembler), and updated the `test_prompt_sync` version pin. Docs synced: `docs/brain-bridge.md` (session-first history + Environment table document ambient auto-detection), `docs/services.md` (mcp-brain lists `brain_turn` as the singular exposed automation tool), `README.md` + `LLM.txt` (session-thread summaries). Purged deleted file-pull tools (`grep_files`, `read_file`) from `agents/cognitive-executor.md` (new `File context retrieval` section uses native `read`/`grep`/`glob` + `[fed-context]`) and documented ambient `OPENCODE_SESSION_ID` detection in the Brain Bridge state machine. Aligned downstream `skill-templates/audit-agents/SKILL.md` (Buffer Isolation + End-Of-Task Sequence now carry session-thread persistence, project-agnostic wording).
 
+### Fixed
+
+- **Enforced explicit `session_id` transmission (Task 295):** `agents/cognitive-executor.md` now mandates passing `session_id: "$OPENCODE_SESSION_ID"` explicitly in every `brain_turn` call so the remote HTTP singleton session thread continues in `tasks/.sessions/<session_id>/transcript.jsonl` instead of relying on ambient detection. Added `pathspec>=0.12.0` to `mcp-brain-bridge` dependencies (lockfile updated) so the test suite collects cleanly. Brain suites: **327 passed** (exit 0).
+
 ## [9.49.0] - 2026-10-01
 
 ### Added

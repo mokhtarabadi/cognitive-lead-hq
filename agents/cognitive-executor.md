@@ -398,14 +398,8 @@ needs no extra machinery.
 1. **Build** the user prompt from current machine state: the instruction
    (e.g. "QA engineer please make the adversarial testing") + the full
    active task file + any prior answers. QA and reviewer turns MUST pass
-   `include_diff=True` so the changed hunks ride along — the Brain judges
-   the actual changes, never a summary. Every `brain_turn` call passes
-   `session_id` alongside `task_id` (session-first): one thread spans
-   the whole work session, while the task file and diff still resolve
-   from `task_id`. A bare `task_id` with no `session_id` keeps the
-   legacy task-keyed transcript. When `session_id` is omitted,
-   `brain_turn` automatically detects `OPENCODE_SESSION_ID` from the
-   environment, ensuring seamless session continuity across tasks.
+   `include_diff=True`.
+   **Session Binding (Mandatory):** You MUST pass `session_id: "$OPENCODE_SESSION_ID"` (reading your active session ID from the environment) in every `brain_turn` call alongside `task_id`. Because the MCP server runs as a separate daemon, you must send this parameter explicitly over the wire so the conversation history continues in `tasks/.sessions/<session_id>/transcript.jsonl`.
 2. **Call** `brain_turn`. Read `status`:
    - `XML_EXTRACTED` — execute `xml_blocks` as the next instruction set,
      exactly like an Orchestrator XML block.
