@@ -44,7 +44,7 @@ This repository is the Headquarters for the Cognitive Lead AI multi-agent system
 - **Don't** perform financial mutations without snapshotting the prior state or allow nulls in monetary aggregations.
   -> **Do** follow the Universal Financial Ledger Standard: snapshot-on-write, `$ifNull` precedence, discrepancy alerting, deep config merging. See `docs/conventions.md`.
 - **Don't** carry over assumptions, partial results, or architectural hypotheses from a previous task.
-  -> **Do** flush context and treat every task as contextually independent (Buffer Isolation directive in validation-phase).
+  -> **Do** flush context and treat every task as contextually independent (Buffer Isolation directive in validation-phase). Flushing covers working execution assumptions only — the Brain session thread persists across tasks under the active session ID (`brain_turn(session_id=...)`), so conversational context survives task boundaries while each task is still judged on its own evidence.
 - **Don't** execute raw, informal, or non-English (Farsi) prompts directly.
   -> **Do** ALWAYS process through the Input Validation Pipeline first: Validate → Translate → Enrich → Refactor → Execute. If the input is unclear, HALT and request clarification. NEVER proceed to task generation with unvalidated input. (Note: If you receive a standard XML task block, skip this and execute normally).
 - **Don't** attempt to resolve cross-disciplinary ambiguity within a single persona.
@@ -120,6 +120,8 @@ You MUST follow these skill loading rules in every session:
 At the start of every task, you MUST call `search_memory` or `list_namespaces` to load any hidden project quirks relevant to your domain before implementing.
 
 ## 🛑 MANDATORY END-OF-TASK SEQUENCE
+
+> Session note: closing a task file does not close the Brain thread — history persists across tasks under the active session ID until the session ends.
 
 When finishing a task, you MUST execute these exact steps in order:
 

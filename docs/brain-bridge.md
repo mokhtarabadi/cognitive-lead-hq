@@ -24,14 +24,17 @@ retired persona engine. The Hands calls it for every Brain turn
    the Hands until the Manager answers (Autopilot mode answers
    from `manager_decision` rulings instead — see below).
 
-## Per-task chat history
+## Session-first chat history
 
 The LLM is stateless, so the bridge keeps a JSONL transcript per
-task under `BRAIN_SESSIONS_ROOT`
+**session** under `BRAIN_SESSIONS_ROOT`
 (default `~/.config/opencode/brain-sessions`), capped at the last
-40 messages. Pass `task_id` (e.g. `190`) and every call loads the
-full conversation first, then appends both new turns. Each task
-keeps its own ChatGPT-style context from first message to close.
+40 messages. Pass `session_id` (e.g. `sess-1`) alongside `task_id` and
+every call loads the full session conversation first, then appends both
+new turns. One session thread spans every task in the work session or
+sprint — planning, implementation, QA, and review all share the same
+context. A bare `task_id` with no `session_id` falls back to the
+task-keyed transcript for backward compatibility.
 
 The transcript is replayed on every later turn, so a stored turn
 must stay small. The user turn is therefore stored in compact form:
@@ -53,33 +56,26 @@ the industry pattern: OpenCode, Claude Code, and Codex all persist the
 full transcript and compact only what they send; OpenCode keeps full
 session history in SQLite.
 
-## File pull tools
+## File pulls (Hands native tools)
 
 The Brain cannot read the Hands' disk — it only sees what a `brain_turn`
-call carries. The Hands close that gap with three server-side helpers.
-The Brain never calls them directly: it quotes needed paths and the
-Hands pull the content into the next turn.
+call carries. The Hands close that gap with their own native OpenCode
+tools (`read`, `grep`, `glob`): the Brain quotes needed paths and the
+Hands pull the content into the next turn as fed-context. The bridge
+exposes exactly one tool, `brain_turn`; the former server-side helpers
+(`get_context_bundle`, `read_file`, `grep_files`) were removed. The
+five-file context bundle still auto-attaches on every turn (unless the
+caller passes `include_bundle=false`): `agents/cognitive-executor.md`,
+`docs/conventions.md`, `docs/architecture.md`, `docs/data_model.md`,
+`DESIGN.md` in one labeled section. Missing files become `[missing:
+path]` lines (never raise, per the Absent-File Policy). Each file caps
+at 60,000 chars with a `[truncated]` marker.
 
-- `get_context_bundle()` — assembles the five small files
-  (`agents/cognitive-executor.md`, `docs/conventions.md`,
-  `docs/architecture.md`, `docs/data_model.md`, `DESIGN.md`) into one
-  labeled bundle. Missing files become `[missing: path]` lines (never
-  raise, per the Absent-File Policy). Each file caps at 60,000 chars
-  with a `[truncated]` marker.
-- `read_file(path, offset=1, limit=200)` — the Hands read any text file under the
-  workspace root (the repo root, or `BRAIN_WORKSPACE_ROOT` when set) with
-  numbered lines (1-indexed). Only the `system_prompt_path` override
-  additionally allows the global install dir (`~/.config/opencode`). Hands pull task-file ranges
-  on demand instead of pasting whole files. Text extensions only; the Brain
-  must never be told to pull files itself.
-- `grep_files(pattern, subdir=".")` — the Hands search files for a pattern, up
-  to 30 `path:line: excerpt` hits, skipping banned directories.
-
-Budget-aware assembly: Hands grep first to locate, then read only the ranges
-that fit the remaining budget. The bundle caps (60,000/file) plus the
-`brain_turn` 100,000-char history truncation keep every call measurable
-(the bundle tests prove both legs: all five sections always present,
-total size measured by construction).
+Budget-aware assembly: Hands grep first to locate, then pull only the
+ranges that fit the remaining budget. The bundle caps (60,000/file)
+plus the 1,000,000-char input budget keep every call measurable.
+History is never truncated to fit — the shipped thread is already
+bounded at load (last 40 messages).
 
 Export mapping: the main entry is implemented as `brain_turn` in
 `mcp-brain-bridge/server.py` and exposed to operators as
@@ -110,73 +106,62 @@ repo-root `.env`). Real process env wins; blank counts as unset. See
 | `BRAIN_MODEL_HIGH`  | `openai/gpt-5.6-luna` for `T1`/`T2` turns; **unset** = built-in default, **blank** = `BRAIN_MODEL` |
 | `BRAIN_STAGE_TIERS` | `plan:T2,review:T2,implement:T0,qa:T0,closure:T0`    |
 | `BRAIN_TASK_ATTACH_CAP` | `60000` — task-file attachment chars; blank/unset = default |
-| `BRAIN_TASK_DIFF_CAP` | `200000` — changed-hunks chars per part; blank/unset = default |
+| `BRAIN_TASK_DIFF_CAP` | `200000` — changed-hunks chars; blank/unset = default |
 | `BRAIN_CTX_PER_FILE_CAP` | `60000` — per `context_paths` file; blank/unset = default |
 | `BRAIN_CTX_TOTAL_CAP` | `200000` — all `context_paths` per turn; blank/unset = default |
-| `BRAIN_INPUT_BUDGET` | `200000` — hard send ceiling (system + prompt), chars |
+| `BRAIN_INPUT_BUDGET` | `1000000` — input budget ceiling (system + prompt + history), chars |
 | `BRAIN_MODEL_WINDOW_CHARS` | `200000` — utilization monitor only, never a send cap |
 
-`BRAIN_INPUT_BUDGET` defaults to the model-window estimate above. The
-assembly string for the Hands system prompt measures ~87.6k chars, so the
-older 100k ceiling left only ~12k for the change set a reviewer must read
-— which starved the very attachments this ceiling exists to bound. At the
-measured ~4.6 chars/token, 200k chars is ~43k input tokens. Set
-`BRAIN_INPUT_BUDGET` to a smaller positive integer to restore a tighter
-ceiling.
+`BRAIN_INPUT_BUDGET` defaults to 1,000,000 chars (~217k input tokens at
+the measured ~4.6 chars/token) — room for full context and diff reports
+plus the whole session thread. Set `BRAIN_INPUT_BUDGET` to a smaller
+positive integer to restore a tighter ceiling.
 
 Every cap above follows the blank-means-unset rule: an unset **or blank**
 variable applies the documented default, and a real non-empty value wins.
 A malformed or non-positive value raises a configuration error instead of
 being silently clamped.
 
-## Attachment budgeting
+## Attachment rendering (direct, no allocator)
 
-Attachments are not appended independently any more: one shared allocator
-renders every candidate against the chars actually left in
-`BRAIN_INPUT_BUDGET` after the system prompt and the caller's prompt. The
-configured caps above bound a single attachment; the allocator bounds the
-whole turn, so stacked attachments can never each assume the full window.
+Attachments enter whole — no allocator, no chunking, no part markers.
+Each attachment is rendered directly against its own configured cap
+(task/diff per-attachment caps, `context_paths` per-file plus one shared
+total cap), with an inline `[...truncated ...]` note when a cap cuts.
+The configured caps above bound a single attachment; the 1M input budget
+bounds the whole turn, so stacked attachments can never overflow the
+window. Conversation history is always attached in full (bounded at load
+to the last 40 messages) and is never cut to fit.
 
-Priority is stage-aware. On `qa` and `review` turns the order is
-**context_paths → diff → task → fed context → bundle**: explicit evidence
-outranks the general small-file bundle, so a reviewer never loses the
-changed hunks to boilerplate. Every other stage keeps the historical
-order (bundle → task → context_paths → diff → fed). Conversation history
-is always the last fallback; it is deliberately not subtracted from the
-attachment budget, which keeps the prompt-cache static prefix stable
-across turns.
-
-When an attachment exceeds its room, the block is chunked instead of
-silently cut — numbered parts with an exact resume offset:
+Task file and diff blocks keep their stable labels:
 
 ```text
-[ATTACHMENT kind=diff path="tasks/qa/12-x.md" part=1/3 offset_chars=0 shown_chars=80000 total_chars=250000]
-...content...
-[END ATTACHMENT kind=diff path="tasks/qa/12-x.md" part=1/3]
-[NEXT_ATTACHMENT_PART kind=diff path="tasks/qa/12-x.md" next_offset_chars=80000 remaining_chars=170000]
+[task-file:200: tasks/qa/200-x.md]
+```markdown
+...working content (Factual Git Diff stripped)...
+```
+[changed-hunks:200: tasks/qa/200-x.md]
+```diff
+...verbatim hunks...
+```
 ```
 
-Pass `attachment_resume={"kind": "diff", "path": "...",
-"offset_chars": N}` on the next turn to continue from that offset. A
-malformed resume is ignored with a stderr note and never breaks a turn.
+Context paths render as `[path-injected: <path>]` followed by content.
 
-## Response payload: two different truncations
+## Response payload: two truncation counters (both normally zero)
 
-The result dict reports attachment loss and history loss separately —
-they are different failures:
+The result dict keeps the attachment/history loss fields for schema
+stability — with direct rendering and no history dropping, both are
+always empty:
 
-- `history_turns_dropped` — canonical count of middle transcript turns
-  dropped to fit the budget. `truncated_count` remains as the
-  back-compat alias and always equals it. Both are `0` on a
+- `history_turns_dropped` — always `0`: history is never cut to fit.
+  `truncated_count` remains as the back-compat alias. Both are `0` on a
   capability-blocked turn.
-- `attachments_truncated` — a list (empty when nothing was cut) whose
-  entries carry `kind` (`diff` | `task` | `context_path` | `bundle` |
-  `fed_context`), `path`, `shown_chars`, `total_chars`, `dropped_chars`,
-  `part`, `parts`, `offset_chars`, `next_offset_chars`,
-  `remaining_chars`, and `budget_chars_remaining`.
-- `attachment_parts` — resume metadata for every chunked attachment.
+- `attachments_truncated` — always `[]`: cap cuts are noted inline in
+  the block, never as resume tokens.
+- `attachment_parts` — always `[]`: no chunking, no resume metadata.
 - `attachment_budget_chars` / `attachment_chars_used` /
-  `attachment_chars_remaining` — the attachment budget accounting.
+  `attachment_chars_remaining` — used-char accounting for the turn.
 
 A capability-blocked turn returns the same field set (with `status:
 "REPORT"`), so callers never face two incompatible schemas.

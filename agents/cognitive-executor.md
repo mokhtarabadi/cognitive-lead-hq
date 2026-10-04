@@ -399,7 +399,11 @@ needs no extra machinery.
    (e.g. "QA engineer please make the adversarial testing") + the full
    active task file + any prior answers. QA and reviewer turns MUST pass
    `include_diff=True` so the changed hunks ride along — the Brain judges
-   the actual changes, never a summary.
+   the actual changes, never a summary. Every `brain_turn` call passes
+   `session_id` alongside `task_id` (session-first): one thread spans
+   the whole work session, while the task file and diff still resolve
+   from `task_id`. A bare `task_id` with no `session_id` keeps the
+   legacy task-keyed transcript.
 2. **Call** `brain_turn`. Read `status`:
    - `XML_EXTRACTED` — execute `xml_blocks` as the next instruction set,
      exactly like an Orchestrator XML block.

@@ -31,6 +31,7 @@ def _clean_env(monkeypatch):
 
 # --- resolve_project_root: explicit root is strict ---
 
+
 def test_explicit_root_with_tasks_resolves(tmp_path):
     proj = _mk_project(tmp_path)
     assert preflight.resolve_project_root(str(proj)) == proj.resolve()
@@ -57,6 +58,7 @@ def test_explicit_root_file_not_dir_raises(tmp_path):
 
 
 # --- resolve_project_root: omitted root resolves via chain ---
+
 
 def test_env_project_root_used_when_omitted(tmp_path, monkeypatch):
     proj = _mk_project(tmp_path)
@@ -97,6 +99,7 @@ def test_nothing_resolves_raises_with_remedy(tmp_path, monkeypatch):
 
 # --- task / session binding ---
 
+
 def test_task_id_bare_digits_ok(tmp_path):
     proj = _mk_project(tmp_path)
     req = preflight.validate_request(task_id="257", project_root=str(proj))
@@ -113,8 +116,7 @@ def test_task_id_suffix_rejected(tmp_path):
 
 def test_session_id_ok(tmp_path):
     proj = _mk_project(tmp_path)
-    req = preflight.validate_request(session_id="cando-828",
-                                     project_root=str(proj))
+    req = preflight.validate_request(session_id="cando-828", project_root=str(proj))
     assert req.binding == "session"
     assert req.session_id == "cando-828"
 
@@ -125,11 +127,22 @@ def test_session_id_bad_chars_rejected(tmp_path):
         preflight.validate_request(session_id="a/b", project_root=str(proj))
 
 
-def test_both_ids_rejected(tmp_path):
+def test_both_ids_coexist_session_first(tmp_path):
     proj = _mk_project(tmp_path)
-    with pytest.raises(preflight.PreflightError, match="exactly one"):
-        preflight.validate_request(task_id="257", session_id="s",
-                                   project_root=str(proj))
+    req = preflight.validate_request(
+        task_id="257", session_id="s", project_root=str(proj)
+    )
+    assert req.binding == "session"
+    assert req.task_id == "257"
+    assert req.session_id == "s"
+    assert req.history_key == "s"
+
+
+def test_session_only_binds_session(tmp_path):
+    proj = _mk_project(tmp_path)
+    req = preflight.validate_request(session_id="s", project_root=str(proj))
+    assert req.binding == "session"
+    assert req.history_key == "s"
 
 
 def test_neither_id_is_oneoff_without_root(tmp_path, monkeypatch):
@@ -144,65 +157,72 @@ def test_neither_id_is_oneoff_without_root(tmp_path, monkeypatch):
 
 # --- stage / flags / kanban / required_tools ---
 
+
 def test_stage_allowlist_ok(tmp_path):
     proj = _mk_project(tmp_path)
-    req = preflight.validate_request(task_id="1", project_root=str(proj),
-                                     stage="qa")
+    req = preflight.validate_request(task_id="1", project_root=str(proj), stage="qa")
     assert req.stage == "qa"
 
 
 def test_stage_unknown_rejected(tmp_path):
     proj = _mk_project(tmp_path)
     with pytest.raises(preflight.PreflightError, match="stage"):
-        preflight.validate_request(task_id="1", project_root=str(proj),
-                                   stage="bogus")
+        preflight.validate_request(task_id="1", project_root=str(proj), stage="bogus")
 
 
 def test_flags_must_be_bool(tmp_path):
     proj = _mk_project(tmp_path)
     with pytest.raises(preflight.PreflightError, match="include_bundle"):
-        preflight.validate_request(task_id="1", project_root=str(proj),
-                                   include_bundle="yes")
+        preflight.validate_request(
+            task_id="1", project_root=str(proj), include_bundle="yes"
+        )
     with pytest.raises(preflight.PreflightError, match="include_diff"):
-        preflight.validate_request(task_id="1", project_root=str(proj),
-                                   include_diff=1)
+        preflight.validate_request(task_id="1", project_root=str(proj), include_diff=1)
 
 
 def test_kanban_path_under_tasks_ok(tmp_path):
     proj = _mk_project(tmp_path)
-    req = preflight.validate_request(task_id="1", project_root=str(proj),
-                                     kanban_path="tasks/qa/257-x.md")
+    req = preflight.validate_request(
+        task_id="1", project_root=str(proj), kanban_path="tasks/qa/257-x.md"
+    )
     assert req.kanban_path == (proj.resolve() / "tasks" / "qa" / "257-x.md")
 
 
 def test_kanban_path_escape_rejected(tmp_path):
     proj = _mk_project(tmp_path)
     with pytest.raises(preflight.PreflightError, match="kanban_path"):
-        preflight.validate_request(task_id="1", project_root=str(proj),
-                                   kanban_path="../outside.md")
+        preflight.validate_request(
+            task_id="1", project_root=str(proj), kanban_path="../outside.md"
+        )
     with pytest.raises(preflight.PreflightError, match="kanban_path"):
-        preflight.validate_request(task_id="1", project_root=str(proj),
-                                   kanban_path="/etc/passwd")
+        preflight.validate_request(
+            task_id="1", project_root=str(proj), kanban_path="/etc/passwd"
+        )
 
 
 def test_required_tools_typechecked(tmp_path):
     proj = _mk_project(tmp_path)
-    req = preflight.validate_request(task_id="1", project_root=str(proj),
-                                     required_tools=["question"])
+    req = preflight.validate_request(
+        task_id="1", project_root=str(proj), required_tools=["question"]
+    )
     assert req.required_tools == ("question",)
     with pytest.raises(preflight.PreflightError, match="required_tools"):
-        preflight.validate_request(task_id="1", project_root=str(proj),
-                                   required_tools="question")
+        preflight.validate_request(
+            task_id="1", project_root=str(proj), required_tools="question"
+        )
     with pytest.raises(preflight.PreflightError, match="required_tools"):
-        preflight.validate_request(task_id="1", project_root=str(proj),
-                                   required_tools=[123])
+        preflight.validate_request(
+            task_id="1", project_root=str(proj), required_tools=[123]
+        )
 
 
 # --- brain_turn wiring: preflight runs before transport ---
 
+
 class _FakeResp:
-    def __init__(self, status_code=200, text="", payload=None,
-                 ctype="application/json"):
+    def __init__(
+        self, status_code=200, text="", payload=None, ctype="application/json"
+    ):
         self.status_code = status_code
         self.text = text
         self._payload = payload
@@ -234,8 +254,11 @@ class _FakeClient:
 
 
 def _ok_payload(text="ok"):
-    return {"output": [{"type": "message",
-                        "content": [{"type": "output_text", "text": text}]}]}
+    return {
+        "output": [
+            {"type": "message", "content": [{"type": "output_text", "text": text}]}
+        ]
+    }
 
 
 def _mk_bridge_client(monkeypatch, script):
@@ -277,29 +300,24 @@ def _brain_turn():
     return call.fn if hasattr(call, "fn") else call
 
 
-def test_brain_turn_bad_explicit_root_raises_before_transport(
-        tmp_path, monkeypatch):
+def test_brain_turn_bad_explicit_root_raises_before_transport(tmp_path, monkeypatch):
     _mk_sys_prompt(tmp_path, monkeypatch)
     monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
-    clients = _mk_bridge_client(
-        monkeypatch, [_FakeResp(200, "fine", _ok_payload())])
+    clients = _mk_bridge_client(monkeypatch, [_FakeResp(200, "fine", _ok_payload())])
     with pytest.raises(preflight.PreflightError):
-        _brain_turn()("q", task_id="257",
-                      project_root=str(tmp_path / "bare-no-tasks"))
+        _brain_turn()("q", task_id="257", project_root=str(tmp_path / "bare-no-tasks"))
     assert clients == []
 
 
-def test_brain_turn_task_and_session_rejected_before_transport(
-        tmp_path, monkeypatch):
+def test_brain_turn_task_and_session_coexist_under_session(tmp_path, monkeypatch):
     proj = _mk_project(tmp_path)
     _mk_sys_prompt(tmp_path, monkeypatch)
     monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
-    clients = _mk_bridge_client(
-        monkeypatch, [_FakeResp(200, "fine", _ok_payload())])
-    with pytest.raises(preflight.PreflightError, match="exactly one"):
-        _brain_turn()("q", task_id="257", session_id="s",
-                      project_root=str(proj))
-    assert clients == []
+    clients = _mk_bridge_client(monkeypatch, [_FakeResp(200, "fine", _ok_payload())])
+    result = _brain_turn()("q", task_id="257", session_id="s", project_root=str(proj))
+    assert result["status"] == "REPORT"
+    assert result["output"] == "ok"
+    assert clients != []
 
 
 def test_brain_turn_legacy_shape_still_works(tmp_path, monkeypatch):

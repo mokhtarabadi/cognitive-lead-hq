@@ -7,11 +7,16 @@
 # ]
 # ///
 
-"""Unified Brain bridge MCP server (Task 190).
+"""Unified Brain bridge MCP server (Task 190, lean session-first gateway).
 
-Four tools. ``brain_turn`` is the automation path; ``get_context_bundle``,
-``grep_files`` and ``read_file`` let the Hands locate a hit and pull only
-the range a turn needs.
+One tool. ``brain_turn`` is the automation path: the Hands builds a user
+prompt from its current machine state (e.g. "QA engineer please make
+the adversarial testing" + the task file), the server prepends the
+latest system prompt (read from the global install) as the system
+message, calls the LLM over the OpenAI Responses API via httpx, and
+returns the output — with any machine XML blocks extracted. The Hands
+locates files and pulls ranges with its own native OpenCode tools; the
+bridge exposes no file tools.
 
 ``brain_turn``: the Hands builds a user prompt from its current machine
 state (e.g. "QA engineer please make the adversarial testing" + the task
@@ -27,17 +32,21 @@ in as the next ``brain_turn`` user prompt. No gates, no per-persona
 commands — the auto-load persona + current modes in the system prompt
 cover identity.
 
-Per-task chat history (manager order, Task 190): the LLM is stateless,
-so every ``brain_turn`` with a ``task_id`` loads that task's prior
-user/assistant messages from its transcript file and sends them along
-— like a chat interface, first message to last, until the task closes.
-Each task keeps its own conversation under the project's sessions root
-(``<project>/tasks/.sessions/<task_id>/transcript.jsonl``, JSON lines).
+Per-session chat history (manager order, Task 190; session-first since
+Task 292): the LLM is stateless, so every ``brain_turn`` with a
+``session_id`` loads that session's prior user/assistant messages from
+its transcript file and sends them along — like a chat interface, first
+message to last. One session thread spans every task in the work
+session. Each session keeps its own conversation under the project's
+sessions root
+(``<project>/tasks/.sessions/<session_id>/transcript.jsonl``, JSON
+lines). A bare ``task_id`` with no ``session_id`` falls back to the
+task-keyed transcript for backward compatibility.
 ``BRAIN_SESSIONS_ROOT`` overrides that location. The old global directory
 (``~/.config/opencode/brain-sessions``) is a read-only fallback for
 history written before the per-project move; writes never land there.
-History is bounded (last 40 messages) so long tasks cannot overflow the
-context.
+History is bounded (last 40 messages) so long sessions cannot overflow
+the context.
 
 Transport: stdio FastMCP, mirroring the other servers. The model is
 called over the OpenAI Responses API (``{api_base}/responses``) via
@@ -298,19 +307,11 @@ _STRUCTURAL_REPORT_GLOB = "context-reports/tree_report_*.md"
 _STRUCTURAL_FILE_CAP = 40000
 _STRUCTURAL_MARKER = "=== context-reports/tree_report (latest) ==="
 
-# Text extensions readable via read_file / searchable via grep_files.
+# Text extensions readable for server-side path injection.
 _ALLOWED_READ_SUFFIXES = frozenset({".md", ".txt", ".json", ".yaml", ".yml", ".toml"})
 
-# Directories never descended into by grep_files.
-_SKIP_DIRS = frozenset(
-    {".git", "__pycache__", ".venv", "node_modules", ".pytest_cache"}
-)
-
-# Guardrails for the file-pull tools (state-machine hotfix round).
-_READ_MAX_LINES = 2000  # read_file limit clamp — pulls stay pull-sized
-_READ_MAX_BYTES = 2_000_000  # read_file refuses bigger files outright
-_GREP_PATTERN_MAX = 500  # Brain-supplied regex length cap (ReDoS bound)
-_GREP_MAX_LINE_CHARS = 4000  # overlong lines are skipped, never searched
+# Guardrail for path injection (state-machine hotfix round).
+_READ_MAX_BYTES = 2_000_000  # oversized files are refused outright
 
 
 def _workspace_root() -> Path:
@@ -801,160 +802,6 @@ def _build_context_bundle(root: Optional[str] = None) -> str:
             file=sys.stderr,
         )
     return "\n\n".join(parts)
-
-
-def _read_file_impl(
-    path: str,
-    offset: int = 1,
-    limit: int = 200,
-    project_root: Optional[str] = None,
-) -> dict[str, Any]:
-    """Numbered-line slice of a workspace text file (1-indexed offset).
-
-    The ``limit`` clamps to ``_READ_MAX_LINES`` and files over
-    ``_READ_MAX_BYTES`` are refused — pulls stay pull-sized and can
-    never drag a giant file into context. ``project_root`` pins the tree
-    the path resolves against (issue #24); ``None`` falls back to
-    ``_workspace_root()``.
-    """
-    if not isinstance(path, str) or not path.strip():
-        raise ValueError(f"bad path: {path!r}")
-    if offset < 1:
-        raise ValueError(f"bad offset (1-indexed): {offset!r}")
-    if limit < 1:
-        raise ValueError(f"bad limit: {limit!r}")
-    limit = min(limit, _READ_MAX_LINES)
-    resolved = _resolve_under_root(path, _explicit_root(project_root))
-    if resolved.suffix.lower() not in _ALLOWED_READ_SUFFIXES:
-        raise ValueError(f"unsupported extension: {path!r}")
-    try:
-        if resolved.stat().st_size > _READ_MAX_BYTES:
-            raise ValueError(
-                f"file too large for read_file: {path!r} (>{_READ_MAX_BYTES} bytes)"
-            )
-    except OSError:
-        pass  # stat failed — the read below raises the real error
-    text = resolved.read_text(encoding="utf-8", errors="replace")
-    lines = text.splitlines()
-    total = len(lines)
-    end = min(offset - 1 + limit, total)
-    numbered = [f"{n}: {lines[n - 1]}" for n in range(offset, end + 1)]
-    return {
-        "path": path,
-        "offset": offset,
-        "limit": limit,
-        "total_lines": total,
-        "lines": numbered,
-    }
-
-
-def _grep_files_impl(
-    pattern: str, subdir: str = ".", project_root: Optional[str] = None
-) -> list[str]:
-    """Python-regex search over workspace text files (max 30 hits).
-
-    Hardening: the Brain-supplied pattern caps at ``_GREP_PATTERN_MAX``
-    chars (``re`` has no timeout, so length is the ReDoS bound), each hit
-    line truncates at 200 chars, lines over ``_GREP_MAX_LINE_CHARS`` are
-    skipped unsearched, and every candidate resolves against the root
-    BEFORE it is read — a symlink escaping the workspace is skipped,
-    never opened. ``project_root`` pins the tree searched (issue #24);
-    ``None`` falls back to ``_workspace_root()``.
-    """
-    if not isinstance(pattern, str) or not pattern:
-        raise ValueError(f"bad regex: {pattern!r}")
-    if len(pattern) > _GREP_PATTERN_MAX:
-        raise ValueError(f"regex too long ({len(pattern)} > {_GREP_PATTERN_MAX})")
-    try:
-        rx = re.compile(pattern)
-    except re.error as exc:
-        raise ValueError(f"bad regex: {pattern!r} ({exc})") from exc
-    _pinned = _explicit_root(project_root)
-    root = (_pinned if _pinned is not None else _workspace_root()).resolve()
-    base = _resolve_under_root(subdir, root)
-    if not base.is_dir():
-        return []
-    hits: list[str] = []
-    for dirpath, dirnames, filenames in os.walk(base):
-        dirnames[:] = [d for d in dirnames if d not in _SKIP_DIRS]
-        for name in filenames:
-            if Path(name).suffix.lower() not in _ALLOWED_READ_SUFFIXES:
-                continue
-            fpath = Path(dirpath) / name
-            try:
-                resolved = fpath.resolve()
-                resolved.relative_to(root)
-            except (OSError, ValueError):
-                continue  # symlink escape — skip before any read
-            try:
-                text = resolved.read_text(encoding="utf-8", errors="replace")
-            except OSError:
-                continue
-            rel = resolved.relative_to(root).as_posix()
-            for lineno, line in enumerate(text.splitlines(), 1):
-                if len(line) > _GREP_MAX_LINE_CHARS:
-                    continue
-                if rx.search(line):
-                    hits.append(f"{rel}:{lineno}: {line.strip()[:200]}")
-                    if len(hits) >= 30:
-                        return hits
-    return hits
-
-
-@mcp.tool()
-def get_context_bundle(project_root: Optional[str] = None) -> str:
-    """Return the labeled small-file context bundle from the active project root. The Hands call this for bundle proof or debugging; every brain_turn already injects it by default.
-
-    ``project_root`` pins the project the bundle is read from (issue #24);
-    omit it to auto-resolve the active project root (``BRAIN_PROJECT_ROOT``,
-    then a cwd ``tasks/`` walk-up, then ``BRAIN_WORKSPACE_ROOT``).
-    Missing files become ``[missing: path]`` marker lines (never raise);
-    each file caps at 60000 chars with a ``[truncated]`` marker.
-    """
-    return _build_context_bundle(project_root)
-
-
-@mcp.tool()
-def read_file(
-    path: str,
-    offset: int = 1,
-    limit: int = 200,
-    project_root: Optional[str] = None,
-) -> dict[str, Any]:
-    """Read numbered lines from a workspace text file (1-indexed offset). The Hands call this after grep_files locates a hit; the Brain never calls it directly. Text extensions only (.md .txt .json .yaml .yml .toml); Python and other extensions are refused.
-
-    ``project_root`` pins the tree ``path`` resolves against (issue #24);
-    omit it to auto-resolve the active project root.
-
-    Returns ``{"path", "offset", "limit", "total_lines", "lines"}``. Each
-    entry in ``lines`` is already numbered as ``"N: text"``, so do not add
-    another prefix. ``limit`` clamps to 2000 lines, and a file over
-    2,000,000 bytes is refused. Bad input — a blank path, an ``offset``
-    below 1, a ``limit`` below 1, a non-allowlisted extension, or an
-    oversized file — raises ``ValueError`` instead of returning a partial
-    result.
-    """
-    return _read_file_impl(path, offset, limit, project_root)
-
-
-@mcp.tool()
-def grep_files(
-    pattern: str, subdir: str = ".", project_root: Optional[str] = None
-) -> list[str]:
-    """Regex-search workspace text files; up to 30 ``path:line: excerpt`` hits. The Hands call this first to locate, then read only the ranges that fit the remaining budget.
-
-    ``project_root`` pins the tree searched (issue #24); omit it to
-    auto-resolve the active project root.
-
-    Scope: only the six read suffixes are searched — ``.md``, ``.txt``,
-    ``.json``, ``.yaml``, ``.yml``, ``.toml``. Source files such as
-    ``.py`` are never opened, so an empty result for them means "not
-    searched", not "no match". ``.git``, ``__pycache__``, ``.venv``,
-    ``node_modules`` and ``.pytest_cache`` are skipped. Lines longer than
-    4000 chars are skipped unsearched, and a pattern longer than 500 chars
-    raises ``ValueError`` (the ReDoS bound).
-    """
-    return _grep_files_impl(pattern, subdir, project_root)
 
 
 # Prompt overrides must be real prompt files: .md only, resolved under
@@ -1862,16 +1709,12 @@ def _send_with_learning(
 # Max prior messages re-sent per turn. Bounds context for long tasks.
 _HISTORY_LIMIT = 40
 
-# Max prompt + history chars per turn. Oldest history drops first.
-#
-# Defaults to the same value as the model-window estimate below: a live
-# probe showed the assembled system prompt alone is ~87.6k chars, so the
-# older 100k ceiling left only ~12k of room for the change set a QA or
-# reviewer turn must see — which is the very starvation this ceiling was
-# meant to prevent. At the measured ~4.6 chars/token, 200k chars is
-# ~43k input tokens, well inside the documented window. Operators who
-# want the tighter ceiling back set BRAIN_INPUT_BUDGET.
-_INPUT_BUDGET = 200000
+# Max prompt + history chars per turn. History is never dropped to fit:
+# the shipped transcript is bounded at load (``_HISTORY_LIMIT``), so this
+# ceiling only bounds fresh attachments against modern long-context
+# windows. At ~4.6 chars/token, 1M chars is ~217k input tokens.
+# Operators who want a tighter ceiling set BRAIN_INPUT_BUDGET.
+_INPUT_BUDGET = 1000000
 
 # Assumed model window (chars) for the utilization monitor below.
 # Informational only — providers differ; the send cap stays _INPUT_BUDGET.
@@ -2535,24 +2378,17 @@ def build_paths_attach(paths: object, project_root: Optional[str] = None) -> str
     return "\n\n---\n\n".join(blocks)
 
 
-# --- Shared attachment allocator ------------------------------------
-# The model input ceiling is authoritative, so every attachment is
-# rendered by ONE allocator against the chars actually left after the
-# system prompt, the caller's prompt, and the shipped history. Each
-# builder above keeps its own semantics for direct callers; these
-# helpers feed the turn-level allocator instead.
+# --- Direct attachment rendering ------------------------------------
+# No allocator, no chunking, no part markers: every attachment enters
+# whole, bounded only by its own configured cap. Caps still apply
+# (task/diff per-attachment caps, ``context_paths`` per-file + shared
+# total caps) with an inline truncation note — the Brain judges visible
+# scope only and quotes needed paths for follow-ups.
 
-#: Stages whose turns rank explicit evidence above the small-file bundle.
-_REVIEW_STAGES = frozenset({"qa", "review"})
 
-#: Attachment priority per turn shape. Review/QA turns must see the
-#: changed hunks and explicitly requested files before the bundle.
-_PRIORITY_REVIEW = ("context_path", "diff", "task", "fed_context", "bundle")
-_PRIORITY_DEFAULT = ("bundle", "task", "context_path", "diff", "fed_context")
-
-#: Marker overhead reserved per rendered attachment (chars), so a part can
-#: never overflow the room it was granted.
-_ATTACHMENT_MARKER_ROOM = 200
+def _fence_guard(text: str) -> str:
+    """Break embedded fences invisibly so content cannot close our block."""
+    return text.replace(chr(96) * 3, chr(96) * 2 + chr(8203) + chr(96))
 
 
 def _qa_like_prompt(user_prompt: object) -> bool:
@@ -2565,310 +2401,63 @@ def _qa_like_prompt(user_prompt: object) -> bool:
     )
 
 
-def _validate_attachment_resume(resume: object) -> Optional[dict]:
-    """Validate an ``attachment_resume`` request (``None`` when unusable).
-
-    Accepts ``{"kind": "diff"|"context_path", "path": str,
-    "offset_chars": int >= 0}`` — the shape the response payload and the
-    ``[NEXT_ATTACHMENT_PART]`` marker publish. A malformed resume is
-    ignored with a stderr note so it can never break a turn.
-    """
-    if not isinstance(resume, dict):
-        print(
-            "brain-bridge: attachment_resume ignored (not a mapping)", file=sys.stderr
-        )
-        return None
-    kind = resume.get("kind")
-    path = resume.get("path")
-    if (
-        kind not in ("diff", "context_path")
-        or not isinstance(path, str)
-        or not path.strip()
-    ):
-        print(
-            "brain-bridge: attachment_resume ignored (bad kind/path)", file=sys.stderr
-        )
-        return None
-    try:
-        offset = int(resume.get("offset_chars", 0))
-    except (TypeError, ValueError):
-        print(
-            "brain-bridge: attachment_resume ignored (bad offset_chars)",
-            file=sys.stderr,
-        )
-        return None
-    return {"kind": kind, "path": path.strip(), "offset_chars": max(0, offset)}
-
-
-def _attachment_priority(stage: Optional[str]) -> tuple:
-    """Attachment priority order for ``stage`` (review/QA evidence first)."""
-    if (stage or "").strip().lower() in _REVIEW_STAGES:
-        return _PRIORITY_REVIEW
-    return _PRIORITY_DEFAULT
-
-
-def _fence_guard(text: str) -> str:
-    """Break embedded fences invisibly so content cannot close our block."""
-    return text.replace(chr(96) * 3, chr(96) * 2 + chr(8203) + chr(96))
-
-
-#: Separator the turn joins attachment blocks with. The allocator prices it
-#: per block so the assembled prompt can never creep past the send ceiling
-#: by the join overhead the individual block sizes do not include.
-_SEP_LEN = len("\n\n---\n\n")
-
-
-def _open_overhead(open_line: str, fence_lang: Optional[str]) -> int:
-    """Chars the UNMARKED wrapper adds around the body (measured).
-
-    A whole-fit attachment still carries its open line and fence, so the
-    fit test must price them: comparing only the body length against the
-    room let a rendered block exceed the room it was granted.
-    """
-    lines = [open_line]
-    if fence_lang:
-        lines.append(f"```{fence_lang}")
-    lines.append("")
-    if fence_lang:
-        lines.append("```")
-    return len("\n".join(lines))
-
-
-def _marker_room(
-    kind: str,
-    path: str,
-    total: int,
-    open_line: str = "",
-    fence_lang: Optional[str] = None,
-) -> int:
-    """Complete wrapper overhead (chars) for a SPLIT attachment.
-
-    Priced from the line shapes actually emitted — the part markers, the
-    caller's open line, the fence lines and every newline separator —
-    instead of a fixed guess. The body itself is excluded, so the
-    allocator can size the body as ``room - _marker_room(...)`` and the
-    rendered block can never exceed the room it was granted. ``total``
-    sizes the numeric fields; the result never falls below the floor
-    constant.
-    """
-    digits = len(str(max(total, 1))) + 2  # part/parts can exceed total
-    header = (
-        f'[ATTACHMENT kind={kind} path="{path}" part=1/1 '
-        f"offset_chars=0 shown_chars=0 total_chars=0]"
-    )
-    end = f'[END ATTACHMENT kind={kind} path="{path}" part=1/1]'
-    nxt = (
-        f'[NEXT_ATTACHMENT_PART kind={kind} path="{path}" '
-        f"next_offset_chars=0 remaining_chars=0]"
-    )
-    lines = [header, open_line]
-    if fence_lang:
-        lines.append(f"```{fence_lang}")
-    lines.append("")
-    if fence_lang:
-        lines.append("```")
-    lines.append(end)
-    lines.append(nxt)
-    return max(
-        _ATTACHMENT_MARKER_ROOM,
-        len("\n".join(lines)) + digits * 6,
-    )
-
-
-def _render_attachment(
-    kind: str,
-    path: str,
-    open_line: str,
-    fence_lang: Optional[str],
-    text: str,
-    room: int,
-    offset: int = 0,
-) -> tuple[str, Optional[dict]]:
-    """Render one labeled attachment inside ``room`` chars.
-
-    Returns ``(rendered, meta)``. ``meta`` is ``None`` when the whole
-    attachment fit; otherwise it reports exactly how many chars were
-    shown, how many were dropped, and the offset that resumes it — so a
-    caller can always ask for the remainder instead of declaring the
-    unseen scope UNVERIFIABLE.
-    """
-    total = len(text)
-    try:
-        offset = max(0, min(int(offset), total))
-    except (TypeError, ValueError):
-        offset = 0
-    # A whole-fit attachment gets NO part markers: reserving the marker room
-    # unconditionally split a file that fit its cap exactly into a second
-    # 200-char part, which reported a truncation that never happened. The
-    # reservation applies only when a split is genuinely required.
-    # Price the COMPLETE emitted wrapper — the open line, the fence lines
-    # and every newline separator, not just the body — so a rendered block
-    # can never exceed the room the allocator granted. An exact fit still
-    # renders with no part markers.
-    fits = (total - offset) + _open_overhead(open_line, fence_lang) <= room
-    part_size = max(
-        1,
-        room
-        - _marker_room(kind, path, total, open_line=open_line, fence_lang=fence_lang),
-    )
-    body = text[offset:] if fits else text[offset : offset + part_size]
-    shown = len(body)
-    next_offset = offset + shown
-    remaining = total - next_offset
-    parts = max(1, (total + part_size - 1) // part_size)
-    part = min(parts, offset // part_size + 1)
-    lines: list[str] = [open_line]
-    if fence_lang:
-        lines.append(f"```{fence_lang}")
-    lines.append(body)
-    if fence_lang:
-        lines.append("```")
-    if remaining <= 0:
-        return "\n".join(lines), None
-    lines.insert(
-        0,
-        (
-            f'[ATTACHMENT kind={kind} path="{path}" part={part}/{parts} '
-            f"offset_chars={offset} shown_chars={shown} total_chars={total}]"
-        ),
-    )
-    lines.append(f'[END ATTACHMENT kind={kind} path="{path}" part={part}/{parts}]')
-    lines.append(
-        f'[NEXT_ATTACHMENT_PART kind={kind} path="{path}" '
-        f"next_offset_chars={next_offset} remaining_chars={remaining}]"
-    )
-    return "\n".join(lines), {
-        "kind": kind,
-        "path": path,
-        "part": part,
-        "parts": parts,
-        "offset_chars": offset,
-        "shown_chars": shown,
-        "total_chars": total,
-        "dropped_chars": remaining,
-        "next_offset_chars": next_offset,
-        "remaining_chars": remaining,
-        "budget_chars_remaining": 0,
-    }
-
-
-def _allocate_attachments(
+def _render_direct(
     candidates: list[dict],
-    priority: tuple,
-    system_chars: int,
-    user_chars: int,
-    history_chars: int,
-    budget: int,
-) -> tuple[list[tuple[dict, str, Optional[dict]]], list[dict], dict]:
-    """Render every attachment against the chars actually left in ``budget``.
+) -> tuple[list[tuple[dict, str, None]], list[dict], dict]:
+    """Render every attachment whole (no slicing, no part markers).
 
-    ``candidates`` carry ``kind``, ``path``, ``open_line``, ``fence_lang``,
-    ``text``, an optional ``offset`` resume point and an optional ``slot``
-    (the prompt-cache split segment the rendered block belongs to).
-    Returns ``(rendered, truncated, info)`` where ``rendered`` is a list of
-    ``(candidate, block, meta)`` in priority order, ``truncated`` describes
-    every attachment that lost chars, and ``info`` holds the attachment
-    budget accounting for the response payload.
+    Returns ``(rendered, truncated, info)`` in the allocator's shape so
+    downstream assembly (``_slot``, ordering, transcript markers, result
+    payload) keeps working unchanged: ``rendered`` is ``(candidate,
+    block, None)`` in candidate order, ``truncated`` is always ``[]``
+    (cap cuts are noted inline in the block, never as resume tokens),
+    and ``info`` carries the used-char accounting.
     """
-    available = max(
-        0,
-        budget
-        - (system_chars + user_chars + history_chars)
-        - _SEP_LEN * (len(priority) + 1),
-    )
+    rendered: list[tuple[dict, str, None]] = []
     used = 0
     group_used: dict[str, int] = {}
-    rendered: list[tuple[dict, str, Optional[dict]]] = []
-    truncated: list[dict] = []
-    for kind in priority:
-        for cand in candidates:
-            if cand.get("kind") != kind:
-                continue
-            total = len(cand.get("text", ""))
-            room = available - used
-            _cap = cand.get("cap")
-            if _cap:
-                # The configured cap bounds the CONTENT; the wrapper the
-                # renderer must emit rides on top of it, or a file that
-                # fits its cap exactly would be split for the sake of a
-                # few marker characters.
-                room = min(
-                    room,
-                    int(_cap)
-                    + _marker_room(
-                        kind,
-                        cand.get("path", ""),
-                        total,
-                        open_line=cand.get("open_line", ""),
-                        fence_lang=cand.get("fence_lang"),
-                    ),
-                )
-            _group = cand.get("group")
-            _gcap = int(cand.get("group_cap") or 0)
-            if _group and _gcap:
-                # Files in one group share a configured total budget
-                # (context_paths). The candidates are allocated
-                # independently, so the aggregate is enforced here: the
-                # remainder is reported, never silently over-sent.
-                _gleft = max(0, _gcap - group_used.get(_group, 0))
-                # The group cap bounds CONTENT: grant the remaining
-                # content plus the wrapper that carries it, so a file
-                # that still fits its share arrives whole.
-                room = min(
-                    room,
-                    _gleft
-                    + _open_overhead(cand.get("open_line", ""), cand.get("fence_lang")),
-                )
-            # Below the marker envelope the attachment could only render
-            # as an unreadable stub that also overflows the budget, so
-            # report it as fully dropped instead of spending the room.
-            if room <= _marker_room(
-                kind,
-                cand.get("path", ""),
-                total,
-                open_line=cand.get("open_line", ""),
-                fence_lang=cand.get("fence_lang"),
-            ):
-                truncated.append(
-                    {
-                        "kind": kind,
-                        "path": cand.get("path", ""),
-                        "part": 1,
-                        "parts": 1,
-                        "offset_chars": 0,
-                        "shown_chars": 0,
-                        "total_chars": total,
-                        "dropped_chars": total,
-                        "next_offset_chars": 0,
-                        "remaining_chars": total,
-                        "budget_chars_remaining": 0,
-                    }
-                )
-                continue
-            block, meta = _render_attachment(
-                kind,
-                cand.get("path", ""),
-                cand.get("open_line", ""),
-                cand.get("fence_lang"),
-                cand.get("text", ""),
-                room,
-                offset=cand.get("offset", 0),
-            )
-            rendered.append((cand, block, meta))
+    for cand in candidates:
+        if cand.get("inline"):
+            block = cand.get("open_line", "")
+            rendered.append((cand, block, None))
             used += len(block)
-            if _group:
-                group_used[_group] = group_used.get(_group, 0) + (
-                    meta["shown_chars"] if meta is not None else total
+            continue
+        text = cand.get("text", "")
+        cap = cand.get("cap")
+        if cap and len(text) > int(cap):
+            text = (
+                text[: int(cap)]
+                + f"\n[...truncated at {cap} chars — remainder NOT sent. "
+                + "Judge visible only; mark unseen UNVERIFIABLE, NEVER "
+                + "REJECTED.]"
+            )
+        group = cand.get("group")
+        gcap = cand.get("group_cap")
+        if group and gcap:
+            left = max(0, int(gcap) - group_used.get(group, 0))
+            if len(text) > left:
+                text = (
+                    text[:left]
+                    + f"\n[...truncated: shared {group} budget "
+                    + f"{gcap} chars reached]"
                 )
-            if meta is not None:
-                meta["budget_chars_remaining"] = max(0, available - used)
-                truncated.append(meta)
+            group_used[group] = group_used.get(group, 0) + len(text)
+        open_line = cand.get("open_line", "")
+        fence_lang = cand.get("fence_lang")
+        if fence_lang:
+            block = open_line + "\n```" + fence_lang + "\n" + text + "\n```"
+        elif text:
+            block = open_line + "\n" + text
+        else:
+            block = open_line
+        rendered.append((cand, block, None))
+        used += len(block)
     info = {
-        "attachment_budget_chars": available,
+        "attachment_budget_chars": used,
         "attachment_chars_used": used,
-        "attachment_chars_remaining": max(0, available - used),
+        "attachment_chars_remaining": 0,
     }
-    return rendered, truncated, info
+    return rendered, [], info
 
 
 def _task_candidate(
@@ -3111,7 +2700,6 @@ def brain_turn(
     include_bundle: bool = True,
     include_diff: bool = False,
     context_paths: Optional[list[str]] = None,
-    attachment_resume: Optional[dict] = None,
     project_root: Optional[str] = None,
     risk_tier: Optional[str] = None,
     session_id: Optional[str] = None,
@@ -3126,21 +2714,17 @@ def brain_turn(
             (instruction + task file content + prior answers).
         task_id: The BARE task number (digits only, e.g. "215") — never
             a slug, never a suffixed variant like "215qa", "215rev",
-            or "215plan". When given, the task's transcript is loaded
-            and sent along (chat-style history), and this turn is
-            appended to it. History is keyed by this exact string, so
-            EVERY turn for one task (plan, implement, QA, review) MUST
-            pass the identical number: a different id starts a
-            separate, empty history and the Brain loses all prior
-            context. Non-numeric input is rejected before anything
-            runs. Omit for one-off turns with no memory.
+            or "215plan". When given, the task file is resolved for the
+            task attach and the diff attach (see ``include_bundle`` /
+            ``include_diff``). Non-numeric input is rejected before
+            anything runs. Omit for one-off turns with no memory.
         system_prompt_path: Optional override; default is the global
             install copy of system-prompt.md.
         include_bundle: When True (default), prepend the small-file
             context bundle unless the prompt already carries its marker,
             plus the task file's working content (Goal/Notes/TODOs/AC/
             evidence/log minus the Factual Git Diff block, with a
-            read_file pull path) whenever task_id resolves to a file.
+            quoted-paths follow-up) whenever task_id resolves to a file.
             Pass False for tiny calls. The system prompt is untouched.
         include_diff: When True, append the task file's changed hunks
             (Factual Git Diff content, verbatim, capped) whenever
@@ -3160,13 +2744,6 @@ def brain_turn(
             under the workspace root with the read suffix allowlist;
             per-file cap plus total budget apply, problems become explicit
             unavailable labels. Default off. Small pulls stay inline.
-        attachment_resume: Optional continuation token from a previous
-            response whose attachments were truncated. Accepts
-            ``{"kind": "diff"|"context_path", "path": str,
-            "offset_chars": int >= 0}`` — the shape the response payload
-            and the ``[NEXT_ATTACHMENT_PART]`` marker publish. A malformed
-            resume is ignored with a stderr note and never fails the turn.
-            Omit it for a fresh turn.
         project_root: Optional project dir holding ``tasks/``. Its
             ``tasks/.sessions/`` stores this turn's history (per-project
             sessions), and its ``tasks/`` lanes resolve the task file
@@ -3183,11 +2760,13 @@ def brain_turn(
             takes effect when ``BRAIN_RISK_ROUTING_ENABLED`` is set;
             missing or invalid values fail safe to the current model.
             Default None (unrouted, today's behavior).
-        session_id: Optional taskless saga key (e.g. "cando-828") —
-            mutually exclusive with task_id. Pass exactly one of the two
-            on memory-bearing turns; omit both for one-off turns with no
-            memory. The session transcript continues under this key the
-            same way a task transcript continues under task_id.
+        session_id: Optional session key (e.g. "cando-828") — the
+            PRIMARY history key (session-first). Pass it alongside
+            ``task_id`` so one thread spans every task in the work
+            session; pass it alone for taskless turns. When omitted and
+            only ``task_id`` is given, history falls back to the
+            task-keyed transcript for backward compatibility. Omit both
+            for one-off turns with no memory.
         stage: Optional turn stage, one of plan / implement / qa /
             review / closure. Unknown stages are rejected so a typo can
             never run as an unscoped turn.
@@ -3214,10 +2793,12 @@ def brain_turn(
     # Request preflight FIRST (GitHub issue 18): local validation before
     # any load, attach, import, or model call. An explicit project_root
     # without tasks/ raises here instead of silently substituting the
-    # workspace root; suffixed task_ids are rejected; task_id and
-    # session_id are mutually exclusive (exactly one binds history,
-    # neither means a one-off turn). The resolved root feeds every
-    # downstream resolver so attaches and history share one root.
+    # workspace root; suffixed task_ids are rejected; session_id is the
+    # primary history key and coexists with task_id (session-first:
+    # history continues under the session while the task file and diff
+    # still resolve from task_id); neither id means a one-off turn.
+    # The resolved root feeds every downstream resolver so attaches and
+    # history share one root.
     _requested_root = project_root
     _pre = _validate_request(
         project_root=project_root,
@@ -3398,25 +2979,6 @@ def brain_turn(
                         file=sys.stderr,
                     )
 
-    # Chunk continuation: a caller that saw an [NEXT_ATTACHMENT_PART]
-    # marker (or an attachment_parts entry) can resume exactly that
-    # attachment at exactly that offset instead of re-sending everything.
-    _resume = _validate_attachment_resume(attachment_resume)
-    if _resume is not None:
-        _matched = False
-        for _cand in candidates:
-            if (
-                _cand.get("kind") == _resume["kind"]
-                and _cand.get("path") == _resume["path"]
-            ):
-                _cand["offset"] = _resume["offset_chars"]
-                _matched = True
-        if not _matched:
-            print(
-                "brain-bridge: attachment_resume matched no attachment "
-                f"(kind={_resume['kind']} path={_resume['path']!r})",
-                file=sys.stderr,
-            )
     # Tier precedence: an explicit ``risk_tier`` wins; otherwise the
     # tier is derived from the turn stage (Task 261). A missing or
     # unknown stage leaves the tier empty, and the resolver returns
@@ -3434,7 +2996,7 @@ def brain_turn(
     if history_key:
         # Sessions-root visibility: one debug line per turn so a
         # misrouted project is observable in stderr, never silent.
-        _scope = "task" if task_id is not None else "session"
+        _scope = "session" if session_id is not None else "task"
         print(
             f"brain-bridge: sessions root {_sessions_root(project_root)} "
             f"({_scope} {history_key})",
@@ -3472,19 +3034,12 @@ def brain_turn(
     def _hist_chars() -> int:
         return sum(len(turn["content"]) for turn in history)
 
-    # Shared budget: ONE allocator renders every attachment against the
-    # chars left after the system prompt and the caller's prompt. History
+    # Direct rendering: every attachment enters whole against the 1M
+    # input budget — no allocator, no chunking, no part markers. History
     # is deliberately NOT subtracted here — the shipped transcript is the
     # LAST fallback, so its length can never shrink an attachment and the
     # static prompt-cache prefix stays stable across turns.
-    rendered, attachments_truncated, budget_info = _allocate_attachments(
-        candidates,
-        _attachment_priority(stage),
-        system_chars=len(system_prompt),
-        user_chars=len(user_prompt),
-        history_chars=0,
-        budget=_input_budget_cap(),
-    )
+    rendered, attachments_truncated, budget_info = _render_direct(candidates)
 
     def _slot(name: str) -> str:
         return "\n\n---\n\n".join(
@@ -3538,19 +3093,11 @@ def brain_turn(
     effective_prompt = "\n\n---\n\n".join(_blocks)
 
     # Input budget: system + prompt + history chars count against the
-    # configured ceiling. The allocator already reserved the shipped
-    # history, so this loop is the LAST-resort safety net. The FIRST
-    # history turn is grounding and survives; oldest MIDDLE turns drop
-    # first. History loss is reported separately from attachment loss.
+    # configured ceiling. History is NEVER dropped to fit: the shipped
+    # transcript is already bounded at load (``_HISTORY_LIMIT``), so the
+    # full session thread always rides along. History loss is reported
+    # separately from attachment loss.
     history_turns_dropped = 0
-    while (
-        history
-        and len(history) > 1
-        and len(system_prompt) + len(effective_prompt) + _hist_chars()
-        > _input_budget_cap()
-    ):
-        history.pop(1)
-        history_turns_dropped += 1
     truncated_count = history_turns_dropped
     budget_chars = len(system_prompt) + len(effective_prompt) + _hist_chars()
     util_pct = budget_chars * 100 // _model_window_chars()

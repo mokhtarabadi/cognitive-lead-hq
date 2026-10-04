@@ -3,8 +3,9 @@
 Local, transport-free validation of every ``brain_turn`` call: an
 explicit ``project_root`` must hold a ``tasks/`` dir (raise, never
 silently fall back to the workspace root); memory-bearing turns bind to
-exactly one of ``task_id`` / ``session_id``; ``stage``, the boolean
-flags, the Kanban path, and ``required_tools`` are shape-checked.
+``session_id`` when present (session-first) else ``task_id``; ``stage``,
+the boolean flags, the Kanban path, and ``required_tools`` are
+shape-checked.
 
 Stdlib only — unit tests import this module without the MCP stack.
 """
@@ -60,8 +61,7 @@ def require_session_id(session_id: object) -> str:
     """Fail-closed gate for taskless saga turns. Returns the stripped
     id; raises PreflightError on traversal, separators, or overlong
     input — the id becomes a transcript path segment."""
-    if isinstance(session_id, str) and _SESSION_ID_RE.fullmatch(
-            session_id.strip()):
+    if isinstance(session_id, str) and _SESSION_ID_RE.fullmatch(session_id.strip()):
         return session_id.strip()
     raise PreflightError(
         f"bad session_id: {session_id!r} — must match "
@@ -136,18 +136,18 @@ def _check_stage(stage: object) -> Optional[str]:
     if isinstance(stage, str) and stage in ALLOWED_STAGES:
         return stage
     raise PreflightError(
-        f"bad stage: {stage!r} — must be one of {list(ALLOWED_STAGES)} "
-        "or omitted."
+        f"bad stage: {stage!r} — must be one of {list(ALLOWED_STAGES)} or omitted."
     )
 
 
 def _check_flags(include_bundle: object, include_diff: object) -> None:
-    for name, value in (("include_bundle", include_bundle),
-                        ("include_diff", include_diff)):
+    for name, value in (
+        ("include_bundle", include_bundle),
+        ("include_diff", include_diff),
+    ):
         if not isinstance(value, bool):
             raise PreflightError(
-                f"bad {name}: {value!r} — must be a bool, not "
-                f"{type(value).__name__}."
+                f"bad {name}: {value!r} — must be a bool, not {type(value).__name__}."
             )
 
 
@@ -161,13 +161,13 @@ def _resolve_kanban_path(kanban_path: object, *, root: Path) -> Optional[Path]:
         )
     raw = str(kanban_path)
     base = (root / "tasks").resolve()
-    candidate = (Path(raw).expanduser()
-                 if Path(raw).is_absolute() else (root / raw))
+    candidate = Path(raw).expanduser() if Path(raw).is_absolute() else (root / raw)
     try:
         resolved = candidate.resolve()
     except OSError as exc:
         raise PreflightError(
-            f"bad kanban_path: {raw!r} — unresolvable ({exc}).") from exc
+            f"bad kanban_path: {raw!r} — unresolvable ({exc})."
+        ) from exc
     if resolved != base and base not in resolved.parents:
         raise PreflightError(
             f"bad kanban_path: {raw!r} — escapes <project_root>/tasks/. "
@@ -175,15 +175,15 @@ def _resolve_kanban_path(kanban_path: object, *, root: Path) -> Optional[Path]:
         )
     if resolved.suffix != ".md":
         raise PreflightError(
-            f"bad kanban_path: {raw!r} — must point at a task .md file.")
+            f"bad kanban_path: {raw!r} — must point at a task .md file."
+        )
     return resolved
 
 
 def _check_required_tools(required_tools: object) -> tuple:
     if required_tools is None:
         return ()
-    if isinstance(required_tools, str) or not isinstance(
-            required_tools, (list, tuple)):
+    if isinstance(required_tools, str) or not isinstance(required_tools, (list, tuple)):
         raise PreflightError(
             f"bad required_tools: {required_tools!r} — must be a list of "
             "tool-name strings, e.g. ['question']."
@@ -200,6 +200,7 @@ def _check_required_tools(required_tools: object) -> tuple:
 @dataclass(frozen=True)
 class ValidatedRequest:
     """A ``brain_turn`` request that passed local preflight."""
+
     project_root: Optional[Path]
     binding: str  # "task" | "session" | "one-off"
     task_id: Optional[str] = None
@@ -212,9 +213,10 @@ class ValidatedRequest:
 
     @property
     def history_key(self) -> Optional[str]:
-        """Transcript key: task turns continue the task history, saga
-        turns continue the session history, one-offs persist nothing."""
-        return self.task_id if self.task_id is not None else self.session_id
+        """Transcript key: session-first — a supplied ``session_id``
+        keys the history so one thread spans tasks; otherwise a task
+        turn continues the task history; one-offs persist nothing."""
+        return self.session_id if self.session_id is not None else self.task_id
 
 
 def validate_request(
@@ -232,18 +234,15 @@ def validate_request(
 ) -> ValidatedRequest:
     """Validate a ``brain_turn`` request before any load, attach, or
     transport. Raises PreflightError on the first malformed field."""
-    if task_id is not None and session_id is not None:
-        raise PreflightError(
-            f"bad binding: task_id={task_id!r} and "
-            f"session_id={session_id!r} are mutually exclusive — pass "
-            "exactly one so history continues under a single key."
-        )
-    clean_task = (require_bare_task_id(task_id)
-                  if task_id is not None else None)
-    clean_session = (require_session_id(session_id)
-                     if session_id is not None else None)
-    binding = ("task" if clean_task is not None
-               else "session" if clean_session is not None else "one-off")
+    clean_task = require_bare_task_id(task_id) if task_id is not None else None
+    clean_session = require_session_id(session_id) if session_id is not None else None
+    binding = (
+        "session"
+        if clean_session is not None
+        else "task"
+        if clean_task is not None
+        else "one-off"
+    )
     _check_flags(include_bundle, include_diff)
     clean_stage = _check_stage(stage)
     clean_tools = _check_required_tools(required_tools)
@@ -260,7 +259,13 @@ def validate_request(
             )
         clean_kanban = _resolve_kanban_path(kanban_path, root=root)
     return ValidatedRequest(
-        project_root=root, binding=binding, task_id=clean_task,
-        session_id=clean_session, stage=clean_stage,
-        kanban_path=clean_kanban, include_bundle=bool(include_bundle),
-        include_diff=bool(include_diff), required_tools=clean_tools)
+        project_root=root,
+        binding=binding,
+        task_id=clean_task,
+        session_id=clean_session,
+        stage=clean_stage,
+        kanban_path=clean_kanban,
+        include_bundle=bool(include_bundle),
+        include_diff=bool(include_diff),
+        required_tools=clean_tools,
+    )

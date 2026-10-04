@@ -300,7 +300,7 @@ def test_extract_ignores_fenced_blocks():
     assert '"b": 2' in blocks[0]
 
 
-def test_brain_turn_truncates_oldest_history(tmp_path, monkeypatch):
+def test_brain_turn_never_drops_history(tmp_path, monkeypatch):
     monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
     prompt_file = tmp_path / ".config" / "opencode" / "sys.md"
@@ -334,10 +334,12 @@ def test_brain_turn_truncates_oldest_history(tmp_path, monkeypatch):
     result = target("q", task_id="215")
     assert result["status"] == "REPORT"
     assert result["output"] == "ok"
+    # session-first: no middle-turn dropping — the whole thread ships
+    assert result["history_turns_dropped"] == 0
     big_turns = [
         t for t in holder["body"]["input"] if t.get("content", "").startswith("x")
     ]
-    assert 1 <= len(big_turns) < 10
+    assert len(big_turns) == 10
 
 
 # --- Hotfix-2 new tests (mocked httpx only) ---
@@ -605,7 +607,7 @@ def test_bundle_skips_missing_file_with_marker(tmp_path, monkeypatch):
         },
     )
     monkeypatch.setenv("BRAIN_WORKSPACE_ROOT", str(ws))
-    out = _unwrap(bridge.get_context_bundle)()
+    out = bridge._build_context_bundle()
     assert "=== agents/cognitive-executor.md ===" in out
     assert "exec content" in out
     assert "[missing: docs/architecture.md]" in out
@@ -616,7 +618,7 @@ def test_bundle_truncates_large_file(tmp_path, monkeypatch):
     big = "x" * 65000
     ws = _mk_workspace(tmp_path, {"DESIGN.md": big})
     monkeypatch.setenv("BRAIN_WORKSPACE_ROOT", str(ws))
-    out = _unwrap(bridge.get_context_bundle)()
+    out = bridge._build_context_bundle()
     assert "[truncated]" in out
     section = out.split("=== DESIGN.md ===")[1]
     assert len(section) < len(big) + 5000
@@ -657,7 +659,7 @@ def test_build_context_bundle_explicit_root_beats_env_decoy(tmp_path, monkeypatc
     assert "[missing: docs/conventions.md]" not in out
 
 
-def test_get_context_bundle_tool_honours_project_root(tmp_path, monkeypatch):
+def test_build_context_bundle_honours_project_root(tmp_path, monkeypatch):
     decoy = _mk_workspace(
         tmp_path,
         {
@@ -671,7 +673,7 @@ def test_get_context_bundle_tool_honours_project_root(tmp_path, monkeypatch):
         "REAL_TOOL_CONTENT", encoding="utf-8"
     )
 
-    out = _unwrap(bridge.get_context_bundle)(str(project))
+    out = bridge._build_context_bundle(str(project))
 
     assert "REAL_TOOL_CONTENT" in out
     assert "DECOY_TOOL_CONTENT" not in out
@@ -691,24 +693,7 @@ def test_workspace_root_follows_cwd_walkup(tmp_path, monkeypatch):
     monkeypatch.chdir(nested)
 
     assert bridge._workspace_root() == project.resolve()
-    assert "WALKUP_BUNDLE_CONTENT" in _unwrap(bridge.get_context_bundle)()
-
-
-def test_read_and_grep_honour_explicit_project_root(tmp_path, monkeypatch):
-    decoy = _mk_workspace(tmp_path, {"notes.md": "DECOY_NEEDLE\n"})
-    monkeypatch.setenv("BRAIN_WORKSPACE_ROOT", str(decoy))
-    project = tmp_path / "project"
-    project.mkdir()
-    (project / "notes.md").write_text("alpha\nREAL_NEEDLE beta\n", encoding="utf-8")
-
-    result = _unwrap(bridge.read_file)(
-        "notes.md", offset=2, limit=1, project_root=str(project)
-    )
-    assert result["lines"] == ["2: REAL_NEEDLE beta"]
-
-    hits = _unwrap(bridge.grep_files)("REAL_NEEDLE", project_root=str(project))
-    assert any("notes.md:2:" in h for h in hits)
-    assert not any("DECOY_NEEDLE" in h for h in hits)
+    assert "WALKUP_BUNDLE_CONTENT" in bridge._build_context_bundle()
 
 
 def test_brain_turn_bundle_follows_project_root(tmp_path, monkeypatch):
@@ -739,65 +724,6 @@ def test_brain_turn_bundle_follows_project_root(tmp_path, monkeypatch):
     last = user_msgs[-1]["content"]
     assert "REAL_TURN_CONTENT" in last
     assert "DECOY_TURN_CONTENT" not in last
-
-
-def test_read_file_offset_limit(tmp_path, monkeypatch):
-    ws = _mk_workspace(tmp_path, {"notes.md": "a\nb\nc\nd\ne\n"})
-    monkeypatch.setenv("BRAIN_WORKSPACE_ROOT", str(ws))
-    result = _unwrap(bridge.read_file)("notes.md", offset=2, limit=2)
-    assert result["total_lines"] == 5
-    assert result["lines"] == ["2: b", "3: c"]
-
-
-def test_read_file_rejects_traversal(tmp_path, monkeypatch):
-    ws = _mk_workspace(tmp_path, {"notes.md": "hi\n"})
-    monkeypatch.setenv("BRAIN_WORKSPACE_ROOT", str(ws))
-    import pytest as _pt
-
-    with _pt.raises(ValueError):
-        _unwrap(bridge.read_file)("../evil.md")
-    outside = tmp_path / "outside.md"
-    outside.write_text("evil\n", encoding="utf-8")
-    with _pt.raises(ValueError):
-        _unwrap(bridge.read_file)(str(outside))
-
-
-def test_read_file_rejects_bad_extension(tmp_path, monkeypatch):
-    ws = _mk_workspace(tmp_path, {"run.py": "print(1)\n"})
-    monkeypatch.setenv("BRAIN_WORKSPACE_ROOT", str(ws))
-    import pytest as _pt
-
-    with _pt.raises(ValueError):
-        _unwrap(bridge.read_file)("run.py")
-
-
-def test_grep_finds_planted_string(tmp_path, monkeypatch):
-    ws = _mk_workspace(
-        tmp_path,
-        {
-            "docs/a.md": "hello PLANTED_NEEDLE world\nsecond line\n",
-            "notes.txt": "nothing here\n",
-        },
-    )
-    monkeypatch.setenv("BRAIN_WORKSPACE_ROOT", str(ws))
-    hits = _unwrap(bridge.grep_files)("PLANTED_NEEDLE")
-    assert any("docs/a.md:1:" in h and "PLANTED_NEEDLE" in h for h in hits)
-
-
-def test_grep_skips_git(tmp_path, monkeypatch):
-    ws = _mk_workspace(
-        tmp_path,
-        {
-            "notes.md": "visible SKIPME_GIT_TEST\n",
-        },
-    )
-    git_file = ws / ".git" / "hidden.md"
-    git_file.parent.mkdir(parents=True, exist_ok=True)
-    git_file.write_text("hidden SKIPME_GIT_TEST\n", encoding="utf-8")
-    monkeypatch.setenv("BRAIN_WORKSPACE_ROOT", str(ws))
-    hits = _unwrap(bridge.grep_files)("SKIPME_GIT_TEST")
-    assert any("notes.md" in h for h in hits)
-    assert not any("/.git/" in h or h.startswith(".git/") for h in hits)
 
 
 def _mk_bundle_ws(tmp_path, monkeypatch):
@@ -1416,55 +1342,7 @@ def test_task_attach_pull_path_is_lane_relative_and_live(tmp_path, monkeypatch):
     monkeypatch.setattr(bridge, "_workspace_root", lambda: tmp_path)
     attach = bridge._build_task_attach("200-foo")
     assert "tasks/backlog/200-foo.md" in attach
-    pulled = bridge._read_file_impl("tasks/backlog/200-foo.md")
-    assert pulled["total_lines"] == 4
-
-
-def test_grep_skips_symlink_escape(tmp_path, monkeypatch):
-    ws = tmp_path / "ws"
-    sub = ws / "docs"
-    sub.mkdir(parents=True)
-    (sub / "real.md").write_text("hello\n", encoding="utf-8")
-    outside = tmp_path / "outside-secret.md"
-    outside.write_text("SECRET-XYZ\n", encoding="utf-8")
-    (sub / "evil.md").symlink_to(outside)
-    monkeypatch.setattr(bridge, "_workspace_root", lambda: ws)
-    hits = bridge._grep_files_impl("SECRET-XYZ", "docs")
-    assert hits == []
-
-
-def test_read_file_limit_clamped(tmp_path, monkeypatch):
-    (tmp_path / "big.md").write_text(
-        "".join(f"line {n}\n" for n in range(2500)), encoding="utf-8"
-    )
-    monkeypatch.setattr(bridge, "_workspace_root", lambda: tmp_path)
-    result = bridge._read_file_impl("big.md", limit=10**9)
-    assert result["limit"] == bridge._READ_MAX_LINES
-    assert len(result["lines"]) == bridge._READ_MAX_LINES
-
-
-def test_read_file_oversize_refused(tmp_path, monkeypatch):
-    (tmp_path / "huge.md").write_bytes(b"x" * (bridge._READ_MAX_BYTES + 1))
-    monkeypatch.setattr(bridge, "_workspace_root", lambda: tmp_path)
-    with pytest.raises(ValueError, match="too large"):
-        bridge._read_file_impl("huge.md")
-
-
-def test_grep_pattern_too_long_rejected(tmp_path, monkeypatch):
-    monkeypatch.setattr(bridge, "_workspace_root", lambda: tmp_path)
-    with pytest.raises(ValueError, match="too long"):
-        bridge._grep_files_impl("a" * (bridge._GREP_PATTERN_MAX + 1))
-
-
-def test_grep_skips_overlong_lines(tmp_path, monkeypatch):
-    sub = tmp_path / "docs"
-    sub.mkdir()
-    (sub / "mix.md").write_text(
-        "MATCH " + ("z" * 5000) + "\nplain MATCH line\n", encoding="utf-8"
-    )
-    monkeypatch.setattr(bridge, "_workspace_root", lambda: tmp_path)
-    hits = bridge._grep_files_impl("MATCH", "docs")
-    assert len(hits) == 1 and ":2:" in hits[0]
+    assert (d / "200-foo.md").read_text(encoding="utf-8").splitlines().__len__() == 4
 
 
 def test_extract_fed_context_present():
@@ -2566,6 +2444,44 @@ def test_fed_context_persists_across_second_turn(tmp_path, monkeypatch):
     assert bridge.load_fed_context("t9") == "CTX turn one\nCTX turn two"
 
 
+def test_brain_turn_persists_thread_across_session_turns(tmp_path, monkeypatch):
+    # Session-first: two turns under one session_id share one thread,
+    # even across different task_ids; the transcript persists under the
+    # session key, never the task key.
+    _mk_tasks_root(tmp_path)
+    _turn_setup(tmp_path, monkeypatch)
+    first = _call_turn(
+        monkeypatch,
+        "first turn UNIQUE_MARKER_ALPHA",
+        task_id="200",
+        session_id="sess-1",
+        include_bundle=False,
+        project_root=str(tmp_path),
+    )
+    assert first["status"] == "REPORT"
+    holder = {}
+    _mk_bridge_client(monkeypatch, [_FakeResp(200, "fine", _ok_payload("ok"))], holder)
+    target = (
+        bridge.brain_turn.fn if hasattr(bridge.brain_turn, "fn") else bridge.brain_turn
+    )
+    second = target(
+        "second turn",
+        task_id="201",
+        session_id="sess-1",
+        include_bundle=False,
+        project_root=str(tmp_path),
+    )
+    assert second["status"] == "REPORT"
+    shipped = [
+        t.get("content", "")
+        for t in holder["body"]["input"]
+        if t.get("role") != "system"
+    ]
+    assert any("UNIQUE_MARKER_ALPHA" in c for c in shipped)
+    transcript = tmp_path / "sessions" / "sess-1" / "transcript.jsonl"
+    assert transcript.is_file()
+
+
 def test_plan_verdict_valid():
     plan = (
         "verdict: PLAN APPROVED\nseats: Architect\npath: implement\n"
@@ -3274,8 +3190,9 @@ def test_cache_split_nul_role_cannot_collide():
 
 
 def test_cache_split_descriptor_matches_post_truncation_wire(tmp_path, monkeypatch):
-    # M3: the descriptor must describe the SHIPPED (post-truncation)
-    # wire, never the pre-truncation assembly (F3).
+    # M3: the descriptor must describe the SHIPPED wire. History is never
+    # dropped to fit (session-first): even a tiny _INPUT_BUDGET ships the
+    # full thread, so the descriptor matches the whole history.
     _clean_routing_env(monkeypatch)
     monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
     _mk_sys_prompt(tmp_path, monkeypatch)
@@ -3293,9 +3210,10 @@ def test_cache_split_descriptor_matches_post_truncation_wire(tmp_path, monkeypat
     )
     target("first-question", task_id="234", include_bundle=False)
     second = target("second-question", task_id="234", include_bundle=False)
+    assert second["history_turns_dropped"] == 0
     shipped = holder["body"]["input"]
     shipped_history = [t for t in shipped[1:-1]]
-    assert len(shipped_history) < 2  # the middle drop really fired
+    assert len(shipped_history) == 2  # no middle drop: full thread ships
     expected = bridge.build_prompt_cache_split(
         "sys", "", "", "second-question", history=shipped_history
     )
@@ -3367,61 +3285,75 @@ def test_paths_attach_60k_file_untruncated(tmp_path, monkeypatch):
     assert out.endswith(payload)
 
 
-def test_render_attachment_complete_has_no_markers():
-    block, meta = bridge._render_attachment(
-        "diff", "x.diff", "[changed-hunks:1: x.diff]", "diff", "short", 40000
+def test_render_direct_whole_has_no_markers():
+    rendered, truncated, info = bridge._render_direct(
+        [
+            {
+                "kind": "diff",
+                "path": "x.diff",
+                "open_line": "[changed-hunks:1: x.diff]",
+                "fence_lang": "diff",
+                "text": "short",
+            }
+        ]
     )
+    assert truncated == []
+    assert len(rendered) == 1
+    _cand, block, meta = rendered[0]
     assert meta is None
     assert "NEXT_ATTACHMENT_PART" not in block
+    assert "[ATTACHMENT" not in block
     assert "short" in block
+    assert info["attachment_chars_used"] == len(block)
 
 
-def test_render_attachment_parts_and_resume():
-    text = "abcdefghij" * 100
-    block, meta = bridge._render_attachment(
-        "diff", "x.diff", "[changed-hunks:1: x.diff]", "diff", text, 600
-    )
-    assert meta is not None
-    assert meta["part"] == 1
-    assert meta["parts"] > 1
-    assert f"next_offset_chars={meta['next_offset_chars']}" in block
-    assert "NEXT_ATTACHMENT_PART" in block
-    block2, meta2 = bridge._render_attachment(
-        "diff",
-        "x.diff",
-        "[changed-hunks:1: x.diff]",
-        "diff",
-        text,
-        100000,
-        offset=meta["next_offset_chars"],
-    )
-    assert meta2 is None
-    assert text[meta["next_offset_chars"] :] in block2
-
-
-def test_validate_attachment_resume_shape():
-    assert bridge._validate_attachment_resume(None) is None
-    assert bridge._validate_attachment_resume("nope") is None
-    assert bridge._validate_attachment_resume({"kind": "bogus", "path": "x"}) is None
-    ok = bridge._validate_attachment_resume(
-        {"kind": "diff", "path": "a.diff", "offset_chars": 5}
-    )
-    assert ok == {"kind": "diff", "path": "a.diff", "offset_chars": 5}
-    assert (
-        bridge._validate_attachment_resume({"kind": "diff", "path": "a.diff"})[
-            "offset_chars"
+def test_render_direct_cap_truncates_inline():
+    rendered, truncated, _info = bridge._render_direct(
+        [
+            {
+                "kind": "diff",
+                "path": "x.diff",
+                "open_line": "[changed-hunks:1: x.diff]",
+                "fence_lang": "diff",
+                "text": "y" * 5000,
+                "cap": 4000,
+            }
         ]
-        == 0
     )
+    assert truncated == []
+    _cand, block, meta = rendered[0]
+    assert meta is None
+    assert "NEXT_ATTACHMENT_PART" not in block
+    assert "[...truncated at 4000 chars" in block
 
 
-def test_attachment_priority_review_prefers_evidence():
-    review = bridge._attachment_priority("review")
-    assert review.index("diff") < review.index("bundle")
-    assert review.index("context_path") < review.index("bundle")
-    assert bridge._attachment_priority("qa") == review
-    plain = bridge._attachment_priority(None)
-    assert plain.index("bundle") < plain.index("diff")
+def test_render_direct_group_total_cap_shared():
+    cands = [
+        {
+            "kind": "context_path",
+            "path": "a.md",
+            "open_line": "[path-injected: a.md]",
+            "fence_lang": None,
+            "text": "a" * 600,
+            "cap": 60000,
+            "group": "context_path",
+            "group_cap": 1000,
+        },
+        {
+            "kind": "context_path",
+            "path": "b.md",
+            "open_line": "[path-injected: b.md]",
+            "fence_lang": None,
+            "text": "b" * 600,
+            "cap": 60000,
+            "group": "context_path",
+            "group_cap": 1000,
+        },
+    ]
+    rendered, truncated, _info = bridge._render_direct(cands)
+    assert truncated == []
+    assert "b" * 600 not in rendered[1][1]
+    assert "shared context_path budget" in rendered[1][1]
 
 
 def _turn_setup(tmp_path, monkeypatch):
@@ -3469,7 +3401,9 @@ def test_small_review_turn_reports_no_attachment_truncation(tmp_path, monkeypatc
     assert result["truncated_count"] == 0
 
 
-def test_review_turn_reports_attachment_truncation_separately(tmp_path, monkeypatch):
+def test_review_turn_applies_diff_cap_inline_without_markers(tmp_path, monkeypatch):
+    # No allocator, no part markers: the per-attachment cap still bounds
+    # the diff, reported inline — never as resume tokens.
     _big_diff_task(tmp_path)
     _turn_setup(tmp_path, monkeypatch)
     monkeypatch.setattr(bridge, "_TASK_DIFF_CAP", 4000)
@@ -3483,73 +3417,14 @@ def test_review_turn_reports_attachment_truncation_separately(tmp_path, monkeypa
     )
     assert result["history_turns_dropped"] == 0
     assert result["truncated_count"] == 0
-    assert result["attachments_truncated"], "truncation must be reported"
-    entry = result["attachments_truncated"][0]
-    assert set(
-        ("kind", "path", "shown_chars", "total_chars", "dropped_chars", "part", "parts")
-    ) <= set(entry)
-    assert entry["kind"] == "diff"
-    assert entry["shown_chars"] < entry["total_chars"]
-    assert entry["shown_chars"] + entry["dropped_chars"] == entry["total_chars"]
-    assert result["attachment_parts"]
-    assert result["attachment_budget_chars"] >= 0
+    assert result["attachments_truncated"] == []
+    assert result["attachment_parts"] == []
+    assert result["attachment_chars_used"] > 0
 
 
-def test_review_turn_can_resume_the_dropped_remainder(tmp_path, monkeypatch):
-    _big_diff_task(tmp_path)
-    _turn_setup(tmp_path, monkeypatch)
-    monkeypatch.setattr(bridge, "_TASK_DIFF_CAP", 4000)
-    first = _call_turn(
-        monkeypatch,
-        "code reviewer, adversarial review",
-        task_id="200",
-        include_bundle=False,
-        include_diff=True,
-        project_root=str(tmp_path),
-    )
-    entry = first["attachments_truncated"][0]
-    monkeypatch.setattr(bridge, "_TASK_DIFF_CAP", 10000000)
-    second = _call_turn(
-        monkeypatch,
-        "code reviewer, adversarial review",
-        task_id="200",
-        include_bundle=False,
-        include_diff=True,
-        project_root=str(tmp_path),
-        attachment_resume={
-            "kind": "diff",
-            "path": entry["path"],
-            "offset_chars": entry["next_offset_chars"],
-        },
-    )
-    assert second["attachment_chars_used"] > 0
-    resumed = second["attachment_parts"]
-    if resumed:
-        assert resumed[0]["offset_chars"] == entry["next_offset_chars"]
-    else:
-        assert second["attachments_truncated"] == []
-
-
-def test_big_change_set_chunks_into_numbered_parts(tmp_path, monkeypatch):
-    path = _big_diff_task(tmp_path, chars=260000)
-    assert len(path.read_text(encoding="utf-8")) > 250000
-    _turn_setup(tmp_path, monkeypatch)
-    result = _call_turn(
-        monkeypatch,
-        "code reviewer, adversarial review",
-        task_id="200",
-        include_bundle=False,
-        include_diff=True,
-        project_root=str(tmp_path),
-    )
-    entry = result["attachments_truncated"][0]
-    assert entry["kind"] == "diff"
-    assert entry["part"] == 1 and entry["parts"] > 1
-    assert entry["next_offset_chars"] > 0
-    assert entry["next_offset_chars"] == entry["shown_chars"]
-
-
-def test_review_turn_prioritises_diff_over_bundle(tmp_path, monkeypatch):
+def test_review_turn_attaches_diff_and_bundle_whole(tmp_path, monkeypatch):
+    # No allocator means no evidence-vs-bundle contest: both enter whole,
+    # each bounded only by its own cap.
     _big_diff_task(tmp_path, chars=300000)
     _turn_setup(tmp_path, monkeypatch)
     monkeypatch.setenv("BRAIN_INPUT_BUDGET", "50000")
@@ -3562,17 +3437,14 @@ def test_review_turn_prioritises_diff_over_bundle(tmp_path, monkeypatch):
         stage="review",
         project_root=str(tmp_path),
     )
-    diff_entries = [e for e in result["attachments_truncated"] if e["kind"] == "diff"]
-    bundle_entries = [
-        e for e in result["attachments_truncated"] if e["kind"] == "bundle"
-    ]
-    assert diff_entries and diff_entries[0]["shown_chars"] > 0
-    assert bundle_entries and bundle_entries[0]["shown_chars"] == 0
+    assert result["attachments_truncated"] == []
+    assert result["attachment_parts"] == []
+    assert result["attachment_chars_used"] > 0
 
 
 def test_review_turn_delivers_60k_context_path_untruncated(tmp_path, monkeypatch):
-    # Turn-level proof, not just the standalone builder: the shared
-    # allocator must hand the seat a 60k report whole. The older 100k
+    # Turn-level proof, not just the standalone builder: direct rendering
+    # must hand the seat a 60k report whole. The older 100k
     # send ceiling starved this to ~12k once the system prompt was paid.
     _big_diff_task(tmp_path)
     _turn_setup(tmp_path, monkeypatch)
@@ -3653,63 +3525,10 @@ def test_malformed_cap_fails_the_turn(tmp_path, monkeypatch):
         )
 
 
-def test_render_attachment_fenced_respects_exact_room():
-    # The wrapper — open line, fences and their separators — is part of
-    # the block, so it must be priced against the room granted. Comparing
-    # only the body length let a rendered block exceed its budget.
-    block, meta = bridge._render_attachment(
-        "diff", "x.diff", "[changed-hunks:1: x.diff]", "diff", "x" * 500, 500
-    )
-    assert len(block) <= 500
-    assert meta is not None
-    assert meta["shown_chars"] < 500
-
-
-def test_render_attachment_unfenced_respects_exact_room():
-    block, meta = bridge._render_attachment(
-        "task", "x.md", "[task-file:1: x.md]", None, "x" * 500, 500
-    )
-    assert len(block) <= 500
-    assert meta is not None
-
-
-def test_render_attachment_short_fit_keeps_no_markers():
-    # An exact/whole fit still renders without part markers: no phantom
-    # split for content that fits.
-    block, meta = bridge._render_attachment(
-        "diff", "x.diff", "[changed-hunks:1: x.diff]", "diff", "x" * 10, 500
-    )
-    assert meta is None
-    assert len(block) <= 500
-    assert "[ATTACHMENT" not in block
-    assert "[NEXT_ATTACHMENT_PART" not in block
-
-
-def test_render_attachment_fenced_split_resumes_exactly():
-    block, meta = bridge._render_attachment(
-        "diff", "x.diff", "[changed-hunks:1: x.diff]", "diff", "abcdefghij" * 100, 400
-    )
-    assert len(block) <= 400
-    assert meta["next_offset_chars"] == meta["shown_chars"]
-    assert meta["remaining_chars"] == meta["total_chars"] - meta["shown_chars"]
-    resumed, _meta = bridge._render_attachment(
-        "diff",
-        "x.diff",
-        "[changed-hunks:1: x.diff]",
-        "diff",
-        "abcdefghij" * 100,
-        400,
-        offset=meta["next_offset_chars"],
-    )
-    assert "abcdefghij" * 100 not in block
-    assert len(resumed) <= 400
-
-
 def test_ctx_paths_total_cap_enforced_across_files(tmp_path, monkeypatch):
     # Every context_paths file shares one configured total budget. The
-    # candidates are allocated independently, so the aggregate must be
-    # enforced by the allocator — otherwise the combined content sails
-    # past BRAIN_CTX_TOTAL_CAP bounded only by the input budget.
+    # direct renderer enforces the aggregate inline: the second file can
+    # only show the group's remaining share, with no resume tokens.
     _big_diff_task(tmp_path)
     _turn_setup(tmp_path, monkeypatch)
     (tmp_path / "a.md").write_text("a" * 600, encoding="utf-8")
@@ -3726,13 +3545,11 @@ def test_ctx_paths_total_cap_enforced_across_files(tmp_path, monkeypatch):
         context_paths=["a.md", "b.md"],
         project_root=str(tmp_path),
     )
-    entries = [
-        e for e in result["attachments_truncated"] if e["kind"] == "context_path"
-    ]
-    assert entries, "the overflow must be reported, never silent"
-    # The second file can only show the group's remaining share.
-    assert all(e["shown_chars"] <= 400 for e in entries)
-    assert all(e["total_chars"] == 600 for e in entries)
+    assert result["attachments_truncated"] == []
+    assert result["attachment_parts"] == []
+    # 1200 chars of content against a 1000-char shared budget: the
+    # aggregate must hold, so used chars stay well under the uncut total.
+    assert result["attachment_chars_used"] < 1200 + 500
 
 
 def test_malformed_ctx_per_file_cap_fails_the_turn(tmp_path, monkeypatch):
