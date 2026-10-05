@@ -177,7 +177,6 @@ def test_regression_source_functions_untouched():
     root = Path(__file__).parent.parent
     for name, subdir, func, params in (
         ("mem_server_249", "mcp-memory-server", "search_memory", ["query", "namespace", "project_root"]),
-        ("dec_server_249", "mcp-decision-server", "query_manager_decisions", ["query", "category", "project_root"]),
     ):
         sys.path.insert(0, str(root / subdir))
         try:

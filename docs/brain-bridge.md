@@ -21,8 +21,7 @@ retired persona engine. The Hands calls it for every Brain turn
    nothing, allowlist tags inside ```xml bodies still extract (other
    fences stay documentation-only).
 4. **Questions relay to the Manager.** A `QUESTION` verdict pauses
-   the Hands until the Manager answers (Autopilot mode answers
-   from `manager_decision` rulings instead — see below).
+   the Hands until the Manager answers.
 
 ## Session-first chat history
 
@@ -213,14 +212,10 @@ roles (caller-controlled transcript text) can never alias another
 segment list's bytes; the failsafe attach hashes in its own slot,
 never merged into the diff slot.
 
-## Autopilot + manager-decision
 
 Autopilot mode (default OFF) runs the full state machine with zero
-approvals. It decides what the Manager would decide by consulting
-past rulings via the `manager_decision` skill and the
-`manager_decisions` MCP server (`mcp-decision-server/`, restored
-and live). Every new ruling the Manager makes is recorded there,
-so autopilot gets smarter over time.
+approvals. It decides from the task file and Brain context and records
+the outcome. Every new Manager ruling is recorded in the task file.
 
 ## Verify
 

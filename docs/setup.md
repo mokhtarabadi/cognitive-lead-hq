@@ -56,7 +56,6 @@ The project uses five FastMCP Python servers, all running as supervised singleto
 | `mcp-context-server`                          | `.gitignore`-aware file reading, tree exploration                             | 8102 (`mcp-context.service`)  |
 | `mcp-memory-server`                           | Persistent project memory (namespaces + index)                                | 8103 (`mcp-memory.service`)   |
 | `mcp-lint-server`                             | Task file linting and Markdown validation                                     | 8101 (`mcp-lint.service`)     |
-| [`mcp-decision-server`](manager-decisions.md) | Manager-decision capture and consultation                                     | 8104 (`mcp-decision.service`) |
 | `mcp-brain-bridge`                            | Unified Brain bridge: `brain_turn` (system-prompt loader + LLM + XML extract) | 8105 (`mcp-brain.service`)    |
 
 Each unit launches its server via the persistent venv interpreter (`<dir>/.venv/bin/python <dir>/server.py`, never `uv run` — `uv` startup exceeds the V2 connect timeout under multi-session spawn load, 2026-09-29 fix), with `MCP_TRANSPORT=streamable-http` plus `MCP_HOST`/`MCP_PORT` in the unit environment.
@@ -89,7 +88,6 @@ into the service, so export anything you want the OpenCode process itself
 to see (used by `{env:VAR}` forwarding) before enabling:
 
 ```bash
-export DECISION_REPO_PATH="$HOME/Develop/Projects/manager-decisions"
 export OPENCHAMBER_UI_PASSWORD="$(cat ~/.secrets/openchamber-ui-password)"
 openchamber startup enable --port 3005 --host 127.0.0.1
 ```

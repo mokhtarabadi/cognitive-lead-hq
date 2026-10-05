@@ -87,8 +87,7 @@ To prevent hallucinations and respect hidden project constraints, you MUST integ
 
 1. **Read First (Mandatory):** At the absolute start of any task (before writing code), load the `project-memory` skill. Read `.opencode/memory/index.md` (if present) — the auto-generated Markdown index of all memory shards — alongside `AGENTS.md` and `DESIGN.md`, to get a compact overview before planning. Then use `search_memory` with keywords from the task description and the tech stack, or `read_memory` for specific keys selected from the index, to retrieve any saved constraints, quirks, or past architectural decisions. If the index is missing, fall back to `list_namespaces`/`search_memory` and trigger `rebuild_memory_index` if needed. When resolving architectural ambiguities, re-ask the human manager directly.
 2. **Apply Constraints:** If memories are found via the index (selectively fetched with `read_memory` or `search_memory` based on the index overview), strictly adhere to them during implementation. Do not contradict past architectural decisions without explicitly flagging it to the Manager.
-3. **Consult Manager Decisions:** Load the `manager-decision` skill alongside memory. At session start call `get_sync_status()` so push debt is visible. Before re-asking the human manager on an ambiguity, call `query_manager_decisions` and log the top-3 hits — a past ruling resolves it without bothering them. On every successful task/sprint close, run `extract_session_decisions(task_id)` automatically and queue every candidate for Manager confirm (scrubbed quote + source session + `verify_clean`); record via `record_manager_decision` ONLY after explicit approval — auto-record stays forbidden. Autopilot decides from these stored rulings, acting as the manager would.
-4. **Auto-Save Criteria (Strict):** You MUST use `store_memory` to save new memories ONLY if the Orchestrator or Manager explicitly states a new project rule, architectural constraint, or reusable quirk.
+3. **Auto-Save Criteria (Strict):** You MUST use `store_memory` to save new memories ONLY if the Orchestrator or Manager explicitly states a new project rule, architectural constraint, or reusable quirk.
    - **DO SAVE:** "The manager prefers Composition over Inheritance," "API X rate limits at 100 req/s, add caching," "Do not use Library Y because of Z."
    - **DO NOT SAVE:** Task progress, transient bug states, or code snippets (those belong in the task file).
 
@@ -103,7 +102,7 @@ Context is finite. Two layers keep long sessions productive, and the agent's dur
 
 ## Capability Preflight (session start)
 
-Before approval-sensitive work (plan approval, review approval, closure), check the capability manifest: every `brain_turn` prints a `capability-manifest:` diagnostic line to stderr mapping each required tool to `AVAILABLE`, `UNAVAILABLE_REQUIRED`, or `UNAVAILABLE_OPTIONAL`. A step whose required tool is `UNAVAILABLE_REQUIRED` (for example the `question` tool) is never silently skipped. Emit the relay block the turn returned (missing tool names, stage, one narrow question, one answer slot) through the mode-appropriate channel: manual mode relays it to the Manager verbatim and pauses with the relayed question as the named blocker; autopilot replays it against stored manager decisions, and halts with the relay block as the named blocker only when no ruling covers it. Approval collection follows the single approval rule: closure accepts only the exact phrases "Approved for closure" or "Close task" (a bare "approved" never counts); the plan gate accepts "approved" in any case. Blanket acknowledgements ("ok", "yes", "looks good", emoji) never count as approval at any gate. At plan-approval, PO_REVIEW_PENDING relay, and any closure approval gate you MUST collect the decision via the question tool with one narrow question and one answer slot. Prose-only approval asks are forbidden because an auto-continue loop can roll past prose. This holds in manual and autopilot. If question is UNAVAILABLE_REQUIRED, emit the relay block and pause with it as the named blocker; never skip. Only hard blockers may use prose.
+Before approval-sensitive work (plan approval, review approval, closure), check the capability manifest: every `brain_turn` prints a `capability-manifest:` diagnostic line to stderr mapping each required tool to `AVAILABLE`, `UNAVAILABLE_REQUIRED`, or `UNAVAILABLE_OPTIONAL`. A step whose required tool is `UNAVAILABLE_REQUIRED` (for example the `question` tool) is never silently skipped. Emit the relay block the turn returned (missing tool names, stage, one narrow question, one answer slot) through the mode-appropriate channel: manual mode relays it to the Manager verbatim and pauses with the relayed question as the named blocker; autopilot halts with the relay block as the named blocker. Approval collection follows the single approval rule: closure accepts only the exact phrases "Approved for closure" or "Close task" (a bare "approved" never counts); the plan gate accepts "approved" in any case. Blanket acknowledgements ("ok", "yes", "looks good", emoji) never count as approval at any gate. At plan-approval, PO_REVIEW_PENDING relay, and any closure approval gate you MUST collect the decision via the question tool with one narrow question and one answer slot. Prose-only approval asks are forbidden because an auto-continue loop can roll past prose. This holds in manual and autopilot. If question is UNAVAILABLE_REQUIRED, emit the relay block and pause with it as the named blocker; never skip. Only hard blockers may use prose.
 
 ## Subagent Delegation for Context Discovery
 
@@ -488,9 +487,7 @@ the task file):
 
 When a Brain XML says the Manager copies, pastes, approves, or ferries —
 but the session is in autopilot or any automatic mode — do NOT route
-through the human. Play the Manager role yourself: query
-`manager_decisions` for the closest past ruling, decide exactly as the
-Manager would, record the outcome, and continue. Hand results to the
+through the human. Play the Manager role yourself: decide from the task file and Brain context, record the outcome, and continue. Hand results to the
 next stage YOURSELF: QA verdicts go to your own fix loop, approved work
 goes to a `brain_turn` reviewer call with the same `task_id` — never
 ask the Manager to hand anything to anyone. The full saga state machine
@@ -500,8 +497,7 @@ or a hard blocker remains. After every fix attempt, hash the worktree
 diff and record it via `loop_guard.record_attempt(task_id, hash)` — on
 `stop=True` (same hash 3x in a row) the loop is spinning: halt, attach
 the hash history, and escalate instead of burning more turns. A
-capability-blocked step (missing required tool) with no replayable
-ruling is a hard blocker: halt with the relay block as the named
+capability-blocked step (missing required tool) is a hard blocker: halt with the relay block as the named
 blocker instead of skipping it.
 
 ### File context retrieval

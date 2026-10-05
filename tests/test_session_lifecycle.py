@@ -17,7 +17,6 @@ import pytest
 
 REPO = Path(__file__).parent.parent
 BRIDGE_DIR = REPO / "mcp-brain-bridge"
-DECISION_DIR = REPO / "mcp-decision-server"
 sys.path.insert(0, str(BRIDGE_DIR))
 
 import server as bridge
@@ -113,7 +112,6 @@ def test_approval_promotes_only_via_explicit_record(tmp_path):
         "s1", 0, project_root=str(proj))
     assert returned["summary"] == "use X"
     # Promotion alone writes no committed decision: the caller must pass
-    # the returned payload to record_manager_decision explicitly.
     assert list((proj / "tasks").rglob("DEC-*.json")) == []
     kinds = [e["event"] for e in ledger.read_ledger(
         project_root=str(proj))]
@@ -133,156 +131,6 @@ def test_rejected_candidate_auditable_never_active(tmp_path):
     assert list((proj / "tasks").rglob("DEC-*.json")) == []
 
 
-# --- Part 2: decision persistence without numeric task ids ------------------
-
-def _load_decision_server():
-    sys.modules["redactor"] = _decision_load(
-        "decision_redactor", "redactor.py")
-    return _decision_load("decision_server", "server.py")
-
-
-def _decision_load(name, filename):
-    spec = importlib.util.spec_from_file_location(
-        name, DECISION_DIR / filename)
-    mod = importlib.util.module_from_spec(spec)
-    sys.modules[name] = mod
-    spec.loader.exec_module(mod)
-    return mod
-
-
-@pytest.fixture(scope="module")
-def srv():
-    return _load_decision_server()
-
-
-@pytest.fixture()
-def repo(tmp_path, monkeypatch):
-    monkeypatch.setenv("DECISION_REPO_PATH", str(tmp_path))
-    (tmp_path / "decisions").mkdir()
-    real_scripts = (REPO / ".opencode" / "decisions" / "scripts")
-    shutil.copytree(real_scripts, tmp_path / "scripts")
-    return tmp_path
-
-
-def _plant_taskless_transcript(root, session_id):
-    path = (root / "tasks" / ".sessions" / session_id
-            / "transcript.jsonl")
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
-        json.dumps({"role": "user", "content": "ship taskless",
-                    "name": "m",
-                    "timestamp": "2026-09-08T00:00:00+00:00"}) + "\n",
-        encoding="utf-8")
-    return path
-
-
-def _stub_decision_llm(monkeypatch, candidates):
-    stub_resp = types.SimpleNamespace(
-        status_code=200, text="stub", headers={},
-        raise_for_status=lambda: None,
-        json=lambda: {
-            "output": [
-                {"type": "message",
-                 "content": [{"type": "output_text",
-                              "text": json.dumps(candidates)}]}
-            ]
-        },
-    )
-
-    class _FakeClient:
-        def __init__(self, *a, **k):
-            pass
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *a):
-            return False
-
-        def post(self, *a, **k):
-            return stub_resp
-
-    stub = types.ModuleType("httpx")
-    stub.Client = _FakeClient
-    stub.TimeoutException = type("TimeoutException", (Exception,), {})
-    stub.TransportError = type("TransportError", (Exception,), {})
-
-    class _Timeout:
-        def __init__(self, *a, **k):
-            pass
-
-    stub.Timeout = _Timeout
-    monkeypatch.setitem(sys.modules, "httpx", stub)
-
-
-_CANDS = [{
-    "verbatim_quote": {"original": "ship taskless",
-                       "english_translation": "ship taskless"},
-    "extracted_decision": {"summary": "s", "category": "architecture",
-                           "rationale": "r", "alternatives": [],
-                           "tradeoffs": "t"},
-}]
-
-
-def test_extract_session_id_missing_transcript_returns_empty(
-        srv, tmp_path, monkeypatch):
-    monkeypatch.chdir(tmp_path)
-    call = srv.extract_session_decisions
-    target = call.fn if hasattr(call, "fn") else call
-    assert target(session_id="saga-missing") == []
-
-
-def test_extract_session_id_parses_stubbed_llm(
-        srv, tmp_path, monkeypatch):
-    _plant_taskless_transcript(tmp_path, "saga2")
-    monkeypatch.chdir(tmp_path)
-    _stub_decision_llm(monkeypatch, _CANDS)
-    call = srv.extract_session_decisions
-    target = call.fn if hasattr(call, "fn") else call
-    assert target(session_id="saga2") == _CANDS
-
-
-def test_extract_numeric_task_id_path_unchanged(
-        srv, tmp_path, monkeypatch):
-    transcript = tmp_path / "transcript.jsonl"
-    transcript.write_text(
-        json.dumps({"role": "user", "content": "ship taskless", "name": "m",
-                    "timestamp": "2026-09-08T00:00:00+00:00"}) + "\n",
-        encoding="utf-8")
-    _stub_decision_llm(monkeypatch, _CANDS)
-    call = srv.extract_session_decisions
-    target = call.fn if hasattr(call, "fn") else call
-    assert target(7, transcript_path=str(transcript)) == _CANDS
-
-
-def test_extract_string_task_id_treated_as_session(
-        srv, tmp_path, monkeypatch):
-    _plant_taskless_transcript(tmp_path, "abc")
-    monkeypatch.chdir(tmp_path)
-    _stub_decision_llm(monkeypatch, _CANDS)
-    call = srv.extract_session_decisions
-    target = call.fn if hasattr(call, "fn") else call
-    assert target("abc") == _CANDS
-
-
-def test_extract_neither_task_nor_session_raises(srv):
-    call = srv.extract_session_decisions
-    target = call.fn if hasattr(call, "fn") else call
-    with pytest.raises(ValueError):
-        target()
-
-
-def test_extract_rejects_bad_session_id(srv):
-    call = srv.extract_session_decisions
-    target = call.fn if hasattr(call, "fn") else call
-    with pytest.raises(ValueError):
-        target(session_id="../evil")
-
-
-def test_sync_status_is_not_approval_status(srv, repo):
-    call = srv.get_sync_status
-    target = call.fn if hasattr(call, "fn") else call
-    assert "approv" not in target().lower()
 
 
 # --- Part 3: lint carve-out and analysis lifecycle --------------------------

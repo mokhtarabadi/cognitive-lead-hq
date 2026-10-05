@@ -1085,11 +1085,9 @@ def validate_closure_checklist(task_text: object) -> list[str]:
     Returns problem strings; empty means ready. Closeout needs a
     ``QA_PASSED`` verdict line, a ``PO_REVIEW_PENDING`` reviewer state,
     the exact approval-word quote (only "Approved for closure" or
-    "Close task" count — bare "approved" never does), a non-empty
+    "Close task" count — bare "approved" never does), and a non-empty
     Factual Git Diff block (content between the markers, not the empty
-    placeholder), and evidence that ``extract_session_decisions`` ran
-    for the close (the auto-extract rule never fires unless closeout
-    verifies it). Anything missing must be fixed before the closure
+    placeholder). Anything missing must be fixed before the closure
     commit, never closed around.
     """
     if not isinstance(task_text, str) or not task_text.strip():
@@ -1102,8 +1100,6 @@ def validate_closure_checklist(task_text: object) -> list[str]:
         problems.append("task text missing PO_REVIEW_PENDING reviewer state")
     if not any(word in lowered for word in _CLOSURE_APPROVAL_WORDS):
         problems.append("task text missing exact approval-word quote")
-    if not re.search(r"\bextract_session_decisions\b", task_text):
-        problems.append("task text shows no extract_session_decisions run")
     diff_match = re.search(
         r"<!-- BEGIN_GIT_DIFF -->(.*?)<!-- END_GIT_DIFF -->", task_text, re.DOTALL
     )

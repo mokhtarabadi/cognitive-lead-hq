@@ -106,7 +106,7 @@ Store this value — you will use it to construct absolute paths in the global c
 Create the global OpenCode directories:
 
 ```bash
-for d in mcp-context-server mcp-memory-server mcp-lint-server mcp-brain-bridge mcp-decision-server mcp-common; do
+for d in mcp-context-server mcp-memory-server mcp-lint-server mcp-brain-bridge mcp-common; do
   mkdir -p ~/.config/opencode/$d
 done
 mkdir -p ~/.config/opencode/skills
@@ -116,10 +116,10 @@ mkdir -p ~/.config/opencode/skills
 
 ## 5. Copy MCP Servers and Make Them Executable
 
-Copy the MCP server modules from the cloned repo. Every server is multi-module (`brain-bridge` = `server.py` + `capability.py`/`preflight.py`/`loop_guard.py`/`session_ledger.py`/`transport_learning.py`/`authority_retrieval.py`/`eval_harness.py`/`golden_replay.py`; `decision-server` = `server.py` + `redactor.py` + `detector.py`), so copy **all `*.py`**. Each dir also carries `pyproject.toml` + committed `uv.lock` — copy those too so launches resolve locked deps:
+Copy the MCP server modules from the cloned repo. Every server is multi-module (`brain-bridge` = `server.py` + `capability.py`/`preflight.py`/`loop_guard.py`/`session_ledger.py`/`transport_learning.py`/`authority_retrieval.py`/`eval_harness.py`/`golden_replay.py`), so copy **all `*.py`**. Each dir also carries `pyproject.toml` + committed `uv.lock` — copy those too so launches resolve locked deps:
 
 ```bash
-for d in mcp-context-server mcp-memory-server mcp-lint-server mcp-brain-bridge mcp-decision-server; do
+for d in mcp-context-server mcp-memory-server mcp-lint-server mcp-brain-bridge; do
   cp /tmp/cognitive-lead-hq/$d/*.py ~/.config/opencode/$d/
   cp /tmp/cognitive-lead-hq/$d/pyproject.toml /tmp/cognitive-lead-hq/$d/uv.lock ~/.config/opencode/$d/
   chmod +x ~/.config/opencode/$d/server.py
@@ -205,7 +205,7 @@ After this, the `cognitive-executor` will be available as a primary agent, enfor
 
 ## 7. Configure Global opencode.json (with Absolute Paths)
 
-Create or update `~/.config/opencode/opencode.json`. You MUST use **absolute paths** in the `command` array — resolve the `~` to the full home directory path discovered in Step 3. The project ships **7 MCP servers** (3 core + `manager_decisions` + `brain` bridge + `blowsh` browsing + `telegram` account routing); the persona server and the previous browser automation MCP are retired — use `blowsh` for JS-heavy browsing.
+Create or update `~/.config/opencode/opencode.json`. You MUST use **absolute paths** in the `command` array — resolve the `~` to the full home directory path discovered in Step 3. The project ships **6 MCP servers** (3 core + `brain` bridge + `blowsh` browsing + `telegram` account routing); the persona server and the previous browser automation MCP are retired — use `blowsh` for JS-heavy browsing.
 
 Write the following JSON (replace `$HOME` with the actual home directory path only where it still appears — the `mcp` entries are loopback URLs shared by every session and project, so they contain no paths at all). V2 structure per https://opencode.ai/v2/docs/mcp-servers/ (verified 2026-09-29): each MCP runs as **one supervised singleton** on `127.0.0.1` (see `docs/services.md` + Step 7.5), and OpenCode connects via `mcp.servers` entries with `type: "remote"` + `url` + `disabled: false` + `timeout: {catalog, execution}` (ours are raised above the 5000ms default — 15s standard, 30s telegram, 120s blowsh, 600s LLM bridges). No session ever spawns its own server processes: with 2+ sessions open the OS process count per server stays exactly one.
 
@@ -233,12 +233,6 @@ Write the following JSON (replace `$HOME` with the actual home directory path on
         "url": "http://127.0.0.1:8101/mcp",
         "disabled": false,
         "timeout": { "catalog": 15000, "execution": 15000 }
-      },
-      "manager_decisions": {
-        "type": "remote",
-        "url": "http://127.0.0.1:8104/mcp",
-        "disabled": false,
-        "timeout": { "catalog": 600000, "execution": 600000 }
       },
       "brain": {
         "type": "remote",
@@ -505,32 +499,6 @@ Full runbook: `docs/openchamber.md`. Official docs: https://docs.openchamber.dev
 
 ---
 
-## 7.11. Personal Manager-Decisions Repo (Declare or Auto-Create)
-
-The manager's decisions live in ONE separate personal repo (Task 216) — the
-authoritative personality source across all projects. Declare it or let the
-tooling create it:
-
-```bash
-# 1. Declare (or create when gh is pre-configured):
-export DECISION_REPO_PATH="$HOME/manager-decisions"   # clone/checkout path
-# No repo yet? gh auth status && gh repo create <owner>/manager-decisions --public --clone
-# Visibility: public by default (cooler per manager order); --private stays optional.
-# 2. Verify the server sees it: record one decision, confirm the stderr line
-#    "decision-server: active store: personal repo (DECISION_REPO_PATH=<path>)"
-#    (not "project fallback (...)").
-```
-
-Without `DECISION_REPO_PATH` the server falls back to per-project
-`.opencode/decisions/` (write-through cache + offline fallback) and logs it —
-records still land, personality just stays local. Set it in the server's own
-`.env` (`~/.config/opencode/.env` for the global install, repo-root `.env` for
-repo runs) — the decision server self-loads that file, so no `opencode.json`
-`{env:}` block is needed. Never hardcode a literal path in a shared config —
-one global literal would break per-user resolution.
-
----
-
 ## 8. Clean Up Temporary Clone
 
 Remove the cloned repository from `/tmp/`:
@@ -563,7 +531,6 @@ After completing all steps, verify:
 - [ ] `~/.config/opencode/mcp-memory-server/server.py` exists and is executable
 - [ ] `~/.config/opencode/mcp-lint-server/server.py` exists and is executable
 - [ ] `~/.config/opencode/mcp-brain-bridge/server.py` exists and is executable (plus its sibling modules `capability.py`, `preflight.py`, `loop_guard.py`, `session_ledger.py`, `transport_learning.py`, `authority_retrieval.py`, `eval_harness.py`, `golden_replay.py`)
-- [ ] `~/.config/opencode/mcp-decision-server/server.py` exists and is executable (plus `redactor.py`, `detector.py`)
 - [ ] `~/.config/opencode/mcp-common/src/mcp_common/env.py` exists
 - [ ] Skills are installed under `~/.config/opencode/skills/` (at least one subfolder exists) — should include `bundle-tasks` (31 skills total)
 - [ ] `~/.config/opencode/agents/cognitive-executor.md` exists

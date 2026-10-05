@@ -29,6 +29,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Removed
 
+- **Retired manager-decision wiring, kept LLM.txt as setup entry point:** removed prompt registry lines, executor consult blocks, docs contract file, skill templates, MCP decision server purged entirely with its service units, decision tests removed or stripped, memory namespaces deleted with index rebuild. Live `LLM.txt` references in README and docs kept intact; decision sections inside `LLM.txt` itself removed. External personal decisions repo kept untouched. History paths unchanged.
 - **Lean session-first Brain bridge refactor (Task 292):** Removed dead tools `read_file`, `grep_files`, and `get_context_bundle` from `mcp-brain-bridge` (Hands use native OpenCode `read`/`grep`/`glob`; the five-file bundle still auto-attaches internally). Removed the multipart chunking allocator (`_allocate_attachments`, `_render_attachment`, `_marker_room`, `_open_overhead`, `_validate_attachment_resume`, `_attachment_priority`, priority tuples) and the `attachment_resume` turn parameter, plus the `history.pop(1)` middle-turn drop loop and the `_read_file_impl` / `_grep_files_impl` helpers with their grep/read guardrail constants.
 
 ## [9.53.0] - 2026-10-04

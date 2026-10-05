@@ -2515,7 +2515,6 @@ def _close_ready_task():
     return (
         "VERDICT: QA_PASSED\nstate PO_REVIEW_PENDING\n"
         'Manager wrote: "Approved for closure".\n'
-        "Ran extract_session_decisions(241): [] loudly, nothing queued.\n"
         "<!-- BEGIN_GIT_DIFF -->\n```diff\n"
         "diff --git a/f.py b/f.py\n+fix\n"
         "```\n<!-- END_GIT_DIFF -->"
@@ -2550,14 +2549,6 @@ def test_closure_checklist_missing_each():
             base.replace(
                 "diff --git a/f.py b/f.py\n+fix",
                 "_(Git diff will be automatically injected here)_",
-            )
-        )
-    )
-    assert any(
-        "extract_session_decisions" in p
-        for p in bridge.validate_closure_checklist(
-            base.replace(
-                "Ran extract_session_decisions(241): [] loudly, nothing queued.\n", ""
             )
         )
     )

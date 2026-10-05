@@ -15,7 +15,7 @@ of three statuses — no silent fourth state:
 Availability registry grounding (read 2026-09-19): the granted tool
 surface is ``opencode.json`` ``permission`` — families
 ``custom_context_*``, ``project_memory_*``, ``lint_*``, ``blowsh_*``,
-``telegram_*``, plus ``brain_turn``, the manager-decision tools, the
+``telegram_*``, plus ``brain_turn``, the
 context tools (``get_directory_tree``, ``read_source_files``,
 ``bundle_tasks``), and the native core (``task``, ``skill``,
 ``todowrite``, ``read``, ``edit``, ``write``, ``bash``, ``grep``,
@@ -55,30 +55,26 @@ AVAILABLE_FAMILIES = (
     "telegram_",
 )
 
-# Exact tool names outside those families: the bridge itself, the
-# manager-decision tools, the context tools, and the native core.
-AVAILABLE_EXACT = frozenset({
-    "brain_turn",
-    "get_sync_status",
-    "query_manager_decisions",
-    "get_manager_profile",
-    "extract_session_decisions",
-    "record_manager_decision",
-    "propose_profile_evolution",
-    "get_directory_tree",
-    "read_source_files",
-    "bundle_tasks",
-    "task",
-    "skill",
-    "todowrite",
-    "read",
-    "edit",
-    "write",
-    "bash",
-    "grep",
-    "glob",
-    "question",
-})
+# Exact tool names outside those families: the bridge itself,
+# the context tools, and the native core.
+AVAILABLE_EXACT = frozenset(
+    {
+        "brain_turn",
+        "get_directory_tree",
+        "read_source_files",
+        "bundle_tasks",
+        "task",
+        "skill",
+        "todowrite",
+        "read",
+        "edit",
+        "write",
+        "bash",
+        "grep",
+        "glob",
+        "question",
+    }
+)
 
 # Tools referenced by live prompts/skills but absent from the granted
 # toolset (see module docstring). Listed explicitly so the manifest can
@@ -119,8 +115,7 @@ class CapabilityBlockedError(RuntimeError):
         )
 
 
-def _is_available(name: str, available: frozenset,
-                  unavailable: frozenset) -> bool:
+def _is_available(name: str, available: frozenset, unavailable: frozenset) -> bool:
     if name in unavailable:
         return False
     if name in available:
@@ -175,8 +170,7 @@ def evaluate(
 def gate(manifest: Mapping[str, str], stage: Optional[str] = None) -> None:
     """Raise ``CapabilityBlockedError`` when a required tool is missing."""
     missing = sorted(
-        name for name, status in manifest.items()
-        if status == "UNAVAILABLE_REQUIRED"
+        name for name, status in manifest.items() if status == "UNAVAILABLE_REQUIRED"
     )
     if missing:
         raise CapabilityBlockedError(missing, stage)
@@ -186,8 +180,7 @@ def format_relay_block(error: CapabilityBlockedError) -> str:
     """The single relay rule: missing tool → narrow question + answer slot.
 
     Carries only the missing names, the stage, and the question the
-    human (manual mode) or the manager-decision replay (autopilot)
-    must answer. Never carries file content.
+    human must answer. Never carries file content.
     """
     names = ", ".join(error.missing)
     return (

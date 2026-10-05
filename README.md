@@ -166,7 +166,6 @@ cp .env.example .env
 - [Blowsh Web Skill](skill-templates/blowsh/SKILL.md) — live-web search/fetch/crawl via the blowsh MCP server
 - [Cognitive Executor Agent](agents/cognitive-executor.md) (Bridge + Autopilot sections)
 - [Setup Guide](docs/setup.md)
-- [Manager-Decisions MCP Server](docs/manager-decisions.md) — tool schemas and usage contract for the six decision tools
 
 ---
 
@@ -189,7 +188,6 @@ cp .env.example .env
 ├── docs/
 │   ├── conventions.md                  # Syntax rules and automation conventions
 │   ├── setup.md                        # Platform tool setup and installation guide
-│   ├── manager-decisions.md            # manager_decisions MCP tool schemas and usage contract
 │   ├── history/                        # Milestone compaction summaries
 │   └── opencode/                       # OpenCode documentation mirror
 ├── mcp-context-server/
@@ -198,8 +196,6 @@ cp .env.example .env
 │   └── server.py                       # FastMCP server for task file linting
 ├── mcp-memory-server/
 │   └── server.py                       # FastMCP server for persistent project memory
-├── mcp-decision-server/
-│   └── server.py                       # FastMCP server for Manager-decision capture & consultation
 ├── mcp-brain-bridge/                  # Unified Brain bridge
 │   └── server.py                       # FastMCP `BrainBridge`: brain_turn (prompt loader + LLM + XML extract)
 ├── prompts/                            # System prompt source tree (fragments + shared partials)
@@ -399,7 +395,8 @@ Best if you want this codebase exploration tool available in _every_ terminal di
 
 _(Note: Replace `/Users/<YOUR_USER>` with your actual home directory path)._
 
-> Full HQ install (all 7 MCP servers — context, memory, lint, brain, manager_decisions, blowsh, telegram — plus 31 skills and both agents) is documented in `LLM.txt` §4–§7 and the `global-install-upgrade` memory workflow, not here; the steps above cover only the standalone context server for third-party projects.
+Full HQ install covering all core MCP servers plus skills plus both agents is documented in LLM.txt sections 4 through 7 and the global-install-upgrade memory workflow not here. The steps above cover only the standalone context server for third party projects.
+
 
 ### How It Works
 

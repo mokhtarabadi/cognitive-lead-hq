@@ -12,7 +12,6 @@ updated_at: '2026-09-19T11:50:23.064502+00:00'
 Applies to both servers today:
 
 - `mcp-brain-bridge/server.py` — `parse_responses_diagnostics`, `_log_provider_diagnostics`, `_provider_error_hint`, `_provider_refusal_hint`, `_output_budget_hint`, `_maybe_warn_reasoning_budget`.
-- `mcp-decision-server/server.py` — `_responses_diagnostics`, `_log_responses_diagnostics`, `_provider_failure_message`.
 
 Required diagnostics shape (stable keys, null when absent):
 `status`, `incomplete_reason`, `usage{input_tokens,output_tokens,reasoning_tokens,total_tokens}`, `error`, `refusal`.

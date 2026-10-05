@@ -1,0 +1,7826 @@
+# Task 296: Retire manager-decision wiring and remove llm.txt references
+
+**File:** `tasks/qa/296-retire-manager-decision-wiring-and-remove-llm-txt-references.md`
+**Source:** manager
+**Type:** chore
+**Status:** open
+**Risk-Tier:** T2 destructive
+
+## Goal
+
+Remove every live manager-decision reference in cognitive-lead-hq except the external personal repo at /home/mohammad/Develop/Projects/manager-decisions. Purge the MCP decision component entirely with its service units. Keep LLM.txt and README setup references intact and remove only decision sections inside them. Delete fully with no placeholder notes.
+
+## Manager's Notes
+
+Direct Manager order: "Review the entire project and make sure you've found every place where Manager Decision appears: across the whole prompt system, fragments, agents, the README, and the MCP server itself. We want to fully retire it, but keep the Manager Decision repository that is the core repo. Everything else related to it should be cleaned up. Clean it up everywhere, including memory. Even within the memory store, remove anything related to it. My suggestion: archive it as well — archive its MCP component too. Then search for llm.txt everywhere, find all occurrences, and remove them. Also, don't leave notes like this was deleted. Delete the entire text/code sections related to Manager Decision wherever they exist. Remove them completely. Create a task for this and execute it end-to-end."
+
+## Scope
+
+In scope:
+- prompts/fragments/07-agent_skills_registry.md, agents/cognitive-executor.md, system-prompt.md rebuild, opencode.json permissions
+- README.md, docs/setup.md, docs/brain-bridge.md, docs/manager-decisions.md
+- skill-templates/manager-decision/, skill-templates/decision-migration/, .opencode/skills/ manager copies
+- mcp-decision-server/ archive, tests/test_decision_server.py and related asserts, .opencode/decisions/ scaffolding
+- .opencode/memory/manager-decisions/*, manager/*, index.md entries, quirks/full_output_verification_rule.md mention
+- All live llm.txt mentions in README, docs/compaction.md, docs/openchamber.md, docs/telegram-setup.md, services/mcp-telegram.service, CHANGELOG references left intact as history, LLM.txt file disposition
+
+Out of scope:
+- External personal repo /home/mohammad/Develop/Projects/manager-decisions is KEPT as-is
+- docs/history/* and tasks/archive/* history is never rewritten
+- No git add/commit/push by Hands (ZAC holds)
+
+## Local TODOs
+
+- [x] Inventory live hits with grep evidence
+- [x] Remove prompt/agent wiring and rebuild system-prompt
+- [x] Remove docs and README references, delete docs/manager-decisions.md
+- [x] Archive mcp-decision-server, update tests and opencode.json
+- [x] Clean .opencode/memory and .opencode/decisions scaffolding, rebuild index
+- [x] Remove live llm.txt references and decide LLM.txt file fate
+- [x] Purge archived MCP decision component per Manager correction
+- [x] Run verification gates and stage diff
+
+## Acceptance Criteria
+
+- [x] AC1: grep for manager-decision, manager_decision, DECISION_REPO_PATH, mcp-decision-server returns zero live hits outside history and external repo path
+- [x] AC2: mcp-decision-server is purged and no live config references its tools
+- [x] AC3: memory index has no manager-decision namespaces and no decision tool mentions in live memory
+- [x] AC4: LLM.txt kept as setup entry point with decision sections removed, README setup references intact
+- [x] AC5: full test suite and lint gates pass with evidence recorded
+
+## Verification Evidence
+
+- **Test command:** rtk test uv run --project mcp-brain-bridge --with pytest --with pathspec pytest tests/ -q
+- **Expected result:** pass exit 0
+- **Actual result:** 541 passed, 22 warnings in 4.32s (exit 0) with OPENCODE_SESSION_ID unset; hotfix re-verified after QA round 1
+- **Exit code:** 0
+
+## Definition of Done
+
+- [x] Build/Test/Lint pass with exit code 0
+- [x] `lint_task_file` passes on the active task file
+- [x] `CHANGELOG.md` updated via Parse-Then-Append
+- [x] `verification-before-completion` applied and evidence recorded
+
+## Risk & Rollback
+
+- **Risk:** destructive delete removes needed wiring or breaks tests and prompt rebuild
+- **Rollback plan:** worktree diff revert before staging, history reachable via git log --follow, external decisions repo untouched
+
+---
+
+## Execution Log & Reasoning
+
+- Seat Check: domains are prompt contract plus MCP server removal plus docs and memory cleanup → Software Architect + Senior Programmer requested. UI/UX Designer skipped (no user-visible surface). QA, Reviewer, Planner, Strategist skipped at planning (verification comes later).
+- Brainstorm: required — cross-disciplinary cleanup plus hard-to-reverse deletes.
+- Prompt-refactor applied: validated English direct order, expanded scope from discovery subagents, structured as T2 chore with explicit keeps.
+- Brain plan verdict 2026-10-05: Architect + Senior Programmer 2-seat consult APPROVED plan P0-P7. Keeps K1 external repo untouched, K2 history immutable, K3 ZAC. Selected path: inventory-first deletes, archive mcp-decision-server via git mv, rebuild system-prompt and memory index, llm.txt sweep with disposition record. Awaiting Manager plan approval before implementation XML.
+- Manager plan approval 2026-10-05: "Approved" via question tool. Routed back through Brain for Senior Programmer implementation XML. Executed XML verbatim.
+- Execution: Step1 inventory recorded live hits across prompts, agents, docs, skills, MCP, memory, tests. Steps 2-6 deleted full lines and sections with no placeholder notes, archived mcp-decision-server with git mv preserving git log follow, rebuilt system-prompt via assembler exit 0, rebuilt memory index to 21 entries with zero decision namespaces. LLM disposition: root LLM.txt deleted after zero live refs outside history. External personal repo untouched. History paths docs/history, tasks/archive, CHANGELOG history, telegram-sync left intact.
+- Assumption A1: context-reports and tasks/.sessions transcripts count as generated history and were excluded from live zero-hit gates. Reason: they are not live config.
+- Assumption A2: single transport-learning test failure under ambient OPENCODE_SESSION_ID is environmental, not caused by deletes. Reason: passes with session unset.
+- Q1: prompts/archive/17-decision_logging_mandate.md left as history. Confirm history treatment stands.
+- Correction 2026-10-05 per Manager: LLM.txt restored and kept as the setup entry point with only decision sections removed. README and docs setup references restored. Archive purged entirely with rm -rf per no-longer-needed order. LLM disposition: kept and cleaned.
+- Hotfix Checklist (Brain QA round 1, QA_REJECTED F1-F4):
+- [x] Step 1 docs/brain-bridge.md autopilot paragraph rewritten generic with zero decision refs
+- [x] Step 2 quirks rule body restored generic without decision mention
+- [x] Step 3 README HQ install pointer restored generic with zero decision refs
+- [x] Step 4 upgrade workflow history note restored generic without live wiring
+- [x] Step 5 memory index rebuilt to 21 entries, zero decision namespaces confirmed
+- Hotfix Checklist round 2 (Brain QA round 2, second REJECTED):- [x] Step 1 docs/brain-bridge.md Questions relay bullet rewritten clean with zero decision refs
+- [x] Step 2 .env.example orphan decision comment block deleted fully, BRAIN comments intact
+- [x] Step 3 index quirks row restored via rebuild, generic description with zero decision refs
+- [x] Step 4 rebuild preserved the description, index staged
+- Brain QA round 3 verdict 2026-10-05: QA_PASSED. Scope confirmed safe and limited to decision wiring. S1 LLM kept, S2 README and setup docs intact, S3 server purged, S4 no unrelated behavior change. Tests 541 passed, lint pass, index 21 entries zero decision namespaces.
+- Code Reviewer verdict 2026-10-05: APPROVED to PO_REVIEW_PENDING. Technically approved with no functional issues. I1 capability.py and I2 session_ledger.py style reflows accepted as is. Awaiting Manager explicit closure words.
+- Grep evidence: live-source mgr grep (excl .git/archive/.venv/__pycache__/context-reports/docs-history/tasks/CHANGELOG/telegram-sync/.pytest_cache/external) returns exit 1 with zero hits. llm live grep (same exclusions plus LLM.txt self) returns zero hits. index grep for manager-decision returns exit 1.
+
+## Factual Git Diff
+
+<!-- BEGIN_GIT_DIFF -->
+```diff
+diff --git a/.env.example b/.env.example
+index 605a50a..931d5cc 100644
+--- a/.env.example
++++ b/.env.example
+@@ -33,43 +33,6 @@ BRAIN_API_KEY=sk-...
+ # Malformed or non-positive values fail loud.
+ #BRAIN_HTTP_READ_TIMEOUT=600
+ 
+-# Manager decisions (mcp-decision-server) — extraction model + temperature.
+-# Blank model = falls back to BRAIN_MODEL. Blank base/key = fall back to
+-# BRAIN_API_BASE/BRAIN_API_KEY (same Responses-API transport); set the
+-# DECISION_* pair to route decisions to a different provider or account.
+-#DECISION_API_BASE=
+-#DECISION_API_KEY=
+-#DECISION_MODEL=
+-# Reasoning effort sent as `reasoning.effort` (default high — the DeepSeek
+-# V4.1 Flash default; that model advertises only max/high/low. Blank =
+-# BRAIN_REASONING_EFFORT).
+-#DECISION_REASONING_EFFORT=
+-# Output token cap for extraction turns (default 16384; blank leaves the
+-# default in place). Must be a positive integer — a malformed, zero or
+-# negative value fails the call with a ValueError naming the variable.
+-#DECISION_MAX_TOKENS=16384
+-# HTTP read timeout (seconds) for the extraction call (default 600). This
+-# knob is independent of BRAIN_HTTP_READ_TIMEOUT.
+-#DECISION_HTTP_READ_TIMEOUT=600
+-# Extraction sampling temperature (default 1.0; blank leaves the default
+-# in place). Must be a number in the inclusive range 0.0-2.0 — a malformed
+-# or out-of-range value fails the call with a ValueError.
+-#DECISION_TEMPERATURE=1.0
+-# Character cap for the session transcript sent to the extraction model
+-# (default 131072; blank leaves the default in place). An oversized
+-# transcript is truncated BEFORE the prompt is built and the prompt then
+-# carries `[...truncated at N chars]`, where N is the DROPPED character
+-# count. Must be a positive integer — a malformed, zero or negative value
+-# fails the call with a ValueError naming the variable.
+-#DECISION_TRANSCRIPT_MAX_CHARS=131072
+-# Decision store path — set ONCE here or as a shell export, never per call.
+-# When set, all tools resolve the personal repo silently; when blank, the
+-# server falls back to the per-project store and logs which store each
+-# record landed in. In shared opencode.json forward it as
+-# `{env:DECISION_REPO_PATH}` — never a hardcoded literal path, since one
+-# global literal breaks per-user resolution.
+-#DECISION_REPO_PATH=$HOME/manager-decisions
+-
+ # Risk-aware routing (mcp-brain-bridge) — ON by default. Hard stages use the
+ # high model, light stages use the low one; an explicit `risk_tier` on
+ # `brain_turn(..., risk_tier=...)` overrides the stage-derived tier
+@@ -83,4 +46,4 @@ BRAIN_API_KEY=sk-...
+ #BRAIN_MODEL_HIGH=openai/gpt-5.6-luna
+ # Stage->tier overrides: comma-separated `stage:Tier` pairs merged onto the
+ # built-in default (unusable pairs are ignored).
+-#BRAIN_STAGE_TIERS=plan:T2,review:T2,implement:T0,qa:T0,closure:T0
+\ No newline at end of file
++#BRAIN_STAGE_TIERS=plan:T2,review:T2,implement:T0,qa:T0,closure:T0
+diff --git a/.opencode/decisions/samples/manager_profile.md b/.opencode/decisions/samples/manager_profile.md
+deleted file mode 100644
+index b3867d7..0000000
+--- a/.opencode/decisions/samples/manager_profile.md
++++ /dev/null
+@@ -1,35 +0,0 @@
+-# Manager Profile (baseline sample — Task 168)
+-
+-> Living sample of the manager's judgment, aggregated from the decision repo
+-> by `scripts/compile_profile.py`. NEVER hand-edit the generated sections;
+-> propose changes via `propose_profile_evolution` and pass the human review
+-> gate. Only this hand-written baseline section is curated directly.
+-
+-## Baseline behavioral guidelines
+-
+-- Decide in the open: state the rationale and the rejected alternatives, not just the verdict.
+-- Prefer reversible decisions; mark irreversible ones explicitly and slow down for them.
+-- Keep the audit trail: every ruling links to its verbatim quote and session.
+-- Gate anything that learns or publishes (samples, releases, identity updates) on explicit human approval.
+-- When ambiguous, ask a pointed question once — then decide and record.
+-
+-## Architectural preferences
+-
+-- **Composition over Inheritance** — flat, small modules wired explicitly.
+-- **FastMCP stdio servers over background daemons** — on-demand tools beat supervised processes (see Task 167: loop-engine retired for persona commands).
+-- **Append-only records** — transcripts, decisions, sessions; history is never rewritten.
+-- **Stdlib first** — no new dependency without a stdlib-shaped reason.
+-- **Deterministic, testable cores** — pure functions with stubbed transports; network only at the edges.
+-
+-## Decision heuristics
+-
+-1. **Hard gates stay hard.** Approval, QA, and closure gates never auto-continue on timeout or transport failure.
+-2. **Precision over recall in classification.** A misrouted report is worse than an unanswered question — prefer the REPORT lane on doubt.
+-3. **Scope everything shared.** Callback data, sessions, and approvals carry their owner id; foreign input is skipped, never applied.
+-4. **Discard stale state at gate entry.** A previous session's button press must never resolve the current gate.
+-5. **Dedupe lineage.** Each instruction reaches the model exactly once; replay is memory, not re-asking.
+-6. **Fail to a message, never to silence.** Degraded transports return explanatory errors the loop can act on.
+-
+-## Generated aggregate (DO NOT EDIT — via compile_profile.py)
+-
+-_No compiled decisions yet. Run `scripts/compile_profile.py` after the first recorded decisions._
+diff --git a/.opencode/decisions/schema/decision.schema.json b/.opencode/decisions/schema/decision.schema.json
+deleted file mode 100644
+index 7a4e749..0000000
+--- a/.opencode/decisions/schema/decision.schema.json
++++ /dev/null
+@@ -1,97 +0,0 @@
+-{
+-  "$schema": "http://json-schema.org/draft-07/schema#",
+-  "$id": "https://cognitive-lead-hq/.opencode/decisions/schema/decision.schema.json",
+-  "title": "ManagerDecision",
+-  "description": "Append-only record of one manager decision extracted from a session (Task 168). Raw manager statements are preserved verbatim; redaction runs before persistence and redaction_verified attests the stored text is clean.",
+-  "type": "object",
+-  "required": [
+-    "decision_id",
+-    "timestamp",
+-    "project_name",
+-    "verbatim_quote",
+-    "extracted_decision",
+-    "redaction_verified"
+-  ],
+-  "properties": {
+-    "decision_id": {
+-      "type": "string",
+-      "pattern": "^DEC-[0-9]{8}-[0-9]{3}$",
+-      "description": "Stable id, e.g. DEC-20260908-001. Date part is the record date, sequence is zero-padded per day."
+-    },
+-    "timestamp": {
+-      "type": "string",
+-      "format": "date-time",
+-      "description": "ISO-8601 UTC timestamp of when the decision was recorded."
+-    },
+-    "project_name": {
+-      "type": "string",
+-      "minLength": 1,
+-      "description": "Project the decision belongs to (e.g. cognitive-lead-hq)."
+-    },
+-    "session_id": {
+-      "type": "string",
+-      "description": "Owning session/task linkage, e.g. task id '167' or transcript path."
+-    },
+-    "verbatim_quote": {
+-      "type": "object",
+-      "description": "Original manager statements, NEVER summarized away.",
+-      "required": ["original", "english_translation"],
+-      "properties": {
+-        "original": {
+-          "type": "string",
+-          "minLength": 1,
+-          "description": "Verbatim manager statement in its source language."
+-        },
+-        "english_translation": {
+-          "type": "string",
+-          "minLength": 1,
+-          "description": "Faithful English translation of the original."
+-        }
+-      },
+-      "additionalProperties": false
+-    },
+-    "extracted_decision": {
+-      "type": "object",
+-      "required": ["summary", "category", "rationale"],
+-      "properties": {
+-        "summary": {
+-          "type": "string",
+-          "minLength": 1,
+-          "description": "One-paragraph distilled decision."
+-        },
+-        "category": {
+-          "type": "string",
+-          "enum": [
+-            "architecture",
+-            "process",
+-            "scope",
+-            "quality-gate",
+-            "tooling",
+-            "release",
+-            "other",
+-            "autopilot-cycle"
+-          ]
+-        },
+-        "rationale": {
+-          "type": "string",
+-          "description": "Why the manager decided this way (as stated or inferred, marked as such)."
+-        },
+-        "alternatives": {
+-          "type": "array",
+-          "items": {"type": "string"},
+-          "description": "Options the manager explicitly considered and rejected."
+-        },
+-        "tradeoffs": {
+-          "type": "string",
+-          "description": "Cost/benefit the manager accepted with this decision."
+-        }
+-      },
+-      "additionalProperties": false
+-    },
+-    "redaction_verified": {
+-      "type": "boolean",
+-      "description": "True only when verify_clean() passed on every persisted free-text field."
+-    }
+-  },
+-  "additionalProperties": false
+-}
+diff --git a/.opencode/decisions/scripts/compile_profile.py b/.opencode/decisions/scripts/compile_profile.py
+deleted file mode 100644
+index b6c3aba..0000000
+--- a/.opencode/decisions/scripts/compile_profile.py
++++ /dev/null
+@@ -1,84 +0,0 @@
+-#!/usr/bin/env python3
+-"""Aggregate stored decisions into manager-profile drafts (Task 168).
+-
+-Reads every ``DEC-*.json`` under ``decisions/`` (repo root = this script's
+-grandparent, or ``DECISION_REPO_PATH``), groups them by category, and prints
+-a profile-draft section to stdout. The draft is a PROPOSAL: a human must
+-review and approve it (via the MCP ``propose_profile_evolution`` tool) before
+-anything lands in ``samples/manager_profile.md``. This script never writes to
+-the sample itself — the review gate is structural, not conventional.
+-
+-Usage:
+-    python scripts/compile_profile.py [--repo PATH] [--since YYYY-MM-DD]
+-"""
+-
+-from __future__ import annotations
+-
+-import argparse
+-import json
+-import os
+-import sys
+-from collections import Counter
+-from datetime import datetime, timezone
+-from pathlib import Path
+-
+-REPO_ROOT = Path(os.environ.get("DECISION_REPO_PATH", Path(__file__).resolve().parent.parent))
+-
+-
+-def load_decisions(repo: Path, since: str | None = None) -> list[dict]:
+-    """Load all decision records, optionally filtered by record date."""
+-    records = []
+-    for path in sorted((repo / "decisions").rglob("DEC-*.json")):
+-        try:
+-            record = json.loads(path.read_text(encoding="utf-8"))
+-        except (OSError, json.JSONDecodeError) as exc:
+-            print(f"warning: skipping unreadable {path}: {exc}", file=sys.stderr)
+-            continue
+-        if since and record.get("decision_id", "")[4:12] < since.replace("-", ""):
+-            continue
+-        records.append(record)
+-    return records
+-
+-
+-def compile_draft(records: list[dict]) -> str:
+-    """Render a review-ready profile draft from decision records."""
+-    categories = Counter(
+-        r.get("extracted_decision", {}).get("category", "other") for r in records
+-    )
+-    lines = [
+-        f"## Profile draft — {datetime.now(timezone.utc).date().isoformat()}",
+-        f"({len(records)} decisions aggregated; HUMAN REVIEW REQUIRED before merge)",
+-        "",
+-        "### Category distribution",
+-        "",
+-    ]
+-    for category, count in categories.most_common():
+-        lines.append(f"- {category}: {count}")
+-    lines += ["", "### Recurring rationales", ""]
+-    seen: set[str] = set()
+-    for record in records:
+-        rationale = record.get("extracted_decision", {}).get("rationale", "").strip()
+-        quote = record.get("verbatim_quote", {}).get("english_translation", "").strip()
+-        key = (rationale or quote)[:160]
+-        if key and key not in seen:
+-            seen.add(key)
+-            lines.append(f"- [{record.get('decision_id')}] {key}")
+-    return "\n".join(lines) + "\n"
+-
+-
+-def main(argv: list[str] | None = None) -> int:
+-    """CLI entry: parse args, print draft to stdout, exit 0 (never mutates)."""
+-    parser = argparse.ArgumentParser(description="Draft a manager-profile update.")
+-    parser.add_argument("--repo", default=str(REPO_ROOT))
+-    parser.add_argument("--since", default=None, help="Only decisions on/after YYYY-MM-DD")
+-    args = parser.parse_args(argv)
+-    records = load_decisions(Path(args.repo), args.since)
+-    if not records:
+-        print("No decisions found — nothing to draft.")
+-        return 0
+-    print(compile_draft(records))
+-    return 0
+-
+-
+-if __name__ == "__main__":
+-    raise SystemExit(main())
+diff --git a/.opencode/decisions/scripts/validate_decisions.py b/.opencode/decisions/scripts/validate_decisions.py
+deleted file mode 100644
+index e3603ba..0000000
+--- a/.opencode/decisions/scripts/validate_decisions.py
++++ /dev/null
+@@ -1,116 +0,0 @@
+-#!/usr/bin/env python3
+-"""Validate decision records against the JSON schema (Task 168).
+-
+- dependency-free structural validator (the schema uses only `required`,
+-`type`, `enum`, `pattern`, `minLength`, `format: date-time`): walks
+-``decisions/`` and reports per-file violations. Exits non-zero when any
+-record is invalid so CI and the MCP `record_manager_decision` tool can gate
+-on it.
+-
+-Usage:
+-    python scripts/validate_decisions.py [--repo PATH] [--strict]
+-"""
+-
+-from __future__ import annotations
+-
+-import argparse
+-import json
+-import os
+-import re
+-import sys
+-from datetime import datetime
+-from pathlib import Path
+-
+-REPO_ROOT = Path(os.environ.get("DECISION_REPO_PATH", Path(__file__).resolve().parent.parent))
+-SCHEMA_NAME = "decision.schema.json"
+-
+-CATEGORIES = {
+-    "architecture", "process", "scope", "quality-gate", "tooling", "release", "other",
+-    "autopilot-cycle",
+-}
+-ID_RE = re.compile(r"^DEC-[0-9]{8}-[0-9]{3}$")
+-
+-
+-def _is_datetime(value: object) -> bool:
+-    """Best-effort ISO-8601 check (accepts trailing Z)."""
+-    if not isinstance(value, str):
+-        return False
+-    try:
+-        datetime.fromisoformat(value.replace("Z", "+00:00"))
+-        return True
+-    except ValueError:
+-        return False
+-
+-
+-def validate_record(record: dict) -> list[str]:
+-    """Return a list of violation strings; empty means valid."""
+-    issues: list[str] = []
+-    for field in ("decision_id", "timestamp", "project_name", "verbatim_quote",
+-                  "extracted_decision", "redaction_verified"):
+-        if field not in record:
+-            issues.append(f"missing required field: {field}")
+-    if issues:
+-        return issues  # Structural checks below assume presence.
+-    if not isinstance(record["decision_id"], str) or not ID_RE.match(record["decision_id"]):
+-        issues.append(f"bad decision_id: {record['decision_id']!r} (want DEC-YYYYMMDD-NNN)")
+-    if not _is_datetime(record["timestamp"]):
+-        issues.append(f"bad timestamp: {record['timestamp']!r} (want ISO-8601)")
+-    if not isinstance(record["project_name"], str) or not record["project_name"].strip():
+-        issues.append("project_name must be a non-empty string")
+-    quote = record["verbatim_quote"]
+-    if not isinstance(quote, dict):
+-        issues.append("verbatim_quote must be an object")
+-    else:
+-        for sub in ("original", "english_translation"):
+-            if not isinstance(quote.get(sub), str) or not quote[sub].strip():
+-                issues.append(f"verbatim_quote.{sub} must be a non-empty string")
+-    decision = record["extracted_decision"]
+-    if not isinstance(decision, dict):
+-        issues.append("extracted_decision must be an object")
+-    else:
+-        for sub in ("summary", "category", "rationale"):
+-            if sub not in decision:
+-                issues.append(f"extracted_decision missing: {sub}")
+-        if decision.get("category") not in CATEGORIES:
+-            issues.append(f"bad category: {decision.get('category')!r}")
+-        if "summary" in decision and (
+-            not isinstance(decision["summary"], str) or not decision["summary"].strip()
+-        ):
+-            issues.append("extracted_decision.summary must be a non-empty string")
+-    if record["redaction_verified"] is not True:
+-        issues.append("redaction_verified must be true (run sanitize_text first)")
+-    return issues
+-
+-
+-def main(argv: list[str] | None = None) -> int:
+-    """CLI entry: validate all records; print violations; exit code."""
+-    parser = argparse.ArgumentParser(description="Validate decision records.")
+-    parser.add_argument("--repo", default=str(REPO_ROOT))
+-    parser.add_argument("--strict", action="store_true",
+-                        help="Also fail when decisions/ holds no records.")
+-    args = parser.parse_args(argv)
+-    paths = sorted((Path(args.repo) / "decisions").rglob("DEC-*.json"))
+-    if not paths:
+-        print("No decision records found.")
+-        return 1 if args.strict else 0
+-    failures = 0
+-    for path in paths:
+-        try:
+-            record = json.loads(path.read_text(encoding="utf-8"))
+-        except (OSError, json.JSONDecodeError) as exc:
+-            print(f"FAIL {path}: unreadable ({exc})")
+-            failures += 1
+-            continue
+-        problems = validate_record(record) if isinstance(record, dict) else ["top-level JSON must be an object"]
+-        if problems:
+-            failures += 1
+-            for problem in problems:
+-                print(f"FAIL {path}: {problem}")
+-        else:
+-            print(f"OK {path}")
+-    print(f"{len(paths) - failures}/{len(paths)} valid")
+-    return 1 if failures else 0
+-
+-
+-if __name__ == "__main__":
+-    raise SystemExit(main())
+diff --git a/.opencode/memory/architecture/responses_api_provider_diagnostics.md b/.opencode/memory/architecture/responses_api_provider_diagnostics.md
+index ecc14ca..7614bac 100644
+--- a/.opencode/memory/architecture/responses_api_provider_diagnostics.md
++++ b/.opencode/memory/architecture/responses_api_provider_diagnostics.md
+@@ -12,7 +12,6 @@ updated_at: '2026-09-19T11:50:23.064502+00:00'
+ Applies to both servers today:
+ 
+ - `mcp-brain-bridge/server.py` — `parse_responses_diagnostics`, `_log_provider_diagnostics`, `_provider_error_hint`, `_provider_refusal_hint`, `_output_budget_hint`, `_maybe_warn_reasoning_budget`.
+-- `mcp-decision-server/server.py` — `_responses_diagnostics`, `_log_responses_diagnostics`, `_provider_failure_message`.
+ 
+ Required diagnostics shape (stable keys, null when absent):
+ `status`, `incomplete_reason`, `usage{input_tokens,output_tokens,reasoning_tokens,total_tokens}`, `error`, `refusal`.
+@@ -29,4 +28,4 @@ Critical invariants:
+ 
+ Rationale: a generic "transport flake" or "non-JSON" error hides the real cause and sends callers into retry loops that can never succeed.
+ 
+-Supersedes: none.
+\ No newline at end of file
++Supersedes: none.
+diff --git a/.opencode/memory/index.md b/.opencode/memory/index.md
+index 27bbaaf..f61e7eb 100644
+--- a/.opencode/memory/index.md
++++ b/.opencode/memory/index.md
+@@ -6,10 +6,6 @@
+ | :--- | :--- | :--- | :--- |
+ | architecture | brain-hands-architecture-2026-08-21 | # Brain + Hands Architecture Decision — 2026-08-21 |  |
+ | architecture | responses_api_provider_diagnostics | # Responses-API servers must surface provider diagnostics |  |
+-| manager | english_only_reasoning_responses | English-only standing order (Manager order 2026-09-17): agent must NEVER think, reason, or respond in any non-English... |  |
+-| manager | full_automatic_mode | STANDING ORDER — FULL AUTOMATIC MODE. Manager has no session access and cannot be paged. Zero questions, zero clarifi... |  |
+-| manager-decisions | autopilot_consult_all_personas | Session 2026-09-14 (tasks 230+231 closure): the Manager ordered that in autopilot the Hands must consult ALL Brain pe... |  |
+-| manager-decisions | task_closure_protocol_one_by_one | Session 2026-09-14: task closure protocol ordered by the Manager — close tasks ONE BY ONE (verify, git mv to tasks/co... |  |
+ | opencode_config | opencode_v2_upgrade_2026_09_26 | # OpenCode V2 Upgrade — 2026-09-26 (state refreshed 2026-10-01) |  |
+ | opencode_config | plugin_policy_magic_compact_2026_10_02 | # OpenCode plugin policy — Smart Compact (updated 2026-10-03) |  |
+ | opencode_config | v2_server_password_sync_2026_09_26 | # V2 server auth — managed mode only (updated 2026-10-01) |  |
+@@ -20,7 +16,7 @@
+ | project | system-prompt-build-process | system-prompt.md is a GENERATED build artifact, NOT a hand-edited source file. |  |
+ | quirks | code_search_skill_sync_pattern | **Pattern (2026-08-21, updated 2026-08-27):** The `code-search` skill has two copies that must stay in sync: `skill-t... |  |
+ | quirks | extract_signatures_file_write_fix | **Bug Fixed (2026-08-21):** `extract_signatures` MCP tool in `mcp-context-server/server.py` was returning signature s... |  |
+-| quirks | full_output_verification_rule | Never trust truncated command output: `head`/`tail` cuts hid `manager_decisions` from `opencode mcp list` and caused ... |  |
++| quirks | full_output_verification_rule | Never trust truncated command output. Head tail cuts hide status lines and cause false alarms. Always re-run with ful... |  |
+ | release | release-workflow | Release workflow for cognitive-lead-hq. |  |
+ | telegram-sync | topic-scoped-sync-workflow | # Telegram Sync Workflow Constraints (Cognitive Lead HQ) |  |
+ | workflows | approval_gates_use_question_tool | # Approval gates must use the question tool (Manager standing rule 2026-09-27) |  |
+diff --git a/.opencode/memory/manager-decisions/autopilot_consult_all_personas.md b/.opencode/memory/manager-decisions/autopilot_consult_all_personas.md
+deleted file mode 100644
+index 962cfb8..0000000
+--- a/.opencode/memory/manager-decisions/autopilot_consult_all_personas.md
++++ /dev/null
+@@ -1,9 +0,0 @@
+----
+-created_at: '2026-09-14T18:56:55.591906+00:00'
+-status: active
+-tags: []
+-updated_at: '2026-09-14T18:56:55.592006+00:00'
+----
+-
+-Session 2026-09-14 (tasks 230+231 closure): the Manager ordered that in autopilot the Hands must consult ALL Brain personas (QA, Planner, Designer, Strategist, Programmer) — never work solo. Solo autopilot work was explicitly rebuked. Stored as standing rule DEC-20260914-001 (project-fallback; personal repo holds the authoritative copy once pushed).
+-Task 230/231 context: manager-decision hardening (B1 install-once path, B2 auto-extract+gated record on close, ranked retrieval, fingerprint dedup, first profile promotion with Manager approval).
+\ No newline at end of file
+diff --git a/.opencode/memory/manager-decisions/task_closure_protocol_one_by_one.md b/.opencode/memory/manager-decisions/task_closure_protocol_one_by_one.md
+deleted file mode 100644
+index 3974e0c..0000000
+--- a/.opencode/memory/manager-decisions/task_closure_protocol_one_by_one.md
++++ /dev/null
+@@ -1,8 +0,0 @@
+----
+-created_at: '2026-09-14T18:56:55.619893+00:00'
+-status: active
+-tags: []
+-updated_at: '2026-09-14T18:56:55.619908+00:00'
+----
+-
+-Session 2026-09-14: task closure protocol ordered by the Manager — close tasks ONE BY ONE (verify, git mv to tasks/completed, commit_and_clean_task per task), post a closing comment with feature hashes on the linked GitHub issue and close it, reply on Telegram ONLY if the task Source is telegram (230/231 were Source: manager, no Telegram reply was due; msg 588 was already synced via archived task 168), then sync decisions to memory and notify the Manager. Stored as DEC-20260914-003/004. Applied to 230 (68f7286d) + 231 (a80975dd); issue 8 closed with comment issuecomment-5669058387.
+\ No newline at end of file
+diff --git a/.opencode/memory/manager/english_only_reasoning_responses.md b/.opencode/memory/manager/english_only_reasoning_responses.md
+deleted file mode 100644
+index 5487f40..0000000
+--- a/.opencode/memory/manager/english_only_reasoning_responses.md
++++ /dev/null
+@@ -1,8 +0,0 @@
+----
+-created_at: '2026-09-17T17:10:21.057639+00:00'
+-status: active
+-tags: []
+-updated_at: '2026-09-17T17:10:21.057654+00:00'
+----
+-
+-English-only standing order (Manager order 2026-09-17): agent must NEVER think, reason, or respond in any non-English language. All reasoning logs and Manager-facing responses stay 100% English even when Manager writes Persian. Input-validation pipeline (validate-translate-enrich-refactor-execute with typo and voice-to-text correction) is priority one for non-English/noisy inputs. Enforcement tracked in Task 252.
+\ No newline at end of file
+diff --git a/.opencode/memory/manager/full_automatic_mode.md b/.opencode/memory/manager/full_automatic_mode.md
+deleted file mode 100644
+index ae647a8..0000000
+--- a/.opencode/memory/manager/full_automatic_mode.md
++++ /dev/null
+@@ -1,8 +0,0 @@
+----
+-created_at: '2026-09-17T15:06:54.349936+00:00'
+-status: active
+-tags: []
+-updated_at: '2026-09-17T15:06:54.349952+00:00'
+----
+-
+-STANDING ORDER — FULL AUTOMATIC MODE. Manager has no session access and cannot be paged. Zero questions, zero clarification halts: decide from stored manager-decision records + Brain consult, then continue. Work task-by-task through the Board under Brain supervision on every step (plan with Brain, implement, QA with Brain, review with Brain). Reviewer technical APPROVED + PO_REVIEW_PENDING counts as Manager closure approval. Report every bug found and every lesson learned to the Admin via manager-decision records, and if the record tools fail, via task-file execution logs + session messages. Never invent Manager approval; this stored order IS the authorization basis — cite it in execution logs. Set 2026-09-17 by direct Manager order (FA).
+\ No newline at end of file
+diff --git a/.opencode/memory/quirks/full_output_verification_rule.md b/.opencode/memory/quirks/full_output_verification_rule.md
+index e0834eb..0292b34 100644
+--- a/.opencode/memory/quirks/full_output_verification_rule.md
++++ b/.opencode/memory/quirks/full_output_verification_rule.md
+@@ -5,4 +5,4 @@ tags: []
+ updated_at: '2026-09-15T20:11:19.990288+00:00'
+ ---
+ 
+-Never trust truncated command output: `head`/`tail` cuts hid `manager_decisions` from `opencode mcp list` and caused a false dead-server alarm on 2026-09-15. Always re-run with full output (grep for status lines, not head) before claiming a server, test, or check result.
+\ No newline at end of file
++Never trust truncated command output. Head tail cuts hide status lines and cause false alarms. Always re-run with full output and grep for status lines before claiming a server test or check result.
+diff --git a/.opencode/memory/workflows/global-install-upgrade.md b/.opencode/memory/workflows/global-install-upgrade.md
+index 6f99047..4e6b0a4 100644
+--- a/.opencode/memory/workflows/global-install-upgrade.md
++++ b/.opencode/memory/workflows/global-install-upgrade.md
+@@ -15,7 +15,6 @@ Updates the machine-global installations of the Cognitive Lead AI HQ (MCP server
+ 
+ | Component      | OpenCode                                                                                                       |
+ | -------------- | -------------------------------------------------------------------------------------------------------------- |
+-| MCP servers    | `~/.config/opencode/mcp-{context,memory,lint,brain}-server/` (brain bridge = `mcp-brain-bridge/`) + `~/.config/opencode/mcp-decision-server/` + `~/.config/opencode/mcp-common/` (shared lib); each with `pyproject.toml` + committed `uv.lock`, launched via `<dir>/.venv/bin/python <dir>/server.py` (direct venv, never `uv run` — uv startup exceeds the V2 connect timeout under multi-session spawn load, 2026-09-29) |
+ | Telegram MCP   | `~/.config/opencode/mcp-telegram-server/` (upstream clone of chigwell/telegram-mcp — no fork) |
+ | Skills         | `~/.config/opencode/skills/<name>/SKILL.md` (synced 1:1 with `skill-templates/` — count varies, verify by diff not by number) |
+ | Custom agents  | `~/.config/opencode/agents/{cognitive-executor,cognitive-discovery}.md` |
+@@ -26,7 +25,6 @@ Updates the machine-global installations of the Cognitive Lead AI HQ (MCP server
+ ## Source Files (repo)
+ 
+ - `mcp-context-server/server.py`, `mcp-memory-server/server.py`, `mcp-lint-server/server.py`
+-- `mcp-brain-bridge/*.py` (server + capability/preflight/loop_guard/session_ledger/transport_learning/authority_retrieval), `mcp-decision-server/*.py` (server, redactor, detector)
+ - `mcp-common/src/mcp_common/` (shared dotenv loader) + every server dir's `pyproject.toml` + `uv.lock` (Task 170; sync all three file kinds globally)
+ - `skill-templates/*/` (all skills, synced 1:1 — never hardcode the count)
+ - `agents/cognitive-executor.md`, `agents/cognitive-discovery.md`
+@@ -55,7 +53,7 @@ Existing users on per-session stdio entries migrate without reinstalling server
+ ## Key Facts
+ 
+ - Project vs Global `opencode.json` (Option A 2026-08-25): repo uses **relative** paths, global uses **absolute** paths; `diff` always differs — verify shape, not identity.
+-- **Update 2026-09-09 (Tasks 175/176 — automation DISABLED):** persona + manager_decisions MCP servers are DISABLED (blocks removed from repo AND global `opencode.json`, `PERSONA_*`/`DECISION_*` vars commented in `.env.example`); executor/discovery automation sections commented out (manual workflow active); 9 automation commands archived to `archive/automation-paused-2026-09-09/commands/` with `RESTORE.md`; brainstorm-swarm skill restored but inert. Server code dirs, tests, skills, fragments are KEPT (not deleted). Sync scope now includes propagating the DISABLED state (neutralized agents, stripped opencode.json). Smoke-test expectation: 5 connected (custom_context, project_memory, lint, blowsh, telegram) — persona/decisions absent by design.
++- **Update 2026-09-09 (Tasks 175/176 — automation DISABLED):** executor and discovery automation sections commented out (manual workflow active); 9 automation commands archived with a restore guide; brainstorm-swarm skill restored but inert. Sync scope now includes propagating the DISABLED state. Smoke-test expectation lists only the currently-enabled servers.
+ 
+ Supersedes: workflows/global-install-upgrade (prior revision: 31 skills, 5 MCPs).
+ Supersedes: workflows/global-install-upgrade (prior revision: 32 skills, 7 MCPs, automation enabled).
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index 6d27e2d..fb55262 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -29,6 +29,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+ 
+ ### Removed
+ 
++- **Retired manager-decision wiring, kept LLM.txt as setup entry point:** removed prompt registry lines, executor consult blocks, docs contract file, skill templates, MCP decision server purged entirely with its service units, decision tests removed or stripped, memory namespaces deleted with index rebuild. Live `LLM.txt` references in README and docs kept intact; decision sections inside `LLM.txt` itself removed. External personal decisions repo kept untouched. History paths unchanged.
+ - **Lean session-first Brain bridge refactor (Task 292):** Removed dead tools `read_file`, `grep_files`, and `get_context_bundle` from `mcp-brain-bridge` (Hands use native OpenCode `read`/`grep`/`glob`; the five-file bundle still auto-attaches internally). Removed the multipart chunking allocator (`_allocate_attachments`, `_render_attachment`, `_marker_room`, `_open_overhead`, `_validate_attachment_resume`, `_attachment_priority`, priority tuples) and the `attachment_resume` turn parameter, plus the `history.pop(1)` middle-turn drop loop and the `_read_file_impl` / `_grep_files_impl` helpers with their grep/read guardrail constants.
+ 
+ ## [9.53.0] - 2026-10-04
+diff --git a/LLM.txt b/LLM.txt
+index fed7540..d7b4bbe 100644
+--- a/LLM.txt
++++ b/LLM.txt
+@@ -106,7 +106,7 @@ Store this value — you will use it to construct absolute paths in the global c
+ Create the global OpenCode directories:
+ 
+ ```bash
+-for d in mcp-context-server mcp-memory-server mcp-lint-server mcp-brain-bridge mcp-decision-server mcp-common; do
++for d in mcp-context-server mcp-memory-server mcp-lint-server mcp-brain-bridge mcp-common; do
+   mkdir -p ~/.config/opencode/$d
+ done
+ mkdir -p ~/.config/opencode/skills
+@@ -116,10 +116,10 @@ mkdir -p ~/.config/opencode/skills
+ 
+ ## 5. Copy MCP Servers and Make Them Executable
+ 
+-Copy the MCP server modules from the cloned repo. Every server is multi-module (`brain-bridge` = `server.py` + `capability.py`/`preflight.py`/`loop_guard.py`/`session_ledger.py`/`transport_learning.py`/`authority_retrieval.py`/`eval_harness.py`/`golden_replay.py`; `decision-server` = `server.py` + `redactor.py` + `detector.py`), so copy **all `*.py`**. Each dir also carries `pyproject.toml` + committed `uv.lock` — copy those too so launches resolve locked deps:
++Copy the MCP server modules from the cloned repo. Every server is multi-module (`brain-bridge` = `server.py` + `capability.py`/`preflight.py`/`loop_guard.py`/`session_ledger.py`/`transport_learning.py`/`authority_retrieval.py`/`eval_harness.py`/`golden_replay.py`), so copy **all `*.py`**. Each dir also carries `pyproject.toml` + committed `uv.lock` — copy those too so launches resolve locked deps:
+ 
+ ```bash
+-for d in mcp-context-server mcp-memory-server mcp-lint-server mcp-brain-bridge mcp-decision-server; do
++for d in mcp-context-server mcp-memory-server mcp-lint-server mcp-brain-bridge; do
+   cp /tmp/cognitive-lead-hq/$d/*.py ~/.config/opencode/$d/
+   cp /tmp/cognitive-lead-hq/$d/pyproject.toml /tmp/cognitive-lead-hq/$d/uv.lock ~/.config/opencode/$d/
+   chmod +x ~/.config/opencode/$d/server.py
+@@ -205,7 +205,7 @@ After this, the `cognitive-executor` will be available as a primary agent, enfor
+ 
+ ## 7. Configure Global opencode.json (with Absolute Paths)
+ 
+-Create or update `~/.config/opencode/opencode.json`. You MUST use **absolute paths** in the `command` array — resolve the `~` to the full home directory path discovered in Step 3. The project ships **7 MCP servers** (3 core + `manager_decisions` + `brain` bridge + `blowsh` browsing + `telegram` account routing); the persona server and the previous browser automation MCP are retired — use `blowsh` for JS-heavy browsing.
++Create or update `~/.config/opencode/opencode.json`. You MUST use **absolute paths** in the `command` array — resolve the `~` to the full home directory path discovered in Step 3. The project ships **6 MCP servers** (3 core + `brain` bridge + `blowsh` browsing + `telegram` account routing); the persona server and the previous browser automation MCP are retired — use `blowsh` for JS-heavy browsing.
+ 
+ Write the following JSON (replace `$HOME` with the actual home directory path only where it still appears — the `mcp` entries are loopback URLs shared by every session and project, so they contain no paths at all). V2 structure per https://opencode.ai/v2/docs/mcp-servers/ (verified 2026-09-29): each MCP runs as **one supervised singleton** on `127.0.0.1` (see `docs/services.md` + Step 7.5), and OpenCode connects via `mcp.servers` entries with `type: "remote"` + `url` + `disabled: false` + `timeout: {catalog, execution}` (ours are raised above the 5000ms default — 15s standard, 30s telegram, 120s blowsh, 600s LLM bridges). No session ever spawns its own server processes: with 2+ sessions open the OS process count per server stays exactly one.
+ 
+@@ -234,12 +234,6 @@ Write the following JSON (replace `$HOME` with the actual home directory path on
+         "disabled": false,
+         "timeout": { "catalog": 15000, "execution": 15000 }
+       },
+-      "manager_decisions": {
+-        "type": "remote",
+-        "url": "http://127.0.0.1:8104/mcp",
+-        "disabled": false,
+-        "timeout": { "catalog": 600000, "execution": 600000 }
+-      },
+       "brain": {
+         "type": "remote",
+         "url": "http://127.0.0.1:8105/mcp",
+@@ -505,32 +499,6 @@ Full runbook: `docs/openchamber.md`. Official docs: https://docs.openchamber.dev
+ 
+ ---
+ 
+-## 7.11. Personal Manager-Decisions Repo (Declare or Auto-Create)
+-
+-The manager's decisions live in ONE separate personal repo (Task 216) — the
+-authoritative personality source across all projects. Declare it or let the
+-tooling create it:
+-
+-```bash
+-# 1. Declare (or create when gh is pre-configured):
+-export DECISION_REPO_PATH="$HOME/manager-decisions"   # clone/checkout path
+-# No repo yet? gh auth status && gh repo create <owner>/manager-decisions --public --clone
+-# Visibility: public by default (cooler per manager order); --private stays optional.
+-# 2. Verify the server sees it: record one decision, confirm the stderr line
+-#    "decision-server: active store: personal repo (DECISION_REPO_PATH=<path>)"
+-#    (not "project fallback (...)").
+-```
+-
+-Without `DECISION_REPO_PATH` the server falls back to per-project
+-`.opencode/decisions/` (write-through cache + offline fallback) and logs it —
+-records still land, personality just stays local. Set it in the server's own
+-`.env` (`~/.config/opencode/.env` for the global install, repo-root `.env` for
+-repo runs) — the decision server self-loads that file, so no `opencode.json`
+-`{env:}` block is needed. Never hardcode a literal path in a shared config —
+-one global literal would break per-user resolution.
+-
+----
+-
+ ## 8. Clean Up Temporary Clone
+ 
+ Remove the cloned repository from `/tmp/`:
+@@ -563,7 +531,6 @@ After completing all steps, verify:
+ - [ ] `~/.config/opencode/mcp-memory-server/server.py` exists and is executable
+ - [ ] `~/.config/opencode/mcp-lint-server/server.py` exists and is executable
+ - [ ] `~/.config/opencode/mcp-brain-bridge/server.py` exists and is executable (plus its sibling modules `capability.py`, `preflight.py`, `loop_guard.py`, `session_ledger.py`, `transport_learning.py`, `authority_retrieval.py`, `eval_harness.py`, `golden_replay.py`)
+-- [ ] `~/.config/opencode/mcp-decision-server/server.py` exists and is executable (plus `redactor.py`, `detector.py`)
+ - [ ] `~/.config/opencode/mcp-common/src/mcp_common/env.py` exists
+ - [ ] Skills are installed under `~/.config/opencode/skills/` (at least one subfolder exists) — should include `bundle-tasks` (31 skills total)
+ - [ ] `~/.config/opencode/agents/cognitive-executor.md` exists
+diff --git a/README.md b/README.md
+index 063bf3b..53a63b0 100644
+--- a/README.md
++++ b/README.md
+@@ -166,7 +166,6 @@ cp .env.example .env
+ - [Blowsh Web Skill](skill-templates/blowsh/SKILL.md) — live-web search/fetch/crawl via the blowsh MCP server
+ - [Cognitive Executor Agent](agents/cognitive-executor.md) (Bridge + Autopilot sections)
+ - [Setup Guide](docs/setup.md)
+-- [Manager-Decisions MCP Server](docs/manager-decisions.md) — tool schemas and usage contract for the six decision tools
+ 
+ ---
+ 
+@@ -189,7 +188,6 @@ cp .env.example .env
+ ├── docs/
+ │   ├── conventions.md                  # Syntax rules and automation conventions
+ │   ├── setup.md                        # Platform tool setup and installation guide
+-│   ├── manager-decisions.md            # manager_decisions MCP tool schemas and usage contract
+ │   ├── history/                        # Milestone compaction summaries
+ │   └── opencode/                       # OpenCode documentation mirror
+ ├── mcp-context-server/
+@@ -198,8 +196,6 @@ cp .env.example .env
+ │   └── server.py                       # FastMCP server for task file linting
+ ├── mcp-memory-server/
+ │   └── server.py                       # FastMCP server for persistent project memory
+-├── mcp-decision-server/
+-│   └── server.py                       # FastMCP server for Manager-decision capture & consultation
+ ├── mcp-brain-bridge/                  # Unified Brain bridge
+ │   └── server.py                       # FastMCP `BrainBridge`: brain_turn (prompt loader + LLM + XML extract)
+ ├── prompts/                            # System prompt source tree (fragments + shared partials)
+@@ -399,7 +395,8 @@ Best if you want this codebase exploration tool available in _every_ terminal di
+ 
+ _(Note: Replace `/Users/<YOUR_USER>` with your actual home directory path)._
+ 
+-> Full HQ install (all 7 MCP servers — context, memory, lint, brain, manager_decisions, blowsh, telegram — plus 31 skills and both agents) is documented in `LLM.txt` §4–§7 and the `global-install-upgrade` memory workflow, not here; the steps above cover only the standalone context server for third-party projects.
++Full HQ install covering all core MCP servers plus skills plus both agents is documented in LLM.txt sections 4 through 7 and the global-install-upgrade memory workflow not here. The steps above cover only the standalone context server for third party projects.
++
+ 
+ ### How It Works
+ 
+diff --git a/agents/cognitive-executor.md b/agents/cognitive-executor.md
+index 22d5075..819f65c 100644
+--- a/agents/cognitive-executor.md
++++ b/agents/cognitive-executor.md
+@@ -87,8 +87,7 @@ To prevent hallucinations and respect hidden project constraints, you MUST integ
+ 
+ 1. **Read First (Mandatory):** At the absolute start of any task (before writing code), load the `project-memory` skill. Read `.opencode/memory/index.md` (if present) — the auto-generated Markdown index of all memory shards — alongside `AGENTS.md` and `DESIGN.md`, to get a compact overview before planning. Then use `search_memory` with keywords from the task description and the tech stack, or `read_memory` for specific keys selected from the index, to retrieve any saved constraints, quirks, or past architectural decisions. If the index is missing, fall back to `list_namespaces`/`search_memory` and trigger `rebuild_memory_index` if needed. When resolving architectural ambiguities, re-ask the human manager directly.
+ 2. **Apply Constraints:** If memories are found via the index (selectively fetched with `read_memory` or `search_memory` based on the index overview), strictly adhere to them during implementation. Do not contradict past architectural decisions without explicitly flagging it to the Manager.
+-3. **Consult Manager Decisions:** Load the `manager-decision` skill alongside memory. At session start call `get_sync_status()` so push debt is visible. Before re-asking the human manager on an ambiguity, call `query_manager_decisions` and log the top-3 hits — a past ruling resolves it without bothering them. On every successful task/sprint close, run `extract_session_decisions(task_id)` automatically and queue every candidate for Manager confirm (scrubbed quote + source session + `verify_clean`); record via `record_manager_decision` ONLY after explicit approval — auto-record stays forbidden. Autopilot decides from these stored rulings, acting as the manager would.
+-4. **Auto-Save Criteria (Strict):** You MUST use `store_memory` to save new memories ONLY if the Orchestrator or Manager explicitly states a new project rule, architectural constraint, or reusable quirk.
++3. **Auto-Save Criteria (Strict):** You MUST use `store_memory` to save new memories ONLY if the Orchestrator or Manager explicitly states a new project rule, architectural constraint, or reusable quirk.
+    - **DO SAVE:** "The manager prefers Composition over Inheritance," "API X rate limits at 100 req/s, add caching," "Do not use Library Y because of Z."
+    - **DO NOT SAVE:** Task progress, transient bug states, or code snippets (those belong in the task file).
+ 
+@@ -103,7 +102,7 @@ Context is finite. Two layers keep long sessions productive, and the agent's dur
+ 
+ ## Capability Preflight (session start)
+ 
+-Before approval-sensitive work (plan approval, review approval, closure), check the capability manifest: every `brain_turn` prints a `capability-manifest:` diagnostic line to stderr mapping each required tool to `AVAILABLE`, `UNAVAILABLE_REQUIRED`, or `UNAVAILABLE_OPTIONAL`. A step whose required tool is `UNAVAILABLE_REQUIRED` (for example the `question` tool) is never silently skipped. Emit the relay block the turn returned (missing tool names, stage, one narrow question, one answer slot) through the mode-appropriate channel: manual mode relays it to the Manager verbatim and pauses with the relayed question as the named blocker; autopilot replays it against stored manager decisions, and halts with the relay block as the named blocker only when no ruling covers it. Approval collection follows the single approval rule: closure accepts only the exact phrases "Approved for closure" or "Close task" (a bare "approved" never counts); the plan gate accepts "approved" in any case. Blanket acknowledgements ("ok", "yes", "looks good", emoji) never count as approval at any gate. At plan-approval, PO_REVIEW_PENDING relay, and any closure approval gate you MUST collect the decision via the question tool with one narrow question and one answer slot. Prose-only approval asks are forbidden because an auto-continue loop can roll past prose. This holds in manual and autopilot. If question is UNAVAILABLE_REQUIRED, emit the relay block and pause with it as the named blocker; never skip. Only hard blockers may use prose.
++Before approval-sensitive work (plan approval, review approval, closure), check the capability manifest: every `brain_turn` prints a `capability-manifest:` diagnostic line to stderr mapping each required tool to `AVAILABLE`, `UNAVAILABLE_REQUIRED`, or `UNAVAILABLE_OPTIONAL`. A step whose required tool is `UNAVAILABLE_REQUIRED` (for example the `question` tool) is never silently skipped. Emit the relay block the turn returned (missing tool names, stage, one narrow question, one answer slot) through the mode-appropriate channel: manual mode relays it to the Manager verbatim and pauses with the relayed question as the named blocker; autopilot halts with the relay block as the named blocker. Approval collection follows the single approval rule: closure accepts only the exact phrases "Approved for closure" or "Close task" (a bare "approved" never counts); the plan gate accepts "approved" in any case. Blanket acknowledgements ("ok", "yes", "looks good", emoji) never count as approval at any gate. At plan-approval, PO_REVIEW_PENDING relay, and any closure approval gate you MUST collect the decision via the question tool with one narrow question and one answer slot. Prose-only approval asks are forbidden because an auto-continue loop can roll past prose. This holds in manual and autopilot. If question is UNAVAILABLE_REQUIRED, emit the relay block and pause with it as the named blocker; never skip. Only hard blockers may use prose.
+ 
+ ## Subagent Delegation for Context Discovery
+ 
+@@ -488,9 +487,7 @@ the task file):
+ 
+ When a Brain XML says the Manager copies, pastes, approves, or ferries —
+ but the session is in autopilot or any automatic mode — do NOT route
+-through the human. Play the Manager role yourself: query
+-`manager_decisions` for the closest past ruling, decide exactly as the
+-Manager would, record the outcome, and continue. Hand results to the
++through the human. Play the Manager role yourself: decide from the task file and Brain context, record the outcome, and continue. Hand results to the
+ next stage YOURSELF: QA verdicts go to your own fix loop, approved work
+ goes to a `brain_turn` reviewer call with the same `task_id` — never
+ ask the Manager to hand anything to anyone. The full saga state machine
+@@ -500,8 +497,7 @@ or a hard blocker remains. After every fix attempt, hash the worktree
+ diff and record it via `loop_guard.record_attempt(task_id, hash)` — on
+ `stop=True` (same hash 3x in a row) the loop is spinning: halt, attach
+ the hash history, and escalate instead of burning more turns. A
+-capability-blocked step (missing required tool) with no replayable
+-ruling is a hard blocker: halt with the relay block as the named
++capability-blocked step (missing required tool) is a hard blocker: halt with the relay block as the named
+ blocker instead of skipping it.
+ 
+ ### File context retrieval
+diff --git a/docs/brain-bridge.md b/docs/brain-bridge.md
+index 66db0bb..6fcacff 100644
+--- a/docs/brain-bridge.md
++++ b/docs/brain-bridge.md
+@@ -21,8 +21,7 @@ retired persona engine. The Hands calls it for every Brain turn
+    nothing, allowlist tags inside ```xml bodies still extract (other
+    fences stay documentation-only).
+ 4. **Questions relay to the Manager.** A `QUESTION` verdict pauses
+-   the Hands until the Manager answers (Autopilot mode answers
+-   from `manager_decision` rulings instead — see below).
++   the Hands until the Manager answers.
+ 
+ ## Session-first chat history
+ 
+@@ -213,14 +212,10 @@ roles (caller-controlled transcript text) can never alias another
+ segment list's bytes; the failsafe attach hashes in its own slot,
+ never merged into the diff slot.
+ 
+-## Autopilot + manager-decision
+ 
+ Autopilot mode (default OFF) runs the full state machine with zero
+-approvals. It decides what the Manager would decide by consulting
+-past rulings via the `manager_decision` skill and the
+-`manager_decisions` MCP server (`mcp-decision-server/`, restored
+-and live). Every new ruling the Manager makes is recorded there,
+-so autopilot gets smarter over time.
++approvals. It decides from the task file and Brain context and records
++the outcome. Every new Manager ruling is recorded in the task file.
+ 
+ ## Verify
+ 
+diff --git a/docs/manager-decisions.md b/docs/manager-decisions.md
+deleted file mode 100644
+index 6444a7c..0000000
+--- a/docs/manager-decisions.md
++++ /dev/null
+@@ -1,274 +0,0 @@
+-# manager-decisions MCP Server
+-
+-The `manager_decisions` server is the Cognitive Lead AI memory for Manager rulings. Agents call it to consult a stored decision before paging the human, and to persist a new ruling the Manager just made.
+-
+-This document is the agent-facing usage contract: server identity, store resolution, every tool signature, the shared record schema, and the failure modes. It is written so an agent can call each tool correctly on the first try.
+-
+-> **Revision note (pinned).** Every factual claim below was verified against source at commit `0183433ccec9cc9252f874060df5140c4618ecb4` (2026-09-20), read on 2026-09-21. Line citations were re-derived on 2026-09-21 after two fixes landed in the working tree (see Doc Drift): the write tool's `Args` block and the extraction prompt. `mcp-decision-server/server.py` is now 1838 lines, `redactor.py` is 85 lines, `detector.py` is 149 lines. If any of these files change again, re-verify before trusting a citation.
+-
+-## Purpose and Scope
+-
+-In scope here:
+-
+-- The six MCP tools exposed by `mcp-decision-server/server.py`, with argument names, types, return shapes, side effects, and failure modes.
+-- The decision store layout and how the server picks a store.
+-- The decision-record field contract that `record_manager_decision` enforces.
+-- Known divergence between this server's source and the `manager-decision` skill text, reported as-is.
+-
+-Out of scope: changing server behavior. The drift reported here was found by reading the source, not by changing it. When this page was first written, no source file and no skill file was modified; two drift items (D1 and D2) were fixed afterwards and are marked as such.
+-
+-## Server Identity and Transport
+-
+-| Property                  | Value                                     | Source                                                        |
+-| ------------------------- | ----------------------------------------- | ------------------------------------------------------------- |
+-| Server object             | `mcp = FastMCP("ManagerDecisions")`       | `mcp-decision-server/server.py:190`                           |
+-| Transport                 | stdio, entered under the `__main__` guard | `mcp-decision-server/server.py:1837-1838`                     |
+-| Package                   | `mcp-decision-server`, version `1.0.0`    | `mcp-decision-server/pyproject.toml:2-3`                      |
+-| Script entry point        | none declared                             | `mcp-decision-server/pyproject.toml` (no `[project.scripts]`) |
+-| Launch                    | `$HOME/.config/opencode/mcp-decision-server/.venv/bin/python $HOME/.config/opencode/mcp-decision-server/server.py` (direct venv, never `uv run`) | global `opencode.json` (`mcp.manager_decisions`) |
+-| Extraction model constant | `DEFAULT_DECISION_MODEL = "gpt-6-astra"`  | `mcp-decision-server/server.py:196`                           |
+-| Model override env        | `DECISION_MODEL`                          | `mcp-decision-server/server.py:265-275`                       |
+-
+-**Model resolution correction.** The only model override for this server is the `DECISION_MODEL` environment variable. `_get_decision_model()` reads `DECISION_MODEL` first and otherwise returns `DEFAULT_DECISION_MODEL` (`mcp-decision-server/server.py:265-275`). `BRAIN_MODEL` is **never read** by this server — grep finds no reference to it anywhere in `mcp-decision-server/`. The code deliberately does not fall back to `PERSONA_MODEL` either; the reason is recorded inline at `mcp-decision-server/server.py:268`: a stale persona model value once hijacked extraction calls and caused 401s. Sibling variables that do carry a `BRAIN_` prefix are unrelated to model choice: `BRAIN_REASONING_EFFORT` (`mcp-decision-server/server.py:288`), `BRAIN_API_KEY` (`mcp-decision-server/server.py:363`), and `BRAIN_API_BASE` (`mcp-decision-server/server.py:399`).
+-
+-## Store Resolution
+-
+-`_repo_root()` (`mcp-decision-server/server.py:78`) picks the decision store in a fixed order and fails closed at the end:
+-
+-1. **Explicit path.** `DECISION_REPO_PATH` wins if set to a non-blank value (`mcp-decision-server/server.py:92`). The directory is created with `mkdir(parents=True, exist_ok=True)` (line 95). If creation fails, the server raises `RuntimeError` and does **not** fall back — the message names the variable and advises fixing the path or unsetting it (`mcp-decision-server/server.py:95-104`, message at line 102).
+-2. **Per-project fallback.** Otherwise the server walks `(Path.cwd(), INSTALL_ROOT)` and tries `base / ".opencode" / "decisions"` for each (`mcp-decision-server/server.py:106-112`). A candidate that cannot be created is skipped with `OSError` (`continue`). `INSTALL_ROOT = Path(__file__).resolve().parent.parent` (`mcp-decision-server/server.py:75`).
+-3. **No writable location.** Exhausting both candidates raises `RuntimeError("cannot create a decision store: no writable location found")` (`mcp-decision-server/server.py:113`).
+-
+-The server tells the operator which store is live. `_active_root_info(repo)` (`mcp-decision-server/server.py:116`) returns `personal repo (DECISION_REPO_PATH set)` (line 130) or `project fallback (DECISION_REPO_PATH unset)` (line 131). `record_manager_decision` prints this to stderr as `decision-server: active store: …` (`mcp-decision-server/server.py:1604`).
+-
+-Two provenance fields are stamped on every record rather than left to the caller:
+-
+-- `active_root = repo.name` — the repo **display name only**, never the absolute path (`mcp-decision-server/server.py:1621`).
+-- `store_mode` — `"personal"` when `DECISION_REPO_PATH` is set, else `"project-fallback"` (`mcp-decision-server/server.py:1622-1624`).
+-
+-Full paths stay in local stderr logs and are never written into a record.
+-
+-## Six-Tool Quick Reference
+-
+-All six are decorated with `@mcp.tool()` in `mcp-decision-server/server.py`.
+-
+-| Tool                        | Decorator / `def` | Signature                                                                                                                                      | Returns                                                      |
+-| --------------------------- | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+-| `extract_session_decisions` | `:1258` / `:1259` | `(task_id: Optional[Union[int, str]] = None, transcript_path: Optional[str] = None, session_id: Optional[str] = None) -> list[dict[str, Any]]` | list of candidate decision dicts, unscrubbed and unvalidated |
+-| `record_manager_decision`   | `:1551` / `:1552` | `(decision: dict[str, Any]) -> str`                                                                                                            | human-readable confirmation naming the record id             |
+-| `query_manager_decisions`   | `:1659` / `:1660` | `(query: str, category: Optional[str] = None) -> str`                                                                                          | formatted ranked summaries, or a no-match message            |
+-| `get_sync_status`           | `:1762` / `:1763` | `() -> str`                                                                                                                                    | active store plus sync-debt report                           |
+-| `get_manager_profile`       | `:1776` / `:1777` | `() -> str`                                                                                                                                    | the profile sample text, or an explanatory message           |
+-| `propose_profile_evolution` | `:1801` / `:1802` | `() -> dict[str, Any]`                                                                                                                         | `{"status": "DRAFT_READY"｜"EMPTY"｜"ERROR", "draft": str}`  |
+-
+-Enum sheet used across tools and records:
+-
+-| Field      | Allowed values                                                                                       | Where enforced                                              |
+-| ---------- | ---------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+-| `category` | `architecture`, `process`, `scope`, `quality-gate`, `tooling`, `release`, `other`, `autopilot-cycle` | `mcp-decision-server/server.py:959-962`                     |
+-| `fidelity` | `verbatim`, `reconstructed` (default `verbatim`)                                                     | `mcp-decision-server/server.py:896-900`, default at `:1612` |
+-| `mode`     | `manual`, `autopilot` (default `manual`)                                                             | `mcp-decision-server/server.py:896-900`, default at `:1612` |
+-| `scope`    | `standing`, `episode` (default `episode`)                                                            | `mcp-decision-server/server.py:896-900`, default at `:1613` |
+-
+-## Tool Details
+-
+-### `extract_session_decisions`
+-
+-```python
+-extract_session_decisions(
+-    task_id: Optional[Union[int, str]] = None,
+-    transcript_path: Optional[str] = None,
+-    session_id: Optional[str] = None,
+-) -> list[dict[str, Any]]
+-```
+-
+-**When to call.** At the end of every session in which the Manager ruled, chose, or constrained something, before closing the task (`mcp-decision-server/server.py:1264-1294`). Feed the output into `record_manager_decision`. The output is **unscrubbed and unvalidated** — it is only a candidate list.
+-
+-**Arguments.**
+-
+-- `task_id` — session scope as `tasks/.sessions/{task_id}/transcript.jsonl`. A numeric value resolves the numeric path.
+-- `session_id` — taskless session scope, sanitized before use (`mcp-decision-server/server.py:1249`).
+-- `transcript_path` — explicit override, mainly for tests and replays.
+-
+-**Resolution order.** `transcript_path` wins if given (`mcp-decision-server/server.py:1296-1297`). Otherwise the scope is `session_id` or `task_id`; if both are `None` the tool raises `ValueError("decision extract: pass task_id or session_id (or transcript_path for replays)")` (`mcp-decision-server/server.py:1300-1304`). Numeric scope reads `tasks/.sessions/{int}/transcript.jsonl` (`mcp-decision-server/server.py:1312-1316`); a non-numeric session id is sanitized into `tasks/.sessions/{sanitized_sid}/transcript.jsonl` (`mcp-decision-server/server.py:1305-1311`).
+-
+-**Return shape.** A JSON array of candidates, each item shaped as `{"verbatim_quote": {"original": …, "english_translation": …}, "extracted_decision": {"summary": …, "category": …, "rationale": …, "alternatives": [], "tradeoffs": …}}` (extraction prompt at `mcp-decision-server/server.py:1348-1356`).
+-
+-**Side effects.** One LLM call to the `DECISION_MODEL` model. Reads a transcript; writes nothing.
+-
+-**Failure modes.**
+-
+-- Missing transcript file → returns `[]` gracefully, before the lazy LLM import runs (`mcp-decision-server/server.py:1317-1318`).
+-- Present but zero-turn transcript → raises `RuntimeError` (`mcp-decision-server/server.py:1330-1334`). A broken pipeline must not be mistaken for a quiet session.
+-- Malformed model output → raises `RuntimeError` (`mcp-decision-server/server.py:1264-1294`).
+-- No scope given, or an unsafe session id → raises `ValueError` (`mcp-decision-server/server.py:1300-1304`, `:1249`).
+-- Oversized transcript → capped by `_get_decision_transcript_max_chars()` with an explicit `[...truncated at N chars]` marker, never silently (`mcp-decision-server/server.py:1339-1347`).
+-
+-### `record_manager_decision`
+-
+-```python
+-record_manager_decision(decision: dict[str, Any]) -> str
+-```
+-
+-**When to call.** Immediately after extraction returns candidates, or as soon as the Manager states a ruling mid-session — do not wait for session end (`mcp-decision-server/server.py:1553-1602`).
+-
+-**Pipeline.** `sanitize_text` every free-text field → `verify_clean` gate → schema validation → write `.json` + `.md` → regenerate `INDEX.md`. The scrub gate fail-closes on every root, including an explicitly configured personal repo; there is no bypass flag (`mcp-decision-server/server.py:1553-1602`).
+-
+-**Argument.** A single `decision` dict. The tool fills these when absent: `decision_id` (`mcp-decision-server/server.py:1608`), `timestamp` (`:1609`), `fingerprint` (`:1617-1619`), plus hardened defaults `fidelity="verbatim"`, `mode="manual"`, `scope="episode"`, `goal_ref=""` (`:1610-1616`). An explicit `None` counts as unset for those four, so a `None` never survives as a value.
+-
+-> **Note.** `project_name` is **required** and is **not** defaulted (`mcp-decision-server/server.py:873-874`, `:1608-1619`). The `Args` block documents it with the rest of the record contract (`mcp-decision-server/server.py:1576-1594`), and an omission surfaces as `ValueError: decision schema violations: missing required field: project_name`. Always pass it.
+-
+-**Return shape.** A string such as `Recorded DEC-YYYYMMDD-NNN (`decisions/YYYY/MM/….json`+`.md`; index now holds N).` (`mcp-decision-server/server.py:1654-1656`). When the fingerprint matches an earlier record, the same string carries `Possible duplicate of <id> (same fingerprint) — kept as a separate record; confirm intent.` (`mcp-decision-server/server.py:1620`, `:1652-1653`).
+-
+-**Side effects.** Writes `decisions/YYYY/MM/DEC-YYYYMMDD-NNN.json` with `json.dumps(indent=2, ensure_ascii=False)` (`mcp-decision-server/server.py:1631-1633`) and a companion `.md` (`:1636-1650`), regenerates `INDEX.md` (`:1651`), prints the active store to stderr (`:1604`), and reports unpushed commits (`:1654-1656`). It never commits or pushes.
+-
+-**Failure modes.** Sensitive residue after sanitizing, or any schema violation, raises `ValueError` and writes **nothing** (`mcp-decision-server/server.py:1625-1627`, `:1553-1602`). An unwritable store raises `RuntimeError` from `_repo_root()` (`:113`).
+-
+-### `query_manager_decisions`
+-
+-```python
+-query_manager_decisions(query: str, category: Optional[str] = None) -> str
+-```
+-
+-**When to call.** Automatically, **before** paging the human Manager with a question. If a past ruling covers the question, decide from the record instead of asking (`mcp-decision-server/server.py:1661-1678`). Also call it during discovery when the task touches architecture, process, scope, or quality gates.
+-
+-**Arguments.**
+-
+-- `query` — keyword(s). Case-insensitive ranked match over `summary` (weight 3), verbatim `original` (2), verbatim `english_translation` (2), `rationale` (2), `tradeoffs` (1), joined `alternatives` (1) (`mcp-decision-server/server.py:1730-1737`). A blank query scores every record 1, so it returns everything in the category (`:1661-1678`).
+-- `category` — optional filter against the eight-value enum (`mcp-decision-server/server.py:1709-1710`, `:1661-1678`).
+-
+-**Return shape.** `"{n} decision(s) match:\n\n"` followed by the joined hit blocks (`mcp-decision-server/server.py:1758-1759`). Each hit block is `### <decision_id> [<category>] <summary>`, then `> <english_translation>`, then `Rationale: <rationale>` (`mcp-decision-server/server.py:1750-1753`).
+-
+-**Side effects.** Pulls the store first; reads only. Never writes, commits, or pushes.
+-
+-**Failure modes.** No hits → the string `No manager decisions match query='…' category=…` (`mcp-decision-server/server.py:1755-1756`). A failed pull does **not** error out: the server prints `decision-server: pull failed (…); reading local state` and serves local state so reads stay available (`mcp-decision-server/server.py:1680-1686`). Malformed record files are skipped, not fatal: non-dict records, non-dict `extracted_decision`, non-dict `verbatim_quote`, and non-list `alternatives` are all filtered before scoring (`mcp-decision-server/server.py:1693-1728`).
+-
+-**No result cap.** The tool returns **every** matching record. There is no top-N limit; the literal `3` at `mcp-decision-server/server.py:1731` is the `summary` scoring weight. On a large store, expect long output.
+-
+-### `get_sync_status`
+-
+-```python
+-get_sync_status() -> str
+-```
+-
+-**When to call.** At session start, so silent sync debt is visible before new records land (`mcp-decision-server/server.py:1764-1767`).
+-
+-**Return shape.** `"{active store info}; {freshness}; {unpushed report}"` (`mcp-decision-server/server.py:1763-1773`).
+-
+-**Side effects.** Read-only; never commits or pushes (ZAC holds). A failed pull degrades to local state with a stderr note rather than raising (`mcp-decision-server/server.py:1763-1773`).
+-
+-### `get_manager_profile`
+-
+-```python
+-get_manager_profile() -> str
+-```
+-
+-**When to call.** Automatically whenever resolving an architectural ambiguity or applying a house rule — the profile is the Manager's standing judgment (`mcp-decision-server/server.py:1778-1787`).
+-
+-**Return shape.** The text of `<store>/samples/manager_profile.md`, or the explanatory string `No manager profile sample exists yet.` when the sample is absent.
+-
+-**Notes.** The baseline section is curated; a generated aggregate appears only from reviewed compilations. The tool never synthesizes guidance (`mcp-decision-server/server.py:1778-1787`). Cheap, read-only, no side effects. A failed pull degrades to local state (`mcp-decision-server/server.py:1777-1798`).
+-
+-### `propose_profile_evolution`
+-
+-```python
+-propose_profile_evolution() -> dict[str, Any]
+-```
+-
+-**When to call.** Only when new recorded decisions exist that the current sample does not reflect — roughly once per sprint, never per session. Present the draft to the Manager; merge nothing without explicit approval (`mcp-decision-server/server.py:1803-1816`).
+-
+-**Behavior.** Runs `scripts/compile_profile.py` in a subprocess via `subprocess.run([sys.executable, str(script), "--repo", str(repo)], capture_output=True, text=True, timeout=120)` (`mcp-decision-server/server.py:1802-1834`). Nothing is written to the sample; the draft is returned as a staged diff-like payload.
+-
+-**Return shape.** A dict with `status` in `DRAFT_READY` / `EMPTY` / `ERROR` plus `draft`.
+-
+-- Missing compile script → `{"status": "ERROR", "draft": "compile script missing: <path>"}`.
+-- Subprocess error or non-zero return code → `{"status": "ERROR", …}` with the reason.
+-- Empty output, or output starting `No decisions found` → `{"status": "EMPTY", …}`.
+-- Otherwise → `{"status": "DRAFT_READY", "draft": <text>}`.
+-
+-**Failure modes.** Never raises; every failure arrives as `status: ERROR`.
+-
+-## Shared Decision-Record Field Contract
+-
+-`_validate_against_schema` (`mcp-decision-server/server.py:865-912`) enforces the shape below before anything is written.
+-
+-**Required fields** — the tuple at `mcp-decision-server/server.py:873-874`:
+-
+-| Field                | Type / shape                                                                                                                         | Source                                    |
+-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------- |
+-| `decision_id`        | `DEC-\d{8}-\d{3}`, generated when absent                                                                                             | `:879`, generated at `:753-764` / `:1608` |
+-| `timestamp`          | ISO string parsed via `datetime.fromisoformat(str(…).replace("Z", "+00:00"))`; generated as `datetime.now(timezone.utc).isoformat()` | `:881-884`, `:1609`                       |
+-| `project_name`       | present in the required tuple; **never defaulted**                                                                                   | `:873-874`, `:1608-1619`                  |
+-| `verbatim_quote`     | mapping with `original` and `english_translation`                                                                                    | `:873-874`, `:1348-1356`                  |
+-| `extracted_decision` | mapping with `summary`, `category`, `rationale`, `alternatives[]`, `tradeoffs`                                                       | `:873-874`, `:1348-1356`                  |
+-| `redaction_verified` | server-set `True` after the scrub gate passes                                                                                        | `:861`, `:910`                            |
+-
+-**Validated enums and optional fields:**
+-
+-| Field         | Rule                                         | Source                               |
+-| ------------- | -------------------------------------------- | ------------------------------------ |
+-| `category`    | must be one of the eight values              | `:959-962`, `:892-894`, `:1045`      |
+-| `fidelity`    | `verbatim` or `reconstructed` when present   | `:896-900`                           |
+-| `mode`        | `manual` or `autopilot` when present         | `:896-900`                           |
+-| `scope`       | `standing` or `episode` when present         | `:896-900`                           |
+-| `fingerprint` | `[0-9a-f]{64}` sha256, generated when absent | `:904-906`, `:767-784`, `:1617-1619` |
+-| `goal_ref`    | optional string                              | `:907-909`                           |
+-
+-**Server-stamped provenance:** `active_root` (repo display name) and `store_mode` (`personal` / `project-fallback`) — see Store Resolution above (`mcp-decision-server/server.py:1621-1624`).
+-
+-The redactor (`mcp-decision-server/redactor.py`) backs the `redaction_verified` gate. `sanitize_text` is idempotent, coerces non-strings to `str`, and maps empty input to `""` (`redactor.py:58-72`). `verify_clean` returns `False` when a sensitive pattern survives and must block the write (`redactor.py:75-85`). `REDACTION_RULES` (`redactor.py:19-43`) covers provider keys (`sk-`, `ghp_`, `AIzaSy`), Bearer tokens (with a digit gate so prose like "Bearer tokens" is untouched), private IPv4 ranges (`10/8`, `172.16/12`, `192.168/16`), and generic `password|passwd|secret|api_key|auth_token = …` assignments. `_VERIFY_RESIDUE` (`redactor.py:52-55`) reuses those rules but swaps the assignment rule for `_VERIFY_ASSIGNMENT` (`redactor.py:49-51`), which carries a `(?!\[REDACTED\])` lookahead so an already-redacted marker is not mistaken for a live secret.
+-
+-## Pitfalls for Agents
+-
+-| Pitfall                                                 | Correct behavior                                                                                                                                                                        |
+-| ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+-| Omitting `project_name`                                 | Always pass it. It is required and not defaulted (`mcp-decision-server/server.py:873-874`, `:1608-1619`), and the tool docstring lists it with the full record contract (`:1576-1594`). |
+-| `verbatim_quote` as a plain string                      | Must be a mapping with `original` and `english_translation`.                                                                                                                            |
+-| `extracted_decision` as a plain string                  | Must be a mapping with `summary`, `category`, `rationale`, `alternatives[]`, `tradeoffs`.                                                                                               |
+-| `alternatives` as a string or `None`                    | Must be a list. The query tool filters non-list `alternatives` before scoring (`mcp-decision-server/server.py:1719-1728`).                                                              |
+-| `tradeoffs` as a list                                   | Must be a string.                                                                                                                                                                       |
+-| Inventing a category                                    | The enum is closed: eight values only. `product-behavior` is invalid (`mcp-decision-server/server.py:959-962`).                                                                         |
+-| Paging the Manager first                                | Query stored decisions first; a past ruling may already answer it (`mcp-decision-server/server.py:1661-1678`).                                                                          |
+-| Expecting a short query result                          | There is no result cap (`mcp-decision-server/server.py:1758-1759`).                                                                                                                     |
+-| Passing `None` for `fidelity`/`mode`/`scope`/`goal_ref` | Treated as unset; the server applies `verbatim` / `manual` / `episode` / `""` (`mcp-decision-server/server.py:1610-1616`).                                                              |
+-| Treating auto-record as allowed                         | It is forbidden. Every persist passes the Manager confirm gate and `record_manager_decision` (`mcp-decision-server/detector.py:1-20`).                                                  |
+-| Expecting `propose_profile_evolution` to write          | It writes nothing; it returns a draft for approval (`mcp-decision-server/server.py:1803-1816`).                                                                                         |
+-| Expecting a blocked pull to break reads                 | A failed pull degrades to local state with a stderr note; reads still work (`mcp-decision-server/server.py:1680-1686`).                                                                 |
+-
+-## Recommended Workflow
+-
+-1. **Session open:** call `get_sync_status` so pending push debt is visible (`mcp-decision-server/server.py:1764-1767`).
+-2. **Before asking the Manager:** call `query_manager_decisions` with keywords from the question. Decide from the record when a ruling covers it (`mcp-decision-server/server.py:1661-1678`).
+-3. **Resolving ambiguity:** call `get_manager_profile` for the standing judgment (`mcp-decision-server/server.py:1778-1787`).
+-4. **Mid-session ruling:** call `record_manager_decision` immediately, while the verbatim quote is still exact (`mcp-decision-server/server.py:1553-1602`).
+-5. **Before closing a task:** call `extract_session_decisions`, then queue each candidate through `record_manager_decision` — never persist raw extractor output (`mcp-decision-server/server.py:1264-1294`, `:1553-1602`).
+-6. **Roughly once per sprint:** call `propose_profile_evolution` and present the draft for approval (`mcp-decision-server/server.py:1803-1816`).
+-
+-Sync is pull-before-read and pull-before-write (`_ensure_fresh`, `mcp-decision-server/server.py:168`), and the server never commits or pushes; a human or the sanctioned commit path does that.
+-
+-## Doc Drift
+-
+-These divergences were found in the source at commit `0183433`. Six were recorded when this page was written. Two of them — D1 and D2 — were fixed on 2026-09-21 in the write tool's `Args` block and in the extraction prompt; the other four still stand. **No skill file was changed, and no server behavior changed.**
+-
+-| ID  | Drift                                                                                                                                                                                                  | Evidence                                                                                                                                         |
+-| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+-| D1  | **Fixed 2026-09-21.** The extraction prompt advertised only seven categories while the validator accepts eight, so the model was never told `autopilot-cycle` existed. The prompt now lists all eight. | prompt `mcp-decision-server/server.py:1353-1354` vs `_VALID_CATEGORIES` `mcp-decision-server/server.py:959-962` and the inline set at `:892-894` |
+-| D2  | **Fixed 2026-09-21.** `project_name` is hard-required and used to be undocumented in the tool's `Args` block. The block now lists all six required fields and the nested record shapes.                | required at `mcp-decision-server/server.py:873-874`; documented at `:1576-1594`                                                                  |
+-| D3  | `query_manager_decisions` has no result cap, so a large store returns full output. The literal `3` in the function is a scoring weight, not a limit.                                                   | scoring `mcp-decision-server/server.py:1730-1737`; uncapped return at `:1758-1759`                                                               |
+-| D4  | `_SCRUB_FIELDS` is a dead constant — defined, never referenced. The real scrub list is hardcoded in `_scrub_free_text`.                                                                                | definition `mcp-decision-server/server.py:193`; hardcoded leaves/targets at `:831-851`                                                           |
+-| D5  | The skill text and the tool's own guidance describe different push commands.                                                                                                                           | skill text vs the guidance carried in `get_sync_status` / `_unpushed_report` (`mcp-decision-server/server.py:177`, `:1763-1773`)                 |
+-| D6  | The `detector.py` module docstring cites stale `server.py` line numbers for `extract_session_decisions` and `record_manager_decision`.                                                                 | `mcp-decision-server/detector.py:1-20`; actual lines are `mcp-decision-server/server.py:1258` and `:1551`                                        |
+-
+-Both fixed items were documentation-and-prompt fixes: no validation behavior changed. The eight-value category set is still duplicated, held inline in `_validate_against_schema` (`mcp-decision-server/server.py:892-893`) and again in `_VALID_CATEGORIES` (`:959-962`) instead of the validator importing the constant — a duplication that can drift independently.
+-
+-## Could Not Verify
+-
+-- **Generated MCP `inputSchema`.** The server was read, never executed. The JSON Schema a client derives from these signatures was not observed.
+-- **`migrated_from` field.** Not defined anywhere in `mcp-decision-server/`; no behavior can be documented.
+-- **Behavior against a diverged remote.** The stale-on-pull-failure path is documented from source (`mcp-decision-server/server.py:1680-1686`, `:1763-1773`, `:1777-1798`) but was not reproduced against a real diverged remote.
+-
+-## Related
+-
+-- [`docs/brain-bridge.md`](brain-bridge.md) — the Brain Bridge server that consumes these rulings in autopilot.
+-- [`docs/setup.md`](setup.md) — MCP server table and start commands.
+-- [`skill-templates/manager-decision/SKILL.md`](../skill-templates/manager-decision/SKILL.md) — the agent workflow around these tools.
+diff --git a/docs/setup.md b/docs/setup.md
+index e19aa27..7985b0d 100644
+--- a/docs/setup.md
++++ b/docs/setup.md
+@@ -56,7 +56,6 @@ The project uses five FastMCP Python servers, all running as supervised singleto
+ | `mcp-context-server`                          | `.gitignore`-aware file reading, tree exploration                             | 8102 (`mcp-context.service`)  |
+ | `mcp-memory-server`                           | Persistent project memory (namespaces + index)                                | 8103 (`mcp-memory.service`)   |
+ | `mcp-lint-server`                             | Task file linting and Markdown validation                                     | 8101 (`mcp-lint.service`)     |
+-| [`mcp-decision-server`](manager-decisions.md) | Manager-decision capture and consultation                                     | 8104 (`mcp-decision.service`) |
+ | `mcp-brain-bridge`                            | Unified Brain bridge: `brain_turn` (system-prompt loader + LLM + XML extract) | 8105 (`mcp-brain.service`)    |
+ 
+ Each unit launches its server via the persistent venv interpreter (`<dir>/.venv/bin/python <dir>/server.py`, never `uv run` — `uv` startup exceeds the V2 connect timeout under multi-session spawn load, 2026-09-29 fix), with `MCP_TRANSPORT=streamable-http` plus `MCP_HOST`/`MCP_PORT` in the unit environment.
+@@ -89,7 +88,6 @@ into the service, so export anything you want the OpenCode process itself
+ to see (used by `{env:VAR}` forwarding) before enabling:
+ 
+ ```bash
+-export DECISION_REPO_PATH="$HOME/Develop/Projects/manager-decisions"
+ export OPENCHAMBER_UI_PASSWORD="$(cat ~/.secrets/openchamber-ui-password)"
+ openchamber startup enable --port 3005 --host 127.0.0.1
+ ```
+diff --git a/mcp-brain-bridge/capability.py b/mcp-brain-bridge/capability.py
+index 082e4f8..5f8ca20 100644
+--- a/mcp-brain-bridge/capability.py
++++ b/mcp-brain-bridge/capability.py
+@@ -15,7 +15,7 @@ of three statuses — no silent fourth state:
+ Availability registry grounding (read 2026-09-19): the granted tool
+ surface is ``opencode.json`` ``permission`` — families
+ ``custom_context_*``, ``project_memory_*``, ``lint_*``, ``blowsh_*``,
+-``telegram_*``, plus ``brain_turn``, the manager-decision tools, the
++``telegram_*``, plus ``brain_turn``, the
+ context tools (``get_directory_tree``, ``read_source_files``,
+ ``bundle_tasks``), and the native core (``task``, ``skill``,
+ ``todowrite``, ``read``, ``edit``, ``write``, ``bash``, ``grep``,
+@@ -55,30 +55,26 @@ AVAILABLE_FAMILIES = (
+     "telegram_",
+ )
+ 
+-# Exact tool names outside those families: the bridge itself, the
+-# manager-decision tools, the context tools, and the native core.
+-AVAILABLE_EXACT = frozenset({
+-    "brain_turn",
+-    "get_sync_status",
+-    "query_manager_decisions",
+-    "get_manager_profile",
+-    "extract_session_decisions",
+-    "record_manager_decision",
+-    "propose_profile_evolution",
+-    "get_directory_tree",
+-    "read_source_files",
+-    "bundle_tasks",
+-    "task",
+-    "skill",
+-    "todowrite",
+-    "read",
+-    "edit",
+-    "write",
+-    "bash",
+-    "grep",
+-    "glob",
+-    "question",
+-})
++# Exact tool names outside those families: the bridge itself,
++# the context tools, and the native core.
++AVAILABLE_EXACT = frozenset(
++    {
++        "brain_turn",
++        "get_directory_tree",
++        "read_source_files",
++        "bundle_tasks",
++        "task",
++        "skill",
++        "todowrite",
++        "read",
++        "edit",
++        "write",
++        "bash",
++        "grep",
++        "glob",
++        "question",
++    }
++)
+ 
+ # Tools referenced by live prompts/skills but absent from the granted
+ # toolset (see module docstring). Listed explicitly so the manifest can
+@@ -119,8 +115,7 @@ class CapabilityBlockedError(RuntimeError):
+         )
+ 
+ 
+-def _is_available(name: str, available: frozenset,
+-                  unavailable: frozenset) -> bool:
++def _is_available(name: str, available: frozenset, unavailable: frozenset) -> bool:
+     if name in unavailable:
+         return False
+     if name in available:
+@@ -175,8 +170,7 @@ def evaluate(
+ def gate(manifest: Mapping[str, str], stage: Optional[str] = None) -> None:
+     """Raise ``CapabilityBlockedError`` when a required tool is missing."""
+     missing = sorted(
+-        name for name, status in manifest.items()
+-        if status == "UNAVAILABLE_REQUIRED"
++        name for name, status in manifest.items() if status == "UNAVAILABLE_REQUIRED"
+     )
+     if missing:
+         raise CapabilityBlockedError(missing, stage)
+@@ -186,8 +180,7 @@ def format_relay_block(error: CapabilityBlockedError) -> str:
+     """The single relay rule: missing tool → narrow question + answer slot.
+ 
+     Carries only the missing names, the stage, and the question the
+-    human (manual mode) or the manager-decision replay (autopilot)
+-    must answer. Never carries file content.
++    human must answer. Never carries file content.
+     """
+     names = ", ".join(error.missing)
+     return (
+diff --git a/mcp-brain-bridge/server.py b/mcp-brain-bridge/server.py
+index 1ab3bca..8e0ef18 100644
+--- a/mcp-brain-bridge/server.py
++++ b/mcp-brain-bridge/server.py
+@@ -1085,11 +1085,9 @@ def validate_closure_checklist(task_text: object) -> list[str]:
+     Returns problem strings; empty means ready. Closeout needs a
+     ``QA_PASSED`` verdict line, a ``PO_REVIEW_PENDING`` reviewer state,
+     the exact approval-word quote (only "Approved for closure" or
+-    "Close task" count — bare "approved" never does), a non-empty
++    "Close task" count — bare "approved" never does), and a non-empty
+     Factual Git Diff block (content between the markers, not the empty
+-    placeholder), and evidence that ``extract_session_decisions`` ran
+-    for the close (the auto-extract rule never fires unless closeout
+-    verifies it). Anything missing must be fixed before the closure
++    placeholder). Anything missing must be fixed before the closure
+     commit, never closed around.
+     """
+     if not isinstance(task_text, str) or not task_text.strip():
+@@ -1102,8 +1100,6 @@ def validate_closure_checklist(task_text: object) -> list[str]:
+         problems.append("task text missing PO_REVIEW_PENDING reviewer state")
+     if not any(word in lowered for word in _CLOSURE_APPROVAL_WORDS):
+         problems.append("task text missing exact approval-word quote")
+-    if not re.search(r"\bextract_session_decisions\b", task_text):
+-        problems.append("task text shows no extract_session_decisions run")
+     diff_match = re.search(
+         r"<!-- BEGIN_GIT_DIFF -->(.*?)<!-- END_GIT_DIFF -->", task_text, re.DOTALL
+     )
+diff --git a/mcp-brain-bridge/session_ledger.py b/mcp-brain-bridge/session_ledger.py
+index 9f98d71..2a679f2 100644
+--- a/mcp-brain-bridge/session_ledger.py
++++ b/mcp-brain-bridge/session_ledger.py
+@@ -50,8 +50,7 @@ def _resolve_dir(
+     elif project_root is not None:
+         ledger_dir = Path(project_root).expanduser() / "tasks" / ".sessions"
+     else:
+-        raise ValueError(
+-            "session ledger: pass sessions_dir or project_root")
++        raise ValueError("session ledger: pass sessions_dir or project_root")
+     ledger_dir.mkdir(parents=True, exist_ok=True)
+     return ledger_dir
+ 
+@@ -103,10 +102,10 @@ def start_session(
+         "response_hash": None,
+         "retry_counts": {},
+         "capability_manifest": (
+-            dict(capability_manifest) if capability_manifest else None),
++            dict(capability_manifest) if capability_manifest else None
++        ),
+         "approval_events": [],
+-        "transcript_path": str(
+-            ledger_dir / session_id / "transcript.jsonl"),
++        "transcript_path": str(ledger_dir / session_id / "transcript.jsonl"),
+         "transport_corrections": [],
+         "final_status": "open",
+     }
+@@ -128,13 +127,19 @@ def checkpoint(
+     if name not in CHECKPOINTS:
+         raise ValueError(
+             f"session ledger: unknown checkpoint {name!r}; "
+-            f"expected one of {', '.join(CHECKPOINTS)}")
++            f"expected one of {', '.join(CHECKPOINTS)}"
++        )
+     data: dict = {"checkpoint": name}
+     if detail:
+         data.update(dict(detail))
+     return append_event(
+-        "checkpoint", task_id=task_id, session_id=session_id,
+-        data=data, project_root=project_root, sessions_dir=sessions_dir)
++        "checkpoint",
++        task_id=task_id,
++        session_id=session_id,
++        data=data,
++        project_root=project_root,
++        sessions_dir=sessions_dir,
++    )
+ 
+ 
+ def read_ledger(
+@@ -147,8 +152,7 @@ def read_ledger(
+     elif project_root is not None:
+         ledger_dir = Path(project_root).expanduser() / "tasks" / ".sessions"
+     else:
+-        raise ValueError(
+-            "session ledger: pass sessions_dir or project_root")
++        raise ValueError("session ledger: pass sessions_dir or project_root")
+     path = ledger_dir / LEDGER_FILENAME
+     if not path.is_file():
+         return []
+@@ -174,17 +178,22 @@ def record_pending_candidate(
+     project_root: Optional[Union[str, Path]] = None,
+     sessions_dir: Optional[Union[str, Path]] = None,
+ ) -> dict:
+-    """Stage one extracted decision candidate as pending — never a write.
++    """Stage one extracted candidate as pending — never a write.
+ 
+     The ledger row is the approval queue (GitHub issue 19, P7); the
+-    candidate reaches ``record_manager_decision`` only after the
++    candidate is handed off only after the
+     Manager approves, via an explicit caller handoff.
+     """
+     data = dict(candidate)
+     data["status"] = "pending"
+     return append_event(
+-        "decision_pending", task_id=task_id, session_id=session_id,
+-        data=data, project_root=project_root, sessions_dir=sessions_dir)
++        "decision_pending",
++        task_id=task_id,
++        session_id=session_id,
++        data=data,
++        project_root=project_root,
++        sessions_dir=sessions_dir,
++    )
+ 
+ 
+ def _pending_for_session(
+@@ -194,10 +203,9 @@ def _pending_for_session(
+ ) -> list[dict]:
+     """Pending decision candidates staged for one session, in order."""
+     return [
+-        e for e in read_ledger(
+-            project_root=project_root, sessions_dir=sessions_dir)
+-        if e.get("event") == "decision_pending"
+-        and e.get("session_id") == session_id
++        e
++        for e in read_ledger(project_root=project_root, sessions_dir=sessions_dir)
++        if e.get("event") == "decision_pending" and e.get("session_id") == session_id
+     ]
+ 
+ 
+@@ -215,11 +223,12 @@ def resolve_pending_candidate(
+     ``index`` selects the session's Nth staged candidate; ``verdict`` is
+     ``\"approved\"`` / ``\"rejected\"`` (a bool also works: True approves).
+     Approval returns the candidate payload merged with the verdict so
+-    the caller can hand it to ``record_manager_decision`` explicitly —
++    the caller can handle it explicitly —
+     this function itself never writes DEC files.
+     """
+     pending = _pending_for_session(
+-        session_id, project_root=project_root, sessions_dir=sessions_dir)
++        session_id, project_root=project_root, sessions_dir=sessions_dir
++    )
+     try:
+         chosen = pending[index]
+     except IndexError:
+@@ -230,26 +239,28 @@ def resolve_pending_candidate(
+     if isinstance(verdict, str):
+         decision = verdict.strip().lower()
+         if decision not in ("approved", "rejected"):
+-            raise ValueError(
+-                f"bad verdict {verdict!r}; use 'approved' or 'rejected'"
+-            )
++            raise ValueError(f"bad verdict {verdict!r}; use 'approved' or 'rejected'")
+     else:
+         decision = "approved" if verdict else "rejected"
+     # The pending row stores candidate fields at the record top level
+     # (append_event merges data in); carry them over minus the envelope
+     # and the stale pending status.
+     data = {
+-        key: value for key, value in chosen.items()
++        key: value
++        for key, value in chosen.items()
+         if key not in ("ts", "task_id", "session_id", "event", "status")
+     }
+     data["decision"] = decision
+     if note:
+         data["note"] = note
+     return append_event(
+-        "decision_approved" if decision == "approved"
+-        else "decision_rejected",
+-        task_id=task_id, session_id=session_id, data=data,
+-        project_root=project_root, sessions_dir=sessions_dir)
++        "decision_approved" if decision == "approved" else "decision_rejected",
++        task_id=task_id,
++        session_id=session_id,
++        data=data,
++        project_root=project_root,
++        sessions_dir=sessions_dir,
++    )
+ 
+ 
+ def promote_pending_candidate(
+@@ -262,5 +273,11 @@ def promote_pending_candidate(
+ ) -> dict:
+     """Approve one pending candidate; caller persists it explicitly."""
+     return resolve_pending_candidate(
+-        session_id, index, "approved", task_id=task_id, note=note,
+-        project_root=project_root, sessions_dir=sessions_dir)
++        session_id,
++        index,
++        "approved",
++        task_id=task_id,
++        note=note,
++        project_root=project_root,
++        sessions_dir=sessions_dir,
++    )
+diff --git a/mcp-decision-server/detector.py b/mcp-decision-server/detector.py
+deleted file mode 100644
+index ef665c5..0000000
+--- a/mcp-decision-server/detector.py
++++ /dev/null
+@@ -1,149 +0,0 @@
+-"""Decision-moment detector for manager-decision auto-extraction (Task 213).
+-
+-Pure standard library — deterministic, no LLM call, unit-testable offline.
+-Sits BEFORE `extract_session_decisions` (server.py:686): it flags candidate
+-turns cheaply; only flagged turns go to the LLM extractor, and every
+-persist still passes the mandatory human confirm gate + `record_manager_decision`
+-(server.py:909). It never writes anything itself, and its output must pass
+-human confirm before any `record_manager_decision` call — there is no code
+-path from this module to the decision store (auto-record is forbidden).
+-
+-Precision bar (plan verdict A3, hardened per QA hotfix): a candidate is
+-QUEUED only with a named owner (the manager speaking — agent/assistant/
+-system/tool turns are skipped) PLUS two or more DISTINCT content-signal
+-categories. Weak categories (bare modal verbs, lone scope nouns) count only
+-when paired with a strong category (explicit ruling verb or tradeoff phrase).
+-
+-Redaction boundary: queued excerpts are RAW session text (truncated to 200
+-chars on a word edge). They must pass `sanitize_text` + `verify_clean`
+-(redactor.py) before persistence or mirror write.
+-"""
+-
+-from __future__ import annotations
+-
+-import re
+-
+-# Strong ruling verbs/phrases — an explicit human call. Counts toward the
+-# bar on its own. All patterns are case-insensitive with word boundaries so
+-# substrings ("mustard", "dropdown", "ruler") never match.
+-_STRONG_RULING = (
+-    re.compile(
+-        r"\b(decided?|decide on|approved?|use \w+ over|go with|rule:?|ruling|"
+-        r"never do|always do|forbidden|required)\b",
+-        re.IGNORECASE,
+-    ),
+-    re.compile(r"\b(let'?s (?:use|go with|drop|keep|adopt|stick with))\b", re.IGNORECASE),
+-)
+-
+-# Weak ruling verbs — too generic alone ("we must fix tests" is not a macro
+-# decision). Count only when a strong category is also present.
+-_WEAK_RULING = (
+-    re.compile(r"\b(must|keep|drop)\b", re.IGNORECASE),
+-)
+-
+-# Trade-off markers — weighing alternatives is a decision smell. Strong:
+-# it pairs weak signals into a passing candidate.
+-_TRADEOFF = (
+-    re.compile(r"\btrade-?offs?\b", re.IGNORECASE),
+-    re.compile(r"\b(instead of|rather than|on the other hand|alternative(?:ly|s)?)\b", re.IGNORECASE),
+-)
+-
+-# Reversible-scope nouns — the call touches something with blast radius.
+-# Weak alone ("the api timed out" is a status, not a decision): counts only
+-# when a strong category is also present.
+-_SCOPE = re.compile(
+-    r"\b(architectur\w*|schemas?|database|api|auth\w*|deploy\w*|releas\w*|polic\w*|"
+-    r"workflow|pipeline|migration|quota|ratelimit|rate.?limit|scope|deadline|budget)\b",
+-    re.IGNORECASE,
+-)
+-
+-#: Minimum DISTINCT content-signal categories to queue a candidate.
+-MIN_CONTENT_SIGNALS = 2
+-
+-#: Excerpt cap. Truncation lands on a word edge, never mid-word.
+-_EXCERPT_LEN = 200
+-
+-
+-def _content_categories(text: str) -> set[str]:
+-    """Return the distinct content-signal categories present in `text`."""
+-    cats: set[str] = set()
+-    if any(p.search(text) for p in _STRONG_RULING):
+-        cats.add("strong-ruling")
+-    if any(p.search(text) for p in _WEAK_RULING):
+-        cats.add("weak-ruling")
+-    if any(p.search(text) for p in _TRADEOFF):
+-        cats.add("tradeoff-marker")
+-    if _SCOPE.search(text):
+-        cats.add("scope-noun")
+-    # Weak categories ride along only: without a strong category they are
+-    # ordinary chatter ("must", "api", "scope"), so drop them unless a
+-    # strong ruling or tradeoff phrase is present.
+-    if not ({"strong-ruling", "tradeoff-marker"} & cats):
+-        cats -= {"weak-ruling", "scope-noun"}
+-    return cats
+-
+-
+-def _truncate_words(text: str, limit: int = _EXCERPT_LEN) -> str:
+-    """Cap `text` at `limit` chars, breaking on a word edge when possible."""
+-    if len(text) <= limit:
+-        return text
+-    cut = text[:limit].rsplit(" ", 1)[0]
+-    return cut if cut else text[:limit]
+-
+-
+-def detect_decision_moments(turns: list[dict]) -> list[dict]:
+-    """Flag candidate decision turns. Only PASSING candidates are queued.
+-
+-    `turns`: list of {"speaker": str, "text": str, "manager_confirmed": bool
+-    (optional)}. Speaker is normalized (trim + lower); non-owner speakers are
+-    skipped unless the turn carries explicit `manager_confirmed=True`.
+-    Returns [{"turn_index", "excerpt" (raw, word-edge truncated to 200
+-    chars), "signals", "passes": True}]. Non-list input or malformed turns
+-    yield [] — never raises; one bad element never drops valid turns.
+-    """
+-    if not isinstance(turns, list):
+-        return []
+-    out: list[dict] = []
+-    for i, turn in enumerate(turns):
+-        if not isinstance(turn, dict):
+-            continue
+-        text = turn.get("text", "")
+-        if not isinstance(text, str):
+-            text = str(text)
+-        if not text.strip():
+-            continue
+-        speaker = str(turn.get("speaker", "")).strip().lower()
+-        # Only "manager" or an explicitly manager-confirmed turn owns a
+-        # decision — agent/assistant/system/tool proposals never queue.
+-        if speaker != "manager" and not bool(turn.get("manager_confirmed")):
+-            continue
+-        cats = _content_categories(text)
+-        signals = ["owner:manager"] + sorted(cats)
+-        if not passes_precision_bar(signals):
+-            continue
+-        out.append(
+-            {
+-                "turn_index": i,
+-                "excerpt": _truncate_words(text),
+-                "signals": signals,
+-                "passes": True,
+-            }
+-        )
+-    return out
+-
+-
+-def passes_precision_bar(signals: list[str]) -> bool:
+-    """True only with named owner + MIN_CONTENT_SIGNALS distinct categories.
+-
+-    Owner entry is matched after trim + lower-casing ("Manager", " manager "
+-    both count; missing owner fails). Content entries exclude the owner
+-    signal; weak categories must already be paired (see _content_categories).
+-    Non-list input returns False — never raises.
+-    """
+-    if not isinstance(signals, list):
+-        return False
+-    norm = [str(s).strip().lower() for s in signals]
+-    if "owner:manager" not in norm:
+-        return False
+-    content = {s for s in norm if s != "owner:manager"}
+-    return len(content) >= MIN_CONTENT_SIGNALS
+diff --git a/mcp-decision-server/pyproject.toml b/mcp-decision-server/pyproject.toml
+deleted file mode 100644
+index 12e29c7..0000000
+--- a/mcp-decision-server/pyproject.toml
++++ /dev/null
+@@ -1,13 +0,0 @@
+-[project]
+-name = "mcp-decision-server"
+-version = "1.0.0"
+-description = "Manager-decision learning MCP server (Task 168): extract/redact/store/query"
+-requires-python = ">=3.10"
+-dependencies = [
+-    "mcp[cli]>=1.0,<2.0",
+-    "httpx>=0.28",
+-    "mcp-common",
+-]
+-
+-[tool.uv.sources]
+-mcp-common = { path = "../mcp-common", editable = true }
+diff --git a/mcp-decision-server/redactor.py b/mcp-decision-server/redactor.py
+deleted file mode 100644
+index 3384268..0000000
+--- a/mcp-decision-server/redactor.py
++++ /dev/null
+@@ -1,85 +0,0 @@
+-"""Redaction engine for manager-decision persistence (Task 168).
+-
+-Every free-text field is scrubbed by `sanitize_text` BEFORE it touches the
+-decision repo; `verify_clean` attests the stored text holds zero sensitive
+-patterns, and its result feeds the record's `redaction_verified` flag.
+-Patterns covered: provider API keys (`sk-...`, `ghp_...`, `AIzaSy...`),
+-Bearer tokens, private IPv4 ranges (`10/8`, `172.16/12`, `192.168/16`),
+-and generic `password = ...` / `token = ...` credential assignments.
+-
+-Pure standard library — deterministic and unit-testable without network.
+-"""
+-
+-from __future__ import annotations
+-
+-import re
+-
+-# Each entry: (compiled pattern, replacement). Order matters: specific
+-# provider keys first, generic credential assignments last.
+-REDACTION_RULES: tuple[tuple[re.Pattern[str], str], ...] = (
+-    # OpenAI / OpenRouter style secret keys.
+-    (re.compile(r"\bsk-(?:proj-|live-|test-)?[A-Za-z0-9_-]{8,}\b"), "[REDACTED_API_KEY]"),
+-    # GitHub personal access tokens.
+-    (re.compile(r"\bghp_[A-Za-z0-9]{8,}\b"), "[REDACTED_GITHUB_TOKEN]"),
+-    # Google API keys.
+-    (re.compile(r"\bAIzaSy[A-Za-z0-9_-]{10,}\b"), "[REDACTED_GOOGLE_KEY]"),
+-    # Bearer tokens (Authorization headers, config dumps).
+-    (re.compile(r"\bBearer\s+[A-Za-z0-9\-._~+/=]{8,}", re.IGNORECASE), "Bearer [REDACTED]"),
+-    # Short digit-bearing Bearer tokens (e.g. `Bearer abc123`). The digit
+-    # gate keeps prose like "Bearer tokens" untouched; the {8,} rule above
+-    # still catches long tokens with or without digits.
+-    (re.compile(r"\bBearer\s+(?=[A-Za-z0-9\-._~+/=]*\d)[A-Za-z0-9\-._~+/=]{4,7}\b",
+-                re.IGNORECASE), "Bearer [REDACTED]"),
+-    # Private IPv4: 10/8, 172.16/12, 192.168/16 (loopback stays — harmless).
+-    (re.compile(r"\b10(?:\.\d{1,3}){3}\b"), "[REDACTED_IP]"),
+-    (re.compile(r"\b172\.(?:1[6-9]|2\d|3[01])(?:\.\d{1,3}){2}\b"), "[REDACTED_IP]"),
+-    (re.compile(r"\b192\.168(?:\.\d{1,3}){2}\b"), "[REDACTED_IP]"),
+-    # Generic credential assignments: password = "secret", token: xyz.
+-    # Leading edge is "not preceded by alphanumerics" (not \b) so ENV-style
+-    # names joined by underscore (BRAIN_API_KEY=, FOO_SECRET=) still match,
+-    # while letter-joined words (topsecret=) stay untouched.
+-    (re.compile(r"(?i)(?<![A-Za-z0-9])(password|passwd|secret|api[_-]?key|auth[_-]?token)\b\s*[:=]\s*\S+"),
+-     r"\1=[REDACTED]"),
+-)
+-
+-# Detection patterns for the verify pass. Identical to REDACTION_RULES except
+-# the credential-assignment pattern carries a negative lookahead so an
+-# already-redacted `password=[REDACTED]` marker is NOT mistaken for a live
+-# secret (otherwise verify_clean could never pass on sanitized text).
+-_VERIFY_ASSIGNMENT = re.compile(
+-    r"(?i)(?<![A-Za-z0-9])(password|passwd|secret|api[_-]?key|auth[_-]?token)\b\s*[:=]\s*(?!\[REDACTED\])\S+"
+-)
+-_VERIFY_RESIDUE: tuple[re.Pattern[str], ...] = tuple(
+-    _VERIFY_ASSIGNMENT if rule is REDACTION_RULES[-1][0] else rule
+-    for rule, _ in REDACTION_RULES
+-)
+-
+-
+-def sanitize_text(text: str) -> str:
+-    """Scrub sensitive patterns from `text`, returning the redacted copy.
+-
+-    Idempotent: running it twice yields the same output (markers contain no
+-    matchable secret shapes). Non-string input is coerced to str; empty
+-    input returns empty.
+-    """
+-    if not isinstance(text, str):
+-        text = str(text)
+-    if not text:
+-        return ""
+-    scrubbed = text
+-    for pattern, replacement in REDACTION_RULES:
+-        scrubbed = pattern.sub(replacement, scrubbed)
+-    return scrubbed
+-
+-
+-def verify_clean(text: str) -> bool:
+-    """Return True when no sensitive pattern remains in `text`.
+-
+-    Run on the SANITIZED text before persistence; a False result must block
+-    the write (the record's `redaction_verified` stays False and the caller
+-    rejects the decision). Markers like `[REDACTED_API_KEY]` never match —
+-    they carry no secret-shaped content.
+-    """
+-    if not isinstance(text, str):
+-        text = str(text)
+-    return not any(pattern.search(text) for pattern in _VERIFY_RESIDUE)
+diff --git a/mcp-decision-server/server.py b/mcp-decision-server/server.py
+deleted file mode 100644
+index 5cc71d9..0000000
+--- a/mcp-decision-server/server.py
++++ /dev/null
+@@ -1,1985 +0,0 @@
+-#!/usr/bin/env -S uv run
+-# /// script
+-# requires-python = ">=3.10"
+-# dependencies = [
+-#     "mcp[cli]>=1.0,<2.0",
+-#     "httpx>=0.28",
+-# ]
+-# ///
+-
+-"""Manager-decision capture MCP server (Task 168).
+-
+-Learning half of the persona pipeline: per-session manager trade-offs and
+-rulings are extracted (httpx Responses-API call, default local Spark
+-model), redacted, and
+-persisted append-only into the decision store (per-project
+-`.opencode/decisions/`, overridable via DECISION_REPO_PATH).
+-Stored decisions feed `query_manager_decisions` (consultation) and
+-`propose_profile_evolution` (gated sample updates — the script drafts, a
+-human approves; this server never rewrites the sample itself).
+-
+-Transport: stdio FastMCP. The extraction model is called over the
+-OpenAI Responses API (``{api_base}/responses``) via ``httpx`` — plain
+-HTTPS POST, no SDK needed. ``httpx`` is lazy so import and unit tests
+-never need network or credentials.
+-"""
+-
+-from __future__ import annotations
+-
+-import contextvars
+-import copy
+-import functools
+-import hashlib
+-import json
+-import os
+-import re
+-import subprocess
+-import sys
+-import threading
+-import unicodedata
+-from datetime import datetime, timezone
+-from pathlib import Path
+-from typing import Any, Optional, Union
+-from urllib.parse import urlsplit
+-
+-from mcp.server.fastmcp import FastMCP
+-
+-from redactor import sanitize_text, verify_clean
+-
+-# Shared env loader lives in mcp-common (Task 170). Prefer the installed
+-# package; fall back to the sibling source tree so plain `uv run <path>`
+-# and direct test imports keep working without a workspace install.
+-# NOTE: file.parent = server dir, so parent.parent = install root (repo root
+-# for repo installs, ~/.config/opencode for global installs). Correct.
+-try:
+-    from mcp_common.env import load_env_files as _shared_load_env_files
+-except ImportError:  # pragma: no cover - workspace/normal path first
+-    _COMMON_SRC = Path(__file__).resolve().parent.parent / "mcp-common" / "src"
+-    if _COMMON_SRC.is_dir():
+-        sys.path.insert(0, str(_COMMON_SRC))
+-    from mcp_common.env import load_env_files as _shared_load_env_files
+-
+-
+-def _load_env_files(server_dir: Optional[Path] = None) -> Optional[str]:
+-    """Load `.env` files via the shared loader (thin wrapper, stable entry point).
+-    Empty env values count as unset, so blank `{env:…}` injections never
+-    shadow file values."""
+-    return _shared_load_env_files(
+-        server_dir if server_dir is not None else Path(__file__).resolve().parent
+-    )
+-
+-
+-_loaded_from = _load_env_files()
+-if _loaded_from is not None:
+-    print(f"decision-server: loaded env from {_loaded_from}", file=sys.stderr)
+-
+-# Install root: repo root for repo installs, ~/.config/opencode globally.
+-INSTALL_ROOT = Path(__file__).resolve().parent.parent
+-
+-
+-def _repo_root(explicit_root: Optional[str] = None) -> Path:
+-    """Resolve (creating) the decision store — project-aware.
+-
+-    Install-once configuration (B1): set ``DECISION_REPO_PATH`` ONCE in the
+-    shell environment or server ``.env`` file (see ``.env.example``). It is
+-    NEVER asked per call — every tool resolves the same path silently, and
+-    every record logs which store it landed in via ``_active_root_info``.
+-
+-    Per-call override (Task 279 project_path): pass an explicit absolute
+-    ``project_root`` to scope this call to another project's store
+-    (``<project_root>/.opencode/decisions``). Invalid roots raise
+-    ValueError naming the field; creation failures fail closed.
+-
+-    Order (AUTHORITATIVE-FIRST, wrong-place fix): explicit
+-    ``DECISION_REPO_PATH`` env, then per-call ``project_root``, then
+-    ``<cwd>/.opencode/decisions`` and ``<install-root>/.opencode/decisions``
+-    as fallbacks. The configured personal repo ALWAYS wins over a per-call
+-    ``project_root`` so a decision can never silently land in a project-local
+-    store and vanish from the authoritative personality repo — the defect that
+-    scattered decisions into ``<project>/.opencode/decisions``. The per-call
+-    root remains usable as the fallback store when ``DECISION_REPO_PATH`` is
+-    unset. Under the Task 279 singleton the server cwd is the install dir, NOT
+-    the calling project, so reaching either fallback candidate with no
+-    ``DECISION_REPO_PATH`` arms a client-visible warning (Task 279 F6/V1).
+-    Creation failures (e.g. read-only cwd) fall through to the next candidate.
+-    """
+-    explicit = os.environ.get("DECISION_REPO_PATH", "").strip()
+-    if explicit:
+-        root = Path(explicit)
+-        try:
+-            root.mkdir(parents=True, exist_ok=True)
+-        except OSError as exc:
+-            # Fail CLOSED with a clear error: never silently fall back to a
+-            # per-project store (that would split personality without a
+-            # trace), and never write before the scrub gate runs.
+-            raise RuntimeError(
+-                f"DECISION_REPO_PATH={explicit!r} is not usable ({exc}); "
+-                "fix the path or unset it to use the per-project fallback"
+-            ) from exc
+-        return root
+-    if explicit_root is not None:
+-        if not isinstance(explicit_root, str) or not explicit_root:
+-            raise ValueError("project_root must be a non-empty absolute path string.")
+-        if not Path(explicit_root).is_absolute():
+-            raise ValueError(f"project_root must be absolute, got: {explicit_root!r}.")
+-        root = Path(explicit_root).resolve()
+-        if not root.is_dir():
+-            raise ValueError(f"project_root must be an existing directory, got: {explicit_root!r}.")
+-        candidate = root / ".opencode" / "decisions"
+-        try:
+-            candidate.mkdir(parents=True, exist_ok=True)
+-        except OSError as exc:
+-            raise RuntimeError(
+-                f"project_root {explicit_root!r} store is not usable ({exc}); "
+-                "fix the path or omit it to use the default store"
+-            ) from exc
+-        return candidate
+-    for base in (Path.cwd(), INSTALL_ROOT):
+-        _FALLBACK_FIRED.set(True)
+-        candidate = base / ".opencode" / "decisions"
+-        try:
+-            candidate.mkdir(parents=True, exist_ok=True)
+-            return candidate
+-        except OSError:
+-            continue
+-    raise RuntimeError("cannot create a decision store: no writable location found")
+-
+-
+-def _active_root_info(repo: Path) -> str:
+-    """One-line provenance for the resolved store (Task 216).
+-
+-    Tells the operator WHICH store personality decisions land in: the
+-    explicit personal repo when ``DECISION_REPO_PATH`` is set, else the
+-    per-project fallback. The raw path value is deliberately NOT echoed
+-    (GitHub issue 19, P7): absolute paths leak machine layout into
+-    session-start diagnostics, and the sync status must stay free of
+-    approval-adjacent noise — the env var name alone names the store.
+-    Logged on every record call so an unset env on a new machine is
+-    visible instead of silently splitting the store.
+-    """
+-    explicit = os.environ.get("DECISION_REPO_PATH", "").strip()
+-    if explicit:
+-        return "personal repo (DECISION_REPO_PATH set)"
+-    return "project fallback (DECISION_REPO_PATH unset)"
+-
+-
+-def _run_git(repo: Path, *args: str) -> "subprocess.CompletedProcess[str]":
+-    """Run a git command inside `repo`; never raises (caller inspects)."""
+-    return subprocess.run(
+-        ["git", "-C", str(repo), *args],
+-        capture_output=True, text=True, timeout=60,
+-    )
+-
+-
+-def _pull_latest(repo: Path) -> str:
+-    """Pull latest into the decision store; recall always reads fresh (218).
+-
+-    Fail-closed on real conflicts (aborts the rebase, raises RuntimeError);
+-    tolerant everywhere else: non-git dir, no upstream, or unreachable
+-    remote just reports a status and the caller reads local state.
+-    Never pushes, never commits — ZAC: those stay Manager-owned.
+-    """
+-    if _run_git(repo, "rev-parse", "--git-dir").returncode != 0:
+-        return "sync skipped (not a git checkout)"
+-    if _run_git(repo, "status", "--porcelain").stdout.strip():
+-        return "sync skipped (dirty tree)"
+-    if _run_git(repo, "rev-parse", "--abbrev-ref",
+-                "--symbolic-full-name", "@{u}").returncode != 0:
+-        return "sync skipped (no upstream configured)"
+-    if _run_git(repo, "fetch", "origin").returncode != 0:
+-        return "sync warning (remote unreachable; reading local state)"
+-    pull = _run_git(repo, "pull", "--ff-only")
+-    if pull.returncode != 0:
+-        raise RuntimeError(
+-            "decision store pull failed (diverged or conflicted); "
+-            "local state untouched. "
+-            f"Resolve it in {repo} and retry.")
+-    return "store pulled to latest"
+-
+-
+-def _ensure_fresh(repo: Path) -> str:
+-    """Pull-before-read/write gate; `DECISION_NO_PULL=1` skips (tests)."""
+-    if os.environ.get("DECISION_NO_PULL", "").strip() == "1":
+-        return "sync skipped (DECISION_NO_PULL=1)"
+-    status = _pull_latest(repo)
+-    print(f"decision-server: {status}: {_active_root_info(repo)}", file=sys.stderr)
+-    return status
+-
+-
+-def _unpushed_report(repo: Path) -> str:
+-    """Visible push debt: tell the Manager what still needs commit+push."""
+-    if _run_git(repo, "rev-parse", "--git-dir").returncode != 0:
+-        return "personal repo is not a git checkout; nothing to push."
+-    dirty = _run_git(repo, "status", "--porcelain").stdout.strip().splitlines()
+-    dirty = [l for l in dirty if l.strip()]
+-    ahead = _run_git(repo, "rev-list", "--count", "@{u}..HEAD")
+-    n_ahead = ahead.stdout.strip() if ahead.returncode == 0 else "?"
+-    return (f"sync debt: {len(dirty)} uncommitted file(s), {n_ahead} "
+-            f"unpushed commit(s) — Manager: `git -C {repo} add -A && "
+-            f"git commit -m \"docs: record manager decisions\" && git push`.")
+-
+-
+-mcp = FastMCP("ManagerDecisions", host="127.0.0.1", port=8104)
+-
+-# Client-visible project-isolation warning (Task 279 F6/V1); see
+-# mcp-context-server for rationale. No absolute paths echoed (P7 privacy).
+-_FALLBACK_FIRED: contextvars.ContextVar[bool] = contextvars.ContextVar(
+-    "decision_fallback_fired", default=False)
+-ROOT_FALLBACK_WARNING = (
+-    "WARNING [project-isolation]: project_root was omitted, so this call "
+-    "was scoped to the singleton server's default store instead of the "
+-    "calling project. Pass an absolute project_root on every call.")
+-
+-
+-def _project_tool(fn):
+-    """Register an MCP tool that surfaces root-fallback client-visibly."""
+-    @functools.wraps(fn)
+-    def wrapper(*args, **kwargs):
+-        _FALLBACK_FIRED.set(False)
+-        out = fn(*args, **kwargs)
+-        if not _FALLBACK_FIRED.get():
+-            return out
+-        if isinstance(out, str):
+-            return ROOT_FALLBACK_WARNING + "\n" + out
+-        if isinstance(out, dict):
+-            out = dict(out)
+-            out.setdefault("project_root_warning", ROOT_FALLBACK_WARNING)
+-            return out
+-        return out
+-    return mcp.tool()(wrapper)
+-
+-# Free-text fields that must pass verify_clean before any write.
+-_SCRUB_FIELDS = ("original", "english_translation", "summary", "rationale", "tradeoffs")
+-
+-#: Built-in extraction model when DECISION_MODEL is not set.
+-DEFAULT_DECISION_MODEL = "gpt-6-astra"
+-
+-# Provider-failure machine tokens (Task 259) — deliberately distinct from a
+-# generic blank: the turn is terminal for the caller's retry logic, so the
+-# extraction surface never blames the transcript when the provider failed.
+-OUTPUT_BUDGET_EXHAUSTED = "OUTPUT_BUDGET_EXHAUSTED"
+-PROVIDER_ERROR = "PROVIDER_ERROR"
+-PROVIDER_REFUSAL = "PROVIDER_REFUSAL"
+-
+-
+-#: Default character cap for the joined session transcript sent to the model.
+-_DECISION_TRANSCRIPT_MAX_CHARS_DEFAULT = 131072
+-
+-#: Default output-token ceiling for extraction turns.
+-_DECISION_MAX_TOKENS_DEFAULT = 16384
+-
+-
+-def _get_decision_transcript_max_chars() -> int:
+-    """Character cap for the session transcript sent to the model.
+-
+-    Override via ``DECISION_TRANSCRIPT_MAX_CHARS`` (default 131072). Blank
+-    means unset — the default wins. A malformed, zero, or negative value
+-    raises instead of letting an unbounded prompt reach the provider: an
+-    oversized transcript is the exact failure this cap exists to bound.
+-    """
+-    raw = os.environ.get("DECISION_TRANSCRIPT_MAX_CHARS", "").strip()
+-    if not raw:
+-        return _DECISION_TRANSCRIPT_MAX_CHARS_DEFAULT
+-    try:
+-        value = int(raw)
+-    except ValueError:
+-        raise ValueError(
+-            f"DECISION_TRANSCRIPT_MAX_CHARS={raw!r} is not an integer; "
+-            "set a positive integer or leave it blank"
+-        )
+-    if value <= 0:
+-        raise ValueError(
+-            f"DECISION_TRANSCRIPT_MAX_CHARS={value} must be positive"
+-        )
+-    return value
+-
+-
+-def _get_decision_temperature() -> float:
+-    """Extraction sampling temperature; override via ``DECISION_TEMPERATURE``.
+-
+-    Defaults to 1.0 (matches the house temperature policy; the old hardcoded
+-    0.2 was a Gemini-era leftover). Blank means unset — the default wins. A
+-    malformed or out-of-range value raises instead of being clamped: a bad
+-    configuration must fail loudly, never be silently replaced by a default
+-    the operator did not choose.
+-    """
+-    raw = os.environ.get("DECISION_TEMPERATURE", "").strip()
+-    if not raw:
+-        return 1.0
+-    try:
+-        value = float(raw)
+-    except ValueError:
+-        raise ValueError(
+-            f"DECISION_TEMPERATURE={raw!r} is not a number; "
+-            "set a value between 0.0 and 2.0 or leave it blank"
+-        )
+-    if not 0.0 <= value <= 2.0:
+-        raise ValueError(
+-            f"DECISION_TEMPERATURE={raw!r} is out of range; "
+-            "use 0.0-2.0 or leave it blank"
+-        )
+-    return value
+-
+-
+-def _get_decision_model() -> str:
+-    """Extraction LLM: ``DECISION_MODEL``, else the built-in default.
+-
+-    No fallback to ``PERSONA_MODEL`` exists on purpose: a stale persona
+-    model value once hijacked extraction calls and caused 401s. Blank
+-    DECISION_MODEL means unset — the default wins.
+-    """
+-    explicit = os.environ.get("DECISION_MODEL", "").strip()
+-    if explicit:
+-        return explicit
+-    return DEFAULT_DECISION_MODEL
+-
+-
+-def _get_decision_effort() -> str:
+-    """Reasoning effort for extraction; override via
+-    ``DECISION_REASONING_EFFORT``, falling back to
+-    ``BRAIN_REASONING_EFFORT``.
+-
+-    Defaults to ``high`` — the effort ``deepseek/deepseek-v4.1-flash``
+-    advertises as its own default (it supports only ``max``/``high``/``low``).
+-    """
+-    val = (
+-        os.environ.get("DECISION_REASONING_EFFORT", "").strip()
+-        or os.environ.get("BRAIN_REASONING_EFFORT", "high").strip()
+-        or "high"
+-    )
+-    if not re.fullmatch(r"[\w.-]{1,64}", val):
+-        raise ValueError(f"bad reasoning effort: {val!r}")
+-    return val
+-
+-
+-def _get_decision_max_tokens() -> int:
+-    """Output cap for extraction turns; override via ``DECISION_MAX_TOKENS``.
+-
+-    The extraction call used to send no cap at all, leaving the ceiling to
+-    the provider. Reasoning tokens are billed as output and count against
+-    this cap on most providers, so an explicit value keeps the cost and the
+-    truncation boundary predictable. Blank means unset — the default wins.
+-    A malformed, zero, or negative value raises instead of silently falling
+-    back, so a bad configuration can never masquerade as the default.
+-    """
+-    raw = os.environ.get("DECISION_MAX_TOKENS", "").strip()
+-    if not raw:
+-        return _DECISION_MAX_TOKENS_DEFAULT
+-    try:
+-        value = int(raw)
+-    except ValueError:
+-        raise ValueError(
+-            f"DECISION_MAX_TOKENS={raw!r} is not an integer; "
+-            "set a positive integer or leave it blank"
+-        )
+-    if value <= 0:
+-        raise ValueError(f"DECISION_MAX_TOKENS={value} must be positive")
+-    return value
+-
+-
+-#: Advertised reasoning-effort support for the models this server ships a
+-#: default for. A missing entry means "unknown model" and the guard stays
+-#: silent — it must never block a call, only keep an unadvertised setting
+-#: from reaching the provider.
+-_KNOWN_EFFORT_SUPPORT: dict[str, frozenset[str]] = {
+-    # DeepSeek V4.1 Flash advertises only max/high/low (its own default is high).
+-    "deepseek/deepseek-v4.1-flash": frozenset({"max", "high", "low"}),
+-}
+-
+-#: Effort used when the configured value is not advertised by the model.
+-#: Mirrors each model's own default.
+-_KNOWN_EFFORT_DEFAULTS: dict[str, str] = {
+-    "deepseek/deepseek-v4.1-flash": "high",
+-}
+-
+-
+-def _resolve_decision_effort(model: str, effort: str) -> str:
+-    """Return an effort the model advertises, coercing when it does not.
+-
+-    ``DECISION_REASONING_EFFORT`` falls back to the shared
+-    ``BRAIN_REASONING_EFFORT``, and the Brain and decision models advertise
+-    different effort sets, so a value that suits one can be unadvertised for
+-    the other. When that happens the model's own default is used instead and
+-    a warning is printed; the call itself is never blocked.
+-    """
+-    supported = _KNOWN_EFFORT_SUPPORT.get(model)
+-    if supported is None or effort in supported:
+-        return effort
+-    fallback = _KNOWN_EFFORT_DEFAULTS.get(model, effort)
+-    print(
+-        f"decision-server: warning: reasoning effort {effort!r} is not among "
+-        f"{sorted(supported)} advertised by {model!r}; using {fallback!r}.",
+-        file=sys.stderr)
+-    return fallback
+-
+-
+-def _get_api_key() -> str:
+-    """Provider key: ``DECISION_API_KEY`` first, ``BRAIN_API_KEY`` as
+-    fallback. Fail-closed: an empty key cannot authenticate, so raise
+-    instead of sending a bare ``Bearer `` header."""
+-    key = (
+-        os.environ.get("DECISION_API_KEY", "").strip()
+-        or os.environ.get("BRAIN_API_KEY", "").strip()
+-    )
+-    if not key:
+-        raise RuntimeError("DECISION_API_KEY/BRAIN_API_KEY is empty; set it in .env")
+-    return key
+-
+-
+-#: Local default when neither DECISION_API_BASE nor BRAIN_API_BASE is set.
+-_DECISION_API_BASE_DEFAULT = "https://api.openai.com/v1"
+-
+-
+-def _https_guard(base: str, env_key: str) -> str:
+-    """Fail closed on a provider base that would leak the Bearer key.
+-
+-    HTTPS is always allowed. Plain HTTP is allowed ONLY for loopback hosts
+-    (a local proxy), where the bytes never leave the machine. Anything else
+-    raises instead of shipping the API key in cleartext over the network.
+-    """
+-    parsed = urlsplit(base)
+-    if parsed.scheme == "https":
+-        return base
+-    host = (parsed.hostname or "").lower()
+-    if parsed.scheme == "http" and host in {"localhost", "127.0.0.1", "::1"}:
+-        return base
+-    raise RuntimeError(
+-        f"{env_key}={base!r} must use https:// (http:// is allowed only for "
+-        f"localhost); refusing to send the API key in cleartext"
+-    )
+-
+-
+-def _get_api_base() -> str:
+-    """Provider base URL: ``DECISION_API_BASE`` first, ``BRAIN_API_BASE``
+-    as fallback, then the local default. The resolved base must pass the
+-    HTTPS guard so the Bearer key never travels in cleartext."""
+-    base = (
+-        os.environ.get("DECISION_API_BASE", "").strip()
+-        or os.environ.get("BRAIN_API_BASE", _DECISION_API_BASE_DEFAULT).strip()
+-        or _DECISION_API_BASE_DEFAULT
+-    )
+-    return _https_guard(base, "DECISION_API_BASE/BRAIN_API_BASE")
+-
+-
+-def _get_decision_read_timeout() -> float:
+-    """Read timeout (seconds) for the non-streaming provider call.
+-
+-    Override via ``DECISION_HTTP_READ_TIMEOUT`` (default 600). Reasoning
+-    models can think for minutes before the single response body arrives, so
+-    a fixed 120s ceiling aborted valid high-effort turns. Malformed or
+-    non-positive values fail loud rather than silently falling back.
+-    """
+-    raw = os.environ.get("DECISION_HTTP_READ_TIMEOUT", "600").strip() or "600"
+-    try:
+-        val = float(raw)
+-    except ValueError:
+-        raise RuntimeError(
+-            f"DECISION_HTTP_READ_TIMEOUT must be a number, got {raw!r}"
+-        )
+-    if val <= 0:
+-        raise RuntimeError(f"DECISION_HTTP_READ_TIMEOUT must be > 0, got {raw!r}")
+-    return val
+-
+-
+-# Retry policy for provider calls: 3 attempts, exponential backoff.
+-# (Duplicated from the brain bridge on purpose — each server dir ships
+-# self-contained to the global install.)
+-#: Retryable statuses. INTENTIONALLY NARROW: only these 5xx (plus 429
+-#: and network timeouts) are retried. Other 5xx (501, 505, …) fall
+-#: through to the generic provider error. Do NOT expand this set
+-#: without a task: broadening retries burns latency on hopeless calls.
+-#: DOCUMENTATION ONLY — the branch below checks membership directly.
+-_RETRYABLE_STATUS = {429, 500, 502, 503, 504}
+-
+-# Fatal client errors: never retried — the request itself is wrong
+-# (bad auth, bad route, bad payload). Other 4xx fail fast the same way.
+-_FATAL_STATUS = {400, 401, 403, 404, 422}
+-
+-# Overall deadline (seconds) for the whole retry sequence. Sleeps are
+-# capped by the remaining budget; hitting the deadline fast-fails instead
+-# of sleeping past it.
+-_OVERALL_DEADLINE_S = 500.0
+-
+-
+-def _retry_after_s(resp: Any) -> float:
+-    """Seconds from the Retry-After header (cap 120). 0 when missing/invalid."""
+-    try:
+-        raw = resp.headers.get("Retry-After", "")
+-    except Exception:
+-        return 0.0
+-    try:
+-        val = float(str(raw).strip().split(",")[0])
+-    except (ValueError, TypeError):
+-        return 0.0
+-    if val < 0:
+-        return 0.0
+-    return min(val, 120.0)
+-
+-
+-def _post_with_retry(client: Any, url: str, payload: dict[str, Any]) -> tuple[Any, int]:
+-    """POST with retries on transient failures (429/5xx + network
+-    timeouts). Returns (resp, attempts). Honors Retry-After on 429
+-    (plus small jitter) before exponential backoff. Final failure
+-    raises RuntimeError with status + URL path + a 500-char body
+-    snippet. Fatal client errors (400/401/403/404/422 and other 4xx)
+-    fail fast with a no-retry error. Headers (and the key) never
+-    enter error strings."""
+-    import random
+-    import time
+-
+-    import httpx
+-
+-    deadline = time.monotonic() + _OVERALL_DEADLINE_S
+-    last_status: int = -1
+-    last_snippet: str = "no attempt made"
+-    attempts = 0
+-    for attempt in range(3):
+-        if time.monotonic() >= deadline:
+-            raise RuntimeError(
+-                f"provider overall deadline hit ({_OVERALL_DEADLINE_S}s) at "
+-                f"{url.rsplit('/', 1)[-1]}: {last_snippet}"
+-            )
+-        attempts += 1
+-        retry_after = 0.0
+-        try:
+-            resp = client.post(
+-                url,
+-                json=payload,
+-                headers={"Authorization": "Bearer " + _get_api_key()},
+-            )
+-        except (httpx.TimeoutException, httpx.TransportError) as exc:
+-            last_status, last_snippet = -1, f"{type(exc).__name__}: {exc}"[:500]
+-        else:
+-            if resp.status_code < 400:
+-                return resp, attempts
+-            last_status, last_snippet = resp.status_code, resp.text[:500]
+-            if resp.status_code not in _RETRYABLE_STATUS:
+-                if 400 <= resp.status_code < 500:
+-                    raise RuntimeError(
+-                        f"fatal provider error {resp.status_code} (no retry) at "
+-                        f"{url.rsplit('/', 1)[-1]}: {last_snippet}"
+-                    )
+-                raise RuntimeError(
+-                    f"provider error {resp.status_code} at "
+-                    f"{url.rsplit('/', 1)[-1]}: {last_snippet}"
+-                )
+-            if resp.status_code == 429:
+-                retry_after = _retry_after_s(resp)
+-        base = 2**attempt
+-        if retry_after > 0:
+-            base = max(base, retry_after)
+-        delay = base + random.uniform(0, 0.25)
+-        remaining = deadline - time.monotonic()
+-        if remaining <= 0:
+-            raise RuntimeError(
+-                f"provider overall deadline hit ({_OVERALL_DEADLINE_S}s) at "
+-                f"{url.rsplit('/', 1)[-1]}: {last_snippet}"
+-            )
+-        time.sleep(min(delay, remaining))
+-    raise RuntimeError(
+-        f"provider failed after 3 attempts ({last_status}) at "
+-        f"{url.rsplit('/', 1)[-1]}: {last_snippet}"
+-    )
+-
+-
+-def _resp_json(resp: Any) -> Any:
+-    """Parse a provider response. Raises RuntimeError with status +
+-    content-type + snippet on malformed bodies instead of leaking a
+-    bare decode error."""
+-    try:
+-        return resp.json()
+-    except (json.JSONDecodeError, ValueError) as exc:
+-        ctype = "?"
+-        try:
+-            ctype = resp.headers.get("content-type", "?")
+-        except Exception:
+-            pass
+-        raise RuntimeError(
+-            f"provider returned non-JSON (status {resp.status_code}, "
+-            f"{ctype}): {resp.text[:500]}"
+-        ) from exc
+-
+-
+-def _responses_text(data: dict) -> str:
+-    """Pull plain text out of a Responses-API payload (pure, offline)."""
+-    parts: list[str] = []
+-    output = data.get("output") if isinstance(data, dict) else None
+-    if not isinstance(output, list):
+-        return ""
+-    for item in output:
+-        if not isinstance(item, dict):
+-            continue
+-        if item.get("type") == "message":
+-            for chunk in item.get("content") or []:
+-                if isinstance(chunk, dict) and chunk.get("type") == "output_text":
+-                    text = chunk.get("text")
+-                    if isinstance(text, str) and text:
+-                        parts.append(text)
+-        elif item.get("type") == "output_text":
+-            text = item.get("text")
+-            if isinstance(text, str) and text:
+-                parts.append(text)
+-    return "\n".join(parts)
+-
+-
+-def _as_int(value: Any) -> Optional[int]:
+-    """Coerce a usage counter to int; ``None`` when absent/unparseable.
+-
+-    Non-finite floats (``nan``/``inf``) raise inside ``int()`` — they are
+-    swallowed here so malformed provider usage can never abort diagnosis
+-    (Task 259 hotfix, QA F2).
+-    """
+-    if isinstance(value, bool):
+-        return None
+-    if isinstance(value, int):
+-        return value
+-    if isinstance(value, float):
+-        try:
+-            return int(value)
+-        except (ValueError, OverflowError):
+-            return None
+-    return None
+-
+-
+-def _responses_diagnostics(data: Any) -> dict:
+-    """Extract provider diagnostics from a Responses payload (pure).
+-
+-    Mirrors ``mcp-brain-bridge`` (Task 259): never raises on missing or
+-    malformed fields — every key is present with a ``None`` value so the
+-    caller sees a stable shape on every call. ``refusal`` collects refusal
+-    text from both direct ``type=="refusal"`` output items and nested
+-    content chunks, so it does not depend on a ``type=="message"`` item.
+-    """
+-    diag: dict[str, Any] = {
+-        "status": None,
+-        "incomplete_reason": None,
+-        "usage": {
+-            "input_tokens": None,
+-            "output_tokens": None,
+-            "reasoning_tokens": None,
+-            "total_tokens": None,
+-        },
+-        "error": None,
+-        "refusal": None,
+-    }
+-    if not isinstance(data, dict):
+-        return diag
+-
+-    status = data.get("status")
+-    if isinstance(status, str) and status:
+-        diag["status"] = status
+-
+-    incomplete = data.get("incomplete_details")
+-    if isinstance(incomplete, dict):
+-        reason = incomplete.get("reason")
+-        if isinstance(reason, str) and reason:
+-            diag["incomplete_reason"] = reason
+-
+-    usage = data.get("usage")
+-    if isinstance(usage, dict):
+-        diag["usage"]["input_tokens"] = _as_int(usage.get("input_tokens"))
+-        diag["usage"]["output_tokens"] = _as_int(usage.get("output_tokens"))
+-        diag["usage"]["total_tokens"] = _as_int(usage.get("total_tokens"))
+-        details = usage.get("output_tokens_details")
+-        if isinstance(details, dict):
+-            diag["usage"]["reasoning_tokens"] = _as_int(
+-                details.get("reasoning_tokens"))
+-
+-    error = data.get("error")
+-    if isinstance(error, str) and error.strip():
+-        diag["error"] = error.strip()
+-    elif isinstance(error, dict):
+-        message = error.get("message")
+-        if isinstance(message, str) and message.strip():
+-            diag["error"] = message.strip()
+-        elif error:
+-            # Serialization must never raise on exotic scalar types inside the
+-            # error object (Task 259 hotfix) — fall back to repr.
+-            try:
+-                diag["error"] = json.dumps(error, ensure_ascii=False)
+-            except (TypeError, ValueError):
+-                diag["error"] = str(error)
+-    elif error is not None and not isinstance(error, list):
+-        diag["error"] = str(error)
+-
+-    output = data.get("output")
+-    if isinstance(output, list):
+-        for item in output:
+-            if not isinstance(item, dict):
+-                continue
+-            if item.get("type") == "refusal":
+-                text = item.get("refusal")
+-                if isinstance(text, str) and text.strip():
+-                    diag["refusal"] = text.strip()
+-                    break
+-            if item.get("type") == "message":
+-                # "content" may be absent, null, or a malformed scalar; only a
+-                # real list is iterable (Task 259 hotfix, QA F1).
+-                content = item.get("content")
+-                if not isinstance(content, list):
+-                    continue
+-                for chunk in content:
+-                    if (isinstance(chunk, dict)
+-                            and chunk.get("type") == "refusal"):
+-                        text = chunk.get("refusal")
+-                        if isinstance(text, str) and text.strip():
+-                            diag["refusal"] = text.strip()
+-                            break
+-                if diag["refusal"]:
+-                    break
+-    return diag
+-
+-
+-def _log_responses_diagnostics(diag: dict) -> None:
+-    """Emit one compact diagnostics line to stderr on every provider call.
+-
+-    Includes the visible-token count (output minus reasoning). A near-zero
+-    visible count is the signature of a reasoning trace that consumed the
+-    whole output budget, which is what makes an answer come back blank or
+-    truncated while the reasoning tokens are still billed.
+-    """
+-    usage = diag.get("usage")
+-    if not isinstance(usage, dict):
+-        usage = {}
+-    out_tokens = usage.get("output_tokens")
+-    reasoning_tokens = usage.get("reasoning_tokens")
+-    visible_tokens: Optional[int] = None
+-    if isinstance(out_tokens, int) and isinstance(reasoning_tokens, int):
+-        visible_tokens = out_tokens - reasoning_tokens
+-    print(
+-        "decision-server: provider diag "
+-        f"status={diag.get('status')} "
+-        f"incomplete_reason={diag.get('incomplete_reason')} "
+-        f"input_tokens={usage.get('input_tokens')} "
+-        f"output_tokens={out_tokens} "
+-        f"reasoning_tokens={reasoning_tokens} "
+-        f"visible_tokens={visible_tokens} "
+-        f"total_tokens={usage.get('total_tokens')} "
+-        f"error={diag.get('error')!r} refusal={diag.get('refusal')!r}",
+-        file=sys.stderr)
+-
+-
+-def _provider_failure_message(diag: dict) -> Optional[str]:
+-    """Precise terminal error for an empty envelope with a known cause.
+-
+-    Returns ``None`` when the empty text has no provider cause (a genuine
+-    model blank), letting the caller fall through to the existing generic
+-    non-JSON error. Otherwise returns a message carrying the machine token
+-    and the verbatim cause, in the same precedence the bridge uses:
+-    error, then refusal, then max_output_tokens exhaustion.
+-    """
+-    # Normalize before reading so a malformed scalar ``usage`` cannot raise
+-    # inside the budget branch; terminal classification is preserved with
+-    # null usage values (Task 259 hotfix, QA F3).
+-    usage = diag.get("usage")
+-    if not isinstance(usage, dict):
+-        usage = {}
+-    if diag.get("error"):
+-        return (
+-            f"decision model returned no text: {PROVIDER_ERROR} — the "
+-            "provider returned an error (terminal, not a model blank):\n"
+-            f"{diag['error']}"
+-        )
+-    if diag.get("refusal"):
+-        return (
+-            f"decision model returned no text: {PROVIDER_REFUSAL} — the model "
+-            "refused this request (terminal, not a model blank):\n"
+-            f"{diag['refusal']}"
+-        )
+-    if (diag.get("status") == "incomplete"
+-            and diag.get("incomplete_reason") == "max_output_tokens"):
+-        return (
+-            f"decision model returned no text: {OUTPUT_BUDGET_EXHAUSTED} — the "
+-            "reasoning trace exhausted the output-token budget "
+-            "(status=incomplete, reason=max_output_tokens). This is NOT a "
+-            "model blank and NOT a transport flake; retrying with the same "
+-            "effort/cap fails identically. Lower DECISION_REASONING_EFFORT "
+-            "(or BRAIN_REASONING_EFFORT, e.g. to medium or low) or raise the "
+-            "provider output cap, then re-run. "
+-            f"Usage: input={usage.get('input_tokens')} "
+-            f"output={usage.get('output_tokens')} "
+-            f"reasoning={usage.get('reasoning_tokens')} "
+-            f"total={usage.get('total_tokens')}."
+-        )
+-    return None
+-
+-
+-def _utc_today() -> str:
+-    """UTC date as YYYYMMDD for decision ids."""
+-    return datetime.now(timezone.utc).strftime("%Y%m%d")
+-
+-
+-def _next_decision_id(repo: Path) -> str:
+-    """Next id of the form DEC-YYYYMMDD-NNN (daily zero-padded sequence)."""
+-    prefix = f"DEC-{_utc_today()}-"
+-    taken = sorted(
+-        p.name for p in (repo / "decisions").rglob(f"{prefix}*.json")
+-    ) if (repo / "decisions").exists() else []
+-    seq = 0
+-    for name in taken:
+-        match = re.fullmatch(r"DEC-\d{8}-(\d{3})\.json", name)
+-        if match:
+-            seq = max(seq, int(match.group(1)))
+-    return f"{prefix}{seq + 1:03d}"
+-
+-
+-def _decision_fingerprint(decision: dict[str, Any]) -> str:
+-    """Content hash for duplicate detection (F4): sha256 over the normalized
+-    summary + verbatim original + English translation. Case/whitespace
+-    folded so trivial re-saves match; non-blocking — callers warn, never
+-    reject, on a hit."""
+-    quote = decision.get("verbatim_quote", {}) if isinstance(decision, dict) else {}
+-    extracted = decision.get("extracted_decision", {}) if isinstance(decision, dict) else {}
+-    if not isinstance(quote, dict):  # H1: a stray string must not crash .get below.
+-        quote = {}
+-    if not isinstance(extracted, dict):
+-        extracted = {}
+-    parts = [
+-        str(extracted.get("summary", "")),
+-        str(quote.get("original", "")),
+-        str(quote.get("english_translation", "")),
+-    ]
+-    normalized = "\0".join(" ".join(p.split()).casefold() for p in parts)
+-    return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+-
+-
+-def _find_fingerprint_hit(repo: Path, fingerprint: str) -> Optional[str]:
+-    """Return the decision_id of an existing record with the same fingerprint,
+-    or None. Scans stored JSON files; skips unreadable ones."""
+-    decisions_dir = repo / "decisions"
+-    if not decisions_dir.exists():
+-        return None
+-    for path in sorted(decisions_dir.rglob("DEC-*.json")):
+-        try:
+-            record = json.loads(path.read_text(encoding="utf-8"))
+-        except (OSError, ValueError):
+-            continue
+-        if not isinstance(record, dict):  # H2: tampered non-dict file — skip, never crash.
+-            continue
+-        if record.get("fingerprint") == fingerprint:
+-            return str(record.get("decision_id", path.stem))
+-    return None
+-
+-
+-def _scrub_free_text(decision: dict[str, Any]) -> dict[str, Any]:
+-    """Return a copy with every free-text field sanitized + verified.
+-
+-    Raises:
+-        ValueError: If any field still holds sensitive patterns after
+-            sanitizing (write must not proceed).
+-    """
+-    scrubbed = json.loads(json.dumps(decision))  # Deep copy via round-trip.
+-    quote = scrubbed.setdefault("verbatim_quote", {})
+-    if not isinstance(quote, dict):
+-        raise ValueError(
+-            "verbatim_quote must be a mapping with "
+-            f"original/english_translation strings, got: {str(quote)[:200]}"
+-        )
+-    extracted = scrubbed.setdefault("extracted_decision", {})
+-    if not isinstance(extracted, dict):
+-        raise ValueError(
+-            "extracted_decision must be a mapping with "
+-            f"summary/category/rationale/alternatives/tradeoffs, got: {str(extracted)[:200]}"
+-        )
+-    alternatives_raw = extracted.get("alternatives", [])
+-    if not isinstance(alternatives_raw, list):
+-        raise ValueError(
+-            "extracted_decision.alternatives must be a list, "
+-            f"got: {str(alternatives_raw)[:200]}"
+-        )
+-    leaves = {
+-        "verbatim_quote.original": quote.get("original", ""),
+-        "verbatim_quote.english_translation": quote.get("english_translation", ""),
+-        "extracted_decision.summary": extracted.get("summary", ""),
+-        "extracted_decision.rationale": extracted.get("rationale", ""),
+-        "extracted_decision.tradeoffs": extracted.get("tradeoffs", ""),
+-    }
+-    for _leaf_name, _leaf_value in leaves.items():
+-        if not isinstance(_leaf_value, str):
+-            raise ValueError(
+-                f"{_leaf_name} must be a string, got: {str(_leaf_value)[:200]}"
+-            )
+-    for _item in alternatives_raw:
+-        if not isinstance(_item, str):
+-            raise ValueError(
+-                "extracted_decision.alternatives items must be strings, "
+-                f"got: {str(_item)[:200]}"
+-            )
+-    targets = [quote.get("original", ""), quote.get("english_translation", ""),
+-               extracted.get("summary", ""), extracted.get("rationale", ""),
+-               extracted.get("tradeoffs", "")]
+-    cleaned = [sanitize_text(t) for t in targets]
+-    if not all(verify_clean(t) for t in cleaned):
+-        raise ValueError("redaction failed: sensitive patterns remain after sanitize_text")
+-    (quote["original"], quote["english_translation"], extracted["summary"],
+-     extracted["rationale"], extracted["tradeoffs"]) = cleaned
+-    # Alternatives list items are manager-authored too — scrub each.
+-    extracted["alternatives"] = [sanitize_text(a) for a in alternatives_raw]
+-    if not all(verify_clean(a) for a in extracted["alternatives"]):
+-        raise ValueError("redaction failed in alternatives list")
+-    scrubbed["redaction_verified"] = True
+-    return scrubbed
+-
+-
+-def _validate_against_schema(decision: dict[str, Any]) -> list[str]:
+-    """Structural validation mirroring scripts/validate_decisions.py.
+-
+-    Kept import-light (no jsonschema dep): required fields, id shape,
+-    ISO timestamp, non-empty verbatim quote, known category, and the
+-    redaction_verified flag. Returns violation strings (empty = valid).
+-    """
+-    issues: list[str] = []
+-    for field in ("decision_id", "timestamp", "project_name", "verbatim_quote",
+-                  "extracted_decision", "redaction_verified"):
+-        if field not in decision:
+-            issues.append(f"missing required field: {field}")
+-    if issues:
+-        return issues
+-    if not re.fullmatch(r"DEC-\d{8}-\d{3}", str(decision["decision_id"])):
+-        issues.append(f"bad decision_id: {decision['decision_id']!r}")
+-    try:
+-        datetime.fromisoformat(str(decision["timestamp"]).replace("Z", "+00:00"))
+-    except ValueError:
+-        issues.append(f"bad timestamp: {decision['timestamp']!r}")
+-    quote = decision["verbatim_quote"]
+-    if not isinstance(quote, dict) or not all(
+-        isinstance(quote.get(k), str) and quote[k].strip()
+-        for k in ("original", "english_translation")
+-    ):
+-        issues.append("verbatim_quote.original/english_translation must be non-empty strings")
+-    extracted = decision["extracted_decision"]
+-    valid_categories = {"architecture", "process", "scope", "quality-gate",
+-                        "tooling", "release", "other", "autopilot-cycle"}
+-    if not isinstance(extracted, dict) or extracted.get("category") not in valid_categories:
+-        issues.append(f"bad category: {extracted.get('category') if isinstance(extracted, dict) else extracted!r}")
+-    for field_name, valid_values in (
+-        ("fidelity", {"verbatim", "reconstructed"}),
+-        ("mode", {"manual", "autopilot"}),
+-        ("scope", {"standing", "episode"}),
+-    ):
+-        value = decision.get(field_name)
+-        if value is not None and value not in valid_values:
+-            issues.append(f"bad {field_name}: {value!r}")
+-    fingerprint = decision.get("fingerprint")
+-    if fingerprint is not None and not re.fullmatch(r"[0-9a-f]{64}", str(fingerprint)):
+-        issues.append(f"bad fingerprint: {fingerprint!r}")
+-    goal_ref = decision.get("goal_ref")
+-    if goal_ref is not None and not isinstance(goal_ref, str):
+-        issues.append(f"bad goal_ref: {goal_ref!r}")
+-    if decision["redaction_verified"] is not True:
+-        issues.append("redaction_verified must be true")
+-    return issues
+-
+-
+-def _index_path(repo: Path) -> Path:
+-    """Markdown index listing every stored decision (regenerated on write)."""
+-    return repo / "decisions" / "INDEX.md"
+-
+-
+-def _rewrite_index(repo: Path) -> int:
+-    """Regenerate INDEX.md from all stored records; return record count."""
+-    rows = []
+-    for path in sorted((repo / "decisions").rglob("DEC-*.json")):
+-        try:
+-            record = json.loads(path.read_text(encoding="utf-8"))
+-        except (OSError, ValueError):
+-            continue
+-        if not isinstance(record, dict):  # H2 (same class as fingerprint scan).
+-            continue
+-        extracted = record.get("extracted_decision", {})
+-        if not isinstance(extracted, dict):
+-            extracted = {}
+-        rows.append(
+-            f"| {record.get('decision_id')} | {extracted.get('category', '?')} | "
+-            f"{extracted.get('summary', '')[:100]} | `{path.relative_to(repo).as_posix()}` |"
+-        )
+-    _index_path(repo).write_text(
+-        "# Manager Decisions Index\n\n"
+-        "> Auto-generated on every `record_manager_decision` call. Do not edit directly.\n\n"
+-        "| ID | Category | Summary | Path |\n|---|---|---|---|\n"
+-        + "\n".join(rows) + "\n",
+-        encoding="utf-8",
+-    )
+-    return len(rows)
+-
+-
+-# --- Task 191: deterministic extraction ---------------------------------------
+-
+-#: In-memory LRU cache for extraction results (Task 191).
+-_EXTRACT_CACHE_MAX = 64
+-_EXTRACT_CACHE: dict[str, list[dict[str, Any]]] = {}
+-#: Serializes cache lookup/store so concurrent extracts never corrupt it.
+-_CACHE_LOCK = threading.Lock()
+-#: Total extraction cache hits since import (every hit is logged to stderr).
+-_last_cache_hits = 0
+-#: Total auto-repair attempts since import (at most one per extract call).
+-_REPAIR_COUNT = 0
+-
+-_VALID_CATEGORIES = {
+-    "architecture", "process", "scope", "quality-gate",
+-    "tooling", "release", "other", "autopilot-cycle",
+-}
+-_REQUIRED_DECISION_FIELDS = (
+-    "summary", "category", "rationale", "alternatives", "tradeoffs",
+-)
+-
+-_BULLET_RE = re.compile(r"^\s*(?:[-*\u2022]|\d+[.)])\s+(.+?)\s*$")
+-
+-
+-def _extract_cache_key(
+-    transcript_bytes: bytes, model: str, effective_temp: float
+-) -> str:
+-    """Cache key: sha256(transcript bytes + model id + effective temp).
+-
+-    The temp is part of the key because an explicit BRAIN_TEMPERATURE
+-    override changes the model's output distribution — serving a
+-    temp-0 cached result to a temp-0.7 call would be wrong.
+-    Fields join with NUL bytes so concatenations can't collide (R2).
+-    """
+-    digest = hashlib.sha256()
+-    digest.update(transcript_bytes)
+-    digest.update(b"\0")
+-    digest.update(model.encode("utf-8"))
+-    digest.update(b"\0")
+-    digest.update(repr(float(effective_temp)).encode("utf-8"))
+-    return digest.hexdigest()
+-
+-
+-def _coerce_extracted_candidate(item: Any) -> None:
+-    """Normalize model-shaped candidate fields in place (extraction bugfix).
+-
+-    The light extraction model frequently emits a LIST for ``tradeoffs`` (the
+-    schema types it as a single string), a composite ``category`` (e.g.
+-    "process/quality-gate"), or a bare-string ``alternatives``. Left alone,
+-    the validator DROPPED every such candidate, so an entire session could
+-    extract to ``[]`` and the manager's rulings were silently lost. Coerce the
+-    shapes to the schema so a valid ruling is never discarded over formatting.
+-    """
+-    if not isinstance(item, dict):
+-        return
+-    extracted = item.get("extracted_decision")
+-    if not isinstance(extracted, dict):
+-        return
+-    tradeoffs = extracted.get("tradeoffs")
+-    if isinstance(tradeoffs, list):
+-        extracted["tradeoffs"] = "; ".join(
+-            str(x).strip() for x in tradeoffs if str(x).strip()
+-        )
+-    elif tradeoffs is None:
+-        extracted["tradeoffs"] = ""
+-    alternatives = extracted.get("alternatives")
+-    if isinstance(alternatives, str):
+-        extracted["alternatives"] = [alternatives] if alternatives.strip() else []
+-    elif not isinstance(alternatives, list):
+-        extracted["alternatives"] = []
+-    category = extracted.get("category")
+-    if category not in _VALID_CATEGORIES:
+-        parts = [p.strip() for p in str(category or "").replace(",", "/").split("/")]
+-        extracted["category"] = next(
+-            (p for p in parts if p in _VALID_CATEGORIES), "other"
+-        )
+-
+-
+-def _validate_extracted_candidates(
+-    candidates: list[dict[str, Any]], transcript_text: Optional[str] = None
+-) -> None:
+-    """Strict schema check on extracted candidates (Task 191 + N1).
+-
+-    Extends the original per-item dict check: verbatim_quote needs
+-    non-empty original/english_translation strings; extracted_decision
+-    needs summary/category/rationale/alternatives/tradeoffs with a known
+-    category. Raises RuntimeError naming the offender index.
+-
+-    When transcript_text is given, two extra guards apply: the
+-    verbatim original must be an exact substring of the transcript
+-    (    verbatim means verbatim — paraphrases belong in summary, never in
+-    the quote), and any extra key whose name contains "evidence" has
+-    non-verbatim values STRIPPED (with an stderr log) instead of
+-    failing the whole candidate — a hallucinated link must never
+-    persist, but one bad link must not nuke a valid ruling.
+-
+-    A non-string tradeoffs value is malformed model output, not a
+-    transport failure: that candidate is DROPPED in place (with an
+-    stderr log) and validation continues with the rest, so one bad
+-    candidate never nukes the valid ones. An all-malformed list
+-    validates to [] and flows into the empty-result path.
+-    """
+-    _drop_idxs: list[int] = []
+-    for idx, item in enumerate(candidates):
+-        _coerce_extracted_candidate(item)
+-        quote = item.get("verbatim_quote") if isinstance(item, dict) else None
+-        if not isinstance(quote, dict):
+-            raise RuntimeError(
+-                f"decision candidate {idx} missing required dict fields "
+-                f"verbatim_quote/extracted_decision: {str(item)[:300]}"
+-            )
+-        for key in ("original", "english_translation"):
+-            value = quote.get(key)
+-            if not isinstance(value, str) or not value.strip():
+-                raise RuntimeError(
+-                    f"decision candidate {idx} has bad verbatim_quote.{key} "
+-                    f"(non-empty string required): {str(item)[:300]}"
+-                )
+-        extracted = item.get("extracted_decision")
+-        if not isinstance(extracted, dict):
+-            raise RuntimeError(
+-                f"decision candidate {idx} missing required dict fields "
+-                f"verbatim_quote/extracted_decision: {str(item)[:300]}"
+-            )
+-        for key in _REQUIRED_DECISION_FIELDS:
+-            if key not in extracted:
+-                raise RuntimeError(
+-                    f"decision candidate {idx} missing extracted_decision.{key}: "
+-                    f"{str(item)[:300]}"
+-                )
+-        if not isinstance(extracted["summary"], str) or not extracted["summary"].strip():
+-            raise RuntimeError(
+-                f"decision candidate {idx} has bad summary "
+-                f"(non-empty string required): {str(item)[:300]}"
+-            )
+-        if extracted["category"] not in _VALID_CATEGORIES:
+-            raise RuntimeError(
+-                f"decision candidate {idx} has bad category "
+-                f"{extracted['category']!r}: {str(item)[:300]}"
+-            )
+-        if not isinstance(extracted["rationale"], str) or not extracted["rationale"].strip():
+-            raise RuntimeError(
+-                f"decision candidate {idx} has bad rationale "
+-                f"(non-empty string required): {str(item)[:300]}"
+-            )
+-        if not isinstance(extracted["alternatives"], list):
+-            raise RuntimeError(
+-                f"decision candidate {idx} has bad alternatives "
+-                f"(list required): {str(item)[:300]}"
+-            )
+-        if not isinstance(extracted["tradeoffs"], str):
+-            # Malformed model output must not crash the tool: drop this
+-            # candidate with a loud note and keep validating the rest.
+-            # An all-malformed list yields [] via the empty-result path.
+-            print(
+-                f"decision-server: dropped candidate {idx} with bad tradeoffs "
+-                f"(string required): {str(item)[:200]}",
+-                file=sys.stderr,
+-            )
+-            _drop_idxs.append(idx)
+-            continue
+-        if transcript_text is not None:
+-            if quote["original"] not in transcript_text:
+-                # A paraphrased/hallucinated quote must never persist, but one
+-                # bad quote must not nuke a session full of valid rulings
+-                # (the same drop-in-place policy the tradeoffs guard uses).
+-                print(
+-                    f"decision-server: dropped candidate {idx} with a "
+-                    f"non-verbatim quote (not an exact transcript substring): "
+-                    f"{quote['original'][:200]}",
+-                    file=sys.stderr,
+-                )
+-                _drop_idxs.append(idx)
+-                continue
+-            for extra_key in [
+-                key for key in item
+-                if "evidence" in key.lower() and key not in ("verbatim_quote",)
+-            ]:
+-                value = item[extra_key]
+-                raw = value if isinstance(value, list) else [value]
+-                kept = [
+-                    text for text in raw
+-                    if isinstance(text, str) and text in transcript_text
+-                ]
+-                if len(kept) < len(raw) or not kept:
+-                    print(
+-                        f"decision-server: stripped {len(raw) - len(kept)} "
+-                        f"non-verbatim '{extra_key}' link(s) from candidate "
+-                        f"{idx}",
+-                        file=sys.stderr,
+-                    )
+-                if not kept:
+-                    del item[extra_key]
+-                elif not isinstance(value, list):
+-                    item[extra_key] = kept[0]
+-                else:
+-                    item[extra_key] = kept
+-    for drop_idx in reversed(_drop_idxs):
+-        del candidates[drop_idx]
+-
+-
+-def _extract_largest_json(text: str) -> Any:
+-    """Return the largest JSON list/dict embedded in text.
+-
+-    Balanced-bracket scan that respects JSON strings/escapes; every
+-    balanced span is tried with json.loads and the longest parse wins.
+-    Raises ValueError when nothing parses (caller falls back or raises).
+-    """
+-    best: Any = None
+-    best_len = -1
+-    ties = 0
+-    n = len(text)
+-    for start in range(n):
+-        if text[start] not in "[{":
+-            continue
+-        depth = 0
+-        in_str = False
+-        escaped = False
+-        for end in range(start, n):
+-            char = text[end]
+-            if in_str:
+-                if escaped:
+-                    escaped = False
+-                elif char == "\\":
+-                    escaped = True
+-                elif char == '"':
+-                    in_str = False
+-                continue
+-            if char == '"':
+-                in_str = True
+-            elif char in "[{":
+-                depth += 1
+-            elif char in "]}":
+-                depth -= 1
+-                if depth == 0:
+-                    span = text[start : end + 1]
+-                    try:
+-                        value = json.loads(span)
+-                    except (json.JSONDecodeError, ValueError):
+-                        pass
+-                    else:
+-                        if isinstance(value, (list, dict)):
+-                            if len(span) > best_len:
+-                                best, best_len = value, len(span)
+-                            elif len(span) == best_len and best is not None:
+-                                # Tie: keep the FIRST valid largest span
+-                                # (deterministic) and log the ambiguity.
+-                                ties += 1
+-                    break
+-                if depth < 0:
+-                    break
+-    if ties:
+-        print(
+-            f"decision-server: largest-JSON tie ({ties} equal spans); "
+-            f"kept the first valid largest",
+-            file=sys.stderr,
+-        )
+-    if best is None:
+-        raise ValueError("no JSON list/dict span found in model text")
+-    return best
+-
+-
+-def _regex_fallback_candidates(
+-    snippet: str, transcript_text: str
+-) -> list[dict[str, Any]]:
+-    """Salvage explicit bullet/numbered lines (Task 191).
+-
+-    NEVER invents content: a line is kept only when its stripped text is
+-    an exact substring of the transcript. Both sides are NFC-normalized
+-    first so visually identical text in different Unicode forms still
+-    matches. Returns [] when nothing salvages (the caller then raises
+-    loudly).
+-    """
+-    norm_transcript = unicodedata.normalize("NFC", transcript_text)
+-    salvaged: list[dict[str, Any]] = []
+-    for line in snippet.splitlines():
+-        match = _BULLET_RE.match(line)
+-        if not match:
+-            continue
+-        content = unicodedata.normalize("NFC", match.group(1)).strip()
+-        if not content or content not in norm_transcript:
+-            continue
+-        salvaged.append(
+-            {
+-                "verbatim_quote": {
+-                    "original": content,
+-                    "english_translation": content,
+-                },
+-                "extracted_decision": {
+-                    "summary": content[:200],
+-                    "category": "other",
+-                    "rationale": "salvaged via regex fallback",
+-                    "alternatives": [],
+-                    "tradeoffs": "",
+-                },
+-            }
+-        )
+-    return salvaged
+-
+-
+-def _parse_model_text(text: str, transcript_text: str, note_repair: Any) -> Any:
+-    """Parse Responses-API message text into candidates (Task 191 + N1).
+-
+-    Order: each fenced block in turn (pre-handled, no repair logged),
+-    then the raw text as JSON. On plain-parse failure exactly ONE
+-    auto-repair runs (largest embedded JSON span); when that also fails
+-    the regex fallback salvages explicit bullet/numbered lines that are
+-    exact substrings of the transcript. Raises RuntimeError otherwise.
+-    """
+-    fenced_blocks = re.findall(
+-        r"`{3,}[^\n]*\n([\s\S]*?)(?:`{3,}|\Z)", text
+-    ) + re.findall(r"~{3,}[^\n]*\n([\s\S]*?)(?:~{3,}|\Z)", text)
+-    for block in fenced_blocks:
+-        try:
+-            return json.loads(block.strip())
+-        except (json.JSONDecodeError, ValueError):
+-            continue
+-    try:
+-        return json.loads(text)
+-    except json.JSONDecodeError as exc:
+-        direct_err = exc
+-    note_repair("model text is not plain JSON; extracting largest JSON span")
+-    try:
+-        return _extract_largest_json(text)
+-    except ValueError:
+-        pass
+-    salvaged = _regex_fallback_candidates(text, transcript_text)
+-    if salvaged:
+-        print(
+-            f"decision-server: regex fallback salvaged {len(salvaged)} candidate(s)",
+-            file=sys.stderr,
+-        )
+-        return salvaged
+-    raise RuntimeError(
+-        f"decision model returned non-JSON: {text[:500]}"
+-    ) from direct_err
+-
+-
+-# Taskless session ids (GitHub issue 19, P5): same shape the Brain
+-# bridge preflight accepts — must start alnum, max 64 chars. Blocks
+-# traversal (../), separators (/), and glob metacharacters before any
+-# filesystem touch.
+-_SESSION_ID_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{0,63}\Z")
+-
+-
+-def _sanitize_session_id(sid: object) -> str:
+-    if not isinstance(sid, str) or not _SESSION_ID_RE.match(sid):
+-        raise ValueError(
+-            f"decision extract: bad session id {sid!r}; use 1-64 "
+-            "letters/digits/underscore/hyphen starting with alnum"
+-        )
+-    return sid
+-
+-
+-@_project_tool
+-def extract_session_decisions(
+-    task_id: Optional[Union[int, str]] = None,
+-    transcript_path: Optional[str] = None,
+-    session_id: Optional[str] = None,
+-    project_root: Optional[str] = None,
+-) -> list[dict[str, Any]]:
+-    """Extract manager trade-offs/rulings from a session transcript.
+-
+-    WHEN TO CALL (automatic): at the end of every session in which the
+-    manager ruled, chose, or constrained something — before closing the
+-    task. Feed its output into `record_manager_decision` (never persist
+-    raw output: it is UNSCRUBBED and UNVALIDATED).
+-
+-    Reads `transcript.jsonl` from `tasks/.sessions/{task_id}/` (or the given
+-    path) and prompts the light LLM (DECISION_MODEL) to isolate manager
+-    decisions as structured objects. Raw output is returned UNSCRUBBED and
+-    UNVALIDATED — callers must pass candidates through
+-    `record_manager_decision` (which redacts + validates) before persistence.
+-
+-    Args:
+-        task_id: Session scope (`tasks/.sessions/{task_id}/transcript.jsonl`).
+-            Numeric ids (or numeric strings) resolve the task lane; a
+-            non-numeric string is treated as a taskless session id.
+-        transcript_path: Explicit transcript override (tests / replays).
+-        session_id: Taskless session scope
+-            (`tasks/.sessions/{session_id}/transcript.jsonl`) for turns
+-            that carry no task binding (GitHub issue 19, P5).
+-        project_root: Absolute path to the calling project's repository
+-            root. Used to scope file resolution to that project (transcript
+-            lookup under `<root>/tasks/.sessions/`). If omitted, falls back
+-            to the server working directory for backward compatibility.
+-
+-    Returns:
+-        List of candidate decision dicts (may be empty when the session
+-        holds no manager rulings). Never raises on missing transcripts —
+-        returns [] so the pipeline degrades gracefully. Raises
+-        RuntimeError on malformed model output (fail-loud beats a silent
+-        [] that downstream mistakes for "no rulings") and on present-but-
+-        empty transcripts (an existing file with zero turns is a broken
+-        pipeline, not a quiet session). Raises ValueError when neither
+-        a task nor a session scope is given, or the session id is unsafe.
+-    """
+-    if transcript_path:
+-        path = Path(transcript_path)
+-    else:
+-        if project_root is not None:
+-            if not isinstance(project_root, str) or not project_root:
+-                raise ValueError("project_root must be a non-empty absolute path string.")
+-            if not Path(project_root).is_absolute():
+-                raise ValueError(f"project_root must be absolute, got: {project_root!r}.")
+-            sessions_base = Path(project_root).resolve()
+-            if not sessions_base.is_dir():
+-                raise ValueError(f"project_root must be an existing directory, got: {project_root!r}.")
+-        else:
+-            sessions_base = Path.cwd()
+-        scope = session_id if session_id is not None else task_id
+-        if scope is None:
+-            raise ValueError(
+-                "decision extract: pass task_id or session_id "
+-                "(or transcript_path for replays)"
+-            )
+-        if session_id is not None or (
+-            isinstance(scope, str) and not scope.isdigit()
+-        ):
+-            sid = _sanitize_session_id(str(scope))
+-            path = (
+-                sessions_base / "tasks" / ".sessions" / sid / "transcript.jsonl"
+-            )
+-        else:
+-            path = (
+-                sessions_base / "tasks" / ".sessions"
+-                / str(int(scope)) / "transcript.jsonl"
+-            )
+-    if not path.is_file():
+-        return []  # Graceful path needs no LLM: check BEFORE the lazy import.
+-    turns: list[str] = []
+-    with open(path, encoding="utf-8") as fh:
+-        for line in fh:
+-            line = line.strip()
+-            if not line:
+-                continue
+-            try:
+-                record = json.loads(line)
+-            except json.JSONDecodeError:
+-                continue
+-            turns.append(f"[{record.get('role', '?')}] {record.get('content', '')}")
+-    if not turns:
+-        raise RuntimeError(
+-            f"decision transcript {path} exists but holds zero turns — "
+-            f"refusing to treat a broken pipeline as 'no rulings'"
+-        )
+-    # The transcript is sent whole, so an oversized session produced an
+-    # unbounded prompt — the exact starvation this cap exists to bound.
+-    # Cap the joined text BEFORE the prompt is built and report the
+-    # dropped size, never silently.
+-    transcript_bytes = path.read_bytes()
+-    transcript_text = "\n".join(turns)
+-    _max_chars = _get_decision_transcript_max_chars()
+-    if len(transcript_text) > _max_chars:
+-        dropped_chars = len(transcript_text) - _max_chars
+-        transcript_text = (
+-            transcript_text[:_max_chars]
+-            + f"\n[...truncated at {dropped_chars} chars]"
+-        )
+-    prompt = (
+-        "Extract the MANAGER's decisions, trade-offs, and rulings from this session "
+-        "transcript. Preserve each ruling's verbatim quote. Reply with a JSON array; "
+-        "each item: {verbatim_quote: {original, english_translation}, "
+-        "extracted_decision: {summary, category, rationale, alternatives[], tradeoffs}}. "
+-        "verbatim_quote.original MUST be an exact substring of the transcript. "
+-        "alternatives is an array of strings; tradeoffs is ONE string (join multiple "
+-        "points with '; '). Use categories: architecture/process/scope/quality-gate/"
+-        "tooling/release/other/autopilot-cycle. "
+-        "Empty array when the session holds no manager rulings.\n\n" + transcript_text
+-    )
+-    effort = _get_decision_effort()  # Validated always; sent when no explicit temp.
+-    # Temperature-vs-effort rule (mirrors the Brain bridge): an explicitly
+-    # set temperature wins (temperature sent, effort dropped — Responses
+-    # models reject the combination). Otherwise the validated effort is
+-    # sent in the Responses-native nested shape (flat reasoning_effort is
+-    # rejected by strict providers, e.g. OpenAI/OpenRouter 400
+-    # unsupported_parameter) and temperature is omitted. Manager order:
+-    # decisions run at max effort by default; explicit temp restores the
+-    # old pinned-temperature behavior. temp_to_send stays 0 in the
+-    # default branch so the extract cache key shape is unchanged (effort
+-    # is deploy-constant from env).
+-    # Task 191: pin the EXTRACTION temperature to 0 unless the manager
+-    # explicitly sets BRAIN_TEMPERATURE (explicit wins, blank-means-unset
+-    # house rule). Scoped to this extraction call only — brainstorm and
+-    # other paths are untouched. When no explicit temperature is set, the
+-    # validated effort goes out in the Responses-native nested shape and
+-    # temperature is omitted (manager max-effort order); explicit temp
+-    # restores temperature-sent + effort-dropped. Computed BEFORE the
+-    # cache key so the key covers (transcript, model, effective_temp) —
+-    # an explicit override never serves default-branch results.
+-    raw_brain_temp = os.environ.get("BRAIN_TEMPERATURE", "").strip()
+-    raw_decision_temp = os.environ.get("DECISION_TEMPERATURE", "").strip()
+-    if raw_brain_temp:
+-        if raw_decision_temp:
+-            temp_to_send = _get_decision_temperature()
+-        else:
+-            try:
+-                explicit_temp = float(raw_brain_temp)
+-            except ValueError:
+-                raise ValueError(
+-                    f"BRAIN_TEMPERATURE={raw_brain_temp!r} is not a number; "
+-                    "set a numeric value or leave it blank"
+-                )
+-            if not 0.0 <= explicit_temp <= 2.0:
+-                raise ValueError(
+-                    f"BRAIN_TEMPERATURE={raw_brain_temp!r} out of range; "
+-                    "use 0.0-2.0 or leave it blank"
+-                )
+-            temp_to_send = explicit_temp
+-    else:
+-        temp_to_send = 0
+-    model = _get_decision_model()
+-    cache_key = _extract_cache_key(transcript_bytes, model, temp_to_send)
+-    global _last_cache_hits
+-    with _CACHE_LOCK:
+-        if cache_key in _EXTRACT_CACHE:
+-            _last_cache_hits += 1
+-            print(
+-                "decision-server: cache hit for transcript "
+-                f"{cache_key[:12]} (hits={_last_cache_hits})",
+-                file=sys.stderr,
+-            )
+-            hit = _EXTRACT_CACHE.pop(cache_key)
+-            _EXTRACT_CACHE[cache_key] = hit  # LRU touch: recent hits stay.
+-            return copy.deepcopy(hit)
+-    import httpx  # Lazy: import stays side-effect free.
+-    api_base = _get_api_base()
+-    effort = _resolve_decision_effort(model, effort)
+-    body: dict[str, Any] = {
+-        "model": model,
+-        "input": [{"role": "user", "content": prompt}],
+-        # Reasoning tokens are billed as output and count against this cap
+-        # on most providers, so send an explicit ceiling instead of leaving
+-        # the whole budget to the provider default.
+-        "max_output_tokens": _get_decision_max_tokens(),
+-    }
+-    if raw_brain_temp or raw_decision_temp:
+-        body["temperature"] = temp_to_send
+-    else:
+-        body["reasoning"] = {"effort": effort}
+-    with httpx.Client(
+-        timeout=httpx.Timeout(
+-            connect=10, read=_get_decision_read_timeout(), write=30, pool=10
+-        )
+-    ) as client:
+-        resp, _attempts = _post_with_retry(
+-            client, api_base.rstrip("/") + "/responses", body
+-        )
+-        data = _resp_json(resp)
+-    # Task 259: diagnose the provider turn once, log it, and reuse it to
+-    # avoid misreporting a provider failure as a model-transcript blank.
+-    diag = _responses_diagnostics(data)
+-    _log_responses_diagnostics(diag)
+-    candidates: Any = None
+-    snippet = ""
+-    snippet_is_model_text = False
+-    repairs_this_call = 0
+-
+-    def _note_repair(reason: str) -> None:
+-        """Log + count one repair (never more than one per call)."""
+-        global _REPAIR_COUNT
+-        nonlocal repairs_this_call
+-        repairs_this_call += 1
+-        _REPAIR_COUNT += 1
+-        print(
+-            f"decision-server: auto-repair attempt {repairs_this_call} ({reason})",
+-            file=sys.stderr,
+-        )
+-    if isinstance(data, list):
+-        # Already a candidate list (direct-JSON transport): use as-is.
+-        # Bare list payloads pass through (existing behavior).
+-        candidates = data
+-        snippet = json.dumps(data)[:500]
+-    elif isinstance(data, dict) and isinstance(data.get("output"), list):
+-        # Responses-API envelope: pull the message text, trying EACH
+-        # fenced block until one parses as JSON (models often emit
+-        # several blocks; only one is the payload). Non-JSON text falls
+-        # through to exactly-one auto-repair, then the regex fallback
+-        # (Task 191).
+-        snippet = _responses_text(data).strip()
+-        snippet_is_model_text = True
+-        if not snippet:
+-            # Task 259: an empty envelope is only a model blank when the
+-            # provider reports no cause. Surface error/refusal/budget
+-            # exhaustion verbatim instead of a misleading non-JSON error.
+-            provider_failure = _provider_failure_message(diag)
+-            if provider_failure:
+-                raise RuntimeError(provider_failure)
+-        candidates = _parse_model_text(snippet, transcript_text, _note_repair)
+-        if isinstance(candidates, dict):
+-            if "candidates" in candidates:
+-                raise RuntimeError(
+-                    "decision model returned an envelope dict with "
+-                    f"'candidates' key, not a candidate: {snippet[:500]}"
+-                )
+-            # Bare decision object inside the envelope: wrap it.
+-            candidates = [candidates]
+-    elif isinstance(data, dict):
+-        if "candidates" in data:
+-            raise RuntimeError(
+-                "decision model returned an envelope dict with "
+-                f"'candidates' key, not a candidate: {str(data)[:500]}"
+-            )
+-        # Bare decision object (direct-JSON transport): wrap it.
+-        candidates = [data]
+-        snippet = json.dumps(data)[:500]
+-    else:
+-        # null/bool/number/string payloads are never valid candidates.
+-        raise RuntimeError(
+-            f"decision model returned a non-list of dicts: {str(data)[:500]}"
+-        )
+-    if isinstance(candidates, (str, int, float, bool)) or candidates is None:
+-        raise RuntimeError(
+-            f"decision model returned a non-list of dicts: {snippet[:500]}"
+-        )
+-    if not isinstance(candidates, list) or not all(
+-        isinstance(item, dict) for item in candidates
+-    ):
+-        raise RuntimeError(
+-            f"decision model returned a non-list of dicts: {snippet[:500]}"
+-        )
+-    try:
+-        _validate_extracted_candidates(candidates, transcript_text)
+-    except RuntimeError as schema_exc:
+-        # N1: exactly one auto-repair on validation fail — and only when
+-        # the snippet is model text worth re-mining (direct-JSON
+-        # transports re-parse to the identical object, so skip them).
+-        if repairs_this_call >= 1 or not snippet_is_model_text:
+-            raise
+-        _note_repair(f"schema validation failed ({schema_exc}); re-mining largest JSON span")
+-        try:
+-            remined: Any = _extract_largest_json(snippet)
+-        except ValueError:
+-            remined = None
+-        if isinstance(remined, dict):
+-            if "candidates" in remined:
+-                raise RuntimeError(
+-                    "decision model returned an envelope dict with "
+-                    f"'candidates' key, not a candidate: {snippet[:500]}"
+-                )
+-            remined = [remined]
+-        if isinstance(remined, list):
+-            # Raises loudly when still invalid — one repair only.
+-            _validate_extracted_candidates(remined, transcript_text)
+-            candidates = remined
+-        else:
+-            salvaged = _regex_fallback_candidates(snippet, transcript_text)
+-            if not salvaged:
+-                raise
+-            _validate_extracted_candidates(salvaged, transcript_text)
+-            candidates = salvaged
+-    if not candidates and turns:
+-        print(
+-            "decision-server: model returned [] for a non-empty transcript",
+-            file=sys.stderr,
+-        )
+-    # Cache only validated candidates (LRU, capped, lock-guarded).
+-    with _CACHE_LOCK:
+-        _EXTRACT_CACHE[cache_key] = copy.deepcopy(candidates)
+-        while len(_EXTRACT_CACHE) > _EXTRACT_CACHE_MAX:
+-            _EXTRACT_CACHE.pop(next(iter(_EXTRACT_CACHE)))
+-    return candidates
+-
+-
+-@_project_tool
+-def record_manager_decision(decision: dict[str, Any], project_root: Optional[str] = None) -> str:
+-    """Redact, validate, and persist one manager decision; return its id.
+-
+-    WHEN TO CALL (automatic): immediately after `extract_session_decisions`
+-    returns candidates, or whenever the manager states a ruling mid-session
+-    (don't wait for session end — capture rulings while verbatim). This is
+-    the ONLY write path into the learning repo.
+-
+-    Pipeline: `sanitize_text` every free-text field → `verify_clean` gate →
+-    schema validation → write `decisions/YYYY/MM/DEC-*.json` + matching `.md`
+-    (verbatim quote + summary for humans) → regenerate `INDEX.md`.
+-
+-    The scrub gate fail-closes on EVERY root, including an explicit
+-    personal repo (Task 216 public-default guard): free-text fields are
+-    sanitized, and if any sensitive pattern survives sanitizing,
+-    `ValueError` is raised and nothing is written — there is no bypass flag.
+-
+-    Provenance (Task 216 QA hotfix): every stored record carries
+-    `active_root` (repo display name only — never the absolute path, so a
+-    public-default personal repo leaks no usernames) and `store_mode`
+-    (`personal` vs `project-fallback`) so personal-vs-fallback is queryable
+-    without relying on stderr. The full path stays in the local stderr log
+-    only — it is never written to a record.
+-
+-    Args:
+-        decision: Candidate object. Required fields (validator
+-            `_validate_against_schema`): `decision_id`, `timestamp`,
+-            `project_name`, `verbatim_quote`, `extracted_decision`,
+-            `redaction_verified`.
+-
+-            `decision_id`/`timestamp`/`fingerprint` are assigned here when
+-            absent, and `redaction_verified` is set here. `project_name` is
+-            NOT defaulted, so omitting it raises `ValueError: decision
+-            schema violations: missing required field: project_name`.
+-
+-            Shape: `verbatim_quote` is a mapping
+-            `{original, english_translation}` of non-empty strings.
+-            `extracted_decision` is a mapping
+-            `{summary, category, rationale, alternatives[], tradeoffs}` where
+-            `summary`/`category`/`rationale`/`tradeoffs` are strings,
+-            `alternatives` is a list of strings, and `category` is one of
+-            `_VALID_CATEGORIES`: architecture, process, scope, quality-gate,
+-            tooling, release, other, autopilot-cycle.
+-
+-    Returns:
+-        Human-readable confirmation including the decision id and paths.
+-
+-    project_root: Absolute path to the calling project's repository root.
+-        Used to scope file resolution to that project (decision store under
+-        `<root>/.opencode/decisions`). If omitted, falls back to the server
+-        working directory for backward compatibility.
+-
+-    Raises:
+-        ValueError: On redaction failure or schema violations — nothing is
+-            written in that case (append-only store stays clean).
+-    """
+-    try:
+-        repo = _repo_root(project_root)
+-    except (ValueError, RuntimeError) as e:
+-        return f"Error: {e}"
+-    print(f"decision-server: active store: {_active_root_info(repo)}", file=sys.stderr)
+-    (repo / "decisions").mkdir(parents=True, exist_ok=True)
+-    _ensure_fresh(repo)
+-    scrubbed = _scrub_free_text(decision)
+-    scrubbed.setdefault("decision_id", _next_decision_id(repo))
+-    scrubbed.setdefault("timestamp", datetime.now(timezone.utc).isoformat())
+-    # Optional hardening fields (F1/F2/F3/F5): defaults keep old callers valid.
+-    # Explicit None counts as unset (H3) so safe defaults still apply.
+-    for _field, _default in (("fidelity", "verbatim"), ("mode", "manual"),
+-                             ("scope", "episode"), ("goal_ref", "")):
+-        if scrubbed.get(_field) is None:
+-            scrubbed.pop(_field, None)
+-        scrubbed.setdefault(_field, _default)
+-    if scrubbed.get("fingerprint") is None:
+-        scrubbed.pop("fingerprint", None)
+-    scrubbed.setdefault("fingerprint", _decision_fingerprint(scrubbed))
+-    dup_of = _find_fingerprint_hit(repo, scrubbed["fingerprint"])
+-    scrubbed["active_root"] = repo.name
+-    scrubbed["store_mode"] = ("personal"
+-                               if os.environ.get("DECISION_REPO_PATH", "").strip()
+-                               else "project-fallback")
+-    problems = _validate_against_schema(scrubbed)
+-    if problems:
+-        raise ValueError(f"decision schema violations: {'; '.join(problems)}")
+-    date_part = scrubbed["decision_id"][4:12]  # YYYYMMDD from DEC-YYYYMMDD-NNN.
+-    day_dir = repo / "decisions" / date_part[:4] / date_part[4:6]
+-    day_dir.mkdir(parents=True, exist_ok=True)
+-    json_path = day_dir / f"{scrubbed['decision_id']}.json"
+-    json_path.write_text(json.dumps(scrubbed, ensure_ascii=False, indent=2) + "\n",
+-                         encoding="utf-8")
+-    quote = scrubbed["verbatim_quote"]
+-    extracted = scrubbed["extracted_decision"]
+-    md_path = day_dir / f"{scrubbed['decision_id']}.md"
+-    md_path.write_text(
+-        f"# {scrubbed['decision_id']} — {extracted.get('summary', '')}\n\n"
+-        f"- Category: {extracted.get('category')}\n"
+-        f"- Session: {scrubbed.get('session_id', '?')}\n"
+-        f"- Goal: {scrubbed.get('goal_ref', '') or '-'}\n"
+-        f"- Mode: {scrubbed.get('mode', 'manual')} | "
+-        f"Fidelity: {scrubbed.get('fidelity', 'verbatim')} | "
+-        f"Scope: {scrubbed.get('scope', 'episode')}\n"
+-        f"- Project: {scrubbed.get('project_name', '?')}\n\n"
+-        f"## Verbatim (original)\n\n> {quote.get('original', '')}\n\n"
+-        f"## Verbatim (English)\n\n> {quote.get('english_translation', '')}\n\n"
+-        f"## Rationale\n\n{extracted.get('rationale', '')}\n",
+-        encoding="utf-8",
+-    )
+-    count = _rewrite_index(repo)
+-    dup_note = (f" Possible duplicate of {dup_of} (same fingerprint) — "
+-                "kept as a separate record; confirm intent." if dup_of else "")
+-    return (f"Recorded {scrubbed['decision_id']} "
+-            f"(`{json_path.relative_to(repo)}` + `.md`; index now holds {count}).{dup_note} "
+-            f"{_unpushed_report(repo)}")
+-
+-
+-@_project_tool
+-def query_manager_decisions(query: str, category: Optional[str] = None, project_root: Optional[str] = None) -> str:
+-    """Search stored decisions by keyword (+ optional category).
+-
+-    WHEN TO CALL (automatic): BEFORE paging the human manager with a
+-    question — if a past ruling covers it, decide from the record instead.
+-    Also call it during discovery when the task touches architecture,
+-    process, scope, or quality gates.
+-
+-    Case-insensitive ranked match over summaries, rationales, trade-offs,
+-    alternatives, and both verbatim-quote languages. Terms score with
+-    field weights (summary 3, verbatim quotes 2, rationale 2, trade-offs
+-    and alternatives 1); results return ranked, best first. Returns
+-    formatted summaries with verbatim quotes, or a no-match message
+-    (never an error) when empty.
+-
+-    Args:
+-        query: Keyword(s); blank returns everything in the category.
+-        category: Optional category filter (see schema enum).
+-        project_root: Absolute path to the calling project's repository root. Used to scope file resolution to that project (decision store under `<root>/.opencode/decisions`). If omitted, falls back to the server working directory for backward compatibility.
+-    """
+-    try:
+-        repo = _repo_root(project_root)
+-    except (ValueError, RuntimeError) as e:
+-        return f"Error: {e}"
+-    try:
+-        _ensure_fresh(repo)
+-    except RuntimeError as exc:
+-        # Reads stay available on divergence: serve stale local state and
+-        # say so loudly instead of failing the consult (reviewer A1).
+-        print(f"decision-server: pull failed ({exc}); reading local state",
+-              file=sys.stderr)
+-    needle = (query or "").strip().lower()
+-    terms = [t for t in needle.split() if t]
+-    scored: list[tuple[int, str]] = []
+-    for path in sorted((repo / "decisions").rglob("DEC-*.json")):
+-        try:
+-            record = json.loads(path.read_text(encoding="utf-8"))
+-        except (OSError, ValueError):
+-            continue
+-        if not isinstance(record, dict):
+-            print(
+-                f"decision-server: skipped non-dict stored record in {path.name}",
+-                file=sys.stderr,
+-            )
+-            continue
+-        extracted = record.get("extracted_decision", {})
+-        if not isinstance(extracted, dict):
+-            print(
+-                f"decision-server: skipped {record.get('decision_id', path.name)} "
+-                "with non-dict extracted_decision",
+-                file=sys.stderr,
+-            )
+-            continue
+-        if category and extracted.get("category") != category:
+-            continue
+-        quote = record.get("verbatim_quote", {})
+-        if not isinstance(quote, dict):
+-            print(
+-                f"decision-server: skipped {record.get('decision_id', path.name)} "
+-                "with non-dict verbatim_quote",
+-                file=sys.stderr,
+-            )
+-            continue
+-        alternatives_raw = extracted.get("alternatives", [])
+-        # Raw-value check BEFORE any normalization: `or []` would launder
+-        # falsey non-lists (None/""/0/False) into a valid empty list.
+-        if not isinstance(alternatives_raw, list):
+-            print(
+-                f"decision-server: skipped {record.get('decision_id', path.name)} "
+-                "with non-list alternatives",
+-                file=sys.stderr,
+-            )
+-            continue
+-        alternatives = alternatives_raw
+-        fields = [
+-            (str(extracted.get("summary", "")).lower(), 3),
+-            (str(quote.get("original", "")).lower(), 2),
+-            (str(quote.get("english_translation", "")).lower(), 2),
+-            (str(extracted.get("rationale", "")).lower(), 2),
+-            (str(extracted.get("tradeoffs", "")).lower(), 1),
+-            (" ".join(str(a) for a in alternatives).lower(), 1),
+-        ]
+-        if not terms:
+-            score = 1
+-        else:
+-            score = 0
+-            for term in terms:
+-                for text, weight in fields:
+-                    if term and term in text:
+-                        score += weight
+-            if score == 0:
+-                continue
+-        scored.append((
+-            score,
+-            f"### {record.get('decision_id')} [{extracted.get('category')}] "
+-            f"{extracted.get('summary', '')}\n"
+-            f"> {quote.get('english_translation', '')}\n"
+-            f"Rationale: {extracted.get('rationale', '')}",
+-        ))
+-    if not scored:
+-        return f"No manager decisions match query={query!r} category={category!r}."
+-    scored.sort(key=lambda item: item[0], reverse=True)
+-    hits = [text for _, text in scored]
+-    return f"{len(hits)} decision(s) match:\n\n" + "\n\n".join(hits)
+-
+-
+-@_project_tool
+-def get_sync_status(project_root: Optional[str] = None) -> str:
+-    """Report pending push debt at session start (M3): uncommitted files and
+-    unpushed commits in the decision store, plus which store is active.
+-    Read-only; never pushes or commits (ZAC). Call it when a session opens
+-    so silent sync debt is visible before new records land.
+-    project_root: Absolute path to the calling project's repository root. Used to scope file resolution to that project (decision store under `<root>/.opencode/decisions`). If omitted, falls back to the server working directory for backward compatibility."""
+-    try:
+-        repo = _repo_root(project_root)
+-    except (ValueError, RuntimeError) as e:
+-        return f"Error: {e}"
+-    try:
+-        fresh = _ensure_fresh(repo)
+-    except RuntimeError as exc:
+-        fresh = f"pull failed ({exc}); reading local state"
+-    return f"{_active_root_info(repo)}; {fresh}; {_unpushed_report(repo)}"
+-
+-
+-@_project_tool
+-def get_manager_profile(project_root: Optional[str] = None) -> str:
+-    """Return `samples/manager_profile.md` for agent context injection.
+-
+-    WHEN TO CALL (automatic): inject its output into your reasoning whenever
+-    resolving an architectural ambiguity or applying a house rule — the
+-    profile IS the manager's standing judgment. Cheap, read-only, no
+-    side effects.
+-
+-    The baseline section is curated; the generated aggregate (if any) comes
+-    from reviewed compilations only — this tool never synthesizes guidance.
+-    Returns an explanatory message (not an error) when the sample is absent.
+-    project_root: Absolute path to the calling project's repository root. Used to scope file resolution to that project (decision store under `<root>/.opencode/decisions`). If omitted, falls back to the server working directory for backward compatibility.
+-    """
+-    try:
+-        profile = _repo_root(project_root) / "samples" / "manager_profile.md"
+-    except (ValueError, RuntimeError) as e:
+-        return f"Error: {e}"
+-    try:
+-        _ensure_fresh(profile.parent.parent)
+-    except RuntimeError as exc:
+-        # Same stale-on-divergence rule as query (reviewer A1).
+-        print(f"decision-server: pull failed ({exc}); reading local state",
+-              file=sys.stderr)
+-    if not profile.is_file():
+-        return "No manager profile sample exists yet."
+-    return profile.read_text(encoding="utf-8")
+-
+-
+-@_project_tool
+-def propose_profile_evolution(project_root: Optional[str] = None) -> dict[str, Any]:
+-    """Draft a profile update for MANAGER approval (review gate enforced).
+-
+-    WHEN TO CALL (automatic): only when new recorded decisions exist that
+-    the current sample does not reflect — roughly once per sprint, never
+-    per session. Present the DRAFT_READY payload to the manager; merge
+-    nothing without an explicit approve.
+-
+-    Executes `scripts/compile_profile.py` in a subprocess and returns the
+-    draft as a staged diff-like payload. NOTHING is written to the sample:
+-    the manager must approve the draft before any identity update lands.
+-
+-    Returns:
+-        Dict with `status` (`"DRAFT_READY"` / `"EMPTY"` / `"ERROR"`) and the
+-        `draft` text (or reason). Never raises — failures arrive as ERROR.
+-        project_root: Absolute path to the calling project's repository root. Used to scope file resolution to that project (decision store under `<root>/.opencode/decisions`). If omitted, falls back to the server working directory for backward compatibility.
+-    """
+-    try:
+-        repo = _repo_root(project_root)
+-    except (ValueError, RuntimeError) as e:
+-        return {"status": "ERROR", "draft": f"Error: {e}"}
+-    script = repo / "scripts" / "compile_profile.py"
+-    if not script.is_file():
+-        return {"status": "ERROR", "draft": f"compile script missing: {script}"}
+-    try:
+-        completed = subprocess.run(
+-            [sys.executable, str(script), "--repo", str(repo)],
+-            capture_output=True, text=True, timeout=120,
+-        )
+-    except (OSError, subprocess.SubprocessError) as exc:
+-        return {"status": "ERROR", "draft": f"compile failed: {exc}"}
+-    if completed.returncode != 0:
+-        return {"status": "ERROR", "draft": completed.stderr.strip() or "unknown error"}
+-    draft = completed.stdout.strip()
+-    if not draft or draft.startswith("No decisions found"):
+-        return {"status": "EMPTY", "draft": draft or "No decisions found."}
+-    return {"status": "DRAFT_READY", "draft": draft}
+-
+-
+-if __name__ == "__main__":
+-    _transport = os.environ.get("MCP_TRANSPORT", "streamable-http")
+-    # Singleton default (Task 279 V3): all callers consume these servers as
+-    # remote http singletons, so an unset MCP_TRANSPORT must not silently
+-    # drop into stdio while the unit reports active. Explicit "stdio"
+-    # still works for local debugging.
+-    mcp.run(transport=_transport)
+diff --git a/mcp-decision-server/uv.lock b/mcp-decision-server/uv.lock
+deleted file mode 100644
+index 2a44bb0..0000000
+--- a/mcp-decision-server/uv.lock
++++ /dev/null
+@@ -1,1006 +0,0 @@
+-version = 1
+-revision = 3
+-requires-python = ">=3.10"
+-resolution-markers = [
+-    "python_full_version >= '3.14' and sys_platform == 'win32'",
+-    "python_full_version >= '3.14' and sys_platform != 'win32'",
+-    "python_full_version >= '3.11' and python_full_version < '3.14' and sys_platform == 'win32'",
+-    "python_full_version >= '3.11' and python_full_version < '3.14' and sys_platform != 'win32'",
+-    "python_full_version < '3.11' and sys_platform == 'win32'",
+-    "python_full_version < '3.11' and sys_platform != 'win32'",
+-]
+-
+-[[package]]
+-name = "annotated-doc"
+-version = "0.0.5"
+-source = { registry = "https://pypi.org/simple" }
+-sdist = { url = "https://files.pythonhosted.org/packages/5a/8e/38aa427ed5402449e226975b649c5dc73ccadfefeb95e6aecb8f8ea4b6b6/annotated_doc-0.0.5.tar.gz", hash = "sha256:c7e58ce09192557605d8bbd92836d7e1d520ac9580096042c0bfd197efacf1bb", size = 10758, upload-time = "2026-07-28T13:50:58.129Z" }
+-wheels = [
+-    { url = "https://files.pythonhosted.org/packages/3e/30/e900b21425a860e195f32e37657aa1f7c7f2b1bfb26f03ca209b90933c06/annotated_doc-0.0.5-py3-none-any.whl", hash = "sha256:117bac03a25ede5df5440e855b32d556049ca169ead221505badf432fed4b101", size = 5302, upload-time = "2026-07-28T13:50:57.239Z" },
+-]
+-
+-[[package]]
+-name = "annotated-types"
+-version = "0.8.0"
+-source = { registry = "https://pypi.org/simple" }
+-sdist = { url = "https://files.pythonhosted.org/packages/5f/56/a8120250d128bed162cd73c76d45f6ef9991f3e068f62a8ee060afa3104a/annotated_types-0.8.0.tar.gz", hash = "sha256:13b2beaad985e05e2d6407ee4c4f35590b11f8d693a258a561055cac8f64cab7", size = 15893, upload-time = "2026-07-23T20:16:13.995Z" }
+-wheels = [
+-    { url = "https://files.pythonhosted.org/packages/99/91/8acff4f5e50511b911bbccb72b8628a49c68ce14148cd9f6431094859a90/annotated_types-0.8.0-py3-none-any.whl", hash = "sha256:f072f4d804ea359e4eaf198b1af7a8b0943881a87f31bb764f8bf219bb9419e0", size = 13427, upload-time = "2026-07-23T20:16:12.938Z" },
+-]
+-
+-[[package]]
+-name = "anyio"
+-version = "4.15.1"
+-source = { registry = "https://pypi.org/simple" }
+-dependencies = [
+-    { name = "exceptiongroup", marker = "python_full_version < '3.11'" },
+-    { name = "idna" },
+-    { name = "typing-extensions", marker = "python_full_version < '3.15'" },
+-]
+-sdist = { url = "https://files.pythonhosted.org/packages/a9/d2/f4d173e22df740bc37b1db102b386ba719b66e95b0f0d751f556b387e6d2/anyio-4.15.1.tar.gz", hash = "sha256:9f28306018cbd6d329e64a36d58256edff76dd996fe423bc957326e578b82a94", size = 276966, upload-time = "2026-09-05T10:42:39.44Z" }
+-wheels = [
+-    { url = "https://files.pythonhosted.org/packages/12/b8/4bd346e22b28902df4d651910f5242c28d84e4a5c2435ca5c3f797ed7e2e/anyio-4.15.1-py3-none-any.whl", hash = "sha256:6152fdbbf9a77fdec97731721bebf7c4c44f7c29b424b0065826173efc7ed101", size = 132079, upload-time = "2026-09-05T10:42:37.923Z" },
+-]
+-
+-[[package]]
+-name = "attrs"
+-version = "26.1.0"
+-source = { registry = "https://pypi.org/simple" }
+-sdist = { url = "https://files.pythonhosted.org/packages/9a/8e/82a0fe20a541c03148528be8cac2408564a6c9a0cc7e9171802bc1d26985/attrs-26.1.0.tar.gz", hash = "sha256:d03ceb89cb322a8fd706d4fb91940737b6642aa36998fe130a9bc96c985eff32", size = 952055, upload-time = "2026-03-19T14:22:25.026Z" }
+-wheels = [
+-    { url = "https://files.pythonhosted.org/packages/64/b4/17d4b0b2a2dc85a6df63d1157e028ed19f90d4cd97c36717afef2bc2f395/attrs-26.1.0-py3-none-any.whl", hash = "sha256:c647aa4a12dfbad9333ca4e71fe62ddc36f4e63b2d260a37a8b83d2f043ac309", size = 67548, upload-time = "2026-03-19T14:22:23.645Z" },
+-]
+-
+-[[package]]
+-name = "certifi"
+-version = "2026.7.22"
+-source = { registry = "https://pypi.org/simple" }
+-sdist = { url = "https://files.pythonhosted.org/packages/a3/c2/24167ea9858356b47a87a50d39908bfdb72ceeefe0041586e704e5376b3a/certifi-2026.7.22.tar.gz", hash = "sha256:741e2c3b351ddf169a738da9f2c048608ff7f2c5cc02f1ebc6b118bb090d5d55", size = 138112, upload-time = "2026-07-22T03:35:12.644Z" }
+-wheels = [
+-    { url = "https://files.pythonhosted.org/packages/0b/a7/71ac2cff56fec219ed242bb11b8efb69fcc4bec75db06fb7bfe35de520e6/certifi-2026.7.22-py3-none-any.whl", hash = "sha256:62f22742b58a1a33014a2b6b706588a8d7e2a88ae7bd1a6ebe8c992928483775", size = 136983, upload-time = "2026-07-22T03:35:11.276Z" },
+-]
+-
+-[[package]]
+-name = "cffi"
+-version = "2.1.1"
+-source = { registry = "https://pypi.org/simple" }
+-dependencies = [
+-    { name = "pycparser", marker = "implementation_name != 'PyPy'" },
+-]
+-sdist = { url = "https://files.pythonhosted.org/packages/9e/ef/008a1939e372c06329a3fce4279c02f328488f3526744906eeec3da7ad5f/cffi-2.1.1.tar.gz", hash = "sha256:dd31f52ea1086513bb9df30f8fcee9b8918323ae067a3d5b78bc826a000712be", size = 530807, upload-time = "2026-08-03T21:21:18.939Z" }
+-wheels = [
+-    { url = "https://files.pythonhosted.org/packages/b6/d2/2cde336b375f55c76ca670f0be3978cc048e31e24f3b4d7ce8473150a388/cffi-2.1.1-cp310-cp310-macosx_10_15_x86_64.whl", hash = "sha256:baed1e86cc735622097354b9d1281406caf42ff42a886d29faa8e8d1630333be", size = 183779, upload-time = "2026-08-03T21:19:15.602Z" },
+-    { url = "https://files.pythonhosted.org/packages/94/1a/4b2f7c92293ba05cbd4a9a1b28faaf0326272d9488e6354657571c48a7aa/cffi-2.1.1-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:ca82be1a1d406ecfe1d25dc16cb33488e5a16bf4438c9fb590484ea29d92478b", size = 184178, upload-time = "2026-08-03T21:19:16.67Z" },
+-    { url = "https://files.pythonhosted.org/packages/17/0b/ba385d8ccedf926c3cd06e8e2f327027da5afe5f0eb30f1f7bc43ac55125/cffi-2.1.1-cp310-cp310-manylinux1_i686.manylinux2014_i686.manylinux_2_17_i686.manylinux_2_5_i686.whl", hash = "sha256:42e2f76b9455f5a9a844f770bf3e200ed3da0e15f5df3db9c31fe80b04b3d004", size = 211037, upload-time = "2026-08-03T21:19:17.705Z" },
+-    { url = "https://files.pythonhosted.org/packages/a3/b9/0f2e58b2cefa33255bff36935d42b13180fe559bba82596540eb404bde7d/cffi-2.1.1-cp310-cp310-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:5a59cc1c4442bc3d5c703bf720b51138d0bfc173618807c9ee2490a7541dd3d9", size = 218652, upload-time = "2026-08-03T21:19:18.735Z" },
+-    { url = "https://files.pythonhosted.org/packages/37/15/180e0dab27b9312c7479003d14c9e547634b7dcb934e2cc4650e1b131a7a/cffi-2.1.1-cp310-cp310-manylinux2014_ppc64le.manylinux_2_17_ppc64le.whl", hash = "sha256:9f8d177621de5cb38ee3e731eda45d421db093ec0739f46a5594babda7987a98", size = 205422, upload-time = "2026-08-03T21:19:19.96Z" },
+-    { url = "https://files.pythonhosted.org/packages/18/d4/03026f0c850cbbaa9030750490225b4a7f4d524ea4df72c3cc740a90f4ef/cffi-2.1.1-cp310-cp310-manylinux2014_s390x.manylinux_2_17_s390x.whl", hash = "sha256:75f80557d1389eddbd0de2681f6a390a0c5338c31ddaa821381c203fc3fd50d9", size = 205444, upload-time = "2026-08-03T21:19:21.246Z" },
+-    { url = "https://files.pythonhosted.org/packages/75/77/60bebf6f818bec84210ac5b6979ce4eeadce6fbbaabc9c7ab23e506d1ce5/cffi-2.1.1-cp310-cp310-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:194cffa889098ced9976c3fc6340305e43f6303657d298da55366907c05c22d6", size = 218742, upload-time = "2026-08-03T21:19:22.523Z" },
+-    { url = "https://files.pythonhosted.org/packages/b0/ae/679bf47e73fd77b352171727f07de559a003f14de5d02b904a6ec1fa73ca/cffi-2.1.1-cp310-cp310-musllinux_1_2_aarch64.whl", hash = "sha256:5bb4e7ea95dcd6a014a6fef62e62467d67d8e582326443f3d68e71d6320a9fcf", size = 221054, upload-time = "2026-08-03T21:19:23.694Z" },
+-    { url = "https://files.pythonhosted.org/packages/09/b8/eefc0e06913b70aa153bf74c946094a18f58fd4aff11b7f372bfdfdca050/cffi-2.1.1-cp310-cp310-musllinux_1_2_i686.whl", hash = "sha256:3d22a20b1fb1632cc72c22f95f7b0d2961c3e1c235f245ba4c606c4771035659", size = 213489, upload-time = "2026-08-03T21:19:24.922Z" },
+-    { url = "https://files.pythonhosted.org/packages/6f/13/4e56852824a03cdf68523a35686f1c28eacd4bd30a7b0a78e682e6e6e1d3/cffi-2.1.1-cp310-cp310-musllinux_1_2_x86_64.whl", hash = "sha256:1dea0e4d7d4f11f619fe8c1d76caf49e24405b4b5743c0e3be16a500ecd930c9", size = 220241, upload-time = "2026-08-03T21:19:26.214Z" },
+-    { url = "https://files.pythonhosted.org/packages/99/7f/040f9e163e4acac3ee3d85b02d00b2576e7ca980d8785f0a3a5f1a9bf7f5/cffi-2.1.1-cp310-cp310-win32.whl", hash = "sha256:7ce713ace7c0e4520535b42b77eaa742c16dab813978064913e5a3cf82973b41", size = 174578, upload-time = "2026-08-03T21:19:27.338Z" },
+-    { url = "https://files.pythonhosted.org/packages/ba/0b/644a2ec1a4eaba49c2939410bb1eb1d25b09d6d0582f5d2f95c537043725/cffi-2.1.1-cp310-cp310-win_amd64.whl", hash = "sha256:a48d62ab9d6f4f98c983223a547af44be6ca3691074c31cecced6facd3ba2dc1", size = 185082, upload-time = "2026-08-03T21:19:28.409Z" },
+-    { url = "https://files.pythonhosted.org/packages/70/d2/16d99a0c4948febc0ebd133a13b2f688ff7f8cb04da971e1128872ce0c03/cffi-2.1.1-cp311-cp311-macosx_10_15_x86_64.whl", hash = "sha256:c8d2c9fd1f2d16f780d15127abb050d13d1a76c03a4bd87d7e4980e45e511e12", size = 183838, upload-time = "2026-08-03T21:19:29.637Z" },
+-    { url = "https://files.pythonhosted.org/packages/cd/95/31b535a9f0220ae9f357de4a08d57ce89cb417653c2fd9f075f50822a388/cffi-2.1.1-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:398aff33cee2767e3e781d2554c54bd0dff386bb437581e0d8011fde1a942ec1", size = 184168, upload-time = "2026-08-03T21:19:30.764Z" },
+-    { url = "https://files.pythonhosted.org/packages/ad/5a/4707a0dc1f203f5dde5a907b0d4e3c25d71120241048bd5bc6f1bb9d4e71/cffi-2.1.1-cp311-cp311-manylinux1_i686.manylinux2014_i686.manylinux_2_17_i686.manylinux_2_5_i686.whl", hash = "sha256:154852545011f779917b11c78db2358d095da62a9a172b78ad0a583ee5adc0d0", size = 211805, upload-time = "2026-08-03T21:19:31.867Z" },
+-    { url = "https://files.pythonhosted.org/packages/ad/66/c19feabb28485b6e0bbaaafa90837a1ef5d302e90f2178bd33f17a49879b/cffi-2.1.1-cp311-cp311-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:3311ed60d36f83378794e1009ac6258bafbf81f7888b4caa7b35a521e3f95813", size = 218716, upload-time = "2026-08-03T21:19:32.896Z" },
+-    { url = "https://files.pythonhosted.org/packages/a7/92/500760486c8baab49a7a8a58ba7fc3355ec3974b454b8a09e528efde9e1d/cffi-2.1.1-cp311-cp311-manylinux2014_ppc64le.manylinux_2_17_ppc64le.whl", hash = "sha256:6e192623c49c94421616a5778fba35cf0d5a8d000650c1967ef4448ee5cdd990", size = 205569, upload-time = "2026-08-03T21:19:34.142Z" },
+-    { url = "https://files.pythonhosted.org/packages/a5/a7/a67c733254d6e7373f7822f8082d8d6beade791e0cf12a7611f376fa61c7/cffi-2.1.1-cp311-cp311-manylinux2014_s390x.manylinux_2_17_s390x.whl", hash = "sha256:a6e721d4b0e45d5b65e87534470e67b18dcd092c83f68fba09f152b9cbc061af", size = 204907, upload-time = "2026-08-03T21:19:35.174Z" },
+-    { url = "https://files.pythonhosted.org/packages/f7/a4/4399daaf8f7dfee9d7c3327fdb0426ee041cc63edc358b93911ceb2bfc7a/cffi-2.1.1-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:34e261f78cb6ceaaa36f42f2613f4380d94d9c759a9c73c769ee6e0247364632", size = 217807, upload-time = "2026-08-03T21:19:36.286Z" },
+-    { url = "https://files.pythonhosted.org/packages/28/f7/dabe6da2466ecbd82dc62e7342dc6b1065dad990c06f00f0ede9ebf2a0ed/cffi-2.1.1-cp311-cp311-musllinux_1_2_aarch64.whl", hash = "sha256:7225e4514edb64eb6740324353e0da0711954fd8d7da4576755b1c6e09b697cd", size = 221252, upload-time = "2026-08-03T21:19:37.416Z" },
+-    { url = "https://files.pythonhosted.org/packages/ce/87/616202d8e51342c07d2534c510111c4cc37201775ce8f60802c9335d1edd/cffi-2.1.1-cp311-cp311-musllinux_1_2_i686.whl", hash = "sha256:df913725b79db7bcf03448f36b7bf8815363417d5b58deecf9305e3e30f0f21a", size = 214214, upload-time = "2026-08-03T21:19:38.507Z" },
+-    { url = "https://files.pythonhosted.org/packages/b4/c6/ab025d75d2c26c19b087c0124e75ee31cb65032f4fe345d356d8c507ab97/cffi-2.1.1-cp311-cp311-musllinux_1_2_x86_64.whl", hash = "sha256:f5cfbc5fe74540d335175b656c725d74d90e3730c626d92575eea35029d9afaa", size = 219408, upload-time = "2026-08-03T21:19:39.809Z" },
+-    { url = "https://files.pythonhosted.org/packages/db/e2/7e8109f65445bdc673a7b54f02c677de462db75674220fd1335efc8eb598/cffi-2.1.1-cp311-cp311-win32.whl", hash = "sha256:f8ec5e643a9a937f64e1999eb9f75d072263751912dc5cd06d3c85f8f44be7c3", size = 174470, upload-time = "2026-08-03T21:19:41.246Z" },
+-    { url = "https://files.pythonhosted.org/packages/73/c0/77ba02423c2f7d7091143c45cd49e0e6575c4c1967394bb542bd923a9b74/cffi-2.1.1-cp311-cp311-win_amd64.whl", hash = "sha256:42f6930c31dc7f50732c9ae793c2786c7b6b044195967bbdde40bb9be81c4cc0", size = 185096, upload-time = "2026-08-03T21:19:42.615Z" },
+-    { url = "https://files.pythonhosted.org/packages/7c/47/9f1f85f9672ceda4984dc6c4f8824e8558992a2972c3d3c81fb8eb28d4ba/cffi-2.1.1-cp311-cp311-win_arm64.whl", hash = "sha256:c7659f22557c5a0bc4855cd635f55edec690cc008a40768527762cb9fb263455", size = 179941, upload-time = "2026-08-03T21:19:43.747Z" },
+-    { url = "https://files.pythonhosted.org/packages/10/69/43965eccfdead3b9220015fd1320e117be8c6ed01a62ffab76eeb752f5d5/cffi-2.1.1-cp312-cp312-macosx_10_15_x86_64.whl", hash = "sha256:c8c69575568085ba0b1b10c0249d779a214aea6f6522e949a0fc9fb0fcb449d0", size = 184821, upload-time = "2026-08-03T21:19:44.887Z" },
+-    { url = "https://files.pythonhosted.org/packages/54/7d/16e5a096677b5e313ca80cd5e5170efa3ea44624a82bb111925522da64b1/cffi-2.1.1-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:f81b3b8f3d4e343550fa4baa0e479bba9f2d29ce9c2e9b51d1ce1718d7442fcf", size = 184719, upload-time = "2026-08-03T21:19:46.129Z" },
+-    { url = "https://files.pythonhosted.org/packages/56/e6/8941622732edec876dd17d0453dce07317ae96db34f2ec1436c9d3785986/cffi-2.1.1-cp312-cp312-manylinux1_i686.manylinux2014_i686.manylinux_2_17_i686.manylinux_2_5_i686.whl", hash = "sha256:811bd1e21d32de12efca32393a0ab3f5133b54fce9bd44b8bd77ab07da14bf6a", size = 214799, upload-time = "2026-08-03T21:19:47.218Z" },
+-    { url = "https://files.pythonhosted.org/packages/44/de/f98430906df1545ffde0d543dd124a7a439bc2cd32b36b9c53f805df7333/cffi-2.1.1-cp312-cp312-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:68e62fe11f30d5ca8289242866f0a5291402d8529ca2178ab8afc5c9694ae890", size = 222389, upload-time = "2026-08-03T21:19:48.331Z" },
+-    { url = "https://files.pythonhosted.org/packages/6a/5b/717f1526b9957b34456313c31645c5b82b8fb5c3fe9e4752999be7128bfc/cffi-2.1.1-cp312-cp312-manylinux2014_ppc64le.manylinux_2_17_ppc64le.whl", hash = "sha256:4a7c934f7360e8cd64fe9efadcbd10c7c6364f531e432b9a4bf5ccbc9e0e8b50", size = 210249, upload-time = "2026-08-03T21:19:49.543Z" },
+-    { url = "https://files.pythonhosted.org/packages/64/b3/f8aa4f3e34986c7e4ec45072d1b1b9dd295b6b18007b45518d79726dd725/cffi-2.1.1-cp312-cp312-manylinux2014_s390x.manylinux_2_17_s390x.whl", hash = "sha256:3143d81e29e1e20a9ce10901ec369012947876596f75a222235965f2b7ae832e", size = 208775, upload-time = "2026-08-03T21:19:50.918Z" },
+-    { url = "https://files.pythonhosted.org/packages/b1/db/dceb9dd5b231e1da801793f8acc9f3c52a7e1afe40bb1aae37e02b0faad5/cffi-2.1.1-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:c1453022f490d2459a11819d83ad1d586e9ff65a12ac3e705ffebd46d3685dcf", size = 221822, upload-time = "2026-08-03T21:19:52.054Z" },
+-    { url = "https://files.pythonhosted.org/packages/a0/d2/6cd24ae3be000a634109c247d1475d62e5616d0dc78c82770942ec384248/cffi-2.1.1-cp312-cp312-musllinux_1_2_aarch64.whl", hash = "sha256:208f941bb9d18e768138677f0a6d2ce01f590df56043dda1df1535ac57c88517", size = 225232, upload-time = "2026-08-03T21:19:53.109Z" },
+-    { url = "https://files.pythonhosted.org/packages/cb/52/3fa190537004dd7f0ab860a6dc7c0175b8667f68d1e618a46f5498d30250/cffi-2.1.1-cp312-cp312-musllinux_1_2_x86_64.whl", hash = "sha256:210019b6c7cf07f081b4c54635c8cf744377001350e29cc0f81c4377b4797735", size = 223597, upload-time = "2026-08-03T21:19:54.515Z" },
+-    { url = "https://files.pythonhosted.org/packages/80/fb/0bb75b7039588c074b37ae99f40d9bfddf990ecb2fbc346ebccd2e56b9be/cffi-2.1.1-cp312-cp312-win32.whl", hash = "sha256:046bfc24911b37851ee1b51aab8bffe713d89c68c6a057b09484ce9fd5f69b4e", size = 175292, upload-time = "2026-08-03T21:19:55.566Z" },
+-    { url = "https://files.pythonhosted.org/packages/d9/79/615cc094e2fb508cade7de88d3b4f6c4ec2bab695c97bce9153dc65aadf5/cffi-2.1.1-cp312-cp312-win_amd64.whl", hash = "sha256:f53e442b08449d42821fa4a4fba000095af9f62742a500f978a9f557ec44339a", size = 185919, upload-time = "2026-08-03T21:19:56.89Z" },
+-    { url = "https://files.pythonhosted.org/packages/70/c6/d0ea84713fe46b243a436a18fcd47d639732747e21635c8a27191b06dc30/cffi-2.1.1-cp312-cp312-win_arm64.whl", hash = "sha256:7bde5e4cc5c10140859842b9d383af292b22639a4dffb725314baf45968cef80", size = 180093, upload-time = "2026-08-03T21:19:58.155Z" },
+-    { url = "https://files.pythonhosted.org/packages/9d/f4/035513d4117049066b4779dc3b7c0c0fdad175fa13731c9f4003f1cd1478/cffi-2.1.1-cp313-cp313-ios_13_0_arm64_iphoneos.whl", hash = "sha256:b5bdfd1c873d4e093aabc0ca84c4ca6dbc4f752afb5c86f146d9742580c9da2e", size = 194248, upload-time = "2026-08-03T21:19:59.399Z" },
+-    { url = "https://files.pythonhosted.org/packages/76/af/2aeb4dbb5fc41a04161ae9ff1518de7cec08e164f44a8ce6a4cf7fd2cd1d/cffi-2.1.1-cp313-cp313-ios_13_0_arm64_iphonesimulator.whl", hash = "sha256:31348097ff5bbe827ccc41795d4dd099d9f0625e7def00ee653c137a490c2a6c", size = 196908, upload-time = "2026-08-03T21:20:00.746Z" },
+-    { url = "https://files.pythonhosted.org/packages/a7/46/2e5fdde8555706dd98139a910ca11be02809f3f605ce956f655d0214e100/cffi-2.1.1-cp313-cp313-macosx_10_15_x86_64.whl", hash = "sha256:9d2055050ea716bd38b7f7f1579c275386646b4894c155a3e2f3cd62ed41b7c6", size = 184805, upload-time = "2026-08-03T21:20:02.02Z" },
+-    { url = "https://files.pythonhosted.org/packages/55/41/4c7042f317b9217502988f0873af87e16ad606dc20f84e546e3e6ce9764c/cffi-2.1.1-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:19ee6127ee34de7d83ce3d371ebc5ed91addbdcc39f9ab15ce4eb35a4e534971", size = 184764, upload-time = "2026-08-03T21:20:03.141Z" },
+-    { url = "https://files.pythonhosted.org/packages/43/1f/1c3d90d91811c8f86ced9ed637956c54bfe5b79ca98fe976d7f8c8979f6b/cffi-2.1.1-cp313-cp313-manylinux1_i686.manylinux2014_i686.manylinux_2_17_i686.manylinux_2_5_i686.whl", hash = "sha256:6a8dddef476fab96d066d578fc88526767b836ab5ab21754e1d5bf3879c31c7c", size = 214722, upload-time = "2026-08-03T21:20:04.377Z" },
+-    { url = "https://files.pythonhosted.org/packages/37/6f/3b5ce4c3b2192d250f04908f2bfd91ef34552ec8f7716a5d4abdb8d67bb2/cffi-2.1.1-cp313-cp313-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:f16c709686a78c727bbbf059f92b0bf41c6fc60deec706d2dc19f529175a6125", size = 222369, upload-time = "2026-08-03T21:20:05.544Z" },
+-    { url = "https://files.pythonhosted.org/packages/02/10/4b3c75dde3d9663c9e02ba05c2668b954f671d4bbe346413ca8c696b295a/cffi-2.1.1-cp313-cp313-manylinux2014_ppc64le.manylinux_2_17_ppc64le.whl", hash = "sha256:fcd22650c908d7b7da162bbfaab594a1227a15d1643a98c68b122ac642fa2264", size = 210175, upload-time = "2026-08-03T21:20:06.75Z" },
+-    { url = "https://files.pythonhosted.org/packages/df/62/14f74b9543e605d17701dc797b815958b8bb70b7624ce1b832ddad48ed6c/cffi-2.1.1-cp313-cp313-manylinux2014_s390x.manylinux_2_17_s390x.whl", hash = "sha256:aa9511c62d14da7aacc9b4bf51f3f697a621e83b2d6919008243c3aad168eea3", size = 208670, upload-time = "2026-08-03T21:20:08.04Z" },
+-    { url = "https://files.pythonhosted.org/packages/95/95/86342356ff5953b3fb06f7ef7c5bee212d45e770abc7218d451b9148313c/cffi-2.1.1-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:a931079504ecc49efed7744c476a5c343a92fabf66dec2db95edb1b2fdc770e2", size = 221824, upload-time = "2026-08-03T21:20:09.274Z" },
+-    { url = "https://files.pythonhosted.org/packages/eb/ff/7b3429ff53aafe931ed8a5fc69f481bbef7ba6de87ddcbb63d08f483f613/cffi-2.1.1-cp313-cp313-musllinux_1_2_aarch64.whl", hash = "sha256:a2d7755bef5a12ed488f4ef1f1b69ee9191d7396083b755a5d2295f6edb4768b", size = 225148, upload-time = "2026-08-03T21:20:10.7Z" },
+-    { url = "https://files.pythonhosted.org/packages/34/34/a95870b9221e09cf4f2ce3178b1a210abdfe63a1bd357da940418d7b8d15/cffi-2.1.1-cp313-cp313-musllinux_1_2_x86_64.whl", hash = "sha256:e0bcb7e0f677f543555d2adff3bf19c05f66cdb4796e5ff602442ab2fe3c4ef7", size = 223564, upload-time = "2026-08-03T21:20:12.165Z" },
+-    { url = "https://files.pythonhosted.org/packages/70/ea/839b50531021a647fb5e929f72cf97bc1ff702b5472166164b5b6e76b851/cffi-2.1.1-cp313-cp313-win32.whl", hash = "sha256:334644fbac4eff73d985a17a91226df55d0f394160c4cfb880e084c8f7161cac", size = 175263, upload-time = "2026-08-03T21:20:13.559Z" },
+-    { url = "https://files.pythonhosted.org/packages/60/a6/8b149b2c3f2e11aaa1618ef64500b45f50f22c57a977a4dff1aff1f91042/cffi-2.1.1-cp313-cp313-win_amd64.whl", hash = "sha256:1aa5645c30469b09530c4ebca77ebf8f17618293c58f8549cb1a543a50236e7d", size = 185688, upload-time = "2026-08-03T21:20:14.69Z" },
+-    { url = "https://files.pythonhosted.org/packages/01/9a/11f687cb39d6a3504060d5242f04f48c735afb4d3d533958a20594890cb2/cffi-2.1.1-cp313-cp313-win_arm64.whl", hash = "sha256:63bbfd5ded17c4840ac07cd8f1c21ba9d9708141f840b324f422f41b207e3973", size = 180078, upload-time = "2026-08-03T21:20:15.917Z" },
+-    { url = "https://files.pythonhosted.org/packages/d3/7b/d6bbf82b8b96e7391438898c42f5bd96dd02030fd5b64937d248220003e2/cffi-2.1.1-cp314-cp314-ios_13_0_arm64_iphoneos.whl", hash = "sha256:7dbb61fe3a7699468030f71bbe5f8a0e326a151daa91beb11a6fc1f980c55e1c", size = 194064, upload-time = "2026-08-03T21:20:17.148Z" },
+-    { url = "https://files.pythonhosted.org/packages/94/e6/bcc91b283be94735e268487a054004f0aa19947b6348fa367db53230abc8/cffi-2.1.1-cp314-cp314-ios_13_0_arm64_iphonesimulator.whl", hash = "sha256:f24fb43132a4c6b4cb4eb029492919b2db645be6808d738f244fd146c03c32cb", size = 196720, upload-time = "2026-08-03T21:20:18.268Z" },
+-    { url = "https://files.pythonhosted.org/packages/d9/99/c4b0c17cacdc9c3b8f280026286a9826d6a208c0f047591a3c3ce99b91fd/cffi-2.1.1-cp314-cp314-macosx_10_15_x86_64.whl", hash = "sha256:d28630f5854ab07ab1fd4aba756de52326c82e6be15d414b12793f1975048b54", size = 184964, upload-time = "2026-08-03T21:20:19.708Z" },
+-    { url = "https://files.pythonhosted.org/packages/b3/a9/9db617d05d7367c1ad0ab00b3aa6e6f9281edd689b4ee9ea0e5a84e89c97/cffi-2.1.1-cp314-cp314-macosx_11_0_arm64.whl", hash = "sha256:661c298b4821edebead0c91edd2b00374d67ad7c5a1f7a91d4442633b79d6a72", size = 184962, upload-time = "2026-08-03T21:20:20.833Z" },
+-    { url = "https://files.pythonhosted.org/packages/67/b8/b42132ca113dc567d37684437b46ca1dafc885902b02a110a02d5b511857/cffi-2.1.1-cp314-cp314-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:58acb8ab8e295e6c5ea12f888cbb13cf21511ef2a3303a23f4325c29d17fe5c1", size = 222328, upload-time = "2026-08-03T21:20:22.118Z" },
+-    { url = "https://files.pythonhosted.org/packages/80/10/c5c0cbf0a657aecf59ef511409734230bf556f05a0d6c9eed7aa5c0a0166/cffi-2.1.1-cp314-cp314-manylinux2014_ppc64le.manylinux_2_17_ppc64le.whl", hash = "sha256:456a61fa52d579ebf9df2e9552ead5129855dbaff6c1e5a9b1bc408809bdc062", size = 209985, upload-time = "2026-08-03T21:20:23.401Z" },
+-    { url = "https://files.pythonhosted.org/packages/d5/6c/bfa0b87b03b9238148beca990292843c9396ba069b54496596594173de7b/cffi-2.1.1-cp314-cp314-manylinux2014_s390x.manylinux_2_17_s390x.whl", hash = "sha256:a4f00aa42f75d6e4595e8866e748cc1705adc0cddfeb2ca86d0d03993d63ba03", size = 208530, upload-time = "2026-08-03T21:20:24.628Z" },
+-    { url = "https://files.pythonhosted.org/packages/e9/02/4e7d553a7ac4b4238b38b3c1b80d486e9d4436f8d2acbf87a0997fe3f402/cffi-2.1.1-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:b0431303acaea1089ad4b3e9ce4e6518193def1118d4073ca848635ee4ea2e96", size = 221525, upload-time = "2026-08-03T21:20:25.758Z" },
+-    { url = "https://files.pythonhosted.org/packages/82/1d/a4aaf9babd75acb4d5f223bff71533bee748dd770a382619a798960ee9ba/cffi-2.1.1-cp314-cp314-musllinux_1_2_aarch64.whl", hash = "sha256:64faea20f4e2613363a1a9b9c7dd73058f3ecd00133a511e72ad7c511658f527", size = 225053, upload-time = "2026-08-03T21:20:26.985Z" },
+-    { url = "https://files.pythonhosted.org/packages/81/10/5dc0e7bdd18e22107054288283380fc97a06ae3f1656a106908d666a3c88/cffi-2.1.1-cp314-cp314-musllinux_1_2_x86_64.whl", hash = "sha256:5c58fe613dc5e5336357eff555824a314d8e43282600435c8d1cb6a7a2fedd13", size = 223213, upload-time = "2026-08-03T21:20:28.277Z" },
+-    { url = "https://files.pythonhosted.org/packages/0b/e9/d0061c364cde06ee43168a0d076ac1da512cbc380d44767b844ba34fe2b6/cffi-2.1.1-cp314-cp314-win32.whl", hash = "sha256:1a18a57b58cfb21fc28d72e876acf10eaed67a1ed96226f92af4df681d571c4c", size = 177682, upload-time = "2026-08-03T21:20:44.288Z" },
+-    { url = "https://files.pythonhosted.org/packages/a7/06/1c3e01e3ba14c39f6d10bfbac52753b7e22259e38088e5cfe1d704918690/cffi-2.1.1-cp314-cp314-win_amd64.whl", hash = "sha256:3222ba5d678f80a030e6afbcc33dc1ae5cb45facabb61cee2c7016b8432fde48", size = 187949, upload-time = "2026-08-03T21:20:45.623Z" },
+-    { url = "https://files.pythonhosted.org/packages/87/5b/da4e39efe18eeb89cf580ea9cfc66b6a7c3eadb808fc0cc1d3a295cb5a5d/cffi-2.1.1-cp314-cp314-win_arm64.whl", hash = "sha256:ab36d55f9ed2d067327667c2fea18dda018eb628dd6347aa01dda6cf1f5d3836", size = 182947, upload-time = "2026-08-03T21:20:46.955Z" },
+-    { url = "https://files.pythonhosted.org/packages/23/59/40338bf421c5accea1d45158170c87006ef1cd371b05c077e76476949728/cffi-2.1.1-cp314-cp314t-macosx_10_15_x86_64.whl", hash = "sha256:7750c6449dff7864bb9bb27ddfb0267756189201a3afc911d82b3caacd70dfc3", size = 188504, upload-time = "2026-08-03T21:20:29.495Z" },
+-    { url = "https://files.pythonhosted.org/packages/7d/47/5ecf1023850036e674c77ec4de86182d309ae344e39e7cba984b7df5d647/cffi-2.1.1-cp314-cp314t-macosx_11_0_arm64.whl", hash = "sha256:0beceaabe56af686895136a2de78db54ecd8e4046b236b8fd6d6cb61389e9bf2", size = 188259, upload-time = "2026-08-03T21:20:31.291Z" },
+-    { url = "https://files.pythonhosted.org/packages/2a/9c/92934c3bea9f785b23eba304538c0b4d37a2a96d2431eb3a1bc87a11aa19/cffi-2.1.1-cp314-cp314t-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:49cbc70e6542d4ccccb936558d1064a8012541e78f821f955cff24e357776c94", size = 223864, upload-time = "2026-08-03T21:20:32.571Z" },
+-    { url = "https://files.pythonhosted.org/packages/4d/45/ba4c93527bc38616a8bd36488acb69a2212d60486794f0c1f318949bbb76/cffi-2.1.1-cp314-cp314t-manylinux2014_ppc64le.manylinux_2_17_ppc64le.whl", hash = "sha256:e2d65b31f36619cda3999b78b2aa9632e76b78448e7a56fc4240824200e7c4fc", size = 211538, upload-time = "2026-08-03T21:20:33.808Z" },
+-    { url = "https://files.pythonhosted.org/packages/80/e9/b6ef565e452acb932fb0cb5443f44a78efbd1233e566f02b5a83855e9115/cffi-2.1.1-cp314-cp314t-manylinux2014_s390x.manylinux_2_17_s390x.whl", hash = "sha256:28907ab9bfb6aa13184cfc17c6b8e1023c5ab6fd7076d8c20a35e59fe04f8f29", size = 210688, upload-time = "2026-08-03T21:20:34.974Z" },
+-    { url = "https://files.pythonhosted.org/packages/9a/95/eff5f0cee78d2eabc7eebffec40d3fc1876b5f3c95582e018bb4b99601f2/cffi-2.1.1-cp314-cp314t-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:51b31d1c98274844cfd7838ce00bfc27c7423a4dc00fc0772fc3331c2cc90676", size = 223803, upload-time = "2026-08-03T21:20:36.564Z" },
+-    { url = "https://files.pythonhosted.org/packages/fa/01/579d39fb8bef00a335a23d83757b44feb24cd6345a2c451b64cb67b9c362/cffi-2.1.1-cp314-cp314t-musllinux_1_2_aarch64.whl", hash = "sha256:5e7cecbaadb83884793e05828cee59b210b24583b9c7425d0ba6a754fe22eb4e", size = 226763, upload-time = "2026-08-03T21:20:37.816Z" },
+-    { url = "https://files.pythonhosted.org/packages/8d/b0/0b44f47c60b01b57b6e2bbd92343f13a85a1d93bc46ccf6e47e244acd99c/cffi-2.1.1-cp314-cp314t-musllinux_1_2_x86_64.whl", hash = "sha256:25792eac27877609e7bb06d42ff88278a6624fff2ba9bbb523c09616b117e80f", size = 225688, upload-time = "2026-08-03T21:20:38.959Z" },
+-    { url = "https://files.pythonhosted.org/packages/eb/d2/3b7176cb570a1d3e27faf67b72f591af508036e0d8b2be2ef9af9e8c84bb/cffi-2.1.1-cp314-cp314t-win32.whl", hash = "sha256:8ef53b2de9bcb9197d31854256575d59dbac0cba72ac627bb291ef5eceb74be4", size = 182868, upload-time = "2026-08-03T21:20:40.388Z" },
+-    { url = "https://files.pythonhosted.org/packages/56/78/31f00c1bcd97c9bbf55f1bfdf5bc809a5de8887473e90bb9960dca825e80/cffi-2.1.1-cp314-cp314t-win_amd64.whl", hash = "sha256:616f097f2fe415bc92a247f02e11f634e1f9e9a83d327e3c915c15089c87869e", size = 194104, upload-time = "2026-08-03T21:20:41.725Z" },
+-    { url = "https://files.pythonhosted.org/packages/7b/1b/58496f2ed0a35de575250c02a43ab3cc2c04d494a88fed31c1cabc0fd176/cffi-2.1.1-cp314-cp314t-win_arm64.whl", hash = "sha256:ad2c86c495b899d862ea0f4b42891b8713a3bd45dd4105c7fd51c2a72f39f3a5", size = 186402, upload-time = "2026-08-03T21:20:43.042Z" },
+-    { url = "https://files.pythonhosted.org/packages/c1/8f/9ebe220eab48a093d1a5a5e339ab0dc7316eef3bb04d63c42f0251b61f50/cffi-2.1.1-cp315-cp315-ios_13_0_arm64_iphoneos.whl", hash = "sha256:dddad92b554513a31f272570678ba307fb9f618f05e3d4a5eacafff9eae03e1d", size = 194043, upload-time = "2026-08-03T21:20:48.179Z" },
+-    { url = "https://files.pythonhosted.org/packages/ff/69/844bad3ece306c4782c2ecb93597035b6690d48704b803914c199da1e8b3/cffi-2.1.1-cp315-cp315-ios_13_0_arm64_iphonesimulator.whl", hash = "sha256:da0e573f9f97159390c89d9f1a9e41908b66d408cc5b58d08cf3847d844c531b", size = 196737, upload-time = "2026-08-03T21:20:49.457Z" },
+-    { url = "https://files.pythonhosted.org/packages/1b/8a/af668013284634733f02d683458a0728739c7d6ddb5e14cb0c20832266fe/cffi-2.1.1-cp315-cp315-macosx_10_15_x86_64.whl", hash = "sha256:fb92203a88b3d3053034db775110081c49d28be6551923805e039924093761e4", size = 184933, upload-time = "2026-08-03T21:20:50.639Z" },
+-    { url = "https://files.pythonhosted.org/packages/0c/75/2f5207ff6d1a613133b23a5203cc0c2a628313b5eb3974d7956ae3c57950/cffi-2.1.1-cp315-cp315-macosx_11_0_arm64.whl", hash = "sha256:2ae64be792b8966f2c69538199728b290e34726562896df1e5dc8ffd8d8188e8", size = 185002, upload-time = "2026-08-03T21:20:52.173Z" },
+-    { url = "https://files.pythonhosted.org/packages/e2/31/9e1313b0a6e30e91b3b3d3fff51ae99c857c07738e3afcce1f7334e1b7ab/cffi-2.1.1-cp315-cp315-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:507a24c282e0f42f8ed737cf048572cbf580468da5555764a8331735e9c736b6", size = 222271, upload-time = "2026-08-03T21:20:53.462Z" },
+-    { url = "https://files.pythonhosted.org/packages/50/e3/f6234a833e6e08c7007003074723c406559eecf9b48dfc97471e5a8eb7a0/cffi-2.1.1-cp315-cp315-manylinux2014_ppc64le.manylinux_2_17_ppc64le.whl", hash = "sha256:246fa40ce8645a614ff682e0b70f37134e460eaf93a775e0cbe3cca585a67a80", size = 209919, upload-time = "2026-08-03T21:20:54.783Z" },
+-    { url = "https://files.pythonhosted.org/packages/0d/fc/5f74e293fced6edb51af3a46c4ccf6c23c9943774ecb375ddbd522c76add/cffi-2.1.1-cp315-cp315-manylinux2014_s390x.manylinux_2_17_s390x.whl", hash = "sha256:471cee653ae88de62096552e6d24ccb4a5adb8c8c9f10b5054d0122c15bf2779", size = 208529, upload-time = "2026-08-03T21:20:56.066Z" },
+-    { url = "https://files.pythonhosted.org/packages/44/16/29e6d01b388bef055ecd6ca8244b3f4d336bd09e92d5d892187b9601084e/cffi-2.1.1-cp315-cp315-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:aeae0e330c9f6acd681f647d46cefd30c29f93e3392882e792e82080c9691399", size = 221630, upload-time = "2026-08-03T21:20:57.336Z" },
+-    { url = "https://files.pythonhosted.org/packages/a4/18/fa7f1f6857d5eb88a4ca99ffcbfb7c387a287ccc154c64a73e86314745d7/cffi-2.1.1-cp315-cp315-musllinux_1_2_aarch64.whl", hash = "sha256:42a494cee34437f05546455144f2b5d9ac09b1face62bcfce597d2e521066688", size = 225134, upload-time = "2026-08-03T21:20:58.675Z" },
+-    { url = "https://files.pythonhosted.org/packages/e0/9f/e8e3dfa04a1b4c241f8c91faacad872b4d4efd051d49764ad4e2fd4b9fea/cffi-2.1.1-cp315-cp315-musllinux_1_2_x86_64.whl", hash = "sha256:cc572dace3f60ef98d7b12ff411d20f5362feb31a0439eab0085bbfd349982d7", size = 223197, upload-time = "2026-08-03T21:20:59.968Z" },
+-    { url = "https://files.pythonhosted.org/packages/f8/7e/8debeb04f1ab9fe2a6963964cd6f1aaf7192627b83926586a6a4e089c9fa/cffi-2.1.1-cp315-cp315-win32.whl", hash = "sha256:4f42141fc14250de6dde5ee7ea4432be017252d91f19c5ad043c084cea629cac", size = 177683, upload-time = "2026-08-03T21:21:14.901Z" },
+-    { url = "https://files.pythonhosted.org/packages/e0/31/5158704cc474ab65c1647932e88be78dc0873f47130e253be38bcaf13d01/cffi-2.1.1-cp315-cp315-win_amd64.whl", hash = "sha256:e6e8cff14d6fb0be70a09c0bdc58096f501952d04624ebf867e0e56da2df8960", size = 187897, upload-time = "2026-08-03T21:21:16.108Z" },
+-    { url = "https://files.pythonhosted.org/packages/cc/4b/b3a2da8570c704ffc0f9762cdc3ec0f02c8573798e0b5cf7f11c82bbb70f/cffi-2.1.1-cp315-cp315-win_arm64.whl", hash = "sha256:27350daa11d4f10c540e6e89dada4c54feb7256ad03e9a4dc075ebad7ba360d1", size = 182935, upload-time = "2026-08-03T21:21:17.271Z" },
+-    { url = "https://files.pythonhosted.org/packages/d0/ef/5443574510a1207e6f6bc38ba6e1f1de36cb48fef07b2728bb896a21f430/cffi-2.1.1-cp315-cp315t-macosx_10_15_x86_64.whl", hash = "sha256:c26608d2222fb1e94487e4a387d85f13eb55d5ed725cb25a0c589ac4ee60e7bc", size = 188464, upload-time = "2026-08-03T21:21:01.163Z" },
+-    { url = "https://files.pythonhosted.org/packages/7e/ae/a56fa8c4686ad50e148fcbc8d3ae0d03915ff5c30d795058988c24118cef/cffi-2.1.1-cp315-cp315t-macosx_11_0_arm64.whl", hash = "sha256:4be96343e422f2dfcd12ab5c9f5aebe03f82f737c6bffeca6830b3875cb44aab", size = 188262, upload-time = "2026-08-03T21:21:02.382Z" },
+-    { url = "https://files.pythonhosted.org/packages/53/b2/6187f46f2912276a3ae284076109cc5c8680482f11f766ccf26db4a86427/cffi-2.1.1-cp315-cp315t-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:937c0052c05a31ca1daf18de3158eed4dbfcb9cc107adbea227728d647be701e", size = 223779, upload-time = "2026-08-03T21:21:03.553Z" },
+-    { url = "https://files.pythonhosted.org/packages/8a/f6/c3ad28bd19f77047a03084424fbd4cbe997303267c14423737324be0385d/cffi-2.1.1-cp315-cp315t-manylinux2014_ppc64le.manylinux_2_17_ppc64le.whl", hash = "sha256:df423d40ee8654634421812bc3b196da3f9bd7d32929da813f8394c4348a5358", size = 211520, upload-time = "2026-08-03T21:21:04.863Z" },
+-    { url = "https://files.pythonhosted.org/packages/a0/cd/ccac9013a5bd9fd764de118674ab9c805b5ca10c19270d90ee273f8b2240/cffi-2.1.1-cp315-cp315t-manylinux2014_s390x.manylinux_2_17_s390x.whl", hash = "sha256:a730a083190634c65cca36ba5f489531576ebd79bcd5c8e172130f6453127231", size = 210673, upload-time = "2026-08-03T21:21:06.223Z" },
+-    { url = "https://files.pythonhosted.org/packages/52/86/2976131c639aead931c5bee5aba67e4b09fbeb8018b6f282f70803f923a7/cffi-2.1.1-cp315-cp315t-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:363e05fa78e15116c3c32c210ee36884fd6b9afa6d440e47112c3bd511d64cb6", size = 223835, upload-time = "2026-08-03T21:21:07.539Z" },
+-    { url = "https://files.pythonhosted.org/packages/ac/0c/33a7aeab2f9c76918c52e084beb39c570db3588133412929e8ec06fab90b/cffi-2.1.1-cp315-cp315t-musllinux_1_2_aarch64.whl", hash = "sha256:770de9db11e84213beec501cfcaa013b019820ca881e03344dea5844f7876d94", size = 226705, upload-time = "2026-08-03T21:21:08.774Z" },
+-    { url = "https://files.pythonhosted.org/packages/e3/26/2cde30fdde421130bfc18f70395731a6e6b2053c6a1978a5258ff04e72fa/cffi-2.1.1-cp315-cp315t-musllinux_1_2_x86_64.whl", hash = "sha256:7da0c5eff80f0197f3b3d1232ec5a682a9325f4ae9016a78f5f5ca35f9ced1f5", size = 225539, upload-time = "2026-08-03T21:21:09.911Z" },
+-    { url = "https://files.pythonhosted.org/packages/6d/cd/a361394c94b2129d604bb846f624a8e88255a3ee33129c434a00d715e64f/cffi-2.1.1-cp315-cp315t-win32.whl", hash = "sha256:06c72bb76605a4b0cd0aad6930b69d4baf7dd5d806cfc409b824191099700e66", size = 182707, upload-time = "2026-08-03T21:21:11.226Z" },
+-    { url = "https://files.pythonhosted.org/packages/9b/b5/ba2b299993c26577d529b6ae29841f9e15b9fcf004d65f423f4fcf94ade9/cffi-2.1.1-cp315-cp315t-win_amd64.whl", hash = "sha256:d9c275eaacd24aa73f94ffd6de08fc3f932424d8b6c376f4bed7cde376fe7bc3", size = 193772, upload-time = "2026-08-03T21:21:12.39Z" },
+-    { url = "https://files.pythonhosted.org/packages/aa/29/35e016098c814cd93de9cd320c66b5bfba14dc6ecedd3cb518fa7c408c69/cffi-2.1.1-cp315-cp315t-win_arm64.whl", hash = "sha256:d18e5ac0f2f03f4f518d3e23db0f0cad7faa1da8620e9c09461d443bbf6e6692", size = 186360, upload-time = "2026-08-03T21:21:13.636Z" },
+-]
+-
+-[[package]]
+-name = "click"
+-version = "8.5.0"
+-source = { registry = "https://pypi.org/simple" }
+-sdist = { url = "https://files.pythonhosted.org/packages/c7/0e/7fa0ef50764b67090eca4114772a2abf8b6148198475e54c660b97caeee6/click-8.5.0.tar.gz", hash = "sha256:ba0d2089de75ea0310e2dde03160e6ca10009947fb95a182f9b54021bb272e34", size = 382235, upload-time = "2026-08-26T13:33:14.56Z" }
+-wheels = [
+-    { url = "https://files.pythonhosted.org/packages/58/50/6c0d534c5f134586a8e1ba4e330569e32f057e33372ae556463212fb4cd3/click-8.5.0-py3-none-any.whl", hash = "sha256:255bc9599cf7748b4b1a446ccc735421bd08a2ae529a8b88597d3de5664ee360", size = 125251, upload-time = "2026-08-26T13:33:12.928Z" },
+-]
+-
+-[[package]]
+-name = "colorama"
+-version = "0.4.6"
+-source = { registry = "https://pypi.org/simple" }
+-sdist = { url = "https://files.pythonhosted.org/packages/d8/53/6f443c9a4a8358a93a6792e2acffb9d9d5cb0a5cfd8802644b7b1c9a02e4/colorama-0.4.6.tar.gz", hash = "sha256:08695f5cb7ed6e0531a20572697297273c47b8cae5a63ffc6d6ed5c201be6e44", size = 27697, upload-time = "2022-10-25T02:36:22.414Z" }
+-wheels = [
+-    { url = "https://files.pythonhosted.org/packages/d1/d6/3965ed04c63042e047cb6a3e6ed1a63a35087b6a609aa3a15ed8ac56c221/colorama-0.4.6-py2.py3-none-any.whl", hash = "sha256:4f1d9991f5acc0ca119f9d443620b77f9d6b33703e51011c16baf57afb285fc6", size = 25335, upload-time = "2022-10-25T02:36:20.889Z" },
+-]
+-
+-[[package]]
+-name = "cryptography"
+-version = "50.0.1"
+-source = { registry = "https://pypi.org/simple" }
+-dependencies = [
+-    { name = "cffi", marker = "platform_python_implementation != 'PyPy'" },
+-    { name = "typing-extensions", marker = "python_full_version < '3.11'" },
+-]
+-sdist = { url = "https://files.pythonhosted.org/packages/bb/ad/5d6702db60b1e40b41ef513b6967ff5848f307d50f8449baf1634f5908f1/cryptography-50.0.1.tar.gz", hash = "sha256:5dd9bda1c12b4162f6ff568eeb5e0ff956c28d14406e875cfe8a63a2d414ff20", size = 880381, upload-time = "2026-08-25T19:45:45.499Z" }
+-wheels = [
+-    { url = "https://files.pythonhosted.org/packages/ba/19/797e2aaac9df6a66f1550f49979dc1b1e39ecd2077501c30efa81e8d5d67/cryptography-50.0.1-cp311-abi3-macosx_11_0_arm64.whl", hash = "sha256:b8f852c65863251b9e3a1b8c150ce21e59b522dbb6a7d4bc80e680d38388e986", size = 4010153, upload-time = "2026-08-25T19:44:03.155Z" },
+-    { url = "https://files.pythonhosted.org/packages/90/34/9ce9a62ed9dc82ca9fd6a34445b6904af56e5f38b3eae2ed32e49c36053d/cryptography-50.0.1-cp311-abi3-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:53e279950892dc102c6b4e52af03ae5ea92fac572a1ddab78ca73a997f62b69f", size = 4723133, upload-time = "2026-08-25T19:44:05.461Z" },
+-    { url = "https://files.pythonhosted.org/packages/57/26/e6d4fc8512a51a5f9ee7bfdbfb853bce1197087df40c9ad993ad370b846f/cryptography-50.0.1-cp311-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:ff838d62ec1bfce4f9ba7fa16f4a7b554cd8d0c299e6be37502161a660c84eef", size = 4712478, upload-time = "2026-08-25T19:44:07.375Z" },
+-    { url = "https://files.pythonhosted.org/packages/e6/de/d3cdc2815697aae84126cbd6a030ca7b6b452e28a88b501b836bd3aa7a86/cryptography-50.0.1-cp311-abi3-manylinux_2_28_aarch64.whl", hash = "sha256:e74591e283fe6eb956416c929eb58262a719fe0311fd9054c62c3350ed8760d8", size = 4730726, upload-time = "2026-08-25T19:44:09.294Z" },
+-    { url = "https://files.pythonhosted.org/packages/55/32/38c0d344b98c06d34b5df8946565a9c0d6dbf32c8e0730a7f05f0a3c6cab/cryptography-50.0.1-cp311-abi3-manylinux_2_28_ppc64le.whl", hash = "sha256:5fe002589592ed749ce77fe0695fcbd3500dd61d7d6db5858a7544c612fa8e45", size = 5353524, upload-time = "2026-08-25T19:44:11.96Z" },
+-    { url = "https://files.pythonhosted.org/packages/e1/1b/82f0f0d8858d4432be1af790477edf62aef90324041aa07c57e57bef1af7/cryptography-50.0.1-cp311-abi3-manylinux_2_28_x86_64.whl", hash = "sha256:51593d180cf6d179bde5c5d065bed81386b1f381656ae7d042b7ffc87a9895ad", size = 4746720, upload-time = "2026-08-25T19:44:14.051Z" },
+-    { url = "https://files.pythonhosted.org/packages/29/ba/042ca458b8c64348c768284b5d23e69b92ed53d057ab779fee628564676d/cryptography-50.0.1-cp311-abi3-manylinux_2_31_armv7l.whl", hash = "sha256:359e62deae718bce96170e223fdcb6357e4fbd3bb7a3a75f4430763532560e49", size = 4361866, upload-time = "2026-08-25T19:44:16.167Z" },
+-    { url = "https://files.pythonhosted.org/packages/39/3b/e96c1ef71edef71057c7e3c3d982ce8fda554e0c52d0cc19c18845cde3eb/cryptography-50.0.1-cp311-abi3-manylinux_2_34_aarch64.whl", hash = "sha256:e2ca8fd1b6b4b82a1c4cb02841d0837e3c12336c2e24b520ab8ab3b969733d8f", size = 4730028, upload-time = "2026-08-25T19:44:18.085Z" },
+-    { url = "https://files.pythonhosted.org/packages/e3/38/45abd72ef63f2e7d0754a6cacf97bd8b69512ace7f6130d24c39ece65da2/cryptography-50.0.1-cp311-abi3-manylinux_2_34_ppc64le.whl", hash = "sha256:76de83fbd91ac49c0feaaa983d0748fd7a53176afac5fb3bf7478d244f0eb527", size = 5308405, upload-time = "2026-08-25T19:44:20.197Z" },
+-    { url = "https://files.pythonhosted.org/packages/85/66/6ccca4722987ddedaa7fc9c3f4708af7431f5535666c174350830888c6b7/cryptography-50.0.1-cp311-abi3-manylinux_2_34_x86_64.whl", hash = "sha256:51afcfceb15597cf2635068e4ac9a56b2abde622edde17f37d85fd7b5306497a", size = 4746230, upload-time = "2026-08-25T19:44:22.376Z" },
+-    { url = "https://files.pythonhosted.org/packages/13/0e/b1f92e013228111413f2e6743948b80bc24dfd3c1b87ba98ceea16f5df89/cryptography-50.0.1-cp311-abi3-musllinux_1_2_aarch64.whl", hash = "sha256:be224a65493ec5b74a158ff22a5522ce4a5ca1e543c647a3a4730d4a09e5f959", size = 4862596, upload-time = "2026-08-25T19:44:24.472Z" },
+-    { url = "https://files.pythonhosted.org/packages/7e/22/c3654cccc856e9d682817b04ac3ee79731cb09ca6f95996a95c904de2883/cryptography-50.0.1-cp311-abi3-musllinux_1_2_x86_64.whl", hash = "sha256:9ebcdd5519be9b652a46f507817a74591774fc3d6923ac364e4dfa64e36b291b", size = 5014082, upload-time = "2026-08-25T19:44:26.709Z" },
+-    { url = "https://files.pythonhosted.org/packages/42/8b/cb12b1b60c91b074ca6bf0fdd59aa8f10d8bc5f73af8faece86ef0421b37/cryptography-50.0.1-cp311-abi3-win_amd64.whl", hash = "sha256:aed8db4f6d71c51efb89530e12d9464e7bf2923d46c3205dc794a2a93f8c0648", size = 3842826, upload-time = "2026-08-25T19:44:28.784Z" },
+-    { url = "https://files.pythonhosted.org/packages/5b/f0/424cb557d99aa86ac55da5e2add02e2882e44047b6264f93ade1b975a993/cryptography-50.0.1-cp314-cp314t-macosx_11_0_arm64.whl", hash = "sha256:30a125032e5642a21ff816e021152bd4e7e94f03eff3f4b7fca41cd22bc3110f", size = 3973525, upload-time = "2026-08-25T19:44:30.7Z" },
+-    { url = "https://files.pythonhosted.org/packages/4d/72/3a2711d967977ab5fc80b782837c7e8d1ac7445e764c20c381a265c57ef3/cryptography-50.0.1-cp314-cp314t-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:a0b1a59e3a089064a0ec309e9428c8e3ae4e161419d20ac33600767e83fc658a", size = 4708817, upload-time = "2026-08-25T19:44:32.773Z" },
+-    { url = "https://files.pythonhosted.org/packages/b4/f2/bb1f56e10815b789df0b409a69fa4992ff3d3fef9c72747f4a6b26fed38e/cryptography-50.0.1-cp314-cp314t-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:8921d58f426793c5f1b47f0b59575780de9a095214958d0eb37d909593db8367", size = 4697300, upload-time = "2026-08-25T19:44:35.144Z" },
+-    { url = "https://files.pythonhosted.org/packages/08/bd/ed5396be499ffcf8807a585bfe38b71a1fbdd1c342b4f9b6d0ef5162a946/cryptography-50.0.1-cp314-cp314t-manylinux_2_28_aarch64.whl", hash = "sha256:a8f40ea47330e71b594a7e246898f93177c259490c63183dbaf9e571d71ed9a5", size = 4716039, upload-time = "2026-08-25T19:44:37.192Z" },
+-    { url = "https://files.pythonhosted.org/packages/f6/6e/1cf405c5c8e8df7545378048e954792f00b7f2367af8863ce8b8f3e10607/cryptography-50.0.1-cp314-cp314t-manylinux_2_28_ppc64le.whl", hash = "sha256:a255449073358275b64b67d3f595f268bbef70e72b6edb65e0c70c735bf739c9", size = 5332388, upload-time = "2026-08-25T19:44:39.16Z" },
+-    { url = "https://files.pythonhosted.org/packages/47/92/b4317e8c32c4f47b062f5398bd79106b220a124546f42be83bf32b761e2a/cryptography-50.0.1-cp314-cp314t-manylinux_2_28_x86_64.whl", hash = "sha256:8df2de9102026855887e4587084f6eabd80ed0f345b8ad8a7ac27ab9bf4723e0", size = 4730293, upload-time = "2026-08-25T19:44:41.298Z" },
+-    { url = "https://files.pythonhosted.org/packages/39/0d/a1e7633e2c744d0f2983320a27e924ef2264c79c56e1a58d5fb0a1cfd413/cryptography-50.0.1-cp314-cp314t-manylinux_2_31_armv7l.whl", hash = "sha256:ac02b07824d4d1001bd4367599f839c19cb171924c796e52c23508ac14c2c0cc", size = 4346031, upload-time = "2026-08-25T19:44:43.245Z" },
+-    { url = "https://files.pythonhosted.org/packages/88/dd/b215616f9bab3fc18510c78a4e5c9f362d77838503c363dc747c7d4f5c6f/cryptography-50.0.1-cp314-cp314t-manylinux_2_34_aarch64.whl", hash = "sha256:cbf74a81765ee67413503ca6e26dcc4f6f5a519822436cc0a1b97aab6c1b8a17", size = 4715344, upload-time = "2026-08-25T19:44:45.291Z" },
+-    { url = "https://files.pythonhosted.org/packages/b1/1b/ec3ebd31741d0e963612c4fe43caa39341b9b1e031e469820e42e4c83918/cryptography-50.0.1-cp314-cp314t-manylinux_2_34_ppc64le.whl", hash = "sha256:16c5ecd954b3330ebfb6605eca4fd952da8bef376551d5cc264534e3770a9ee6", size = 5287201, upload-time = "2026-08-25T19:44:47.297Z" },
+-    { url = "https://files.pythonhosted.org/packages/1a/01/0127d11a762b31a9ee0221894f540318761783f3fdc4bc5d057698caebd5/cryptography-50.0.1-cp314-cp314t-manylinux_2_34_x86_64.whl", hash = "sha256:79bf008d1f9af6071c797ad133e39915dfee7614f18f18f4db9072eb715064a3", size = 4730023, upload-time = "2026-08-25T19:44:49.435Z" },
+-    { url = "https://files.pythonhosted.org/packages/9e/b9/e7425ebfb599241a0c1d7000f1b466c3062da66c19d9525031315dff7213/cryptography-50.0.1-cp314-cp314t-musllinux_1_2_aarch64.whl", hash = "sha256:330fbb252391c596f1ae42c5754449dc924e6ad012dca8efe0d703f9f2d12ec6", size = 4847362, upload-time = "2026-08-25T19:44:51.94Z" },
+-    { url = "https://files.pythonhosted.org/packages/2d/fd/60d0ddf4defa12e482c9d5e0f554384d6e8ab25341fd15f060028fd92e6a/cryptography-50.0.1-cp314-cp314t-musllinux_1_2_x86_64.whl", hash = "sha256:42be3bb70596b3abe4ac097b75be223e8b3ab614a0e5de068e3dcc54d71d6149", size = 4999247, upload-time = "2026-08-25T19:44:53.876Z" },
+-    { url = "https://files.pythonhosted.org/packages/4d/56/bc4f2b209e766c93372cfcd59b781a0b2b59700f62a969580415b699c2b2/cryptography-50.0.1-cp314-cp314t-win_amd64.whl", hash = "sha256:f74455bb086a85d5e81246412602aaa97ed095e504cd40dd261ef50be42205bf", size = 3825806, upload-time = "2026-08-25T19:44:56.209Z" },
+-    { url = "https://files.pythonhosted.org/packages/84/a9/ee16a903f13755e914d1eecc482fe64d1f10761c3960e5d8fa6837377aff/cryptography-50.0.1-cp39-abi3-macosx_11_0_arm64.whl", hash = "sha256:ca83d00d9e69cd5eb63f2e69c3a5a59e0cecae5ae14c6ae0b35830fe3b37bad0", size = 4035307, upload-time = "2026-08-25T19:44:58.305Z" },
+-    { url = "https://files.pythonhosted.org/packages/5e/a5/9ec7e81e8526c0d7a387d73386b2daed3f39e10d81a85930bd1b6bfba65c/cryptography-50.0.1-cp39-abi3-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:05ba322c4da95b262a212c345af888ef2c37c88c0509756ea00a0e6d68850f23", size = 4751900, upload-time = "2026-08-25T19:45:00.401Z" },
+-    { url = "https://files.pythonhosted.org/packages/7e/3c/0e77bd5ffcf078e9dd27d3074aad6c030d9b10d0bf69329d573c927a188c/cryptography-50.0.1-cp39-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:e22dfed744bd4002e909464cb23d2f0b05c6f3113a79ef2e9864a53db737c733", size = 4738357, upload-time = "2026-08-25T19:45:02.786Z" },
+-    { url = "https://files.pythonhosted.org/packages/27/3a/3c5f80daa4dcd47323c7af8a2fcb90de27a33564d4fcac69846c0972691a/cryptography-50.0.1-cp39-abi3-manylinux_2_28_aarch64.whl", hash = "sha256:4c4188f7c0cf655be5c06342b817ed0f9595b69ffa2b12026e5353eed29dea88", size = 4758474, upload-time = "2026-08-25T19:45:04.889Z" },
+-    { url = "https://files.pythonhosted.org/packages/6e/2b/214cf0cf93db9628c3c20c896b229f327f6fb1b20e4b3743d8ad3f00af8b/cryptography-50.0.1-cp39-abi3-manylinux_2_28_ppc64le.whl", hash = "sha256:2ebbfb0f1fed745e91796e3e1080a1440423fdae8ece1b995a1d80883a409054", size = 5375862, upload-time = "2026-08-25T19:45:07.163Z" },
+-    { url = "https://files.pythonhosted.org/packages/d6/51/3f9701867a46b6c1740c9b52fc4d3bed6cbdcfedcc9b6e64305c07f39cff/cryptography-50.0.1-cp39-abi3-manylinux_2_28_x86_64.whl", hash = "sha256:407fe2b6db00939c05c0e945e9914238f2f0a430974839429dafc82b1ee6bee5", size = 4772942, upload-time = "2026-08-25T19:45:09.396Z" },
+-    { url = "https://files.pythonhosted.org/packages/0d/5c/13ea642e08e2544d0f5396122055f4820cfacb3203562197b5967125ea97/cryptography-50.0.1-cp39-abi3-manylinux_2_31_armv7l.whl", hash = "sha256:2b34d76a652ea2b6faf777c35df230c5637842cd904e04f16230c3f9f03e4361", size = 4383347, upload-time = "2026-08-25T19:45:11.659Z" },
+-    { url = "https://files.pythonhosted.org/packages/84/d5/7d1fe1cb93f91c428093ff234e128c89ba8ea61a6f26aab406081f9b996e/cryptography-50.0.1-cp39-abi3-manylinux_2_34_aarch64.whl", hash = "sha256:01f41478cf33fc605a6a089cd56d28b45c6c0b45a1928b61797f2621a04bac71", size = 4758050, upload-time = "2026-08-25T19:45:13.745Z" },
+-    { url = "https://files.pythonhosted.org/packages/dd/04/557fc5ead96a829e0bc812a3b9dc4a52a2f27e4f7f5950da7ff27653a805/cryptography-50.0.1-cp39-abi3-manylinux_2_34_ppc64le.whl", hash = "sha256:fc3ed7ebd2a8c96f5b166de0ab9b624996bef3b07bbeb19364dfb78222c22c80", size = 5332955, upload-time = "2026-08-25T19:45:16.193Z" },
+-    { url = "https://files.pythonhosted.org/packages/8c/eb/5d7124083e8d8cda8f5b348f544b71ad6f707ad63193758ef4d8e569da02/cryptography-50.0.1-cp39-abi3-manylinux_2_34_x86_64.whl", hash = "sha256:9dde0a357190eb3b1da1bb9ab750e9c85cba82ca5977aa0836cbb94e92611239", size = 4772694, upload-time = "2026-08-25T19:45:18.315Z" },
+-    { url = "https://files.pythonhosted.org/packages/63/8e/f1f955e0921dd2b6d22eae7e8d24a4c4b638d10735ffbf6a71f99eb0fcb8/cryptography-50.0.1-cp39-abi3-musllinux_1_2_aarch64.whl", hash = "sha256:fd3718b960d0b5dd213cdf03f3bcb7000e69dda0de8b956061947ff6bcff5558", size = 4888413, upload-time = "2026-08-25T19:45:20.4Z" },
+-    { url = "https://files.pythonhosted.org/packages/1f/ab/89e2b798d2c3925f82e2bb72d5979f3d2f6da2dd22ef4a8cd8b70d920039/cryptography-50.0.1-cp39-abi3-musllinux_1_2_x86_64.whl", hash = "sha256:2a93d05e34d5f67fba6f891fe85d929999baa7195e853923ea6d7576c9e68c5e", size = 5044355, upload-time = "2026-08-25T19:45:22.353Z" },
+-    { url = "https://files.pythonhosted.org/packages/99/89/87ef49ffe383ef4e147d27b7bf2088fb0b54ea409dd87b5a89442e5828a5/cryptography-50.0.1-cp39-abi3-win_amd64.whl", hash = "sha256:55d16b1ef3ee0958d893a977b19777887e546c9954ea81b200c3301a864013f2", size = 3875429, upload-time = "2026-08-25T19:45:24.418Z" },
+-    { url = "https://files.pythonhosted.org/packages/c7/27/8d207af749c453ee17ea087340b3f2b4adef75aadd1d277b1b129bdda84e/cryptography-50.0.1-pp311-pypy311_pp73-macosx_11_0_arm64.whl", hash = "sha256:9cb3cb952cf5a8abd50c782a98a89d71699715e802fe349704b47f2425b42a94", size = 3974350, upload-time = "2026-08-25T19:45:26.551Z" },
+-    { url = "https://files.pythonhosted.org/packages/14/9a/6d3a4d7852e22d657438b7bf51f66102c7d71c0e1fafeec652281d0403e5/cryptography-50.0.1-pp311-pypy311_pp73-manylinux_2_28_aarch64.whl", hash = "sha256:5fe939deeb161024a6be98229c953b6591fef1f41214497a78fe793a244c017f", size = 4698675, upload-time = "2026-08-25T19:45:28.658Z" },
+-    { url = "https://files.pythonhosted.org/packages/73/35/5c3717edf9e68a0550ce04e28eab493fe545eccd81742af03f6a75fe260b/cryptography-50.0.1-pp311-pypy311_pp73-manylinux_2_28_x86_64.whl", hash = "sha256:fb4b9672d389c738b175c4166e78310f8a70358886aacd9173ee03a85ffdc671", size = 4707410, upload-time = "2026-08-25T19:45:30.816Z" },
+-    { url = "https://files.pythonhosted.org/packages/1d/e0/e786934472e3ac4ecdecc7b129a0ca1a2a40dffdafcf2c3ea9d4397f8def/cryptography-50.0.1-pp311-pypy311_pp73-manylinux_2_34_aarch64.whl", hash = "sha256:d63ae8f6481fec907ac0f588eee8a90aefde112c633131fe540e5711ddbb5a4e", size = 4698378, upload-time = "2026-08-25T19:45:33.043Z" },
+-    { url = "https://files.pythonhosted.org/packages/51/cf/5b3f53a0b74d122f023476ede40ba5d3e70d5cf475f73b899740d26a4fb2/cryptography-50.0.1-pp311-pypy311_pp73-manylinux_2_34_x86_64.whl", hash = "sha256:804728ce710890870f3aaa344b2e161172d258d768ac139d02cfd9092d0d94e6", size = 4706889, upload-time = "2026-08-25T19:45:35.086Z" },
+-    { url = "https://files.pythonhosted.org/packages/71/44/711e61f7d014be825ef79b285b047292d1bf893732ac1bc030a351fb517f/cryptography-50.0.1-pp311-pypy311_pp73-win_amd64.whl", hash = "sha256:693c99b49bd37d0d096e4334c10232c77248c415b98d35236094cdf96d57258b", size = 3824006, upload-time = "2026-08-25T19:45:37.281Z" },
+-]
+-
+-[[package]]
+-name = "exceptiongroup"
+-version = "1.3.1"
+-source = { registry = "https://pypi.org/simple" }
+-dependencies = [
+-    { name = "typing-extensions" },
+-]
+-sdist = { url = "https://files.pythonhosted.org/packages/50/79/66800aadf48771f6b62f7eb014e352e5d06856655206165d775e675a02c9/exceptiongroup-1.3.1.tar.gz", hash = "sha256:8b412432c6055b0b7d14c310000ae93352ed6754f70fa8f7c34141f91c4e3219", size = 30371, upload-time = "2025-11-21T23:01:54.787Z" }
+-wheels = [
+-    { url = "https://files.pythonhosted.org/packages/8a/0e/97c33bf5009bdbac74fd2beace167cab3f978feb69cc36f1ef79360d6c4e/exceptiongroup-1.3.1-py3-none-any.whl", hash = "sha256:a7a39a3bd276781e98394987d3a5701d0c4edffb633bb7a5144577f82c773598", size = 16740, upload-time = "2025-11-21T23:01:53.443Z" },
+-]
+-
+-[[package]]
+-name = "h11"
+-version = "0.16.0"
+-source = { registry = "https://pypi.org/simple" }
+-sdist = { url = "https://files.pythonhosted.org/packages/01/ee/02a2c011bdab74c6fb3c75474d40b3052059d95df7e73351460c8588d963/h11-0.16.0.tar.gz", hash = "sha256:4e35b956cf45792e4caa5885e69fba00bdbc6ffafbfa020300e549b208ee5ff1", size = 101250, upload-time = "2025-04-24T03:35:25.427Z" }
+-wheels = [
+-    { url = "https://files.pythonhosted.org/packages/04/4b/29cac41a4d98d144bf5f6d33995617b185d14b22401f75ca86f384e87ff1/h11-0.16.0-py3-none-any.whl", hash = "sha256:63cf8bbe7522de3bf65932fda1d9c2772064ffb3dae62d55932da54b31cb6c86", size = 37515, upload-time = "2025-04-24T03:35:24.344Z" },
+-]
+-
+-[[package]]
+-name = "httpcore"
+-version = "1.0.9"
+-source = { registry = "https://pypi.org/simple" }
+-dependencies = [
+-    { name = "certifi" },
+-    { name = "h11" },
+-]
+-sdist = { url = "https://files.pythonhosted.org/packages/06/94/82699a10bca87a5556c9c59b5963f2d039dbd239f25bc2a63907a05a14cb/httpcore-1.0.9.tar.gz", hash = "sha256:6e34463af53fd2ab5d807f399a9b45ea31c3dfa2276f15a2c3f00afff6e176e8", size = 85484, upload-time = "2025-04-24T22:06:22.219Z" }
+-wheels = [
+-    { url = "https://files.pythonhosted.org/packages/7e/f5/f66802a942d491edb555dd61e3a9961140fd64c90bce1eafd741609d334d/httpcore-1.0.9-py3-none-any.whl", hash = "sha256:2d400746a40668fc9dec9810239072b40b4484b640a8c38fd654a024c7a1bf55", size = 78784, upload-time = "2025-04-24T22:06:20.566Z" },
+-]
+-
+-[[package]]
+-name = "httpx"
+-version = "0.28.1"
+-source = { registry = "https://pypi.org/simple" }
+-dependencies = [
+-    { name = "anyio" },
+-    { name = "certifi" },
+-    { name = "httpcore" },
+-    { name = "idna" },
+-]
+-sdist = { url = "https://files.pythonhosted.org/packages/b1/df/48c586a5fe32a0f01324ee087459e112ebb7224f646c0b5023f5e79e9956/httpx-0.28.1.tar.gz", hash = "sha256:75e98c5f16b0f35b567856f597f06ff2270a374470a5c2392242528e3e3e42fc", size = 141406, upload-time = "2024-12-06T15:37:23.222Z" }
+-wheels = [
+-    { url = "https://files.pythonhosted.org/packages/2a/39/e50c7c3a983047577ee07d2a9e53faf5a69493943ec3f6a384bdc792deb2/httpx-0.28.1-py3-none-any.whl", hash = "sha256:d909fcccc110f8c7faf814ca82a9a4d816bc5a6dbfea25d6591d6985b8ba59ad", size = 73517, upload-time = "2024-12-06T15:37:21.509Z" },
+-]
+-
+-[[package]]
+-name = "httpx-sse"
+-version = "0.4.3"
+-source = { registry = "https://pypi.org/simple" }
+-sdist = { url = "https://files.pythonhosted.org/packages/0f/4c/751061ffa58615a32c31b2d82e8482be8dd4a89154f003147acee90f2be9/httpx_sse-0.4.3.tar.gz", hash = "sha256:9b1ed0127459a66014aec3c56bebd93da3c1bc8bb6618c8082039a44889a755d", size = 15943, upload-time = "2025-10-10T21:48:22.271Z" }
+-wheels = [
+-    { url = "https://files.pythonhosted.org/packages/d2/fd/6668e5aec43ab844de6fc74927e155a3b37bf40d7c3790e49fc0406b6578/httpx_sse-0.4.3-py3-none-any.whl", hash = "sha256:0ac1c9fe3c0afad2e0ebb25a934a59f4c7823b60792691f779fad2c5568830fc", size = 8960, upload-time = "2025-10-10T21:48:21.158Z" },
+-]
+-
+-[[package]]
+-name = "idna"
+-version = "3.19"
+-source = { registry = "https://pypi.org/simple" }
+-sdist = { url = "https://files.pythonhosted.org/packages/5f/f7/abb373e5757eaec4b922b92f97ec8d6d7e057cf06778247604fbc4e7c3f3/idna-3.19.tar.gz", hash = "sha256:5e0811a4383b21dc5838069f801c4fb62113b7447663d2530d2bd6e77b49bf15", size = 215237, upload-time = "2026-08-18T05:14:24.27Z" }
+-wheels = [
+-    { url = "https://files.pythonhosted.org/packages/57/b0/0e52c878c53f245edd3a11020f20979b3f490f245af532c7cae3027754b5/idna-3.19-py3-none-any.whl", hash = "sha256:815e7be7a7806d54abb586dc943addc79e8b2ee16915059658cbeff4b1b43bf4", size = 68550, upload-time = "2026-08-18T05:14:22.343Z" },
+-]
+-
+-[[package]]
+-name = "jsonschema"
+-version = "4.26.0"
+-source = { registry = "https://pypi.org/simple" }
+-dependencies = [
+-    { name = "attrs" },
+-    { name = "jsonschema-specifications" },
+-    { name = "referencing" },
+-    { name = "rpds-py", version = "0.30.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+-    { name = "rpds-py", version = "2026.6.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+-]
+-sdist = { url = "https://files.pythonhosted.org/packages/b3/fc/e067678238fa451312d4c62bf6e6cf5ec56375422aee02f9cb5f909b3047/jsonschema-4.26.0.tar.gz", hash = "sha256:0c26707e2efad8aa1bfc5b7ce170f3fccc2e4918ff85989ba9ffa9facb2be326", size = 366583, upload-time = "2026-01-07T13:41:07.246Z" }
+-wheels = [
+-    { url = "https://files.pythonhosted.org/packages/69/90/f63fb5873511e014207a475e2bb4e8b2e570d655b00ac19a9a0ca0a385ee/jsonschema-4.26.0-py3-none-any.whl", hash = "sha256:d489f15263b8d200f8387e64b4c3a75f06629559fb73deb8fdfb525f2dab50ce", size = 90630, upload-time = "2026-01-07T13:41:05.306Z" },
+-]
+-
+-[[package]]
+-name = "jsonschema-specifications"
+-version = "2025.9.1"
+-source = { registry = "https://pypi.org/simple" }
+-dependencies = [
+-    { name = "referencing" },
+-]
+-sdist = { url = "https://files.pythonhosted.org/packages/19/74/a633ee74eb36c44aa6d1095e7cc5569bebf04342ee146178e2d36600708b/jsonschema_specifications-2025.9.1.tar.gz", hash = "sha256:b540987f239e745613c7a9176f3edb72b832a4ac465cf02712288397832b5e8d", size = 32855, upload-time = "2025-09-08T01:34:59.186Z" }
+-wheels = [
+-    { url = "https://files.pythonhosted.org/packages/41/45/1a4ed80516f02155c51f51e8cedb3c1902296743db0bbc66608a0db2814f/jsonschema_specifications-2025.9.1-py3-none-any.whl", hash = "sha256:98802fee3a11ee76ecaca44429fda8a41bff98b00a0f2838151b113f210cc6fe", size = 18437, upload-time = "2025-09-08T01:34:57.871Z" },
+-]
+-
+-[[package]]
+-name = "markdown-it-py"
+-version = "4.2.0"
+-source = { registry = "https://pypi.org/simple" }
+-dependencies = [
+-    { name = "mdurl" },
+-]
+-sdist = { url = "https://files.pythonhosted.org/packages/06/ff/7841249c247aa650a76b9ee4bbaeae59370dc8bfd2f6c01f3630c35eb134/markdown_it_py-4.2.0.tar.gz", hash = "sha256:04a21681d6fbb623de53f6f364d352309d4094dd4194040a10fd51833e418d49", size = 82454, upload-time = "2026-05-07T12:08:28.36Z" }
+-wheels = [
+-    { url = "https://files.pythonhosted.org/packages/b3/81/4da04ced5a082363ecfa159c010d200ecbd959ae410c10c0264a38cac0f5/markdown_it_py-4.2.0-py3-none-any.whl", hash = "sha256:9f7ebbcd14fe59494226453aed97c1070d83f8d24b6fc3a3bcf9a38092641c4a", size = 91687, upload-time = "2026-05-07T12:08:27.182Z" },
+-]
+-
+-[[package]]
+-name = "mcp"
+-version = "1.30.0"
+-source = { registry = "https://pypi.org/simple" }
+-dependencies = [
+-    { name = "anyio" },
+-    { name = "httpx" },
+-    { name = "httpx-sse" },
+-    { name = "jsonschema" },
+-    { name = "pydantic" },
+-    { name = "pydantic-settings" },
+-    { name = "pyjwt", extra = ["crypto"] },
+-    { name = "python-multipart" },
+-    { name = "pywin32", marker = "sys_platform == 'win32'" },
+-    { name = "sse-starlette" },
+-    { name = "starlette" },
+-    { name = "typing-extensions" },
+-    { name = "typing-inspection" },
+-    { name = "uvicorn", marker = "sys_platform != 'emscripten'" },
+-]
+-sdist = { url = "https://files.pythonhosted.org/packages/ba/93/0142dc84a666daf8ad51a34268f34c12fd6fda4f3810c4be2504eecc8212/mcp-1.30.0.tar.gz", hash = "sha256:445414625fce5c295faa505bb11bacece661ab6f4028d57c935db57820b7a3e4", size = 680511, upload-time = "2026-09-07T14:34:15.845Z" }
+-wheels = [
+-    { url = "https://files.pythonhosted.org/packages/f5/f4/e58bc33317c92a0203664daaf00bf6f41166cc0149e5d6870a03f7cd004a/mcp-1.30.0-py3-none-any.whl", hash = "sha256:666edb5009503e1047c9d60346a756f94b261f05cc2625f23d41c728ffc484d0", size = 234581, upload-time = "2026-09-07T14:34:14.266Z" },
+-]
+-
+-[package.optional-dependencies]
+-cli = [
+-    { name = "python-dotenv" },
+-    { name = "typer" },
+-]
+-
+-[[package]]
+-name = "mcp-common"
+-version = "1.0.0"
+-source = { editable = "../mcp-common" }
+-
+-[[package]]
+-name = "mcp-decision-server"
+-version = "1.0.0"
+-source = { virtual = "." }
+-dependencies = [
+-    { name = "httpx" },
+-    { name = "mcp", extra = ["cli"] },
+-    { name = "mcp-common" },
+-]
+-
+-[package.metadata]
+-requires-dist = [
+-    { name = "httpx", specifier = ">=0.28" },
+-    { name = "mcp", extras = ["cli"], specifier = ">=1.0,<2.0" },
+-    { name = "mcp-common", editable = "../mcp-common" },
+-]
+-
+-[[package]]
+-name = "mdurl"
+-version = "0.1.2"
+-source = { registry = "https://pypi.org/simple" }
+-sdist = { url = "https://files.pythonhosted.org/packages/d6/54/cfe61301667036ec958cb99bd3efefba235e65cdeb9c84d24a8293ba1d90/mdurl-0.1.2.tar.gz", hash = "sha256:bb413d29f5eea38f31dd4754dd7377d4465116fb207585f97bf925588687c1ba", size = 8729, upload-time = "2022-08-14T12:40:10.846Z" }
+-wheels = [
+-    { url = "https://files.pythonhosted.org/packages/b3/38/89ba8ad64ae25be8de66a6d463314cf1eb366222074cfda9ee839c56a4b4/mdurl-0.1.2-py3-none-any.whl", hash = "sha256:84008a41e51615a49fc9966191ff91509e3c40b939176e643fd50a5c2196b8f8", size = 9979, upload-time = "2022-08-14T12:40:09.779Z" },
+-]
+-
+-[[package]]
+-name = "pycparser"
+-version = "3.0"
+-source = { registry = "https://pypi.org/simple" }
+-sdist = { url = "https://files.pythonhosted.org/packages/1b/7d/92392ff7815c21062bea51aa7b87d45576f649f16458d78b7cf94b9ab2e6/pycparser-3.0.tar.gz", hash = "sha256:600f49d217304a5902ac3c37e1281c9fe94e4d0489de643a9504c5cdfdfc6b29", size = 103492, upload-time = "2026-01-21T14:26:51.89Z" }
+-wheels = [
+-    { url = "https://files.pythonhosted.org/packages/0c/c3/44f3fbbfa403ea2a7c779186dc20772604442dde72947e7d01069cbe98e3/pycparser-3.0-py3-none-any.whl", hash = "sha256:b727414169a36b7d524c1c3e31839a521725078d7b2ff038656844266160a992", size = 48172, upload-time = "2026-01-21T14:26:50.693Z" },
+-]
+-
+-[[package]]
+-name = "pydantic"
+-version = "2.13.5"
+-source = { registry = "https://pypi.org/simple" }
+-dependencies = [
+-    { name = "annotated-types" },
+-    { name = "pydantic-core" },
+-    { name = "typing-extensions" },
+-    { name = "typing-inspection" },
+-]
+-sdist = { url = "https://files.pythonhosted.org/packages/53/ef/fc4f868f4e2cee79f863883abffceff107875f569b848507319842d2a681/pydantic-2.13.5.tar.gz", hash = "sha256:51a9c5f7b2f8e636f04c6cada605d9b6a3bf1348fdf945a3d8869b19bba0ee08", size = 845750, upload-time = "2026-08-28T14:04:00.916Z" }
+-wheels = [
+-    { url = "https://files.pythonhosted.org/packages/eb/47/c95ffc2009878c7aac0c5e08528022dcb885933252a88b5f170058014464/pydantic-2.13.5-py3-none-any.whl", hash = "sha256:346a034f080da3755d8e9cb5e00e8b07de1d39e4f6e2c87d8ab7cafa0b269a73", size = 472589, upload-time = "2026-08-28T14:03:59.136Z" },
+-]
+-
+-[[package]]
+-name = "pydantic-core"
+-version = "2.46.5"
+-source = { registry = "https://pypi.org/simple" }
+-dependencies = [
+-    { name = "typing-extensions" },
+-]
+-sdist = { url = "https://files.pythonhosted.org/packages/af/f9/8a06bea35ef8daf588f707784c973a7046e0034c8d8cfb08828eeffb8b75/pydantic_core-2.46.5.tar.gz", hash = "sha256:10416c15b8839ecc4ef4d0885da76da6fd0f67333a0eb8aff6d93c4b8f2910fc", size = 472262, upload-time = "2026-08-28T10:01:31.677Z" }
+-wheels = [
+-    { url = "https://files.pythonhosted.org/packages/74/6b/8f79692844269427abb3e4dd9e68edfcbe65ae25527d99183214de716c59/pydantic_core-2.46.5-cp310-cp310-macosx_10_12_x86_64.whl", hash = "sha256:657b40d6240c0a7b6a64b30f22d1e3aa631c7e846c621b0c0f6d1d75e2e15ea6", size = 2076533, upload-time = "2026-08-28T09:57:35.421Z" },
+-    { url = "https://files.pythonhosted.org/packages/bd/d0/c787604c71c2bdcda1a5656942fc822cd0f9cd879b9484bb84fc42172703/pydantic_core-2.46.5-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:ecb42011e12ee19cafbc312887cbf3546959fe02fbad44f272d4be5baa997615", size = 1924650, upload-time = "2026-08-28T09:57:37.944Z" },
+-    { url = "https://files.pythonhosted.org/packages/4a/77/ca2f8e997d9bfdb32205297aff38f210f398822d895b1af1b59fd9df9c13/pydantic_core-2.46.5-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:4dedce55295becb61921e386b99d4f2706045306e7fa52249a33004c837379fb", size = 1951261, upload-time = "2026-08-28T09:57:39.339Z" },
+-    { url = "https://files.pythonhosted.org/packages/a0/53/bd12e1a9255df4edee00353778e2614b5346265d51e1567ab72153e803a2/pydantic_core-2.46.5-cp310-cp310-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:9f47b8a949e60f027f0aa0a6f6c7b7e9c55cbf4380d10b344e282fa4e7ab1e1b", size = 2021808, upload-time = "2026-08-28T09:57:40.69Z" },
+-    { url = "https://files.pythonhosted.org/packages/d7/41/f7f312751ebc6d6767da91964a9c7954c18e226a1720ab234e3dfb9d6c17/pydantic_core-2.46.5-cp310-cp310-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:200aa3dc9f8d54f0754f43247c0bad0999fdcfbfd2488384dd44f37279271fe6", size = 2196184, upload-time = "2026-08-28T09:57:42.275Z" },
+-    { url = "https://files.pythonhosted.org/packages/3d/93/ce93aa030ab6bac4683ba8861e7baad89dd24b02e66b8801a0e4f6a00311/pydantic_core-2.46.5-cp310-cp310-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:6d30e1a4f138b8951063e9a394752a9179b51da288ffa507b1e659222f4c1793", size = 2238212, upload-time = "2026-08-28T09:57:44.122Z" },
+-    { url = "https://files.pythonhosted.org/packages/34/a1/c8e6b66f499f510752c07a092dfe27621f9c255635e59d38704b5681c35a/pydantic_core-2.46.5-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:850a08d167dde16db8702c274f320c7be9d7da6f6dff2b58b18f9e815bd94f5b", size = 2064073, upload-time = "2026-08-28T09:57:45.613Z" },
+-    { url = "https://files.pythonhosted.org/packages/5c/fa/605e2b127ee30dbf4b1da9da4843587cf2b2d16486c241cc7a5be2d2c1bd/pydantic_core-2.46.5-cp310-cp310-manylinux_2_31_riscv64.whl", hash = "sha256:c3471e5c4a949c26ec00a77f01df59096aa9495877de76fd60a980f8ee6be461", size = 2093102, upload-time = "2026-08-28T09:57:46.953Z" },
+-    { url = "https://files.pythonhosted.org/packages/4a/f7/1ab28093c09032ddce7c92c7a55d503b6ecd70f42c32492946c1cb5477b1/pydantic_core-2.46.5-cp310-cp310-manylinux_2_5_i686.manylinux1_i686.whl", hash = "sha256:3a3e26b6a8274211bddee2d0e4d0d42778f17a34510f49d2ec44b58abfc41736", size = 2133452, upload-time = "2026-08-28T09:57:48.362Z" },
+-    { url = "https://files.pythonhosted.org/packages/30/c8/47c79b756f12f85e8b0fbdb2b495f6b6eb32e6c98a4beae7a570a0b7c63c/pydantic_core-2.46.5-cp310-cp310-musllinux_1_1_aarch64.whl", hash = "sha256:fc5d783bd4a2387e97b8a2d5ec781cfb92b3d893bf82370548e99db5915935d3", size = 2146477, upload-time = "2026-08-28T09:57:49.74Z" },
+-    { url = "https://files.pythonhosted.org/packages/13/5c/79fc00cb8f651d6061991de8d7cedf1c78c73cbd4862c42ef418f03b8bfa/pydantic_core-2.46.5-cp310-cp310-musllinux_1_1_armv7l.whl", hash = "sha256:356c8368cbc321050b169595683a2e1d63413b1e0e2868b330af9fc14c616d3f", size = 2300832, upload-time = "2026-08-28T09:57:51.639Z" },
+-    { url = "https://files.pythonhosted.org/packages/b4/72/dd1a29853cf6d22a1ebd9e3baf0239cbc57d2d16caff36a89e38eb9b1db3/pydantic_core-2.46.5-cp310-cp310-musllinux_1_1_x86_64.whl", hash = "sha256:eb7d8d0e5886a89a55d2eef490e272fa965a9d57c6b29a5b5088a7997ec2cad1", size = 2320505, upload-time = "2026-08-28T09:57:53.236Z" },
+-    { url = "https://files.pythonhosted.org/packages/ec/d1/ba4a8e06a9ddad0b4caf69cfaeecc0fbfcec20473bd808f5127fd16491c4/pydantic_core-2.46.5-cp310-cp310-win32.whl", hash = "sha256:4d44cf99ddebf875f9b68cc267aa684c99b7b44fe63ee1cac4ec163807290069", size = 1956853, upload-time = "2026-08-28T09:57:54.592Z" },
+-    { url = "https://files.pythonhosted.org/packages/f2/94/205ed9d7ddaf44acd489889708ea124a3f41bdb42c141c8684d528ad0e7a/pydantic_core-2.46.5-cp310-cp310-win_amd64.whl", hash = "sha256:1e5aad1220a1192c42341c8fd4a8686657e73ab2a920c970bdc4de334fe3193d", size = 2042551, upload-time = "2026-08-28T09:57:56.017Z" },
+-    { url = "https://files.pythonhosted.org/packages/a2/b6/81d2d19ea0be2c03664381b59f65fa72fc7969decedae00bc2c4ad835708/pydantic_core-2.46.5-cp311-cp311-macosx_10_12_x86_64.whl", hash = "sha256:a1dee1b804ff4d11c663636cf15d2ea47e9f79cd56c033fb1cbf08924842a48f", size = 2074737, upload-time = "2026-08-28T09:57:57.711Z" },
+-    { url = "https://files.pythonhosted.org/packages/0c/18/b70da8300e292df4099684ea11b1958043580d2f50d2dc8bf7e542bdd84a/pydantic_core-2.46.5-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:d625a186a65201c23a9e3b8ed9c47e90a026e03256608cc91851c6709096844f", size = 1921751, upload-time = "2026-08-28T09:57:59.265Z" },
+-    { url = "https://files.pythonhosted.org/packages/e7/1a/0d590341b6ffa4b4aca83508e6b8db4761aaeacfc15a25ca3815876d4797/pydantic_core-2.46.5-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:4f8507560a9284e1370bb048ed4282012fbef4e8d109875b95e884d228552061", size = 1948231, upload-time = "2026-08-28T09:58:00.678Z" },
+-    { url = "https://files.pythonhosted.org/packages/7d/1d/02eb35761c51f2f7b1b042d6ab4cda6600f0c8c88a2243b3f734376201e5/pydantic_core-2.46.5-cp311-cp311-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:5f93c5fe914d75fbec9a49209b00da5f08e9e467d69da2b1510c81940cfd10be", size = 2020708, upload-time = "2026-08-28T09:58:02.267Z" },
+-    { url = "https://files.pythonhosted.org/packages/4a/ea/f86073830e35d508cc8ddf9c3d9e6e6840fcb88d34bf726b0b4710186f27/pydantic_core-2.46.5-cp311-cp311-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:aca6c767f552b21b10f774aeac128e828eafb796adfa1b666a18bf6321453c3a", size = 2194914, upload-time = "2026-08-28T09:58:03.934Z" },
+-    { url = "https://files.pythonhosted.org/packages/bb/d7/fc36240d7791ce90939e51608568c33bfdae26202016f9770c229a487d86/pydantic_core-2.46.5-cp311-cp311-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:701b2e04b560eeb4bddf7a25ab8ca476176e34fdbd9a0e18196f0d12d4685f0b", size = 2235622, upload-time = "2026-08-28T09:58:05.516Z" },
+-    { url = "https://files.pythonhosted.org/packages/cf/bc/3fa2d76b83162820a17da7f645b28d1cba99fc8e1e5fc6517067ec450fa1/pydantic_core-2.46.5-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:49776eab08766a08dfff7012f8b422dcd7e25e43b316eedf0477c24fcfa84b7c", size = 2062091, upload-time = "2026-08-28T09:58:07.135Z" },
+-    { url = "https://files.pythonhosted.org/packages/ab/9a/095d557bb492c90cd8a70a6dd048bf793d433d03d86c81c11e912e4cd049/pydantic_core-2.46.5-cp311-cp311-manylinux_2_31_riscv64.whl", hash = "sha256:a2468d93d181667a7abd66e1b64bb9f76f361b0fef8faddf687456453576f5ee", size = 2089904, upload-time = "2026-08-28T09:58:08.814Z" },
+-    { url = "https://files.pythonhosted.org/packages/24/98/7b76b1ad10a19a617a52aaa1d80e159115af939b095e86f8e756fd52e0df/pydantic_core-2.46.5-cp311-cp311-manylinux_2_5_i686.manylinux1_i686.whl", hash = "sha256:53feb344243bb9510a9dec7bf3cf1b64d88a98af5dc7872a5160465f8b198c8e", size = 2132244, upload-time = "2026-08-28T09:58:10.435Z" },
+-    { url = "https://files.pythonhosted.org/packages/20/32/7d6ca365fadba186a0c8f85de1a701663bce81efd309d9479be58687622f/pydantic_core-2.46.5-cp311-cp311-musllinux_1_1_aarch64.whl", hash = "sha256:cd5214352ae68f3b5e9af7768bdc5253695ee069675db3480518420b3be881f2", size = 2143901, upload-time = "2026-08-28T09:58:12.033Z" },
+-    { url = "https://files.pythonhosted.org/packages/f8/09/eb9a6aa57f22fd1541a9c0aa2a1f3aeef3ec65347d33e10a6da2f43e0ee9/pydantic_core-2.46.5-cp311-cp311-musllinux_1_1_armv7l.whl", hash = "sha256:9432f3598db432cb51c5b37fdbf29a60fcccc79e30d37a05022776a6bc4ab689", size = 2299425, upload-time = "2026-08-28T09:58:13.614Z" },
+-    { url = "https://files.pythonhosted.org/packages/8a/f9/548a5bb9d4ba8cd26e26daf48052236f6b38bb61e7b7241fbc3c995719eb/pydantic_core-2.46.5-cp311-cp311-musllinux_1_1_x86_64.whl", hash = "sha256:8feeac04b5794e513e710af2f9c87d49f31a6dc47967bb264a1fed61a8989bec", size = 2318566, upload-time = "2026-08-28T09:58:15.199Z" },
+-    { url = "https://files.pythonhosted.org/packages/4a/20/06454d18834c02c406c9133f1a3b485305fd9ee984f9636c2f730bef6a9d/pydantic_core-2.46.5-cp311-cp311-win32.whl", hash = "sha256:892a881d5f68c2b9ea304b7a6c2c60d9343df578a311b0f86b94bc8f1ffe8129", size = 1954258, upload-time = "2026-08-28T09:58:16.813Z" },
+-    { url = "https://files.pythonhosted.org/packages/9e/c2/718b9deb4b72453b5d8c7447a3b14cb77bef36917ef5f514e0948a4096a0/pydantic_core-2.46.5-cp311-cp311-win_amd64.whl", hash = "sha256:40375c2d05acec10323e45dfe2077ac44bc74659008614af5069034e2cfc781c", size = 2041030, upload-time = "2026-08-28T09:58:18.288Z" },
+-    { url = "https://files.pythonhosted.org/packages/67/ea/c1d1a5b72d6e1ff7f377a4d9199f6591f095beb5b409a8a5d89f7238d939/pydantic_core-2.46.5-cp311-cp311-win_arm64.whl", hash = "sha256:28a6a556cd3b6066bea827857f9d9cce027c96f776e512f544a581f9e42161f8", size = 2009234, upload-time = "2026-08-28T09:58:19.929Z" },
+-    { url = "https://files.pythonhosted.org/packages/82/3f/76358795aa7a8c6d4f36e2cb828ad1c90ee118e1393a9281664f5aade9d4/pydantic_core-2.46.5-cp312-cp312-macosx_10_12_x86_64.whl", hash = "sha256:b9fe6fb92520e3fd61f2e49000b6911b188824f089b75973ea06d6267f0b476d", size = 2076516, upload-time = "2026-08-28T09:58:21.576Z" },
+-    { url = "https://files.pythonhosted.org/packages/db/50/26b091836076ce4cb2fac264186936acc069e0595772cfd02a563bc4761a/pydantic_core-2.46.5-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:a39ac25a9a2fa4072efdb429833c4a4c8009a51ff9eea3eeae131713cd27991e", size = 1922874, upload-time = "2026-08-28T09:58:23.766Z" },
+-    { url = "https://files.pythonhosted.org/packages/09/f0/2a8ce3849e299d44e2d2c196b6082643a3235565a735cb51db7a6261f614/pydantic_core-2.46.5-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:4fdc8b93a41521988916eeaa271173fcca7fa0803d62f87675aac8dcec1c8e29", size = 1951772, upload-time = "2026-08-28T09:58:25.435Z" },
+-    { url = "https://files.pythonhosted.org/packages/87/46/ac0dc8bdd9e6048183a14eb127764e7ad9240021c17513074a4711b0e31e/pydantic_core-2.46.5-cp312-cp312-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:b98134087d9de723658d17a42c7d0da8d6e2ef08015dee7dc93889047315f5e4", size = 2031832, upload-time = "2026-08-28T09:58:27.102Z" },
+-    { url = "https://files.pythonhosted.org/packages/c4/c2/339de5bef7be36301a2231eaa52e62163742c2281f11b5f4892bc79785cd/pydantic_core-2.46.5-cp312-cp312-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:e652ab17569c94bff5475520f907b7148b8c24036a8ebbe5cf7cf7493d28579a", size = 2208645, upload-time = "2026-08-28T09:58:28.948Z" },
+-    { url = "https://files.pythonhosted.org/packages/7b/a0/9ff22b797724262da14427abaed4dd1d864a139693fc5e7809114376a716/pydantic_core-2.46.5-cp312-cp312-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:d925f3d9afd05a8c0fb3a1031463a8d59ebe5e2afad297e29c78be19e13b4e62", size = 2265935, upload-time = "2026-08-28T09:58:30.625Z" },
+-    { url = "https://files.pythonhosted.org/packages/c0/a4/eb9409ec0736e50aa70a412f16c204ed149516846912f7e6724d4c73ee53/pydantic_core-2.46.5-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:0fc5be0abd4a407e200d844b404e33639a554e7bd0d448e7b9ae181be4789ac2", size = 2066284, upload-time = "2026-08-28T09:58:32.289Z" },
+-    { url = "https://files.pythonhosted.org/packages/c0/02/7f6156ffc926857f1c37c07d9a388682865a81830ab6a1b637082c25e399/pydantic_core-2.46.5-cp312-cp312-manylinux_2_31_riscv64.whl", hash = "sha256:816ff0a6550ffc06c098ccd2e0698600f9aa7da192a79eaa6f9af504a35db869", size = 2105889, upload-time = "2026-08-28T09:58:33.986Z" },
+-    { url = "https://files.pythonhosted.org/packages/92/b1/e781d357ebe09fc929f995700f1b3503e8897f1cece183ecb1300d4d67e9/pydantic_core-2.46.5-cp312-cp312-manylinux_2_5_i686.manylinux1_i686.whl", hash = "sha256:c7ea57fc63aa7da93a1bd2d644e6577befae10c52c4e36377635eea1056a74f5", size = 2158006, upload-time = "2026-08-28T09:58:35.647Z" },
+-    { url = "https://files.pythonhosted.org/packages/70/0a/644597d84ab400e50609c192120b85c9681c22d3a20461b9060a79be0a7a/pydantic_core-2.46.5-cp312-cp312-musllinux_1_1_aarch64.whl", hash = "sha256:efd62a42486f1bda5d24cb4f63d15a3c7768375fe83d36f9417b4ad7a2fb20b3", size = 2158408, upload-time = "2026-08-28T09:58:37.38Z" },
+-    { url = "https://files.pythonhosted.org/packages/1e/ee/ca3b7b3a4b3769ffe9ce9432a7c9be755de9593a46d3b0d54d0409323e44/pydantic_core-2.46.5-cp312-cp312-musllinux_1_1_armv7l.whl", hash = "sha256:2bc9419666990c06d7397831f2126a1ecc3594aaa3ff7de5bf2d066802f4e07b", size = 2309609, upload-time = "2026-08-28T09:58:39.22Z" },
+-    { url = "https://files.pythonhosted.org/packages/ce/52/39fa1f451486019524ca685020390e7ca351832fd874530ba30c8628e6dc/pydantic_core-2.46.5-cp312-cp312-musllinux_1_1_x86_64.whl", hash = "sha256:18a09e1e1011b462f2e32774f25859ef1223d5c2b0546a633cf56654710721e0", size = 2342618, upload-time = "2026-08-28T09:58:40.89Z" },
+-    { url = "https://files.pythonhosted.org/packages/81/5e/468fc630568c61dcef3cd47ad32ffbeed9af643f49208d1ea86ab4f890c4/pydantic_core-2.46.5-cp312-cp312-win32.whl", hash = "sha256:5cb482e9e84c851f4e623fe4acc1ced89168cf1fe18f7089db4548c8f5bbb65b", size = 1939475, upload-time = "2026-08-28T09:58:42.591Z" },
+-    { url = "https://files.pythonhosted.org/packages/cf/c9/4c19f41b84cf6b622a72fbeed7665b25d47a187d68d47d0d430c07f23268/pydantic_core-2.46.5-cp312-cp312-win_amd64.whl", hash = "sha256:5e81740c09e310f5aa5cbd3e434a01c154d4bef93241c7877b39f211d2b78ba8", size = 2043140, upload-time = "2026-08-28T09:58:44.272Z" },
+-    { url = "https://files.pythonhosted.org/packages/af/dd/0c1a050299147c746e5256db16d645ab5efd4f78c59937d581a0524e74a2/pydantic_core-2.46.5-cp312-cp312-win_arm64.whl", hash = "sha256:f7b0ec93a2893de856652154d73b7ba622f26fa97726487dcac373de5f4c6084", size = 1997729, upload-time = "2026-08-28T09:58:46.13Z" },
+-    { url = "https://files.pythonhosted.org/packages/f5/37/5abe39a8372a61d3dc3c1338fc504281c01b32fdb3169cd7187153b56d3e/pydantic_core-2.46.5-cp313-cp313-macosx_10_12_x86_64.whl", hash = "sha256:b7ca9034437b6022f941f4857459562ee00a560b97e7cce8a0ec5a74fc6766e0", size = 2075885, upload-time = "2026-08-28T09:58:47.856Z" },
+-    { url = "https://files.pythonhosted.org/packages/21/43/6323b1f8b217780454c61304bcd2b38ae4762f50754414124603ccc90bb2/pydantic_core-2.46.5-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:f332f0e72a5a0400141f830744e141bf9f97917878dbe968669e8a7fefea78ff", size = 1922768, upload-time = "2026-08-28T09:58:49.58Z" },
+-    { url = "https://files.pythonhosted.org/packages/0f/a3/c05ca796e1197618a774b01e596aeedfefc2f7d8c01ae3054e910b120e8a/pydantic_core-2.46.5-cp313-cp313-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:193375f3548919d3f0b60936ca113ada3e38f264f91b9b8e0508efaad57be931", size = 1951241, upload-time = "2026-08-28T09:58:51.511Z" },
+-    { url = "https://files.pythonhosted.org/packages/68/32/33bc39ac705c52cffc908e8389f9754fdb208aea5c69cceddf4eb3ce99af/pydantic_core-2.46.5-cp313-cp313-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:79bdfa52f843137045b2d081cc05c120ba6665d29b7559c2c47690906f39279f", size = 2031975, upload-time = "2026-08-28T09:58:53.166Z" },
+-    { url = "https://files.pythonhosted.org/packages/b0/70/2333e885c0f6a67bc105c5916965dac9b57f2718ee20d81d1a06a4ebdc13/pydantic_core-2.46.5-cp313-cp313-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:24922243639cbdac66c75fcb6fd6495a9cb52b213d62f9a0d16f0310b1ff8038", size = 2208542, upload-time = "2026-08-28T09:58:55.017Z" },
+-    { url = "https://files.pythonhosted.org/packages/f7/ea/296debfb4264207bbda5936133892e027c0a58875ad53ebd512fba8ec3a2/pydantic_core-2.46.5-cp313-cp313-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:c76fe65e607be28c7fd4d56fc3c42b1583aa058ce3408b7ad0fd540171d31f9f", size = 2264692, upload-time = "2026-08-28T09:58:56.767Z" },
+-    { url = "https://files.pythonhosted.org/packages/d3/f2/9e4de77a6271e07a76d2d58b11c091a979c191ed2939bf80067568b369d2/pydantic_core-2.46.5-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:6f7b393a8b3da82f5c1fc0751e6d01ac6c55b93c18226a60bdfba4a724efafd1", size = 2066633, upload-time = "2026-08-28T09:58:58.531Z" },
+-    { url = "https://files.pythonhosted.org/packages/8d/db/f9e9d0c97445987b2084823d5c240de88087338f04fc2cfaa2df186b8049/pydantic_core-2.46.5-cp313-cp313-manylinux_2_31_riscv64.whl", hash = "sha256:7ac031912d54f3d83ef3b3eb98dfabc1608802e2202263d25957eeed40b94761", size = 2105235, upload-time = "2026-08-28T09:59:00.421Z" },
+-    { url = "https://files.pythonhosted.org/packages/07/c5/79169b047b3b2c3e99e04bc76372af9637e0bf6db638274fa927df96369e/pydantic_core-2.46.5-cp313-cp313-manylinux_2_5_i686.manylinux1_i686.whl", hash = "sha256:837b396ca3d7b74091ca623f6cbd8351bd42d670a79c2683e79fb089f06a2de5", size = 2157367, upload-time = "2026-08-28T09:59:02.442Z" },
+-    { url = "https://files.pythonhosted.org/packages/26/b5/ba6057afb7c291bd449f51b867f95aef2072941c4ce4e5c31d6ffd132d3b/pydantic_core-2.46.5-cp313-cp313-musllinux_1_1_aarch64.whl", hash = "sha256:5ee239d575f80b08eca11f6e20f90c4c695de7825c67eefe6091fbf20dda648e", size = 2158420, upload-time = "2026-08-28T09:59:04.2Z" },
+-    { url = "https://files.pythonhosted.org/packages/6e/28/2057abecaafdc22912afa819603a51f0a62d40643b7c4871c51721fea9be/pydantic_core-2.46.5-cp313-cp313-musllinux_1_1_armv7l.whl", hash = "sha256:e80675d75ae2cd14372cb65cad5400d9347a3d3f6c13000183f22dfd027283ed", size = 2309588, upload-time = "2026-08-28T09:59:06.048Z" },
+-    { url = "https://files.pythonhosted.org/packages/71/9d/881156dc404e27479c4246128d73538464cab4a239bec61995e227644c30/pydantic_core-2.46.5-cp313-cp313-musllinux_1_1_x86_64.whl", hash = "sha256:9c4b71f10dd532fb7a5cbc8f58707779e64f03a258c2bf8bfbaecfcd9970b519", size = 2341866, upload-time = "2026-08-28T09:59:08.539Z" },
+-    { url = "https://files.pythonhosted.org/packages/5a/38/d66f443a259f84d13babdceae568e572b0ed26da17ca5d0a649ebb110a67/pydantic_core-2.46.5-cp313-cp313-win32.whl", hash = "sha256:97bf8de4d541598c94a59344eeb988a94c08ff76b5723c41f6567ec18c7892ea", size = 1938580, upload-time = "2026-08-28T09:59:10.402Z" },
+-    { url = "https://files.pythonhosted.org/packages/2c/1e/1d5371213f4cc9a7ed70c0bfcc7911de22311ee99a662a56077d7292d2ac/pydantic_core-2.46.5-cp313-cp313-win_amd64.whl", hash = "sha256:15f4a94963c95accac15b7b657bb177d3ad82bb90b0d0526d9a9b85079925db5", size = 2041980, upload-time = "2026-08-28T09:59:12.396Z" },
+-    { url = "https://files.pythonhosted.org/packages/5a/48/4222d90b1c67568bace4dec6dca6271449c66de3595d72b6d098f5fde597/pydantic_core-2.46.5-cp313-cp313-win_arm64.whl", hash = "sha256:d22a945598fb91236b4dd793a6e42e4f3dd7740bb5aace5ebd7d4c08d13bb575", size = 1997213, upload-time = "2026-08-28T09:59:14.245Z" },
+-    { url = "https://files.pythonhosted.org/packages/8e/8a/14596f2a8367da50cf7cbac48169ee5d9c8e11d486a3b527082384630c72/pydantic_core-2.46.5-cp314-cp314-macosx_10_12_x86_64.whl", hash = "sha256:c1c43ad4339643d70ebb8124e1305a7dab423001eff58bb41a0f731adbc98355", size = 2074081, upload-time = "2026-08-28T09:59:16.141Z" },
+-    { url = "https://files.pythonhosted.org/packages/ae/d5/d8a4eb6d6c7f66b91dd37c576d76e9e60fba900caf5372c17bcf949febc2/pydantic_core-2.46.5-cp314-cp314-macosx_11_0_arm64.whl", hash = "sha256:1a353f84de772f423b5ffb11d7ae352fbbef0f446f3c0b0af0f8236d7233606e", size = 1920497, upload-time = "2026-08-28T09:59:18.065Z" },
+-    { url = "https://files.pythonhosted.org/packages/8e/26/092079428f86e927e030b2c0ced87df69dbb1c875cdeaa67bf42ea2be746/pydantic_core-2.46.5-cp314-cp314-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:5086029a57366b8cf81b130a43908738095c270c21a8d7f0e8bdfdb89718e2f3", size = 1952130, upload-time = "2026-08-28T09:59:20.476Z" },
+-    { url = "https://files.pythonhosted.org/packages/08/c3/8ec0e290a9ebaebd64047bf5fda94be835c6b1551b02437e4b76778fbcd7/pydantic_core-2.46.5-cp314-cp314-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:46c25dda9d092a06c08db76ffe0a197107904d0dfac653f7d5306bbcd6d6119c", size = 2026371, upload-time = "2026-08-28T09:59:22.227Z" },
+-    { url = "https://files.pythonhosted.org/packages/01/72/4fd20ad520fb8da0157f95b27a7eb05a72790ef08138e7701ac972c342ea/pydantic_core-2.46.5-cp314-cp314-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:37ea7b83c935e5b0d68c9449b82651accf78a10828b2c02b2f2d9e9496446c21", size = 2202822, upload-time = "2026-08-28T09:59:24.277Z" },
+-    { url = "https://files.pythonhosted.org/packages/31/b0/d16e0771206b29314f0d52198b720be21e8a99ab2bf11e3bc0d7c9cebdff/pydantic_core-2.46.5-cp314-cp314-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:e64e88d5585bea9ce95861079de72006c7fa6d3df4e3a3b65ba31eb979c15c9f", size = 2262756, upload-time = "2026-08-28T09:59:26.608Z" },
+-    { url = "https://files.pythonhosted.org/packages/2c/9b/59634b7ac631c63b2a37760eb6943af3e29573d6b59a4abc5e7f019d4cee/pydantic_core-2.46.5-cp314-cp314-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:54d510bac3ee52247af28ed4bb18a1e799f040ac60fd2bf5ccd4c92f1fbe786f", size = 2068352, upload-time = "2026-08-28T09:59:29.044Z" },
+-    { url = "https://files.pythonhosted.org/packages/08/7c/570abb1ad2155348dc754ea91be22e5aaa18eb6d69a6068f7c6f2679a6ed/pydantic_core-2.46.5-cp314-cp314-manylinux_2_31_riscv64.whl", hash = "sha256:a2a5e1d0ff29adddc9f6d6821a66302e4493f8ca898b715b6b1182c2c201ea0a", size = 2104777, upload-time = "2026-08-28T09:59:30.95Z" },
+-    { url = "https://files.pythonhosted.org/packages/8e/25/5bf74adc65a1ac5b7be3f6cb0bcb5433615c1598a801c19d830d84c98ded/pydantic_core-2.46.5-cp314-cp314-manylinux_2_5_i686.manylinux1_i686.whl", hash = "sha256:03b9666e41e35d8909852ba191a0607520f81b74eaf12ccf8737005dbb313821", size = 2156312, upload-time = "2026-08-28T09:59:32.604Z" },
+-    { url = "https://files.pythonhosted.org/packages/90/6a/2ef38830675e050121040618135564ed56b860b45433b02d9b4ebece46f3/pydantic_core-2.46.5-cp314-cp314-musllinux_1_1_aarch64.whl", hash = "sha256:a91c17edf6eea2402cb5457b4c89e99bc5ed1004aa34c4adf1d4258c1a5c22c2", size = 2150067, upload-time = "2026-08-28T09:59:34.453Z" },
+-    { url = "https://files.pythonhosted.org/packages/90/ef/a7dbb03a14a64c2a4621f989c615ed9a892535a6cad938fc27079f919d80/pydantic_core-2.46.5-cp314-cp314-musllinux_1_1_armv7l.whl", hash = "sha256:b49924c73a235e969511bf2aabdff3beebf9820931f646c80274d5d780010c47", size = 2304516, upload-time = "2026-08-28T09:59:36.194Z" },
+-    { url = "https://files.pythonhosted.org/packages/68/f8/6bb4c4b80e8a6fde1904c64a51c62a1d04fcdfa3ea521a66b2ddefa1d885/pydantic_core-2.46.5-cp314-cp314-musllinux_1_1_x86_64.whl", hash = "sha256:2cbd9a5eff05e51c447c34dfa4632145b26b09120cf04bd0c871e44c1a5e1c9a", size = 2335223, upload-time = "2026-08-28T09:59:37.931Z" },
+-    { url = "https://files.pythonhosted.org/packages/2a/80/f46b8c681195190b2c1f1c7c0a81abce60663e987613e09ef64d433dd96b/pydantic_core-2.46.5-cp314-cp314-win32.whl", hash = "sha256:2d5d76654becf5efd62c9e51c3756c67b49498b0c9a40884934c40807adbd074", size = 1934827, upload-time = "2026-08-28T09:59:39.836Z" },
+-    { url = "https://files.pythonhosted.org/packages/f7/3c/60674207246bc0a4009d2391b7c7251c7159f279c8d2ab8aae8ef46f3dee/pydantic_core-2.46.5-cp314-cp314-win_amd64.whl", hash = "sha256:fa10ef4112775900e7a0661068635eb67b2ab824fbde764de6e0e21982a93db0", size = 2042648, upload-time = "2026-08-28T09:59:41.792Z" },
+-    { url = "https://files.pythonhosted.org/packages/69/0c/117c562c7c1babdf44576b72a5e496906506c93690387ecfbca7c729ae2e/pydantic_core-2.46.5-cp314-cp314-win_arm64.whl", hash = "sha256:045ab3b6d308439e32b81cc173bba5b9018bc6ed896afd0c65b3b009b1699af5", size = 1989652, upload-time = "2026-08-28T09:59:43.702Z" },
+-    { url = "https://files.pythonhosted.org/packages/e8/66/9336ae58f9eb68c41d121894e52c4c89eccb07eb8f602a04ee9c3f37736a/pydantic_core-2.46.5-cp314-cp314t-macosx_10_12_x86_64.whl", hash = "sha256:8816f3d218beb4b787de5c9759c259b8fa61f9dec42dc7811f320a33771778b7", size = 2065829, upload-time = "2026-08-28T09:59:45.364Z" },
+-    { url = "https://files.pythonhosted.org/packages/c5/02/bc19b47a96c2d3109760711acf22369e56bd7e405ca52f7ade164d2ead57/pydantic_core-2.46.5-cp314-cp314t-macosx_11_0_arm64.whl", hash = "sha256:bce57638e08ac148e5778cce7feb968307a727d66f8e2274a543d0cf0c9ad6a3", size = 1905716, upload-time = "2026-08-28T09:59:47.18Z" },
+-    { url = "https://files.pythonhosted.org/packages/52/a4/70b47c0509923dd98ccfed04fb3e32ea3849c82a0ff2205bb41009b43c00/pydantic_core-2.46.5-cp314-cp314t-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:976e1128455aa595ea04c79ccfedff1aaeab96ee013fcc916bed120c4f0ad94f", size = 1934216, upload-time = "2026-08-28T09:59:49.241Z" },
+-    { url = "https://files.pythonhosted.org/packages/52/ab/aa03b65f7bb198585edf806b906c3223ecf1795543e39e23aec4cce27ad2/pydantic_core-2.46.5-cp314-cp314t-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:e7b891faeedeafba41b2983e5001a81b6a915b69544c7e7570d1989ce1c36ac7", size = 2010635, upload-time = "2026-08-28T09:59:51.692Z" },
+-    { url = "https://files.pythonhosted.org/packages/3c/8b/0da06343f30b84ec549aafd309c6456223d5dc8bd36af504c573faad561d/pydantic_core-2.46.5-cp314-cp314t-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:5f194189415698233dd1114a093a9b56e61e2c57e11b469be3b0506f46f0771c", size = 2209369, upload-time = "2026-08-28T09:59:53.582Z" },
+-    { url = "https://files.pythonhosted.org/packages/d6/5b/844c4defaa34a3df66eb9257087d121d70c201298b96abdf9f492fc2f1bf/pydantic_core-2.46.5-cp314-cp314t-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:82a36973cf8a2ef5406f4fe2edbf8ed0c99629535d959e0b100c76a32535a111", size = 2253238, upload-time = "2026-08-28T09:59:55.484Z" },
+-    { url = "https://files.pythonhosted.org/packages/f4/64/a4e536cb16d7f61a7fd3120b46c577fc7fa7325992f69c4f52bc786d77d8/pydantic_core-2.46.5-cp314-cp314t-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:cdbb78909f52b981d3b2d56b97328d71eb0b974c36bd77c920123a7ebb192829", size = 2065740, upload-time = "2026-08-28T09:59:58.038Z" },
+-    { url = "https://files.pythonhosted.org/packages/5f/75/aaa38c6bc2d085f6605b34eabdc6a8a4e0b2e61fc9c8e6e52b28e97b3125/pydantic_core-2.46.5-cp314-cp314t-manylinux_2_31_riscv64.whl", hash = "sha256:52e24eacdb536cade636aa90fb851835222becff8484b7001fdc78cb0290f2aa", size = 2087425, upload-time = "2026-08-28T09:59:59.898Z" },
+-    { url = "https://files.pythonhosted.org/packages/55/ae/fcab4cfc39aba3689e1d20c8b5250ad280957022c09af2ed9cd585602a5e/pydantic_core-2.46.5-cp314-cp314t-manylinux_2_5_i686.manylinux1_i686.whl", hash = "sha256:37ae34309d7bd8c0d61ab839668058f2a7962ea1fc51d105d2db228fe0618034", size = 2139306, upload-time = "2026-08-28T10:00:03.057Z" },
+-    { url = "https://files.pythonhosted.org/packages/2d/f4/f1d03a4bc9d9acbc62f4d742b8a319af52f71885079868b2ff8e48a651ee/pydantic_core-2.46.5-cp314-cp314t-musllinux_1_1_aarch64.whl", hash = "sha256:0cdbada856a1c69a7624a64d3d9aefe79300bd6ef827b43a4f265010b9b55184", size = 2144589, upload-time = "2026-08-28T10:00:05.645Z" },
+-    { url = "https://files.pythonhosted.org/packages/83/f3/7a53bb1356de514a4cd295f25b6ac39237895620c0462d2592b76c16e114/pydantic_core-2.46.5-cp314-cp314t-musllinux_1_1_armv7l.whl", hash = "sha256:545f26c504b27c3758439a5e6d9349931f0a04f855668d5fe323c89e82300a38", size = 2288882, upload-time = "2026-08-28T10:00:07.931Z" },
+-    { url = "https://files.pythonhosted.org/packages/cd/94/5a81583660c175c59d49ffb09f4b3a44debeaf86a19fca664ae1cdd9ee32/pydantic_core-2.46.5-cp314-cp314t-musllinux_1_1_x86_64.whl", hash = "sha256:ff218293c9c806138dca139765e3b067621be52bcd93cdc14c7711be7ddc90a9", size = 2335210, upload-time = "2026-08-28T10:00:10.177Z" },
+-    { url = "https://files.pythonhosted.org/packages/5a/9f/5d685c2693b972d1a59c998586e8823712b66603aeff47ee60a4bdaafd37/pydantic_core-2.46.5-cp314-cp314t-win32.whl", hash = "sha256:97cf3eb53a8cccacf9d46686a0926186c9bfb5574f2ed66d3639d5fe117cd3a9", size = 1921180, upload-time = "2026-08-28T10:00:12.35Z" },
+-    { url = "https://files.pythonhosted.org/packages/70/12/5c94ee16d65a37a15f9e869f5e6256df111154491173801a4c5e800ab548/pydantic_core-2.46.5-cp314-cp314t-win_amd64.whl", hash = "sha256:d2f9fc07a8042a8f95925b35c4f04f469707c981fc33245b6ca187cf5d2dd290", size = 2020515, upload-time = "2026-08-28T10:00:14.774Z" },
+-    { url = "https://files.pythonhosted.org/packages/63/19/67830dda664e6bdf9285ee2e40f355d0d7d6b92aa0c42e8d217bb8d33d36/pydantic_core-2.46.5-cp314-cp314t-win_arm64.whl", hash = "sha256:acf8a67ba51f4ca9ddbd0e6b3000a65ac51ab734661778b3e7ba64d99a710f2f", size = 1989276, upload-time = "2026-08-28T10:00:16.984Z" },
+-    { url = "https://files.pythonhosted.org/packages/af/1e/ecca01fce348f7e8afa9572441ff6f7d1cc70d21e4859f33944d10877e1e/pydantic_core-2.46.5-graalpy311-graalpy242_311_native-macosx_10_12_x86_64.whl", hash = "sha256:c14ad3bdc85ee7f318742c457ca3968a92126d144b15721c759033bfb06296c2", size = 2075342, upload-time = "2026-08-28T10:00:51.353Z" },
+-    { url = "https://files.pythonhosted.org/packages/1f/4c/af80c7a8032dfc897040ad5cb772bebde529a381186499e6e29987f23f8c/pydantic_core-2.46.5-graalpy311-graalpy242_311_native-macosx_11_0_arm64.whl", hash = "sha256:0bddb4020d8f04175865ccd17eff3040874fc11fb593f424edb452653b4b947c", size = 1907219, upload-time = "2026-08-28T10:00:53.438Z" },
+-    { url = "https://files.pythonhosted.org/packages/be/3e/54d89e2b092e778716bf6153634ef479e955f48c261090be23aa1e0fb0b5/pydantic_core-2.46.5-graalpy311-graalpy242_311_native-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:2471fd51c61c610e1dcf7de44d7299283661654d11264ab4802b303368d69c47", size = 1953393, upload-time = "2026-08-28T10:00:55.58Z" },
+-    { url = "https://files.pythonhosted.org/packages/ea/89/828ee90cda28ce17bdefaa3a6eaf74fe430e113295a10e6126beca559d6c/pydantic_core-2.46.5-graalpy311-graalpy242_311_native-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:b10ec717381bdbfafef34607824db4c91de69ff085e4fca3b2af91b4fa17e68a", size = 2099024, upload-time = "2026-08-28T10:00:57.794Z" },
+-    { url = "https://files.pythonhosted.org/packages/df/dd/053c2e4303f791f3b8f8a14ab0b22008e8eb21d868c0c90b4f9be705b76a/pydantic_core-2.46.5-graalpy312-graalpy250_312_native-macosx_10_12_x86_64.whl", hash = "sha256:013d6f3483d81e02e7c328831808f336c8596ee33b4bd4026b9ffb1e960b8942", size = 2062540, upload-time = "2026-08-28T10:01:00.318Z" },
+-    { url = "https://files.pythonhosted.org/packages/d7/dd/a18df751a5e37dd51bfad7f68e766999125bebe68c9e1d10a493ad01bd63/pydantic_core-2.46.5-graalpy312-graalpy250_312_native-macosx_11_0_arm64.whl", hash = "sha256:e9c134bb666dd54b778b9fc0d2b50cbb7f979b9e3716f26a88c9ab3b6fc1dd0f", size = 1902040, upload-time = "2026-08-28T10:01:02.529Z" },
+-    { url = "https://files.pythonhosted.org/packages/b7/13/01d40f9d07ce8a779fd6e0bd8ad4fba91309500dd67b869e2e219d261a6d/pydantic_core-2.46.5-graalpy312-graalpy250_312_native-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:347ec774390c87326a2e4929d58d3f7e8763a104d5d35f4cd595a4c952366433", size = 1967479, upload-time = "2026-08-28T10:01:05.004Z" },
+-    { url = "https://files.pythonhosted.org/packages/fa/04/c81d4841331c2178b6fb09ae225425e110ed72d990c9fe556c4ec03d1013/pydantic_core-2.46.5-graalpy312-graalpy250_312_native-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:8e24d8f05fa2d28513d94e877e9c75ad66175376209b3977f916e240e623193c", size = 2111034, upload-time = "2026-08-28T10:01:07.345Z" },
+-    { url = "https://files.pythonhosted.org/packages/20/21/22102e9950b3049526d20e811b95396508377d87651edd2b80d2b3d28659/pydantic_core-2.46.5-pp311-pypy311_pp73-macosx_10_12_x86_64.whl", hash = "sha256:ab4b66edffb32d9e951efb3814bd104b8367a7501b81b955cacb5726d897389f", size = 2071333, upload-time = "2026-08-28T10:01:09.636Z" },
+-    { url = "https://files.pythonhosted.org/packages/d8/18/87aefa427d191e6d3ab1447f1efc1cdcac86af1069239b133e8a0fd7f7c9/pydantic_core-2.46.5-pp311-pypy311_pp73-macosx_11_0_arm64.whl", hash = "sha256:337639ba62a11acde6ef3aeb08c8ea755f8ef1fe5e513356c0f36a2b0d7568b0", size = 1912713, upload-time = "2026-08-28T10:01:12.285Z" },
+-    { url = "https://files.pythonhosted.org/packages/1f/93/fd89e9ad49b1805ca94d24ce1088b7d305f05c35ffafcedb9819d03588a0/pydantic_core-2.46.5-pp311-pypy311_pp73-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:413a717a410d0c817ef5b786a059415550b3794e1d0c2abffd9efb93a3d9f7b4", size = 2090926, upload-time = "2026-08-28T10:01:15.19Z" },
+-    { url = "https://files.pythonhosted.org/packages/6f/45/8e59dab6acf8d35f02f0a958980074f31038968bdb2c983fcae9d1efee03/pydantic_core-2.46.5-pp311-pypy311_pp73-manylinux_2_5_i686.manylinux1_i686.whl", hash = "sha256:1e449def1945a462c464331254e5a44fca7c3b4f9aedf59ec2f50f8066dd8e25", size = 2131303, upload-time = "2026-08-28T10:01:17.937Z" },
+-    { url = "https://files.pythonhosted.org/packages/d5/a5/e1d4dc5180dd887a9522efc1f8716b8692b7606b1d3273d7862eaf66be44/pydantic_core-2.46.5-pp311-pypy311_pp73-musllinux_1_1_aarch64.whl", hash = "sha256:a445486499897b88a7d6c310c88ed64dd37b1b59bfd7ae9107490bbb362f47d6", size = 2145128, upload-time = "2026-08-28T10:01:20.694Z" },
+-    { url = "https://files.pythonhosted.org/packages/c2/d7/ad493864a7fb21c0c4df98f965e2db430cb25a9d7369b5778d5016c09fd9/pydantic_core-2.46.5-pp311-pypy311_pp73-musllinux_1_1_armv7l.whl", hash = "sha256:2d330aaba8621b1edcec8ae2c4050f63b84ccf6d98723a8f212e9684713abf0e", size = 2294560, upload-time = "2026-08-28T10:01:23.495Z" },
+-    { url = "https://files.pythonhosted.org/packages/02/8e/b41c84c913f29973a268e6c2b5bbf13c95adb9956c126d10da11ba3b2bef/pydantic_core-2.46.5-pp311-pypy311_pp73-musllinux_1_1_x86_64.whl", hash = "sha256:b6acfb46a814762367fb7ba0828b0a17d441b92ce249a0e007474c9072662dda", size = 2317531, upload-time = "2026-08-28T10:01:26.334Z" },
+-    { url = "https://files.pythonhosted.org/packages/db/1d/068464f23075f66a8f1b806935e9cd9363ee446636ea70d2c22ee8659dbf/pydantic_core-2.46.5-pp311-pypy311_pp73-win_amd64.whl", hash = "sha256:d0a24b40877af2de4950252be9d21eaf7fb07660f3c2cae1f56c6b599ada5266", size = 2140686, upload-time = "2026-08-28T10:01:28.947Z" },
+-]
+-
+-[[package]]
+-name = "pydantic-settings"
+-version = "2.15.0"
+-source = { registry = "https://pypi.org/simple" }
+-dependencies = [
+-    { name = "pydantic" },
+-    { name = "python-dotenv" },
+-    { name = "typing-inspection" },
+-]
+-sdist = { url = "https://files.pythonhosted.org/packages/68/ca/31c57507b13119d7d3cfa1576dad2911a4861e3be07b579395f4e9d393f9/pydantic_settings-2.15.0.tar.gz", hash = "sha256:694b793e84f766ba76a90ebdefc01d0a9a045dab0382bee70393da93712ad117", size = 261253, upload-time = "2026-08-07T09:24:57.419Z" }
+-wheels = [
+-    { url = "https://files.pythonhosted.org/packages/30/a4/2bffa9f8e804325a09867f0e9d30795c80ea9f8d62560bd1b6ad6220eb2f/pydantic_settings-2.15.0-py3-none-any.whl", hash = "sha256:0ba092c291c94baceb5eff768aa0d56400a457585bc0175925a5a5510303da42", size = 69413, upload-time = "2026-08-07T09:24:55.839Z" },
+-]
+-
+-[[package]]
+-name = "pygments"
+-version = "2.21.0"
+-source = { registry = "https://pypi.org/simple" }
+-sdist = { url = "https://files.pythonhosted.org/packages/49/2e/ced460408999b33da6b31b0021b0f37d329e202d4169aeb164493778f25b/pygments-2.21.0.tar.gz", hash = "sha256:610ca751c9bc2492b38eb9a38a7fbc93edbbb2d7182edaf34e66ae493dee5c8c", size = 5005329, upload-time = "2026-08-17T08:02:48.824Z" }
+-wheels = [
+-    { url = "https://files.pythonhosted.org/packages/71/46/17f022dd3e953bf20a04a028a21ec746d942f8d2af30fa0f124fa0e6a684/pygments-2.21.0-py3-none-any.whl", hash = "sha256:2363c69b61c4a97c838da3b130dcd6468f4848992b21a82f2a63ec34377137d9", size = 1250147, upload-time = "2026-08-17T08:02:44.912Z" },
+-]
+-
+-[[package]]
+-name = "pyjwt"
+-version = "2.13.0"
+-source = { registry = "https://pypi.org/simple" }
+-dependencies = [
+-    { name = "typing-extensions", marker = "python_full_version < '3.11'" },
+-]
+-sdist = { url = "https://files.pythonhosted.org/packages/3b/81/58d0ac84e1ef3a3843791d6954d94c0b33d526c75eeb1efbce9d0a4c4077/pyjwt-2.13.0.tar.gz", hash = "sha256:41571c89ca91598c79e8ef18a2d07367d4810fbbd6f637794879baf1b7703423", size = 107515, upload-time = "2026-05-21T19:54:36.618Z" }
+-wheels = [
+-    { url = "https://files.pythonhosted.org/packages/a3/5e/ecf12fdb62546d64385c158514e9b2b671f7832108ef2ecd2020ce0af2d1/pyjwt-2.13.0-py3-none-any.whl", hash = "sha256:66adcc2aff09b3f1bbd95fc1e1577df8ac8723c978552fd43304c8a290ac5728", size = 31274, upload-time = "2026-05-21T19:54:35.362Z" },
+-]
+-
+-[package.optional-dependencies]
+-crypto = [
+-    { name = "cryptography" },
+-]
+-
+-[[package]]
+-name = "python-dotenv"
+-version = "1.2.3"
+-source = { registry = "https://pypi.org/simple" }
+-sdist = { url = "https://files.pythonhosted.org/packages/6a/53/ed9d74092561d4b01a2ef1349d52cdbc135e526c245f366b089cfca6de49/python_dotenv-1.2.3.tar.gz", hash = "sha256:a20a594dabeaa385725aa239d5244871c143ecb356add8a20fcf23773a6c3a35", size = 58945, upload-time = "2026-08-16T16:54:54.067Z" }
+-wheels = [
+-    { url = "https://files.pythonhosted.org/packages/0d/17/c5c6b53ddc18f297992099b3d9ec16c855c0ccc83263a21fe4d1c625ec6c/python_dotenv-1.2.3-py3-none-any.whl", hash = "sha256:904552145e8bfed22162c09dab1c2b9b54fefa7b23ba780f4f26ca0316b0f0d9", size = 22780, upload-time = "2026-08-16T16:54:52.473Z" },
+-]
+-
+-[[package]]
+-name = "python-multipart"
+-version = "0.0.32"
+-source = { registry = "https://pypi.org/simple" }
+-sdist = { url = "https://files.pythonhosted.org/packages/5b/42/55c32bb9b12693c092ad250a0e82edb5b31ddeda6eb772de5f308b3804ad/python_multipart-0.0.32.tar.gz", hash = "sha256:be54b7f3fa167bb83e4fcd936b887b708f4e57fe75911c02aebf53efaf8d938e", size = 46881, upload-time = "2026-06-04T16:18:58.647Z" }
+-wheels = [
+-    { url = "https://files.pythonhosted.org/packages/e1/04/e8135ebd1ad02c56ec633277529b2602ff99ff634be76cdba5744cf554fd/python_multipart-0.0.32-py3-none-any.whl", hash = "sha256:ff6d3f776f16878c894e52e107296ffc890e913c611b1a4ec6c44e2821fe2e23", size = 30042, upload-time = "2026-06-04T16:18:57.319Z" },
+-]
+-
+-[[package]]
+-name = "pywin32"
+-version = "312"
+-source = { registry = "https://pypi.org/simple" }
+-wheels = [
+-    { url = "https://files.pythonhosted.org/packages/fe/1b/9cfdeac80ee45bebbbcb31f1b7b99a0d81a1c72de48d837be984e0e88b1d/pywin32-312-cp310-cp310-win32.whl", hash = "sha256:772235332b5d1024c696f11cea1ae4be7930f0a8b894bb43db14e3f435f1ff7e", size = 6361387, upload-time = "2026-06-04T07:49:14.329Z" },
+-    { url = "https://files.pythonhosted.org/packages/33/b1/7afc96d041d982c27bc2df6f853d43f01fd273e3d39d04be3647ddeb533d/pywin32-312-cp310-cp310-win_amd64.whl", hash = "sha256:5dbc35d2b5320dc07f25fa31269cfb767471002b17de5eb067d03da68c7cb2db", size = 6926780, upload-time = "2026-06-04T07:49:16.881Z" },
+-    { url = "https://files.pythonhosted.org/packages/ce/3a/4140da9ad54108e517f4a16b2d83da3033e08662144623e1239587cb7db6/pywin32-312-cp310-cp310-win_arm64.whl", hash = "sha256:3020656e34f1cf7faeb7bccd2b84653a607c6ff0c55ada85e6487d61716deabd", size = 4307203, upload-time = "2026-06-04T07:49:18.993Z" },
+-    { url = "https://files.pythonhosted.org/packages/1f/f5/10a6e845a00fc5e7afd0a988b744f403d4d57162a28d160a093c4d9322f0/pywin32-312-cp311-cp311-win32.whl", hash = "sha256:17948aeadbdb091f0ced6ef0841620794e68327b94ee415571c1203594b7215c", size = 6362659, upload-time = "2026-06-04T07:49:21.349Z" },
+-    { url = "https://files.pythonhosted.org/packages/35/c4/dcd2d62b5944b6d5db53413a5899016ccd57ffcb7278f3f81655d25d2027/pywin32-312-cp311-cp311-win_amd64.whl", hash = "sha256:d11417d84412f859b722fad0841b3614459ed0047f7542d8362e77884f6b6e8a", size = 6928825, upload-time = "2026-06-04T07:49:23.934Z" },
+-    { url = "https://files.pythonhosted.org/packages/b7/56/3cbb433fe4501cdba2eb9040f56a4e1a8243faa4186b25295564d1a7a79d/pywin32-312-cp311-cp311-win_arm64.whl", hash = "sha256:b2200a054ca6d6625c4842fc56a4976a4b47f96b73dbe5538c3f813a80359f47", size = 6721875, upload-time = "2026-06-04T07:49:26.416Z" },
+-    { url = "https://files.pythonhosted.org/packages/83/ff/32aa7d2ed0ab12b323aaa64f9b75e6ad4f8fd09f9ccfc28c79414d46838d/pywin32-312-cp312-cp312-win32.whl", hash = "sha256:dab4f65ac9c4e48400a2a0530c46c3c579cd5905ecd11b80692373915269208b", size = 6371877, upload-time = "2026-06-04T07:49:28.836Z" },
+-    { url = "https://files.pythonhosted.org/packages/03/d9/77040d3b43df3f3be32ea289433d660d2727f5ba327bc73be835127d9d60/pywin32-312-cp312-cp312-win_amd64.whl", hash = "sha256:b457f6d628a47e8a7346ce22acb7e1a46a4a78b52e1d17e1af56871bd19a93bc", size = 6914841, upload-time = "2026-06-04T07:49:31.85Z" },
+-    { url = "https://files.pythonhosted.org/packages/e3/cc/7b1ec671775756020a0ee7f4feeaf3c568f0ab86bd3900088cf986937a92/pywin32-312-cp312-cp312-win_arm64.whl", hash = "sha256:6017c58e12f6809fbb0555b75df144c2922a9ffd18e4b9b5afa863b6c1a9d950", size = 6727901, upload-time = "2026-06-04T07:49:34.244Z" },
+-    { url = "https://files.pythonhosted.org/packages/2d/41/12fbfd7f36ed2146d8bc9de96c2741296bf0d490b98508496cff322e274c/pywin32-312-cp313-cp313-win32.whl", hash = "sha256:7a27df850933d16a8eabfbaeb73d52b273e2da667f80d70b01a89d1f6828d02c", size = 6370184, upload-time = "2026-06-04T07:49:36.253Z" },
+-    { url = "https://files.pythonhosted.org/packages/ba/db/36a78e3403099d31d9746d13fdcde5accc43c1155f375a34d15983a479a7/pywin32-312-cp313-cp313-win_amd64.whl", hash = "sha256:c53e878d15a1c44788082bfe712a905433473aa38f86375b7cf8b45e3acbaaf9", size = 6914298, upload-time = "2026-06-04T07:49:38.876Z" },
+-    { url = "https://files.pythonhosted.org/packages/84/37/c1697194092b76de9ed47ca124323f02c57ffc8a45c06f88a3d5acaf01eb/pywin32-312-cp313-cp313-win_arm64.whl", hash = "sha256:59aba5d5940842075343a5ddc6b11f1cdf0d1567fe745290359dfbcc7c2eb831", size = 6727640, upload-time = "2026-06-04T07:49:41.083Z" },
+-    { url = "https://files.pythonhosted.org/packages/fc/2b/1f3cded5822fd49c02f40544cbb5f58c7cfd6b1694869fd476cb6170ee97/pywin32-312-cp314-cp314-win32.whl", hash = "sha256:a77a90fbb6881238d2ca9c6fd797b25817f3768fe78d214a90137ff055a75f5b", size = 6468928, upload-time = "2026-06-04T07:49:43.188Z" },
+-    { url = "https://files.pythonhosted.org/packages/21/82/3bf86d2e2808902013132e1ce905a7da0da53790f3836c64bf44d55e24f3/pywin32-312-cp314-cp314-win_amd64.whl", hash = "sha256:a4dd3a848290ef724347b19f301045831d8e802fa4464f491b98b1e0a081432e", size = 7024157, upload-time = "2026-06-04T07:49:45.34Z" },
+-    { url = "https://files.pythonhosted.org/packages/a4/0e/73f6d6800b4f27655abd9e9f6aaeaefcddb2b946e4674efa2bab184a7f7b/pywin32-312-cp314-cp314-win_arm64.whl", hash = "sha256:9fce94568364e0155e6dfb781ac5d95903be8baf28670632beab1b523f300daa", size = 6839598, upload-time = "2026-06-04T07:49:47.613Z" },
+-    { url = "https://files.pythonhosted.org/packages/eb/61/caa39686032d2ebdd04ff0ab5cbe163126c0066d98e00c9018646e42393b/pywin32-312-cp315-cp315-win32.whl", hash = "sha256:5c1fbe4a937a73ae9297384a3da38518cbc694c68ad8a809b2e19acd350f03ed", size = 6471159, upload-time = "2026-06-04T07:49:50.035Z" },
+-    { url = "https://files.pythonhosted.org/packages/0f/cd/7e1de64a4a6f69c04214169657ccab0d93a670ea50e35eb8f489d7378249/pywin32-312-cp315-cp315-win_amd64.whl", hash = "sha256:c2f03a0f73f804a13c2735b99392b0cd426bb4f2c4d0178e5ac966a0f21618d5", size = 7025293, upload-time = "2026-06-04T07:49:54.857Z" },
+-    { url = "https://files.pythonhosted.org/packages/23/ed/4532e9388e65fa16b46776ef47ad631a64eda1631884488af707666350ed/pywin32-312-cp315-cp315-win_arm64.whl", hash = "sha256:a8597d28f267b39074aef51fa593530082b39cbe5a074226096857b1fed2dfb9", size = 6840337, upload-time = "2026-06-04T07:49:57.531Z" },
+-]
+-
+-[[package]]
+-name = "referencing"
+-version = "0.37.0"
+-source = { registry = "https://pypi.org/simple" }
+-dependencies = [
+-    { name = "attrs" },
+-    { name = "rpds-py", version = "0.30.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+-    { name = "rpds-py", version = "2026.6.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+-    { name = "typing-extensions", marker = "python_full_version < '3.13'" },
+-]
+-sdist = { url = "https://files.pythonhosted.org/packages/22/f5/df4e9027acead3ecc63e50fe1e36aca1523e1719559c499951bb4b53188f/referencing-0.37.0.tar.gz", hash = "sha256:44aefc3142c5b842538163acb373e24cce6632bd54bdb01b21ad5863489f50d8", size = 78036, upload-time = "2025-10-13T15:30:48.871Z" }
+-wheels = [
+-    { url = "https://files.pythonhosted.org/packages/2c/58/ca301544e1fa93ed4f80d724bf5b194f6e4b945841c5bfd555878eea9fcb/referencing-0.37.0-py3-none-any.whl", hash = "sha256:381329a9f99628c9069361716891d34ad94af76e461dcb0335825aecc7692231", size = 26766, upload-time = "2025-10-13T15:30:47.625Z" },
+-]
+-
+-[[package]]
+-name = "rich"
+-version = "15.0.0"
+-source = { registry = "https://pypi.org/simple" }
+-dependencies = [
+-    { name = "markdown-it-py" },
+-    { name = "pygments" },
+-]
+-sdist = { url = "https://files.pythonhosted.org/packages/c0/8f/0722ca900cc807c13a6a0c696dacf35430f72e0ec571c4275d2371fca3e9/rich-15.0.0.tar.gz", hash = "sha256:edd07a4824c6b40189fb7ac9bc4c52536e9780fbbfbddf6f1e2502c31b068c36", size = 230680, upload-time = "2026-04-12T08:24:00.75Z" }
+-wheels = [
+-    { url = "https://files.pythonhosted.org/packages/82/3b/64d4899d73f91ba49a8c18a8ff3f0ea8f1c1d75481760df8c68ef5235bf5/rich-15.0.0-py3-none-any.whl", hash = "sha256:33bd4ef74232fb73fe9279a257718407f169c09b78a87ad3d296f548e27de0bb", size = 310654, upload-time = "2026-04-12T08:24:02.83Z" },
+-]
+-
+-[[package]]
+-name = "rpds-py"
+-version = "0.30.0"
+-source = { registry = "https://pypi.org/simple" }
+-resolution-markers = [
+-    "python_full_version < '3.11' and sys_platform == 'win32'",
+-    "python_full_version < '3.11' and sys_platform != 'win32'",
+-]
+-sdist = { url = "https://files.pythonhosted.org/packages/20/af/3f2f423103f1113b36230496629986e0ef7e199d2aa8392452b484b38ced/rpds_py-0.30.0.tar.gz", hash = "sha256:dd8ff7cf90014af0c0f787eea34794ebf6415242ee1d6fa91eaba725cc441e84", size = 69469, upload-time = "2025-11-30T20:24:38.837Z" }
+-wheels = [
+-    { url = "https://files.pythonhosted.org/packages/06/0c/0c411a0ec64ccb6d104dcabe0e713e05e153a9a2c3c2bd2b32ce412166fe/rpds_py-0.30.0-cp310-cp310-macosx_10_12_x86_64.whl", hash = "sha256:679ae98e00c0e8d68a7fda324e16b90fd5260945b45d3b824c892cec9eea3288", size = 370490, upload-time = "2025-11-30T20:21:33.256Z" },
+-    { url = "https://files.pythonhosted.org/packages/19/6a/4ba3d0fb7297ebae71171822554abe48d7cab29c28b8f9f2c04b79988c05/rpds_py-0.30.0-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:4cc2206b76b4f576934f0ed374b10d7ca5f457858b157ca52064bdfc26b9fc00", size = 359751, upload-time = "2025-11-30T20:21:34.591Z" },
+-    { url = "https://files.pythonhosted.org/packages/cd/7c/e4933565ef7f7a0818985d87c15d9d273f1a649afa6a52ea35ad011195ea/rpds_py-0.30.0-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:389a2d49eded1896c3d48b0136ead37c48e221b391c052fba3f4055c367f60a6", size = 389696, upload-time = "2025-11-30T20:21:36.122Z" },
+-    { url = "https://files.pythonhosted.org/packages/5e/01/6271a2511ad0815f00f7ed4390cf2567bec1d4b1da39e2c27a41e6e3b4de/rpds_py-0.30.0-cp310-cp310-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:32c8528634e1bf7121f3de08fa85b138f4e0dc47657866630611b03967f041d7", size = 403136, upload-time = "2025-11-30T20:21:37.728Z" },
+-    { url = "https://files.pythonhosted.org/packages/55/64/c857eb7cd7541e9b4eee9d49c196e833128a55b89a9850a9c9ac33ccf897/rpds_py-0.30.0-cp310-cp310-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:f207f69853edd6f6700b86efb84999651baf3789e78a466431df1331608e5324", size = 524699, upload-time = "2025-11-30T20:21:38.92Z" },
+-    { url = "https://files.pythonhosted.org/packages/9c/ed/94816543404078af9ab26159c44f9e98e20fe47e2126d5d32c9d9948d10a/rpds_py-0.30.0-cp310-cp310-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:67b02ec25ba7a9e8fa74c63b6ca44cf5707f2fbfadae3ee8e7494297d56aa9df", size = 412022, upload-time = "2025-11-30T20:21:40.407Z" },
+-    { url = "https://files.pythonhosted.org/packages/61/b5/707f6cf0066a6412aacc11d17920ea2e19e5b2f04081c64526eb35b5c6e7/rpds_py-0.30.0-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:0c0e95f6819a19965ff420f65578bacb0b00f251fefe2c8b23347c37174271f3", size = 390522, upload-time = "2025-11-30T20:21:42.17Z" },
+-    { url = "https://files.pythonhosted.org/packages/13/4e/57a85fda37a229ff4226f8cbcf09f2a455d1ed20e802ce5b2b4a7f5ed053/rpds_py-0.30.0-cp310-cp310-manylinux_2_31_riscv64.whl", hash = "sha256:a452763cc5198f2f98898eb98f7569649fe5da666c2dc6b5ddb10fde5a574221", size = 404579, upload-time = "2025-11-30T20:21:43.769Z" },
+-    { url = "https://files.pythonhosted.org/packages/f9/da/c9339293513ec680a721e0e16bf2bac3db6e5d7e922488de471308349bba/rpds_py-0.30.0-cp310-cp310-manylinux_2_5_i686.manylinux1_i686.whl", hash = "sha256:e0b65193a413ccc930671c55153a03ee57cecb49e6227204b04fae512eb657a7", size = 421305, upload-time = "2025-11-30T20:21:44.994Z" },
+-    { url = "https://files.pythonhosted.org/packages/f9/be/522cb84751114f4ad9d822ff5a1aa3c98006341895d5f084779b99596e5c/rpds_py-0.30.0-cp310-cp310-musllinux_1_2_aarch64.whl", hash = "sha256:858738e9c32147f78b3ac24dc0edb6610000e56dc0f700fd5f651d0a0f0eb9ff", size = 572503, upload-time = "2025-11-30T20:21:46.91Z" },
+-    { url = "https://files.pythonhosted.org/packages/a2/9b/de879f7e7ceddc973ea6e4629e9b380213a6938a249e94b0cdbcc325bb66/rpds_py-0.30.0-cp310-cp310-musllinux_1_2_i686.whl", hash = "sha256:da279aa314f00acbb803da1e76fa18666778e8a8f83484fba94526da5de2cba7", size = 598322, upload-time = "2025-11-30T20:21:48.709Z" },
+-    { url = "https://files.pythonhosted.org/packages/48/ac/f01fc22efec3f37d8a914fc1b2fb9bcafd56a299edbe96406f3053edea5a/rpds_py-0.30.0-cp310-cp310-musllinux_1_2_x86_64.whl", hash = "sha256:7c64d38fb49b6cdeda16ab49e35fe0da2e1e9b34bc38bd78386530f218b37139", size = 560792, upload-time = "2025-11-30T20:21:50.024Z" },
+-    { url = "https://files.pythonhosted.org/packages/e2/da/4e2b19d0f131f35b6146425f846563d0ce036763e38913d917187307a671/rpds_py-0.30.0-cp310-cp310-win32.whl", hash = "sha256:6de2a32a1665b93233cde140ff8b3467bdb9e2af2b91079f0333a0974d12d464", size = 221901, upload-time = "2025-11-30T20:21:51.32Z" },
+-    { url = "https://files.pythonhosted.org/packages/96/cb/156d7a5cf4f78a7cc571465d8aec7a3c447c94f6749c5123f08438bcf7bc/rpds_py-0.30.0-cp310-cp310-win_amd64.whl", hash = "sha256:1726859cd0de969f88dc8673bdd954185b9104e05806be64bcd87badbe313169", size = 235823, upload-time = "2025-11-30T20:21:52.505Z" },
+-    { url = "https://files.pythonhosted.org/packages/4d/6e/f964e88b3d2abee2a82c1ac8366da848fce1c6d834dc2132c3fda3970290/rpds_py-0.30.0-cp311-cp311-macosx_10_12_x86_64.whl", hash = "sha256:a2bffea6a4ca9f01b3f8e548302470306689684e61602aa3d141e34da06cf425", size = 370157, upload-time = "2025-11-30T20:21:53.789Z" },
+-    { url = "https://files.pythonhosted.org/packages/94/ba/24e5ebb7c1c82e74c4e4f33b2112a5573ddc703915b13a073737b59b86e0/rpds_py-0.30.0-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:dc4f992dfe1e2bc3ebc7444f6c7051b4bc13cd8e33e43511e8ffd13bf407010d", size = 359676, upload-time = "2025-11-30T20:21:55.475Z" },
+-    { url = "https://files.pythonhosted.org/packages/84/86/04dbba1b087227747d64d80c3b74df946b986c57af0a9f0c98726d4d7a3b/rpds_py-0.30.0-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:422c3cb9856d80b09d30d2eb255d0754b23e090034e1deb4083f8004bd0761e4", size = 389938, upload-time = "2025-11-30T20:21:57.079Z" },
+-    { url = "https://files.pythonhosted.org/packages/42/bb/1463f0b1722b7f45431bdd468301991d1328b16cffe0b1c2918eba2c4eee/rpds_py-0.30.0-cp311-cp311-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:07ae8a593e1c3c6b82ca3292efbe73c30b61332fd612e05abee07c79359f292f", size = 402932, upload-time = "2025-11-30T20:21:58.47Z" },
+-    { url = "https://files.pythonhosted.org/packages/99/ee/2520700a5c1f2d76631f948b0736cdf9b0acb25abd0ca8e889b5c62ac2e3/rpds_py-0.30.0-cp311-cp311-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:12f90dd7557b6bd57f40abe7747e81e0c0b119bef015ea7726e69fe550e394a4", size = 525830, upload-time = "2025-11-30T20:21:59.699Z" },
+-    { url = "https://files.pythonhosted.org/packages/e0/ad/bd0331f740f5705cc555a5e17fdf334671262160270962e69a2bdef3bf76/rpds_py-0.30.0-cp311-cp311-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:99b47d6ad9a6da00bec6aabe5a6279ecd3c06a329d4aa4771034a21e335c3a97", size = 412033, upload-time = "2025-11-30T20:22:00.991Z" },
+-    { url = "https://files.pythonhosted.org/packages/f8/1e/372195d326549bb51f0ba0f2ecb9874579906b97e08880e7a65c3bef1a99/rpds_py-0.30.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:33f559f3104504506a44bb666b93a33f5d33133765b0c216a5bf2f1e1503af89", size = 390828, upload-time = "2025-11-30T20:22:02.723Z" },
+-    { url = "https://files.pythonhosted.org/packages/ab/2b/d88bb33294e3e0c76bc8f351a3721212713629ffca1700fa94979cb3eae8/rpds_py-0.30.0-cp311-cp311-manylinux_2_31_riscv64.whl", hash = "sha256:946fe926af6e44f3697abbc305ea168c2c31d3e3ef1058cf68f379bf0335a78d", size = 404683, upload-time = "2025-11-30T20:22:04.367Z" },
+-    { url = "https://files.pythonhosted.org/packages/50/32/c759a8d42bcb5289c1fac697cd92f6fe01a018dd937e62ae77e0e7f15702/rpds_py-0.30.0-cp311-cp311-manylinux_2_5_i686.manylinux1_i686.whl", hash = "sha256:495aeca4b93d465efde585977365187149e75383ad2684f81519f504f5c13038", size = 421583, upload-time = "2025-11-30T20:22:05.814Z" },
+-    { url = "https://files.pythonhosted.org/packages/2b/81/e729761dbd55ddf5d84ec4ff1f47857f4374b0f19bdabfcf929164da3e24/rpds_py-0.30.0-cp311-cp311-musllinux_1_2_aarch64.whl", hash = "sha256:d9a0ca5da0386dee0655b4ccdf46119df60e0f10da268d04fe7cc87886872ba7", size = 572496, upload-time = "2025-11-30T20:22:07.713Z" },
+-    { url = "https://files.pythonhosted.org/packages/14/f6/69066a924c3557c9c30baa6ec3a0aa07526305684c6f86c696b08860726c/rpds_py-0.30.0-cp311-cp311-musllinux_1_2_i686.whl", hash = "sha256:8d6d1cc13664ec13c1b84241204ff3b12f9bb82464b8ad6e7a5d3486975c2eed", size = 598669, upload-time = "2025-11-30T20:22:09.312Z" },
+-    { url = "https://files.pythonhosted.org/packages/5f/48/905896b1eb8a05630d20333d1d8ffd162394127b74ce0b0784ae04498d32/rpds_py-0.30.0-cp311-cp311-musllinux_1_2_x86_64.whl", hash = "sha256:3896fa1be39912cf0757753826bc8bdc8ca331a28a7c4ae46b7a21280b06bb85", size = 561011, upload-time = "2025-11-30T20:22:11.309Z" },
+-    { url = "https://files.pythonhosted.org/packages/22/16/cd3027c7e279d22e5eb431dd3c0fbc677bed58797fe7581e148f3f68818b/rpds_py-0.30.0-cp311-cp311-win32.whl", hash = "sha256:55f66022632205940f1827effeff17c4fa7ae1953d2b74a8581baaefb7d16f8c", size = 221406, upload-time = "2025-11-30T20:22:13.101Z" },
+-    { url = "https://files.pythonhosted.org/packages/fa/5b/e7b7aa136f28462b344e652ee010d4de26ee9fd16f1bfd5811f5153ccf89/rpds_py-0.30.0-cp311-cp311-win_amd64.whl", hash = "sha256:a51033ff701fca756439d641c0ad09a41d9242fa69121c7d8769604a0a629825", size = 236024, upload-time = "2025-11-30T20:22:14.853Z" },
+-    { url = "https://files.pythonhosted.org/packages/14/a6/364bba985e4c13658edb156640608f2c9e1d3ea3c81b27aa9d889fff0e31/rpds_py-0.30.0-cp311-cp311-win_arm64.whl", hash = "sha256:47b0ef6231c58f506ef0b74d44e330405caa8428e770fec25329ed2cb971a229", size = 229069, upload-time = "2025-11-30T20:22:16.577Z" },
+-    { url = "https://files.pythonhosted.org/packages/03/e7/98a2f4ac921d82f33e03f3835f5bf3a4a40aa1bfdc57975e74a97b2b4bdd/rpds_py-0.30.0-cp312-cp312-macosx_10_12_x86_64.whl", hash = "sha256:a161f20d9a43006833cd7068375a94d035714d73a172b681d8881820600abfad", size = 375086, upload-time = "2025-11-30T20:22:17.93Z" },
+-    { url = "https://files.pythonhosted.org/packages/4d/a1/bca7fd3d452b272e13335db8d6b0b3ecde0f90ad6f16f3328c6fb150c889/rpds_py-0.30.0-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:6abc8880d9d036ecaafe709079969f56e876fcf107f7a8e9920ba6d5a3878d05", size = 359053, upload-time = "2025-11-30T20:22:19.297Z" },
+-    { url = "https://files.pythonhosted.org/packages/65/1c/ae157e83a6357eceff62ba7e52113e3ec4834a84cfe07fa4b0757a7d105f/rpds_py-0.30.0-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:ca28829ae5f5d569bb62a79512c842a03a12576375d5ece7d2cadf8abe96ec28", size = 390763, upload-time = "2025-11-30T20:22:21.661Z" },
+-    { url = "https://files.pythonhosted.org/packages/d4/36/eb2eb8515e2ad24c0bd43c3ee9cd74c33f7ca6430755ccdb240fd3144c44/rpds_py-0.30.0-cp312-cp312-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:a1010ed9524c73b94d15919ca4d41d8780980e1765babf85f9a2f90d247153dd", size = 408951, upload-time = "2025-11-30T20:22:23.408Z" },
+-    { url = "https://files.pythonhosted.org/packages/d6/65/ad8dc1784a331fabbd740ef6f71ce2198c7ed0890dab595adb9ea2d775a1/rpds_py-0.30.0-cp312-cp312-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:f8d1736cfb49381ba528cd5baa46f82fdc65c06e843dab24dd70b63d09121b3f", size = 514622, upload-time = "2025-11-30T20:22:25.16Z" },
+-    { url = "https://files.pythonhosted.org/packages/63/8e/0cfa7ae158e15e143fe03993b5bcd743a59f541f5952e1546b1ac1b5fd45/rpds_py-0.30.0-cp312-cp312-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:d948b135c4693daff7bc2dcfc4ec57237a29bd37e60c2fabf5aff2bbacf3e2f1", size = 414492, upload-time = "2025-11-30T20:22:26.505Z" },
+-    { url = "https://files.pythonhosted.org/packages/60/1b/6f8f29f3f995c7ffdde46a626ddccd7c63aefc0efae881dc13b6e5d5bb16/rpds_py-0.30.0-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:47f236970bccb2233267d89173d3ad2703cd36a0e2a6e92d0560d333871a3d23", size = 394080, upload-time = "2025-11-30T20:22:27.934Z" },
+-    { url = "https://files.pythonhosted.org/packages/6d/d5/a266341051a7a3ca2f4b750a3aa4abc986378431fc2da508c5034d081b70/rpds_py-0.30.0-cp312-cp312-manylinux_2_31_riscv64.whl", hash = "sha256:2e6ecb5a5bcacf59c3f912155044479af1d0b6681280048b338b28e364aca1f6", size = 408680, upload-time = "2025-11-30T20:22:29.341Z" },
+-    { url = "https://files.pythonhosted.org/packages/10/3b/71b725851df9ab7a7a4e33cf36d241933da66040d195a84781f49c50490c/rpds_py-0.30.0-cp312-cp312-manylinux_2_5_i686.manylinux1_i686.whl", hash = "sha256:a8fa71a2e078c527c3e9dc9fc5a98c9db40bcc8a92b4e8858e36d329f8684b51", size = 423589, upload-time = "2025-11-30T20:22:31.469Z" },
+-    { url = "https://files.pythonhosted.org/packages/00/2b/e59e58c544dc9bd8bd8384ecdb8ea91f6727f0e37a7131baeff8d6f51661/rpds_py-0.30.0-cp312-cp312-musllinux_1_2_aarch64.whl", hash = "sha256:73c67f2db7bc334e518d097c6d1e6fed021bbc9b7d678d6cc433478365d1d5f5", size = 573289, upload-time = "2025-11-30T20:22:32.997Z" },
+-    { url = "https://files.pythonhosted.org/packages/da/3e/a18e6f5b460893172a7d6a680e86d3b6bc87a54c1f0b03446a3c8c7b588f/rpds_py-0.30.0-cp312-cp312-musllinux_1_2_i686.whl", hash = "sha256:5ba103fb455be00f3b1c2076c9d4264bfcb037c976167a6047ed82f23153f02e", size = 599737, upload-time = "2025-11-30T20:22:34.419Z" },
+-    { url = "https://files.pythonhosted.org/packages/5c/e2/714694e4b87b85a18e2c243614974413c60aa107fd815b8cbc42b873d1d7/rpds_py-0.30.0-cp312-cp312-musllinux_1_2_x86_64.whl", hash = "sha256:7cee9c752c0364588353e627da8a7e808a66873672bcb5f52890c33fd965b394", size = 563120, upload-time = "2025-11-30T20:22:35.903Z" },
+-    { url = "https://files.pythonhosted.org/packages/6f/ab/d5d5e3bcedb0a77f4f613706b750e50a5a3ba1c15ccd3665ecc636c968fd/rpds_py-0.30.0-cp312-cp312-win32.whl", hash = "sha256:1ab5b83dbcf55acc8b08fc62b796ef672c457b17dbd7820a11d6c52c06839bdf", size = 223782, upload-time = "2025-11-30T20:22:37.271Z" },
+-    { url = "https://files.pythonhosted.org/packages/39/3b/f786af9957306fdc38a74cef405b7b93180f481fb48453a114bb6465744a/rpds_py-0.30.0-cp312-cp312-win_amd64.whl", hash = "sha256:a090322ca841abd453d43456ac34db46e8b05fd9b3b4ac0c78bcde8b089f959b", size = 240463, upload-time = "2025-11-30T20:22:39.021Z" },
+-    { url = "https://files.pythonhosted.org/packages/f3/d2/b91dc748126c1559042cfe41990deb92c4ee3e2b415f6b5234969ffaf0cc/rpds_py-0.30.0-cp312-cp312-win_arm64.whl", hash = "sha256:669b1805bd639dd2989b281be2cfd951c6121b65e729d9b843e9639ef1fd555e", size = 230868, upload-time = "2025-11-30T20:22:40.493Z" },
+-    { url = "https://files.pythonhosted.org/packages/ed/dc/d61221eb88ff410de3c49143407f6f3147acf2538c86f2ab7ce65ae7d5f9/rpds_py-0.30.0-cp313-cp313-macosx_10_12_x86_64.whl", hash = "sha256:f83424d738204d9770830d35290ff3273fbb02b41f919870479fab14b9d303b2", size = 374887, upload-time = "2025-11-30T20:22:41.812Z" },
+-    { url = "https://files.pythonhosted.org/packages/fd/32/55fb50ae104061dbc564ef15cc43c013dc4a9f4527a1f4d99baddf56fe5f/rpds_py-0.30.0-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:e7536cd91353c5273434b4e003cbda89034d67e7710eab8761fd918ec6c69cf8", size = 358904, upload-time = "2025-11-30T20:22:43.479Z" },
+-    { url = "https://files.pythonhosted.org/packages/58/70/faed8186300e3b9bdd138d0273109784eea2396c68458ed580f885dfe7ad/rpds_py-0.30.0-cp313-cp313-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:2771c6c15973347f50fece41fc447c054b7ac2ae0502388ce3b6738cd366e3d4", size = 389945, upload-time = "2025-11-30T20:22:44.819Z" },
+-    { url = "https://files.pythonhosted.org/packages/bd/a8/073cac3ed2c6387df38f71296d002ab43496a96b92c823e76f46b8af0543/rpds_py-0.30.0-cp313-cp313-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:0a59119fc6e3f460315fe9d08149f8102aa322299deaa5cab5b40092345c2136", size = 407783, upload-time = "2025-11-30T20:22:46.103Z" },
+-    { url = "https://files.pythonhosted.org/packages/77/57/5999eb8c58671f1c11eba084115e77a8899d6e694d2a18f69f0ba471ec8b/rpds_py-0.30.0-cp313-cp313-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:76fec018282b4ead0364022e3c54b60bf368b9d926877957a8624b58419169b7", size = 515021, upload-time = "2025-11-30T20:22:47.458Z" },
+-    { url = "https://files.pythonhosted.org/packages/e0/af/5ab4833eadc36c0a8ed2bc5c0de0493c04f6c06de223170bd0798ff98ced/rpds_py-0.30.0-cp313-cp313-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:692bef75a5525db97318e8cd061542b5a79812d711ea03dbc1f6f8dbb0c5f0d2", size = 414589, upload-time = "2025-11-30T20:22:48.872Z" },
+-    { url = "https://files.pythonhosted.org/packages/b7/de/f7192e12b21b9e9a68a6d0f249b4af3fdcdff8418be0767a627564afa1f1/rpds_py-0.30.0-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:9027da1ce107104c50c81383cae773ef5c24d296dd11c99e2629dbd7967a20c6", size = 394025, upload-time = "2025-11-30T20:22:50.196Z" },
+-    { url = "https://files.pythonhosted.org/packages/91/c4/fc70cd0249496493500e7cc2de87504f5aa6509de1e88623431fec76d4b6/rpds_py-0.30.0-cp313-cp313-manylinux_2_31_riscv64.whl", hash = "sha256:9cf69cdda1f5968a30a359aba2f7f9aa648a9ce4b580d6826437f2b291cfc86e", size = 408895, upload-time = "2025-11-30T20:22:51.87Z" },
+-    { url = "https://files.pythonhosted.org/packages/58/95/d9275b05ab96556fefff73a385813eb66032e4c99f411d0795372d9abcea/rpds_py-0.30.0-cp313-cp313-manylinux_2_5_i686.manylinux1_i686.whl", hash = "sha256:a4796a717bf12b9da9d3ad002519a86063dcac8988b030e405704ef7d74d2d9d", size = 422799, upload-time = "2025-11-30T20:22:53.341Z" },
+-    { url = "https://files.pythonhosted.org/packages/06/c1/3088fc04b6624eb12a57eb814f0d4997a44b0d208d6cace713033ff1a6ba/rpds_py-0.30.0-cp313-cp313-musllinux_1_2_aarch64.whl", hash = "sha256:5d4c2aa7c50ad4728a094ebd5eb46c452e9cb7edbfdb18f9e1221f597a73e1e7", size = 572731, upload-time = "2025-11-30T20:22:54.778Z" },
+-    { url = "https://files.pythonhosted.org/packages/d8/42/c612a833183b39774e8ac8fecae81263a68b9583ee343db33ab571a7ce55/rpds_py-0.30.0-cp313-cp313-musllinux_1_2_i686.whl", hash = "sha256:ba81a9203d07805435eb06f536d95a266c21e5b2dfbf6517748ca40c98d19e31", size = 599027, upload-time = "2025-11-30T20:22:56.212Z" },
+-    { url = "https://files.pythonhosted.org/packages/5f/60/525a50f45b01d70005403ae0e25f43c0384369ad24ffe46e8d9068b50086/rpds_py-0.30.0-cp313-cp313-musllinux_1_2_x86_64.whl", hash = "sha256:945dccface01af02675628334f7cf49c2af4c1c904748efc5cf7bbdf0b579f95", size = 563020, upload-time = "2025-11-30T20:22:58.2Z" },
+-    { url = "https://files.pythonhosted.org/packages/0b/5d/47c4655e9bcd5ca907148535c10e7d489044243cc9941c16ed7cd53be91d/rpds_py-0.30.0-cp313-cp313-win32.whl", hash = "sha256:b40fb160a2db369a194cb27943582b38f79fc4887291417685f3ad693c5a1d5d", size = 223139, upload-time = "2025-11-30T20:23:00.209Z" },
+-    { url = "https://files.pythonhosted.org/packages/f2/e1/485132437d20aa4d3e1d8b3fb5a5e65aa8139f1e097080c2a8443201742c/rpds_py-0.30.0-cp313-cp313-win_amd64.whl", hash = "sha256:806f36b1b605e2d6a72716f321f20036b9489d29c51c91f4dd29a3e3afb73b15", size = 240224, upload-time = "2025-11-30T20:23:02.008Z" },
+-    { url = "https://files.pythonhosted.org/packages/24/95/ffd128ed1146a153d928617b0ef673960130be0009c77d8fbf0abe306713/rpds_py-0.30.0-cp313-cp313-win_arm64.whl", hash = "sha256:d96c2086587c7c30d44f31f42eae4eac89b60dabbac18c7669be3700f13c3ce1", size = 230645, upload-time = "2025-11-30T20:23:03.43Z" },
+-    { url = "https://files.pythonhosted.org/packages/ff/1b/b10de890a0def2a319a2626334a7f0ae388215eb60914dbac8a3bae54435/rpds_py-0.30.0-cp313-cp313t-macosx_10_12_x86_64.whl", hash = "sha256:eb0b93f2e5c2189ee831ee43f156ed34e2a89a78a66b98cadad955972548be5a", size = 364443, upload-time = "2025-11-30T20:23:04.878Z" },
+-    { url = "https://files.pythonhosted.org/packages/0d/bf/27e39f5971dc4f305a4fb9c672ca06f290f7c4e261c568f3dea16a410d47/rpds_py-0.30.0-cp313-cp313t-macosx_11_0_arm64.whl", hash = "sha256:922e10f31f303c7c920da8981051ff6d8c1a56207dbdf330d9047f6d30b70e5e", size = 353375, upload-time = "2025-11-30T20:23:06.342Z" },
+-    { url = "https://files.pythonhosted.org/packages/40/58/442ada3bba6e8e6615fc00483135c14a7538d2ffac30e2d933ccf6852232/rpds_py-0.30.0-cp313-cp313t-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:cdc62c8286ba9bf7f47befdcea13ea0e26bf294bda99758fd90535cbaf408000", size = 383850, upload-time = "2025-11-30T20:23:07.825Z" },
+-    { url = "https://files.pythonhosted.org/packages/14/14/f59b0127409a33c6ef6f5c1ebd5ad8e32d7861c9c7adfa9a624fc3889f6c/rpds_py-0.30.0-cp313-cp313t-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:47f9a91efc418b54fb8190a6b4aa7813a23fb79c51f4bb84e418f5476c38b8db", size = 392812, upload-time = "2025-11-30T20:23:09.228Z" },
+-    { url = "https://files.pythonhosted.org/packages/b3/66/e0be3e162ac299b3a22527e8913767d869e6cc75c46bd844aa43fb81ab62/rpds_py-0.30.0-cp313-cp313t-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:1f3587eb9b17f3789ad50824084fa6f81921bbf9a795826570bda82cb3ed91f2", size = 517841, upload-time = "2025-11-30T20:23:11.186Z" },
+-    { url = "https://files.pythonhosted.org/packages/3d/55/fa3b9cf31d0c963ecf1ba777f7cf4b2a2c976795ac430d24a1f43d25a6ba/rpds_py-0.30.0-cp313-cp313t-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:39c02563fc592411c2c61d26b6c5fe1e51eaa44a75aa2c8735ca88b0d9599daa", size = 408149, upload-time = "2025-11-30T20:23:12.864Z" },
+-    { url = "https://files.pythonhosted.org/packages/60/ca/780cf3b1a32b18c0f05c441958d3758f02544f1d613abf9488cd78876378/rpds_py-0.30.0-cp313-cp313t-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:51a1234d8febafdfd33a42d97da7a43f5dcb120c1060e352a3fbc0c6d36e2083", size = 383843, upload-time = "2025-11-30T20:23:14.638Z" },
+-    { url = "https://files.pythonhosted.org/packages/82/86/d5f2e04f2aa6247c613da0c1dd87fcd08fa17107e858193566048a1e2f0a/rpds_py-0.30.0-cp313-cp313t-manylinux_2_31_riscv64.whl", hash = "sha256:eb2c4071ab598733724c08221091e8d80e89064cd472819285a9ab0f24bcedb9", size = 396507, upload-time = "2025-11-30T20:23:16.105Z" },
+-    { url = "https://files.pythonhosted.org/packages/4b/9a/453255d2f769fe44e07ea9785c8347edaf867f7026872e76c1ad9f7bed92/rpds_py-0.30.0-cp313-cp313t-manylinux_2_5_i686.manylinux1_i686.whl", hash = "sha256:6bdfdb946967d816e6adf9a3d8201bfad269c67efe6cefd7093ef959683c8de0", size = 414949, upload-time = "2025-11-30T20:23:17.539Z" },
+-    { url = "https://files.pythonhosted.org/packages/a3/31/622a86cdc0c45d6df0e9ccb6becdba5074735e7033c20e401a6d9d0e2ca0/rpds_py-0.30.0-cp313-cp313t-musllinux_1_2_aarch64.whl", hash = "sha256:c77afbd5f5250bf27bf516c7c4a016813eb2d3e116139aed0096940c5982da94", size = 565790, upload-time = "2025-11-30T20:23:19.029Z" },
+-    { url = "https://files.pythonhosted.org/packages/1c/5d/15bbf0fb4a3f58a3b1c67855ec1efcc4ceaef4e86644665fff03e1b66d8d/rpds_py-0.30.0-cp313-cp313t-musllinux_1_2_i686.whl", hash = "sha256:61046904275472a76c8c90c9ccee9013d70a6d0f73eecefd38c1ae7c39045a08", size = 590217, upload-time = "2025-11-30T20:23:20.885Z" },
+-    { url = "https://files.pythonhosted.org/packages/6d/61/21b8c41f68e60c8cc3b2e25644f0e3681926020f11d06ab0b78e3c6bbff1/rpds_py-0.30.0-cp313-cp313t-musllinux_1_2_x86_64.whl", hash = "sha256:4c5f36a861bc4b7da6516dbdf302c55313afa09b81931e8280361a4f6c9a2d27", size = 555806, upload-time = "2025-11-30T20:23:22.488Z" },
+-    { url = "https://files.pythonhosted.org/packages/f9/39/7e067bb06c31de48de3eb200f9fc7c58982a4d3db44b07e73963e10d3be9/rpds_py-0.30.0-cp313-cp313t-win32.whl", hash = "sha256:3d4a69de7a3e50ffc214ae16d79d8fbb0922972da0356dcf4d0fdca2878559c6", size = 211341, upload-time = "2025-11-30T20:23:24.449Z" },
+-    { url = "https://files.pythonhosted.org/packages/0a/4d/222ef0b46443cf4cf46764d9c630f3fe4abaa7245be9417e56e9f52b8f65/rpds_py-0.30.0-cp313-cp313t-win_amd64.whl", hash = "sha256:f14fc5df50a716f7ece6a80b6c78bb35ea2ca47c499e422aa4463455dd96d56d", size = 225768, upload-time = "2025-11-30T20:23:25.908Z" },
+-    { url = "https://files.pythonhosted.org/packages/86/81/dad16382ebbd3d0e0328776d8fd7ca94220e4fa0798d1dc5e7da48cb3201/rpds_py-0.30.0-cp314-cp314-macosx_10_12_x86_64.whl", hash = "sha256:68f19c879420aa08f61203801423f6cd5ac5f0ac4ac82a2368a9fcd6a9a075e0", size = 362099, upload-time = "2025-11-30T20:23:27.316Z" },
+-    { url = "https://files.pythonhosted.org/packages/2b/60/19f7884db5d5603edf3c6bce35408f45ad3e97e10007df0e17dd57af18f8/rpds_py-0.30.0-cp314-cp314-macosx_11_0_arm64.whl", hash = "sha256:ec7c4490c672c1a0389d319b3a9cfcd098dcdc4783991553c332a15acf7249be", size = 353192, upload-time = "2025-11-30T20:23:29.151Z" },
+-    { url = "https://files.pythonhosted.org/packages/bf/c4/76eb0e1e72d1a9c4703c69607cec123c29028bff28ce41588792417098ac/rpds_py-0.30.0-cp314-cp314-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:f251c812357a3fed308d684a5079ddfb9d933860fc6de89f2b7ab00da481e65f", size = 384080, upload-time = "2025-11-30T20:23:30.785Z" },
+-    { url = "https://files.pythonhosted.org/packages/72/87/87ea665e92f3298d1b26d78814721dc39ed8d2c74b86e83348d6b48a6f31/rpds_py-0.30.0-cp314-cp314-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:ac98b175585ecf4c0348fd7b29c3864bda53b805c773cbf7bfdaffc8070c976f", size = 394841, upload-time = "2025-11-30T20:23:32.209Z" },
+-    { url = "https://files.pythonhosted.org/packages/77/ad/7783a89ca0587c15dcbf139b4a8364a872a25f861bdb88ed99f9b0dec985/rpds_py-0.30.0-cp314-cp314-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:3e62880792319dbeb7eb866547f2e35973289e7d5696c6e295476448f5b63c87", size = 516670, upload-time = "2025-11-30T20:23:33.742Z" },
+-    { url = "https://files.pythonhosted.org/packages/5b/3c/2882bdac942bd2172f3da574eab16f309ae10a3925644e969536553cb4ee/rpds_py-0.30.0-cp314-cp314-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:4e7fc54e0900ab35d041b0601431b0a0eb495f0851a0639b6ef90f7741b39a18", size = 408005, upload-time = "2025-11-30T20:23:35.253Z" },
+-    { url = "https://files.pythonhosted.org/packages/ce/81/9a91c0111ce1758c92516a3e44776920b579d9a7c09b2b06b642d4de3f0f/rpds_py-0.30.0-cp314-cp314-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:47e77dc9822d3ad616c3d5759ea5631a75e5809d5a28707744ef79d7a1bcfcad", size = 382112, upload-time = "2025-11-30T20:23:36.842Z" },
+-    { url = "https://files.pythonhosted.org/packages/cf/8e/1da49d4a107027e5fbc64daeab96a0706361a2918da10cb41769244b805d/rpds_py-0.30.0-cp314-cp314-manylinux_2_31_riscv64.whl", hash = "sha256:b4dc1a6ff022ff85ecafef7979a2c6eb423430e05f1165d6688234e62ba99a07", size = 399049, upload-time = "2025-11-30T20:23:38.343Z" },
+-    { url = "https://files.pythonhosted.org/packages/df/5a/7ee239b1aa48a127570ec03becbb29c9d5a9eb092febbd1699d567cae859/rpds_py-0.30.0-cp314-cp314-manylinux_2_5_i686.manylinux1_i686.whl", hash = "sha256:4559c972db3a360808309e06a74628b95eaccbf961c335c8fe0d590cf587456f", size = 415661, upload-time = "2025-11-30T20:23:40.263Z" },
+-    { url = "https://files.pythonhosted.org/packages/70/ea/caa143cf6b772f823bc7929a45da1fa83569ee49b11d18d0ada7f5ee6fd6/rpds_py-0.30.0-cp314-cp314-musllinux_1_2_aarch64.whl", hash = "sha256:0ed177ed9bded28f8deb6ab40c183cd1192aa0de40c12f38be4d59cd33cb5c65", size = 565606, upload-time = "2025-11-30T20:23:42.186Z" },
+-    { url = "https://files.pythonhosted.org/packages/64/91/ac20ba2d69303f961ad8cf55bf7dbdb4763f627291ba3d0d7d67333cced9/rpds_py-0.30.0-cp314-cp314-musllinux_1_2_i686.whl", hash = "sha256:ad1fa8db769b76ea911cb4e10f049d80bf518c104f15b3edb2371cc65375c46f", size = 591126, upload-time = "2025-11-30T20:23:44.086Z" },
+-    { url = "https://files.pythonhosted.org/packages/21/20/7ff5f3c8b00c8a95f75985128c26ba44503fb35b8e0259d812766ea966c7/rpds_py-0.30.0-cp314-cp314-musllinux_1_2_x86_64.whl", hash = "sha256:46e83c697b1f1c72b50e5ee5adb4353eef7406fb3f2043d64c33f20ad1c2fc53", size = 553371, upload-time = "2025-11-30T20:23:46.004Z" },
+-    { url = "https://files.pythonhosted.org/packages/72/c7/81dadd7b27c8ee391c132a6b192111ca58d866577ce2d9b0ca157552cce0/rpds_py-0.30.0-cp314-cp314-win32.whl", hash = "sha256:ee454b2a007d57363c2dfd5b6ca4a5d7e2c518938f8ed3b706e37e5d470801ed", size = 215298, upload-time = "2025-11-30T20:23:47.696Z" },
+-    { url = "https://files.pythonhosted.org/packages/3e/d2/1aaac33287e8cfb07aab2e6b8ac1deca62f6f65411344f1433c55e6f3eb8/rpds_py-0.30.0-cp314-cp314-win_amd64.whl", hash = "sha256:95f0802447ac2d10bcc69f6dc28fe95fdf17940367b21d34e34c737870758950", size = 228604, upload-time = "2025-11-30T20:23:49.501Z" },
+-    { url = "https://files.pythonhosted.org/packages/e8/95/ab005315818cc519ad074cb7784dae60d939163108bd2b394e60dc7b5461/rpds_py-0.30.0-cp314-cp314-win_arm64.whl", hash = "sha256:613aa4771c99f03346e54c3f038e4cc574ac09a3ddfb0e8878487335e96dead6", size = 222391, upload-time = "2025-11-30T20:23:50.96Z" },
+-    { url = "https://files.pythonhosted.org/packages/9e/68/154fe0194d83b973cdedcdcc88947a2752411165930182ae41d983dcefa6/rpds_py-0.30.0-cp314-cp314t-macosx_10_12_x86_64.whl", hash = "sha256:7e6ecfcb62edfd632e56983964e6884851786443739dbfe3582947e87274f7cb", size = 364868, upload-time = "2025-11-30T20:23:52.494Z" },
+-    { url = "https://files.pythonhosted.org/packages/83/69/8bbc8b07ec854d92a8b75668c24d2abcb1719ebf890f5604c61c9369a16f/rpds_py-0.30.0-cp314-cp314t-macosx_11_0_arm64.whl", hash = "sha256:a1d0bc22a7cdc173fedebb73ef81e07faef93692b8c1ad3733b67e31e1b6e1b8", size = 353747, upload-time = "2025-11-30T20:23:54.036Z" },
+-    { url = "https://files.pythonhosted.org/packages/ab/00/ba2e50183dbd9abcce9497fa5149c62b4ff3e22d338a30d690f9af970561/rpds_py-0.30.0-cp314-cp314t-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:0d08f00679177226c4cb8c5265012eea897c8ca3b93f429e546600c971bcbae7", size = 383795, upload-time = "2025-11-30T20:23:55.556Z" },
+-    { url = "https://files.pythonhosted.org/packages/05/6f/86f0272b84926bcb0e4c972262f54223e8ecc556b3224d281e6598fc9268/rpds_py-0.30.0-cp314-cp314t-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:5965af57d5848192c13534f90f9dd16464f3c37aaf166cc1da1cae1fd5a34898", size = 393330, upload-time = "2025-11-30T20:23:57.033Z" },
+-    { url = "https://files.pythonhosted.org/packages/cb/e9/0e02bb2e6dc63d212641da45df2b0bf29699d01715913e0d0f017ee29438/rpds_py-0.30.0-cp314-cp314t-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:9a4e86e34e9ab6b667c27f3211ca48f73dba7cd3d90f8d5b11be56e5dbc3fb4e", size = 518194, upload-time = "2025-11-30T20:23:58.637Z" },
+-    { url = "https://files.pythonhosted.org/packages/ee/ca/be7bca14cf21513bdf9c0606aba17d1f389ea2b6987035eb4f62bd923f25/rpds_py-0.30.0-cp314-cp314t-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:e5d3e6b26f2c785d65cc25ef1e5267ccbe1b069c5c21b8cc724efee290554419", size = 408340, upload-time = "2025-11-30T20:24:00.2Z" },
+-    { url = "https://files.pythonhosted.org/packages/c2/c7/736e00ebf39ed81d75544c0da6ef7b0998f8201b369acf842f9a90dc8fce/rpds_py-0.30.0-cp314-cp314t-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:626a7433c34566535b6e56a1b39a7b17ba961e97ce3b80ec62e6f1312c025551", size = 383765, upload-time = "2025-11-30T20:24:01.759Z" },
+-    { url = "https://files.pythonhosted.org/packages/4a/3f/da50dfde9956aaf365c4adc9533b100008ed31aea635f2b8d7b627e25b49/rpds_py-0.30.0-cp314-cp314t-manylinux_2_31_riscv64.whl", hash = "sha256:acd7eb3f4471577b9b5a41baf02a978e8bdeb08b4b355273994f8b87032000a8", size = 396834, upload-time = "2025-11-30T20:24:03.687Z" },
+-    { url = "https://files.pythonhosted.org/packages/4e/00/34bcc2565b6020eab2623349efbdec810676ad571995911f1abdae62a3a0/rpds_py-0.30.0-cp314-cp314t-manylinux_2_5_i686.manylinux1_i686.whl", hash = "sha256:fe5fa731a1fa8a0a56b0977413f8cacac1768dad38d16b3a296712709476fbd5", size = 415470, upload-time = "2025-11-30T20:24:05.232Z" },
+-    { url = "https://files.pythonhosted.org/packages/8c/28/882e72b5b3e6f718d5453bd4d0d9cf8df36fddeb4ddbbab17869d5868616/rpds_py-0.30.0-cp314-cp314t-musllinux_1_2_aarch64.whl", hash = "sha256:74a3243a411126362712ee1524dfc90c650a503502f135d54d1b352bd01f2404", size = 565630, upload-time = "2025-11-30T20:24:06.878Z" },
+-    { url = "https://files.pythonhosted.org/packages/3b/97/04a65539c17692de5b85c6e293520fd01317fd878ea1995f0367d4532fb1/rpds_py-0.30.0-cp314-cp314t-musllinux_1_2_i686.whl", hash = "sha256:3e8eeb0544f2eb0d2581774be4c3410356eba189529a6b3e36bbbf9696175856", size = 591148, upload-time = "2025-11-30T20:24:08.445Z" },
+-    { url = "https://files.pythonhosted.org/packages/85/70/92482ccffb96f5441aab93e26c4d66489eb599efdcf96fad90c14bbfb976/rpds_py-0.30.0-cp314-cp314t-musllinux_1_2_x86_64.whl", hash = "sha256:dbd936cde57abfee19ab3213cf9c26be06d60750e60a8e4dd85d1ab12c8b1f40", size = 556030, upload-time = "2025-11-30T20:24:10.956Z" },
+-    { url = "https://files.pythonhosted.org/packages/20/53/7c7e784abfa500a2b6b583b147ee4bb5a2b3747a9166bab52fec4b5b5e7d/rpds_py-0.30.0-cp314-cp314t-win32.whl", hash = "sha256:dc824125c72246d924f7f796b4f63c1e9dc810c7d9e2355864b3c3a73d59ade0", size = 211570, upload-time = "2025-11-30T20:24:12.735Z" },
+-    { url = "https://files.pythonhosted.org/packages/d0/02/fa464cdfbe6b26e0600b62c528b72d8608f5cc49f96b8d6e38c95d60c676/rpds_py-0.30.0-cp314-cp314t-win_amd64.whl", hash = "sha256:27f4b0e92de5bfbc6f86e43959e6edd1425c33b5e69aab0984a72047f2bcf1e3", size = 226532, upload-time = "2025-11-30T20:24:14.634Z" },
+-    { url = "https://files.pythonhosted.org/packages/69/71/3f34339ee70521864411f8b6992e7ab13ac30d8e4e3309e07c7361767d91/rpds_py-0.30.0-pp311-pypy311_pp73-macosx_10_12_x86_64.whl", hash = "sha256:c2262bdba0ad4fc6fb5545660673925c2d2a5d9e2e0fb603aad545427be0fc58", size = 372292, upload-time = "2025-11-30T20:24:16.537Z" },
+-    { url = "https://files.pythonhosted.org/packages/57/09/f183df9b8f2d66720d2ef71075c59f7e1b336bec7ee4c48f0a2b06857653/rpds_py-0.30.0-pp311-pypy311_pp73-macosx_11_0_arm64.whl", hash = "sha256:ee6af14263f25eedc3bb918a3c04245106a42dfd4f5c2285ea6f997b1fc3f89a", size = 362128, upload-time = "2025-11-30T20:24:18.086Z" },
+-    { url = "https://files.pythonhosted.org/packages/7a/68/5c2594e937253457342e078f0cc1ded3dd7b2ad59afdbf2d354869110a02/rpds_py-0.30.0-pp311-pypy311_pp73-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:3adbb8179ce342d235c31ab8ec511e66c73faa27a47e076ccc92421add53e2bb", size = 391542, upload-time = "2025-11-30T20:24:20.092Z" },
+-    { url = "https://files.pythonhosted.org/packages/49/5c/31ef1afd70b4b4fbdb2800249f34c57c64beb687495b10aec0365f53dfc4/rpds_py-0.30.0-pp311-pypy311_pp73-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:250fa00e9543ac9b97ac258bd37367ff5256666122c2d0f2bc97577c60a1818c", size = 404004, upload-time = "2025-11-30T20:24:22.231Z" },
+-    { url = "https://files.pythonhosted.org/packages/e3/63/0cfbea38d05756f3440ce6534d51a491d26176ac045e2707adc99bb6e60a/rpds_py-0.30.0-pp311-pypy311_pp73-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:9854cf4f488b3d57b9aaeb105f06d78e5529d3145b1e4a41750167e8c213c6d3", size = 527063, upload-time = "2025-11-30T20:24:24.302Z" },
+-    { url = "https://files.pythonhosted.org/packages/42/e6/01e1f72a2456678b0f618fc9a1a13f882061690893c192fcad9f2926553a/rpds_py-0.30.0-pp311-pypy311_pp73-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:993914b8e560023bc0a8bf742c5f303551992dcb85e247b1e5c7f4a7d145bda5", size = 413099, upload-time = "2025-11-30T20:24:25.916Z" },
+-    { url = "https://files.pythonhosted.org/packages/b8/25/8df56677f209003dcbb180765520c544525e3ef21ea72279c98b9aa7c7fb/rpds_py-0.30.0-pp311-pypy311_pp73-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:58edca431fb9b29950807e301826586e5bbf24163677732429770a697ffe6738", size = 392177, upload-time = "2025-11-30T20:24:27.834Z" },
+-    { url = "https://files.pythonhosted.org/packages/4a/b4/0a771378c5f16f8115f796d1f437950158679bcd2a7c68cf251cfb00ed5b/rpds_py-0.30.0-pp311-pypy311_pp73-manylinux_2_31_riscv64.whl", hash = "sha256:dea5b552272a944763b34394d04577cf0f9bd013207bc32323b5a89a53cf9c2f", size = 406015, upload-time = "2025-11-30T20:24:29.457Z" },
+-    { url = "https://files.pythonhosted.org/packages/36/d8/456dbba0af75049dc6f63ff295a2f92766b9d521fa00de67a2bd6427d57a/rpds_py-0.30.0-pp311-pypy311_pp73-manylinux_2_5_i686.manylinux1_i686.whl", hash = "sha256:ba3af48635eb83d03f6c9735dfb21785303e73d22ad03d489e88adae6eab8877", size = 423736, upload-time = "2025-11-30T20:24:31.22Z" },
+-    { url = "https://files.pythonhosted.org/packages/13/64/b4d76f227d5c45a7e0b796c674fd81b0a6c4fbd48dc29271857d8219571c/rpds_py-0.30.0-pp311-pypy311_pp73-musllinux_1_2_aarch64.whl", hash = "sha256:dff13836529b921e22f15cb099751209a60009731a68519630a24d61f0b1b30a", size = 573981, upload-time = "2025-11-30T20:24:32.934Z" },
+-    { url = "https://files.pythonhosted.org/packages/20/91/092bacadeda3edf92bf743cc96a7be133e13a39cdbfd7b5082e7ab638406/rpds_py-0.30.0-pp311-pypy311_pp73-musllinux_1_2_i686.whl", hash = "sha256:1b151685b23929ab7beec71080a8889d4d6d9fa9a983d213f07121205d48e2c4", size = 599782, upload-time = "2025-11-30T20:24:35.169Z" },
+-    { url = "https://files.pythonhosted.org/packages/d1/b7/b95708304cd49b7b6f82fdd039f1748b66ec2b21d6a45180910802f1abf1/rpds_py-0.30.0-pp311-pypy311_pp73-musllinux_1_2_x86_64.whl", hash = "sha256:ac37f9f516c51e5753f27dfdef11a88330f04de2d564be3991384b2f3535d02e", size = 562191, upload-time = "2025-11-30T20:24:36.853Z" },
+-]
+-
+-[[package]]
+-name = "rpds-py"
+-version = "2026.6.3"
+-source = { registry = "https://pypi.org/simple" }
+-resolution-markers = [
+-    "python_full_version >= '3.14' and sys_platform == 'win32'",
+-    "python_full_version >= '3.14' and sys_platform != 'win32'",
+-    "python_full_version >= '3.11' and python_full_version < '3.14' and sys_platform == 'win32'",
+-    "python_full_version >= '3.11' and python_full_version < '3.14' and sys_platform != 'win32'",
+-]
+-sdist = { url = "https://files.pythonhosted.org/packages/aa/2a/9618a122aeb2a169a28b03889a2995fe297588964333d4a7d67bdf46e147/rpds_py-2026.6.3.tar.gz", hash = "sha256:1cebd1337c242e4ec2293e541f712b2da849b29f48f0c293684b71c0632625d4", size = 64051, upload-time = "2026-06-30T07:17:53.009Z" }
+-wheels = [
+-    { url = "https://files.pythonhosted.org/packages/94/1f/a2dca5ffdbf1d475ffc4e80e4d5d720ff3a00f691795910116960ee12511/rpds_py-2026.6.3-cp311-cp311-macosx_10_12_x86_64.whl", hash = "sha256:7b689145a1485c335569bd056464f3243a29af7ed3871c7be31ad624ba239bc7", size = 342174, upload-time = "2026-06-30T07:14:54.821Z" },
+-    { url = "https://files.pythonhosted.org/packages/4d/dc/323d08583c0832911768663d1944f0107fcd4088704858d84b5e06d105a0/rpds_py-2026.6.3-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:db08f45aecde626498fb3df07bcf6d2ec040af42e859a4f5040d79c200342911", size = 345513, upload-time = "2026-06-30T07:14:56.515Z" },
+-    { url = "https://files.pythonhosted.org/packages/0b/2a/e31989834d18d2f26ec1d2774c5b1eb3331df4ea8ada525175294c94b48a/rpds_py-2026.6.3-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:acc992ab27b15f852c76755eb2ab7dce86585ddadba6fa5946e58556088845b4", size = 373783, upload-time = "2026-06-30T07:14:57.736Z" },
+-    { url = "https://files.pythonhosted.org/packages/87/fe/e80107ee3639585c9941c17d6a42cd65325022f656c023191fce78c324c8/rpds_py-2026.6.3-cp311-cp311-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:7f88d653e7b3b779d71ae7454e20dcc9b6bae903f33c269db9f2be41bda3f261", size = 378316, upload-time = "2026-06-30T07:14:59.077Z" },
+-    { url = "https://files.pythonhosted.org/packages/22/6f/81e3adf81acfb6fa694de2a6e4e7d8863121e3e0799e0a7725e6cf5679c4/rpds_py-2026.6.3-cp311-cp311-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:e52655eaf81e32593abedaa4bfe33170c8cfedf3365ed9be6e11e07f148f0278", size = 499423, upload-time = "2026-06-30T07:15:00.488Z" },
+-    { url = "https://files.pythonhosted.org/packages/2d/9a/41263969df0ce3d9af2a96d5005a288200af1989aed3354bfceb5fc0b21f/rpds_py-2026.6.3-cp311-cp311-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:dfcc8b909769d19db55c7cc9541eb64b9b774b1057ffffb4f1048070475bb9f9", size = 386077, upload-time = "2026-06-30T07:15:01.911Z" },
+-    { url = "https://files.pythonhosted.org/packages/5e/19/7e98f468bd50346faff5b10e5297374b443bfdddacc8e9fbc65984539597/rpds_py-2026.6.3-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:9c1255b302953c86a486b81d330d5ee1d5bd937691ce271b6be0ef0e299eaab7", size = 371315, upload-time = "2026-06-30T07:15:03.317Z" },
+-    { url = "https://files.pythonhosted.org/packages/99/3c/2b973b4d371906a134b03decfea7f5d9835a2c6d263454392e15b64b5b18/rpds_py-2026.6.3-cp311-cp311-manylinux_2_31_riscv64.whl", hash = "sha256:8d2294a31386bfa251d8c8a39472beee17db67d4f1a6eabea665d35c9a4461c3", size = 383502, upload-time = "2026-06-30T07:15:04.627Z" },
+-    { url = "https://files.pythonhosted.org/packages/98/2a/12e2799500af0a307bca76b63361c51f9fe479223561489c29eea1f2ee41/rpds_py-2026.6.3-cp311-cp311-manylinux_2_5_i686.manylinux1_i686.whl", hash = "sha256:f8f23ead891a3b762f35ab3b04623da7056545b48aa60d59957e6789914545da", size = 402673, upload-time = "2026-06-30T07:15:05.856Z" },
+-    { url = "https://files.pythonhosted.org/packages/2d/e3/21e5872d165fe08be4f229e3d5ee9d90019c0bf0e5538de60dbd54009450/rpds_py-2026.6.3-cp311-cp311-musllinux_1_2_aarch64.whl", hash = "sha256:421aba32367055614287a4292b6a17f1939c9452299f7a0209c117e990b646d4", size = 549964, upload-time = "2026-06-30T07:15:07.159Z" },
+-    { url = "https://files.pythonhosted.org/packages/1a/d0/5ee0fe36844297de8123bee27bc12078c1a7416ad9f1b8a8ca18d6b0c0ac/rpds_py-2026.6.3-cp311-cp311-musllinux_1_2_i686.whl", hash = "sha256:1e5822dfc2f0d4ab7e745eaa6d85945069329beeccef965af3f3bb26058fcab6", size = 615446, upload-time = "2026-06-30T07:15:08.531Z" },
+-    { url = "https://files.pythonhosted.org/packages/b1/80/1ea5873cb683f2fbe5f21b23ea1f6d179ead19f3c5b249b7eb5dca568ef2/rpds_py-2026.6.3-cp311-cp311-musllinux_1_2_x86_64.whl", hash = "sha256:83e35b57523816c8613fd0776b40cd8bb9f596b37ddd2692eb4a6bb5ab2f8c93", size = 576975, upload-time = "2026-06-30T07:15:09.97Z" },
+-    { url = "https://files.pythonhosted.org/packages/c9/e1/90ef639217a5ddb15b7f4f61b1c33911fd044ad03c311bafdd2bcab85582/rpds_py-2026.6.3-cp311-cp311-win32.whl", hash = "sha256:de3eceba0b683bcbb1ab93da016d0270df1f9ae7be716b40214c5dafac6ea45a", size = 204453, upload-time = "2026-06-30T07:15:11.324Z" },
+-    { url = "https://files.pythonhosted.org/packages/f2/b7/b7a1695d7af36f521fb11e80d6d3adbd744f73b921859bd3c2a2c0dc706f/rpds_py-2026.6.3-cp311-cp311-win_amd64.whl", hash = "sha256:2c54a076ca4d370980ab57bc0e31df57bbe8d41340436a90ef8b1219a3cbb127", size = 223219, upload-time = "2026-06-30T07:15:12.476Z" },
+-    { url = "https://files.pythonhosted.org/packages/d7/a2/145afacf796e4506062825941176ad9445c2dcf2b3b6a1f13d3030a15e19/rpds_py-2026.6.3-cp311-cp311-win_arm64.whl", hash = "sha256:168c733a7112e071bb7a66460e667edfcff06c017a3c523f7a8a8e08d0140804", size = 219137, upload-time = "2026-06-30T07:15:13.631Z" },
+-    { url = "https://files.pythonhosted.org/packages/5c/be/2e8974163072e7bab7df1a5acd54c4498e75e35d6d18b864d3a9d5dadc92/rpds_py-2026.6.3-cp312-cp312-macosx_10_12_x86_64.whl", hash = "sha256:a0811d33247c3d6128a3001d763f2aa056bb3425204335400ac54f89eec3a0d0", size = 343691, upload-time = "2026-06-30T07:15:14.96Z" },
+-    { url = "https://files.pythonhosted.org/packages/a4/73/319dfa745dd668efe89309141ded489126461fcecd2b8f3a3cda185129b6/rpds_py-2026.6.3-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:538949e262e46caa31ac01bdb3c1e8f642622922cacbabbae6a8445d9dc33eaf", size = 338542, upload-time = "2026-06-30T07:15:16.267Z" },
+-    { url = "https://files.pythonhosted.org/packages/21/63/4239893be1c4d09b709b1a8f6be4188f0870084ff547f46606b8a75f1b03/rpds_py-2026.6.3-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:55927d532399c2c646100ff7feb48eaa940ad70f42cd68e1328f3ded9f81ca24", size = 368180, upload-time = "2026-06-30T07:15:17.62Z" },
+-    { url = "https://files.pythonhosted.org/packages/1c/ca/9c5de382225234ceb37b1844ebdb140db12b2a278bb9efe2fcd19f6c82ce/rpds_py-2026.6.3-cp312-cp312-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:f56f1695bc5c0871cbc33dc0130fcf503aab0c57dcc5a6700a4f49eba4f2652e", size = 375067, upload-time = "2026-06-30T07:15:18.952Z" },
+-    { url = "https://files.pythonhosted.org/packages/87/dc/863f69d1bf04ade34b7fe0d59b9fdf6f0135fe2d7cbca74f1d665589559d/rpds_py-2026.6.3-cp312-cp312-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:270b293dae9058fc9fcedab50f13cebf46fb8ed1d1d54e0521a9da5d6b211975", size = 490509, upload-time = "2026-06-30T07:15:20.434Z" },
+-    { url = "https://files.pythonhosted.org/packages/ce/ef/eac16a12048b45ec7c7fa94f2be3438a5f26bf9cc8580b18a1cfd609b7f6/rpds_py-2026.6.3-cp312-cp312-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:127565fead0a10943b282957bd5447804ff3160ad79f2ad2635e6d249e380680", size = 382754, upload-time = "2026-06-30T07:15:21.831Z" },
+-    { url = "https://files.pythonhosted.org/packages/04/8f/d2f3f532616be4d06c316ef119683e832bd3d41e112bf3a88f4151c95b17/rpds_py-2026.6.3-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:ecabd69db66de867690f9797f2f8fa27ba501bbc24540cbdbdc649cd15888ba6", size = 366189, upload-time = "2026-06-30T07:15:23.371Z" },
+-    { url = "https://files.pythonhosted.org/packages/e3/29/41a7b0e98a4b44cd676ab7598419623373eb43b20be68c084935c1a8cf88/rpds_py-2026.6.3-cp312-cp312-manylinux_2_31_riscv64.whl", hash = "sha256:58eadac9cd119677b60e1cf8ac4052f35949d71b8a9e5556efccbe82533cf22a", size = 377750, upload-time = "2026-06-30T07:15:24.659Z" },
+-    { url = "https://files.pythonhosted.org/packages/2e/05/ecda0bec46f9a1565090bcdc941d023f6a25aff85fda28f89f8d19878152/rpds_py-2026.6.3-cp312-cp312-manylinux_2_5_i686.manylinux1_i686.whl", hash = "sha256:7491ee23305ac3eb59e492b6945881f5cd77a6f731061a3f25b77fd40f9e99a4", size = 395576, upload-time = "2026-06-30T07:15:25.987Z" },
+-    { url = "https://files.pythonhosted.org/packages/68/a8/6ed52f03ee6cb854ce78785cc9a9a672eb880e83fd7224d471f667d151f1/rpds_py-2026.6.3-cp312-cp312-musllinux_1_2_aarch64.whl", hash = "sha256:2c99f7e8ccb3dd6e3e4bfeac657a7b208c9bac8075f4b078c02d7404c34107fa", size = 543807, upload-time = "2026-06-30T07:15:27.356Z" },
+-    { url = "https://files.pythonhosted.org/packages/8f/d6/156c0d3eea27ba09b92562ba2364ba124c0a061b199e17eac637cd25a5e2/rpds_py-2026.6.3-cp312-cp312-musllinux_1_2_i686.whl", hash = "sha256:62698275682bf121181861295c9181e789030a2d516071f5b8f3c23c170cd0fc", size = 611187, upload-time = "2026-06-30T07:15:28.931Z" },
+-    { url = "https://files.pythonhosted.org/packages/f1/31/774212ed989c62f7f310220089f9b0a3fb8f40f5443d1727abd5d9f52bc9/rpds_py-2026.6.3-cp312-cp312-musllinux_1_2_x86_64.whl", hash = "sha256:a214c993455f99a89aaeadc9b21241900037adc9d97203e374d75513c5911822", size = 573030, upload-time = "2026-06-30T07:15:30.553Z" },
+-    { url = "https://files.pythonhosted.org/packages/c9/50/22f73127a41f1ce4f87fe39aadfb9a126345801c274aa93ae88456249327/rpds_py-2026.6.3-cp312-cp312-win32.whl", hash = "sha256:501f9f04a588d6a09179368c57071301445191767c64e4b52a6aa9871f1ef5ed", size = 202185, upload-time = "2026-06-30T07:15:32.027Z" },
+-    { url = "https://files.pythonhosted.org/packages/04/3a/f0ee4d4dde9d3b69dedf1b5f74e7a40017046d55052d173e418c6a94f960/rpds_py-2026.6.3-cp312-cp312-win_amd64.whl", hash = "sha256:2c958bf94822e9290a40aaf2a822d4bc5c88099093e3948ad6c571eca9272e5f", size = 220394, upload-time = "2026-06-30T07:15:33.359Z" },
+-    { url = "https://files.pythonhosted.org/packages/f3/83/3382fe37f809b59f02aac04dbc4e765b480b46ee0227ed516e3bdc4d3dfc/rpds_py-2026.6.3-cp312-cp312-win_arm64.whl", hash = "sha256:22bffe6042b9bcb0822bcd1955ec00e245daf17b4344e4ed8e9551b976b63e96", size = 215753, upload-time = "2026-06-30T07:15:34.778Z" },
+-    { url = "https://files.pythonhosted.org/packages/a4/9e/b818ee580026ec578138e961027a68820c40afeb1ec8f6819b54fb99e196/rpds_py-2026.6.3-cp313-cp313-macosx_10_12_x86_64.whl", hash = "sha256:3cfe765c1da0072636ca06628261e0ea05688e160d5c8a03e0217c3854037223", size = 343012, upload-time = "2026-06-30T07:15:36.005Z" },
+-    { url = "https://files.pythonhosted.org/packages/f3/6b/686d9dc4359a8f163cfbbf89ee0b4e586431de22fe8248edb63a8cf50d49/rpds_py-2026.6.3-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:f4d78253f6996be4901669ad25319f842f740eccf4d58e3c7f3dd39e6dde1d8f", size = 338203, upload-time = "2026-06-30T07:15:37.462Z" },
+-    { url = "https://files.pythonhosted.org/packages/9e/9b/069aa329940f8207615e091f5eedbbd40e1e15eac68a0790fd05ccdf796c/rpds_py-2026.6.3-cp313-cp313-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:54f45a148e28767bf343d33a684693c70e451c6f4c0e9904709a723fafbdfc1f", size = 367984, upload-time = "2026-06-30T07:15:39.008Z" },
+-    { url = "https://files.pythonhosted.org/packages/14/db/34c203e4becff3703e4d3bc121842c00b8689197f398161203a880052f4e/rpds_py-2026.6.3-cp313-cp313-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:842e7b070435622248c7a2c44ae53fa1440e073cc3023bc919fed570884097a7", size = 374815, upload-time = "2026-06-30T07:15:40.253Z" },
+-    { url = "https://files.pythonhosted.org/packages/ee/7d/8071067d2cc453d916ad836e828c943f575e8a44612537759002a1e07381/rpds_py-2026.6.3-cp313-cp313-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:8020133a74bd81b4572dd8e4be028a6b1ebcd70e6726edc3918008c08bee6ee6", size = 490545, upload-time = "2026-06-30T07:15:41.729Z" },
+-    { url = "https://files.pythonhosted.org/packages/a3/42/da06c5aa8f0484ff07f270787434204d9f4535e2f8c3b51ed402267e63c3/rpds_py-2026.6.3-cp313-cp313-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:cdc7e35386f3847df728fbcb5e887e2d79c19e2fa1eba9e51b6621d23e3243af", size = 382828, upload-time = "2026-06-30T07:15:43.327Z" },
+-    { url = "https://files.pythonhosted.org/packages/57/d7/fe978efc2ae50abe48eb7464668ea99f53c010c60aeebb7b35ad27f23661/rpds_py-2026.6.3-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:acac386b453c2516111b50985d60ce46e7fadb5ea71ae7b25f4c946935bf27cf", size = 365678, upload-time = "2026-06-30T07:15:44.992Z" },
+-    { url = "https://files.pythonhosted.org/packages/69/9d/1d8922e1990b2a6eb532b6ff53d3e73d2b3bbffc84116c75826bee73dfc6/rpds_py-2026.6.3-cp313-cp313-manylinux_2_31_riscv64.whl", hash = "sha256:425560c6fa0415f27261727bb20bd097568485e5eb0c121f1949417d1c516885", size = 377811, upload-time = "2026-06-30T07:15:46.523Z" },
+-    { url = "https://files.pythonhosted.org/packages/b1/3d/198dceafb4fb034a6a47347e1b0735d34e0bd4a50be4e898d408ee66cb14/rpds_py-2026.6.3-cp313-cp313-manylinux_2_5_i686.manylinux1_i686.whl", hash = "sha256:a550fb4950a06dde3beb4721f5ad4b25bf4513784665b0a8522c792e2bd822a4", size = 395382, upload-time = "2026-06-30T07:15:47.955Z" },
+-    { url = "https://files.pythonhosted.org/packages/1f/f1/13968e49655d40b6b19d8b9140296bbc6f1d86b3f0f6c346cf9f1adddf4b/rpds_py-2026.6.3-cp313-cp313-musllinux_1_2_aarch64.whl", hash = "sha256:4f4bca01b63096f606e095734dd56e74e175f94cfbf24ff3d63281cec61f7bb7", size = 543832, upload-time = "2026-06-30T07:15:49.33Z" },
+-    { url = "https://files.pythonhosted.org/packages/ac/ab/289bcb1b90bd3e40a2900c561fa0e2087345ecbb094f0b870f2345142b7c/rpds_py-2026.6.3-cp313-cp313-musllinux_1_2_i686.whl", hash = "sha256:ccffae9a092a00deb7efd545fe5e2c33c33b88e7c054337e9a74c179347d0b7d", size = 611011, upload-time = "2026-06-30T07:15:50.847Z" },
+-    { url = "https://files.pythonhosted.org/packages/1e/16/5043105e679436ccfbc8e5e0dd2d663ed18a8b8113515fd06a5e5d77c83e/rpds_py-2026.6.3-cp313-cp313-musllinux_1_2_x86_64.whl", hash = "sha256:1cf01971c4f2c5553b772a542e4aaf191789cd331bc2cd4ff0e6e65ba49e1e97", size = 572431, upload-time = "2026-06-30T07:15:52.394Z" },
+-    { url = "https://files.pythonhosted.org/packages/85/ed/adab103321c0a6565d5ae1c2998349bc3ee175b82ccc5ae8fc04cc413075/rpds_py-2026.6.3-cp313-cp313-win32.whl", hash = "sha256:8c3d1e9c15b9d51ca0391e13da1a25a0a4df3c58a37c9dc368e0736cf7f69df0", size = 201710, upload-time = "2026-06-30T07:15:53.894Z" },
+-    { url = "https://files.pythonhosted.org/packages/7b/ed/a03b09668e74e5dabbf2e211f6468e1820c0552f7b0500082da31841bf7b/rpds_py-2026.6.3-cp313-cp313-win_amd64.whl", hash = "sha256:9250a9a0a6fd4648b3f868da8d91a4c52b5811a62df58e753d50ae4454a36f80", size = 219454, upload-time = "2026-06-30T07:15:55.25Z" },
+-    { url = "https://files.pythonhosted.org/packages/27/17/b8642c12930b71bc2b25831f6708ccf0f75abcd11883932ec9ce54ba3a78/rpds_py-2026.6.3-cp313-cp313-win_arm64.whl", hash = "sha256:900a67df3fd1660b035a4761c4ce73c382ea6b35f90f9863c36c6fd8bf8b09bb", size = 215063, upload-time = "2026-06-30T07:15:56.573Z" },
+-    { url = "https://files.pythonhosted.org/packages/b6/36/7fbe9dcdaf857fb3f63c2a2284b62492d95f5e8334e947e5fb6e7f68c9be/rpds_py-2026.6.3-cp314-cp314-macosx_10_12_x86_64.whl", hash = "sha256:931908d9fc855d8f74783377822be318edb6dcb19e47169dc038f9a1bf60b06e", size = 344510, upload-time = "2026-06-30T07:15:57.921Z" },
+-    { url = "https://files.pythonhosted.org/packages/ba/54/f785cc3d3f60839ca57a5af4927a9f347b07b2799c373fc20f7949f87c7e/rpds_py-2026.6.3-cp314-cp314-macosx_11_0_arm64.whl", hash = "sha256:d7469697dce35be237db177d42e2a2ee26e6dcc5fc052078a6fefabd288c6edd", size = 339495, upload-time = "2026-06-30T07:15:59.238Z" },
+-    { url = "https://files.pythonhosted.org/packages/63/ef/d4cdaf309e6b095b43597103cf8c0b951d6cca2acce68c474f75ec12e0c7/rpds_py-2026.6.3-cp314-cp314-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:bcfbcf66006befb9fd2aeaa9e01feaf881b4dc330a02ba07d2322b1c11be7b5d", size = 369454, upload-time = "2026-06-30T07:16:01.021Z" },
+-    { url = "https://files.pythonhosted.org/packages/96/4a/9559a68b7ee15db09d7981212e8c2e219d2a1d6d4faa0391d813c3496a36/rpds_py-2026.6.3-cp314-cp314-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:847927daf4cffbd4e90e42bc890069897101edd015f956cb8721b3473372edda", size = 374583, upload-time = "2026-06-30T07:16:02.287Z" },
+-    { url = "https://files.pythonhosted.org/packages/ef/75/8964aa7d2c6e8ac43eba8eb6e6b0fdda1f46d39f2fc3e6aa9f2cb17f485d/rpds_py-2026.6.3-cp314-cp314-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:aca6c1ef08a82bfe327cc156da694660f599923e2e6665b6d81c9c2d0ac9ffc8", size = 492919, upload-time = "2026-06-30T07:16:03.723Z" },
+-    { url = "https://files.pythonhosted.org/packages/8f/97/6908094ac804115e65aedfd90f1b5fee4eebebd3f6c4cfc5419939267565/rpds_py-2026.6.3-cp314-cp314-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:ae50181a047c871561212bb97f7932a2d45fb53e947bd9b57ebad85b529cbc53", size = 383725, upload-time = "2026-06-30T07:16:05.305Z" },
+-    { url = "https://files.pythonhosted.org/packages/d1/9c/0d1fdc2e7aba23e290d603bc494e97bd205bae262ce33c6b32a69768ed5e/rpds_py-2026.6.3-cp314-cp314-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:dc319e5a1de4b6913aac94bf6a2f9e847371e0a140a43dd4991db1a09bc2d504", size = 367255, upload-time = "2026-06-30T07:16:07.086Z" },
+-    { url = "https://files.pythonhosted.org/packages/c4/fe/f0209ca4a9ed074bc8acb44dfd0e81c3122e94c9689f5645b7973a866719/rpds_py-2026.6.3-cp314-cp314-manylinux_2_31_riscv64.whl", hash = "sha256:e4316bf32babbed84e691e352faf967ce2f0f024174a8643c37c94a1080374fc", size = 379060, upload-time = "2026-06-30T07:16:08.525Z" },
+-    { url = "https://files.pythonhosted.org/packages/c6/8d/f1cc54c616b9d8897de8738aac148d20afca93f68187475fe194d09a71b9/rpds_py-2026.6.3-cp314-cp314-manylinux_2_5_i686.manylinux1_i686.whl", hash = "sha256:8c6e5a2f750cc71c3e3b11d71661f21d6f9bc6cebc6564b1466417a1ec03ec77", size = 395960, upload-time = "2026-06-30T07:16:09.989Z" },
+-    { url = "https://files.pythonhosted.org/packages/fb/04/aafff00f73aeca2945f734f1d483c64ab8f472d0864ab02377fd8e89c3b2/rpds_py-2026.6.3-cp314-cp314-musllinux_1_2_aarch64.whl", hash = "sha256:4470ce197d4090875cf6affbf1f853338387428df97c4fb7b7106317b8214698", size = 545356, upload-time = "2026-06-30T07:16:11.816Z" },
+-    { url = "https://files.pythonhosted.org/packages/fd/cc/e229663b9e4ddac5a4acbe9085dd80a71af2a5d356b8b39d6bff233f24b0/rpds_py-2026.6.3-cp314-cp314-musllinux_1_2_i686.whl", hash = "sha256:ea964164cc9afa72d4d9b23cc28dafae93693c0a53e0b42acbff15b22c3f9ddd", size = 612319, upload-time = "2026-06-30T07:16:13.586Z" },
+-    { url = "https://files.pythonhosted.org/packages/e3/7a/8a0e6d3e6cd066af108b71b43122c3fe158dd9eb86acac626593a2582eb1/rpds_py-2026.6.3-cp314-cp314-musllinux_1_2_x86_64.whl", hash = "sha256:639c8929aa0afe81be836b04de888460d6bed38b9c54cfc18da8f6bfabf5af5d", size = 573508, upload-time = "2026-06-30T07:16:15.23Z" },
+-    { url = "https://files.pythonhosted.org/packages/87/03/2a69ab618a789cf6cf85c86bb844c62d090e700ab1a2aa676b3741b6c516/rpds_py-2026.6.3-cp314-cp314-win32.whl", hash = "sha256:882076c00c0a608b131187055ddc5ae29f2e7eaf870d6168980420d58528a5c8", size = 202504, upload-time = "2026-06-30T07:16:16.893Z" },
+-    { url = "https://files.pythonhosted.org/packages/85/62/a3892ba945f4e24c78f352e5de3c7620d8479f73f211406a97263d13c7d2/rpds_py-2026.6.3-cp314-cp314-win_amd64.whl", hash = "sha256:0be972be84cfcaf46c8c6edf690ca0f154ac17babf1f6a955a51579b34ad2dc5", size = 220380, upload-time = "2026-06-30T07:16:18.108Z" },
+-    { url = "https://files.pythonhosted.org/packages/3d/e7/c2bd44dc831931815ad11ebb5f430b5a0a4d3caa9de837107876c30c3432/rpds_py-2026.6.3-cp314-cp314-win_arm64.whl", hash = "sha256:2a9c6f195058cb45335e8cc3802745c603d716eb96bc9625950c1aac71c0c703", size = 215976, upload-time = "2026-06-30T07:16:19.654Z" },
+-    { url = "https://files.pythonhosted.org/packages/79/9c/fff7b74bce9a091ec9a012a03f9ff5f69364eaf9451060dfc4486da2ffdd/rpds_py-2026.6.3-cp314-cp314t-macosx_10_12_x86_64.whl", hash = "sha256:f90938e92afda60266da758ee7d363447f7f0138c9559f9e1811629580582d90", size = 346840, upload-time = "2026-06-30T07:16:21.268Z" },
+-    { url = "https://files.pythonhosted.org/packages/e9/44/77bcb1168b33704908295533d27f10eb811e9e3e193e8993dc99572211d3/rpds_py-2026.6.3-cp314-cp314t-macosx_11_0_arm64.whl", hash = "sha256:ec829541c45bca16e61c7ae50c20501f213605beb75d1aba91a6ee37fbbb56a4", size = 340282, upload-time = "2026-06-30T07:16:22.875Z" },
+-    { url = "https://files.pythonhosted.org/packages/87/3c/7a9081c7c9e645b39efe19e4ffbeccd80add246327cd9b888aecffd72317/rpds_py-2026.6.3-cp314-cp314t-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:afd70d95892096cdb26f15a00c45907b17817577aa8d1c76b2dcc2788391f9e9", size = 370403, upload-time = "2026-06-30T07:16:24.415Z" },
+-    { url = "https://files.pythonhosted.org/packages/f7/69/af47021eb7dad6ff3396cb001c08f0f3c4d06c20253f75be6421a59fe6b7/rpds_py-2026.6.3-cp314-cp314t-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:29dfa0533a5d4c94d4dfa1b694fcb56c9c63aad8330ffdd816fd225d0a7a162f", size = 376055, upload-time = "2026-06-30T07:16:26.111Z" },
+-    { url = "https://files.pythonhosted.org/packages/81/fc/a3bcf517084396a6dd258c592567a3c011ba4557f2fde23dceaf26e74f2e/rpds_py-2026.6.3-cp314-cp314t-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:af05d726809bff6b141be124d4c7ce998f9c9c7f30edb1f46c07aa103d540b41", size = 494419, upload-time = "2026-06-30T07:16:27.596Z" },
+-    { url = "https://files.pythonhosted.org/packages/c9/eb/13d529d1788135425c7bf207f8463458ca5d92e43f3f701365b83e9dffc1/rpds_py-2026.6.3-cp314-cp314t-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:9826217f048f620d9a712672818bf231442c1b35d96b227a07eabd11b4bb6945", size = 384848, upload-time = "2026-06-30T07:16:29.183Z" },
+-    { url = "https://files.pythonhosted.org/packages/8e/f4/b7ac49f30013aba8f7b9566b1dd07e81de95e708c1374b7bacc5b9bc5c9c/rpds_py-2026.6.3-cp314-cp314t-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:536bceea4fa4acf7e1c61da2b5786304367c816c8895be71b8f537c480b0ea1f", size = 371369, upload-time = "2026-06-30T07:16:30.912Z" },
+-    { url = "https://files.pythonhosted.org/packages/31/86/6260bafa622f788b07ddec0e52d810305c8b9b0b8c27f58a2ab04bf62b4f/rpds_py-2026.6.3-cp314-cp314t-manylinux_2_31_riscv64.whl", hash = "sha256:bc0011654b91cc4fb2ae701bec0a0ba1e552c0714247fa7af6c59e0ccfa3a4e1", size = 379673, upload-time = "2026-06-30T07:16:32.486Z" },
+-    { url = "https://files.pythonhosted.org/packages/19/c3/03f1ee79a047b48daeca157c89a18509cde22b6b951d642b9b0af1be660a/rpds_py-2026.6.3-cp314-cp314t-manylinux_2_5_i686.manylinux1_i686.whl", hash = "sha256:539d75de9e0d536c84ff18dfeb805398e58227001ce09231a26a08b9aed1ee0e", size = 397500, upload-time = "2026-06-30T07:16:34.471Z" },
+-    { url = "https://files.pythonhosted.org/packages/f0/95/8ed0cd8c377dca12aea498f119fe639fc474d1461545c39d2b5872eb1c0f/rpds_py-2026.6.3-cp314-cp314t-musllinux_1_2_aarch64.whl", hash = "sha256:166cf54d9f44fc6ceb53c7860258dde44a81406646de79f8ed3234fca3b6e538", size = 545978, upload-time = "2026-06-30T07:16:36.45Z" },
+-    { url = "https://files.pythonhosted.org/packages/d3/f2/0eb57f0eaa83f8fc152a7e03de968ab77e1f00732bebc892b190c6eebde7/rpds_py-2026.6.3-cp314-cp314t-musllinux_1_2_i686.whl", hash = "sha256:d34c20167764fbcf927194d532dd7e0c56772f0a5f943fa5ef9e9afbba8fb9db", size = 613350, upload-time = "2026-06-30T07:16:38.213Z" },
+-    { url = "https://files.pythonhosted.org/packages/5b/de/e0674bdbc3ef7634989b3f854c3f34bc1f587d36e5bfdc5c378d57034619/rpds_py-2026.6.3-cp314-cp314t-musllinux_1_2_x86_64.whl", hash = "sha256:ea7bb13b7c9a29791f87a0387ba7d3ad3a6d783d827e4d3f27b40a0ff44495e2", size = 576486, upload-time = "2026-06-30T07:16:39.797Z" },
+-    { url = "https://files.pythonhosted.org/packages/f2/f6/21101359743cd136ada781e8210a85769578422ba460672eea0e29739200/rpds_py-2026.6.3-cp314-cp314t-win32.whl", hash = "sha256:6de4744d05bd1aa1be4ed7ea1189e3979196808008113bbbf899a460966b925e", size = 201068, upload-time = "2026-06-30T07:16:41.316Z" },
+-    { url = "https://files.pythonhosted.org/packages/a6/b2/9574d4d44f7760c2aa32d92a0a4f41698e33f5b204a0bf5c9758f52c79d5/rpds_py-2026.6.3-cp314-cp314t-win_amd64.whl", hash = "sha256:c7b9a2f8f4d8e90af72571d3d495deebdd7e3c75451f5b41719aee166e940fc2", size = 220600, upload-time = "2026-06-30T07:16:43.091Z" },
+-    { url = "https://files.pythonhosted.org/packages/08/ae/f23a2697e6ee6340a578b0f136be6483657bef0c6f9497b752bb5c0964bb/rpds_py-2026.6.3-cp315-cp315-macosx_10_12_x86_64.whl", hash = "sha256:e059c5dde6452b44424bd1834557556c226b57781dee1227af23518459722b13", size = 344726, upload-time = "2026-06-30T07:16:44.5Z" },
+-    { url = "https://files.pythonhosted.org/packages/c3/63/e7b3a1a5358dd32c930a1062d8e15b67fd6e8922e81df9e91706d66ee5c8/rpds_py-2026.6.3-cp315-cp315-macosx_11_0_arm64.whl", hash = "sha256:2f7c26fbc5acd2522b95d4177fe4710ffd8e9b20529e703ffbf8db4d93903f05", size = 339587, upload-time = "2026-06-30T07:16:46.255Z" },
+-    { url = "https://files.pythonhosted.org/packages/ec/64/10a85681916ca55fffb91b0a211f84e34297c109243484dd6394660a8a7c/rpds_py-2026.6.3-cp315-cp315-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:a3086b538543802f84c843911242db20447de00d8752dd0efc936dbcf02218ba", size = 369585, upload-time = "2026-06-30T07:16:48.101Z" },
+-    { url = "https://files.pythonhosted.org/packages/76/c2/baf95c7c38823e12ba34407c5f5767a89e5cf2233895e56f608167ae9493/rpds_py-2026.6.3-cp315-cp315-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:8f2e5c5ee828d42cb11760761c0af6507927bec42d0ad5458f97c9203b054617", size = 375479, upload-time = "2026-06-30T07:16:49.93Z" },
+-    { url = "https://files.pythonhosted.org/packages/6a/94/0aad06c72d65101e11d33528d438cda99a39ce0da99466e156158f2541d3/rpds_py-2026.6.3-cp315-cp315-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:ed0c1e5d10cdc7135537988c74a0188da68e2f3c30813ba3744ab1e42e0480f9", size = 492418, upload-time = "2026-06-30T07:16:51.641Z" },
+-    { url = "https://files.pythonhosted.org/packages/b5/17/de3f5a479a1f056535d7489819639d8cd591ea6281d700390b43b1abd745/rpds_py-2026.6.3-cp315-cp315-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:8c2642a7603ec0b16ed77da4555db3b4b472341904873788327c0b0d7b95f1bb", size = 384123, upload-time = "2026-06-30T07:16:53.622Z" },
+-    { url = "https://files.pythonhosted.org/packages/46/7d/bf09bd1b145bb2671c03e1e6d1ab8651858d90d8c7dfeadd85a37a934fd8/rpds_py-2026.6.3-cp315-cp315-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:8e4320744c1ffdd95a603def63344bfab2d33edeab301c5007e7de9f9f5b3885", size = 367351, upload-time = "2026-06-30T07:16:55.241Z" },
+-    { url = "https://files.pythonhosted.org/packages/a3/ea/1bb734f314b8be319149ddee80b18bd41372bdcfbdf88d28131c0cd37719/rpds_py-2026.6.3-cp315-cp315-manylinux_2_31_riscv64.whl", hash = "sha256:a9f4645593036b81bbdb36b9c8e0ea0d1c3fee968c4d59db0344c14087ef143a", size = 378827, upload-time = "2026-06-30T07:16:56.841Z" },
+-    { url = "https://files.pythonhosted.org/packages/4b/93/d9611e5b25e26df9a3649813ed66193ace9347a7c7fc4ab7cf70e94851c0/rpds_py-2026.6.3-cp315-cp315-manylinux_2_5_i686.manylinux1_i686.whl", hash = "sha256:e55d236be29255554da47abe5c577637db7c24a02b8b46f0ca9524c855801868", size = 395966, upload-time = "2026-06-30T07:16:58.557Z" },
+-    { url = "https://files.pythonhosted.org/packages/c3/cb/99d77e16e5534ae1d90629bbe419ba6ee170833a6a85e3aa1cc41726fbbc/rpds_py-2026.6.3-cp315-cp315-musllinux_1_2_aarch64.whl", hash = "sha256:24e9c5386e16669b674a69c156c8eeefcb578f3b3397b713b08e6d60f3c7b187", size = 545680, upload-time = "2026-06-30T07:17:00.164Z" },
+-    { url = "https://files.pythonhosted.org/packages/59/15/11a29755f790cef7a2f755e8e14f4f0c33f39489e1893a632a2eee59672b/rpds_py-2026.6.3-cp315-cp315-musllinux_1_2_i686.whl", hash = "sha256:c60924535c75f1566b6eb75b5c31a48a43fef04fa2d0d201acbad8a9969c6107", size = 611853, upload-time = "2026-06-30T07:17:01.962Z" },
+-    { url = "https://files.pythonhosted.org/packages/68/86/0c27547e21644da938fb530f7e1a8148dd24d02db07e7a5f2567a17ce710/rpds_py-2026.6.3-cp315-cp315-musllinux_1_2_x86_64.whl", hash = "sha256:38a2fea2787428f811719ceb9114cb78964a3138838320c29ac39526c79c16ba", size = 573715, upload-time = "2026-06-30T07:17:03.693Z" },
+-    { url = "https://files.pythonhosted.org/packages/29/71/4d8fcf700931815594bce892255bbd973b94efaf0fc1932b0590df18d886/rpds_py-2026.6.3-cp315-cp315-win32.whl", hash = "sha256:d483fe17f01ad64b7bf7cc38fcefff1ca9fb83f8c2b2542b68f97ffe0611b369", size = 202864, upload-time = "2026-06-30T07:17:05.746Z" },
+-    { url = "https://files.pythonhosted.org/packages/eb/62/b577562de0edbb55b2be85ce5fd09c33e386b9b13eee09833af4240fd5c4/rpds_py-2026.6.3-cp315-cp315-win_amd64.whl", hash = "sha256:67e3a721ffc5d8d2210d3671872298c4a84e4b8035cfe42ffd7cde35d772b146", size = 220430, upload-time = "2026-06-30T07:17:07.471Z" },
+-    { url = "https://files.pythonhosted.org/packages/c8/95/d6d0b2509825141eef60669a5739eec88dbc6a48053d6c92993a5704defe/rpds_py-2026.6.3-cp315-cp315-win_arm64.whl", hash = "sha256:6e84adbcf4bf841aed8116a8264b9f50b4cb3e7bd89b516122e616ac56ca269e", size = 215877, upload-time = "2026-06-30T07:17:09.008Z" },
+-    { url = "https://files.pythonhosted.org/packages/b7/bf/f3ea278f0afd615c1d0f19cb69043a41526e2bb600c2b536eb192218eb27/rpds_py-2026.6.3-cp315-cp315t-macosx_10_12_x86_64.whl", hash = "sha256:ae6dd8f10bd17aad820876d24caec9efdafd80a318d16c0a48edb5e136902c6b", size = 346933, upload-time = "2026-06-30T07:17:10.762Z" },
+-    { url = "https://files.pythonhosted.org/packages/9d/29/9907bdf1c5346763cf10b7f6852aad86652168c259def904cbe0082c5864/rpds_py-2026.6.3-cp315-cp315t-macosx_11_0_arm64.whl", hash = "sha256:bdbd97738551fca3917c1bd7188bec1920bb520104f28e7e1007f9ceb17b7690", size = 340274, upload-time = "2026-06-30T07:17:12.266Z" },
+-    { url = "https://files.pythonhosted.org/packages/6f/2c/8e03767b5778ef25cebf74a7a91a2c3806f8eced4c92cb7406bbe060756d/rpds_py-2026.6.3-cp315-cp315t-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:8b95977e7211527ab0ba576e286d023389fbeeb32a6b7b771665d333c60e5342", size = 370763, upload-time = "2026-06-30T07:17:14.107Z" },
+-    { url = "https://files.pythonhosted.org/packages/2e/e1/df2a7e1ba2efd796af26194250b8d42c821b46592311595162af9ef0528d/rpds_py-2026.6.3-cp315-cp315t-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:d15fde0e6fb0d88a60d221204873743e5d9f0b7d29165e62cd86d0413ad74ba6", size = 376467, upload-time = "2026-06-30T07:17:15.76Z" },
+-    { url = "https://files.pythonhosted.org/packages/6b/de/8a0814d1946af29cb068fb259aa8622f856df1d0bab58429448726b537f5/rpds_py-2026.6.3-cp315-cp315t-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:a136d453475ac0fcbda502ef1e6504bd28d6d904700915d278deeab0d00fe140", size = 496689, upload-time = "2026-06-30T07:17:17.308Z" },
+-    { url = "https://files.pythonhosted.org/packages/df/f3/f19e0c852ba13694f5a79f3b719331051573cb5693feacf8a88ffffc3a71/rpds_py-2026.6.3-cp315-cp315t-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:f826877d462181e5eb1c26a0026b8d0cab05d99844ecb6d8bf3627a2ca0c0442", size = 385340, upload-time = "2026-06-30T07:17:18.928Z" },
+-    { url = "https://files.pythonhosted.org/packages/e2/ae/7ec3a9d2d4351f99e37bcb06b6b6f954512646bfdbf9742e1de727865daf/rpds_py-2026.6.3-cp315-cp315t-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:79486287de1730dbaff3dbd124d0ca4d2ef7f9d29bf2544f1f93c09b5bcbbd12", size = 372179, upload-time = "2026-06-30T07:17:20.539Z" },
+-    { url = "https://files.pythonhosted.org/packages/d3/ac/9cee911dff2aaa9a5a8354f6610bf2e6a616de9197c5fff4f54f82585f1e/rpds_py-2026.6.3-cp315-cp315t-manylinux_2_31_riscv64.whl", hash = "sha256:808345f53cb952433ca2816f1604ff3515608a81784954f38d4452acfe8e61d5", size = 379993, upload-time = "2026-06-30T07:17:22.212Z" },
+-    { url = "https://files.pythonhosted.org/packages/83/6b/7c2a07ba88d1e9a936612f7a5d067467ed03d971d5a06f7d309dff044a7e/rpds_py-2026.6.3-cp315-cp315t-manylinux_2_5_i686.manylinux1_i686.whl", hash = "sha256:1967debc37f64f2c4dc90a7f563aec558b471966e12adcac4e1c4240496b6ebf", size = 398909, upload-time = "2026-06-30T07:17:23.66Z" },
+-    { url = "https://files.pythonhosted.org/packages/97/0b/776ffcb66783637b0031f6d58d6fb55913c8b5abf00aeecd46bf933fb477/rpds_py-2026.6.3-cp315-cp315t-musllinux_1_2_aarch64.whl", hash = "sha256:f0840b5b17057f7fd918b76183a4b5a0635f43e14eb2ce60dce1d4ee4707ea00", size = 546584, upload-time = "2026-06-30T07:17:25.264Z" },
+-    { url = "https://files.pythonhosted.org/packages/55/33/ba3bc04d7092bd553c9b2b195624992d2cc4f3de1f380b7b93cbee67bd79/rpds_py-2026.6.3-cp315-cp315t-musllinux_1_2_i686.whl", hash = "sha256:faa679d19a6696fd54259ad321251ad77a13e70e03dd834daa762a44fb6196ef", size = 614357, upload-time = "2026-06-30T07:17:26.888Z" },
+-    { url = "https://files.pythonhosted.org/packages/8b/71/14edf065f04630b1a8472f7653cad03f6c478bcf95ea0e6aed55451e33ea/rpds_py-2026.6.3-cp315-cp315t-musllinux_1_2_x86_64.whl", hash = "sha256:23a439f31ccbeff1574e24889128821d1f7917470e830cf6544dced1c662262a", size = 576533, upload-time = "2026-06-30T07:17:28.546Z" },
+-    { url = "https://files.pythonhosted.org/packages/ba/76/65002b08596c389105720a8c0d22298b8dc25a4baf89b2ce431343c8b1de/rpds_py-2026.6.3-cp315-cp315t-win32.whl", hash = "sha256:913ca42ccad3f8cc6e292b587ae8ae49c8c823e5dce51a736252fc7c7cdfa577", size = 201204, upload-time = "2026-06-30T07:17:30.193Z" },
+-    { url = "https://files.pythonhosted.org/packages/8c/97/d855d6b3c322d1f27e26f5241c42016b56cf01377ea8ed348285f54652f0/rpds_py-2026.6.3-cp315-cp315t-win_amd64.whl", hash = "sha256:ae3d4fe8c0b9213624fdce7279d70e3b148b682ca20719ebd193a23ebfa47324", size = 220719, upload-time = "2026-06-30T07:17:31.788Z" },
+-    { url = "https://files.pythonhosted.org/packages/b4/9c/f0d19ac587fd0e4ab6b72cda355e9c5a6166b01ef7e064e437aef8eb9fef/rpds_py-2026.6.3-pp311-pypy311_pp73-macosx_10_12_x86_64.whl", hash = "sha256:4cf2d36a2357e4d07bb5a4f98801265327b48256867816cfd2ceb001e9754a8f", size = 349791, upload-time = "2026-06-30T07:17:33.315Z" },
+-    { url = "https://files.pythonhosted.org/packages/38/c7/1d49d204c9fd2ee6c537601dc4c1ba921e03363ca576bfab94a00254ac9a/rpds_py-2026.6.3-pp311-pypy311_pp73-macosx_11_0_arm64.whl", hash = "sha256:30c6dc199b24a5e3e81d50da0f00858c5bbdb2617a750395687f4339c5818171", size = 352842, upload-time = "2026-06-30T07:17:34.897Z" },
+-    { url = "https://files.pythonhosted.org/packages/ac/e5/c0b5dc93cd0d4c06ce1f438907649514e2ea077bcd911e3154a51e96c38e/rpds_py-2026.6.3-pp311-pypy311_pp73-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:9891e594296ab9dada6551c8e7b387b2721f27a67eecd528412e8906247a7b90", size = 382094, upload-time = "2026-06-30T07:17:36.514Z" },
+-    { url = "https://files.pythonhosted.org/packages/0d/54/ec0e907b4ca8d541112db352409bd15f871c9b243e0c92c9b5a46ae96f01/rpds_py-2026.6.3-pp311-pypy311_pp73-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:b5c2dc92304aa48a4a60443b548bb12f12e119d4b72f314015e67b9e1be97fca", size = 388662, upload-time = "2026-06-30T07:17:38.235Z" },
+-    { url = "https://files.pythonhosted.org/packages/d3/f4/921c22a4fd0f1c1ac13a3996ffbf0aa67951e2c8ad0d1d9574938a2932e8/rpds_py-2026.6.3-pp311-pypy311_pp73-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:127e08c0642d880cf32ca47ec2a4a77b901f7e2dd1ad9762adb13955d72ffcc9", size = 504896, upload-time = "2026-06-30T07:17:39.689Z" },
+-    { url = "https://files.pythonhosted.org/packages/0b/1b/a114b972cefa1ab1cdb3c7bb177cd3844a12826c507c722d3a73516dbbaf/rpds_py-2026.6.3-pp311-pypy311_pp73-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:8bb68f03f395eb793220b45c097bd4d8c32944393da0fad8b999efac0868fc8c", size = 391545, upload-time = "2026-06-30T07:17:41.336Z" },
+-    { url = "https://files.pythonhosted.org/packages/4e/98/af9b3db77d47fcbe6c8c1f36e2c2147ec70292819e99c325f871584a1c11/rpds_py-2026.6.3-pp311-pypy311_pp73-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:a3450b693fde92133e9f51060568a4c31fcca76d5e53bbd611e689ca446517e9", size = 380059, upload-time = "2026-06-30T07:17:42.857Z" },
+-    { url = "https://files.pythonhosted.org/packages/c9/ba/0efd8668b97c1d26a61566386c636a7a7a09829e474fdf807caa15a2c844/rpds_py-2026.6.3-pp311-pypy311_pp73-manylinux_2_31_riscv64.whl", hash = "sha256:5e8d07bddee435a2ff6f1920e18feff28d0bc4533e42f4bf6927fbd073312c41", size = 393235, upload-time = "2026-06-30T07:17:44.637Z" },
+-    { url = "https://files.pythonhosted.org/packages/62/90/8c139ee9690f73b0829f32647de6f40d826f8f443af6fa72644f96351aac/rpds_py-2026.6.3-pp311-pypy311_pp73-manylinux_2_5_i686.manylinux1_i686.whl", hash = "sha256:3a83ae6c67b7676b9878378547ca8e93ed77a580037bcbcd1d32f739e1e6089c", size = 413008, upload-time = "2026-06-30T07:17:46.225Z" },
+-    { url = "https://files.pythonhosted.org/packages/9c/97/0043896fdd7828ce09a1d9a8b06433714d0960fc4ff3fc4aa72b666b764e/rpds_py-2026.6.3-pp311-pypy311_pp73-musllinux_1_2_aarch64.whl", hash = "sha256:2bfd04c19ddbd6640de0b51894d764bd2758854d5b75bd102d2ef10cb9c293a9", size = 558118, upload-time = "2026-06-30T07:17:47.759Z" },
+-    { url = "https://files.pythonhosted.org/packages/f6/40/02355f0e134f783a8f9814c4680a1bd311d37671577a5964ea838573ff37/rpds_py-2026.6.3-pp311-pypy311_pp73-musllinux_1_2_i686.whl", hash = "sha256:ca6546b66be9dc4738b1b043d5ebd5488c66c578c5ff0fd0e8065313fe3afb76", size = 623138, upload-time = "2026-06-30T07:17:49.355Z" },
+-    { url = "https://files.pythonhosted.org/packages/10/85/48f0abdcef5cce4e034c7a5b0ceeceba0b01bf0d942824f4bb720afe2dec/rpds_py-2026.6.3-pp311-pypy311_pp73-musllinux_1_2_x86_64.whl", hash = "sha256:8e65860d238379ed982fd9ba690579b5e95af2f4840f99c772816dbe573cb826", size = 586486, upload-time = "2026-06-30T07:17:51.141Z" },
+-]
+-
+-[[package]]
+-name = "shellingham"
+-version = "1.5.4"
+-source = { registry = "https://pypi.org/simple" }
+-sdist = { url = "https://files.pythonhosted.org/packages/58/15/8b3609fd3830ef7b27b655beb4b4e9c62313a4e8da8c676e142cc210d58e/shellingham-1.5.4.tar.gz", hash = "sha256:8dbca0739d487e5bd35ab3ca4b36e11c4078f3a234bfce294b0a0291363404de", size = 10310, upload-time = "2023-10-24T04:13:40.426Z" }
+-wheels = [
+-    { url = "https://files.pythonhosted.org/packages/e0/f9/0595336914c5619e5f28a1fb793285925a8cd4b432c9da0a987836c7f822/shellingham-1.5.4-py2.py3-none-any.whl", hash = "sha256:7ecfff8f2fd72616f7481040475a65b2bf8af90a56c89140852d1120324e8686", size = 9755, upload-time = "2023-10-24T04:13:38.866Z" },
+-]
+-
+-[[package]]
+-name = "sse-starlette"
+-version = "3.4.11"
+-source = { registry = "https://pypi.org/simple" }
+-dependencies = [
+-    { name = "anyio" },
+-    { name = "starlette" },
+-]
+-sdist = { url = "https://files.pythonhosted.org/packages/2b/54/6767bb789b2f2fed6e0f953df949cd39dc263a384c1b65a95232598621d6/sse_starlette-3.4.11.tar.gz", hash = "sha256:1bae716c02f3e6f294be41ff333220692dae7c3cbab077c900f159676719dade", size = 34972, upload-time = "2026-09-05T12:11:04.607Z" }
+-wheels = [
+-    { url = "https://files.pythonhosted.org/packages/98/6a/2ba3ed4a69babf3afdddf7d8314a48d87562c0a442206bbc2a1b50d5efc0/sse_starlette-3.4.11-py3-none-any.whl", hash = "sha256:c7b2244bdff016fe7f64e10075e89a3e6bbf899649cc89b0fe884b5545042453", size = 17122, upload-time = "2026-09-05T12:11:03.195Z" },
+-]
+-
+-[[package]]
+-name = "starlette"
+-version = "1.6.0"
+-source = { registry = "https://pypi.org/simple" }
+-dependencies = [
+-    { name = "anyio" },
+-    { name = "typing-extensions", marker = "python_full_version < '3.13'" },
+-]
+-sdist = { url = "https://files.pythonhosted.org/packages/b5/b4/205b0d5241d934e8add0c38aa924c4f9fb7330834ff11e5444db964ec3f9/starlette-1.6.0.tar.gz", hash = "sha256:d4e3ac5e546444960c710297a3c9fc3f7ebae1b7e963f3d36173b49da535be9b", size = 2716969, upload-time = "2026-08-08T18:27:57.512Z" }
+-wheels = [
+-    { url = "https://files.pythonhosted.org/packages/c8/cb/6a6a47d5b464bd08695d254f3da6e7986cc70c9fa5d778eda57538edfe56/starlette-1.6.0-py3-none-any.whl", hash = "sha256:a86dd39d14bb45f85a3d18525215a9ef0cfd1f192ac793220e72598c90335f0c", size = 75969, upload-time = "2026-08-08T18:27:56.196Z" },
+-]
+-
+-[[package]]
+-name = "typer"
+-version = "0.27.2"
+-source = { registry = "https://pypi.org/simple" }
+-dependencies = [
+-    { name = "annotated-doc" },
+-    { name = "colorama", marker = "sys_platform == 'win32'" },
+-    { name = "rich" },
+-    { name = "shellingham" },
+-]
+-sdist = { url = "https://files.pythonhosted.org/packages/16/f7/57713ba479fd405eb76de31404b2c744c289e336b2d999511ebf51e496f7/typer-0.27.2.tar.gz", hash = "sha256:269b7eb9d3c202ca84b4bc9618cb04ebb43d3d4d1e567e4c768607232c05f945", size = 204045, upload-time = "2026-08-28T10:26:55.046Z" }
+-wheels = [
+-    { url = "https://files.pythonhosted.org/packages/dc/bf/205d0004930ede8f542fb58f601526fccf4ae7626075ca1e6c4de5d3d652/typer-0.27.2-py3-none-any.whl", hash = "sha256:b3a5fc4342d5fc8fda8fc3010b1cf117e9249aab7fae800c2eff62fd3842d97d", size = 123130, upload-time = "2026-08-28T10:26:53.752Z" },
+-]
+-
+-[[package]]
+-name = "typing-extensions"
+-version = "4.16.0"
+-source = { registry = "https://pypi.org/simple" }
+-sdist = { url = "https://files.pythonhosted.org/packages/f6/cc/6253133b5bb138fc3306cebfbda2c520f545d36b5be2c7255cc528bb45d6/typing_extensions-4.16.0.tar.gz", hash = "sha256:dc983d19a509c94dba722ee6abd33940f7c05a89e243c47e907eb4db6f1a43e5", size = 113555, upload-time = "2026-07-02T08:40:05.92Z" }
+-wheels = [
+-    { url = "https://files.pythonhosted.org/packages/49/d3/b8441a820a491ddfc024b0b0cf0393375b75ea13866d9c66727e54c2fc80/typing_extensions-4.16.0-py3-none-any.whl", hash = "sha256:481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8", size = 45571, upload-time = "2026-07-02T08:40:04.659Z" },
+-]
+-
+-[[package]]
+-name = "typing-inspection"
+-version = "0.4.4"
+-source = { registry = "https://pypi.org/simple" }
+-dependencies = [
+-    { name = "typing-extensions" },
+-]
+-sdist = { url = "https://files.pythonhosted.org/packages/a3/26/b09b8010994eccc3c09092e6b34058f36a460eea2d4c3e8b910c695975a0/typing_inspection-0.4.4.tar.gz", hash = "sha256:547274fa6b0a561ccf549cc9524b999a578e737d015d8709d021f9d0d13bea47", size = 76928, upload-time = "2026-08-12T12:37:25.997Z" }
+-wheels = [
+-    { url = "https://files.pythonhosted.org/packages/67/81/4add07e5172b7ac40d8ed5ff580409a7801a4fe26d529bdd915401dabfbe/typing_inspection-0.4.4-py3-none-any.whl", hash = "sha256:65b8397ba37ccbce054456aaccddfc91e6e3083c92824df348d96ca832f3f147", size = 14750, upload-time = "2026-08-12T12:37:24.648Z" },
+-]
+-
+-[[package]]
+-name = "uvicorn"
+-version = "0.52.4"
+-source = { registry = "https://pypi.org/simple" }
+-dependencies = [
+-    { name = "click" },
+-    { name = "h11" },
+-    { name = "typing-extensions", marker = "python_full_version < '3.11'" },
+-]
+-sdist = { url = "https://files.pythonhosted.org/packages/f2/0f/3f86e61397dd33bf2ccf28188c40db6a740658aeebbbf6e7dbc101a1f487/uvicorn-0.52.4.tar.gz", hash = "sha256:73acfee47a0b133c5de13d219492d62d8a31e935f4fe6e41a232451a15379f86", size = 100627, upload-time = "2026-08-19T06:27:41.821Z" }
+-wheels = [
+-    { url = "https://files.pythonhosted.org/packages/f1/79/4a20b54ab0491485ccd8c077db2d39187c7f12b3e15485d38a7be37c81b4/uvicorn-0.52.4-py3-none-any.whl", hash = "sha256:f86e41a149d7d05a9969337e3946a9c171c06a5d42680896daaba624aeac8da1", size = 79871, upload-time = "2026-08-19T06:27:40.36Z" },
+-]
+diff --git a/opencode.json b/opencode.json
+index 3c74aaf..cb6c410 100644
+--- a/opencode.json
++++ b/opencode.json
+@@ -13,11 +13,6 @@
+     "lint_task_file": "allow",
+     "lint_all_tasks": "allow",
+     "brain_turn": "allow",
+-    "extract_session_decisions": "allow",
+-    "record_manager_decision": "allow",
+-    "query_manager_decisions": "allow",
+-    "get_manager_profile": "allow",
+-    "propose_profile_evolution": "allow",
+     "store_memory": "allow",
+     "delete_memory": "ask",
+     "read_memory": "allow",
+diff --git a/prompts/fragments/06-personas.md b/prompts/fragments/06-personas.md
+index f129ea8..7c75df1 100644
+--- a/prompts/fragments/06-personas.md
++++ b/prompts/fragments/06-personas.md
+@@ -47,7 +47,7 @@
+   <persona name="QA Engineer">
+     <trigger>Implementation phase is complete, or explicit Manager request for testing.</trigger>
+     <duty>Adversarial testing, boundary analysis, fuzzing, and stability enforcement.</duty>
+-    <behavior>Adopt a strictly adversarial mindset. Your goal is to break the Senior Programmer's implementation. Read the "Factual Git Diff" in the active task file. Look for missing null checks, race conditions, unchecked inputs, and missing negative test cases. Do NOT check for formatting or architecture. Output a strict report: Vulnerabilities, Missing Tests, Status (QA_PASSED or QA_REJECTED). If QA_REJECTED, do NOT stop at the verdict. In manual mode the Manager ferries task files between the Hands and the Brain by hand; in autopilot the Hands calls the Brain directly. Either way, always emit the next step yourself: first a 3-line Manager summary (what failed, what the fix covers, where to paste it), then a hotfix `<hands_implementation_task>` XML scoped ONLY to the failing points, instructing the Hands to fix within the EXISTING task file — never a new task number. The Manager copies it to the Hands, brings the result back, and re-runs QA. If the SAME task is rejected a 3rd time, stop emitting fix XML and escalate to the Manager with options instead. If QA_PASSED, instruct the Manager to hand over to the Code Reviewer. **Automatic-mode override:** when MODE is automatic, chain the next `brain_turn` yourself under the same `task_id` (re-QA after fixes, then Reviewer) and never ask the Manager to ferry files or emit copy/paste handoffs. **Machine-Readable Verdict Mandate:** End EVERY QA report with a machine verdict block the autopilot parses with a single regex — first line exactly `VERDICT: QA_PASSED` or `VERDICT: QA_REJECTED`, then one `CITE: file:line` line per cited location (e.g. `CITE: mcp-decision-server/server.py:123`). The prose report stays for humans; the verdict block drives automation. **Escape hatch:** If a reply carries no parseable VERDICT line, the autopilot treats it as QA_REJECTED with reason "unparseable verdict" and falls back to the prose report; the Manager may override any machine verdict by explicit order.</behavior>
++    <behavior>Adopt a strictly adversarial mindset. Your goal is to break the Senior Programmer's implementation. Read the "Factual Git Diff" in the active task file. Look for missing null checks, race conditions, unchecked inputs, and missing negative test cases. Do NOT check for formatting or architecture. Output a strict report: Vulnerabilities, Missing Tests, Status (QA_PASSED or QA_REJECTED). If QA_REJECTED, do NOT stop at the verdict. In manual mode the Manager ferries task files between the Hands and the Brain by hand; in autopilot the Hands calls the Brain directly. Either way, always emit the next step yourself: first a 3-line Manager summary (what failed, what the fix covers, where to paste it), then a hotfix `<hands_implementation_task>` XML scoped ONLY to the failing points, instructing the Hands to fix within the EXISTING task file — never a new task number. The Manager copies it to the Hands, brings the result back, and re-runs QA. If the SAME task is rejected a 3rd time, stop emitting fix XML and escalate to the Manager with options instead. If QA_PASSED, instruct the Manager to hand over to the Code Reviewer. **Automatic-mode override:** when MODE is automatic, chain the next `brain_turn` yourself under the same `task_id` (re-QA after fixes, then Reviewer) and never ask the Manager to ferry files or emit copy/paste handoffs. **Machine-Readable Verdict Mandate:** End EVERY QA report with a machine verdict block the autopilot parses with a single regex — first line exactly `VERDICT: QA_PASSED` or `VERDICT: QA_REJECTED`, then one `CITE: file:line` line per cited location (e.g. `CITE: mcp-context-server/server.py:123`). The prose report stays for humans; the verdict block drives automation. **Escape hatch:** If a reply carries no parseable VERDICT line, the autopilot treats it as QA_REJECTED with reason "unparseable verdict" and falls back to the prose report; the Manager may override any machine verdict by explicit order.</behavior>
+ </persona>
+ 
+   <persona name="Code Reviewer">
+diff --git a/prompts/fragments/07-agent_skills_registry.md b/prompts/fragments/07-agent_skills_registry.md
+index 495bcc2..6404437 100644
+--- a/prompts/fragments/07-agent_skills_registry.md
++++ b/prompts/fragments/07-agent_skills_registry.md
+@@ -18,8 +18,6 @@ The following Agent Skills are available. You MUST intelligently instruct the Ha
+ - **design-md**: Extract a comprehensive design system (DESIGN.md) directly from frontend source code — React, Vue, Svelte, Angular, plain HTML/CSS, or any web framework. Analyzes component files, stylesheets, Tailwind configs, theme definitions, and design tokens to produce a rich, Stitch-compatible design system document.
+ - **doc-coauthoring**: Guide users through a structured workflow for co-authoring documentation. Use when user wants to write documentation, proposals, technical specs, decision docs, or similar structured content.
+ - **project-memory**: Smart note-taking and persistent project memory. Automatically saves Manager constraints and proactively retrieves context to prevent hallucinations.
+-- **manager-decision**: Capture per-session manager decisions into a learning repo. Extract rulings, redact secrets, consult past decisions, and evolve the manager-AI sample behind a human review gate.
+-- **decision-migration**: Migrate a project's per-project manager decisions into the separate personal repo. Hands-invoked, dry-run-first, idempotent, append-only.
+ - **testing-strategy**: Enforce Test-Driven Development order and coverage gates so OpenCode writes tests before or alongside implementation code.
+ - **database-migration**: Forbid direct schema alterations and force standard migration tools (Alembic, Prisma, Flyway) for safe, repeatable deployments.
+ - **verification-before-completion**: Mandatory rule before claiming any task is complete, fixed, or passing.
+diff --git a/services/launchd/ai.cognitivelead.mcp-decision.plist b/services/launchd/ai.cognitivelead.mcp-decision.plist
+deleted file mode 100644
+index ab7cf24..0000000
+--- a/services/launchd/ai.cognitivelead.mcp-decision.plist
++++ /dev/null
+@@ -1,18 +0,0 @@
+-<?xml version="1.0" encoding="UTF-8"?>
+-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+-<plist version="1.0">
+-<dict>
+-  <key>Label</key><string>ai.cognitivelead.mcp-decision</string>
+-  <key>ProgramArguments</key>
+-  <array>
+-    <string>{HOME}/.config/opencode/mcp-decision-server/.venv/bin/python</string>
+-    <string>{HOME}/.config/opencode/mcp-decision-server/server.py</string>
+-  </array>
+-  <key>EnvironmentVariables</key>
+-  <dict><key>MCP_TRANSPORT</key><string>streamable-http</string></dict>
+-  <key>RunAtLoad</key><true/>
+-  <key>KeepAlive</key><true/>
+-  <key>StandardOutPath</key><string>{HOME}/Library/Logs/mcp-decision.log</string>
+-  <key>StandardErrorPath</key><string>{HOME}/Library/Logs/mcp-decision.err.log</string>
+-</dict>
+-</plist>
+diff --git a/services/mcp-decision.service b/services/mcp-decision.service
+deleted file mode 100644
+index ac57e90..0000000
+--- a/services/mcp-decision.service
++++ /dev/null
+@@ -1,15 +0,0 @@
+-[Unit]
+-Description=MCP Decision Server singleton (streamable HTTP, loopback only)
+-After=network-online.target
+-Wants=network-online.target
+-
+-[Service]
+-Type=simple
+-WorkingDirectory=%h/.config/opencode/mcp-decision-server
+-Environment=MCP_TRANSPORT=streamable-http
+-ExecStart=%h/.config/opencode/mcp-decision-server/.venv/bin/python %h/.config/opencode/mcp-decision-server/server.py
+-Restart=always
+-RestartSec=3
+-
+-[Install]
+-WantedBy=default.target
+diff --git a/skill-templates/decision-migration/SKILL.md b/skill-templates/decision-migration/SKILL.md
+deleted file mode 100644
+index 53ff132..0000000
+--- a/skill-templates/decision-migration/SKILL.md
++++ /dev/null
+@@ -1,33 +0,0 @@
+----
+-name: decision-migration
+-description: Migrate a project's per-project manager decisions into the separate personal repo. Hands-invoked, dry-run-first, idempotent, append-only.
+----
+-
+-# Decision-Migration Skill
+-
+-> Invoke this skill when the Manager says "call the migration skill" (or equivalent) inside a project. You — the Hands — perform the migration. There is no standalone script; this skill IS the migration capability.
+-
+-## Purpose
+-
+-Old projects keep manager decisions in their per-project `.opencode/decisions/` store. The personal repo is the authoritative personality source. This skill moves records from the former to the latter: scrubbed, verified, de-duplicated, append-only — with the Manager approving before anything is written.
+-
+-## When to Invoke (Trigger)
+-
+-- The Manager names this skill in any project ("migrate the decisions", "call the migration skill").
+-- A project is being onboarded to the personal repo for the first time.
+-
+-## Migration Workflow
+-
+-1. **Start the dry run at once.** On invocation, go straight to step 3 (dry run) with scope = the current project. Ask NOTHING first — no target question, no scope question, no task-file question. STOP only for the two gates below: (a) a HALT condition in step 2, (b) the batch-approval gate in step 4.
+-2. **Resolve endpoints (lookup, never invent).** Source = `<cwd>/.opencode/decisions` (must exist with `decisions/INDEX.md`, else HALT and report — nothing to migrate). Target personal repo, first hit wins: (i) an explicit Manager-provided value; (ii) an already-existing `DECISION_REPO_PATH` env/config key; (iii) the project's `LLM.txt` §7.11 declaration; (iv) a `<parent-of-cwd>/manager-decisions` directory — but ONLY if that directory already exists. If none resolve, HALT and ask the Manager for the target path (this is the ONLY question allowed before the dry run) — via the `question` tool when the session capability manifest shows it AVAILABLE, otherwise in prose. Never create a target directory unasked; never write to a path the Manager has not effectively confirmed — the resolved target is always printed in the dry-run table, and the batch-approval gate below is the confirmation.
+-3. **Dry run first (mandatory).** Read every source record. For each: run `sanitize_text` + `verify_clean` mentally via the `record_manager_decision` validation path — do NOT write. Classify: `would-migrate` / `would-skip` (ID already present in target) / `would-reject` (scrub or schema failure, with reason). The three counts must sum to the scanned total. Present the table + counts + resolved target path to the Manager and STOP (use the `question` tool when the session capability manifest shows it AVAILABLE, otherwise relay the same content in prose). No `record_manager_decision` call happens without an explicit Manager batch-approval phrase — any ambiguous reply counts as NOT approved.
+-3. **Migrate on approval.** For each approved `would-migrate` record: first pre-check the target for an existing identical `migrated_from` value and skip-if-exists (idempotent reruns change nothing). Then persist through `record_manager_decision` (the ONLY write path — scrub + schema + INDEX regen ride along). Carry provenance: `migrated_from: <project-name>/<original-id>` on EVERY migrated record. Never edit the source store; never edit target history in place. Prove source immutability with `git status --porcelain` before and after (source dir must show unmodified).
+-4. **Report.** Final counts: migrated / skipped-existing / rejected-with-reasons. Every rejected ID is listed with its reason — never dropped silently. A failed scrub/verify blocks only that record, never the batch.
+-
+-## Rules
+-
+-- Scrub before store, verify before write — per record, no exceptions, no batch bypass.
+-- Append-only on both ends: corrections are new tombstone records, never edits or deletes.
+-- A failed verification blocks that record and is reported — it never blocks the rest of the batch silently.
+-- Small runs need no task file: runs of 50 records or fewer proceed without creating one. Create a backlog task file ONLY when the source holds more than 50 records or the Manager explicitly asks.
+-- ZAC holds: this skill never commits, pushes, or tags. The Manager commits.
+diff --git a/skill-templates/manager-decision/SKILL.md b/skill-templates/manager-decision/SKILL.md
+deleted file mode 100644
+index 5c3de2e..0000000
+--- a/skill-templates/manager-decision/SKILL.md
++++ /dev/null
+@@ -1,208 +0,0 @@
+----
+-name: manager-decision
+-description: Capture per-session manager decisions into a separate learning repo. Extract rulings, redact secrets, consult past decisions, and evolve the manager-AI sample behind a human review gate.
+----
+-
+-# Manager-Decision Skill
+-
+-> **LIVE:** the `manager_decisions` MCP server is connected (repo + global `opencode.json`). Invoke its tools per the triggers below. Autopilot consults these stored rulings to decide as the manager would.
+-
+-## Purpose
+-
+-Turns each session's manager judgment into training data. Whenever the manager makes a trade-off, ruling, or system-design call, this skill extracts it (verbatim quote + structured decision), redacts secrets, and persists it append-only — since Task 216, to the manager's SEPARATE PERSONAL repo (pointed to by `DECISION_REPO_PATH`, onboarded via `LLM.txt` §7.11), which is the authoritative personality source across all projects. The per-project `.opencode/decisions/` store from Task 168 now serves only as write-through cache + offline fallback, never the personality source: the Task 213 mirror-never-authority rule below is SUPERSEDED for personality scope by explicit manager order (Task 216). Aggregated decisions evolve `samples/manager_profile.md` — the manager-AI sample — one reviewed promotion at a time, until micro-decisions no longer need the real manager.
+-
+-## When to Invoke (Trigger)
+-
+-- The manager states a preference, ruling, or architectural call in session ("use X over Y because…", "approved with…", "never do Z").
+-- A session closes with trade-offs worth preserving (scope cuts, quality-gate verdicts, release calls).
+-- An agent faces an architectural ambiguity the manager has ruled on before (consult first via `query_manager_decisions`).
+-- The sample looks stale: new decisions exist that the profile does not reflect (propose evolution).
+-
+-## Install-Once Path Config (B1)
+-
+-`DECISION_REPO_PATH` is set ONCE at install (shell export or server
+-`.env` file — see `.env.example`), never asked per call. When set, every
+-tool resolves the personal repo silently. When unset, the server falls
+-back to the per-project store and logs which store each record landed in
+-(`active_root` + `store_mode` on every record). Agents MUST NOT prompt
+-for a save path per call; if the path is missing, proceed on the
+-fallback and surface the one-line store note. Primary interface: the
+-`manager_decisions` MCP server (6 tools). This skill is the universal wrapper so agents in ANY project invoke decision capture the same way.
+-
+-## Extraction Workflow
+-
+-1. **Source:** `extract_session_decisions(task_id)` reads `tasks/.sessions/{task_id}/transcript.jsonl` and returns candidate objects (verbatim quote + summary/category/rationale/alternatives/tradeoffs). Candidates are UNSCRUBBED — never persist them directly.
+-2. **Redact:** `record_manager_decision(decision)` runs `sanitize_text` on every free-text field and blocks the write when `verify_clean` fails. Required: API keys (`sk-…`, `ghp_…`, `AIzaSy…`), Bearer tokens, private IPs (`10/8`, `172.16/12`, `192.168/16`), credential assignments.
+-3. **Persist:** valid records land as `decisions/YYYY/MM/DEC-YYYYMMDD-NNN.json` + matching `.md`, and `decisions/INDEX.md` regenerates. The store is append-only — corrections are new records, never edits.
+-4. **Verbatim preservation:** the manager's original statement AND its English translation are stored word-for-word alongside the extracted summary. Summarizing away the source is forbidden.
+-
+-## Consultation Workflow
+-
+-- Call `get_sync_status()` at session start so pending push debt is
+-  visible before new records land (M3 — reads stay stale-available,
+-  writes fail closed on divergence).
+-- Before re-asking the manager, call `query_manager_decisions(query, category?)`.
+-  Consult-first: log the top-3 hits (ranked, best first) before paging
+-  the human. A hit (summary + verbatim quote + rationale) resolves the
+-  ambiguity without bothering the human.
+-- Inject `get_manager_profile()` output into agent reasoning when resolving architectural ambiguities (see cognitive-executor Context Bootstrapping).
+-
+-## Sample-Evolution Loop (Review Gate Mandatory)
+-
+-1. `propose_profile_evolution()` runs `scripts/compile_profile.py` and returns a `DRAFT_READY` draft (category distribution + recurring rationales). It NEVER writes to the sample.
+-2. Present the draft to the manager (via the `question` tool when the session capability manifest shows it AVAILABLE, otherwise in prose); on `APPROVED`, merge the reviewed text into `samples/manager_profile.md` baseline-adjacent generated section.
+-3. On `REJECTED`, record the rejection rationale as a decision (category `process`) so the next draft learns from it.
+-4. Identity updates without approval are forbidden — auto-promotion does not exist by design.
+-
+-## Redaction Rules (Summary)
+-
+-- Scrub before store, verify before write, attest via `redaction_verified: true`.
+-- Private IPs, provider keys, bearer tokens, and `password|secret|api_key = …` assignments are always redacted.
+-- A failed verification blocks persistence with a `ValueError` — surface it, do not bypass it.
+-
+-## Invocation Example (per session)
+-
+-```
+-# After the manager rules on the QA gate in session for task 167:
+-/manager-decision extract  →  extract_session_decisions(task_id=167)
+-                          →  record_manager_decision({...verbatim + category: "quality-gate"...})
+-                          →  "Recorded DEC-20260908-001"
+-
+-# Weeks later, same ambiguity recurs:
+-query_manager_decisions("QA gate retry policy", category="quality-gate")
+-→  "### DEC-20260908-001 [quality-gate] … > <verbatim quote>"
+-→  decide without paging the manager.
+-```
+-
+-## Auto-Trigger Spec (Task 213 — closes the never-called gap)
+-
+-Extraction was callable but never called automatically. Two layers now feed it:
+-
+-1. **Live detector** (`mcp-decision-server/detector.py`, pure function, no LLM):
+-   `detect_decision_moments(turns)` flags turns with 2+ signals (owner:manager +
+-   ruling-phrase + tradeoff-marker + scope-noun). Only candidates with
+-   `passes=True` (named owner + 2 content signals per `passes_precision_bar`)
+-   go to `extract_session_decisions`. Single-signal turns are dropped.
+-2. **End-of-sprint sweep**: scan `tasks/.sessions/*/transcript.jsonl` for
+-   sessions with no decision record; run detection + extraction; queue every
+-   candidate for confirm. Missing file → skip; empty file → keep loud error
+-   (never silently pass). Reuse the extraction LRU/repair path, never a fork.
+-3. **Mandatory confirm gate**: NOTHING persists without the Manager approving
+-   the scrubbed quote + source session + `verify_clean` result. Rejections drop
+-   silently (no write, no retry). Auto-record is forbidden — confirm is slower
+-   but preserves verbatim trust.
+-
+-## Auto-Capture on Task Close (B2 — extract automatically, record gated)
+-
+-On every successful task/sprint close the cognitive executor runs
+-`extract_session_decisions(task_id)` automatically (close rule in
+-`agents/cognitive-executor.md`). Extraction is automatic; PERSISTENCE
+-stays gated: every candidate is queued for Manager confirm (scrubbed
+-quote + source session + `verify_clean` result) and only recorded via
+-`record_manager_decision` after explicit approval. The Task 213
+-confirm gate is preserved — B2 automates the extraction trigger, never
+-the write.
+-
+-## Record Fields (hardened)
+-
+-Optional fields with safe defaults (old callers stay valid):
+-`fidelity` (`verbatim` default — only verbatim records promote to the
+-profile; `reconstructed` stays training data), `mode` (`manual` /
+-`autopilot`), `goal_ref` (goal/session id for lineage), `scope`
+-(`episode` default / `standing` for standing orders with owner + expiry),
+-`fingerprint` (auto sha256; near-duplicates warn, never block).
+-Category `autopilot-cycle` covers autopilot-loop rulings.
+-Maturity L0-L3 counts, coverage, and override rate are computed at
+-promotion time from these fields; the doppelganger runtime stays
+-deferred until the first reviewed promotion lands.
+-
+-## Personal Repo — Separate, Authoritative (Task 216 — SUPERSEDES Task 213 mirror rule)
+-
+-- The manager's decisions live in ONE separate personal repo (public by
+-  default — cooler per manager order; private stays optional), pointed to by
+-  `DECISION_REPO_PATH` and onboarded via `LLM.txt` §7.11 (declare the repo or
+-  let `gh repo create` make it when pre-configured).
+-- It is the AUTHORITATIVE personality source across all projects — every
+-  project stores the manager's raw decisions there, structured, scrubbed, and
+-  append-only. Task 168's per-project authority is explicitly superseded for
+-  personality scope by manager order; per-project `.opencode/decisions/` is a
+-  write-through cache + offline fallback (used when the personal repo is
+-  unreachable; the agent logs which root every record landed in), not the
+-  personality source. Task 213's mirror-never-authority rule is superseded.
+-- Same `decisions/YYYY/MM/DEC-*.json` + `.md` + `INDEX.md` layout and the same
+-  `ENTRY.md` / `OPINIONS.md` / `VOICE.md` / `TOOLS.md` living-document shape;
+-  Task 191 determinism, Task 151 deletion, and the tombstone-only retraction
+-  rule all still hold.
+-- Cooking ownership: raw captures are written by the project-side agent, but
+-  ONLY OpenCode AI cooks raw into macro system-design decisions — project
+-  agents MUST NOT rewrite cooked records; cooking happens in the personal
+-  repo itself (see `policy/cook-review.md` there).
+-- Redaction boundary: `sanitize_text` then `verify_clean` must both pass
+-  before any personal-repo write. Records hold the scrubbed ruling +
+-  verbatim quote + date; secrets never land in the repo (public by default).
+-- Deletion rule: append-only. Retractions are new tombstone records pointing
+-  at the superseded id — never edit or delete history in place.
+-- Challenge-question sharpening: versioned, scored question sets may probe the
+-  repo to sharpen the profile — but profile writes still need the review gate
+-  above. Never free chat, never auto-promotion.
+-- Sync protocol (auto alive): the server pulls before every record and every
+-  read, so recall serves the latest version; a diverged store fails closed
+-  on WRITES (loud error, local state untouched) but READS still serve stale
+-  local state with a loud stderr note — consults never go offline.
+-  Commit + push stay
+-  Manager-owned under ZAC — agents MUST NOT push; every record answer ends
+-  with the visible sync-debt line telling the Manager exactly what to push.
+-  `DECISION_NO_PULL=1` skips the pull (tests / fully offline work only).
+-
+-## Consult-on-Stuck Protocol (Task 216 — the replay skill)
+-
+-When the agent is stuck and needs help, it calls the manager skill — the
+-skill replays what the manager would have decided:
+-
+-1. **Invoke:** `query_manager_decisions("<stuck question>", category?)`
+-   against the personal repo, then `get_manager_profile()` for the cooked
+-   personality. Consult FIRST — before paging the human.
+-2. **Replay line:** every decision the agent takes from a replayed ruling MUST
+-   carry the replay line, so the manager can audit the lineage:
+-   `Replayed from <DEC-ID> (<date>): <verbatim quote, max 200 chars>`.
+-3. **No-match escalation:** if the query returns no usable ruling, the agent
+-   MUST escalate to the manager with the exact query it tried plus why the
+-   top results did not apply — never invent a ruling, never stay silent.
+-4. **Autopilot loop-pole:** in autopilot the consult verdict travels inside
+-    the agent's own turns (decide-from-record, log the replay line, continue);
+-    the human is paged only on no-match escalation. (Per stored
+-    autopilot-cycle ruling DEC-20260912-007.)
+-
+-## Push Protocol (post-record: rebase-first, admin pushes)
+-
+-Recording is agent work; publishing is admin work. After EVERY local
+-decision write, the agent MUST run this exact flow so the personal repo
+-is always alive and the admin sees precisely what to publish:
+-
+-1. **Pull-first (already latest?):** before writing, the server pulls with
+-   rebase (`pull --ff-only`-style semantics): if the pull reports
+-   up-to-date, the store is current — proceed. If it reports new commits,
+-   re-read the affected records after the pull so nothing is cooked from
+-   stale text. If the pull FAILS (diverged / unreachable / dirty tree),
+-   writes fail closed with a loud error — never write on top of unknown
+-   state; reads still serve stale local state with a loud stderr note.
+-2. **Write locally:** `record_manager_decision` appends the scrubbed
+-   record + regenerates `INDEX.md`. Show the admin the local diff
+-   (`git status --short`, new `DEC-*.json/.md` paths).
+-3. **Hand the admin the push command:** print the pending records and the
+-   exact command, and STOP — the admin reviews and pushes:
+-
+-```bash
+-git -C "$DECISION_REPO_PATH" status --short
+-git -C "$DECISION_REPO_PATH" log origin/main..HEAD --oneline
+-echo "Review the records above, then publish:"
+-echo "git -C \"\$DECISION_REPO_PATH\" pull --rebase && git -C \"\$DECISION_REPO_PATH\" push"
+-```
+-
+-4. **Rules:** agents MUST NOT `git push` / `git commit` the personal
+-   repo (ZAC — denied at the permission layer). Never push blind: the
+-   admin always sees the record list first. First push to an empty
+-   remote seeds the branch (`push -u origin main`); an empty remote has
+-   no `main` ref, so skip the pull on first publish. Prune rule: local
+-   per-project cache records may be deleted ONLY after `git ls-tree -r
+-   origin/main --name-only` proves every id exists on the remote.
+diff --git a/skill-templates/opencode-init/references/examples/golden-opencode.json b/skill-templates/opencode-init/references/examples/golden-opencode.json
+index 4b88dbc..6bf53c1 100644
+--- a/skill-templates/opencode-init/references/examples/golden-opencode.json
++++ b/skill-templates/opencode-init/references/examples/golden-opencode.json
+@@ -18,11 +18,6 @@
+     "lint_task_file": "allow",
+     "lint_all_tasks": "allow",
+     "brain_turn": "allow",
+-    "extract_session_decisions": "allow",
+-    "record_manager_decision": "allow",
+-    "query_manager_decisions": "allow",
+-    "get_manager_profile": "allow",
+-    "propose_profile_evolution": "allow",
+     "store_memory": "allow",
+     "delete_memory": "ask",
+     "read_memory": "allow",
+diff --git a/system-prompt.md b/system-prompt.md
+index 214ec65..15b17d3 100644
+--- a/system-prompt.md
++++ b/system-prompt.md
+@@ -99,7 +99,7 @@ CRITICAL INSTRUCTION: The Manager may send informal, raw text. Before taking any
+   <persona name="QA Engineer">
+     <trigger>Implementation phase is complete, or explicit Manager request for testing.</trigger>
+     <duty>Adversarial testing, boundary analysis, fuzzing, and stability enforcement.</duty>
+-    <behavior>Adopt a strictly adversarial mindset. Your goal is to break the Senior Programmer's implementation. Read the "Factual Git Diff" in the active task file. Look for missing null checks, race conditions, unchecked inputs, and missing negative test cases. Do NOT check for formatting or architecture. Output a strict report: Vulnerabilities, Missing Tests, Status (QA_PASSED or QA_REJECTED). If QA_REJECTED, do NOT stop at the verdict. In manual mode the Manager ferries task files between the Hands and the Brain by hand; in autopilot the Hands calls the Brain directly. Either way, always emit the next step yourself: first a 3-line Manager summary (what failed, what the fix covers, where to paste it), then a hotfix `<hands_implementation_task>` XML scoped ONLY to the failing points, instructing the Hands to fix within the EXISTING task file — never a new task number. The Manager copies it to the Hands, brings the result back, and re-runs QA. If the SAME task is rejected a 3rd time, stop emitting fix XML and escalate to the Manager with options instead. If QA_PASSED, instruct the Manager to hand over to the Code Reviewer. **Automatic-mode override:** when MODE is automatic, chain the next `brain_turn` yourself under the same `task_id` (re-QA after fixes, then Reviewer) and never ask the Manager to ferry files or emit copy/paste handoffs. **Machine-Readable Verdict Mandate:** End EVERY QA report with a machine verdict block the autopilot parses with a single regex — first line exactly `VERDICT: QA_PASSED` or `VERDICT: QA_REJECTED`, then one `CITE: file:line` line per cited location (e.g. `CITE: mcp-decision-server/server.py:123`). The prose report stays for humans; the verdict block drives automation. **Escape hatch:** If a reply carries no parseable VERDICT line, the autopilot treats it as QA_REJECTED with reason "unparseable verdict" and falls back to the prose report; the Manager may override any machine verdict by explicit order.</behavior>
++    <behavior>Adopt a strictly adversarial mindset. Your goal is to break the Senior Programmer's implementation. Read the "Factual Git Diff" in the active task file. Look for missing null checks, race conditions, unchecked inputs, and missing negative test cases. Do NOT check for formatting or architecture. Output a strict report: Vulnerabilities, Missing Tests, Status (QA_PASSED or QA_REJECTED). If QA_REJECTED, do NOT stop at the verdict. In manual mode the Manager ferries task files between the Hands and the Brain by hand; in autopilot the Hands calls the Brain directly. Either way, always emit the next step yourself: first a 3-line Manager summary (what failed, what the fix covers, where to paste it), then a hotfix `<hands_implementation_task>` XML scoped ONLY to the failing points, instructing the Hands to fix within the EXISTING task file — never a new task number. The Manager copies it to the Hands, brings the result back, and re-runs QA. If the SAME task is rejected a 3rd time, stop emitting fix XML and escalate to the Manager with options instead. If QA_PASSED, instruct the Manager to hand over to the Code Reviewer. **Automatic-mode override:** when MODE is automatic, chain the next `brain_turn` yourself under the same `task_id` (re-QA after fixes, then Reviewer) and never ask the Manager to ferry files or emit copy/paste handoffs. **Machine-Readable Verdict Mandate:** End EVERY QA report with a machine verdict block the autopilot parses with a single regex — first line exactly `VERDICT: QA_PASSED` or `VERDICT: QA_REJECTED`, then one `CITE: file:line` line per cited location (e.g. `CITE: mcp-context-server/server.py:123`). The prose report stays for humans; the verdict block drives automation. **Escape hatch:** If a reply carries no parseable VERDICT line, the autopilot treats it as QA_REJECTED with reason "unparseable verdict" and falls back to the prose report; the Manager may override any machine verdict by explicit order.</behavior>
+ </persona>
+ 
+   <persona name="Code Reviewer">
+@@ -135,8 +135,6 @@ The following Agent Skills are available. You MUST intelligently instruct the Ha
+ - **design-md**: Extract a comprehensive design system (DESIGN.md) directly from frontend source code — React, Vue, Svelte, Angular, plain HTML/CSS, or any web framework. Analyzes component files, stylesheets, Tailwind configs, theme definitions, and design tokens to produce a rich, Stitch-compatible design system document.
+ - **doc-coauthoring**: Guide users through a structured workflow for co-authoring documentation. Use when user wants to write documentation, proposals, technical specs, decision docs, or similar structured content.
+ - **project-memory**: Smart note-taking and persistent project memory. Automatically saves Manager constraints and proactively retrieves context to prevent hallucinations.
+-- **manager-decision**: Capture per-session manager decisions into a learning repo. Extract rulings, redact secrets, consult past decisions, and evolve the manager-AI sample behind a human review gate.
+-- **decision-migration**: Migrate a project's per-project manager decisions into the separate personal repo. Hands-invoked, dry-run-first, idempotent, append-only.
+ - **testing-strategy**: Enforce Test-Driven Development order and coverage gates so OpenCode writes tests before or alongside implementation code.
+ - **database-migration**: Forbid direct schema alterations and force standard migration tools (Alembic, Prisma, Flyway) for safe, repeatable deployments.
+ - **verification-before-completion**: Mandatory rule before claiming any task is complete, fixed, or passing.
+diff --git a/tests/test_authority_retrieval.py b/tests/test_authority_retrieval.py
+index aef81e3..d9b9799 100644
+--- a/tests/test_authority_retrieval.py
++++ b/tests/test_authority_retrieval.py
+@@ -177,7 +177,6 @@ def test_regression_source_functions_untouched():
+     root = Path(__file__).parent.parent
+     for name, subdir, func, params in (
+         ("mem_server_249", "mcp-memory-server", "search_memory", ["query", "namespace", "project_root"]),
+-        ("dec_server_249", "mcp-decision-server", "query_manager_decisions", ["query", "category", "project_root"]),
+     ):
+         sys.path.insert(0, str(root / subdir))
+         try:
+diff --git a/tests/test_brain_bridge.py b/tests/test_brain_bridge.py
+index 0bd0914..37805b2 100644
+--- a/tests/test_brain_bridge.py
++++ b/tests/test_brain_bridge.py
+@@ -2515,7 +2515,6 @@ def _close_ready_task():
+     return (
+         "VERDICT: QA_PASSED\nstate PO_REVIEW_PENDING\n"
+         'Manager wrote: "Approved for closure".\n'
+-        "Ran extract_session_decisions(241): [] loudly, nothing queued.\n"
+         "<!-- BEGIN_GIT_DIFF -->\n```diff\n"
+         "diff --git a/f.py b/f.py\n+fix\n"
+         "```\n<!-- END_GIT_DIFF -->"
+@@ -2553,14 +2552,6 @@ def test_closure_checklist_missing_each():
+             )
+         )
+     )
+-    assert any(
+-        "extract_session_decisions" in p
+-        for p in bridge.validate_closure_checklist(
+-            base.replace(
+-                "Ran extract_session_decisions(241): [] loudly, nothing queued.\n", ""
+-            )
+-        )
+-    )
+ 
+ 
+ def _mk_project(tmp_path, name):
+diff --git a/tests/test_decision_server.py b/tests/test_decision_server.py
+deleted file mode 100644
+index 2916b95..0000000
+--- a/tests/test_decision_server.py
++++ /dev/null
+@@ -1,2419 +0,0 @@
+-"""Unit tests for mcp-decision-server (Task 168).
+-
+-Covers:
+-- `redactor.sanitize_text` / `verify_clean`: provider keys, bearer tokens,
+-  private IPs, credential assignments, idempotency, clean-text passthrough.
+-- Schema validation: valid record accepted, violations rejected.
+-- `record_manager_decision`: JSON + Markdown creation, daily sequencing,
+-  INDEX regeneration, schema-gate rejection — all inside a tmp decision
+-  repo via `DECISION_REPO_PATH` (never touches the real package).
+-- `query_manager_decisions`: keyword, category filter, no-match message.
+-- `get_manager_profile` / `propose_profile_evolution`: missing/empty/draft.
+-- `extract_session_decisions`: missing transcript → [], stubbed-LLM parse.
+-
+-Run: `pytest tests/test_decision_server.py -v` (repo root).
+-"""
+-
+-import importlib
+-import json
+-import os
+-import re
+-import shutil
+-import sys
+-import types
+-from pathlib import Path
+-
+-import pytest
+-
+-DECISION_DIR = Path(__file__).parent.parent / "mcp-decision-server"
+-REAL_SCRIPTS = (
+-    Path(__file__).parent.parent
+-    / ".opencode" / "decisions" / "scripts"
+-)
+-sys.path.insert(0, str(DECISION_DIR))
+-
+-
+-def _load(name, filename):
+-    spec = importlib.util.spec_from_file_location(name, DECISION_DIR / filename)
+-    mod = importlib.util.module_from_spec(spec)
+-    sys.modules[name] = mod
+-    spec.loader.exec_module(mod)
+-    return mod
+-
+-
+-@pytest.fixture(scope="module")
+-def red():
+-    return _load("decision_redactor", "redactor.py")
+-
+-
+-@pytest.fixture(scope="module")
+-def srv():
+-    sys.modules["redactor"] = _load("decision_redactor", "redactor.py")
+-    return _load("decision_server", "server.py")
+-
+-
+-@pytest.fixture()
+-def repo(tmp_path, monkeypatch):
+-    """Isolated decision repo (decisions/ + scripts/) per test."""
+-    monkeypatch.setenv("DECISION_REPO_PATH", str(tmp_path))
+-    (tmp_path / "decisions").mkdir()
+-    shutil.copytree(REAL_SCRIPTS, tmp_path / "scripts")
+-    return tmp_path
+-
+-
+-def _candidate(**overrides):
+-    base = {
+-        "project_name": "cognitive-lead-hq",
+-        "session_id": "168",
+-        "verbatim_quote": {
+-            "original": "از composition استفاده کن",
+-            "english_translation": "Use composition over inheritance",
+-        },
+-        "extracted_decision": {
+-            "summary": "Prefer composition over inheritance",
+-            "category": "architecture",
+-            "rationale": "Manager stated it as a standing rule",
+-            "alternatives": ["deep inheritance hierarchies"],
+-            "tradeoffs": "Slightly more wiring code",
+-        },
+-    }
+-    base.update(overrides)
+-    return base
+-
+-
+-# --- redactor ---------------------------------------------------------------
+-
+-def test_sanitize_api_keys(red):
+-    dirty = "key=sk-proj-abc123XYZ456 and ghp_0123456789abcdef plus AIzaSyB1234567890abcd"
+-    clean = red.sanitize_text(dirty)
+-    assert "sk-proj-abc123XYZ456" not in clean
+-    assert "ghp_0123456789abcdef" not in clean
+-    assert "AIzaSyB1234567890abcd" not in clean
+-    assert red.verify_clean(clean) is True
+-
+-
+-def test_sanitize_bearer_and_ips(red):
+-    dirty = "Authorization: Bearer abcdef123456 sent from 10.0.3.7 via 192.168.1.1"
+-    clean = red.sanitize_text(dirty)
+-    assert "abcdef123456" not in clean
+-    assert "10.0.3.7" not in clean and "192.168.1.1" not in clean
+-    assert red.verify_clean(clean) is True
+-
+-
+-def test_sanitize_credential_assignment(red):
+-    dirty = 'config has password = "s3cr3t-hunter2" inside'
+-    clean = red.sanitize_text(dirty)
+-    assert "s3cr3t-hunter2" not in clean
+-    assert red.verify_clean(clean) is True
+-
+-
+-def test_verify_detects_raw_secrets(red):
+-    assert red.verify_clean("token sk-live-ABCDEF123456") is False
+-    assert red.verify_clean("server at 172.20.0.5") is False
+-    assert red.verify_clean("password=hunter2") is False
+-
+-
+-def test_sanitize_env_style_assignment_names(red):
+-    # Task 242 B1: ENV-style names (BRAIN_API_KEY=, FOO_SECRET=) must redact —
+-    # the leading \b missed names joined by underscore.
+-    dirty = "BRAIN_API_KEY=abc123XYZ and FOO_SECRET=hunter2 and my-auth-token: zz99x"
+-    clean = red.sanitize_text(dirty)
+-    assert "abc123XYZ" not in clean
+-    assert "hunter2" not in clean
+-    assert "zz99x" not in clean
+-    assert red.verify_clean(clean) is True
+-
+-
+-def test_sanitize_short_bearer_with_digit(red):
+-    # Task 242 B1: short digit-bearing Bearer tokens must redact.
+-    dirty = "Authorization: Bearer abc123"
+-    clean = red.sanitize_text(dirty)
+-    assert "abc123" not in clean
+-    assert red.verify_clean(clean) is True
+-
+-
+-def test_no_false_positive_on_prose(red):
+-    # Guard: plain prose and letter-joined names must pass through untouched.
+-    assert red.sanitize_text("Bearer tokens are standard") == "Bearer tokens are standard"
+-    assert red.sanitize_text("topsecret=x") == "topsecret=x"
+-    assert red.verify_clean("Bearer tokens are standard") is True
+-
+-
+-def test_verify_detects_env_style_raw(red):
+-    assert red.verify_clean("FOO_SECRET=hunter2") is False
+-    assert red.verify_clean("Authorization: Bearer abc123") is False
+-
+-
+-def test_sanitize_short_bearer_punctuation_no_suffix_leak(red):
+-    # QA hotfix: `Bearer abcd-1` must fully redact — no `-1` suffix may leak.
+-    dirty = "Authorization: Bearer abcd-1"
+-    clean = red.sanitize_text(dirty)
+-    assert "abcd-1" not in clean
+-    assert "-1" not in clean
+-    assert red.verify_clean(clean) is True
+-
+-
+-def test_sanitize_quoted_assignment_value(red):
+-    # QA hotfix: quoted assignment values must redact end to end.
+-    dirty = 'FOO_SECRET="hunter2"'
+-    assert red.verify_clean(dirty) is False
+-    assert red.verify_clean(red.sanitize_text(dirty)) is True
+-
+-
+-def test_sanitize_quoted_colon_assignment_value(red):
+-    # QA hotfix: quoted colon-form values must redact end to end.
+-    dirty = "API_KEY: 'abc123'"
+-    assert red.verify_clean(dirty) is False
+-    assert red.verify_clean(red.sanitize_text(dirty)) is True
+-
+-
+-def test_letter_joined_name_passes_verify(red):
+-    # QA hotfix: letter-joined names are not credential assignments.
+-    assert red.sanitize_text("topsecret=x") == "topsecret=x"
+-    assert red.verify_clean("topsecret=x") is True
+-
+-
+-def test_sanitize_clean_text_passthrough_and_idempotent(red):
+-    text = "Prefer composition over inheritance for testability."
+-    assert red.sanitize_text(text) == text
+-    assert red.verify_clean(text) is True
+-    once = red.sanitize_text("key sk-proj-abc123XYZ456 here")
+-    assert red.sanitize_text(once) == once  # Fixed point: markers never re-match.
+-    assert red.verify_clean(once) is True
+-
+-
+-# --- record / validate ---------------------------------------------------------
+-
+-def test_record_creates_json_md_and_index(srv, repo):
+-    result = srv.record_manager_decision.fn(_candidate()) \
+-        if hasattr(srv.record_manager_decision, "fn") else srv.record_manager_decision(_candidate())
+-    assert "Recorded DEC-" in result
+-    day_files = sorted((repo / "decisions").rglob("DEC-*.json"))
+-    assert len(day_files) == 1
+-    record = json.loads(day_files[0].read_text(encoding="utf-8"))
+-    assert record["redaction_verified"] is True
+-    assert record["verbatim_quote"]["original"] == "از composition استفاده کن"
+-    assert day_files[0].with_suffix(".md").is_file()
+-    index = (repo / "decisions" / "INDEX.md").read_text(encoding="utf-8")
+-    assert record["decision_id"] in index
+-
+-
+-def test_record_daily_sequence_increments(srv, repo):
+-    call = srv.record_manager_decision
+-    target = call.fn if hasattr(call, "fn") else call
+-    first = target(_candidate())
+-    second = target(_candidate())
+-    id1 = first.split("Recorded ")[1].split(" ")[0]
+-    id2 = second.split("Recorded ")[1].split(" ")[0]
+-    assert id1 != id2 and id1[:-3] == id2[:-3]  # Same day, next sequence.
+-    assert int(id2[-3:]) == int(id1[-3:]) + 1
+-
+-
+-def test_record_rejects_schema_violations(srv, repo):
+-    call = srv.record_manager_decision
+-    target = call.fn if hasattr(call, "fn") else call
+-    bad = _candidate()
+-    bad["extracted_decision"]["category"] = "not-a-category"
+-    with pytest.raises(ValueError, match="schema violations"):
+-        target(bad)
+-    assert list((repo / "decisions").rglob("DEC-*.json")) == []  # Nothing written.
+-
+-
+-def test_record_scrubs_secrets_before_write(srv, repo):
+-    call = srv.record_manager_decision
+-    target = call.fn if hasattr(call, "fn") else call
+-    sneaky = _candidate()
+-    sneaky["extracted_decision"]["rationale"] = "approved, key sk-proj-SECRET1234567890 ok"
+-    target(sneaky)
+-    stored = json.loads(next((repo / "decisions").rglob("DEC-*.json")).read_text(encoding="utf-8"))
+-    assert "SECRET1234567890" not in json.dumps(stored)
+-    assert stored["redaction_verified"] is True
+-
+-
+-# --- query / profile / propose ---------------------------------------------------
+-
+-def _record(call, cand):
+-    target = call.fn if hasattr(call, "fn") else call
+-    return target(cand)
+-
+-
+-def test_query_keyword_and_category(srv, repo):
+-    _record(srv.record_manager_decision, _candidate())
+-    other = _candidate()
+-    other["extracted_decision"] = {
+-        "summary": "QA gate needs two reviewers",
+-        "category": "quality-gate",
+-        "rationale": "Manager ruling after flaky release",
+-        "alternatives": [],
+-        "tradeoffs": "Slower merges",
+-    }
+-    _record(srv.record_manager_decision, other)
+-    call = srv.query_manager_decisions
+-    target = call.fn if hasattr(call, "fn") else call
+-    assert "composition" in target("composition").lower()
+-    assert "quality-gate" in target("", category="quality-gate")
+-    assert "No manager decisions match" in target("zzz-no-such-thing")
+-
+-
+-def test_query_hits_term_only_in_alternatives(srv, repo):
+-    """Regression: a keyword present only in alternatives[] must hit."""
+-    cand = _candidate()
+-    cand["extracted_decision"] = {
+-        "summary": "Adopt the new runner",
+-        "category": "tooling",
+-        "rationale": "Faster feedback on every push",
+-        "alternatives": ["keep the legacy zebracorn runner"],
+-        "tradeoffs": "Migration effort",
+-    }
+-    _record(srv.record_manager_decision, cand)
+-    call = srv.query_manager_decisions
+-    target = call.fn if hasattr(call, "fn") else call
+-    found = target("zebracorn")
+-    assert "No manager decisions match" not in found
+-    assert "Adopt the new runner" in found
+-
+-
+-def test_get_manager_profile_missing_and_present(srv, repo, monkeypatch):
+-    call = srv.get_manager_profile
+-    target = call.fn if hasattr(call, "fn") else call
+-    assert "No manager profile" in target()
+-    samples = repo / "samples"
+-    samples.mkdir()
+-    (samples / "manager_profile.md").write_text("# Manager Profile\nBaseline.", encoding="utf-8")
+-    assert "Baseline" in target()
+-
+-
+-def test_propose_profile_empty_then_draft(srv, repo):
+-    call = srv.propose_profile_evolution
+-    target = call.fn if hasattr(call, "fn") else call
+-    assert target()["status"] == "EMPTY"
+-    _record(srv.record_manager_decision, _candidate())
+-    ready = target()
+-    assert ready["status"] == "DRAFT_READY"
+-    assert "Category distribution" in ready["draft"]
+-
+-
+-# --- hardening (fidelity/mode/scope/fingerprint/ranked/sync) ---------------------
+-
+-def test_record_sets_hardening_defaults(srv, repo):
+-    _record(srv.record_manager_decision, _candidate())
+-    record = json.loads(next((repo / "decisions").rglob("DEC-*.json")).read_text(encoding="utf-8"))
+-    assert record["fidelity"] == "verbatim"
+-    assert record["mode"] == "manual"
+-    assert record["scope"] == "episode"
+-    assert record["goal_ref"] == ""
+-    assert re.fullmatch(r"[0-9a-f]{64}", record["fingerprint"])
+-
+-
+-def test_record_rejects_bad_optionals(srv, repo):
+-    call = srv.record_manager_decision
+-    target = call.fn if hasattr(call, "fn") else call
+-    bad = _candidate()
+-    bad["fidelity"] = "telepathic"
+-    with pytest.raises(ValueError, match="schema violations"):
+-        target(bad)
+-    assert list((repo / "decisions").rglob("DEC-*.json")) == []
+-
+-
+-def test_record_duplicate_warns_not_blocks(srv, repo):
+-    call = srv.record_manager_decision
+-    target = call.fn if hasattr(call, "fn") else call
+-    first = target(_candidate())
+-    second = target(_candidate())
+-    assert "Recorded DEC-" in first and "Recorded DEC-" in second
+-    assert "Possible duplicate" in second
+-
+-
+-def test_query_ranked_summary_first(srv, repo):
+-    first = _candidate()
+-    first["extracted_decision"] = {
+-        "summary": "Adopt the zebracorn runner",
+-        "category": "tooling",
+-        "rationale": "Unrelated reason",
+-        "alternatives": [],
+-        "tradeoffs": "Unrelated cost",
+-    }
+-    second = _candidate()
+-    second["extracted_decision"] = {
+-        "summary": "Unrelated change",
+-        "category": "tooling",
+-        "rationale": "Unrelated reason",
+-        "alternatives": [],
+-        "tradeoffs": "Mentions zebracorn once",
+-    }
+-    _record(srv.record_manager_decision, first)
+-    _record(srv.record_manager_decision, second)
+-    call = srv.query_manager_decisions
+-    target = call.fn if hasattr(call, "fn") else call
+-    found = target("zebracorn")
+-    assert found.index("Adopt the zebracorn runner") < found.index("Unrelated change")
+-
+-
+-def test_sync_status_reports_debt(srv, repo):
+-    call = srv.get_sync_status
+-    target = call.fn if hasattr(call, "fn") else call
+-    status = target()
+-    assert "personal repo" in status
+-    assert "sync debt" in status or "not a git checkout" in status
+-
+-
+-def test_fingerprint_tolerates_string_quote(srv):
+-    fp = srv._decision_fingerprint({"verbatim_quote": "stray string",
+-                                    "extracted_decision": {"summary": "s"}})
+-    assert re.fullmatch(r"[0-9a-f]{64}", fp)
+-
+-
+-def test_fingerprint_scan_skips_nondict_file(srv, repo):
+-    bad = repo / "decisions" / "2026" / "09" / "DEC-20260914-099.json"
+-    bad.parent.mkdir(parents=True, exist_ok=True)
+-    bad.write_text("[1, 2, 3]", encoding="utf-8")
+-    assert srv._find_fingerprint_hit(repo, "0" * 64) is None
+-    assert srv._rewrite_index(repo) == 0  # same H2 class, must not crash
+-
+-
+-def test_record_explicit_none_gets_defaults(srv, repo):
+-    call = srv.record_manager_decision
+-    target = call.fn if hasattr(call, "fn") else call
+-    cand = _candidate()
+-    cand["fidelity"] = None
+-    cand["mode"] = None
+-    cand["scope"] = None
+-    cand["goal_ref"] = None
+-    target(cand)
+-    record = json.loads(next((repo / "decisions").rglob("DEC-*.json")).read_text(encoding="utf-8"))
+-    assert record["fidelity"] == "verbatim"
+-    assert record["mode"] == "manual"
+-    assert record["scope"] == "episode"
+-    assert record["goal_ref"] == ""
+-
+-
+-# --- extract (stubbed LLM) ---------------------------------------------------------
+-
+-def test_extract_missing_transcript_returns_empty(srv, tmp_path):
+-    call = srv.extract_session_decisions
+-    target = call.fn if hasattr(call, "fn") else call
+-    assert target(424242, transcript_path=str(tmp_path / "nope.jsonl")) == []
+-
+-
+-def test_extract_parses_stubbed_llm_json(srv, tmp_path, monkeypatch):
+-    transcript = tmp_path / "transcript.jsonl"
+-    transcript.write_text(
+-        json.dumps({"role": "user", "content": "ship it", "name": "m",
+-                    "timestamp": "2026-09-08T00:00:00+00:00"}) + "\n",
+-        encoding="utf-8",
+-    )
+-    candidates = [{
+-        "verbatim_quote": {"original": "ship it", "english_translation": "y"},
+-        "extracted_decision": {"summary": "s", "category": "architecture",
+-                               "rationale": "r", "alternatives": [], "tradeoffs": "t"},
+-    }]
+-    stub_resp = types.SimpleNamespace(
+-        status_code=200, text="stub", headers={},
+-        raise_for_status=lambda: None,
+-        json=lambda: {
+-            "output": [
+-                {"type": "message",
+-                 "content": [{"type": "output_text",
+-                              "text": json.dumps(candidates)}]}
+-            ]
+-        },
+-    )
+-
+-    class _FakeClient:
+-        def __init__(self, *a, **k):
+-            pass
+-
+-        def __enter__(self):
+-            return self
+-
+-        def __exit__(self, *a):
+-            return False
+-
+-        def post(self, *a, **k):
+-            return stub_resp
+-
+-    stub = types.ModuleType("httpx")
+-    stub.Client = _FakeClient
+-    stub.TimeoutException = type("TimeoutException", (Exception,), {})
+-    stub.TransportError = type("TransportError", (Exception,), {})
+-
+-    class _Timeout:
+-        def __init__(self, *a, **k):
+-            pass
+-
+-    stub.Timeout = _Timeout
+-    monkeypatch.setitem(sys.modules, "httpx", stub)
+-    call = srv.extract_session_decisions
+-    target = call.fn if hasattr(call, "fn") else call
+-    assert target(1, transcript_path=str(transcript)) == candidates
+-
+-
+-def test_extract_truncates_oversized_transcript_with_note(
+-        srv, tmp_path, monkeypatch):
+-    # The transcript is sent whole, so an oversized session produced an
+-    # unbounded prompt — the exact starvation the cap exists to bound. The
+-    # prompt now carries the capped text plus an explicit dropped count.
+-    lines = [
+-        json.dumps({"role": "user", "content": "x" * 40}) for _ in range(5)
+-    ]
+-    transcript = tmp_path / "transcript.jsonl"
+-    transcript.write_text("\n".join(lines) + "\n", encoding="utf-8")
+-    joined = "\n".join(f"[user] {'x' * 40}" for _ in range(5))
+-    monkeypatch.setenv("DECISION_TRANSCRIPT_MAX_CHARS", "20")
+-
+-    captured: dict = {}
+-    stub_resp = types.SimpleNamespace(
+-        status_code=200, text="stub", headers={},
+-        raise_for_status=lambda: None,
+-        json=lambda: {
+-            "output": [
+-                {"type": "message",
+-                 "content": [{"type": "output_text", "text": "[]"}]}
+-            ]
+-        },
+-    )
+-
+-    class _FakeClient:
+-        def __init__(self, *a, **k):
+-            pass
+-
+-        def __enter__(self):
+-            return self
+-
+-        def __exit__(self, *a):
+-            return False
+-
+-        def post(self, *a, **k):
+-            captured["kwargs"] = k
+-            return stub_resp
+-
+-    stub = types.ModuleType("httpx")
+-    stub.Client = _FakeClient
+-    stub.TimeoutException = type("TimeoutException", (Exception,), {})
+-    stub.TransportError = type("TransportError", (Exception,), {})
+-
+-    class _Timeout:
+-        def __init__(self, *a, **k):
+-            pass
+-
+-    stub.Timeout = _Timeout
+-    monkeypatch.setitem(sys.modules, "httpx", stub)
+-    call = srv.extract_session_decisions
+-    target = call.fn if hasattr(call, "fn") else call
+-    assert target(1, transcript_path=str(transcript)) == []
+-
+-    kwargs = captured["kwargs"]
+-    sent = kwargs.get("json")
+-    if sent is None:
+-        raw = kwargs.get("content")
+-        sent = json.loads(raw) if isinstance(raw, (str, bytes)) else None
+-    assert isinstance(sent, dict), kwargs
+-    # The request shape is unchanged: the same core fields, nothing new.
+-    assert {"model", "input", "max_output_tokens"} <= set(sent)
+-    assert set(sent) <= {"model", "input", "max_output_tokens",
+-                         "reasoning", "temperature"}
+-    content = sent["input"][0]["content"]
+-    dropped = len(joined) - 20
+-    assert f"[...truncated at {dropped} chars]" in content
+-    # The uncapped tail never reached the provider.
+-    assert content.count("x" * 40) == 0
+-
+-
+-def test_load_env_files_from_cwd_and_never_overrides(srv, tmp_path, monkeypatch):
+-    (tmp_path / ".env").write_text(
+-        "DECISION_TEST_PROBE=probe-value-456\n", encoding="utf-8"
+-    )
+-    monkeypatch.chdir(tmp_path)
+-    monkeypatch.delenv("DECISION_TEST_PROBE", raising=False)
+-    srv._load_env_files()
+-    assert os.environ.get("DECISION_TEST_PROBE") == "probe-value-456"
+-    monkeypatch.setenv("DECISION_TEST_PROBE", "keep-me")
+-    srv._load_env_files()
+-    assert os.environ.get("DECISION_TEST_PROBE") == "keep-me"
+-
+-
+-def test_load_env_files_parent_fallback_without_cwd(srv, tmp_path, monkeypatch):
+-    # Same regression as persona server: no cwd .env → install-root .env.
+-    fake_root = tmp_path / "install"
+-    fake_server = fake_root / "mcp-decision-server"
+-    fake_server.mkdir(parents=True)
+-    (fake_root / ".env").write_text("DECISION_PARENT_PROBE=from-parent\n", encoding="utf-8")
+-    empty_cwd = tmp_path / "elsewhere"
+-    empty_cwd.mkdir()
+-    monkeypatch.chdir(empty_cwd)
+-    monkeypatch.delenv("DECISION_PARENT_PROBE", raising=False)
+-    loaded = srv._load_env_files(server_dir=fake_server)
+-    assert loaded is not None and loaded.endswith(".env")
+-    assert os.environ.get("DECISION_PARENT_PROBE") == "from-parent"
+-
+-
+-def test_decision_model_split_no_persona_fallback(srv, monkeypatch):
+-    call = srv._get_decision_model
+-    monkeypatch.delenv("DECISION_MODEL", raising=False)
+-    monkeypatch.setenv("PERSONA_MODEL", "openrouter/custom/persona")
+-    assert call() == "gpt-6-astra"  # Stale persona value never hijacks.
+-    monkeypatch.setenv("DECISION_MODEL", "openrouter/custom/extractor")
+-    assert call() == "openrouter/custom/extractor"
+-    monkeypatch.setenv("DECISION_MODEL", "   ")
+-    assert call() == "gpt-6-astra"  # Blank means unset.
+-
+-
+-def test_decision_env_precedence_over_brain_fallbacks(srv, monkeypatch):
+-    monkeypatch.setenv("BRAIN_API_BASE", "http://brain-base")
+-    monkeypatch.setenv("BRAIN_API_KEY", "sk-brain")
+-    monkeypatch.setenv("BRAIN_REASONING_EFFORT", "low")
+-    monkeypatch.setenv("DECISION_API_BASE", "https://decisions-base")
+-    monkeypatch.setenv("DECISION_API_KEY", "sk-decisions")
+-    monkeypatch.setenv("DECISION_REASONING_EFFORT", "xhigh")
+-    assert srv._get_api_base() == "https://decisions-base"
+-    assert srv._get_api_key() == "sk-decisions"
+-    assert srv._get_decision_effort() == "xhigh"
+-
+-
+-def test_decision_env_blank_falls_back_to_brain(srv, monkeypatch):
+-    monkeypatch.setenv("BRAIN_API_BASE", "https://brain-base")
+-    monkeypatch.setenv("BRAIN_API_KEY", "sk-brain")
+-    monkeypatch.setenv("BRAIN_REASONING_EFFORT", "low")
+-    monkeypatch.setenv("DECISION_API_BASE", "   ")
+-    monkeypatch.setenv("DECISION_API_KEY", "   ")
+-    monkeypatch.setenv("DECISION_REASONING_EFFORT", "   ")
+-    assert srv._get_api_base() == "https://brain-base"
+-    assert srv._get_api_key() == "sk-brain"
+-    assert srv._get_decision_effort() == "low"
+-
+-
+-def test_decision_api_key_fail_closed_names_both(srv, monkeypatch):
+-    monkeypatch.delenv("DECISION_API_KEY", raising=False)
+-    monkeypatch.delenv("BRAIN_API_KEY", raising=False)
+-    with pytest.raises(RuntimeError, match="DECISION_API_KEY/BRAIN_API_KEY"):
+-        srv._get_api_key()
+-
+-
+-def test_repo_root_prefers_cwd_project_store(srv, tmp_path, monkeypatch):
+-    # Project-aware resolution: <cwd>/.opencode/decisions wins without any env.
+-    monkeypatch.delenv("DECISION_REPO_PATH", raising=False)
+-    monkeypatch.chdir(tmp_path)
+-    root = srv._repo_root()
+-    assert root == tmp_path / ".opencode" / "decisions"
+-    assert root.is_dir()
+-
+-
+-def test_repo_root_explicit_override_wins(srv, tmp_path, monkeypatch):
+-    # Explicit DECISION_REPO_PATH beats the cwd convention.
+-    custom = tmp_path / "shared-store"
+-    monkeypatch.setenv("DECISION_REPO_PATH", str(custom))
+-    monkeypatch.chdir(tmp_path)
+-    assert srv._repo_root() == custom
+-    assert custom.is_dir()
+-
+-
+-def test_decision_temperature_default_and_overrides(srv, monkeypatch):
+-    monkeypatch.delenv("DECISION_TEMPERATURE", raising=False)
+-    assert srv._get_decision_temperature() == 1.0
+-    monkeypatch.setenv("DECISION_TEMPERATURE", "0.2")
+-    assert srv._get_decision_temperature() == 0.2
+-    # Blank means unset: the default wins.
+-    monkeypatch.setenv("DECISION_TEMPERATURE", "")
+-    assert srv._get_decision_temperature() == 1.0
+-    # A bad configuration fails loudly instead of being clamped away.
+-    for bad in ("not-a-float", "9.9", "-0.5"):
+-        monkeypatch.setenv("DECISION_TEMPERATURE", bad)
+-        with pytest.raises(ValueError) as err:
+-            srv._get_decision_temperature()
+-        assert "DECISION_TEMPERATURE" in str(err.value)
+-
+-
+-def test_decision_transcript_max_chars_default_blank_and_override(
+-        srv, monkeypatch):
+-    # Blank means unset: the documented default wins.
+-    monkeypatch.delenv("DECISION_TRANSCRIPT_MAX_CHARS", raising=False)
+-    assert srv._get_decision_transcript_max_chars() == 131072
+-    monkeypatch.setenv("DECISION_TRANSCRIPT_MAX_CHARS", "")
+-    assert srv._get_decision_transcript_max_chars() == 131072
+-    monkeypatch.setenv("DECISION_TRANSCRIPT_MAX_CHARS", "4096")
+-    assert srv._get_decision_transcript_max_chars() == 4096
+-
+-
+-def test_decision_transcript_max_chars_rejects_bad_values(srv, monkeypatch):
+-    # An oversized transcript is exactly what this cap exists to bound, so
+-    # a bad configuration must fail loudly rather than fall back.
+-    for bad in ("abc", "0", "-5"):
+-        monkeypatch.setenv("DECISION_TRANSCRIPT_MAX_CHARS", bad)
+-        with pytest.raises(ValueError) as err:
+-            srv._get_decision_transcript_max_chars()
+-        assert "DECISION_TRANSCRIPT_MAX_CHARS" in str(err.value)
+-
+-
+-def test_decision_max_tokens_default_blank_and_override(srv, monkeypatch):
+-    monkeypatch.delenv("DECISION_MAX_TOKENS", raising=False)
+-    assert srv._get_decision_max_tokens() == 16384
+-    monkeypatch.setenv("DECISION_MAX_TOKENS", "")
+-    assert srv._get_decision_max_tokens() == 16384
+-    monkeypatch.setenv("DECISION_MAX_TOKENS", "2048")
+-    assert srv._get_decision_max_tokens() == 2048
+-
+-
+-def test_decision_max_tokens_rejects_bad_values(srv, monkeypatch):
+-    # Previously a malformed value silently fell back to 16384.
+-    for bad in ("abc", "0", "-1"):
+-        monkeypatch.setenv("DECISION_MAX_TOKENS", bad)
+-        with pytest.raises(ValueError) as err:
+-            srv._get_decision_max_tokens()
+-        assert "DECISION_MAX_TOKENS" in str(err.value)
+-
+-
+-def test_repo_root_falls_back_when_cwd_blocked(srv, tmp_path, monkeypatch):
+-    # A FILE masquerading as .opencode makes mkdir raise (OSError subclass)
+-    # deterministically — resolution must fall through, not crash.
+-    (tmp_path / ".opencode").write_text("not a dir\n", encoding="utf-8")
+-    monkeypatch.chdir(tmp_path)
+-    monkeypatch.delenv("DECISION_REPO_PATH", raising=False)
+-    root = srv._repo_root()
+-    assert root != tmp_path / ".opencode" / "decisions"
+-    assert root.is_dir()
+-
+-
+-def test_tool_docstrings_carry_when_to_call(srv):
+-    # F8 guard (decision side): every MCP tool description must tell
+-    # OpenCode when to call it.
+-    tools = [
+-        srv.extract_session_decisions, srv.record_manager_decision,
+-        srv.query_manager_decisions, srv.get_manager_profile,
+-        srv.propose_profile_evolution,
+-    ]
+-    for tool in tools:
+-        fn = tool.fn if hasattr(tool, "fn") else tool
+-        assert "WHEN TO CALL" in (fn.__doc__ or ""), getattr(fn, "__name__", tool)
+-
+-
+-# --- hotfix hardening (QA_REJECTED follow-up, mocked HTTP only) ---
+-
+-import time as _time
+-
+-
+-def _write_min_transcript(path):
+-    path.write_text(
+-        json.dumps({"role": "user", "content": "ship it", "name": "m",
+-                    "timestamp": "2026-09-08T00:00:00+00:00"}) + "\n",
+-        encoding="utf-8",
+-    )
+-
+-
+-def _decision_resp(status_code=200, text="", payload=None, ctype="application/json"):
+-    def _json():
+-        if isinstance(payload, Exception):
+-            raise payload
+-        return payload
+-    return types.SimpleNamespace(
+-        status_code=status_code, text=text, headers={"content-type": ctype},
+-        raise_for_status=lambda: None, json=_json,
+-    )
+-
+-
+-def _stub_decision_http(monkeypatch, stub_resp):
+-    class _FakeClient:
+-        def __init__(self, *a, **k):
+-            self.kwargs = k
+-
+-        def __enter__(self):
+-            return self
+-
+-        def __exit__(self, *a):
+-            return False
+-
+-        def post(self, *a, **k):
+-            return stub_resp
+-
+-    stub = types.ModuleType("httpx")
+-    stub.Client = _FakeClient
+-    stub.TimeoutException = type("TimeoutException", (Exception,), {})
+-    stub.TransportError = type("TransportError", (Exception,), {})
+-
+-    class _Timeout:
+-        def __init__(self, *a, **k):
+-            pass
+-
+-    stub.Timeout = _Timeout
+-    monkeypatch.setitem(sys.modules, "httpx", stub)
+-
+-
+-def _extract(srv):
+-    call = srv.extract_session_decisions
+-    return call.fn if hasattr(call, "fn") else call
+-
+-
+-def test_extract_empty_key_raises(srv, tmp_path, monkeypatch):
+-    transcript = tmp_path / "transcript.jsonl"
+-    _write_min_transcript(transcript)
+-    monkeypatch.delenv("BRAIN_API_KEY", raising=False)
+-    monkeypatch.delenv("DECISION_API_KEY", raising=False)
+-    with pytest.raises(RuntimeError, match="empty"):
+-        _extract(srv)(7, transcript_path=str(transcript))
+-
+-
+-def test_extract_500_final_raises(srv, tmp_path, monkeypatch):
+-    transcript = tmp_path / "transcript.jsonl"
+-    _write_min_transcript(transcript)
+-    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+-    monkeypatch.setattr(_time, "sleep", lambda s: None)
+-    _stub_decision_http(monkeypatch, _decision_resp(500, "boom", {}))
+-    with pytest.raises(RuntimeError, match="500"):
+-        _extract(srv)(7, transcript_path=str(transcript))
+-
+-
+-def test_extract_non_json_raises(srv, tmp_path, monkeypatch):
+-    transcript = tmp_path / "transcript.jsonl"
+-    _write_min_transcript(transcript)
+-    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+-    _stub_decision_http(
+-        monkeypatch, _decision_resp(200, "nope", ValueError("bad"), "text/plain"))
+-    with pytest.raises(RuntimeError, match="non-JSON"):
+-        _extract(srv)(7, transcript_path=str(transcript))
+-
+-
+-def test_extract_dict_wrapped_in_list(srv, tmp_path, monkeypatch):
+-    transcript = tmp_path / "transcript.jsonl"
+-    _write_min_transcript(transcript)
+-    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+-    one = {
+-        "verbatim_quote": {"original": "ship it", "english_translation": "y"},
+-        "extracted_decision": {"summary": "s", "category": "architecture",
+-                               "rationale": "r", "alternatives": [], "tradeoffs": "t"},
+-    }
+-    _stub_decision_http(monkeypatch, _decision_resp(200, "fine", one))
+-    assert _extract(srv)(7, transcript_path=str(transcript)) == [one]
+-
+-
+-def test_extract_scalar_raises(srv, tmp_path, monkeypatch):
+-    transcript = tmp_path / "transcript.jsonl"
+-    _write_min_transcript(transcript)
+-    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+-    _stub_decision_http(monkeypatch, _decision_resp(200, "42", 42))
+-    with pytest.raises(RuntimeError):
+-        _extract(srv)(7, transcript_path=str(transcript))
+-
+-
+-def test_extract_fenced_envelope_parsed(srv, tmp_path, monkeypatch):
+-    transcript = tmp_path / "transcript.jsonl"
+-    _write_min_transcript(transcript)
+-    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+-    one = {
+-        "verbatim_quote": {"original": "ship it", "english_translation": "y"},
+-        "extracted_decision": {"summary": "s", "category": "architecture",
+-                               "rationale": "r", "alternatives": [], "tradeoffs": "t"},
+-    }
+-    fenced = "```json\n" + json.dumps([one]) + "\n```"
+-    envelope = {"output": [{"type": "message",
+-                            "content": [{"type": "output_text", "text": fenced}]}]}
+-    _stub_decision_http(monkeypatch, _decision_resp(200, "fine", envelope))
+-    assert _extract(srv)(7, transcript_path=str(transcript)) == [one]
+-
+-
+-# --- Hotfix-2 new tests (mocked httpx only) ---
+-
+-def _script_client(script):
+-    class _ScriptClient:
+-        def __init__(self):
+-            self.calls = 0
+-
+-        def post(self, *a, **k):
+-            self.calls += 1
+-            item = script.pop(0) if len(script) > 1 else script[0]
+-            if isinstance(item, Exception):
+-                raise item
+-            return item
+-
+-    return _ScriptClient()
+-
+-
+-def test_post_overall_deadline_fast_fail(srv, monkeypatch):
+-    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+-    monkeypatch.setattr(_time, "sleep", lambda s: None)
+-    monkeypatch.setattr(srv, "_OVERALL_DEADLINE_S", 0)
+-    with pytest.raises(RuntimeError, match="deadline"):
+-        srv._post_with_retry(
+-            _script_client([_decision_resp(500, "boom", {})]),
+-            "http://x/responses", {})
+-
+-
+-def test_post_retry_after_honored(srv, monkeypatch):
+-    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+-    sleeps = []
+-    monkeypatch.setattr(_time, "sleep", lambda s: sleeps.append(s))
+-    r429 = _decision_resp(429, "slow down", {})
+-    r429.headers["Retry-After"] = "3"
+-    resp, _ = srv._post_with_retry(
+-        _script_client([r429, _decision_resp(200, "fine", {})]),
+-        "http://x/responses", {})
+-    assert resp.status_code == 200
+-    assert sleeps and sleeps[0] >= 3
+-
+-
+-def test_extract_rejects_candidates_envelope(srv, tmp_path, monkeypatch):
+-    transcript = tmp_path / "transcript.jsonl"
+-    _write_min_transcript(transcript)
+-    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+-    envelope = {"output": [{"type": "message", "content": [
+-        {"type": "output_text",
+-         "text": json.dumps({"candidates": [{"verbatim_quote": {}, "extracted_decision": {}}]})}]}]}
+-    _stub_decision_http(monkeypatch, _decision_resp(200, "fine", envelope))
+-    with pytest.raises(RuntimeError, match="candidates"):
+-        _extract(srv)(7, transcript_path=str(transcript))
+-
+-
+-def test_extract_missing_fields_rejected_with_index(srv, tmp_path, monkeypatch):
+-    transcript = tmp_path / "transcript.jsonl"
+-    _write_min_transcript(transcript)
+-    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+-    bad = [{"verbatim_quote": {"original": "ship it", "english_translation": "y"}}]
+-    envelope = {"output": [{"type": "message", "content": [
+-        {"type": "output_text", "text": json.dumps(bad)}]}]}
+-    _stub_decision_http(monkeypatch, _decision_resp(200, "fine", envelope))
+-    with pytest.raises(RuntimeError, match="0"):
+-        _extract(srv)(7, transcript_path=str(transcript))
+-
+-
+-def test_extract_empty_list_warns_not_errors(srv, tmp_path, monkeypatch, capsys):
+-    transcript = tmp_path / "transcript.jsonl"
+-    _write_min_transcript(transcript)
+-    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+-    envelope = {"output": [{"type": "message", "content": [
+-        {"type": "output_text", "text": "[]"}]}]}
+-    _stub_decision_http(monkeypatch, _decision_resp(200, "fine", envelope))
+-    assert _extract(srv)(7, transcript_path=str(transcript)) == []
+-    assert "non-empty" in capsys.readouterr().err
+-
+-
+-def test_extract_tries_each_fenced_block(srv, tmp_path, monkeypatch):
+-    transcript = tmp_path / "transcript.jsonl"
+-    _write_min_transcript(transcript)
+-    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+-    one = {
+-        "verbatim_quote": {"original": "ship it", "english_translation": "y"},
+-        "extracted_decision": {"summary": "s", "category": "architecture",
+-                               "rationale": "r", "alternatives": [], "tradeoffs": "t"},
+-    }
+-    text = ("```text\nnot json at all\n```\n"
+-            "```json\n" + json.dumps([one]) + "\n```")
+-    envelope = {"output": [{"type": "message", "content": [
+-        {"type": "output_text", "text": text}]}]}
+-    _stub_decision_http(monkeypatch, _decision_resp(200, "fine", envelope))
+-    assert _extract(srv)(7, transcript_path=str(transcript)) == [one]
+-
+-
+-def test_temperature_pinned_zero_unless_set(srv, tmp_path, monkeypatch):
+-    # Task 191: the extraction call pins temperature 0 by default; an
+-    # explicitly set BRAIN_TEMPERATURE still wins (explicit override).
+-    transcript = tmp_path / "transcript.jsonl"
+-    _write_min_transcript(transcript)
+-    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+-    seen = {}
+-
+-    def _stub_capture(resp_holder):
+-        class _FakeClient:
+-            def __init__(self, *a, **k):
+-                pass
+-
+-            def __enter__(self):
+-                return self
+-
+-            def __exit__(self, *a):
+-                return False
+-
+-            def post(self, url, json=None, headers=None, **k):
+-                seen["body"] = json
+-                return resp_holder
+-
+-        stub = types.ModuleType("httpx")
+-        stub.Client = _FakeClient
+-        stub.TimeoutException = type("TimeoutException", (Exception,), {})
+-        stub.TransportError = type("TransportError", (Exception,), {})
+-
+-        class _Timeout:
+-            def __init__(self, *a, **k):
+-                pass
+-
+-        stub.Timeout = _Timeout
+-        monkeypatch.setitem(sys.modules, "httpx", stub)
+-
+-    one = {
+-        "verbatim_quote": {"original": "ship it", "english_translation": "y"},
+-        "extracted_decision": {"summary": "s", "category": "architecture",
+-                               "rationale": "r", "alternatives": [], "tradeoffs": "t"},
+-    }
+-    envelope = {"output": [{"type": "message", "content": [
+-        {"type": "output_text", "text": json.dumps([one])}]}]}
+-    monkeypatch.delenv("BRAIN_TEMPERATURE", raising=False)
+-    monkeypatch.delenv("DECISION_TEMPERATURE", raising=False)
+-    monkeypatch.delenv("DECISION_MAX_TOKENS", raising=False)
+-    _stub_capture(_decision_resp(200, "fine", envelope))
+-    _extract(srv)(7, transcript_path=str(transcript))
+-    assert "temperature" not in seen["body"]
+-    assert seen["body"]["reasoning"] == {"effort": "high"}
+-    assert seen["body"]["max_output_tokens"] == 16384
+-    assert "reasoning_effort" not in seen["body"]
+-    srv._EXTRACT_CACHE.clear()
+-    monkeypatch.setenv("BRAIN_TEMPERATURE", "0.7")
+-    monkeypatch.delenv("DECISION_TEMPERATURE", raising=False)
+-    _stub_capture(_decision_resp(200, "fine", envelope))
+-    _extract(srv)(7, transcript_path=str(transcript))
+-    assert seen["body"]["temperature"] == 0.7
+-    srv._EXTRACT_CACHE.clear()
+-    monkeypatch.setenv("BRAIN_TEMPERATURE", "1")
+-    monkeypatch.setenv("DECISION_TEMPERATURE", "0.5")
+-    _stub_capture(_decision_resp(200, "fine", envelope))
+-    _extract(srv)(7, transcript_path=str(transcript))
+-    assert seen["body"]["temperature"] == 0.5
+-    assert "reasoning_effort" not in seen["body"]
+-
+-
+-def test_invalid_effort_value_raises(srv, monkeypatch):
+-    monkeypatch.setenv("BRAIN_REASONING_EFFORT", "bad effort!!")
+-    monkeypatch.delenv("DECISION_REASONING_EFFORT", raising=False)
+-    with pytest.raises(ValueError):
+-        srv._get_decision_effort()
+-
+-
+-# --- Task 191: deterministic extraction (mocked httpx only) ---
+-
+-@pytest.fixture(autouse=True)
+-def _clear_extract_cache(srv):
+-    # The extract cache is module-level by design (same transcript +
+-    # same model => same key); isolate tests from each other.
+-    srv._EXTRACT_CACHE.clear()
+-    srv._last_cache_hits = 0
+-    srv._REPAIR_COUNT = 0
+-    yield
+-    srv._EXTRACT_CACHE.clear()
+-
+-
+-def _valid_one_191():
+-    return {
+-        "verbatim_quote": {"original": "ship it", "english_translation": "y"},
+-        "extracted_decision": {"summary": "s", "category": "architecture",
+-                               "rationale": "r", "alternatives": [],
+-                               "tradeoffs": "t"},
+-    }
+-
+-
+-def _envelope_191(payload_text):
+-    return {"output": [{"type": "message", "content": [
+-        {"type": "output_text", "text": payload_text}]}]}
+-
+-
+-def _stub_counting_http(monkeypatch, resp_factory):
+-    """Fake httpx module whose client counts post() calls + bodies."""
+-    calls = {"n": 0, "bodies": []}
+-
+-    class _FakeClient:
+-        def __init__(self, *a, **k):
+-            pass
+-
+-        def __enter__(self):
+-            return self
+-
+-        def __exit__(self, *a):
+-            return False
+-
+-        def post(self, url, json=None, headers=None, **k):
+-            calls["n"] += 1
+-            calls["bodies"].append(json)
+-            return resp_factory()
+-
+-    stub = types.ModuleType("httpx")
+-    stub.Client = _FakeClient
+-    stub.TimeoutException = type("TimeoutException", (Exception,), {})
+-    stub.TransportError = type("TransportError", (Exception,), {})
+-
+-    class _Timeout:
+-        def __init__(self, *a, **k):
+-            pass
+-
+-    stub.Timeout = _Timeout
+-    monkeypatch.setitem(sys.modules, "httpx", stub)
+-    return calls
+-
+-
+-def test_extract_repeat_determinism_five_times(srv, tmp_path, monkeypatch, capsys):
+-    transcript = tmp_path / "transcript.jsonl"
+-    _write_min_transcript(transcript)
+-    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+-    monkeypatch.delenv("BRAIN_TEMPERATURE", raising=False)
+-    monkeypatch.delenv("DECISION_TEMPERATURE", raising=False)
+-    monkeypatch.delenv("DECISION_MAX_TOKENS", raising=False)
+-    one = _valid_one_191()
+-    calls = _stub_counting_http(
+-        monkeypatch,
+-        lambda: _decision_resp(200, "fine", _envelope_191(json.dumps([one]))),
+-    )
+-    results = [_extract(srv)(7, transcript_path=str(transcript)) for _ in range(5)]
+-    assert calls["n"] == 1  # Cache serves repeats: exactly one HTTP hit.
+-    blobs = [json.dumps(r, sort_keys=True) for r in results]
+-    assert all(b == blobs[0] for b in blobs)  # Byte-identical 5x.
+-    assert calls["bodies"][0]["reasoning"] == {"effort": "high"}  # Model-default effort.
+-    assert calls["bodies"][0]["max_output_tokens"] == 16384
+-    assert capsys.readouterr().err.count("cache hit") == 4
+-
+-
+-def test_extract_cache_hit_zero_tokens(srv, tmp_path, monkeypatch, capsys):
+-    transcript = tmp_path / "transcript.jsonl"
+-    _write_min_transcript(transcript)
+-    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+-    monkeypatch.delenv("BRAIN_TEMPERATURE", raising=False)
+-    monkeypatch.delenv("DECISION_TEMPERATURE", raising=False)
+-    one = _valid_one_191()
+-    calls = _stub_counting_http(
+-        monkeypatch,
+-        lambda: _decision_resp(200, "fine", _envelope_191(json.dumps([one]))),
+-    )
+-    first = _extract(srv)(7, transcript_path=str(transcript))
+-    second = _extract(srv)(7, transcript_path=str(transcript))
+-    assert calls["n"] == 1
+-    assert json.dumps(first, sort_keys=True) == json.dumps(second, sort_keys=True)
+-    assert "cache hit" in capsys.readouterr().err
+-
+-
+-def test_extract_regex_fallback_salvages_exact_lines(srv, tmp_path, monkeypatch):
+-    line = "the manager ruled to prefer composition over inheritance"
+-    transcript = tmp_path / "transcript.jsonl"
+-    transcript.write_text(
+-        json.dumps({"role": "manager", "content": line, "name": "m",
+-                    "timestamp": "2026-09-08T00:00:00+00:00"}) + "\n",
+-        encoding="utf-8",
+-    )
+-    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+-    text = ("My take:\n- " + line + "\n"
+-            "- something not in the transcript at all\n")
+-    _stub_decision_http(monkeypatch, _decision_resp(200, "fine", _envelope_191(text)))
+-    result = _extract(srv)(7, transcript_path=str(transcript))
+-    assert len(result) == 1  # Only the exact-substring line salvages.
+-    assert result[0]["verbatim_quote"]["original"] == line
+-    assert line in open(transcript, encoding="utf-8").read()
+-    assert set(result[0]["extracted_decision"]) >= {
+-        "summary", "category", "rationale", "alternatives", "tradeoffs"}
+-
+-
+-def test_extract_garbage_raises_loudly(srv, tmp_path, monkeypatch):
+-    transcript = tmp_path / "transcript.jsonl"
+-    _write_min_transcript(transcript)
+-    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+-    _stub_decision_http(
+-        monkeypatch,
+-        _decision_resp(
+-            200, "fine",
+-            _envelope_191("just some rambling prose with no structure whatsoever")),
+-    )
+-    with pytest.raises(RuntimeError):
+-        _extract(srv)(7, transcript_path=str(transcript))
+-
+-
+-def test_extract_auto_repair_once(srv, tmp_path, monkeypatch, capsys):
+-    transcript = tmp_path / "transcript.jsonl"
+-    _write_min_transcript(transcript)
+-    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+-    one = _valid_one_191()
+-    # Fences are pre-handled: parse with no extra repair.
+-    _stub_decision_http(
+-        monkeypatch,
+-        _decision_resp(
+-            200, "fine",
+-            _envelope_191("```json\n" + json.dumps([one]) + "\n```")),
+-    )
+-    assert _extract(srv)(7, transcript_path=str(transcript)) == [one]
+-    assert capsys.readouterr().err.count("auto-repair") == 0
+-    # Fixable flaw: valid JSON embedded in prose (no fences) -> repaired.
+-    srv._EXTRACT_CACHE.clear()
+-    embedded = ("Here are the extracted decisions:\n" + json.dumps([one])
+-                + "\nThat is all.")
+-    _stub_decision_http(
+-        monkeypatch, _decision_resp(200, "fine", _envelope_191(embedded)))
+-    assert _extract(srv)(7, transcript_path=str(transcript)) == [one]
+-    assert capsys.readouterr().err.count("auto-repair") == 1
+-    # Unfixable garbage -> loud error, still at most one repair.
+-    srv._EXTRACT_CACHE.clear()
+-    _stub_decision_http(
+-        monkeypatch,
+-        _decision_resp(
+-            200, "fine",
+-            _envelope_191("total garbage with no json at all")),
+-    )
+-    with pytest.raises(RuntimeError):
+-        _extract(srv)(7, transcript_path=str(transcript))
+-    assert capsys.readouterr().err.count("auto-repair") == 1
+-
+-
+-def test_extract_strips_nonverbatim_evidence_links(srv, tmp_path, monkeypatch):
+-    # E4: evidence keys must be verbatim in the transcript; others are stripped.
+-    transcript = tmp_path / "transcript.jsonl"
+-    _write_min_transcript(transcript)
+-    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+-    one = {
+-        "verbatim_quote": {"original": "ship it",
+-                           "english_translation": "ship it"},
+-        "extracted_decision": {"summary": "ship it", "category": "architecture",
+-                               "rationale": "r", "alternatives": [], "tradeoffs": "t"},
+-        "evidence_links": ["nowhere in transcript", "ship it"],
+-    }
+-    _stub_decision_http(
+-        monkeypatch,
+-        _decision_resp(200, "fine", _envelope_191(json.dumps([one]))),
+-    )
+-    out = _extract(srv)(7, transcript_path=str(transcript))
+-    assert out[0]["evidence_links"] == ["ship it"]
+-
+-
+-# --- Task-191 hotfix round 2 (QA_REJECTED V1-V5/M1-M5, mocked HTTP only) ---
+-
+-def _stub_capture(monkeypatch, stub_resp, seen):
+-    class _CapClient:
+-        def __init__(self, *a, **k):
+-            pass
+-
+-        def __enter__(self):
+-            return self
+-
+-        def __exit__(self, *a):
+-            return False
+-
+-        def post(self, url, json=None, headers=None, **k):
+-            seen.append(json)
+-            return stub_resp
+-
+-    stub = types.ModuleType("httpx")
+-    stub.Client = _CapClient
+-    stub.TimeoutException = type("TimeoutException", (Exception,), {})
+-    stub.TransportError = type("TransportError", (Exception,), {})
+-
+-    class _Timeout:
+-        def __init__(self, *a, **k):
+-            pass
+-
+-    stub.Timeout = _Timeout
+-    monkeypatch.setitem(sys.modules, "httpx", stub)
+-
+-
+-def _ship_candidates():
+-    return [{
+-        "verbatim_quote": {"original": "ship it",
+-                           "english_translation": "ship it"},
+-        "extracted_decision": {"summary": "ship it", "category": "architecture",
+-                               "rationale": "r", "alternatives": [],
+-                               "tradeoffs": "t"},
+-    }]
+-
+-
+-def test_extract_temp_wire_default_zero(srv, tmp_path, monkeypatch):
+-    transcript = tmp_path / "transcript.jsonl"
+-    _write_min_transcript(transcript)
+-    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+-    monkeypatch.delenv("BRAIN_TEMPERATURE", raising=False)
+-    monkeypatch.delenv("DECISION_TEMPERATURE", raising=False)
+-    monkeypatch.delenv("DECISION_MAX_TOKENS", raising=False)
+-    seen = []
+-    _stub_capture(monkeypatch,
+-                  _decision_resp(200, "fine", _envelope_191(json.dumps(_ship_candidates()))),
+-                  seen)
+-    _extract(srv)(21, transcript_path=str(transcript))
+-    assert "temperature" not in seen[0]
+-    assert seen[0]["reasoning"] == {"effort": "high"}
+-    assert seen[0]["max_output_tokens"] == 16384
+-    assert "reasoning_effort" not in seen[0]
+-
+-
+-def test_extract_override_wins_and_key_changes(srv, tmp_path, monkeypatch):
+-    transcript = tmp_path / "transcript.jsonl"
+-    _write_min_transcript(transcript)
+-    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+-    monkeypatch.setenv("BRAIN_TEMPERATURE", "0.7")
+-    seen = []
+-    _stub_capture(monkeypatch,
+-                  _decision_resp(200, "fine", _envelope_191(json.dumps(_ship_candidates()))),
+-                  seen)
+-    _extract(srv)(22, transcript_path=str(transcript))
+-    assert seen[0]["temperature"] == 0.7
+-    raw = transcript.read_bytes()
+-    assert (srv._extract_cache_key(raw, "m", 0.7)
+-            != srv._extract_cache_key(raw, "m", 0.0))
+-
+-
+-def test_log_responses_diagnostics_reports_visible_tokens(srv, capsys):
+-    """The diag line exposes the visible-token count (output minus reasoning)."""
+-    srv._log_responses_diagnostics({
+-        "status": "completed",
+-        "incomplete_reason": None,
+-        "usage": {"input_tokens": 10, "output_tokens": 100,
+-                  "reasoning_tokens": 90, "total_tokens": 110},
+-        "error": None,
+-        "refusal": None,
+-    })
+-    err = capsys.readouterr().err
+-    assert "visible_tokens=10" in err
+-    assert "reasoning_tokens=90" in err
+-
+-
+-def test_resolve_decision_effort_coerces_unadvertised(srv, capsys):
+-    """An effort the model does not advertise is coerced to its default.
+-
+-    The decision effort falls back to the shared `BRAIN_REASONING_EFFORT`,
+-    and the Brain model advertises `xhigh` while DeepSeek V4.1 Flash does
+-    not, so the inherited value must not reach the provider unchanged.
+-    """
+-    assert srv._resolve_decision_effort("deepseek/deepseek-v4.1-flash", "high") == "high"
+-    assert srv._resolve_decision_effort("deepseek/deepseek-v4.1-flash", "xhigh") == "high"
+-    assert "not among" in capsys.readouterr().err
+-    # Unknown models keep the configured value and warn about nothing.
+-    assert srv._resolve_decision_effort("unknown/model", "xhigh") == "xhigh"
+-    assert capsys.readouterr().err == ""
+-
+-
+-def test_extract_effort_absent_both_legs(srv, tmp_path, monkeypatch):
+-    transcript = tmp_path / "transcript.jsonl"
+-    _write_min_transcript(transcript)
+-    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+-    for temp in (None, "0.7"):
+-        if temp is None:
+-            monkeypatch.delenv("BRAIN_TEMPERATURE", raising=False)
+-        else:
+-            monkeypatch.setenv("BRAIN_TEMPERATURE", temp)
+-        seen = []
+-        _stub_capture(
+-            monkeypatch,
+-            _decision_resp(200, "fine", _envelope_191(json.dumps(_ship_candidates()))),
+-            seen)
+-        _extract(srv)(23, transcript_path=str(transcript))
+-        body = seen[-1]
+-        if temp is None:
+-            assert "temperature" not in body
+-            assert body["reasoning"] == {"effort": "high"}
+-        else:
+-            assert body["temperature"] == 0.7
+-            assert "reasoning" not in body
+-        assert "reasoning_effort" not in body
+-
+-
+-def test_extract_cache_hit_logs_and_zero_hits(srv, tmp_path, monkeypatch, capsys):
+-    transcript = tmp_path / "transcript.jsonl"
+-    _write_min_transcript(transcript)
+-    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+-    posts = []
+-
+-    class _CountClient:
+-        def __init__(self, *a, **k):
+-            pass
+-
+-        def __enter__(self):
+-            return self
+-
+-        def __exit__(self, *a):
+-            return False
+-
+-        def post(self, *a, **k):
+-            posts.append(1)
+-            return _decision_resp(
+-                200, "fine", _envelope_191(json.dumps(_ship_candidates())))
+-
+-    stub = types.ModuleType("httpx")
+-    stub.Client = _CountClient
+-    stub.TimeoutException = type("TimeoutException", (Exception,), {})
+-    stub.TransportError = type("TransportError", (Exception,), {})
+-
+-    class _Timeout:
+-        def __init__(self, *a, **k):
+-            pass
+-
+-    stub.Timeout = _Timeout
+-    monkeypatch.setitem(sys.modules, "httpx", stub)
+-    _extract(srv)(24, transcript_path=str(transcript))
+-    _extract(srv)(24, transcript_path=str(transcript))
+-    assert len(posts) == 1
+-    assert "cache hit" in capsys.readouterr().err
+-
+-
+-def test_extract_cache_evicts_oldest(srv, tmp_path, monkeypatch):
+-    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+-    posts = []
+-
+-    class _CountClient:
+-        def __init__(self, *a, **k):
+-            pass
+-
+-        def __enter__(self):
+-            return self
+-
+-        def __exit__(self, *a):
+-            return False
+-
+-        def post(self, *a, **k):
+-            posts.append(1)
+-            return _decision_resp(
+-                200, "fine", _envelope_191(json.dumps(_ship_candidates())))
+-
+-    stub = types.ModuleType("httpx")
+-    stub.Client = _CountClient
+-    stub.TimeoutException = type("TimeoutException", (Exception,), {})
+-    stub.TransportError = type("TransportError", (Exception,), {})
+-
+-    class _Timeout:
+-        def __init__(self, *a, **k):
+-            pass
+-
+-    stub.Timeout = _Timeout
+-    monkeypatch.setitem(sys.modules, "httpx", stub)
+-    first = None
+-    for i in range(65):
+-        path = tmp_path / f"t{i}.jsonl"
+-        path.write_text(
+-            json.dumps({"role": "user", "content": f"ship it batch {i}",
+-                        "name": "m",
+-                        "timestamp": "2026-09-08T00:00:00+00:00"}) + "\n",
+-            encoding="utf-8",
+-        )
+-        if i == 0:
+-            first = str(path)
+-        _extract(srv)(25, transcript_path=str(path))
+-    assert len(srv._EXTRACT_CACHE) == 64
+-    _extract(srv)(25, transcript_path=first)
+-    assert len(posts) == 66
+-
+-
+-def test_extract_empty_transcript_raises(srv, tmp_path, monkeypatch):
+-    transcript = tmp_path / "transcript.jsonl"
+-    transcript.write_text("", encoding="utf-8")
+-    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+-    with pytest.raises(RuntimeError):
+-        _extract(srv)(26, transcript_path=str(transcript))
+-
+-
+-def test_extract_multi_blob_largest_wins_repair_once(
+-        srv, tmp_path, monkeypatch):
+-    transcript = tmp_path / "transcript.jsonl"
+-    _write_min_transcript(transcript)
+-    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+-    # Case 1: invalid fence + valid fence → block-skipping suffices, no repair.
+-    fence1 = "```json\n{not valid json\n```"
+-    fence2 = "```json\n" + json.dumps(_ship_candidates()) + "\n```"
+-    before = srv._REPAIR_COUNT
+-    _stub_decision_http(
+-        monkeypatch, _decision_resp(200, "fine", _envelope_191(fence1 + "\n" + fence2)))
+-    out = _extract(srv)(27, transcript_path=str(transcript))
+-    assert out == _ship_candidates()
+-    assert srv._REPAIR_COUNT - before == 0
+-    # Case 2: prose-wrapped JSON needs exactly one largest-span repair.
+-    # NOTE: a fresh transcript file — same bytes would be a cache hit
+-    # and skip the pipeline entirely (counter stays 0 by design).
+-    transcript2 = tmp_path / "transcript2.jsonl"
+-    transcript2.write_text(
+-        json.dumps({"role": "user", "content": "ship it twice", "name": "m",
+-                    "timestamp": "2026-09-08T00:00:00+00:00"}) + "\n",
+-        encoding="utf-8",
+-    )
+-    wrapped = ("Here you go:\n" + json.dumps(_ship_candidates())
+-               + "\nhope this helps")
+-    before = srv._REPAIR_COUNT
+-    _stub_decision_http(
+-        monkeypatch, _decision_resp(200, "fine", _envelope_191(wrapped)))
+-    out = _extract(srv)(27, transcript_path=str(transcript2))
+-    assert out == _ship_candidates()
+-    assert srv._REPAIR_COUNT - before == 1
+-
+-
+-def test_extract_whitespace_only_raises(srv, tmp_path, monkeypatch):
+-    transcript = tmp_path / "transcript.jsonl"
+-    transcript.write_text("   \n\n  \n", encoding="utf-8")
+-    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+-    with pytest.raises(RuntimeError):
+-        _extract(srv)(7, transcript_path=str(transcript))
+-
+-
+-def test_extract_invalid_temp_raises_loudly(srv, tmp_path, monkeypatch):
+-    transcript = tmp_path / "transcript.jsonl"
+-    _write_min_transcript(transcript)
+-    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+-    monkeypatch.setenv("BRAIN_TEMPERATURE", "abc")
+-    with pytest.raises(ValueError):
+-        _extract(srv)(7, transcript_path=str(transcript))
+-
+-
+-# --- Task-198 error taxonomy (per-class, scripted HTTP) ---
+-
+-_VALID_TAXONOMY_CAND = {
+-    "verbatim_quote": {"original": "ship it", "english_translation": "ship it"},
+-    "extracted_decision": {"summary": "s", "category": "architecture",
+-                           "rationale": "r", "alternatives": [], "tradeoffs": "t"},
+-}
+-
+-
+-class _SeqClient:
+-    """Scripted HTTP client: pops responses in order, counts posts."""
+-
+-    def __init__(self, script):
+-        self._script = list(script)
+-        self.calls = 0
+-
+-    def __enter__(self):
+-        return self
+-
+-    def __exit__(self, *a):
+-        return False
+-
+-    def post(self, *a, **k):
+-        self.calls += 1
+-        item = self._script.pop(0) if len(self._script) > 1 else self._script[0]
+-        if isinstance(item, Exception):
+-            raise item
+-        return item
+-
+-
+-def _stub_seq_http(monkeypatch, script):
+-    client = _SeqClient(script)
+-    stub = types.ModuleType("httpx-seq")
+-    stub.Client = lambda *a, **k: client
+-    stub.TimeoutException = type("TimeoutException", (Exception,), {})
+-    stub.TransportError = type("TransportError", (Exception,), {})
+-
+-    class _Timeout:
+-        def __init__(self, *a, **k):
+-            pass
+-
+-    stub.Timeout = _Timeout
+-    monkeypatch.setitem(sys.modules, "httpx", stub)
+-    return client
+-
+-
+-def test_taxonomy_fatal_400_no_retry_decision(srv, tmp_path, monkeypatch):
+-    transcript = tmp_path / "transcript.jsonl"
+-    _write_min_transcript(transcript)
+-    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+-    client = _stub_seq_http(monkeypatch, [_decision_resp(400, "bad request", {})])
+-    with pytest.raises(RuntimeError, match="no retry"):
+-        _extract(srv)(7, transcript_path=str(transcript))
+-    assert client.calls == 1
+-
+-
+-def test_taxonomy_fatal_401_no_retry_decision(srv, tmp_path, monkeypatch):
+-    transcript = tmp_path / "transcript.jsonl"
+-    _write_min_transcript(transcript)
+-    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+-    client = _stub_seq_http(monkeypatch, [_decision_resp(401, "unauthorized", {})])
+-    with pytest.raises(RuntimeError, match="401"):
+-        _extract(srv)(7, transcript_path=str(transcript))
+-    assert client.calls == 1
+-
+-
+-def test_taxonomy_retryable_503_then_200_decision(srv, tmp_path, monkeypatch):
+-    transcript = tmp_path / "transcript.jsonl"
+-    _write_min_transcript(transcript)
+-    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+-    monkeypatch.setattr(_time, "sleep", lambda s: None)
+-    script = [_decision_resp(503, "busy", {}),
+-              _decision_resp(200, "fine", [_VALID_TAXONOMY_CAND])]
+-    client = _stub_seq_http(monkeypatch, script)
+-    assert _extract(srv)(7, transcript_path=str(transcript)) == [_VALID_TAXONOMY_CAND]
+-    assert client.calls == 2
+-
+-
+-# --- hotfix taxonomy per-class tests (Step 4-9, direct _post unit) ---
+-
+-class _TaxSeqClient:
+-    def __init__(self, script):
+-        self._script = list(script)
+-        self.calls = 0
+-
+-    def post(self, url, json=None, headers=None, **k):
+-        self.calls += 1
+-        item = self._script.pop(0) if len(self._script) > 1 else self._script[0]
+-        if isinstance(item, Exception):
+-            raise item
+-        return item
+-
+-
+-def _tax_resp(status, text="x"):
+-    return types.SimpleNamespace(status_code=status, text=text, headers={})
+-
+-
+-def _tax_env(monkeypatch):
+-    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+-    stub = types.ModuleType("httpx")
+-    stub.TimeoutException = type("TimeoutException", (Exception,), {})
+-    stub.TransportError = type("TransportError", (Exception,), {})
+-    monkeypatch.setitem(sys.modules, "httpx", stub)
+-    return stub
+-
+-
+-def test_taxonomy_fatal_403_no_retry_post(srv, monkeypatch):
+-    _tax_env(monkeypatch)
+-    client = _TaxSeqClient([_tax_resp(403, "forbidden")])
+-    with pytest.raises(RuntimeError, match="no retry"):
+-        srv._post_with_retry(client, "http://x/responses", {})
+-    assert client.calls == 1
+-
+-
+-def test_taxonomy_fatal_404_no_retry_post(srv, monkeypatch):
+-    _tax_env(monkeypatch)
+-    client = _TaxSeqClient([_tax_resp(404, "not here")])
+-    with pytest.raises(RuntimeError, match="no retry"):
+-        srv._post_with_retry(client, "http://x/responses", {})
+-    assert client.calls == 1
+-
+-
+-def test_taxonomy_fatal_422_no_retry_post(srv, monkeypatch):
+-    _tax_env(monkeypatch)
+-    client = _TaxSeqClient([_tax_resp(422, "unprocessable")])
+-    with pytest.raises(RuntimeError, match="no retry"):
+-        srv._post_with_retry(client, "http://x/responses", {})
+-    assert client.calls == 1
+-
+-
+-def test_taxonomy_retryable_429_then_200_post(srv, monkeypatch):
+-    _tax_env(monkeypatch)
+-    monkeypatch.setattr(_time, "sleep", lambda s: None)
+-    client = _TaxSeqClient([_tax_resp(429, "slow"), _tax_resp(200, "fine")])
+-    resp, attempts = srv._post_with_retry(client, "http://x/responses", {})
+-    assert resp.status_code == 200
+-    assert attempts == 2
+-
+-
+-def test_taxonomy_timeout_then_200_post(srv, monkeypatch):
+-    stub = _tax_env(monkeypatch)
+-    monkeypatch.setattr(_time, "sleep", lambda s: None)
+-    client = _TaxSeqClient([stub.TimeoutException("timed out"),
+-                            _tax_resp(200, "fine")])
+-    resp, attempts = srv._post_with_retry(client, "http://x/responses", {})
+-    assert resp.status_code == 200
+-    assert attempts == 2
+-
+-
+-def test_taxonomy_message_contract_post(srv, monkeypatch):
+-    _tax_env(monkeypatch)
+-    monkeypatch.setenv("BRAIN_API_KEY", "sk-SECRET-XYZ")
+-    client = _TaxSeqClient([_tax_resp(403, "denied detail")])
+-    with pytest.raises(RuntimeError) as exc:
+-        srv._post_with_retry(client, "http://x/responses", {})
+-    msg = str(exc.value)
+-    assert "403" in msg and "responses" in msg and "denied detail" in msg
+-    assert "SECRET" not in msg
+-
+-
+-def test_taxonomy_sleep_skipped_on_fatal_post(srv, monkeypatch):
+-    _tax_env(monkeypatch)
+-    sleeps = []
+-    monkeypatch.setattr(_time, "sleep", lambda s: sleeps.append(s))
+-    client = _TaxSeqClient([_tax_resp(404, "gone")])
+-    with pytest.raises(RuntimeError, match="no retry"):
+-        srv._post_with_retry(client, "http://x/responses", {})
+-    assert sleeps == []
+-    assert client.calls == 1
+-
+-
+-def test_taxonomy_non_httpx_error_propagates_post(srv, monkeypatch):
+-    _tax_env(monkeypatch)
+-    client = _TaxSeqClient([ValueError("boom")])
+-    with pytest.raises(ValueError, match="boom"):
+-        srv._post_with_retry(client, "http://x/responses", {})
+-
+-
+-# --- Task 213: decision-moment detector (mcp-decision-server/detector.py) ---
+-
+-@pytest.fixture(scope="module")
+-def det():
+-    return _load("decision_detector", "detector.py")
+-
+-
+-def test_detector_flags_manager_ruling(det):
+-    turns = [
+-        {"speaker": "manager",
+-         "text": "We decided to use composition over inheritance for the auth "
+-                 "schema; the tradeoff is more boilerplate instead of magic."},
+-    ]
+-    out = det.detect_decision_moments(turns)
+-    assert len(out) == 1
+-    assert out[0]["turn_index"] == 0
+-    assert out[0]["passes"] is True
+-    assert "owner:manager" in out[0]["signals"]
+-    assert "strong-ruling" in out[0]["signals"]
+-    assert len(out[0]["excerpt"]) <= 200
+-
+-
+-def test_detector_ignores_agent_spoken_ruling(det):
+-    turns = [
+-        {"speaker": "agent",
+-         "text": "We decided to use composition over inheritance for the auth "
+-                 "schema; the tradeoff is more boilerplate instead of magic."},
+-        {"speaker": "Assistant",
+-         "text": "Approved: migrate the database instead of patching it."},
+-    ]
+-    assert det.detect_decision_moments(turns) == []
+-
+-
+-def test_detector_approved_alone_not_queued(det):
+-    turns = [
+-        {"speaker": "manager", "text": "approved"},
+-        {"speaker": "manager", "text": "thanks, looks good"},
+-        {"speaker": "agent", "text": "ok, continuing with the build"},
+-    ]
+-    assert det.detect_decision_moments(turns) == []
+-
+-
+-def test_detector_substring_lookalikes_not_queued(det):
+-    turns = [
+-        {"speaker": "manager",
+-         "text": "Add mustard to the dropdown; use a ruler for the layout."},
+-    ]
+-    assert det.detect_decision_moments(turns) == []
+-
+-
+-def test_detector_non_manager_owner_fails_bar(det):
+-    # Mixed-case non-manager speaker with ruling + scope content: skipped.
+-    turns = [
+-        {"speaker": "Agent",
+-         "text": "Approved: migrate the database instead of patching it."},
+-        {"speaker": " Manager ",
+-         "text": "Approved: migrate the database instead of patching it."},
+-    ]
+-    out = det.detect_decision_moments(turns)
+-    assert [c["turn_index"] for c in out] == [1]
+-
+-
+-def test_detector_weak_signals_need_strong_pairing(det):
+-    # Owner + weak modal + lone scope noun, no strong verb or tradeoff:
+-    # weak categories are dropped, bar fails, nothing queued.
+-    turns = [
+-        {"speaker": "manager",
+-         "text": "We must keep the api scope unchanged for now."},
+-    ]
+-    assert det.detect_decision_moments(turns) == []
+-    # Same weak signals + a tradeoff phrase: paired, queued.
+-    turns2 = [
+-        {"speaker": "manager",
+-         "text": "We must keep the api scope unchanged instead of expanding it."},
+-    ]
+-    out = det.detect_decision_moments(turns2)
+-    assert len(out) == 1 and out[0]["passes"] is True
+-
+-
+-def test_detector_long_unicode_truncates_on_word_edge(det):
+-    text = "Manager ruling: " + "تصمیم " * 60 + "approved: migrate the database instead."
+-    out = det.detect_decision_moments([{"speaker": "manager", "text": text}])
+-    assert len(out) == 1
+-    assert len(out[0]["excerpt"]) <= 200
+-    assert not out[0]["excerpt"].endswith(" ")
+-
+-
+-def test_detector_bar_requires_owner_and_two_categories(det):
+-    assert det.passes_precision_bar(["owner:manager", "strong-ruling", "scope-noun"]) is True
+-    assert det.passes_precision_bar([" Owner:Manager ", "strong-ruling", "scope-noun"]) is True
+-    assert det.passes_precision_bar([" Manager ", "strong-ruling", "scope-noun"]) is False  # raw speaker name is not an owner signal
+-    assert det.passes_precision_bar(["owner:manager", "strong-ruling"]) is False
+-    assert det.passes_precision_bar(["owner:manager", "weak-ruling", "scope-noun"]) is True  # paired upstream
+-    assert det.passes_precision_bar(["strong-ruling", "scope-noun", "tradeoff-marker"]) is False
+-    assert det.passes_precision_bar([]) is False
+-    assert det.passes_precision_bar("owner:manager") is False
+-
+-
+-def test_detector_never_raises_on_bad_input(det):
+-    assert det.detect_decision_moments([]) == []
+-    assert det.detect_decision_moments("not a list") == []
+-    valid = {"speaker": "manager",
+-             "text": "Decided: use X over Y for the auth schema."}
+-    out = det.detect_decision_moments(
+-        [None, {"speaker": "manager", "text": ""},
+-         {"speaker": "manager", "text": 123}, valid])
+-    assert [c["turn_index"] for c in out] == [3]
+-
+-
+-# --- Task 216: personal-repo provenance + fail-closed scrub on explicit path ---
+-# (uses the existing _record(call, cand) helper from line 174)
+-
+-def test_active_root_info_names_personal_repo(srv, tmp_path, monkeypatch):
+-    monkeypatch.setenv("DECISION_REPO_PATH", str(tmp_path / "personal"))
+-    info = srv._active_root_info(tmp_path / "personal")
+-    assert "personal repo" in info
+-    assert "DECISION_REPO_PATH" in info
+-
+-
+-def test_active_root_info_names_project_fallback(srv, tmp_path, monkeypatch):
+-    monkeypatch.delenv("DECISION_REPO_PATH", raising=False)
+-    info = srv._active_root_info(tmp_path / ".opencode" / "decisions")
+-    assert "project fallback" in info
+-
+-
+-def test_personal_path_scrubs_secrets_before_write(srv, tmp_path, monkeypatch):
+-    # Task 216 public-default guard: on an explicit personal repo, secrets
+-    # are scrubbed before they touch the store — nothing sensitive persists.
+-    # (The scrub gate replaces recognized patterns; the schema gate rejects
+-    # malformed records. Both run on every root, personal included.)
+-    personal = tmp_path / "manager-decisions"
+-    monkeypatch.setenv("DECISION_REPO_PATH", str(personal))
+-    sneaky = _candidate()
+-    sneaky["extracted_decision"]["rationale"] = "approved, key sk-proj-SECRET1234567890 ok"
+-    _record(srv.record_manager_decision, sneaky)
+-    stored = json.loads(next(personal.rglob("DEC-*.json")).read_text(encoding="utf-8"))
+-    assert "SECRET1234567890" not in json.dumps(stored)
+-    assert stored["redaction_verified"] is True
+-
+-
+-def test_record_creates_store_on_fresh_personal_repo(srv, tmp_path, monkeypatch):
+-    # Fresh clone / first run: no decisions/ dir yet — record still works.
+-    personal = tmp_path / "fresh-personal"
+-    monkeypatch.setenv("DECISION_REPO_PATH", str(personal))
+-    assert not (personal / "decisions").exists()
+-    out = _record(srv.record_manager_decision, _candidate())
+-    assert "Recorded DEC-" in out
+-    assert (personal / "decisions").is_dir()
+-
+-
+-# --- Task 216 QA hotfix (F1-F5): provenance, fail-closed, stderr secrecy ---
+-
+-def test_record_fail_closed_when_scrub_cannot_clean(srv, tmp_path, monkeypatch, capsys):
+-    # Gate ordering proof: with sanitizing disabled, a key-shaped input must
+-    # raise ValueError BEFORE any write — no JSON, no .md, no index entry.
+-    personal = tmp_path / "personal"
+-    monkeypatch.setenv("DECISION_REPO_PATH", str(personal))
+-    monkeypatch.setattr(srv, "sanitize_text", lambda t: t if isinstance(t, str) else str(t))
+-    sneaky = _candidate()
+-    sneaky["extracted_decision"]["rationale"] = "approved, key sk-proj-FAILCLOSED1 ok"
+-    with pytest.raises(ValueError, match="redaction failed"):
+-        _record(srv.record_manager_decision, sneaky)
+-    assert list(personal.rglob("DEC-*.json")) == []
+-    assert list(personal.rglob("DEC-*.md")) == []
+-
+-
+-def test_record_stderr_never_carries_secrets(srv, tmp_path, monkeypatch, capsys):
+-    personal = tmp_path / "personal"
+-    monkeypatch.setenv("DECISION_REPO_PATH", str(personal))
+-    secret = "sk-proj-STDERRPROOF12345678"
+-    sneaky = _candidate()
+-    sneaky["extracted_decision"]["rationale"] = f"approved, key {secret} ok"
+-    _record(srv.record_manager_decision, sneaky)
+-    captured = capsys.readouterr()
+-    assert "active store" in captured.err
+-    assert secret not in captured.err
+-    assert "SECRET" not in captured.err
+-
+-
+-def test_record_persists_queryable_provenance(srv, tmp_path, monkeypatch):
+-    personal = tmp_path / "personal"
+-    monkeypatch.setenv("DECISION_REPO_PATH", str(personal))
+-    _record(srv.record_manager_decision, _candidate())
+-    stored = json.loads(next(personal.rglob("DEC-*.json")).read_text(encoding="utf-8"))
+-    assert stored["active_root"] == personal.name  # display name only: no abs path leaks into public-default repos
+-    assert stored["store_mode"] == "personal"
+-
+-
+-def test_record_empty_env_falls_back_with_provenance(srv, tmp_path, monkeypatch):
+-    monkeypatch.setenv("DECISION_REPO_PATH", "")
+-    monkeypatch.chdir(tmp_path)
+-    _record(srv.record_manager_decision, _candidate())
+-    stored = json.loads(next((tmp_path / ".opencode" / "decisions").rglob("DEC-*.json")).read_text(encoding="utf-8"))
+-    assert stored["store_mode"] == "project-fallback"
+-    assert stored["active_root"] == "decisions"  # basename only (R1 privacy fix)
+-
+-
+-def test_record_nested_personal_path_created(srv, tmp_path, monkeypatch):
+-    deep = tmp_path / "a" / "b" / "personal"
+-    monkeypatch.setenv("DECISION_REPO_PATH", str(deep))
+-    out = _record(srv.record_manager_decision, _candidate())
+-    assert "Recorded DEC-" in out
+-    assert (deep / "decisions").is_dir()
+-
+-
+-def test_record_file_as_path_fails_closed_and_clear(srv, tmp_path, monkeypatch):
+-    blocker = tmp_path / "not-a-dir"
+-    blocker.write_text("x", encoding="utf-8")
+-    monkeypatch.setenv("DECISION_REPO_PATH", str(blocker))
+-    # record_manager_decision is an MCP tool: it surfaces the fail-closed
+-    # resolution as an "Error: ..." string (never raises to the client) while
+-    # still writing nothing. Assert both the clear message and the empty store.
+-    out = _record(srv.record_manager_decision, _candidate())
+-    assert "DECISION_REPO_PATH" in out
+-    assert out.startswith("Error:")
+-    assert list(tmp_path.rglob("DEC-*.json")) == []
+-
+-
+-def test_record_double_write_sequential_ids(srv, tmp_path, monkeypatch):
+-    personal = tmp_path / "personal"
+-    monkeypatch.setenv("DECISION_REPO_PATH", str(personal))
+-    _record(srv.record_manager_decision, _candidate())
+-    _record(srv.record_manager_decision, _candidate())
+-    ids = sorted(p.name for p in personal.rglob("DEC-*.json"))
+-    assert len(ids) == 2 and ids[0] != ids[1]
+-
+-
+-# --- Task 219 (218 scope): auto-sync personal repo (pull on read, debt visible) ---
+-
+-import shutil as _shutil
+-
+-_HAS_GIT = _shutil.which("git") is not None
+-needs_git = pytest.mark.skipif(not _HAS_GIT, reason="git CLI not available")
+-
+-
+-def _git(repo, *args, env=None):
+-    import subprocess
+-    e = dict(os.environ)
+-    e["GIT_CONFIG_NOSYSTEM"] = "1"
+-    e["HOME"] = str(repo)
+-    if env:
+-        e.update(env)
+-    r = subprocess.run(["git", "-C", str(repo), *args],
+-                       capture_output=True, text=True, timeout=60, env=e)
+-    return r
+-
+-
+-def _git_repo(path, branch="main"):
+-    r = _git(path, "init", "-b", branch)
+-    assert r.returncode == 0, r.stderr
+-    _git(path, "config", "user.email", "t@t.t")
+-    _git(path, "config", "user.name", "t")
+-    (path / "seed.txt").write_text("seed")
+-    _git(path, "add", "-A")
+-    r = _git(path, "commit", "-m", "docs: seed")
+-    assert r.returncode == 0, r.stderr
+-    return path
+-
+-
+-def _no_pull_env(monkeypatch):
+-    monkeypatch.delenv("DECISION_NO_PULL", raising=False)
+-
+-
+-def test_sync_skipped_not_git_checkout(srv, tmp_path, monkeypatch):
+-    _no_pull_env(monkeypatch)
+-    assert srv._pull_latest(tmp_path) == "sync skipped (not a git checkout)"
+-
+-
+-@needs_git
+-def test_sync_skipped_no_upstream(srv, tmp_path, monkeypatch):
+-    _no_pull_env(monkeypatch)
+-    _git_repo(tmp_path)
+-    assert srv._pull_latest(tmp_path) == "sync skipped (no upstream configured)"
+-
+-
+-@needs_git
+-def test_sync_kill_switch(srv, tmp_path, monkeypatch):
+-    monkeypatch.setenv("DECISION_NO_PULL", "1")
+-    _git_repo(tmp_path)
+-    assert srv._ensure_fresh(tmp_path) == "sync skipped (DECISION_NO_PULL=1)"
+-
+-
+-@needs_git
+-def test_sync_pulls_latest(srv, tmp_path, monkeypatch):
+-    _no_pull_env(monkeypatch)
+-    origin = tmp_path / "origin.git"
+-    assert _git(tmp_path, "init", "--bare", "origin.git").returncode == 0
+-    other = tmp_path / "other"
+-    assert _git(tmp_path, "clone", str(origin), "other").returncode == 0
+-    _git(other, "config", "user.email", "t@t.t")
+-    _git(other, "config", "user.name", "t")
+-    (other / "seed.txt").write_text("seed")
+-    _git(other, "add", "-A")
+-    assert _git(other, "commit", "-m", "docs: seed").returncode == 0
+-    assert _git(other, "push", "-u", "origin", "HEAD:main").returncode == 0
+-    assert _git(origin, "symbolic-ref", "HEAD",
+-                "refs/heads/main").returncode == 0
+-    store = tmp_path / "store"
+-    assert _git(tmp_path, "clone", str(origin), "store").returncode == 0
+-    _git(store, "config", "user.email", "t@t.t")
+-    _git(store, "config", "user.name", "t")
+-    (other / "fresh.md").write_text("latest")
+-    _git(other, "add", "-A")
+-    assert _git(other, "commit", "-m", "docs: fresh").returncode == 0
+-    assert _git(other, "push", "origin", "HEAD:main").returncode == 0
+-    status = srv._pull_latest(store)
+-    assert status == "store pulled to latest"
+-    assert (store / "fresh.md").read_text() == "latest"
+-
+-
+-@needs_git
+-def test_sync_diverged_fails_closed(srv, tmp_path, monkeypatch):
+-    _no_pull_env(monkeypatch)
+-    origin = tmp_path / "origin.git"
+-    assert _git(tmp_path, "init", "--bare", "origin.git").returncode == 0
+-    store = tmp_path / "store"
+-    assert _git(tmp_path, "clone", str(origin), "store").returncode == 0
+-    _git(store, "config", "user.email", "t@t.t")
+-    _git(store, "config", "user.name", "t")
+-    (store / "a.txt").write_text("v1")
+-    _git(store, "add", "-A")
+-    assert _git(store, "commit", "-m", "docs: seed").returncode == 0
+-    assert _git(store, "push", "-u", "origin", "HEAD:main").returncode == 0
+-    assert _git(origin, "symbolic-ref", "HEAD",
+-                "refs/heads/main").returncode == 0
+-    other = tmp_path / "other"
+-    assert _git(tmp_path, "clone", str(origin), "other").returncode == 0
+-    _git(other, "config", "user.email", "t@t.t")
+-    _git(other, "config", "user.name", "t")
+-    (other / "a.txt").write_text("remote-change")
+-    _git(other, "add", "-A")
+-    assert _git(other, "commit", "-m", "docs: remote").returncode == 0
+-    assert _git(other, "push", "origin", "HEAD:main").returncode == 0
+-    (store / "a.txt").write_text("local-change")
+-    _git(store, "add", "-A")
+-    assert _git(store, "commit", "-m", "docs: local").returncode == 0
+-    with pytest.raises(RuntimeError):
+-        srv._pull_latest(store)
+-    assert _git(store, "status", "--porcelain").stdout.strip() == ""
+-
+-
+-@needs_git
+-def test_sync_offline_tolerant(srv, tmp_path, monkeypatch):
+-    _no_pull_env(monkeypatch)
+-    origin = tmp_path / "origin.git"
+-    assert _git(tmp_path, "init", "--bare", "origin.git").returncode == 0
+-    store = tmp_path / "store"
+-    assert _git(tmp_path, "clone", str(origin), "store").returncode == 0
+-    _git(store, "config", "user.email", "t@t.t")
+-    _git(store, "config", "user.name", "t")
+-    (store / "a.txt").write_text("v1")
+-    _git(store, "add", "-A")
+-    assert _git(store, "commit", "-m", "docs: seed").returncode == 0
+-    assert _git(store, "push", "-u", "origin", "HEAD:main").returncode == 0
+-    _shutil.rmtree(origin)
+-    status = srv._pull_latest(store)
+-    assert status == "sync warning (remote unreachable; reading local state)"
+-
+-
+-@needs_git
+-def test_record_reports_sync_debt(srv, tmp_path, monkeypatch):
+-    _no_pull_env(monkeypatch)
+-    monkeypatch.setenv("DECISION_REPO_PATH", str(tmp_path))
+-    _git_repo(tmp_path)
+-    (tmp_path / "decisions").mkdir(exist_ok=True)
+-    out = srv.record_manager_decision(_candidate())
+-    assert "Recorded DEC-" in out
+-    assert "sync debt:" in out
+-    assert "git push" in out
+-
+-
+-@needs_git
+-def test_sync_untracked_file_blocks_pull(srv, tmp_path, monkeypatch):
+-    # QA T3: untracked (??) files also trip the dirty-tree guard.
+-    _no_pull_env(monkeypatch)
+-    _git_repo(tmp_path)
+-    (tmp_path / "scratch.txt").write_text("untracked")
+-    assert srv._pull_latest(tmp_path) == "sync skipped (dirty tree)"
+-
+-
+-def test_run_git_sets_network_timeout(srv, tmp_path, monkeypatch):
+-    # QA T3: every git call carries a timeout so hung remotes fail, not hang.
+-    import subprocess as _sp
+-    seen = {}
+-
+-    def fake_run(cmd, **kw):
+-        seen.update(kw)
+-        return _sp.CompletedProcess(cmd, 0, "", "")
+-
+-    monkeypatch.setattr(srv.subprocess, "run", fake_run)
+-    srv._run_git(tmp_path, "rev-parse", "--git-dir")
+-    assert seen.get("timeout") == 60
+-
+-
+-@needs_git
+-def test_sync_diverged_reads_serve_stale_local_state(srv, tmp_path, monkeypatch):
+-    # Reviewer follow-up A1: a diverged personal repo must not take reads
+-    # offline. query + profile serve stale local state with a loud note
+-    # instead of raising; writes (record) stay fail-closed.
+-    _no_pull_env(monkeypatch)
+-    origin = tmp_path / "origin.git"
+-    assert _git(tmp_path, "init", "--bare", "origin.git").returncode == 0
+-    store = tmp_path / "store"
+-    assert _git(tmp_path, "clone", str(origin), "store").returncode == 0
+-    _git(store, "config", "user.email", "t@t.t")
+-    _git(store, "config", "user.name", "t")
+-    (store / "a.txt").write_text("v1")
+-    _git(store, "add", "-A")
+-    assert _git(store, "commit", "-m", "docs: seed").returncode == 0
+-    assert _git(store, "push", "-u", "origin", "HEAD:main").returncode == 0
+-    assert _git(origin, "symbolic-ref", "HEAD",
+-                "refs/heads/main").returncode == 0
+-    other = tmp_path / "other"
+-    assert _git(tmp_path, "clone", str(origin), "other").returncode == 0
+-    _git(other, "config", "user.email", "t@t.t")
+-    _git(other, "config", "user.name", "t")
+-    (other / "a.txt").write_text("remote-change")
+-    _git(other, "add", "-A")
+-    assert _git(other, "commit", "-m", "docs: remote").returncode == 0
+-    assert _git(other, "push", "origin", "HEAD:main").returncode == 0
+-    (store / "a.txt").write_text("local-change")
+-    _git(store, "add", "-A")
+-    assert _git(store, "commit", "-m", "docs: local").returncode == 0
+-    decs = store / "decisions"
+-    decs.mkdir(parents=True, exist_ok=True)
+-    (decs / "DEC-20260913-001.json").write_text(json.dumps({
+-        "decision_id": "DEC-20260913-001",
+-        "extracted_decision": {
+-            "summary": "use pull-before-read with stale fallback",
+-            "category": "architecture",
+-            "rationale": "reads must survive divergence",
+-        },
+-        "verbatim_quote": {"original": "x", "english_translation": "y"},
+-    }))
+-    (store / "samples").mkdir(exist_ok=True)
+-    (store / "samples" / "manager_profile.md").write_text("# profile\n")
+-    monkeypatch.setenv("DECISION_REPO_PATH", str(store))
+-    out = srv.query_manager_decisions("stale fallback")
+-    assert "DEC-20260913-001" in out
+-    assert "profile" in srv.get_manager_profile().lower()
+-
+-
+-# --- Task 248: malformed-shape hardening (RED first, GREEN after fix) ---
+-
+-def _ship_pair():
+-    valid = {
+-        "verbatim_quote": {"original": "ship it", "english_translation": "y"},
+-        "extracted_decision": {"summary": "s", "category": "architecture",
+-                               "rationale": "r", "alternatives": [],
+-                               "tradeoffs": "t"},
+-    }
+-    bad_tradeoffs = {
+-        "verbatim_quote": {"original": "ship it", "english_translation": "y"},
+-        "extracted_decision": {"summary": "s2", "category": "architecture",
+-                               "rationale": "r2", "alternatives": [],
+-                               "tradeoffs": ["not", "a", "string"]},
+-    }
+-    return valid, bad_tradeoffs
+-
+-
+-def test_extract_drops_nonstring_tradeoffs_keeps_valid(srv, tmp_path, monkeypatch):
+-    transcript = tmp_path / "transcript.jsonl"
+-    _write_min_transcript(transcript)
+-    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+-    valid, bad_tradeoffs = _ship_pair()
+-    _stub_decision_http(monkeypatch, _decision_resp(200, "fine", [valid, bad_tradeoffs]))
+-    assert _extract(srv)(7, transcript_path=str(transcript)) == [valid]
+-
+-
+-def test_extract_all_bad_tradeoffs_returns_empty(srv, tmp_path, monkeypatch):
+-    transcript = tmp_path / "transcript.jsonl"
+-    _write_min_transcript(transcript)
+-    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+-    _, bad_tradeoffs = _ship_pair()
+-    _stub_decision_http(monkeypatch, _decision_resp(200, "fine", [bad_tradeoffs]))
+-    assert _extract(srv)(7, transcript_path=str(transcript)) == []
+-
+-
+-def test_record_rejects_string_verbatim_quote(srv, repo):
+-    call = srv.record_manager_decision
+-    target = call.fn if hasattr(call, "fn") else call
+-    bad = _candidate()
+-    bad["verbatim_quote"] = "flat string, not a mapping"
+-    with pytest.raises(ValueError, match="verbatim_quote"):
+-        target(bad)
+-    assert list((repo / "decisions").rglob("DEC-*.json")) == []  # Nothing written.
+-
+-
+-def test_record_rejects_string_extracted_decision(srv, repo):
+-    call = srv.record_manager_decision
+-    target = call.fn if hasattr(call, "fn") else call
+-    bad = _candidate()
+-    bad["extracted_decision"] = "flat string, not a mapping"
+-    with pytest.raises(ValueError, match="extracted_decision"):
+-        target(bad)
+-    assert list((repo / "decisions").rglob("DEC-*.json")) == []  # Nothing written.
+-
+-
+-def test_record_rejects_string_alternatives(srv, repo):
+-    call = srv.record_manager_decision
+-    target = call.fn if hasattr(call, "fn") else call
+-    bad = _candidate()
+-    bad["extracted_decision"]["alternatives"] = "not-a-list"
+-    with pytest.raises(ValueError, match="alternatives"):
+-        target(bad)
+-    assert list((repo / "decisions").rglob("DEC-*.json")) == []  # Nothing written.
+-
+-
+-def test_query_skips_tampered_record(srv, repo):
+-    _record(srv.record_manager_decision, _candidate())
+-    stored = next((repo / "decisions").rglob("DEC-*.json"))
+-    record = json.loads(stored.read_text(encoding="utf-8"))
+-    tampered_id = record["decision_id"]
+-    record["extracted_decision"] = "flat string, not a mapping"
+-    stored.write_text(json.dumps(record), encoding="utf-8")
+-    out = srv.query_manager_decisions("composition")
+-    assert isinstance(out, str)  # Never raises AttributeError.
+-    assert tampered_id not in out  # Tampered record is skipped, not scored.
+-
+-
+-# --- Task 248 QA hotfix: profile contract + nested leaf validation ---
+-
+-def test_profile_absent_returns_stable_message(srv, repo):
+-    assert srv.get_manager_profile() == "No manager profile sample exists yet."
+-
+-
+-def test_profile_present_returns_content(srv, repo):
+-    samples = repo / "samples"
+-    samples.mkdir(exist_ok=True)
+-    (samples / "manager_profile.md").write_text("# Baseline\nPrefer composition.\n")
+-    out = srv.get_manager_profile()
+-    assert "Prefer composition." in out
+-
+-
+-_LEAF_CASES = [
+-    ("verbatim_quote", "original", "quote-original"),
+-    ("verbatim_quote", "english_translation", "quote-english"),
+-    ("extracted_decision", "summary", "decision-summary"),
+-    ("extracted_decision", "rationale", "decision-rationale"),
+-    ("extracted_decision", "tradeoffs", "decision-tradeoffs"),
+-]
+-
+-
+-@pytest.mark.parametrize("section,key,field", _LEAF_CASES)
+-def test_record_rejects_nonstring_leaf(srv, repo, section, key, field):
+-    call = srv.record_manager_decision
+-    target = call.fn if hasattr(call, "fn") else call
+-    bad = _candidate()
+-    bad[section][key] = ["not", "a", "string"]
+-    with pytest.raises(ValueError, match=field.split("-")[-1]):
+-        target(bad)
+-    assert list((repo / "decisions").rglob("DEC-*.json")) == []  # Nothing written.
+-
+-
+-def test_record_rejects_nonstring_alternative_item(srv, repo):
+-    call = srv.record_manager_decision
+-    target = call.fn if hasattr(call, "fn") else call
+-    bad = _candidate()
+-    bad["extracted_decision"]["alternatives"] = ["fine", 123]
+-    with pytest.raises(ValueError, match="alternatives"):
+-        target(bad)
+-    assert list((repo / "decisions").rglob("DEC-*.json")) == []  # Nothing written.
+-
+-
+-@pytest.mark.parametrize("falsey", [None, "", 0, False])
+-def test_query_skips_falsey_nonlist_alternatives(srv, repo, falsey):
+-    _record(srv.record_manager_decision, _candidate())
+-    stored = next((repo / "decisions").rglob("DEC-*.json"))
+-    record = json.loads(stored.read_text(encoding="utf-8"))
+-    tampered_id = record["decision_id"]
+-    record["extracted_decision"]["alternatives"] = falsey
+-    stored.write_text(json.dumps(record), encoding="utf-8")
+-    out = srv.query_manager_decisions("composition")
+-    assert isinstance(out, str)  # Never raises.
+-    assert tampered_id not in out  # Falsey non-list must not validate as [].
+-
+-
+-# --- Task 259: provider diagnostics + terminal failure surfacing ----------
+-
+-
+-def _write_transcript_text(path, text):
+-    """Write a one-turn transcript whose content varies per test.
+-
+-    The extraction cache keys on transcript bytes, so tests must use
+-    distinct content to avoid cross-test cache hits. The quote ``ship it``
+-    is kept so candidate verbatim checks (exact-substring rule) pass.
+-    """
+-    path.write_text(
+-        json.dumps({"role": "user", "content": f"ship it {text}", "name": "m",
+-                    "timestamp": "2026-09-19T00:00:00+00:00"}) + "\n",
+-        encoding="utf-8",
+-    )
+-
+-
+-def _stub_and_extract(srv, monkeypatch, tmp_path, payload, tag):
+-    transcript = tmp_path / f"{tag}.jsonl"
+-    _write_transcript_text(transcript, tag)
+-    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+-    _stub_decision_http(monkeypatch, _decision_resp(200, "fine", payload))
+-    return _extract(srv)(tag, transcript_path=str(transcript))
+-
+-
+-def test_responses_diagnostics_full_payload(srv):
+-    payload = {
+-        "status": "incomplete",
+-        "incomplete_details": {"reason": "max_output_tokens"},
+-        "usage": {
+-            "input_tokens": 10, "output_tokens": 16384, "total_tokens": 16394,
+-            "output_tokens_details": {"reasoning_tokens": 16380},
+-        },
+-    }
+-    diag = srv._responses_diagnostics(payload)
+-    assert diag["status"] == "incomplete"
+-    assert diag["incomplete_reason"] == "max_output_tokens"
+-    assert diag["usage"] == {
+-        "input_tokens": 10, "output_tokens": 16384,
+-        "reasoning_tokens": 16380, "total_tokens": 16394,
+-    }
+-    assert diag["error"] is None and diag["refusal"] is None
+-
+-
+-def test_responses_diagnostics_tolerates_malformed(srv):
+-    for bad in (None, [], "text", 7, {"usage": "nope", "output": "nope",
+-                                      "incomplete_details": 5}):
+-        diag = srv._responses_diagnostics(bad)
+-        assert set(diag) == {
+-            "status", "incomplete_reason", "usage", "error", "refusal"}
+-        assert set(diag["usage"]) == {
+-            "input_tokens", "output_tokens", "reasoning_tokens", "total_tokens"}
+-        assert diag["error"] is None and diag["refusal"] is None
+-
+-
+-def test_responses_diagnostics_refusal_direct_and_nested(srv):
+-    direct = {"output": [{"type": "refusal", "refusal": "I cannot do that"}]}
+-    assert srv._responses_diagnostics(direct)["refusal"] == "I cannot do that"
+-    nested = {"output": [{"type": "message", "content": [
+-        {"type": "refusal", "refusal": "no thanks"}]}]}
+-    assert srv._responses_diagnostics(nested)["refusal"] == "no thanks"
+-
+-
+-def test_provider_failure_message_precedence(srv):
+-    err = {"error": "boom", "output": []}
+-    msg = srv._provider_failure_message(srv._responses_diagnostics(err))
+-    assert msg.startswith("decision model returned no text: PROVIDER_ERROR")
+-    assert "boom" in msg
+-
+-    refusal = {"output": [{"type": "refusal", "refusal": "nope"}]}
+-    msg = srv._provider_failure_message(srv._responses_diagnostics(refusal))
+-    assert "PROVIDER_REFUSAL" in msg and "nope" in msg
+-
+-    budget = {"status": "incomplete",
+-              "incomplete_details": {"reason": "max_output_tokens"},
+-              "usage": {"output_tokens": 5}, "output": []}
+-    msg = srv._provider_failure_message(srv._responses_diagnostics(budget))
+-    assert msg.startswith("decision model returned no text: OUTPUT_BUDGET_EXHAUSTED")
+-    assert "NOT a model blank" in msg
+-
+-    # No cause => None so the caller keeps the generic non-JSON error.
+-    assert srv._provider_failure_message(
+-        srv._responses_diagnostics({"output": []})) is None
+-
+-
+-def test_extract_budget_exhaustion_terminal(srv, tmp_path, monkeypatch):
+-    payload = {
+-        "status": "incomplete",
+-        "incomplete_details": {"reason": "max_output_tokens"},
+-        "usage": {"output_tokens": 16384,
+-                  "output_tokens_details": {"reasoning_tokens": 16380}},
+-        "output": [{"type": "reasoning"}],
+-    }
+-    with pytest.raises(RuntimeError, match="OUTPUT_BUDGET_EXHAUSTED") as exc:
+-        _stub_and_extract(srv, monkeypatch, tmp_path, payload, "budget")
+-    # Terminal diagnosis must not masquerade as a transcript/model blank.
+-    assert "non-JSON" not in str(exc.value)
+-    assert "max_output_tokens" in str(exc.value)
+-
+-
+-def test_extract_provider_error_terminal(srv, tmp_path, monkeypatch):
+-    payload = {"error": {"message": "upstream exploded"}, "output": []}
+-    with pytest.raises(RuntimeError, match="PROVIDER_ERROR") as exc:
+-        _stub_and_extract(srv, monkeypatch, tmp_path, payload, "perr")
+-    assert "upstream exploded" in str(exc.value)
+-
+-
+-def test_extract_refusal_terminal(srv, tmp_path, monkeypatch):
+-    payload = {"output": [{"type": "refusal", "refusal": "I will not"}]}
+-    with pytest.raises(RuntimeError, match="PROVIDER_REFUSAL") as exc:
+-        _stub_and_extract(srv, monkeypatch, tmp_path, payload, "pref")
+-    assert "I will not" in str(exc.value)
+-
+-
+-def test_extract_genuine_blank_stays_generic(srv, tmp_path, monkeypatch):
+-    # No provider cause: the ordinary empty envelope keeps its old error.
+-    with pytest.raises(RuntimeError, match="non-JSON"):
+-        _stub_and_extract(srv, monkeypatch, tmp_path, {"output": []}, "blank")
+-
+-
+-def test_extract_logs_provider_diag_on_success(srv, tmp_path, monkeypatch, capsys):
+-    one = {
+-        "verbatim_quote": {"original": "ship it", "english_translation": "y"},
+-        "extracted_decision": {"summary": "s", "category": "architecture",
+-                               "rationale": "r", "alternatives": [],
+-                               "tradeoffs": "t"},
+-    }
+-    payload = {"status": "completed", "usage": {"output_tokens": 3},
+-               "output": [{"type": "message", "content": [
+-                   {"type": "output_text", "text": json.dumps(one)}]}]}
+-    assert _stub_and_extract(
+-        srv, monkeypatch, tmp_path, payload, "diagnostics") == [one]
+-    err = capsys.readouterr().err
+-    assert "provider diag" in err
+-    assert "status=completed" in err
+-
+-
+-def test_responses_diagnostics_scalar_content_does_not_raise(srv):
+-    # A malformed nested "content" scalar must not abort diagnosis (QA F1).
+-    for bad_content in (1, "text", {"type": "refusal"}, True):
+-        diag = srv._responses_diagnostics(
+-            {"output": [{"type": "message", "content": bad_content}]})
+-        assert set(diag) == {
+-            "status", "incomplete_reason", "usage", "error", "refusal"}
+-        assert diag["refusal"] is None
+-
+-
+-def test_responses_diagnostics_non_finite_usage_is_none(srv):
+-    # nan/inf raise inside int(); the parser must swallow them (QA F2).
+-    diag = srv._responses_diagnostics({
+-        "usage": {
+-            "input_tokens": float("nan"),
+-            "output_tokens": float("inf"),
+-            "total_tokens": float("-inf"),
+-            "output_tokens_details": {"reasoning_tokens": float("nan")},
+-        },
+-    })
+-    assert diag["usage"] == {
+-        "input_tokens": None, "output_tokens": None,
+-        "reasoning_tokens": None, "total_tokens": None}
+-
+-
+-def test_provider_failure_message_scalar_usage_still_terminal(srv):
+-    # A hand-built diagnostic with a scalar usage must not raise in the
+-    # budget branch; terminal classification survives with null usage (QA F3).
+-    diag = {
+-        "status": "incomplete",
+-        "incomplete_reason": "max_output_tokens",
+-        "usage": 5,
+-        "error": None,
+-        "refusal": None,
+-    }
+-    msg = srv._provider_failure_message(diag)
+-    assert msg.startswith("decision model returned no text: OUTPUT_BUDGET_EXHAUSTED")
+-    assert "input=None" in msg
+-
+-
+-# --- R1: HTTPS scheme guard (Task 265) ---
+-
+-
+-def test_decision_https_guard_allows_https(srv):
+-    base = "https://api.openai.com/v1"
+-    assert srv._https_guard(base, "DECISION_API_BASE") == base
+-
+-
+-def test_decision_https_guard_allows_loopback(srv):
+-    for base in ("http://localhost:8080/v1", "http://127.0.0.1:1234/v1"):
+-        assert srv._https_guard(base, "DECISION_API_BASE") == base
+-
+-
+-def test_decision_https_guard_rejects_plaintext_remote(srv):
+-    with pytest.raises(RuntimeError) as exc:
+-        srv._https_guard("http://api.example.com/v1", "DECISION_API_BASE")
+-    assert "DECISION_API_BASE" in str(exc.value)
+-
+-
+-def test_decision_api_base_rejects_plaintext_remote(srv, monkeypatch):
+-    monkeypatch.setenv("DECISION_API_BASE", "http://api.example.com/v1")
+-    monkeypatch.delenv("BRAIN_API_BASE", raising=False)
+-    with pytest.raises(RuntimeError):
+-        srv._get_api_base()
+-
+-
+-def test_decision_api_base_accepts_https(srv, monkeypatch):
+-    monkeypatch.setenv("DECISION_API_BASE", "https://openrouter.ai/api/v1")
+-    assert srv._get_api_base() == "https://openrouter.ai/api/v1"
+-
+-
+-# --- R2: configurable read timeout (Task 265) ---
+-
+-
+-def test_decision_read_timeout_default_and_override(srv, monkeypatch):
+-    monkeypatch.delenv("DECISION_HTTP_READ_TIMEOUT", raising=False)
+-    assert srv._get_decision_read_timeout() == 600.0
+-    monkeypatch.setenv("DECISION_HTTP_READ_TIMEOUT", "900")
+-    assert srv._get_decision_read_timeout() == 900.0
+-
+-
+-def test_decision_read_timeout_rejects_malformed(srv, monkeypatch):
+-    monkeypatch.setenv("DECISION_HTTP_READ_TIMEOUT", "abc")
+-    with pytest.raises(RuntimeError):
+-        srv._get_decision_read_timeout()
+-
+-
+-def test_decision_read_timeout_rejects_nonpositive(srv, monkeypatch):
+-    monkeypatch.setenv("DECISION_HTTP_READ_TIMEOUT", "0")
+-    with pytest.raises(RuntimeError):
+-        srv._get_decision_read_timeout()
+diff --git a/tests/test_mcp_servers.py b/tests/test_mcp_servers.py
+index f93cee2..accf8b2 100644
+--- a/tests/test_mcp_servers.py
++++ b/tests/test_mcp_servers.py
+@@ -1062,7 +1062,6 @@ def test_workflow_skills_have_no_opencode_execution_log():
+     target_files.append(repo_root / "agents" / "cognitive-executor.md")
+     assert len(target_files) >= 31, (
+         f"Expected the 31 skill templates + executor agent (30 skills after "
+-        f"Task 190 deleted manager-decision), got {len(target_files)} files"
+     )
+     for skill_file in target_files:
+         content = skill_file.read_text(encoding="utf-8")
+diff --git a/tests/test_session_lifecycle.py b/tests/test_session_lifecycle.py
+index 984cb5c..654318d 100644
+--- a/tests/test_session_lifecycle.py
++++ b/tests/test_session_lifecycle.py
+@@ -17,7 +17,6 @@ import pytest
+ 
+ REPO = Path(__file__).parent.parent
+ BRIDGE_DIR = REPO / "mcp-brain-bridge"
+-DECISION_DIR = REPO / "mcp-decision-server"
+ sys.path.insert(0, str(BRIDGE_DIR))
+ 
+ import server as bridge
+@@ -113,7 +112,6 @@ def test_approval_promotes_only_via_explicit_record(tmp_path):
+         "s1", 0, project_root=str(proj))
+     assert returned["summary"] == "use X"
+     # Promotion alone writes no committed decision: the caller must pass
+-    # the returned payload to record_manager_decision explicitly.
+     assert list((proj / "tasks").rglob("DEC-*.json")) == []
+     kinds = [e["event"] for e in ledger.read_ledger(
+         project_root=str(proj))]
+@@ -133,156 +131,6 @@ def test_rejected_candidate_auditable_never_active(tmp_path):
+     assert list((proj / "tasks").rglob("DEC-*.json")) == []
+ 
+ 
+-# --- Part 2: decision persistence without numeric task ids ------------------
+-
+-def _load_decision_server():
+-    sys.modules["redactor"] = _decision_load(
+-        "decision_redactor", "redactor.py")
+-    return _decision_load("decision_server", "server.py")
+-
+-
+-def _decision_load(name, filename):
+-    spec = importlib.util.spec_from_file_location(
+-        name, DECISION_DIR / filename)
+-    mod = importlib.util.module_from_spec(spec)
+-    sys.modules[name] = mod
+-    spec.loader.exec_module(mod)
+-    return mod
+-
+-
+-@pytest.fixture(scope="module")
+-def srv():
+-    return _load_decision_server()
+-
+-
+-@pytest.fixture()
+-def repo(tmp_path, monkeypatch):
+-    monkeypatch.setenv("DECISION_REPO_PATH", str(tmp_path))
+-    (tmp_path / "decisions").mkdir()
+-    real_scripts = (REPO / ".opencode" / "decisions" / "scripts")
+-    shutil.copytree(real_scripts, tmp_path / "scripts")
+-    return tmp_path
+-
+-
+-def _plant_taskless_transcript(root, session_id):
+-    path = (root / "tasks" / ".sessions" / session_id
+-            / "transcript.jsonl")
+-    path.parent.mkdir(parents=True, exist_ok=True)
+-    path.write_text(
+-        json.dumps({"role": "user", "content": "ship taskless",
+-                    "name": "m",
+-                    "timestamp": "2026-09-08T00:00:00+00:00"}) + "\n",
+-        encoding="utf-8")
+-    return path
+-
+-
+-def _stub_decision_llm(monkeypatch, candidates):
+-    stub_resp = types.SimpleNamespace(
+-        status_code=200, text="stub", headers={},
+-        raise_for_status=lambda: None,
+-        json=lambda: {
+-            "output": [
+-                {"type": "message",
+-                 "content": [{"type": "output_text",
+-                              "text": json.dumps(candidates)}]}
+-            ]
+-        },
+-    )
+-
+-    class _FakeClient:
+-        def __init__(self, *a, **k):
+-            pass
+-
+-        def __enter__(self):
+-            return self
+-
+-        def __exit__(self, *a):
+-            return False
+-
+-        def post(self, *a, **k):
+-            return stub_resp
+-
+-    stub = types.ModuleType("httpx")
+-    stub.Client = _FakeClient
+-    stub.TimeoutException = type("TimeoutException", (Exception,), {})
+-    stub.TransportError = type("TransportError", (Exception,), {})
+-
+-    class _Timeout:
+-        def __init__(self, *a, **k):
+-            pass
+-
+-    stub.Timeout = _Timeout
+-    monkeypatch.setitem(sys.modules, "httpx", stub)
+-
+-
+-_CANDS = [{
+-    "verbatim_quote": {"original": "ship taskless",
+-                       "english_translation": "ship taskless"},
+-    "extracted_decision": {"summary": "s", "category": "architecture",
+-                           "rationale": "r", "alternatives": [],
+-                           "tradeoffs": "t"},
+-}]
+-
+-
+-def test_extract_session_id_missing_transcript_returns_empty(
+-        srv, tmp_path, monkeypatch):
+-    monkeypatch.chdir(tmp_path)
+-    call = srv.extract_session_decisions
+-    target = call.fn if hasattr(call, "fn") else call
+-    assert target(session_id="saga-missing") == []
+-
+-
+-def test_extract_session_id_parses_stubbed_llm(
+-        srv, tmp_path, monkeypatch):
+-    _plant_taskless_transcript(tmp_path, "saga2")
+-    monkeypatch.chdir(tmp_path)
+-    _stub_decision_llm(monkeypatch, _CANDS)
+-    call = srv.extract_session_decisions
+-    target = call.fn if hasattr(call, "fn") else call
+-    assert target(session_id="saga2") == _CANDS
+-
+-
+-def test_extract_numeric_task_id_path_unchanged(
+-        srv, tmp_path, monkeypatch):
+-    transcript = tmp_path / "transcript.jsonl"
+-    transcript.write_text(
+-        json.dumps({"role": "user", "content": "ship taskless", "name": "m",
+-                    "timestamp": "2026-09-08T00:00:00+00:00"}) + "\n",
+-        encoding="utf-8")
+-    _stub_decision_llm(monkeypatch, _CANDS)
+-    call = srv.extract_session_decisions
+-    target = call.fn if hasattr(call, "fn") else call
+-    assert target(7, transcript_path=str(transcript)) == _CANDS
+-
+-
+-def test_extract_string_task_id_treated_as_session(
+-        srv, tmp_path, monkeypatch):
+-    _plant_taskless_transcript(tmp_path, "abc")
+-    monkeypatch.chdir(tmp_path)
+-    _stub_decision_llm(monkeypatch, _CANDS)
+-    call = srv.extract_session_decisions
+-    target = call.fn if hasattr(call, "fn") else call
+-    assert target("abc") == _CANDS
+-
+-
+-def test_extract_neither_task_nor_session_raises(srv):
+-    call = srv.extract_session_decisions
+-    target = call.fn if hasattr(call, "fn") else call
+-    with pytest.raises(ValueError):
+-        target()
+-
+-
+-def test_extract_rejects_bad_session_id(srv):
+-    call = srv.extract_session_decisions
+-    target = call.fn if hasattr(call, "fn") else call
+-    with pytest.raises(ValueError):
+-        target(session_id="../evil")
+-
+-
+-def test_sync_status_is_not_approval_status(srv, repo):
+-    call = srv.get_sync_status
+-    target = call.fn if hasattr(call, "fn") else call
+-    assert "approv" not in target().lower()
+ 
+ 
+ # --- Part 3: lint carve-out and analysis lifecycle --------------------------
+diff --git a/tests/test_skill_registry.py b/tests/test_skill_registry.py
+index 8f52c84..cd62ed0 100644
+--- a/tests/test_skill_registry.py
++++ b/tests/test_skill_registry.py
+@@ -2,7 +2,6 @@
+ 
+ Every skill named in prompts/fragments/07-agent_skills_registry.md must
+ have a matching skill-templates/<name>/SKILL.md whose frontmatter name
+-agrees, and the decision-migration skill must carry its workflow contract
+ (dry-run-first, scrub+verify, idempotent, report).
+ """
+ 
+@@ -34,53 +33,6 @@ def test_every_registry_skill_has_matching_template():
+         assert _frontmatter_name(d) == name, f"frontmatter mismatch for {name}"
+ 
+ 
+-def test_decision_migration_workflow_contract():
+-    text = (
+-        ROOT / "skill-templates" / "decision-migration" / "SKILL.md"
+-    ).read_text(encoding="utf-8")
+-    for required in (
+-        "Dry run first",
+-        "record_manager_decision",
+-        "sanitize_text",
+-        "verify_clean",
+-        "idempotent",
+-        "migrated / skipped",
+-    ):
+-        assert required in text, f"contract term missing: {required}"
+-    assert "standalone script" in text or "no standalone script" in text.lower()
+-
+-
+-def _migration_skill_text() -> str:
+-    """Return the decision-migration SKILL.md text under test."""
+-    return (
+-        ROOT / "skill-templates" / "decision-migration" / "SKILL.md"
+-    ).read_text(encoding="utf-8")
+-
+-
+-def test_migration_skill_has_explicit_approval_gate():
+-    """Dry run must STOP; only an explicit batch-approval phrase unlocks writes."""
+-    text = _migration_skill_text()
+-    assert "STOP" in text
+-    assert "explicit Manager batch-approval phrase" in text
+-    assert "NOT approved" in text
+-
+-
+-def test_migration_skill_has_dedup_precheck_and_provenance():
+-    """Idempotent reruns: pre-check migrated_from in target, skip-if-exists."""
+-    text = _migration_skill_text()
+-    assert "skip-if-exists" in text
+-    assert "migrated_from" in text
+-
+-
+-def test_migration_skill_forbids_invented_paths_and_source_edits():
+-    """Target path resolves from ordered known sources only; source immutability must be proven."""
+-    text = _migration_skill_text()
+-    assert "lookup, never invent" in text
+-    assert "ONLY if that directory already exists" in text
+-    assert "HALT and ask the Manager for the target path" in text
+-    assert "git status --porcelain" in text
+-
+-
+ def _template_text(name: str) -> str:
+     return (ROOT / "skill-templates" / name / "SKILL.md").read_text(encoding="utf-8")
+```
+<!-- END_GIT_DIFF -->

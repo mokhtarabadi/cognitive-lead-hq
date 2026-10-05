@@ -2,7 +2,6 @@
 
 Every skill named in prompts/fragments/07-agent_skills_registry.md must
 have a matching skill-templates/<name>/SKILL.md whose frontmatter name
-agrees, and the decision-migration skill must carry its workflow contract
 (dry-run-first, scrub+verify, idempotent, report).
 """
 
@@ -32,53 +31,6 @@ def test_every_registry_skill_has_matching_template():
         d = ROOT / "skill-templates" / name
         assert (d / "SKILL.md").is_file(), f"missing template for {name}"
         assert _frontmatter_name(d) == name, f"frontmatter mismatch for {name}"
-
-
-def test_decision_migration_workflow_contract():
-    text = (
-        ROOT / "skill-templates" / "decision-migration" / "SKILL.md"
-    ).read_text(encoding="utf-8")
-    for required in (
-        "Dry run first",
-        "record_manager_decision",
-        "sanitize_text",
-        "verify_clean",
-        "idempotent",
-        "migrated / skipped",
-    ):
-        assert required in text, f"contract term missing: {required}"
-    assert "standalone script" in text or "no standalone script" in text.lower()
-
-
-def _migration_skill_text() -> str:
-    """Return the decision-migration SKILL.md text under test."""
-    return (
-        ROOT / "skill-templates" / "decision-migration" / "SKILL.md"
-    ).read_text(encoding="utf-8")
-
-
-def test_migration_skill_has_explicit_approval_gate():
-    """Dry run must STOP; only an explicit batch-approval phrase unlocks writes."""
-    text = _migration_skill_text()
-    assert "STOP" in text
-    assert "explicit Manager batch-approval phrase" in text
-    assert "NOT approved" in text
-
-
-def test_migration_skill_has_dedup_precheck_and_provenance():
-    """Idempotent reruns: pre-check migrated_from in target, skip-if-exists."""
-    text = _migration_skill_text()
-    assert "skip-if-exists" in text
-    assert "migrated_from" in text
-
-
-def test_migration_skill_forbids_invented_paths_and_source_edits():
-    """Target path resolves from ordered known sources only; source immutability must be proven."""
-    text = _migration_skill_text()
-    assert "lookup, never invent" in text
-    assert "ONLY if that directory already exists" in text
-    assert "HALT and ask the Manager for the target path" in text
-    assert "git status --porcelain" in text
 
 
 def _template_text(name: str) -> str:

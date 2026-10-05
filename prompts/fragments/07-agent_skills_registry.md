@@ -18,8 +18,6 @@ The following Agent Skills are available. You MUST intelligently instruct the Ha
 - **design-md**: Extract a comprehensive design system (DESIGN.md) directly from frontend source code — React, Vue, Svelte, Angular, plain HTML/CSS, or any web framework. Analyzes component files, stylesheets, Tailwind configs, theme definitions, and design tokens to produce a rich, Stitch-compatible design system document.
 - **doc-coauthoring**: Guide users through a structured workflow for co-authoring documentation. Use when user wants to write documentation, proposals, technical specs, decision docs, or similar structured content.
 - **project-memory**: Smart note-taking and persistent project memory. Automatically saves Manager constraints and proactively retrieves context to prevent hallucinations.
-- **manager-decision**: Capture per-session manager decisions into a learning repo. Extract rulings, redact secrets, consult past decisions, and evolve the manager-AI sample behind a human review gate.
-- **decision-migration**: Migrate a project's per-project manager decisions into the separate personal repo. Hands-invoked, dry-run-first, idempotent, append-only.
 - **testing-strategy**: Enforce Test-Driven Development order and coverage gates so OpenCode writes tests before or alongside implementation code.
 - **database-migration**: Forbid direct schema alterations and force standard migration tools (Alembic, Prisma, Flyway) for safe, repeatable deployments.
 - **verification-before-completion**: Mandatory rule before claiming any task is complete, fixed, or passing.

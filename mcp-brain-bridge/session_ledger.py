@@ -50,8 +50,7 @@ def _resolve_dir(
     elif project_root is not None:
         ledger_dir = Path(project_root).expanduser() / "tasks" / ".sessions"
     else:
-        raise ValueError(
-            "session ledger: pass sessions_dir or project_root")
+        raise ValueError("session ledger: pass sessions_dir or project_root")
     ledger_dir.mkdir(parents=True, exist_ok=True)
     return ledger_dir
 
@@ -103,10 +102,10 @@ def start_session(
         "response_hash": None,
         "retry_counts": {},
         "capability_manifest": (
-            dict(capability_manifest) if capability_manifest else None),
+            dict(capability_manifest) if capability_manifest else None
+        ),
         "approval_events": [],
-        "transcript_path": str(
-            ledger_dir / session_id / "transcript.jsonl"),
+        "transcript_path": str(ledger_dir / session_id / "transcript.jsonl"),
         "transport_corrections": [],
         "final_status": "open",
     }
@@ -128,13 +127,19 @@ def checkpoint(
     if name not in CHECKPOINTS:
         raise ValueError(
             f"session ledger: unknown checkpoint {name!r}; "
-            f"expected one of {', '.join(CHECKPOINTS)}")
+            f"expected one of {', '.join(CHECKPOINTS)}"
+        )
     data: dict = {"checkpoint": name}
     if detail:
         data.update(dict(detail))
     return append_event(
-        "checkpoint", task_id=task_id, session_id=session_id,
-        data=data, project_root=project_root, sessions_dir=sessions_dir)
+        "checkpoint",
+        task_id=task_id,
+        session_id=session_id,
+        data=data,
+        project_root=project_root,
+        sessions_dir=sessions_dir,
+    )
 
 
 def read_ledger(
@@ -147,8 +152,7 @@ def read_ledger(
     elif project_root is not None:
         ledger_dir = Path(project_root).expanduser() / "tasks" / ".sessions"
     else:
-        raise ValueError(
-            "session ledger: pass sessions_dir or project_root")
+        raise ValueError("session ledger: pass sessions_dir or project_root")
     path = ledger_dir / LEDGER_FILENAME
     if not path.is_file():
         return []
@@ -174,17 +178,22 @@ def record_pending_candidate(
     project_root: Optional[Union[str, Path]] = None,
     sessions_dir: Optional[Union[str, Path]] = None,
 ) -> dict:
-    """Stage one extracted decision candidate as pending — never a write.
+    """Stage one extracted candidate as pending — never a write.
 
     The ledger row is the approval queue (GitHub issue 19, P7); the
-    candidate reaches ``record_manager_decision`` only after the
+    candidate is handed off only after the
     Manager approves, via an explicit caller handoff.
     """
     data = dict(candidate)
     data["status"] = "pending"
     return append_event(
-        "decision_pending", task_id=task_id, session_id=session_id,
-        data=data, project_root=project_root, sessions_dir=sessions_dir)
+        "decision_pending",
+        task_id=task_id,
+        session_id=session_id,
+        data=data,
+        project_root=project_root,
+        sessions_dir=sessions_dir,
+    )
 
 
 def _pending_for_session(
@@ -194,10 +203,9 @@ def _pending_for_session(
 ) -> list[dict]:
     """Pending decision candidates staged for one session, in order."""
     return [
-        e for e in read_ledger(
-            project_root=project_root, sessions_dir=sessions_dir)
-        if e.get("event") == "decision_pending"
-        and e.get("session_id") == session_id
+        e
+        for e in read_ledger(project_root=project_root, sessions_dir=sessions_dir)
+        if e.get("event") == "decision_pending" and e.get("session_id") == session_id
     ]
 
 
@@ -215,11 +223,12 @@ def resolve_pending_candidate(
     ``index`` selects the session's Nth staged candidate; ``verdict`` is
     ``\"approved\"`` / ``\"rejected\"`` (a bool also works: True approves).
     Approval returns the candidate payload merged with the verdict so
-    the caller can hand it to ``record_manager_decision`` explicitly —
+    the caller can handle it explicitly —
     this function itself never writes DEC files.
     """
     pending = _pending_for_session(
-        session_id, project_root=project_root, sessions_dir=sessions_dir)
+        session_id, project_root=project_root, sessions_dir=sessions_dir
+    )
     try:
         chosen = pending[index]
     except IndexError:
@@ -230,26 +239,28 @@ def resolve_pending_candidate(
     if isinstance(verdict, str):
         decision = verdict.strip().lower()
         if decision not in ("approved", "rejected"):
-            raise ValueError(
-                f"bad verdict {verdict!r}; use 'approved' or 'rejected'"
-            )
+            raise ValueError(f"bad verdict {verdict!r}; use 'approved' or 'rejected'")
     else:
         decision = "approved" if verdict else "rejected"
     # The pending row stores candidate fields at the record top level
     # (append_event merges data in); carry them over minus the envelope
     # and the stale pending status.
     data = {
-        key: value for key, value in chosen.items()
+        key: value
+        for key, value in chosen.items()
         if key not in ("ts", "task_id", "session_id", "event", "status")
     }
     data["decision"] = decision
     if note:
         data["note"] = note
     return append_event(
-        "decision_approved" if decision == "approved"
-        else "decision_rejected",
-        task_id=task_id, session_id=session_id, data=data,
-        project_root=project_root, sessions_dir=sessions_dir)
+        "decision_approved" if decision == "approved" else "decision_rejected",
+        task_id=task_id,
+        session_id=session_id,
+        data=data,
+        project_root=project_root,
+        sessions_dir=sessions_dir,
+    )
 
 
 def promote_pending_candidate(
@@ -262,5 +273,11 @@ def promote_pending_candidate(
 ) -> dict:
     """Approve one pending candidate; caller persists it explicitly."""
     return resolve_pending_candidate(
-        session_id, index, "approved", task_id=task_id, note=note,
-        project_root=project_root, sessions_dir=sessions_dir)
+        session_id,
+        index,
+        "approved",
+        task_id=task_id,
+        note=note,
+        project_root=project_root,
+        sessions_dir=sessions_dir,
+    )
