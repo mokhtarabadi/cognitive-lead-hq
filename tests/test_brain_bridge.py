@@ -436,6 +436,181 @@ def test_brain_turn_fence_only_reports_debug(tmp_path, monkeypatch):
     assert any("just docs" in s for s in result["debug"]["snippets"])
 
 
+def test_render_direct_preserves_bundle_task_paths_diff_fed_order():
+    # Task 305 C2: attach precedence bundle then task then paths then
+    # diff then fed is preserved end to end.
+    cands = [
+        {
+            "kind": k,
+            "path": f"{k}.md",
+            "open_line": k,
+            "fence_lang": "md",
+            "text": f"body-{k}",
+        }
+        for k in ("bundle", "task", "paths", "diff", "fed")
+    ]
+    rendered, truncated, _info = bridge._render_direct(cands)
+    assert truncated == []
+    assert [c["kind"] for c, _b, _m in rendered] == [
+        "bundle",
+        "task",
+        "paths",
+        "diff",
+        "fed",
+    ]
+
+
+def test_compacted_digest_carries_visible_marker():
+    # Task 305 C3: history bound cuts carry a visible marker.
+    turns = [{"role": "user", "content": f"m{i}"} for i in range(41)]
+    out = bridge._build_compacted(turns)
+    assert out[0].get("compacted") is True
+    assert "[compacted 41 turns:" in out[0]["content"]
+
+
+def test_static_split_cache_evicts_oldest(monkeypatch):
+    # Task 305 C5: 64-entry FIFO evicts the oldest entry past the cap.
+    monkeypatch.setattr(bridge, "_STATIC_SPLIT_CACHE", {})
+    first = bridge._static_prefix_hash("sys-0", "b", "t")
+    for i in range(1, 70):
+        bridge._static_prefix_hash(f"sys-{i}", "b", "t")
+    assert len(bridge._STATIC_SPLIT_CACHE) <= 64
+    assert ("sys-0", "b", "t") not in bridge._STATIC_SPLIT_CACHE
+    assert first is not None
+
+
+def test_attach_cap_boundaries_mark_cuts():
+    # Task 305 C2: cap minus 1 and exact cap pass clean, cap plus 1
+    # carries a visible marker naming the cut.
+    def render(text, cap=100):
+        rendered, _t, _i = bridge._render_direct(
+            [
+                {
+                    "kind": "paths",
+                    "path": "c.md",
+                    "open_line": "c",
+                    "fence_lang": "md",
+                    "text": text,
+                    "cap": cap,
+                }
+            ]
+        )
+        return rendered[0][1]
+
+    assert "truncated" not in render("y" * 99)
+    assert "truncated" not in render("y" * 100)
+    cut = render("y" * 101)
+    assert "[...truncated at 100 chars" in cut
+
+
+def test_attach_absent_block_renders_unavailable(tmp_path):
+    # Task 305 C2: absent blocks render an unavailable note, never
+    # silent nothing.
+    out = bridge.build_paths_attach(["gone.md"], project_root=str(tmp_path))
+    assert "[unavailable: gone.md" in out
+
+
+def test_strict_reject_reraises_non_strict_errors(tmp_path, monkeypatch):
+    # Task 305 C1: only strict codes convert to REPORT. Any other
+    # ValueError on the brain_turn path propagates instead of
+    # mislabeling as a strict reject.
+    monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
+    _mk_sys_prompt(tmp_path, monkeypatch)
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    monkeypatch.delenv("BRAIN_TEMPERATURE", raising=False)
+    _mk_bridge_client(monkeypatch, [_FakeResp(200, "fine", _ok_payload("hi"))])
+    monkeypatch.setattr(
+        bridge,
+        "extract_xml_blocks",
+        lambda _o: (_ for _ in ()).throw(ValueError("boom")),
+    )
+    call = bridge.brain_turn
+    target = call.fn if hasattr(call, "fn") else call
+    with pytest.raises(ValueError, match="boom"):
+        target("q", task_id="220")
+
+
+def test_attach_production_cap_boundaries():
+    # Task 305 C2: production 60k per-file cap minus 1 and exact pass
+    # clean, cap plus 1 carries a visible marker.
+    def render(text):
+        rendered, _t, _i = bridge._render_direct(
+            [
+                {
+                    "kind": "paths",
+                    "path": "c.md",
+                    "open_line": "c",
+                    "fence_lang": "md",
+                    "text": text,
+                    "cap": 60000,
+                }
+            ]
+        )
+        return rendered[0][1]
+
+    assert "truncated" not in render("y" * 59999)
+    assert "truncated" not in render("y" * 60000)
+    assert "[...truncated at 60000 chars" in render("y" * 60001)
+
+
+def test_extract_none_input_raises_strict_contract():
+    # Task 305 review: str contract is explicit, never bare TypeError.
+    with pytest.raises(ValueError, match="XML_STRICT_REJECT_CONTRACT"):
+        bridge.extract_xml_blocks(None)
+
+
+def test_brain_turn_none_output_reports_without_crash(tmp_path, monkeypatch):
+    # Task 305 C1: None model output yields REPORT, never a crash.
+    monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
+    _mk_sys_prompt(tmp_path, monkeypatch)
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    monkeypatch.delenv("BRAIN_TEMPERATURE", raising=False)
+    _mk_bridge_client(monkeypatch, [_FakeResp(200, "fine", None)])
+    call = bridge.brain_turn
+    target = call.fn if hasattr(call, "fn") else call
+    result = target("q", task_id="218")
+    assert result["status"] == "REPORT"
+
+
+def test_brain_turn_consecutive_fenced_both_report_code(tmp_path, monkeypatch):
+    # Task 305 C1 loop: two fenced turns both REPORT with strict code.
+    monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
+    _mk_sys_prompt(tmp_path, monkeypatch)
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    monkeypatch.delenv("BRAIN_TEMPERATURE", raising=False)
+    fenced = "```xml\n<hotfix>apply A1</hotfix>\n```"
+    _mk_bridge_client(
+        monkeypatch,
+        [
+            _FakeResp(200, "fine", _ok_payload(fenced)),
+            _FakeResp(200, "fine", _ok_payload(fenced)),
+        ],
+    )
+    call = bridge.brain_turn
+    target = call.fn if hasattr(call, "fn") else call
+    first = target("q", task_id="219")
+    second = target("q2", task_id="219")
+    assert first["status"] == "REPORT" and second["status"] == "REPORT"
+    assert "XML_STRICT_REJECT_FENCE_FALLBACK" in first["output"]
+    assert "XML_STRICT_REJECT_FENCE_FALLBACK" in second["output"]
+
+
+def test_brain_turn_strict_reject_reports_code(tmp_path, monkeypatch):
+    # Task 305 C1: fenced operative XML never extracts at turn level.
+    # The tool stays stable and reports with the explicit strict code.
+    monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
+    _mk_sys_prompt(tmp_path, monkeypatch)
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    monkeypatch.delenv("BRAIN_TEMPERATURE", raising=False)
+    fenced = "```xml\n<hotfix>apply A1</hotfix>\n```"
+    _mk_bridge_client(monkeypatch, [_FakeResp(200, "fine", _ok_payload(fenced))])
+    call = bridge.brain_turn
+    target = call.fn if hasattr(call, "fn") else call
+    result = target("q", task_id="217")
+    assert result["status"] == "REPORT"
+    assert "XML_STRICT_REJECT_FENCE_FALLBACK" in result["output"]
+
+
 def test_brain_turn_budget_return_fields(tmp_path, monkeypatch):
     monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
     _mk_sys_prompt(tmp_path, monkeypatch)
@@ -1891,26 +2066,23 @@ def test_extract_hotfix_bare_block():
 
 
 def test_extract_known_tag_inside_xml_fence():
-    # Incident variant: operative XML wrapped in an explicit ```xml fence
-    # was stripped as documentation before scanning.
-    out = "notes\n```xml\n<failure_report>root cause</failure_report>\n```\ntail"
-    blocks = bridge.extract_xml_blocks(out)
-    assert len(blocks) == 1
-    assert blocks[0].startswith("<failure_report>")
+    # Task 305 C1 strict: lenient fallback raises with code.
+    with pytest.raises(ValueError, match="XML_STRICT_REJECT_FENCE_FALLBACK"):
+        bridge.extract_xml_blocks(
+            "notes\n```xml\n<failure_report>root cause</failure_report>\n```\ntail"
+        )
 
 
 def test_extract_hotfix_inside_xml_fence():
-    out = "```xml\n<hotfix>apply A1-A8</hotfix>\n```"
-    blocks = bridge.extract_xml_blocks(out)
-    assert len(blocks) == 1
-    assert blocks[0].startswith("<hotfix>")
+    # Task 305 C1 strict: lenient fallback raises with code.
+    with pytest.raises(ValueError, match="XML_STRICT_REJECT_FENCE_FALLBACK"):
+        bridge.extract_xml_blocks("```xml\n<hotfix>apply A1-A8</hotfix>\n```")
 
 
 def test_extract_unclosed_xml_fence_to_eof():
-    out = "notes\n```xml\n<hotfix>apply A1</hotfix>\n"
-    blocks = bridge.extract_xml_blocks(out)
-    assert len(blocks) == 1
-    assert blocks[0].startswith("<hotfix>")
+    # Task 305 C1 strict: lenient fallback raises with code.
+    with pytest.raises(ValueError, match="XML_STRICT_REJECT_FENCE_FALLBACK"):
+        bridge.extract_xml_blocks("notes\n```xml\n<hotfix>apply A1</hotfix>\n")
 
 
 def test_extract_ignores_hotfix_in_non_xml_fences():
@@ -1944,18 +2116,17 @@ def test_extract_unfenced_wins_over_fenced_xml():
 
 
 def test_extract_multiple_xml_fences_in_order():
-    out = "```xml\n<hotfix>first</hotfix>\n```\ntext\n```xml\n<failure_report>second</failure_report>\n```"
-    blocks = bridge.extract_xml_blocks(out)
-    assert len(blocks) == 2
-    assert blocks[0].startswith("<hotfix>")
-    assert blocks[1].startswith("<failure_report>")
+    # Task 305 C1 strict: lenient fallback raises with code.
+    with pytest.raises(ValueError, match="XML_STRICT_REJECT_FENCE_FALLBACK"):
+        bridge.extract_xml_blocks(
+            "```xml\n<hotfix>first</hotfix>\n```\ntext\n```xml\n<failure_report>second</failure_report>\n```"
+        )
 
 
 def test_extract_uppercase_fence_lowercase_tag():
-    out = "```XML\n<hotfix>loud fence</hotfix>\n```"
-    blocks = bridge.extract_xml_blocks(out)
-    assert len(blocks) == 1
-    assert blocks[0].startswith("<hotfix>")
+    # Task 305 C1 strict: lenient fallback raises with code.
+    with pytest.raises(ValueError, match="XML_STRICT_REJECT_FENCE_FALLBACK"):
+        bridge.extract_xml_blocks("```XML\n<hotfix>loud fence</hotfix>\n```")
 
 
 def test_extract_uppercase_tag_tolerated():
@@ -1963,7 +2134,9 @@ def test_extract_uppercase_tag_tolerated():
     # varies in case; an operative tag in any case still extracts.
     blocks = bridge.extract_xml_blocks("<HOTFIX>x</HOTFIX>")
     assert len(blocks) == 1
-    assert bridge.extract_xml_blocks("```xml\n<HOTFIX>x</HOTFIX>\n```") != []
+    # Task 305 C1 strict: the fenced twin raises with code.
+    with pytest.raises(ValueError, match="XML_STRICT_REJECT_FENCE_FALLBACK"):
+        bridge.extract_xml_blocks("```xml\n<HOTFIX>x</HOTFIX>\n```")
 
 
 def test_extract_fence_without_newline_ignored():
@@ -2016,20 +2189,17 @@ def test_extract_non_allowlisted_tag_never_extracts():
 
 
 def test_extract_truncated_trailing_block_surfaced():
-    out = "thinking\n<hotfix>apply A1-A8"
-    blocks = bridge.extract_xml_blocks(out)
-    assert len(blocks) == 1
-    assert blocks[0].startswith("<hotfix>")
+    # Task 305 C1 strict: lenient fallback raises with code.
+    with pytest.raises(ValueError, match="XML_STRICT_REJECT_UNCLOSED_TAIL"):
+        bridge.extract_xml_blocks("thinking\n<hotfix>apply A1-A8")
 
 
 def test_extract_truncated_tail_cuts_trailing_prose():
-    # QA hotfix M1: prose after the broken block must stay conversation,
-    # never become instructions the Hands executes.
-    out = "notes\n<hotfix>apply A1\n\nC1 explains why this is safe"
-    blocks = bridge.extract_xml_blocks(out)
-    assert len(blocks) == 1
-    assert "explains" not in blocks[0]
-    assert blocks[0].startswith("<hotfix>")
+    # Task 305 C1 strict: lenient fallback raises with code.
+    with pytest.raises(ValueError, match="XML_STRICT_REJECT_UNCLOSED_TAIL"):
+        bridge.extract_xml_blocks(
+            "notes\n<hotfix>apply A1\n\nC1 explains why this is safe"
+        )
 
 
 def test_extract_plain_prose_angle_brackets_never_extracts():
@@ -2039,18 +2209,17 @@ def test_extract_plain_prose_angle_brackets_never_extracts():
 
 
 def test_extract_unclosed_uppercase_with_attrs_surfaced():
-    # QA hotfix V2: case and attributes never affect the allowlist
-    # decision — the tag NAME alone decides.
-    out = 'notes\n<HOTFIX ID="7">do step 1'
-    blocks = bridge.extract_xml_blocks(out)
-    assert len(blocks) == 1
-    assert blocks[0].startswith("<HOTFIX")
+    # Task 305 C1 strict: lenient fallback raises with code.
+    with pytest.raises(ValueError, match="XML_STRICT_REJECT_UNCLOSED_TAIL"):
+        bridge.extract_xml_blocks('notes\n<HOTFIX ID="7">do step 1')
 
 
 def test_extract_truncated_block_with_attributes_surfaced():
-    out = 'thinking\n<HANDS_IMPLEMENTATION_TASK retry="2">do step 1'
-    blocks = bridge.extract_xml_blocks(out)
-    assert len(blocks) == 1
+    # Task 305 C1 strict: lenient fallback raises with code.
+    with pytest.raises(ValueError, match="XML_STRICT_REJECT_UNCLOSED_TAIL"):
+        bridge.extract_xml_blocks(
+            'thinking\n<HANDS_IMPLEMENTATION_TASK retry="2">do step 1'
+        )
 
 
 def test_extract_mid_sentence_unclosed_mention_ignored():
@@ -2059,10 +2228,9 @@ def test_extract_mid_sentence_unclosed_mention_ignored():
 
 
 def test_extract_truncated_inside_xml_fence_surfaced():
-    out = "notes\n```xml\n<hotfix>apply A1"
-    blocks = bridge.extract_xml_blocks(out)
-    assert len(blocks) == 1
-    assert blocks[0].startswith("<hotfix>")
+    # Task 305 C1 strict: lenient fallback raises with code.
+    with pytest.raises(ValueError, match="XML_STRICT_REJECT_FENCE_FALLBACK"):
+        bridge.extract_xml_blocks("notes\n```xml\n<hotfix>apply A1")
 
 
 def test_extract_closed_block_wins_over_truncated_tail():

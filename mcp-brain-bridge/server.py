@@ -63,6 +63,7 @@ import os
 import re
 import sys
 import json
+import threading
 from pathlib import Path
 from typing import Any, Optional
 from urllib.parse import urlsplit
@@ -869,32 +870,55 @@ def _extract_unclosed_tail(text: str) -> str | None:
     return None
 
 
+#: Strict XML reject codes (Task 305 C1). Lenient fallback paths were
+#: deleted: unclosed trailing blocks and xml-fenced blocks now raise
+#: instead of extracting. The Brain must emit bare unfenced XML.
+STRICT_XML_FENCE_FALLBACK_CODE = "XML_STRICT_REJECT_FENCE_FALLBACK"
+STRICT_XML_UNCLOSED_CODE = "XML_STRICT_REJECT_UNCLOSED_TAIL"
+STRICT_XML_CONTRACT_CODE = "XML_STRICT_REJECT_CONTRACT"
+
+
+def _strict_reject(code: str, msg: str) -> None:
+    """Fail closed on lenient XML input with an explicit code.
+
+    Never returns: raises ValueError carrying the code so the caller
+    reports instead of executing repaired instructions.
+    """
+    raise ValueError(f"{code}: {msg}")
+
+
 def extract_xml_blocks(output: str) -> list[str]:
-    """Return verbatim XML control blocks in document order. Fenced code
-    blocks are stripped first (XML inside backticks is documentation, not
-    instructions — fence-only output means REPORT), EXCEPT explicit
-    ```xml fences: the info string marks real XML, so when the unfenced
-    scan finds nothing, allowlist tags inside ```xml bodies are returned
-    as a fallback (Task 215: reviewer hotfix XML arrived fenced). Tag
-    matching tolerates attributes, whitespace, and case (Task 238 fix
-    loop). A trailing line-start opener with no close tag is surfaced
-    with trailing prose cut (truncation) instead of dropped. Empty list
-    means plain conversation — the Hands takes the whole output."""
+    """Return verbatim XML control blocks in document order. Only bare
+    unfenced blocks extract: fenced code blocks are documentation, and
+    unclosed trailing openers are rejected, never repaired. Fenced or
+    unclosed allowlisted input raises ``ValueError`` with a strict code
+    (Task 305 C1) instead of extracting. Empty list means plain
+    conversation — the Hands takes the whole output. Input contract is
+    ``str``: non-string input raises ``ValueError`` with a strict code
+    instead of a bare ``TypeError``."""
+    if not isinstance(output, str):
+        _strict_reject(
+            STRICT_XML_CONTRACT_CODE,
+            f"expected str input, got {type(output).__name__}",
+        )
     clean, _ = _strip_fences(output)
     blocks = [m.group(0) for m in _XML_RE.finditer(clean)]
     if blocks:
         return blocks
     tail = _extract_unclosed_tail(clean)
     if tail:
-        return [tail]
-    out: list[str] = []
+        _strict_reject(
+            STRICT_XML_UNCLOSED_CODE,
+            "unclosed trailing block: re-emit bare unfenced XML",
+        )
     for body in _XML_FENCE_RE.finditer(output):
         content = body.group(1)
-        out.extend(m.group(0) for m in _XML_RE.finditer(content))
-        tail = _extract_unclosed_tail(content)
-        if tail:
-            out.append(tail)
-    return out
+        if _XML_RE.search(content) or _extract_unclosed_tail(content):
+            _strict_reject(
+                STRICT_XML_FENCE_FALLBACK_CODE,
+                "xml-fenced block: re-emit bare unfenced XML",
+            )
+    return []
 
 
 #: Required phase markers per Hands block type (Task 245: semantic gate).
@@ -1238,6 +1262,10 @@ _CACHE_SPLIT_BOUNDARY = "after_system_bundle_task_attach"
 _STATIC_SPLIT_CACHE: dict[tuple[str, str, str], str] = {}
 _STATIC_SPLIT_CACHE_MAX = 64
 
+#: Guard for cache lookup plus mutation (Task 305 C5). The bridge serves
+#: concurrent turns, so check-then-set races without this lock.
+_STATIC_SPLIT_LOCK = threading.Lock()
+
 #: Test hook: counts static-hash computations (cache misses). Never
 #: read on the hot path for logic — informational only.
 _STATIC_SPLIT_COMPUTES = 0
@@ -1275,9 +1303,10 @@ def _static_prefix_hash(
     on a miss."""
     global _STATIC_SPLIT_COMPUTES
     key = (system_prompt, bundle_text, task_attach_text)
-    cached = _STATIC_SPLIT_CACHE.get(key)
-    if cached is not None:
-        return cached
+    with _STATIC_SPLIT_LOCK:
+        cached = _STATIC_SPLIT_CACHE.get(key)
+        if cached is not None:
+            return cached
     framed = b"".join(
         (
             _frame_segment("system_prompt", system_prompt),
@@ -1286,10 +1315,11 @@ def _static_prefix_hash(
         )
     )
     digest = hashlib.sha256(framed).hexdigest()
-    _STATIC_SPLIT_COMPUTES += 1
-    if len(_STATIC_SPLIT_CACHE) >= _STATIC_SPLIT_CACHE_MAX:
-        _STATIC_SPLIT_CACHE.pop(next(iter(_STATIC_SPLIT_CACHE)))
-    _STATIC_SPLIT_CACHE[key] = digest
+    with _STATIC_SPLIT_LOCK:
+        _STATIC_SPLIT_COMPUTES += 1
+        if len(_STATIC_SPLIT_CACHE) >= _STATIC_SPLIT_CACHE_MAX:
+            _STATIC_SPLIT_CACHE.pop(next(iter(_STATIC_SPLIT_CACHE)))
+        _STATIC_SPLIT_CACHE[key] = digest
     return digest
 
 
@@ -2289,6 +2319,10 @@ def _render_direct(
 ) -> tuple[list[tuple[dict, str, None]], list[dict], dict]:
     """Render every attachment whole (no slicing, no part markers).
 
+    Precedence is candidate order: bundle, task, paths, diff, fed.
+    Cap cuts render inline with kept and dropped counts, so no cut is
+    silent. Absent blocks render nothing.
+
     Returns ``(rendered, truncated, info)`` in the allocator's shape so
     downstream assembly (``_slot``, ordering, transcript markers, result
     payload) keeps working unchanged: ``rendered`` is ``(candidate,
@@ -3099,7 +3133,41 @@ def brain_turn(
             session_id=session_id,
             project_root=project_root,
         )
-        xml_blocks = extract_xml_blocks(output)
+        # Broad catch would mislabel unrelated bugs as strict
+        # rejects, so only strict codes convert to REPORT. Anything
+        # else re-raises. None output yields REPORT, never a crash.
+        # REPORT text is bounded: first 2000 chars ride along, the
+        # remainder is named by a marker instead of pasted whole.
+        output_text = output or ""
+        try:
+            xml_blocks = extract_xml_blocks(output_text)
+        except ValueError as exc:
+            msg = str(exc)
+            if msg.startswith(
+                (
+                    STRICT_XML_FENCE_FALLBACK_CODE,
+                    STRICT_XML_UNCLOSED_CODE,
+                    STRICT_XML_CONTRACT_CODE,
+                )
+            ):
+                # Strict XML gate (Task 305 C1): lenient input never
+                # extracts. Report with the explicit code so the Hands
+                # re-emits bare unfenced XML instead of executing repair.
+                shown = output_text[:2000]
+                rest = (
+                    f"\n[xml-strict-reject-remainder: "
+                    f"{len(output_text) - 2000} chars withheld]"
+                    if len(output_text) > 2000
+                    else ""
+                )
+                output = (
+                    f"[xml-strict-reject]\n- {exc}\n[/xml-strict-reject]\n"
+                    + shown
+                    + rest
+                )
+                xml_blocks = []
+            else:
+                raise
         if xml_blocks:
             # Semantic gate (Task 245): syntactically valid but contract-
             # incomplete XML must triage as REPORT with explicit reasons —
