@@ -1,0 +1,1953 @@
+# Task 298: Simplify mcp-brain-bridge to the minimal core
+
+**File:** `tasks/qa/298-simplify-mcp-brain-bridge-to-minimal-core.md`
+**Source:** manager
+**Type:** chore
+**Status:** open
+**Risk-Tier:** T1 standard
+
+## Goal
+
+Simplify the Brain MCP (`mcp-brain-bridge/server.py`, currently 3739 lines) to the smallest fast implementation that keeps only the required core: session keeping matched to the OpenCode session, session context retention with conversation history, file and context-report attaching sent as exact markdown for the Brain to see, Brain team routing with system prompt, smart XML extraction with full-message fallback, caching, best performance, and the latest OpenAI Responses API with nothing extra.
+
+## Manager's Notes
+
+Direct Manager order (translated from Persian): "Define a serious task for the Brain MCP. Simplify it as much as possible, it is currently far too complex. Minimum it must keep: hold sessions, hold session contexts, attach files and contexts including code discovery context, route Brain team members, carry the system prompt, smartly extract XML or extract the whole message when no XML exists, keep cache, best performance, keep context and session conversation, track the latest OpenAI Responses API exactly, carry nothing extra, delete the extras. It is heavy, make it smaller, lighter, more optimized, especially the context part. A created session matches the OpenCode session. When the Brain needs context, a context report built with the relevant MCPs is sent as an exact markdown file so the Brain sees exactly what the file was. Research the Response API and how files are sent to LLMs, compare with our Brain MCP, and implement maximum simplification. First research unknowns and gather context, then read the code, then hand context plus code to the Brain for a plan, and show me the plan."
+
+## Scope
+
+In scope:
+- Web research on the latest OpenAI Responses API file and context inputs plus how LLMs receive files, compared against the current bridge
+- Read-only mapping of `mcp-brain-bridge/` modules, callers of `brain_turn`, and the context-report attach flow
+- Brain-authored simplification plan grounded in that context
+- Implementation of the plan after Manager approval, then QA, review, closure
+
+Out of scope:
+- External repos untouched
+- No git add/commit/push by Hands (ZAC holds)
+- docs/history, tasks/archive, CHANGELOG history lines immutable
+
+## Local TODOs
+
+- [x] Research Responses API file inputs and gather comparison context
+- [x] Map bridge modules, callers, and context attach flow
+- [x] Hand context plus code to Brain for simplification plan
+- [x] Show plan to Manager and get approval
+- [x] Slim bridge hub to stateless send (full-delete scope per Manager)
+- [x] Delete eval and learning modules plus their tests
+- [x] Update install docs and verify full suite
+
+## Acceptance Criteria
+
+- [x] AC1: web research on Responses API file inputs recorded with sources
+- [x] AC2: bridge module map recorded with responsibilities
+- [x] AC3: Brain simplification plan shown to Manager
+- [x] AC4: Manager plan approval recorded before any code change
+- [x] AC5: server slimmed with stateless retry, eval and learning purged, suite green
+
+## Verification Evidence
+
+- **Test command:** rtk test uv run --project mcp-brain-bridge --with pytest --with pathspec pytest tests/ -q
+- **Expected result:** pass exit 0
+- **Actual result:** 474 passed, 22 warnings in 3.97s (exit 0) with OPENCODE_SESSION_ID unset; 67 eval and learning tests removed with their modules per full-delete scope
+- **Exit code:** 0
+
+## Definition of Done
+
+- [x] Research and code map recorded in task file
+- [x] Brain plan shown to Manager
+- [x] `lint_task_file` passes on the active task file
+- [x] `verification-before-completion` applied and evidence recorded
+
+## Risk & Rollback
+
+- **Risk:** discovery-only phase, no code risk
+- **Rollback plan:** no changes made, nothing to roll back
+
+---
+
+## Execution Log & Reasoning
+
+- Seat Check: domains are Python server plus Responses research plus prompt contract → Architect + Senior Programmer requested. Designer keyword flow fired incidentally in data-flow sense, no UI surface, treated as miss. QA, Reviewer, Planner, Strategist skipped at planning.
+- Brainstorm: 2-seat consult, full seven-seat report not required per planner verdict (single domain, git-revertible).
+- Prompt-refactor applied: translated Persian direct order to technical English, structured as discovery-first T1 chore with explicit keeps. Research-first order preserved: web research, then code read, then Brain plan, then show to Manager.
+- Discovery evidence 2026-10-06: three parallel tracks. Module map: server.py 3739-line hub, capability 208, preflight 279, loop_guard 185, session_ledger 283, transport_learning 178 live; authority_retrieval 124, eval_harness 164, golden_replay 83 eval-only never imported. Callers: executor mandates explicit session_id plus task_id with ambient fallback; context server returns path only, Hands paste as fed-context or pass context_paths with 60k per-file and 200k total caps. Research: Responses input_file accepts file_data base64, file_id, file_url; small markdown inline as input_text is highest fidelity; large via retrieval or chunks; truncation is worst; minimal bridge is stateless forward plus validation plus timeout plus 429/5xx retry.
+- Implementation finding 2026-10-06: transport_learning is live in the send path with dedicated tests, eval files are imported by tests but never by server so they cost zero runtime, session resolvers already delegate to loop_guard. Only safe dedupe applied: duplicate LEDGER_FILENAME removed. Big deletions need a scope decision.
+- Brain plan verdict 2026-10-06: D1 slim server hub, D2 slim ledger, D3 minimal guard with deduped resolvers, D4 merged preflight, D5 stateless retry replacing learning, D6 eval modules deleted from runtime, D7 trimmed deps, inline small files plus file id for large. Steps 1-8 ordered with rollback via worktree revert. Awaiting Manager plan approval before implementation XML.
+- Manager plan approval 2026-10-06: "Approved" via question tool. Routed back through Brain for Senior Programmer implementation XML. Executed XML verbatim.
+- Scope decision 2026-10-06: code reading showed transport_learning live with dedicated tests and eval files at zero runtime cost. Manager chose full delete. Executed: _send_with_learning rewritten stateless (115 lines removed), transport_learning plus authority_retrieval plus eval_harness plus golden_replay deleted, 5 test files plus 2 golden JSONs deleted, correction checkpoint test rewritten to fail-fast expectation, LLM install docs updated to slim module list. pyproject already minimal, uv lock check passes. Attach stays inline with 60k per-file and 200k total caps; file_id upload deferred as it needs new Files API wiring, not simplification. Only safe dedupe kept from earlier review: duplicate LEDGER_FILENAME removed.
+- Brain QA verdict 2026-10-06: QA_PASSED with stateless send and clean deletions.
+- Code Reviewer verdict 2026-10-06: APPROVED to PO_REVIEW_PENDING with no blocking defects. Awaiting Manager explicit closure words.
+- Assumption A1: capability plus preflight merge deferred as rewrite risk outweighs line savings with suite green. Reason: both modules tested and behavior-critical at turn start.
+- Q1: file_id upload for large markdown needs provider Files API credentials flow. Confirm as follow-up task if wanted.
+
+## Factual Git Diff
+
+<!-- BEGIN_GIT_DIFF -->
+```diff
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index a3f1045..d3df797 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -29,6 +29,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+ 
+ ### Removed
+ 
++- **Simplified Brain bridge send path and purged eval tooling (Task 298):** `_send_with_learning` is now a stateless 429/5xx retry with no correction memory and no escalation. Deleted `transport_learning.py`, `authority_retrieval.py`, `eval_harness.py`, `golden_replay.py` plus their test files and golden JSONs. Suite now counts 474 tests, all passing.
+ - **Removed goal-plugin and Session Goals wiring, enforced smart-compact:** deleted the Goal Lifecycle section from the executor agent, removed Session Goals sentences from README, LLM.txt, and the V2 upgrade memory, and documented intelligent `compact_context` triggers in the executor Compaction section. Generic task Goal prose left intact. External repos untouched.
+ - **Retired manager-decision wiring, kept LLM.txt as setup entry point:** removed prompt registry lines, executor consult blocks, docs contract file, skill templates, MCP decision server purged entirely with its service units, decision tests removed or stripped, memory namespaces deleted with index rebuild. Live `LLM.txt` references in README and docs kept intact; decision sections inside `LLM.txt` itself removed. External personal decisions repo kept untouched. History paths unchanged.
+ - **Lean session-first Brain bridge refactor (Task 292):** Removed dead tools `read_file`, `grep_files`, and `get_context_bundle` from `mcp-brain-bridge` (Hands use native OpenCode `read`/`grep`/`glob`; the five-file bundle still auto-attaches internally). Removed the multipart chunking allocator (`_allocate_attachments`, `_render_attachment`, `_marker_room`, `_open_overhead`, `_validate_attachment_resume`, `_attachment_priority`, priority tuples) and the `attachment_resume` turn parameter, plus the `history.pop(1)` middle-turn drop loop and the `_read_file_impl` / `_grep_files_impl` helpers with their grep/read guardrail constants.
+diff --git a/LLM.txt b/LLM.txt
+index 3498b55..a035a6c 100644
+--- a/LLM.txt
++++ b/LLM.txt
+@@ -116,7 +116,7 @@ mkdir -p ~/.config/opencode/skills
+ 
+ ## 5. Copy MCP Servers and Make Them Executable
+ 
+-Copy the MCP server modules from the cloned repo. Every server is multi-module (`brain-bridge` = `server.py` + `capability.py`/`preflight.py`/`loop_guard.py`/`session_ledger.py`/`transport_learning.py`/`authority_retrieval.py`/`eval_harness.py`/`golden_replay.py`), so copy **all `*.py`**. Each dir also carries `pyproject.toml` + committed `uv.lock` — copy those too so launches resolve locked deps:
++Copy the MCP server modules from the cloned repo. Every server is multi-module (`brain-bridge` = `server.py` + `capability.py`/`preflight.py`/`loop_guard.py`/`session_ledger.py`), so copy **all `*.py`**. Each dir also carries `pyproject.toml` + committed `uv.lock` — copy those too so launches resolve locked deps:
+ 
+ ```bash
+ for d in mcp-context-server mcp-memory-server mcp-lint-server mcp-brain-bridge; do
+@@ -530,7 +530,7 @@ After completing all steps, verify:
+ - [ ] `~/.config/opencode/mcp-context-server/server.py` exists and is executable
+ - [ ] `~/.config/opencode/mcp-memory-server/server.py` exists and is executable
+ - [ ] `~/.config/opencode/mcp-lint-server/server.py` exists and is executable
+-- [ ] `~/.config/opencode/mcp-brain-bridge/server.py` exists and is executable (plus its sibling modules `capability.py`, `preflight.py`, `loop_guard.py`, `session_ledger.py`, `transport_learning.py`, `authority_retrieval.py`, `eval_harness.py`, `golden_replay.py`)
++- [ ] `~/.config/opencode/mcp-brain-bridge/server.py` exists and is executable (plus its sibling modules `capability.py`, `preflight.py`, `loop_guard.py`, `session_ledger.py`)
+ - [ ] `~/.config/opencode/mcp-common/src/mcp_common/env.py` exists
+ - [ ] Skills are installed under `~/.config/opencode/skills/` (at least one subfolder exists) — should include `bundle-tasks` (31 skills total)
+ - [ ] `~/.config/opencode/agents/cognitive-executor.md` exists
+diff --git a/mcp-brain-bridge/authority_retrieval.py b/mcp-brain-bridge/authority_retrieval.py
+deleted file mode 100644
+index 9f0790e..0000000
+--- a/mcp-brain-bridge/authority_retrieval.py
++++ /dev/null
+@@ -1,124 +0,0 @@
+-"""Authority-ranked retrieval over decision, memory, repo, and web candidates.
+-
+-Pure and offline: source adapters supply candidates, this module only
+-normalizes, ranks, gathers, and narrows. Existing store ranking stays
+-local to each server; authority weight always precedes local relevance.
+-"""
+-
+-import re
+-
+-AUTHORITY_WEIGHTS = {
+-    "decision": 4,
+-    "memory": 3,
+-    "repo": 2,
+-    "web": 1,
+-}
+-
+-_REQUIRED_FIELDS = ("candidate_id", "source", "text", "local_score", "chunk_id")
+-
+-_WORD_RE = re.compile(r"\w+", re.UNICODE)
+-
+-
+-def normalize_candidate(raw):
+-    """Validate one raw candidate dict into a canonical mapping."""
+-    if not isinstance(raw, dict):
+-        raise ValueError(f"candidate must be a mapping, got {type(raw).__name__}")
+-    missing = [f for f in _REQUIRED_FIELDS if f not in raw]
+-    if missing:
+-        raise ValueError(f"candidate missing required fields {missing}: {raw!r:.120}")
+-    source = raw["source"]
+-    if source not in AUTHORITY_WEIGHTS:
+-        raise ValueError(f"unknown candidate source {source!r}: {raw!r:.120}")
+-    try:
+-        score = float(raw["local_score"])
+-    except (TypeError, ValueError):
+-        raise ValueError(f"candidate local_score must be numeric: {raw!r:.120}")
+-    return {
+-        "candidate_id": str(raw["candidate_id"]),
+-        "source": source,
+-        "text": str(raw["text"]),
+-        "local_score": score,
+-        "chunk_id": str(raw["chunk_id"]),
+-        "metadata": dict(raw.get("metadata") or {}),
+-    }
+-
+-
+-def rank_key(candidate):
+-    """Lexicographic key: authority first, then local score, then id."""
+-    return (
+-        -AUTHORITY_WEIGHTS[candidate["source"]],
+-        -candidate["local_score"],
+-        candidate["candidate_id"],
+-    )
+-
+-
+-def gather_top_candidates(query, adapters, gather_limit=20):
+-    """Call each adapter once, rank combined candidates, cap at the limit.
+-
+-    Returns ``(top, gathered_count)`` where ``gathered_count`` is the
+-    pre-cap total so callers can prove gathering happened before narrowing.
+-    """
+-    gathered = []
+-    for source in ("decision", "memory", "repo", "web"):
+-        adapter = (adapters or {}).get(source)
+-        if adapter is None:
+-            continue
+-        for raw in adapter(query) or []:
+-            gathered.append(normalize_candidate(raw))
+-    gathered.sort(key=rank_key)
+-    return gathered[:gather_limit], len(gathered)
+-
+-
+-def tokenize(text):
+-    """Case-folded Unicode word tokens; empty text yields an empty set."""
+-    return set(_WORD_RE.findall((text or "").casefold()))
+-
+-
+-def overlap(text_a, text_b):
+-    """Overlap coefficient over token sets; 0.0 when either side is empty."""
+-    tokens_a, tokens_b = tokenize(text_a), tokenize(text_b)
+-    if not tokens_a or not tokens_b:
+-        return 0.0
+-    return len(tokens_a & tokens_b) / min(len(tokens_a), len(tokens_b))
+-
+-
+-def narrow_with_chunk_overlap(ranked, narrow_limit=5, overlap_threshold=0.20):
+-    """Seed with the top candidate, prefer overlapping chunks, fill the rest.
+-
+-    Returns ``(selected, overlap_pairs)``; ``selected`` stays in
+-    authority-ranked order.
+-    """
+-    if not ranked or narrow_limit <= 0:
+-        return [], []
+-    selected = [ranked[0]]
+-    pairs = []
+-    for cand in ranked[1:]:
+-        if len(selected) >= narrow_limit:
+-            break
+-        for kept in selected:
+-            if overlap(cand["text"], kept["text"]) >= overlap_threshold:
+-                pairs.append((kept["candidate_id"], cand["candidate_id"]))
+-                selected.append(cand)
+-                break
+-    for cand in ranked[1:]:
+-        if len(selected) >= narrow_limit:
+-            break
+-        if cand not in selected:
+-            selected.append(cand)
+-    selected.sort(key=rank_key)
+-    return selected, pairs
+-
+-
+-def retrieve(query, adapters, gather_limit=20, narrow_limit=5, overlap_threshold=0.20):
+-    """Gather the top candidates across sources, then narrow with overlap."""
+-    top, gathered_count = gather_top_candidates(query, adapters, gather_limit)
+-    selected, pairs = narrow_with_chunk_overlap(top, narrow_limit, overlap_threshold)
+-    return {
+-        "candidates": selected,
+-        "gathered_count": gathered_count,
+-        "returned_count": len(selected),
+-        "gather_limit": gather_limit,
+-        "narrow_limit": narrow_limit,
+-        "overlap_threshold": overlap_threshold,
+-        "overlap_pairs": pairs,
+-    }
+diff --git a/mcp-brain-bridge/eval_harness.py b/mcp-brain-bridge/eval_harness.py
+deleted file mode 100644
+index bedd4ac..0000000
+--- a/mcp-brain-bridge/eval_harness.py
++++ /dev/null
+@@ -1,164 +0,0 @@
+-"""Offline eval harness over structured execution traces.
+-
+-Pure: traces in, report rows out. No MCP calls, no filesystem, no
+-network. Missing cost/latency stays ``None`` and is excluded from
+-aggregates, never coerced to zero.
+-"""
+-
+-import math
+-
+-_ZAC_VERBS = ("add", "commit", "push")
+-
+-
+-def _normalize_op_name(value):
+-    return str(value or "").lower().replace(".", " ").replace("_", " ").replace("-", " ")
+-
+-
+-def _exec_is_git(token):
+-    return token.rsplit("/", 1)[-1] == "git"
+-
+-
+-def _op_is_zac(operation):
+-    """A structured operation is a ZAC violation when it issues a direct
+-    ``git add`` / ``git commit`` / ``git push`` command or operation name,
+-    including path-prefixed (``/usr/bin/git add``) and ``sudo``-prefixed
+-    forms. Only the executable position is inspected, so prose mentioning
+-    git stays clean."""
+-    if not isinstance(operation, dict):
+-        return False
+-    fields = []
+-    for key in ("command", "name"):
+-        raw = operation.get(key)
+-        if isinstance(raw, str) and raw.strip():
+-            fields.append(_normalize_op_name(raw).split())
+-    for tokens in fields:
+-        if not tokens:
+-            continue
+-        if tokens[0] == "sudo":
+-            exec_token, rest = (tokens[1], tokens[2:]) if len(tokens) > 1 else ("", [])
+-        else:
+-            exec_token, rest = tokens[0], tokens[1:]
+-        if _exec_is_git(exec_token) and rest[:1] and rest[0] in _ZAC_VERBS:
+-            return True
+-    return False
+-
+-
+-def scan_zac(operations):
+-    """Count forbidden direct-Git operations; returns ``(count, clean)``."""
+-    count = sum(1 for op in (operations or []) if _op_is_zac(op))
+-    return count, count == 0
+-
+-
+-def _qa_repairs_or_none(value):
+-    # Unknown counts must never masquerade as verified zero: a missing,
+-    # null, non-integer, boolean, or negative value means "unobserved",
+-    # while an explicit non-negative integer (including 0) is observed.
+-    if isinstance(value, bool):
+-        return None
+-    if isinstance(value, int) and value >= 0:
+-        return value
+-    return None
+-
+-
+-def score_case(trace, expected):
+-    """Score one structured trace against caller-owned expectations."""
+-    trace = trace or {}
+-    expected = expected or {}
+-    actual_cites = list(trace.get("citations") or [])
+-    expected_cites = list(expected.get("citations") or [])
+-    expected_set = set(expected_cites)
+-    citation_hits = sum(1 for c in expected_set if c in set(actual_cites))
+-
+-    actual_ground = trace.get("grounding") or {}
+-    ground_hits, ground_total = 0, 0
+-    for claim in expected.get("grounding") or []:
+-        if not isinstance(claim, dict):
+-            continue
+-        ground_total += 1
+-        need = set(claim.get("supported_by") or [])
+-        have = set(actual_ground.get(claim.get("claim_id")) or [])
+-        if need and need <= have:
+-            ground_hits += 1
+-
+-    actual_rules = trace.get("rule_results") or {}
+-    rules_passed, rules_total = 0, 0
+-    for rule in expected.get("rules") or []:
+-        if not isinstance(rule, dict):
+-            continue
+-        rules_total += 1
+-        if actual_rules.get(rule.get("rule_id")) is True:
+-            rules_passed += 1
+-
+-    zac_count, zac_clean = scan_zac(trace.get("operations"))
+-    qa_repairs = _qa_repairs_or_none(trace.get("qa_repairs"))
+-    return {
+-        "case_id": trace.get("case_id"),
+-        "parse_ok": trace.get("parse_ok") is True,
+-        "citation_hits": citation_hits,
+-        "citation_expected": len(expected_set),
+-        "grounding_hits": ground_hits,
+-        "grounding_expected": ground_total,
+-        "rules_passed": rules_passed,
+-        "rules_expected": rules_total,
+-        "zac_violation_count": zac_count,
+-        "zac_clean": zac_clean,
+-        "qa_repair_count": qa_repairs,
+-        "cost_usd": trace.get("cost_usd"),
+-        "latency_ms": trace.get("latency_ms"),
+-    }
+-
+-
+-def _rate(hits, total):
+-    if total <= 0:
+-        return None
+-    return hits / total
+-
+-
+-def _is_finite_number(value):
+-    # Booleans subclass int and nan/inf satisfy isinstance float: both
+-    # must be excluded so invalid numerics never enter aggregates.
+-    return (
+-        isinstance(value, (int, float))
+-        and not isinstance(value, bool)
+-        and math.isfinite(value)
+-    )
+-
+-
+-def _mean(values):
+-    nums = [v for v in values if _is_finite_number(v)]
+-    if not nums:
+-        return None
+-    return sum(nums) / len(nums)
+-
+-
+-def aggregate_report(rows):
+-    """Aggregate per-case rows into the report columns plus ``rows``."""
+-    rows = list(rows or [])
+-    cite_hits = sum(r["citation_hits"] for r in rows)
+-    cite_total = sum(r["citation_expected"] for r in rows)
+-    ground_hits = sum(r["grounding_hits"] for r in rows)
+-    ground_total = sum(r["grounding_expected"] for r in rows)
+-    rules_hit = sum(r["rules_passed"] for r in rows)
+-    rules_total = sum(r["rules_expected"] for r in rows)
+-    costs = [r["cost_usd"] for r in rows if _is_finite_number(r["cost_usd"])]
+-    latencies = [r["latency_ms"] for r in rows if _is_finite_number(r["latency_ms"])]
+-    zac_total = sum(r["zac_violation_count"] for r in rows)
+-    qa_observed = [r["qa_repair_count"] for r in rows if isinstance(r["qa_repair_count"], int)]
+-    return {
+-        "case_count": len(rows),
+-        "parse_rate": _rate(sum(1 for r in rows if r["parse_ok"]), len(rows)) if rows else None,
+-        "citation_rate": _rate(cite_hits, cite_total),
+-        "grounding_rate": _rate(ground_hits, ground_total),
+-        "rule_pass_rate": _rate(rules_hit, rules_total),
+-        "zac_violation_count": zac_total,
+-        "zac_clean_case_rate": _rate(sum(1 for r in rows if r["zac_clean"]), len(rows)) if rows else None,
+-        "qa_repair_count_total": sum(qa_observed) if qa_observed else None,
+-        "qa_repair_count_mean": (sum(qa_observed) / len(qa_observed)) if qa_observed else None,
+-        "qa_repair_observed_case_count": len(qa_observed),
+-        "cost_total_usd": sum(costs) if costs else None,
+-        "cost_mean_usd": _mean(costs),
+-        "cost_observed_case_count": len(costs),
+-        "latency_mean_ms": _mean(latencies),
+-        "latency_observed_case_count": len(latencies),
+-        "rows": rows,
+-    }
+diff --git a/mcp-brain-bridge/golden_replay.py b/mcp-brain-bridge/golden_replay.py
+deleted file mode 100644
+index ae1dd76..0000000
+--- a/mcp-brain-bridge/golden_replay.py
++++ /dev/null
+@@ -1,83 +0,0 @@
+-"""Golden-task replay harness (Task 197, Brain N5).
+-
+-Offline-safe: the harness never calls a model itself. The caller injects
+-``ask_fn`` (a stub in unit tests; the bridge ``brain_turn`` in production
+-when the model endpoint is healthy). Scoring is deterministic:
+-whitespace-normalized exact match of the model answer against the golden
+-answer. Reports carry the sha256 of the prompt text so regressions are
+-attributed to the exact prompt version (goldens live with the caller,
+-so approved behavior changes cannot silently rot a fixture file).
+-"""
+-
+-from __future__ import annotations
+-
+-import hashlib
+-import json
+-from datetime import datetime, timezone
+-from pathlib import Path
+-from typing import Any, Callable
+-
+-
+-def _normalize(text: str) -> str:
+-    """Collapse all whitespace runs to single spaces for comparison."""
+-    return " ".join(str(text).split())
+-
+-
+-def prompt_hash(prompt_text: str) -> str:
+-    """sha256 hex of the prompt text — the regression attribution key."""
+-    return hashlib.sha256(prompt_text.encode("utf-8")).hexdigest()
+-
+-
+-def replay(
+-    ask_fn: Callable[[str], str],
+-    cases: list[dict[str, str]],
+-    prompt_text: str,
+-) -> dict[str, Any]:
+-    """Replay golden cases through ``ask_fn`` and score them.
+-
+-    Each case: ``{\"name\": ..., \"ask\": ..., \"expect\": ...}``.
+-    Returns ``{\"prompt_hash\": ..., \"passed\": n, \"failed\": m,
+-    \"results\": [{\"name\", \"ok\", \"expected\", \"got\"}]}``.
+-    An empty corpus scores 0/0 (nothing to regress).
+-    """
+-    digest = prompt_hash(prompt_text)
+-    results: list[dict[str, Any]] = []
+-    for case in cases:
+-        got = ask_fn(case["ask"])
+-        ok = _normalize(got) == _normalize(case["expect"])
+-        results.append(
+-            {"name": case["name"], "ok": ok,
+-             "expected": case["expect"], "got": got}
+-        )
+-    passed = sum(1 for r in results if r["ok"])
+-    return {
+-        "prompt_hash": digest,
+-        "passed": passed,
+-        "failed": len(results) - passed,
+-        "results": results,
+-    }
+-
+-
+-def record(report: dict[str, Any], sessions_root=None) -> Path:
+-    """Append one replay-report row as JSONL; returns the file path.
+-
+-    Row: {ts, prompt_hash, passed, total}. Creates parent dirs.
+-    sessions_root override exists for tests (default: the standard
+-    brain-sessions dir under ~/.config/opencode).
+-    """
+-    base = (
+-        Path(sessions_root)
+-        if sessions_root is not None
+-        else Path.home() / ".config" / "opencode" / "brain-sessions"
+-    )
+-    base.mkdir(parents=True, exist_ok=True)
+-    path = base / "golden_runs.jsonl"
+-    row = {
+-        "ts": datetime.now(timezone.utc).isoformat(),
+-        "prompt_hash": report.get("prompt_hash"),
+-        "passed": report.get("passed"),
+-        "total": report.get("passed", 0) + report.get("failed", 0),
+-    }
+-    with open(path, "a", encoding="utf-8") as fh:
+-        fh.write(json.dumps(row) + "\n")
+-    return path
+diff --git a/mcp-brain-bridge/server.py b/mcp-brain-bridge/server.py
+index 8e0ef18..30661a6 100644
+--- a/mcp-brain-bridge/server.py
++++ b/mcp-brain-bridge/server.py
+@@ -162,25 +162,6 @@ except ImportError:
+         checkpoint as _ledger_checkpoint,
+     )
+ 
+-# Transport-failure learning lives in transport_learning (stdlib-only,
+-# zero coupling back to this module). Same guarded REQUIRED import.
+-try:
+-    from mcp_brain_bridge.transport_learning import (  # type: ignore[import-not-found]
+-        CorrectionMemory as _CorrectionMemory,
+-        TransportEscalationError,
+-        classify_transport_error as _classify_transport_error,
+-        escalation_message as _escalation_message,
+-        failure_signature as _failure_signature,
+-    )
+-except ImportError:
+-    from transport_learning import (  # type: ignore[import-not-found]
+-        CorrectionMemory as _CorrectionMemory,
+-        TransportEscalationError,
+-        classify_transport_error as _classify_transport_error,
+-        escalation_message as _escalation_message,
+-        failure_signature as _failure_signature,
+-    )
+-
+ mcp = FastMCP("BrainBridge", host="127.0.0.1", port=8105)
+ 
+ # XML blocks the Brain may emit. Hands executes these; everything else
+@@ -1597,109 +1578,15 @@ def _send_with_learning(
+     session_id: Optional[str] = None,
+     project_root: Optional[str] = None,
+ ) -> tuple[Any, int]:
+-    """POST with transport-failure learning (GitHub issue 17).
+-
+-    One correctable round: a 400 naming an unsupported top-level body
+-    key is classified, recorded to the session ledger, and retried once
+-    with the key dropped. The same failure class twice in one saga
+-    escalates via ``TransportEscalationError`` — never a verdict, never
+-    a silent loop. Non-correctable failures propagate untouched, and
+-    the returned attempt count spans the failed round plus the retry.
++    """POST with stateless retry (429/5xx + timeouts via _post_with_retry).
++
++    No correction memory and no escalation: 4xx fails fast inside
++    ``_post_with_retry`` and propagates to the caller. Extra keyword
++    arguments stay accepted so existing callers pass unchanged.
+     """
+-    memory = _CorrectionMemory(task_key)
+-    attempts_total = 0
+-    while True:
+-        with make_client() as client:
+-            try:
+-                resp, attempts = _post_with_retry(client, url, body)
+-            except RuntimeError as exc:
+-                attempts_total += int(getattr(exc, "transport_attempts", 0) or 0)
+-                correction = _classify_transport_error(exc, body)
+-                if correction is None:
+-                    # Repeat of an already-applied correction (provider
+-                    # echoing the same rejection after the key was
+-                    # dropped): the fix did not stick — escalate.
+-                    repeat_sig = _failure_signature(exc)
+-                    if repeat_sig is not None and memory.already_corrected(repeat_sig):
+-                        message = _escalation_message(task_key, repeat_sig, repeats=2)
+-                        if project_root is not None:
+-                            try:
+-                                _append_ledger_event(
+-                                    "transport_escalation",
+-                                    task_id=task_id,
+-                                    session_id=session_id,
+-                                    data={
+-                                        "task_key": task_key,
+-                                        "class": repeat_sig,
+-                                        "fingerprint": repeat_sig,
+-                                    },
+-                                    project_root=project_root,
+-                                )
+-                            except Exception as ledger_exc:
+-                                print(
+-                                    "brain-bridge: ledger event skipped "
+-                                    f"({ledger_exc})",
+-                                    file=sys.stderr,
+-                                )
+-                        _note_checkpoint(
+-                            "transport_correction_or_escalation",
+-                            task_id=task_id,
+-                            session_id=session_id,
+-                            project_root=project_root,
+-                        )
+-                        raise TransportEscalationError(message) from exc
+-                    raise
+-                if memory.seen(correction.fingerprint):
+-                    message = _escalation_message(
+-                        task_key, correction.fingerprint, repeats=2
+-                    )
+-                    if project_root is not None:
+-                        try:
+-                            _append_ledger_event(
+-                                "transport_escalation",
+-                                task_id=task_id,
+-                                session_id=session_id,
+-                                data={
+-                                    "task_key": task_key,
+-                                    "class": correction.failure_class,
+-                                    "param": correction.param,
+-                                    "fingerprint": correction.fingerprint,
+-                                },
+-                                project_root=project_root,
+-                            )
+-                        except Exception as ledger_exc:
+-                            print(
+-                                f"brain-bridge: ledger event skipped ({ledger_exc})",
+-                                file=sys.stderr,
+-                            )
+-                    _note_checkpoint(
+-                        "transport_correction_or_escalation",
+-                        task_id=task_id,
+-                        session_id=session_id,
+-                        project_root=project_root,
+-                    )
+-                    raise TransportEscalationError(message) from exc
+-                body = correction.apply(body)
+-                memory.record(
+-                    correction,
+-                    task_id=task_id,
+-                    session_id=session_id,
+-                    project_root=project_root,
+-                )
+-                _note_checkpoint(
+-                    "transport_correction_or_escalation",
+-                    task_id=task_id,
+-                    session_id=session_id,
+-                    project_root=project_root,
+-                )
+-                print(
+-                    "brain-bridge: transport correction applied "
+-                    f"({correction.fingerprint}); retrying once with "
+-                    "corrected body",
+-                    file=sys.stderr,
+-                )
+-                continue
+-            return resp, attempts_total + attempts
++    with make_client() as client:
++        resp, attempts = _post_with_retry(client, url, body)
++    return resp, attempts
+ 
+ 
+ # Max prior messages re-sent per turn. Bounds context for long tasks.
+diff --git a/mcp-brain-bridge/session_ledger.py b/mcp-brain-bridge/session_ledger.py
+index 2a679f2..b3bbdae 100644
+--- a/mcp-brain-bridge/session_ledger.py
++++ b/mcp-brain-bridge/session_ledger.py
+@@ -34,8 +34,6 @@ CHECKPOINTS = (
+     "closure_requested_or_blocked",
+ )
+ 
+-LEDGER_FILENAME = "session_ledger.jsonl"
+-
+ 
+ def _utc_now_iso() -> str:
+     return datetime.now(timezone.utc).isoformat(timespec="seconds")
+diff --git a/mcp-brain-bridge/transport_learning.py b/mcp-brain-bridge/transport_learning.py
+deleted file mode 100644
+index 474a8e4..0000000
+--- a/mcp-brain-bridge/transport_learning.py
++++ /dev/null
+@@ -1,178 +0,0 @@
+-"""Transport-failure learning for mcp-brain-bridge (GitHub issue 17).
+-
+-A provider rejection caused by OUR malformed request must not fail
+-twice identically: classify the failure, record the missing-field
+-shape, retry once with the corrected body, and — scoped to the saga
+-(task key) — escalate on repeat instead of looping. Escalations raise
+-``TransportEscalationError`` (never a verdict-shaped REPORT); genuinely
+-non-correctable failures propagate untouched.
+-
+-Stdlib-only, mirroring ``loop_guard``: importable without the MCP
+-runtime so unit tests stay offline.
+-"""
+-
+-from __future__ import annotations
+-
+-import re
+-from dataclasses import dataclass, field
+-from typing import Any, Iterable, Mapping, Optional, Union
+-
+-try:
+-    from mcp_brain_bridge.session_ledger import (  # type: ignore[import-not-found]
+-        append_event as _ledger_append,
+-    )
+-except ImportError:
+-    try:
+-        from session_ledger import (  # type: ignore[import-not-found]
+-            append_event as _ledger_append,
+-        )
+-    except ImportError:
+-        _ledger_append = None  # type: ignore[assignment]
+-
+-#: The one failure class the bridge knows how to correct: the provider
+-#: rejected a named request field (strict-provider 400
+-#: ``unsupported_parameter``). Every other class passes through.
+-CORRECTABLE_CLASS = "unsupported_parameter"
+-
+-#: Body keys a correction must never drop: without them the request has
+-#: no meaning, so a rejection naming one is not correctable.
+-PROTECTED_KEYS = frozenset({"model", "input"})
+-
+-#: Machine-readable escalation marker. NEVER a verdict string: tests
+-#: assert QA_/VERDICT_/XML_ tokens never appear in escalation errors.
+-ESCALATION_MARKER = "transport-learning-escalation"
+-
+-_STATUS_RE = re.compile(r"\berror (\d{3})\b")
+-_UNSUPPORTED_PARAM_RE = re.compile(
+-    r"unsupported parameter:\s*'([^']+)'", re.IGNORECASE)
+-
+-
+-class TransportEscalationError(RuntimeError):
+-    """Same failure class twice in one saga: stop retrying, surface up."""
+-
+-
+-@dataclass(frozen=True)
+-class Correction:
+-    """One applicable request fix: drop the rejected top-level key."""
+-
+-    param: str
+-    action: str = "drop"
+-    failure_class: str = CORRECTABLE_CLASS
+-
+-    @property
+-    def fingerprint(self) -> str:
+-        return f"{self.failure_class}:{self.action}:{self.param}"
+-
+-    def apply(self, body: Mapping[str, Any]) -> dict:
+-        fixed = dict(body)
+-        fixed.pop(self.param, None)
+-        return fixed
+-
+-
+-def classify_transport_error(
+-    exc: BaseException, body: Mapping[str, Any]
+-) -> Optional[Correction]:
+-    """Return the applicable correction, or None when not correctable."""
+-    msg = str(exc)
+-    status = _STATUS_RE.search(msg)
+-    if not status or int(status.group(1)) != 400:
+-        return None
+-    param = _UNSUPPORTED_PARAM_RE.search(msg)
+-    if not param:
+-        return None
+-    name = param.group(1)
+-    if name in PROTECTED_KEYS:
+-        return None
+-    if not isinstance(body, Mapping) or name not in body:
+-        return None
+-    return Correction(param=name)
+-
+-
+-def failure_signature(exc: BaseException) -> Optional[str]:
+-    """Return the ``class:param`` signature of a correctable-class
+-    failure, or None. Unlike ``classify_transport_error`` this does not
+-    need the key to still sit in the body — it identifies a REPEAT of
+-    an already-applied correction (provider echoing the same rejection
+-    after the key was dropped)."""
+-    msg = str(exc)
+-    status = _STATUS_RE.search(msg)
+-    if not status or int(status.group(1)) != 400:
+-        return None
+-    param = _UNSUPPORTED_PARAM_RE.search(msg)
+-    if not param:
+-        return None
+-    return f"{CORRECTABLE_CLASS}:{param.group(1)}"
+-
+-
+-def escalation_message(
+-    task_key: Optional[str], fingerprint: str, repeats: int
+-) -> str:
+-    return (
+-        f"[{ESCALATION_MARKER}] task={task_key or 'one-off'} "
+-        f"class={fingerprint} repeats={repeats}: identical request "
+-        "rejected twice — not retrying. Fix the request shape or the "
+-        "provider contract, then start a new turn."
+-    )
+-
+-
+-@dataclass
+-class CorrectionMemory:
+-    """Saga-scoped correction state: in-memory set plus ledger events."""
+-
+-    task_key: Optional[str] = None
+-    seen_fingerprints: Iterable[str] = field(default_factory=set)
+-
+-    def __post_init__(self) -> None:
+-        self._seen: set = set(self.seen_fingerprints)
+-        self._corrected: set = set()
+-        for fp in self._seen:
+-            parts = fp.split(":")
+-            if len(parts) == 3:
+-                self._corrected.add(f"{parts[0]}:{parts[2]}")
+-            else:
+-                self._corrected.add(fp)
+-
+-    def seen(self, fingerprint: str) -> bool:
+-        return fingerprint in self._seen
+-
+-    def already_corrected(self, signature: str) -> bool:
+-        """True when this class:param already had a correction applied
+-        (the retry did not stick) — the saga must escalate."""
+-        return signature in self._corrected
+-
+-    def record(
+-        self,
+-        correction: Correction,
+-        task_id: Optional[str] = None,
+-        session_id: Optional[str] = None,
+-        project_root: Optional[Union[str, object]] = None,
+-        sessions_dir: Optional[Union[str, object]] = None,
+-    ) -> dict:
+-        self._seen.add(correction.fingerprint)
+-        self._corrected.add(
+-            f"{correction.failure_class}:{correction.param}")
+-        record: dict = {
+-            "event": "transport_correction",
+-            "task_key": self.task_key,
+-            "class": correction.failure_class,
+-            "param": correction.param,
+-            "action": correction.action,
+-            "persisted": False,
+-        }
+-        if (_ledger_append is not None
+-                and (project_root is not None or sessions_dir is not None)):
+-            stored = _ledger_append(
+-                "transport_correction",
+-                task_id=task_id,
+-                session_id=session_id,
+-                data={"task_key": self.task_key,
+-                      "class": correction.failure_class,
+-                      "param": correction.param,
+-                      "action": correction.action,
+-                      "fingerprint": correction.fingerprint},
+-                project_root=project_root,  # type: ignore[arg-type]
+-                sessions_dir=sessions_dir,  # type: ignore[arg-type]
+-            )
+-            record["persisted"] = True
+-            record["stored"] = stored
+-        return record
+diff --git a/tests/golden/authority_retrieval_cases.json b/tests/golden/authority_retrieval_cases.json
+deleted file mode 100644
+index f675f99..0000000
+--- a/tests/golden/authority_retrieval_cases.json
++++ /dev/null
+@@ -1,86 +0,0 @@
+-{
+-  "cases": [
+-    {
+-      "candidates": [
+-        {
+-          "candidate_id": "decision-001",
+-          "chunk_id": "decision-chunk-001",
+-          "local_score": 0.2,
+-          "source": "decision",
+-          "text": "The manager decision controls this behavior."
+-        },
+-        {
+-          "candidate_id": "memory-001",
+-          "chunk_id": "memory-chunk-001",
+-          "local_score": 0.99,
+-          "source": "memory",
+-          "text": "Project memory describes the same behavior."
+-        },
+-        {
+-          "candidate_id": "repo-001",
+-          "chunk_id": "repo-chunk-001",
+-          "local_score": 0.99,
+-          "source": "repo",
+-          "text": "Repo files describe the same behavior."
+-        },
+-        {
+-          "candidate_id": "web-001",
+-          "chunk_id": "web-chunk-001",
+-          "local_score": 0.99,
+-          "source": "web",
+-          "text": "Web results describe the same behavior."
+-        }
+-      ],
+-      "case_id": "decision-outranks-all",
+-      "expected": {
+-        "gather_limit": 20,
+-        "narrow_limit": 5,
+-        "top_candidate_id": "decision-001"
+-      },
+-      "query": "authority retrieval"
+-    },
+-    {
+-      "candidates": [
+-        {
+-          "candidate_id": "memory-010",
+-          "chunk_id": "m-010",
+-          "local_score": 0.1,
+-          "source": "memory",
+-          "text": "Memory note about overlap selection and chunk narrowing rules."
+-        },
+-        {
+-          "candidate_id": "memory-011",
+-          "chunk_id": "m-011",
+-          "local_score": 0.2,
+-          "source": "memory",
+-          "text": "Overlap selection prefers chunks sharing narrowing rules vocabulary."
+-        },
+-        {
+-          "candidate_id": "repo-010",
+-          "chunk_id": "r-010",
+-          "local_score": 0.9,
+-          "source": "repo",
+-          "text": "Unrelated repository file about deployment pipelines."
+-        },
+-        {
+-          "candidate_id": "web-010",
+-          "chunk_id": "w-010",
+-          "local_score": 0.9,
+-          "source": "web",
+-          "text": "Unrelated web page about cooking recipes."
+-        }
+-      ],
+-      "case_id": "overlap-prefers-related",
+-      "expected": {
+-        "gather_limit": 20,
+-        "narrow_limit": 2,
+-        "selected_ids": [
+-          "memory-011",
+-          "memory-010"
+-        ]
+-      },
+-      "query": "overlap selection"
+-    }
+-  ],
+-  "schema_version": 1
+-}
+\ No newline at end of file
+diff --git a/tests/golden/eval_harness_cases.json b/tests/golden/eval_harness_cases.json
+deleted file mode 100644
+index 5a801e2..0000000
+--- a/tests/golden/eval_harness_cases.json
++++ /dev/null
+@@ -1 +0,0 @@
+-{"cases": [{"case_id": "complete-evaluation-trace", "expected": {"citations": ["decision-001"], "grounding": [{"claim_id": "claim-001", "supported_by": ["decision-001"]}], "parse_ok": true, "qa_repairs": 1, "rules": [{"passed": true, "rule_id": "rule-001"}], "zac_violation_count": 0}, "trace": {"case_id": "complete-evaluation-trace", "citations": ["decision-001"], "cost_usd": 0.01, "grounding": {"claim-001": ["decision-001"]}, "latency_ms": 125.0, "operations": [{"command": "pytest tests/ -q", "kind": "shell"}], "parse_ok": true, "qa_repairs": 1, "rule_results": {"rule-001": true}}}, {"case_id": "zac-violation-trace", "expected": {"citations": [], "grounding": [], "parse_ok": true, "qa_repairs": 0, "rules": [], "zac_violation_count": 2}, "trace": {"case_id": "zac-violation-trace", "citations": [], "cost_usd": null, "grounding": {}, "latency_ms": null, "operations": [{"command": "git add foo.py", "kind": "shell"}, {"name": "git.commit", "kind": "operation"}], "parse_ok": true, "qa_repairs": 0, "rule_results": {}}}], "schema_version": 1}
+diff --git a/tests/test_authority_retrieval.py b/tests/test_authority_retrieval.py
+deleted file mode 100644
+index d9b9799..0000000
+--- a/tests/test_authority_retrieval.py
++++ /dev/null
+@@ -1,189 +0,0 @@
+-"""Unit tests for authority-ranked retrieval (Task 249).
+-
+-TDD red-green: these tests were written first against the planned
+-``authority_retrieval`` module contract. Pure and offline only.
+-"""
+-
+-import sys
+-from pathlib import Path
+-
+-BRIDGE_DIR = Path(__file__).parent.parent / "mcp-brain-bridge"
+-sys.path.insert(0, str(BRIDGE_DIR))
+-
+-from authority_retrieval import (  # noqa: E402
+-    AUTHORITY_WEIGHTS,
+-    gather_top_candidates,
+-    narrow_with_chunk_overlap,
+-    overlap,
+-    retrieve,
+-    tokenize,
+-)
+-
+-
+-def _cand(cid, source, score=0.5, text="sample text", chunk=None):
+-    return {
+-        "candidate_id": cid,
+-        "source": source,
+-        "text": text,
+-        "local_score": score,
+-        "chunk_id": chunk or (cid + "-chunk"),
+-    }
+-
+-
+-def _adapters(**by_source):
+-    calls = {}
+-
+-    def make(source, items):
+-        def adapter(query):
+-            calls[source] = calls.get(source, 0) + 1
+-            return items
+-
+-        return adapter
+-
+-    return {s: make(s, items) for s, items in by_source.items()}, calls
+-
+-
+-def test_decision_outranks_memory_despite_lower_score():
+-    adapters, _ = _adapters(
+-        decision=[_cand("d1", "decision", score=0.1)],
+-        memory=[_cand("m1", "memory", score=0.99)],
+-        repo=[],
+-        web=[],
+-    )
+-    result = retrieve("q", adapters)
+-    assert [c["candidate_id"] for c in result["candidates"]][0] == "d1"
+-
+-
+-def test_memory_outranks_repo():
+-    adapters, _ = _adapters(
+-        memory=[_cand("m1", "memory", score=0.1)],
+-        repo=[_cand("r1", "repo", score=0.99)],
+-    )
+-    result = retrieve("q", adapters)
+-    assert [c["candidate_id"] for c in result["candidates"]][0] == "m1"
+-
+-
+-def test_repo_outranks_web():
+-    adapters, _ = _adapters(
+-        repo=[_cand("r1", "repo", score=0.1)],
+-        web=[_cand("w1", "web", score=0.99)],
+-    )
+-    result = retrieve("q", adapters)
+-    assert [c["candidate_id"] for c in result["candidates"]][0] == "r1"
+-
+-
+-def test_low_authority_high_score_never_overtakes():
+-    adapters, _ = _adapters(
+-        decision=[_cand("d1", "decision", score=0.0)],
+-        web=[_cand("w1", "web", score=1.0)],
+-    )
+-    result = retrieve("q", adapters)
+-    ids = [c["candidate_id"] for c in result["candidates"]]
+-    assert ids.index("d1") < ids.index("w1")
+-
+-
+-def test_gather_caps_at_twenty_after_combining():
+-    adapters, _ = _adapters(
+-        decision=[_cand(f"d{i}", "decision") for i in range(12)],
+-        memory=[_cand(f"m{i}", "memory") for i in range(12)],
+-    )
+-    top, gathered = gather_top_candidates("q", adapters)
+-    assert gathered == 24
+-    assert len(top) == 20
+-
+-
+-def test_narrow_returns_at_most_five():
+-    ranked = [_cand(f"d{i}", "decision", text=f"unique words {i} xyz") for i in range(10)]
+-    selected, _ = narrow_with_chunk_overlap(ranked, narrow_limit=5)
+-    assert len(selected) == 5
+-
+-
+-def test_overlapping_chunks_preferred():
+-    ranked = [
+-        _cand("a", "decision", text="authority retrieval chunk overlap rules"),
+-        _cand("b", "decision", text="chunk overlap rules for retrieval ranking"),
+-        _cand("c", "decision", text="unrelated cooking recipes entirely"),
+-    ]
+-    selected, pairs = narrow_with_chunk_overlap(ranked, narrow_limit=2)
+-    assert [c["candidate_id"] for c in selected] == ["a", "b"]
+-    assert ("a", "b") in pairs or ("b", "a") in pairs
+-
+-
+-def test_narrow_fills_from_ranked_list_without_overlap():
+-    ranked = [
+-        _cand("x0", "web", text="alpha bravo charlie delta"),
+-        _cand("x1", "web", text="echo foxtrot golf hotel"),
+-        _cand("x2", "web", text="india juliet kilo lima"),
+-        _cand("x3", "web", text="mike november oscar papa"),
+-    ]
+-    selected, pairs = narrow_with_chunk_overlap(ranked, narrow_limit=3)
+-    assert len(selected) == 3
+-    assert pairs == []
+-
+-
+-def test_empty_text_zero_overlap():
+-    assert overlap("", "something") == 0.0
+-    assert overlap("something", "") == 0.0
+-    assert overlap("", "") == 0.0
+-
+-
+-def test_ordering_deterministic_across_runs():
+-    adapters, _ = _adapters(
+-        decision=[_cand("d1", "decision", score=0.5), _cand("d2", "decision", score=0.5)],
+-        web=[_cand("w1", "web", score=0.5)],
+-    )
+-    first = [c["candidate_id"] for c in retrieve("q", adapters)["candidates"]]
+-    second = [c["candidate_id"] for c in retrieve("q", adapters)["candidates"]]
+-    assert first == second
+-
+-
+-def test_each_adapter_called_once():
+-    adapters, calls = _adapters(
+-        decision=[_cand("d1", "decision")],
+-        memory=[_cand("m1", "memory")],
+-        repo=[],
+-        web=[],
+-    )
+-    retrieve("q", adapters)
+-    assert calls == {"decision": 1, "memory": 1, "repo": 1, "web": 1}
+-
+-
+-def test_local_score_preserved_on_candidates():
+-    adapters, _ = _adapters(memory=[_cand("m1", "memory", score=0.77)])
+-    result = retrieve("q", adapters)
+-    assert result["candidates"][0]["local_score"] == 0.77
+-
+-
+-def test_invalid_source_name_raises():
+-    adapters, _ = _adapters(memory=[_cand("m1", "bogus")])
+-    try:
+-        retrieve("q", adapters)
+-    except ValueError as exc:
+-        assert "bogus" in str(exc)
+-    else:
+-        raise AssertionError("expected ValueError for invalid source")
+-
+-
+-def test_authority_weights_follow_verdict_order():
+-    assert AUTHORITY_WEIGHTS["decision"] > AUTHORITY_WEIGHTS["memory"]
+-    assert AUTHORITY_WEIGHTS["memory"] > AUTHORITY_WEIGHTS["repo"]
+-    assert AUTHORITY_WEIGHTS["repo"] > AUTHORITY_WEIGHTS["web"]
+-
+-
+-def test_regression_source_functions_untouched():
+-    import inspect
+-    import importlib
+-
+-    root = Path(__file__).parent.parent
+-    for name, subdir, func, params in (
+-        ("mem_server_249", "mcp-memory-server", "search_memory", ["query", "namespace", "project_root"]),
+-    ):
+-        sys.path.insert(0, str(root / subdir))
+-        try:
+-            spec = importlib.util.spec_from_file_location(name, root / subdir / "server.py")
+-            module = importlib.util.module_from_spec(spec)
+-            sys.modules[name] = module
+-            spec.loader.exec_module(module)
+-        finally:
+-            sys.path.remove(str(root / subdir))
+-        assert list(inspect.signature(getattr(module, func)).parameters) == params
+diff --git a/tests/test_brain_transport_learning.py b/tests/test_brain_transport_learning.py
+deleted file mode 100644
+index d7c558c..0000000
+--- a/tests/test_brain_transport_learning.py
++++ /dev/null
+@@ -1,331 +0,0 @@
+-"""Unit tests for transport-failure learning (GitHub issue 17).
+-
+-Offline only: the classifier, the saga-scoped correction memory, and
+-the ``brain_turn`` send path (mocked httpx) that retries once with a
+-corrected body and escalates on repeat — never surfacing a verdict.
+-"""
+-
+-import json
+-import sys
+-import time as _time
+-import types as _types
+-from pathlib import Path
+-
+-import pytest
+-
+-BRIDGE_DIR = Path(__file__).parent.parent / "mcp-brain-bridge"
+-sys.path.insert(0, str(BRIDGE_DIR))
+-
+-import server as bridge
+-import transport_learning as tl
+-
+-
+-# --- local harness (mirrors test_brain_bridge.py) ---
+-
+-class _FakeResp:
+-    def __init__(self, status_code=200, text="", payload=None,
+-                 ctype="application/json"):
+-        self.status_code = status_code
+-        self.text = text
+-        self._payload = payload
+-        self.headers = {"content-type": ctype}
+-
+-    def json(self):
+-        if isinstance(self._payload, Exception):
+-            raise self._payload
+-        return self._payload
+-
+-
+-class _RecClient:
+-    """Fake client capturing every POST body in order; script drives replies."""
+-
+-    def __init__(self, script, bodies):
+-        # SHARED script reference (no copy): the learning send path
+-        # builds one client per round, and rounds must consume one
+-        # shared script in order.
+-        self._script = script
+-        self._bodies = bodies
+-        self.calls = 0
+-
+-    def __enter__(self):
+-        return self
+-
+-    def __exit__(self, *a):
+-        return False
+-
+-    def post(self, url, json=None, headers=None, **kwargs):
+-        self.calls += 1
+-        self._bodies.append(json)
+-        item = self._script.pop(0) if len(self._script) > 1 else self._script[0]
+-        if isinstance(item, Exception):
+-            raise item
+-        return item
+-
+-
+-def _stub_client(monkeypatch, script, bodies):
+-    stub = _types.ModuleType("httpx")
+-    stub.Client = lambda *a, **k: _RecClient(script, bodies)
+-    stub.TimeoutException = type("TimeoutException", (Exception,), {})
+-    stub.TransportError = type("TransportError", (Exception,), {})
+-
+-    class _Timeout:
+-        def __init__(self, *a, **k):
+-            self.args, self.kwargs = a, k
+-
+-    stub.Timeout = _Timeout
+-    monkeypatch.setitem(sys.modules, "httpx", stub)
+-
+-
+-def _ok_payload(text="ok"):
+-    return {"output": [{"type": "message",
+-                        "content": [{"type": "output_text", "text": text}]}]}
+-
+-
+-def _mk_sys_prompt(tmp_path, monkeypatch, text="sys"):
+-    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+-    prompt_file = tmp_path / ".config" / "opencode" / "sys.md"
+-    prompt_file.parent.mkdir(parents=True, exist_ok=True)
+-    prompt_file.write_text(text, encoding="utf-8")
+-    monkeypatch.setenv("BRAIN_SYSTEM_PROMPT", str(prompt_file))
+-
+-
+-def _mk_project(tmp_path, name="proj"):
+-    proj = tmp_path / name
+-    (proj / "tasks").mkdir(parents=True)
+-    return proj
+-
+-
+-def _unsupported_400_text(param):
+-    return json.dumps({"error": {
+-        "message": f"Unsupported parameter: '{param}'. Try again.",
+-        "type": "invalid_request_error",
+-        "param": param,
+-        "code": "unsupported_parameter",
+-    }})
+-
+-
+-def _turn_env(tmp_path, monkeypatch):
+-    _mk_sys_prompt(tmp_path, monkeypatch)
+-    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+-    monkeypatch.delenv("BRAIN_TEMPERATURE", raising=False)
+-    return _mk_project(tmp_path)
+-
+-
+-# --- classifier: correctable class ---
+-
+-def test_classify_400_unsupported_parameter_drops_key():
+-    body = {"model": "m", "input": [], "temperature": 0.7}
+-    exc = RuntimeError(
+-        "fatal provider error 400 (no retry) at responses: "
+-        + _unsupported_400_text("temperature"))
+-    corr = tl.classify_transport_error(exc, body)
+-    assert corr is not None
+-    assert corr.param == "temperature"
+-    assert corr.action == "drop"
+-    assert corr.failure_class == "unsupported_parameter"
+-
+-
+-def test_classify_ignores_non_400_status():
+-    body = {"model": "m", "input": []}
+-    exc = RuntimeError("provider failed after 3 attempts (500) at x: boom")
+-    assert tl.classify_transport_error(exc, body) is None
+-
+-
+-def test_classify_ignores_400_without_unsupported_pattern():
+-    body = {"model": "m", "input": []}
+-    exc = RuntimeError(
+-        "fatal provider error 400 (no retry) at responses: bad request")
+-    assert tl.classify_transport_error(exc, body) is None
+-
+-
+-def test_classify_refuses_when_param_absent_from_body():
+-    body = {"model": "m", "input": []}
+-    exc = RuntimeError(
+-        "fatal provider error 400 (no retry) at responses: "
+-        + _unsupported_400_text("top_p"))
+-    assert tl.classify_transport_error(exc, body) is None
+-
+-
+-def test_classify_never_drops_protected_keys():
+-    for key in ("model", "input"):
+-        body = {"model": "m", "input": []}
+-        exc = RuntimeError(
+-            "fatal provider error 400 (no retry) at responses: "
+-            + _unsupported_400_text(key))
+-        assert tl.classify_transport_error(exc, body) is None
+-
+-
+-def test_correction_apply_returns_new_body_without_key():
+-    body = {"model": "m", "input": [], "temperature": 0.7}
+-    exc = RuntimeError(
+-        "fatal provider error 400 (no retry) at responses: "
+-        + _unsupported_400_text("temperature"))
+-    corr = tl.classify_transport_error(exc, body)
+-    fixed = corr.apply(body)
+-    assert "temperature" not in fixed
+-    assert fixed["model"] == "m"
+-    assert "temperature" in body  # original untouched
+-
+-
+-# --- correction memory: saga-scoped, ledger-backed ---
+-
+-def test_memory_seen_record_roundtrip_with_ledger(tmp_path):
+-    sessions = tmp_path / "sessions"
+-    mem = tl.CorrectionMemory("257")
+-    assert mem.seen("unsupported_parameter:drop:temperature") is False
+-    body = {"model": "m", "input": [], "temperature": 0.7}
+-    exc = RuntimeError("fatal provider error 400 (no retry) at r: "
+-                       + _unsupported_400_text("temperature"))
+-    corr = tl.classify_transport_error(exc, body)
+-    record = mem.record(corr, task_id="257", sessions_dir=str(sessions))
+-    assert record["event"] == "transport_correction"
+-    assert record["persisted"] is True
+-    assert mem.seen(corr.fingerprint) is True
+-    lines = (sessions / "session_ledger.jsonl").read_text(
+-        encoding="utf-8").strip().splitlines()
+-    assert len(lines) == 1
+-    event = json.loads(lines[0])
+-    assert event["event"] == "transport_correction"
+-    assert event["task_id"] == "257"
+-    assert event["param"] == "temperature"
+-
+-
+-def test_memory_history_preload_marks_seen():
+-    mem = tl.CorrectionMemory(
+-        "257", seen_fingerprints=["unsupported_parameter:drop:temperature"])
+-    assert mem.seen("unsupported_parameter:drop:temperature") is True
+-    assert mem.seen("unsupported_parameter:drop:top_p") is False
+-
+-
+-def test_memory_record_without_roots_skips_ledger():
+-    mem = tl.CorrectionMemory("257")
+-    body = {"model": "m", "input": [], "temperature": 0.7}
+-    exc = RuntimeError("fatal provider error 400 (no retry) at r: "
+-                       + _unsupported_400_text("temperature"))
+-    corr = tl.classify_transport_error(exc, body)
+-    record = mem.record(corr)
+-    assert record["persisted"] is False
+-    assert mem.seen(corr.fingerprint) is True
+-
+-
+-def test_failure_signature_identifies_repeat_without_body_key():
+-    exc = RuntimeError(
+-        "fatal provider error 400 (no retry) at responses: "
+-        + _unsupported_400_text("temperature"))
+-    assert tl.failure_signature(exc) == "unsupported_parameter:temperature"
+-    assert tl.failure_signature(RuntimeError("provider failed (500)")) is None
+-
+-
+-def test_memory_tracks_corrected_signatures():
+-    mem = tl.CorrectionMemory("257")
+-    assert mem.already_corrected("unsupported_parameter:temperature") is False
+-    body = {"model": "m", "input": [], "temperature": 0.7}
+-    exc = RuntimeError("fatal provider error 400 (no retry) at r: "
+-                       + _unsupported_400_text("temperature"))
+-    mem.record(tl.classify_transport_error(exc, body))
+-    assert mem.already_corrected("unsupported_parameter:temperature") is True
+-    assert mem.already_corrected("unsupported_parameter:top_p") is False
+-
+-
+-def test_escalation_message_marks_never_verdict():
+-    msg = tl.escalation_message(
+-        "257", "unsupported_parameter:drop:temperature", repeats=2)
+-    assert "transport-learning-escalation" in msg
+-    assert "257" in msg
+-    for verdict in ("QA_PASSED", "QA_REJECTED", "VERDICT",
+-                    "PO_REVIEW_PENDING", "XML_EXTRACTED"):
+-        assert verdict not in msg
+-
+-
+-# --- transport seam: attempt accounting ---
+-
+-def test_post_with_retry_fatal_carries_attempt_count(monkeypatch):
+-    _stub_client(monkeypatch, [_FakeResp(400, "bad")], [])
+-    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+-
+-    class _OneShot:
+-        def __enter__(self):
+-            return self
+-
+-        def __exit__(self, *a):
+-            return False
+-
+-        def post(self, url, json=None, headers=None, **kwargs):
+-            return _FakeResp(400, "bad")
+-
+-    import httpx  # noqa: F401  (stubbed above)
+-    with pytest.raises(RuntimeError) as exc:
+-        bridge._post_with_retry(_OneShot(), "http://x/responses", {})
+-    assert getattr(exc.value, "transport_attempts", None) == 1
+-
+-
+-# --- brain_turn integration ---
+-
+-def test_brain_turn_corrects_once_and_succeeds(tmp_path, monkeypatch):
+-    proj = _turn_env(tmp_path, monkeypatch)
+-    monkeypatch.setenv("BRAIN_TEMPERATURE", "0.7")
+-    bodies: list = []
+-    script = [_FakeResp(400, _unsupported_400_text("temperature")),
+-              _FakeResp(200, "fine", _ok_payload("recovered"))]
+-    _stub_client(monkeypatch, script, bodies)
+-    call = bridge.brain_turn
+-    target = call.fn if hasattr(call, "fn") else call
+-    result = target("q", task_id="999", project_root=str(proj))
+-    assert result["status"] == "REPORT"
+-    assert result["output"] == "recovered"
+-    assert len(bodies) == 2
+-    assert bodies[0]["temperature"] == 0.7
+-    assert "temperature" not in bodies[1]
+-    assert result["retry_count"] == 2
+-    ledger = proj / "tasks" / ".sessions" / "session_ledger.jsonl"
+-    events = [json.loads(line) for line in
+-              ledger.read_text(encoding="utf-8").splitlines()]
+-    transport = [e["event"] for e in events
+-                 if e["event"].startswith("transport_")]
+-    assert transport == ["transport_correction"]
+-
+-
+-def test_brain_turn_repeat_failure_escalates_never_verdict(
+-        tmp_path, monkeypatch):
+-    proj = _turn_env(tmp_path, monkeypatch)
+-    monkeypatch.setenv("BRAIN_TEMPERATURE", "0.7")
+-    bodies: list = []
+-    script = [_FakeResp(400, _unsupported_400_text("temperature")),
+-              _FakeResp(400, _unsupported_400_text("temperature"))]
+-    _stub_client(monkeypatch, script, bodies)
+-    call = bridge.brain_turn
+-    target = call.fn if hasattr(call, "fn") else call
+-    with pytest.raises(tl.TransportEscalationError) as exc:
+-        target("q", task_id="999", project_root=str(proj))
+-    msg = str(exc.value)
+-    assert "transport-learning-escalation" in msg
+-    assert "999" in msg
+-    for verdict in ("QA_PASSED", "QA_REJECTED", "VERDICT",
+-                    "PO_REVIEW_PENDING", "XML_EXTRACTED"):
+-        assert verdict not in msg
+-    ledger = proj / "tasks" / ".sessions" / "session_ledger.jsonl"
+-    kinds = [json.loads(line)["event"] for line in
+-             ledger.read_text(encoding="utf-8").splitlines()
+-             if json.loads(line)["event"].startswith("transport_")]
+-    assert kinds == ["transport_correction", "transport_escalation"]
+-
+-
+-def test_brain_turn_noncorrectable_error_passes_through(
+-        tmp_path, monkeypatch):
+-    proj = _turn_env(tmp_path, monkeypatch)
+-    monkeypatch.setattr(_time, "sleep", lambda s: None)
+-    bodies: list = []
+-    _stub_client(monkeypatch, [_FakeResp(500, "boom")], bodies)
+-    call = bridge.brain_turn
+-    target = call.fn if hasattr(call, "fn") else call
+-    with pytest.raises(RuntimeError) as exc:
+-        target("q", task_id="999", project_root=str(proj))
+-    assert not isinstance(exc.value, tl.TransportEscalationError)
+-    assert "500" in str(exc.value)
+-    # The capability-manifest event (WS2) still lands, but learning
+-    # itself must not engage on a non-correctable failure.
+-    ledger = proj / "tasks" / ".sessions" / "session_ledger.jsonl"
+-    kinds = [json.loads(line)["event"] for line in
+-             ledger.read_text(encoding="utf-8").splitlines()]
+-    assert "transport_correction" not in kinds
+-    assert "transport_escalation" not in kinds
+diff --git a/tests/test_eval_harness.py b/tests/test_eval_harness.py
+deleted file mode 100644
+index 3b10fa9..0000000
+--- a/tests/test_eval_harness.py
++++ /dev/null
+@@ -1,240 +0,0 @@
+-"""Unit tests for the offline eval harness (Task 249).
+-
+-TDD red-green: written first against the planned ``eval_harness``
+-module contract. Pure and offline only: structured traces in,
+-report rows out. Missing cost/latency stays null, never zero.
+-"""
+-
+-import math
+-import sys
+-from pathlib import Path
+-
+-BRIDGE_DIR = Path(__file__).parent.parent / "mcp-brain-bridge"
+-sys.path.insert(0, str(BRIDGE_DIR))
+-
+-from eval_harness import aggregate_report, scan_zac, score_case  # noqa: E402
+-
+-
+-def _trace(**over):
+-    base = {
+-        "case_id": "case-1",
+-        "parse_ok": True,
+-        "citations": ["decision-001"],
+-        "grounding": {"claim-001": ["decision-001"]},
+-        "rule_results": {"rule-001": True},
+-        "operations": [{"kind": "shell", "command": "pytest tests/ -q"}],
+-        "qa_repairs": 1,
+-        "cost_usd": 0.01,
+-        "latency_ms": 125.0,
+-    }
+-    base.update(over)
+-    return base
+-
+-
+-def _expected(**over):
+-    base = {
+-        "citations": ["decision-001"],
+-        "grounding": [{"claim_id": "claim-001", "supported_by": ["decision-001"]}],
+-        "rules": [{"rule_id": "rule-001", "passed": True}],
+-    }
+-    base.update(over)
+-    return base
+-
+-
+-def test_parse_rate_all_pass():
+-    rows = [score_case(_trace(), _expected()), score_case(_trace(), _expected())]
+-    assert aggregate_report(rows)["parse_rate"] == 1.0
+-
+-
+-def test_parse_rate_partial_pass():
+-    rows = [score_case(_trace(), _expected()), score_case(_trace(parse_ok=False), _expected())]
+-    assert aggregate_report(rows)["parse_rate"] == 0.5
+-
+-
+-def test_citation_rate_counts_expected_coverage():
+-    row = score_case(_trace(citations=["decision-001", "extra-009"]), _expected())
+-    assert (row["citation_hits"], row["citation_expected"]) == (1, 1)
+-
+-
+-def test_grounding_requires_full_support():
+-    row = score_case(
+-        _trace(grounding={"claim-001": ["decision-001"]}),
+-        _expected(
+-            grounding=[
+-                {"claim_id": "claim-001", "supported_by": ["decision-001", "decision-002"]},
+-            ]
+-        ),
+-    )
+-    assert (row["grounding_hits"], row["grounding_expected"]) == (0, 1)
+-
+-
+-def test_rule_pass_missing_actual_counts_as_failure():
+-    row = score_case(_trace(rule_results={}), _expected())
+-    assert (row["rules_passed"], row["rules_expected"]) == (0, 1)
+-
+-
+-def test_zac_scan_detects_direct_git_ops():
+-    ops = [
+-        {"kind": "shell", "command": "git add foo.py"},
+-        {"kind": "operation", "name": "git.commit"},
+-        {"kind": "shell", "command": "GIT PUSH origin main"},
+-    ]
+-    count, clean = scan_zac(ops)
+-    assert count == 3
+-    assert clean is False
+-
+-
+-def test_zac_scan_ignores_prose_and_docs():
+-    count, clean = scan_zac([{"kind": "shell", "command": "pytest tests/ -q"}])
+-    assert (count, clean) == (0, True)
+-    row = score_case(_trace(), _expected())
+-    assert (row["zac_violation_count"], row["zac_clean"]) == (0, True)
+-
+-
+-def test_qa_repair_totals_and_mean():
+-    rows = [
+-        score_case(_trace(qa_repairs=1), _expected()),
+-        score_case(_trace(qa_repairs=3), _expected()),
+-    ]
+-    report = aggregate_report(rows)
+-    assert report["qa_repair_count_total"] == 4
+-    assert report["qa_repair_count_mean"] == 2.0
+-
+-
+-def test_cost_columns_preserve_values():
+-    row = score_case(_trace(cost_usd=0.01), _expected())
+-    assert row["cost_usd"] == 0.01
+-    report = aggregate_report([row, score_case(_trace(cost_usd=0.03), _expected())])
+-    assert report["cost_total_usd"] == 0.04
+-    assert report["cost_observed_case_count"] == 2
+-
+-
+-def test_latency_columns_preserve_values():
+-    row = score_case(_trace(latency_ms=125.0), _expected())
+-    assert row["latency_ms"] == 125.0
+-    report = aggregate_report([row, score_case(_trace(latency_ms=175.0), _expected())])
+-    assert report["latency_mean_ms"] == 150.0
+-    assert report["latency_observed_case_count"] == 2
+-
+-
+-def test_missing_cost_latency_stay_null():
+-    row = score_case(_trace(cost_usd=None, latency_ms=None), _expected())
+-    assert row["cost_usd"] is None
+-    assert row["latency_ms"] is None
+-
+-
+-def test_aggregate_ignores_missing_cost_latency():
+-    rows = [
+-        score_case(_trace(cost_usd=0.02, latency_ms=100.0), _expected()),
+-        score_case(_trace(cost_usd=None, latency_ms=None), _expected()),
+-    ]
+-    report = aggregate_report(rows)
+-    assert report["cost_total_usd"] == 0.02
+-    assert report["cost_mean_usd"] == 0.02
+-    assert report["latency_mean_ms"] == 100.0
+-    assert report["cost_observed_case_count"] == 1
+-    assert report["latency_observed_case_count"] == 1
+-
+-
+-def test_empty_input_defined_report():
+-    report = aggregate_report([])
+-    assert report["case_count"] == 0
+-    assert report["parse_rate"] is None
+-    assert report["rows"] == []
+-
+-
+-def test_missing_qa_repairs_field_stays_null():
+-    trace = _trace()
+-    del trace["qa_repairs"]
+-    assert score_case(trace, _expected())["qa_repair_count"] is None
+-
+-
+-def test_null_qa_repairs_stays_null():
+-    assert score_case(_trace(qa_repairs=None), _expected())["qa_repair_count"] is None
+-
+-
+-def test_explicit_zero_qa_repairs_preserved():
+-    assert score_case(_trace(qa_repairs=0), _expected())["qa_repair_count"] == 0
+-
+-
+-def test_aggregate_excludes_missing_qa_counts():
+-    rows = [
+-        score_case(_trace(qa_repairs=2), _expected()),
+-        score_case(_trace(qa_repairs=None), _expected()),
+-    ]
+-    report = aggregate_report(rows)
+-    assert report["qa_repair_count_total"] == 2
+-    assert report["qa_repair_count_mean"] == 2.0
+-    assert report["qa_repair_observed_case_count"] == 1
+-
+-
+-def test_aggregate_all_missing_qa_counts_null():
+-    missing = _trace(qa_repairs=None)
+-    absent = _trace()
+-    del absent["qa_repairs"]
+-    rows = [score_case(missing, _expected()), score_case(absent, _expected())]
+-    report = aggregate_report(rows)
+-    assert report["qa_repair_count_total"] is None
+-    assert report["qa_repair_count_mean"] is None
+-    assert report["qa_repair_observed_case_count"] == 0
+-
+-
+-def test_zac_detects_absolute_path_git_command():
+-    ops = [
+-        {"kind": "shell", "command": "/usr/bin/git add ."},
+-        {"kind": "shell", "command": "/usr/local/bin/git commit -m msg"},
+-    ]
+-    count, clean = scan_zac(ops)
+-    assert count == 2
+-    assert clean is False
+-
+-
+-def test_zac_detects_sudo_git_command():
+-    count, clean = scan_zac([{"kind": "shell", "command": "sudo git push origin main"}])
+-    assert (count, clean) == (1, False)
+-
+-
+-def test_zac_scan_ignores_prose_mentioning_git():
+-    ops = [
+-        {"kind": "shell", "command": "echo legit git status"},
+-        {"kind": "shell", "command": "git status"},
+-    ]
+-    assert scan_zac(ops) == (0, True)
+-
+-
+-def test_aggregate_rejects_boolean_cost_and_latency():
+-    rows = [
+-        score_case(_trace(cost_usd=True, latency_ms=False), _expected()),
+-        score_case(_trace(cost_usd=0.02, latency_ms=100.0), _expected()),
+-    ]
+-    report = aggregate_report(rows)
+-    assert report["cost_total_usd"] == 0.02
+-    assert report["cost_observed_case_count"] == 1
+-    assert report["latency_mean_ms"] == 100.0
+-    assert report["latency_observed_case_count"] == 1
+-
+-
+-def test_aggregate_rejects_non_finite_cost_and_latency():
+-    rows = [
+-        score_case(_trace(cost_usd=float("nan"), latency_ms=float("inf")), _expected()),
+-        score_case(_trace(cost_usd=float("-inf"), latency_ms=float("nan")), _expected()),
+-        score_case(_trace(cost_usd=0.02, latency_ms=100.0), _expected()),
+-    ]
+-    report = aggregate_report(rows)
+-    assert report["cost_total_usd"] == 0.02
+-    assert report["cost_mean_usd"] == 0.02
+-    assert report["cost_observed_case_count"] == 1
+-    assert report["latency_mean_ms"] == 100.0
+-    assert report["latency_observed_case_count"] == 1
+-
+-
+-def test_mean_ignores_boolean_and_non_finite_values():
+-    rows = [
+-        score_case(_trace(cost_usd=True), _expected()),
+-        score_case(_trace(cost_usd=float("nan")), _expected()),
+-        score_case(_trace(cost_usd=0.02), _expected()),
+-        score_case(_trace(cost_usd=0.04), _expected()),
+-    ]
+-    report = aggregate_report(rows)
+-    assert report["cost_mean_usd"] == 0.03
+-    assert report["cost_observed_case_count"] == 2
+diff --git a/tests/test_golden_cases.py b/tests/test_golden_cases.py
+deleted file mode 100644
+index 3a72764..0000000
+--- a/tests/test_golden_cases.py
++++ /dev/null
+@@ -1,92 +0,0 @@
+-"""Golden-case execution for retrieval plus eval (Task 249).
+-
+-Validates the caller-owned JSON fixtures under ``tests/golden/``:
+-schema checks first, then execution through the pure modules.
+-Fixtures are read-only inputs: any test that mutates a fixture fails.
+-"""
+-
+-import hashlib
+-import json
+-import sys
+-from pathlib import Path
+-
+-GOLDEN_DIR = Path(__file__).parent / "golden"
+-BRIDGE_DIR = Path(__file__).parent.parent / "mcp-brain-bridge"
+-sys.path.insert(0, str(BRIDGE_DIR))
+-
+-from authority_retrieval import retrieve  # noqa: E402
+-from eval_harness import aggregate_report, score_case  # noqa: E402
+-
+-
+-def _load(name):
+-    path = GOLDEN_DIR / name
+-    return path, json.loads(path.read_text())
+-
+-
+-def _hash(path):
+-    return hashlib.sha256(path.read_bytes()).hexdigest()
+-
+-
+-def test_retrieval_golden_schema_valid():
+-    _, doc = _load("authority_retrieval_cases.json")
+-    assert doc["schema_version"] == 1
+-    for case in doc["cases"]:
+-        assert {"case_id", "query", "candidates", "expected"} <= set(case)
+-        for cand in case["candidates"]:
+-            assert {"candidate_id", "source", "text", "local_score", "chunk_id"} <= set(cand)
+-
+-
+-def test_eval_golden_schema_valid():
+-    _, doc = _load("eval_harness_cases.json")
+-    assert doc["schema_version"] == 1
+-    for case in doc["cases"]:
+-        assert {"case_id", "trace", "expected"} <= set(case)
+-        assert {"citations", "grounding", "rules", "parse_ok", "qa_repairs"} <= set(case["expected"])
+-
+-
+-def test_retrieval_golden_missing_field_rejected():
+-    import pytest
+-
+-    with pytest.raises((KeyError, TypeError)):
+-        retrieve("q", {"decision": [{"candidate_id": "x"}]})
+-
+-
+-def test_retrieval_golden_cases_execute():
+-    _, doc = _load("authority_retrieval_cases.json")
+-    for case in doc["cases"]:
+-        by_source = {}
+-        for cand in case["candidates"]:
+-            by_source.setdefault(cand["source"], []).append(cand)
+-        adapters = {s: (lambda items: (lambda q: items))(items) for s, items in by_source.items()}
+-        result = retrieve(
+-            case["query"],
+-            adapters,
+-            gather_limit=case["expected"].get("gather_limit", 20),
+-            narrow_limit=case["expected"].get("narrow_limit", 5),
+-        )
+-        ids = [c["candidate_id"] for c in result["candidates"]]
+-        if "top_candidate_id" in case["expected"]:
+-            assert ids[0] == case["expected"]["top_candidate_id"]
+-        if "selected_ids" in case["expected"]:
+-            assert ids == case["expected"]["selected_ids"]
+-
+-
+-def test_eval_golden_cases_execute():
+-    _, doc = _load("eval_harness_cases.json")
+-    rows = [score_case(case["trace"], case["expected"]) for case in doc["cases"]]
+-    report = aggregate_report(rows)
+-    assert report["case_count"] == len(doc["cases"])
+-    first = rows[0]
+-    assert first["parse_ok"] is True
+-    assert first["qa_repair_count"] == 1
+-    assert first["cost_usd"] == 0.01
+-    assert rows[1]["zac_violation_count"] == 2
+-
+-
+-def test_golden_fixtures_unmodified():
+-    paths = [GOLDEN_DIR / "authority_retrieval_cases.json", GOLDEN_DIR / "eval_harness_cases.json"]
+-    before = {p.name: _hash(p) for p in paths}
+-    test_retrieval_golden_cases_execute()
+-    test_eval_golden_cases_execute()
+-    after = {p.name: _hash(p) for p in paths}
+-    assert before == after
+diff --git a/tests/test_golden_replay.py b/tests/test_golden_replay.py
+deleted file mode 100644
+index 056481a..0000000
+--- a/tests/test_golden_replay.py
++++ /dev/null
+@@ -1,88 +0,0 @@
+-"""Unit tests for the golden-task replay harness (Task 197).
+-
+-Offline only: every test injects a stub ``ask_fn``. No model, no
+-network, no live calls.
+-"""
+-
+-import hashlib
+-import sys
+-from pathlib import Path
+-
+-BRIDGE_DIR = Path(__file__).parent.parent / "mcp-brain-bridge"
+-sys.path.insert(0, str(BRIDGE_DIR))
+-
+-from golden_replay import prompt_hash, record, replay
+-
+-
+-def _echo_map(mapping):
+-    def ask(q):
+-        return mapping[q]
+-    return ask
+-
+-
+-def _corpus():
+-    return [
+-        {"name": "terse refusal", "ask": "q1", "expect": "no"},
+-        {"name": "quoted term", "ask": "q2", "expect": "cache hit"},
+-        {"name": "two words", "ask": "q3", "expect": "all green"},
+-    ]
+-
+-
+-def test_replay_three_pass():
+-    mapping = {"q1": "no", "q2": "cache hit", "q3": "all green"}
+-    report = replay(_echo_map(mapping), _corpus(), "prompt v1")
+-    assert report["passed"] == 3
+-    assert report["failed"] == 0
+-    assert all(r["ok"] for r in report["results"])
+-
+-
+-def test_replay_one_mismatch():
+-    mapping = {"q1": "no", "q2": "cache MISS", "q3": "all green"}
+-    report = replay(_echo_map(mapping), _corpus(), "prompt v1")
+-    assert report["passed"] == 2
+-    assert report["failed"] == 1
+-    bad = next(r for r in report["results"] if not r["ok"])
+-    assert bad["name"] == "quoted term"
+-    assert bad["expected"] == "cache hit"
+-    assert bad["got"] == "cache MISS"
+-
+-
+-def test_replay_scores_attributed_to_prompt_hash():
+-    mapping = {"q1": "no", "q2": "cache hit", "q3": "all green"}
+-    report = replay(_echo_map(mapping), _corpus(), "prompt v1")
+-    assert report["prompt_hash"] == hashlib.sha256(b"prompt v1").hexdigest()
+-    other = replay(_echo_map(mapping), _corpus(), "prompt v2")
+-    assert other["prompt_hash"] != report["prompt_hash"]
+-
+-
+-def test_replay_empty_corpus_scores_zero():
+-    report = replay(_echo_map({}), [], "prompt v1")
+-    assert report["passed"] == 0
+-    assert report["failed"] == 0
+-    assert report["results"] == []
+-
+-
+-def test_replay_normalizes_whitespace():
+-    mapping = {"q1": "  no\n", "q2": "\tcache   hit ", "q3": "all\ngreen"}
+-    report = replay(_echo_map(mapping), _corpus(), "prompt v1")
+-    assert report["passed"] == 3
+-    assert report["failed"] == 0
+-
+-
+-def test_record_round_trip(tmp_path):
+-    import json as _json
+-
+-    report = replay(
+-        _echo_map({"q1": "a"}),
+-        [{"name": "n1", "ask": "q1", "expect": "a"}],
+-        "prompt v9",
+-    )
+-    path = record(report, sessions_root=tmp_path)
+-    assert path == tmp_path / "golden_runs.jsonl"
+-    rows = [_json.loads(line) for line in
+-            path.read_text(encoding="utf-8").splitlines()]
+-    assert len(rows) == 1
+-    assert rows[0]["prompt_hash"] == report["prompt_hash"]
+-    assert rows[0]["passed"] == 1
+-    assert rows[0]["total"] == 1
+-    assert "ts" in rows[0]
+diff --git a/tests/test_session_lifecycle.py b/tests/test_session_lifecycle.py
+index 654318d..de32dd5 100644
+--- a/tests/test_session_lifecycle.py
++++ b/tests/test_session_lifecycle.py
+@@ -394,17 +394,13 @@ def test_brain_turn_emits_ordered_checkpoints(tmp_path, monkeypatch):
+                      "response_parsed"]
+ 
+ 
+-def test_brain_turn_correction_checkpoint(tmp_path, monkeypatch):
++def test_brain_turn_unsupported_param_fails_fast(tmp_path, monkeypatch):
+     proj = _turn_env(tmp_path, monkeypatch)
+     monkeypatch.setenv("BRAIN_TEMPERATURE", "0.7")
+     bodies: list = []
+-    script = [_FakeResp(400, _unsupported_400_text("temperature")),
+-              _FakeResp(200, "fine", _ok_payload("recovered"))]
++    script = [_FakeResp(400, _unsupported_400_text("temperature"))]
+     _stub_client(monkeypatch, script, bodies)
+     call = bridge.brain_turn
+     target = call.fn if hasattr(call, "fn") else call
+-    result = target("q", task_id="999", project_root=str(proj))
+-    assert result["output"] == "recovered"
+-    names = [e.get("checkpoint") for e in _ledger_events(proj)
+-             if e["event"] == "checkpoint"]
+-    assert "transport_correction_or_escalation" in names
++    with pytest.raises(RuntimeError, match="fatal provider error 400"):
++        target("q", task_id="999", project_root=str(proj))
+```
+<!-- END_GIT_DIFF -->

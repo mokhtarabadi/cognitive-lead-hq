@@ -34,8 +34,6 @@ CHECKPOINTS = (
     "closure_requested_or_blocked",
 )
 
-LEDGER_FILENAME = "session_ledger.jsonl"
-
 
 def _utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")

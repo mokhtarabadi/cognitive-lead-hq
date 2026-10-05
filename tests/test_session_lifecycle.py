@@ -394,17 +394,13 @@ def test_brain_turn_emits_ordered_checkpoints(tmp_path, monkeypatch):
                      "response_parsed"]
 
 
-def test_brain_turn_correction_checkpoint(tmp_path, monkeypatch):
+def test_brain_turn_unsupported_param_fails_fast(tmp_path, monkeypatch):
     proj = _turn_env(tmp_path, monkeypatch)
     monkeypatch.setenv("BRAIN_TEMPERATURE", "0.7")
     bodies: list = []
-    script = [_FakeResp(400, _unsupported_400_text("temperature")),
-              _FakeResp(200, "fine", _ok_payload("recovered"))]
+    script = [_FakeResp(400, _unsupported_400_text("temperature"))]
     _stub_client(monkeypatch, script, bodies)
     call = bridge.brain_turn
     target = call.fn if hasattr(call, "fn") else call
-    result = target("q", task_id="999", project_root=str(proj))
-    assert result["output"] == "recovered"
-    names = [e.get("checkpoint") for e in _ledger_events(proj)
-             if e["event"] == "checkpoint"]
-    assert "transport_correction_or_escalation" in names
+    with pytest.raises(RuntimeError, match="fatal provider error 400"):
+        target("q", task_id="999", project_root=str(proj))

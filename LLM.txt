@@ -116,7 +116,7 @@ mkdir -p ~/.config/opencode/skills
 
 ## 5. Copy MCP Servers and Make Them Executable
 
-Copy the MCP server modules from the cloned repo. Every server is multi-module (`brain-bridge` = `server.py` + `capability.py`/`preflight.py`/`loop_guard.py`/`session_ledger.py`/`transport_learning.py`/`authority_retrieval.py`/`eval_harness.py`/`golden_replay.py`), so copy **all `*.py`**. Each dir also carries `pyproject.toml` + committed `uv.lock` — copy those too so launches resolve locked deps:
+Copy the MCP server modules from the cloned repo. Every server is multi-module (`brain-bridge` = `server.py` + `capability.py`/`preflight.py`/`loop_guard.py`/`session_ledger.py`), so copy **all `*.py`**. Each dir also carries `pyproject.toml` + committed `uv.lock` — copy those too so launches resolve locked deps:
 
 ```bash
 for d in mcp-context-server mcp-memory-server mcp-lint-server mcp-brain-bridge; do
@@ -530,7 +530,7 @@ After completing all steps, verify:
 - [ ] `~/.config/opencode/mcp-context-server/server.py` exists and is executable
 - [ ] `~/.config/opencode/mcp-memory-server/server.py` exists and is executable
 - [ ] `~/.config/opencode/mcp-lint-server/server.py` exists and is executable
-- [ ] `~/.config/opencode/mcp-brain-bridge/server.py` exists and is executable (plus its sibling modules `capability.py`, `preflight.py`, `loop_guard.py`, `session_ledger.py`, `transport_learning.py`, `authority_retrieval.py`, `eval_harness.py`, `golden_replay.py`)
+- [ ] `~/.config/opencode/mcp-brain-bridge/server.py` exists and is executable (plus its sibling modules `capability.py`, `preflight.py`, `loop_guard.py`, `session_ledger.py`)
 - [ ] `~/.config/opencode/mcp-common/src/mcp_common/env.py` exists
 - [ ] Skills are installed under `~/.config/opencode/skills/` (at least one subfolder exists) — should include `bundle-tasks` (31 skills total)
 - [ ] `~/.config/opencode/agents/cognitive-executor.md` exists

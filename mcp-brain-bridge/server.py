@@ -162,25 +162,6 @@ except ImportError:
         checkpoint as _ledger_checkpoint,
     )
 
-# Transport-failure learning lives in transport_learning (stdlib-only,
-# zero coupling back to this module). Same guarded REQUIRED import.
-try:
-    from mcp_brain_bridge.transport_learning import (  # type: ignore[import-not-found]
-        CorrectionMemory as _CorrectionMemory,
-        TransportEscalationError,
-        classify_transport_error as _classify_transport_error,
-        escalation_message as _escalation_message,
-        failure_signature as _failure_signature,
-    )
-except ImportError:
-    from transport_learning import (  # type: ignore[import-not-found]
-        CorrectionMemory as _CorrectionMemory,
-        TransportEscalationError,
-        classify_transport_error as _classify_transport_error,
-        escalation_message as _escalation_message,
-        failure_signature as _failure_signature,
-    )
-
 mcp = FastMCP("BrainBridge", host="127.0.0.1", port=8105)
 
 # XML blocks the Brain may emit. Hands executes these; everything else
@@ -1597,109 +1578,15 @@ def _send_with_learning(
     session_id: Optional[str] = None,
     project_root: Optional[str] = None,
 ) -> tuple[Any, int]:
-    """POST with transport-failure learning (GitHub issue 17).
+    """POST with stateless retry (429/5xx + timeouts via _post_with_retry).
 
-    One correctable round: a 400 naming an unsupported top-level body
-    key is classified, recorded to the session ledger, and retried once
-    with the key dropped. The same failure class twice in one saga
-    escalates via ``TransportEscalationError`` — never a verdict, never
-    a silent loop. Non-correctable failures propagate untouched, and
-    the returned attempt count spans the failed round plus the retry.
+    No correction memory and no escalation: 4xx fails fast inside
+    ``_post_with_retry`` and propagates to the caller. Extra keyword
+    arguments stay accepted so existing callers pass unchanged.
     """
-    memory = _CorrectionMemory(task_key)
-    attempts_total = 0
-    while True:
-        with make_client() as client:
-            try:
-                resp, attempts = _post_with_retry(client, url, body)
-            except RuntimeError as exc:
-                attempts_total += int(getattr(exc, "transport_attempts", 0) or 0)
-                correction = _classify_transport_error(exc, body)
-                if correction is None:
-                    # Repeat of an already-applied correction (provider
-                    # echoing the same rejection after the key was
-                    # dropped): the fix did not stick — escalate.
-                    repeat_sig = _failure_signature(exc)
-                    if repeat_sig is not None and memory.already_corrected(repeat_sig):
-                        message = _escalation_message(task_key, repeat_sig, repeats=2)
-                        if project_root is not None:
-                            try:
-                                _append_ledger_event(
-                                    "transport_escalation",
-                                    task_id=task_id,
-                                    session_id=session_id,
-                                    data={
-                                        "task_key": task_key,
-                                        "class": repeat_sig,
-                                        "fingerprint": repeat_sig,
-                                    },
-                                    project_root=project_root,
-                                )
-                            except Exception as ledger_exc:
-                                print(
-                                    "brain-bridge: ledger event skipped "
-                                    f"({ledger_exc})",
-                                    file=sys.stderr,
-                                )
-                        _note_checkpoint(
-                            "transport_correction_or_escalation",
-                            task_id=task_id,
-                            session_id=session_id,
-                            project_root=project_root,
-                        )
-                        raise TransportEscalationError(message) from exc
-                    raise
-                if memory.seen(correction.fingerprint):
-                    message = _escalation_message(
-                        task_key, correction.fingerprint, repeats=2
-                    )
-                    if project_root is not None:
-                        try:
-                            _append_ledger_event(
-                                "transport_escalation",
-                                task_id=task_id,
-                                session_id=session_id,
-                                data={
-                                    "task_key": task_key,
-                                    "class": correction.failure_class,
-                                    "param": correction.param,
-                                    "fingerprint": correction.fingerprint,
-                                },
-                                project_root=project_root,
-                            )
-                        except Exception as ledger_exc:
-                            print(
-                                f"brain-bridge: ledger event skipped ({ledger_exc})",
-                                file=sys.stderr,
-                            )
-                    _note_checkpoint(
-                        "transport_correction_or_escalation",
-                        task_id=task_id,
-                        session_id=session_id,
-                        project_root=project_root,
-                    )
-                    raise TransportEscalationError(message) from exc
-                body = correction.apply(body)
-                memory.record(
-                    correction,
-                    task_id=task_id,
-                    session_id=session_id,
-                    project_root=project_root,
-                )
-                _note_checkpoint(
-                    "transport_correction_or_escalation",
-                    task_id=task_id,
-                    session_id=session_id,
-                    project_root=project_root,
-                )
-                print(
-                    "brain-bridge: transport correction applied "
-                    f"({correction.fingerprint}); retrying once with "
-                    "corrected body",
-                    file=sys.stderr,
-                )
-                continue
-            return resp, attempts_total + attempts
+    with make_client() as client:
+        resp, attempts = _post_with_retry(client, url, body)
+    return resp, attempts
 
 
 # Max prior messages re-sent per turn. Bounds context for long tasks.
