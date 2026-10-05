@@ -15,6 +15,7 @@ Updates the machine-global installations of the Cognitive Lead AI HQ (MCP server
 
 | Component      | OpenCode                                                                                                       |
 | -------------- | -------------------------------------------------------------------------------------------------------------- |
+| MCP servers    | `~/.config/opencode/mcp-{context,memory,lint,brain}-server/` (brain bridge = `mcp-brain-bridge/`) + `~/.config/opencode/mcp-common/` (shared lib); each with `pyproject.toml` + committed `uv.lock`, launched via `<dir>/.venv/bin/python <dir>/server.py` (direct venv, never `uv run` — uv startup exceeds the V2 connect timeout under multi-session spawn load, 2026-09-29) |
 | Telegram MCP   | `~/.config/opencode/mcp-telegram-server/` (upstream clone of chigwell/telegram-mcp — no fork) |
 | Skills         | `~/.config/opencode/skills/<name>/SKILL.md` (synced 1:1 with `skill-templates/` — count varies, verify by diff not by number) |
 | Custom agents  | `~/.config/opencode/agents/{cognitive-executor,cognitive-discovery}.md` |
@@ -24,7 +25,7 @@ Updates the machine-global installations of the Cognitive Lead AI HQ (MCP server
 
 ## Source Files (repo)
 
-- `mcp-context-server/server.py`, `mcp-memory-server/server.py`, `mcp-lint-server/server.py`
+- `mcp-context-server/server.py`, `mcp-memory-server/server.py`, `mcp-lint-server/server.py`, `mcp-brain-bridge/*.py` (server plus capability, preflight, loop_guard, session_ledger siblings)
 - `mcp-common/src/mcp_common/` (shared dotenv loader) + every server dir's `pyproject.toml` + `uv.lock` (Task 170; sync all three file kinds globally)
 - `skill-templates/*/` (all skills, synced 1:1 — never hardcode the count)
 - `agents/cognitive-executor.md`, `agents/cognitive-discovery.md`
@@ -38,21 +39,23 @@ Updates the machine-global installations of the Cognitive Lead AI HQ (MCP server
 3. **Re-verify** with the same diff commands — expect no DRIFT output except the expected `opencode.json` relative vs absolute.
 4. **Smoke-test**: `opencode mcp list` (expect ONLY the currently-enabled servers connected) + `rtk test uv run --with pytest --with 'mcp[cli]>=1.0,<2.0' --with pathspec --with pyyaml pytest tests/ -q`.
 4b. **RTK install** (rule added 2026-09-12): the token-trimming runner from `docs/opencode-shell-strategy.md` §8. Install the musl binary when missing (`mkdir -p ~/.local/bin && curl -fsSL -o ~/.local/bin/rtk <release-url>/rtk-x86_64-unknown-linux-musl && chmod +x ~/.local/bin/rtk`), verify `rtk --version`. Never run `rtk init -g` — it rewrites the global OpenCode config.
-5. **Telegram MCP step 2.5** (upstream chigwell/telegram-mcp): lag check via `rev-list --count HEAD..origin/main`; run backup+rsync upgrade only when lag > 0. **Update-only — do NOT run telegram's own pytest suite** (its live-network tests hang ~300s on this machine and add nothing; `opencode mcp list` 5/5 is the sufficient smoke test). Rule set 2026-09-10 per Manager.
+5. **Telegram MCP step 2.5** (upstream chigwell/telegram-mcp): lag check via `rev-list --count HEAD..origin/main`; run backup+rsync upgrade only when lag > 0. **Update-only — do NOT run telegram's own pytest suite** (its live-network tests hang ~300s on this machine and add nothing; `opencode mcp list` 6/6 is the sufficient smoke test). Rule set 2026-09-10 per Manager.
 
 ## Migration Path: stdio to singleton remote (2026-09-29, Task 277/278)
 
 Existing users on per-session stdio entries migrate without reinstalling server code:
 
 1. **Backup global config:** `cp ~/.config/opencode/opencode.json ~/.config/opencode/opencode.json.bak-$(date +%Y%m%d-%H%M%S)`.
-2. **Start the singletons:** install `services/mcp-*.service` to `~/.config/systemd/user/`, `systemctl --user daemon-reload`, enable+start all six; start `blowsh-singleton` (`docker run -d --name blowsh-singleton --restart unless-stopped -p 127.0.0.1:8107:8107 -e MCP_TRANSPORT=http -e MCP_HOST=0.0.0.0 -e MCP_PORT=8107 -e BROWSH_PROFILE_DIR=/data/browsh-profile -v blowsh-profile:/data/browsh-profile <image>`).
+2. **Start the singletons:** install `services/mcp-*.service` to `~/.config/systemd/user/`, `systemctl --user daemon-reload`, enable+start all five HQ singletons (context, memory, lint, brain, telegram); start `blowsh-singleton` (`docker run -d --name blowsh-singleton --restart unless-stopped -p 127.0.0.1:8107:8107 -e MCP_TRANSPORT=http -e MCP_HOST=0.0.0.0 -e MCP_PORT=8107 -e BROWSH_PROFILE_DIR=/data/browsh-profile -v blowsh-profile:/data/browsh-profile <image>`).
 3. **Cut config:** replace each stdio `mcp.<name>` block with `{type: remote, url: http://127.0.0.1:<port>/mcp, enabled: true, timeout: <ms>}` (ports docs/services.md; telegram 30000, blowsh 120000, rest 15000). Validate JSON.
-4. **Verify:** `opencode mcp list` 7/7 connected in two sessions; exactly one process per server (`ps aux | grep -E 'mcp-|telegram_mcp' | grep -v grep`).
+4. **Verify:** `opencode mcp list` 6/6 connected in two sessions; exactly one process per server (`ps aux | grep -E 'mcp-|telegram_mcp' | grep -v grep`).
 5. **Rollback:** restore the backup config, restart sessions. HQ servers default to `streamable-http` when `MCP_TRANSPORT` is unset (explicit `stdio` still works for local debugging); telegram-mcp accepts `stdio|http|sse`.
 
 ## Key Facts
 
 - Project vs Global `opencode.json` (Option A 2026-08-25): repo uses **relative** paths, global uses **absolute** paths; `diff` always differs — verify shape, not identity.
+- V1 vs V2 installers (precision rule 2026-10-06): OpenCode V1 installs from `https://opencode.ai/install`, OpenCode V2 installs from `https://opencode.ai/v2/install` — never run the V1 URL on a V2 machine or the binary downgrades (single binary at `~/.opencode/bin/opencode`, verify with `opencode --version`). OpenChamber installs as npm package `@openchamber/web` (global via mise node, `npm install -g @openchamber/web@<version>`).
+- Restart handshake: Hands never restarts OpenCode, OpenChamber, or singleton units without an explicit Manager order. Hands prepares everything, then the Manager runs the OpenCode and OpenChamber restarts.
 - **Update 2026-09-09 (Tasks 175/176 — automation DISABLED):** executor and discovery automation sections commented out (manual workflow active); 9 automation commands archived with a restore guide; brainstorm-swarm skill restored but inert. Sync scope now includes propagating the DISABLED state. Smoke-test expectation lists only the currently-enabled servers.
 
 Supersedes: workflows/global-install-upgrade (prior revision: 31 skills, 5 MCPs).
