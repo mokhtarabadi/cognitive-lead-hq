@@ -14,5 +14,5 @@ updated_at: '2026-10-01T00:00:00.000000+00:00'
 - MCP block uses native V2 `mcp.servers` with `disabled:false` + `timeout:{catalog,execution}`.
 - V1→V2 DB migration key `migration.v1-v2` reached phase `completed`.
 - OpenChamber **2.1.0** active (latest on npm).
-- Plugin policy: **no OpenCode plugins** — the goal plugin and DCP/compress plugin were removed 2026-10-01 per Manager order. OpenChamber's built-in Session Goals replace the goal plugin.
+- Plugin policy: **no OpenCode plugins** — the goal plugin and DCP/compress plugin were removed 2026-10-01 per Manager order.
 - Supersedes: opencode_config/global_goal_plugin_upgrade_2026_08_27 (deleted), plugin_policy_dcp_only_2026_09_08 (deleted), plugins_full_v2_status_2026_09_26 (deleted).

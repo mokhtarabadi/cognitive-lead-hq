@@ -428,7 +428,7 @@ This writes the spec into `plugins` in `~/.config/opencode/opencode.json`; OpenC
 
 The V1-era `magic-compact` package does not load on OpenCode V2 (it exports the V1 plugin shape); `smart-compact` is the V2-native replacement, so do not add `magic-compact` to `plugins`.
 
-Native OpenCode compaction stays enabled as the automatic safety net (the `compaction` block in Step 7). Goal tracking still comes from OpenChamber's built-in **Session Goals**. Full guide: [`docs/compaction.md`](docs/compaction.md).
+Native OpenCode compaction stays enabled as the automatic safety net (the `compaction` block in Step 7). Full guide: [`docs/compaction.md`](docs/compaction.md).
 
 ---
 

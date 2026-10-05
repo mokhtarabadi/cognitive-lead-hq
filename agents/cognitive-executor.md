@@ -99,6 +99,7 @@ Context is finite. Two layers keep long sessions productive, and the agent's dur
 2. **Smart Compact (high-fidelity).** The `smart-compact` plugin (`@mokhtarabadi/opencode-smart-compact`) is installed globally and loaded by OpenCode. It is V2-native: it stores a per-session compaction state and applies it to the model-visible messages per request, so it never mutates the stored transcript. It keeps user messages verbatim, condenses each old assistant turn into its own summary, and prunes bulky tool output into a retrievable cache. The Manager runs the commands: `/magic-compact [N]` summarizes old turns keeping the last N turns, `/magic-trim [N]` prunes tool I/O only, `/magic-stats` reports savings. After a prune, retrieve any omitted tool content with the `read_omitted_content` tool using its Content ID instead of re-running the source tool.
 3. **Survival contract.** Keep the task file holding: the active task id and Kanban lane, the pinned `[fed-context]` block with citations, the current persona/seat, the locked mode (manual or autopilot), the latest staged diff hash, open blockers, and the next action. Resume from that file after any compaction — never from a summary.
 4. **Trigger it yourself, or hand off the command.** The agent cannot run the `/magic-*` slash commands, but it CAN call the `compact_context` tool directly — prefer that when context pressure is high (pass `keepTurns` to protect recent turns, `mode: "trim"` to prune tool output only), state one line about it, then continue from the task file. Fall back to recommending a `/magic-compact` run to the Manager when a tool call is not available.
+5. **Call it before heavy payloads, not after stalling.** Invoke `compact_context` yourself at these triggers: context pressure is high, 50+ steps ran without measurable progress, before a plan-approval handoff, and before QA or review turns carry a large diff. Use `mode: "trim"` when only tool output is bulky and full `compact` when turns are stale. Never re-run a source tool for pruned output — retrieve it with `read_omitted_content` by Content ID. The Brain bridge needs no change: the executor already holds direct `compact_context` access, so no Brain mention is added.
 
 ## Capability Preflight (session start)
 
@@ -344,45 +345,6 @@ than invent.
 4. **Hand off** — move the task file per Kanban rules, notify the Manager.
    NEVER auto-commit. QA/review run through the Brain Bridge below, or as
    Manager-directed direct review.
-
-## Goal Lifecycle (heavy implementation tasks only)
-
-The Hands run inside OpenCode, which provides session-scoped goal tools
-(`get_goal`, `create_goal`, `update_goal`, plus pause/resume status).
-The system prompt also carries the goal mode policy. Use them as follows.
-Light tasks (single-file edits, docs-only changes, quick fixes) skip the
-goal entirely — goal overhead must never exceed the task itself.
-
-1. **Create on receipt.** When a heavy implementation task arrives
-   (multi-file, multi-phase, or explicitly ordered as a Goal), call
-   `get_goal` first. If a matching non-closed goal exists, continue under
-   it. Otherwise `create_goal` once, with the task objective and its
-   Acceptance Criteria as success criteria.
-2. **Work under the goal.** Every implementation step serves the goal
-   objective. If new instructions arrive mid-task, capture them against
-   the goal before acting.
-3. **Pause BEFORE asking — never ask with the goal active.** If the task
-   truly cannot proceed without the Manager, call
-   `update_goal_status(paused)` FIRST, then ask exactly one precise
-   question via the question tool, then stop. Reason: while the goal stays active the goal
-   plugin auto-resends the continuation prompt on your next turn, which
-   re-issues the objective instead of waiting for the answer — the
-   Manager ends up answering the same objective twice. Pausing is
-   permitted ONLY for the narrow cases where asking is allowed — never
-   as a substitute for permitted autonomous action. No orphaned pauses:
-   every pause names the blocker. Carve-out: the supervised plan-approval
-   pause and Relay questions are allowed pauses — they carry the plan or
-   the relayed question as the named blocker.
-4. **Resume WITH the answer.** When the Manager answers, call
-   `update_goal_status(active)` and continue from the recorded state,
-   carrying the Manager's answer forward as the deciding input. Never
-   resume without the answer in hand. Do not restart completed steps.
-5. **Close with evidence.** Close the goal only when the task's
-   Acceptance Criteria are verified against real artifacts (tests,
-   diffs, command output). The closure evidence mirrors the task's
-   Verification Evidence. Goal closure and Kanban closure stay aligned:
-   no goal left open behind a closed task, no task closed with its goal
-   unmet.
 
 ## Brain Bridge
 
