@@ -1,9 +1,9 @@
 # Task 299: Brain self-judgment with full brainstorm
 
-**File:** `tasks/in-progress/299-brain-self-judgment-with-full-brainstorm.md`
+**File:** `tasks/completed/299-brain-self-judgment-with-full-brainstorm.md`
 **Source:** manager
 **Type:** chore
-**Status:** open
+**Status:** closed
 **Risk-Tier:** T1 standard
 
 ## Goal
@@ -37,24 +37,24 @@ Out of scope:
 
 ## Acceptance Criteria
 
-- [ ] AC1: seven-seat brainstorm report recorded in task file
-- [ ] AC2: sufficiency verdict plus ranked flaw list recorded
-- [ ] AC3: critical findings tasked, non-critical left as report
-- [ ] AC4: autopilot lock recorded, zero mid-task questions asked
+- [x] AC1: seven-seat brainstorm report recorded in task file
+- [x] AC2: sufficiency verdict plus ranked flaw list recorded
+- [x] AC3: critical findings tasked, non-critical left as report
+- [x] AC4: autopilot lock recorded, zero mid-task questions asked
 
 ## Verification Evidence
 
-- **Test command:** pending (discovery phase, no code changes)
-- **Expected result:** pending
-- **Actual result:** pending
-- **Exit code:** pending
+- **Test command:** N/A discovery phase, no code changes; lint_task_file on the active task file
+- **Expected result:** pass
+- **Actual result:** pass, recorded at closure
+- **Exit code:** 0
 
 ## Definition of Done
 
-- [ ] Brainstorm report plus verdicts recorded
-- [ ] Critical findings tasked
-- [ ] `lint_task_file` passes on the active task file
-- [ ] No code changed in this phase
+- [x] Brainstorm report plus verdicts recorded
+- [x] Critical findings tasked
+- [x] `lint_task_file` passes on the active task file
+- [x] No code changed in this phase
 
 ## Risk & Rollback
 
@@ -73,8 +73,10 @@ Out of scope:
 - Sufficiency verdict: bridge sends correctly but does not yet guarantee anti-hallucination. Hub is a 3626-line monolith with triple session state, lenient XML repair, silent cap cuts, unverified Responses parity.
 - Critical must-task list: C1 strict XML and verdict gate rejecting unmarked repair. C2 attach precedence with visible cut signals at per-file and total caps. C3 single session plus history contract with one bind source and bound markers. C4 Responses API parity matrix for file inputs, inline markdown, retrieval chunks, error mapping. C5 cache correctness with explicit eviction and collision tests, default safe-off until proven. Should-tasks: C6 hub slice split behind ports, C7 Hands-facing error rewrite with correlation IDs.
 - Critical findings tasked as 300 through 304 in tasks/backlog/.
+- Closed: Manager close order executed, report delivered, criticals tasked and META 305 closed.
 
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+**Factual Git Diff:** Stored in Commit Hash: `357f171c3a02d0e5a87c1ec1a0adc869d8d51e24`
 <!-- END_GIT_DIFF -->
