@@ -1,9 +1,11 @@
 # Task 302: Single session plus history contract for Brain bridge
 
-**File:** `tasks/backlog/302-single-session-plus-history-contract-for-brain-bridge.md`
+**File:** `tasks/archive/302-single-session-plus-history-contract-for-brain-bridge.md`
 **Source:** manager
 **Type:** feature
-**Status:** open
+**Status:** superseded
+**Superseded-By:** `305-brain-anti-hallucination-harness`
+**Superseded-At:** `2026-10-06`
 **Risk-Tier:** T1 standard
 **Supersedes:** none
 **Meta:** false
@@ -60,6 +62,8 @@ Out of scope:
 - **Rollback plan:** worktree diff revert before staging
 
 ---
+
+> **Superseded:** This task was bundled into META task `305-brain-anti-hallucination-harness` and archived on 2026-10-06. See `tasks/backlog/305-brain-anti-hallucination-harness.md` (or its Kanban successor) for the unified execution. History preserved via `git log --follow -- tasks/archive/302-single-session-plus-history-contract-for-brain-bridge.md`.
 
 ## Execution Log & Reasoning
 
