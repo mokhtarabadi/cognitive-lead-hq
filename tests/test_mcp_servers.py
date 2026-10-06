@@ -1,3 +1,4 @@
+# Sibling Docs: tests/README.md | Decisions: tests/DECISIONS.md
 """Basic MCP server startup and logic validation tests.
 
 Verifies that all three MCP servers can be imported and initialized,

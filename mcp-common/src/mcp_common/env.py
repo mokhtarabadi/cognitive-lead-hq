@@ -1,3 +1,4 @@
+# Sibling Docs: mcp-common/README.md | Decisions: mcp-common/DECISIONS.md
 """Explicit `.env` file loading for MCP servers (Task 170, extracted).
 
 Single home for the loader previously duplicated inside the servers.

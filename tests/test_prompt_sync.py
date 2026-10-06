@@ -1,3 +1,4 @@
+# Sibling Docs: tests/README.md | Decisions: tests/DECISIONS.md
 """Shipped-prompt content gates (Task 241 Gap 4).
 
 The rtk mandate must survive in the assembled system prompt, the shipped

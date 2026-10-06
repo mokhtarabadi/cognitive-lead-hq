@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Sibling Docs: scripts/README.md | Decisions: scripts/DECISIONS.md
 # /// script
 # requires-python = ">=3.10"
 # ///

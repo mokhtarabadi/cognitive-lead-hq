@@ -1,3 +1,4 @@
+# Sibling Docs: tests/README.md | Decisions: tests/DECISIONS.md
 """Input-validation pipeline and English-only gates.
 
 Source fragments, the executor, and conventions must route every

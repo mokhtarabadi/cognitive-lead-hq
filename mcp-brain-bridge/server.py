@@ -1,4 +1,5 @@
 #!/usr/bin/env -S uv run
+# Sibling Docs: mcp-brain-bridge/README.md | Decisions: mcp-brain-bridge/DECISIONS.md
 # /// script
 # requires-python = ">=3.10"
 # dependencies = [

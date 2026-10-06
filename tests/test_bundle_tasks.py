@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Sibling Docs: tests/README.md | Decisions: tests/DECISIONS.md
 """
 Automated test suite for the meta-task bundler (bundle_tasks MCP tool in
 mcp-context-server/server.py; helpers promoted to module level in Task 160).

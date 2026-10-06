@@ -1,3 +1,4 @@
+# Sibling Docs: mcp-brain-bridge/README.md | Decisions: mcp-brain-bridge/DECISIONS.md
 """Request preflight validator for the Brain bridge (GitHub issue 18).
 
 Local, transport-free validation of every ``brain_turn`` call: an

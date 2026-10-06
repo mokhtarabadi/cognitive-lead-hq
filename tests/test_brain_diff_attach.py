@@ -1,3 +1,4 @@
+# Sibling Docs: tests/README.md | Decisions: tests/DECISIONS.md
 """Tests for the brain_turn include_diff path (task file changed hunks).
 
 Offline only: covers diff extraction from task text and the attach

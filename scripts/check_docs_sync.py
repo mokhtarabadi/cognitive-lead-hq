@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Sibling Docs: scripts/README.md | Decisions: scripts/DECISIONS.md
 """Docs-sync gate: permission denies vs docs table, plus orphan-script scan.
 
 Check 1 (strict, exit non-zero on drift): the repo and global

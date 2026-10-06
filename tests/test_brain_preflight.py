@@ -1,3 +1,4 @@
+# Sibling Docs: tests/README.md | Decisions: tests/DECISIONS.md
 """Unit tests for the brain_turn request preflight (GitHub issue 18).
 
 Offline only: the preflight validator is pure (stdlib, no network), and

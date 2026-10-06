@@ -1,3 +1,4 @@
+# Sibling Docs: mcp-brain-bridge/README.md | Decisions: mcp-brain-bridge/DECISIONS.md
 """Autopilot loop-spin guard (diff-hash based).
 
 Stops the Hands autopilot fix loop when the produced worktree diff hash

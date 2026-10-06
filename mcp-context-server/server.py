@@ -1,4 +1,5 @@
 #!/usr/bin/env -S uv run
+# Sibling Docs: mcp-context-server/README.md | Decisions: mcp-context-server/DECISIONS.md
 # /// script
 # requires-python = ">=3.10"
 # dependencies = [

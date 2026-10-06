@@ -1,3 +1,4 @@
+# Sibling Docs: mcp-brain-bridge/README.md | Decisions: mcp-brain-bridge/DECISIONS.md
 """Capability preflight for mcp-brain-bridge (GitHub issue 16).
 
 Stdlib-only, mirroring ``loop_guard``: importable without the MCP

@@ -1,3 +1,4 @@
+# Sibling Docs: tests/README.md | Decisions: tests/DECISIONS.md
 """Unit tests for mcp-brain-bridge (Task 190).
 
 Offline only: covers the XML extractor, the system-prompt loader, the

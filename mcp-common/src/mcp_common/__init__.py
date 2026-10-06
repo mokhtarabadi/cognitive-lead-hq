@@ -1,3 +1,4 @@
+# Sibling Docs: mcp-common/README.md | Decisions: mcp-common/DECISIONS.md
 """Shared helpers for Cognitive Lead AI MCP servers (Task 170)."""
 
 from mcp_common.env import load_env_files

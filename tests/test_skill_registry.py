@@ -1,3 +1,4 @@
+# Sibling Docs: tests/README.md | Decisions: tests/DECISIONS.md
 """Registry <-> skill-templates consistency (offline, Task 217).
 
 Every skill named in prompts/fragments/07-agent_skills_registry.md must

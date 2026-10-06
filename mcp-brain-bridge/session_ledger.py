@@ -1,3 +1,4 @@
+# Sibling Docs: mcp-brain-bridge/README.md | Decisions: mcp-brain-bridge/DECISIONS.md
 """Append-only session ledger (shared infra, GitHub issue 19).
 
 WS2 shipped the minimal shape (``append_event`` → one JSON line per

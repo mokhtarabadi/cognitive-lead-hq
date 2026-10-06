@@ -1,3 +1,4 @@
+# Sibling Docs: tests/README.md | Decisions: tests/DECISIONS.md
 """Unit tests for mcp-brain-bridge/loop_guard.py (Task 196).
 
 Offline only: the spin guard is pure local JSONL logic — no network,

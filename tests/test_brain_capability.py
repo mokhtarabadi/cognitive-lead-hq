@@ -1,3 +1,4 @@
+# Sibling Docs: tests/README.md | Decisions: tests/DECISIONS.md
 """Capability-preflight tests for mcp-brain-bridge (GitHub issue 16).
 
 RED-first: ``capability`` and ``session_ledger`` modules do not exist yet.

@@ -1,3 +1,4 @@
+# Sibling Docs: tests/README.md | Decisions: tests/DECISIONS.md
 """Session ledger, taskless decisions, lint carve-out, analysis lifecycle.
 
 Workstream 4 (GitHub issue 19). RED-first: the session_ledger extensions
