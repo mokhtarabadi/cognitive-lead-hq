@@ -1,9 +1,9 @@
 # Task 306: Living folder docs roadmap
 
-**File:** `tasks/qa/306-living-folder-docs-roadmap.md`
+**File:** `tasks/completed/306-living-folder-docs-roadmap.md`
 **Source:** manager
 **Type:** feature
-**Status:** open
+**Status:** closed
 
 ## Goal
 
@@ -67,116 +67,5 @@ Implementation notes (Hands, 2026-10-06): moved the file backlog → in-progress
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
-```diff
-diff --git a/CHANGELOG.md b/CHANGELOG.md
-index 00764f9..ac51ef2 100644
---- a/CHANGELOG.md
-+++ b/CHANGELOG.md
-@@ -14,6 +14,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
- 
- - **Adopted opencode-todolist plugin (Task 290):** OpenCode V2 removed the built-in `todowrite`/`todoread` session todo tools that powered the V1 sidebar, so the platform now runs `opencode-todolist` alongside `smart-compact`. Global install via `opencode plugin add opencode-todolist` (`plugins` now carries both entries) plus the TUI sidebar strip via `plugins` in `~/.config/opencode/cli.json`. HQ docs synced in every place plugins are listed: `README.md` (one plugin -> two plugins), `LLM.txt` (Step 7 JSON + description, Step 7.7 install + `cli.json` strip + restart smoke test, stale no-plugins checklist corrected). Restart OpenCode to load it, then smoke-test `todowrite`/`todoread` and the sidebar strip.
- 
-+- Defined Living Folder Docs architectural specification and implementation roadmap in docs/living-folder-docs-roadmap.md (Task 306).
-+
- ### Fixed
- 
- - **Context MCP singleton report write path (Task 286):** after the singleton migration the context server runs from `~/.config/opencode/mcp-context-server`, but `create_tree_report`, `read_source_files`, and `extract_signatures` wrote their reports to `Path("context-reports")` — the process cwd — so generated maps landed in the global install dir and the project's `context-reports/` went stale (the newest repo tree report stayed at 2026-09-18, still listing the removed `stacks/` directory; found by the task 285 smoke test). All three writers now resolve `report_dir = workspace_root / "context-reports"` from the per-call `project_root` argument the caller supplies, and the `.gitignore` safeguard writes to `<project_root>/.gitignore` via a new `_ensure_context_reports_ignored(workspace_root)` parameter. `extract_signatures`'s regex fallback also reads the resolved `path` instead of the cwd-relative `file_path`. The project_root-omitted path is unchanged (cwd fallback, still surfaced client-visibly), and a new regression test proves a foreign cwd writes nothing outside `<project_root>/context-reports/`. Context-server suite: **70 passed** (69 pre-existing + 1 new).
-diff --git a/docs/living-folder-docs-roadmap.md b/docs/living-folder-docs-roadmap.md
-new file mode 100644
-index 0000000..3a82546
---- /dev/null
-+++ b/docs/living-folder-docs-roadmap.md
-@@ -0,0 +1,91 @@
-+# Living Folder Docs: Architectural Specification & Implementation Roadmap
-+
-+## 1. Objective
-+
-+The Living Folder Docs system ensures that architectural knowledge, design rationales, and directory boundaries are colocated with source code in vertical slices or clean architecture component directories. By forcing synchronization across four distinct gates, decisions cannot be silently forgotten, bypassed, or overridden.
-+
-+## 2. The Four Enforcement Gates
-+
-+1. **Gate 1: Read Gate (Context Auto-Attach):**
-+   - Location: `mcp-context-server/server.py`
-+   - Behavior: When `read_source_files` or `extract_signatures` processes files in a component directory, it automatically resolves and attaches sibling `README.md` and `DECISIONS.md` files so the Brain always inspects existing architectural context.
-+
-+2. **Gate 2: Write Gate (Agent Constraints & Task Templates):**
-+   - Locations: `prompts/fragments/13-constraints.md`, `prompts/fragments/09-hands_protocols.md`, `skill-templates/task-generator/`
-+   - Behavior: When modifying code within a slice, the agent is mandated to inspect and update sibling docs. Implementing without updating relevant ADRs triggers a rule violation warning.
-+
-+3. **Gate 3: Lint Gate (Static Verification):**
-+   - Location: `mcp-lint-server/server.py`
-+   - Behavior: Introduces structural verification (`lint_folder_docs`) ensuring every component slice owns conforming `README.md` and `DECISIONS.md` files and validates top-line source code pointers.
-+
-+4. **Gate 4: Review Gate (Quality & Persona Enforcement):**
-+   - Locations: `06-personas.md` (QA Engineer & Code Reviewer)
-+   - Behavior: QA rejects changes missing documented rationale or invariants. Code Reviewer rejects tasks with stale or desynchronized sibling docs. Human overrides must be recorded as dated ADRs with rollback instructions.
-+
-+## 3. Touch Points & File Locations
-+
-+All touch points are anchored in verified repository files:
-+- `docs/conventions.md`: Canonical definition of the Living Docs standard.
-+- `prompts/fragments/13-constraints.md`: Sibling docs reading and writing constraints.
-+- `prompts/fragments/09-hands_protocols.md`: Task execution phases for folder docs sync.
-+- `prompts/manifest.txt`: Fragment manifest for prompt assembly.
-+- `agents/cognitive-executor.md`: Mirrored execution rules for the Hands.
-+- `mcp-context-server/server.py`: Sibling doc resolution in context tools.
-+- `mcp-lint-server/server.py`: Sibling doc lint rule.
-+- `06-personas.md`: Adversarial QA and Code Reviewer inspection gates.
-+- Persistent Memory (`project-memory`): Synchronizing high-level Manager decisions with local slice logs.
-+
-+## 4. Concrete Reference Example: `todo-app` Vertical Slice
-+
-+### Directory Layout
-+```text
-+src/features/todos/
-+├── README.md
-+├── DECISIONS.md
-+├── todo.model.ts
-+├── todo.service.ts
-+└── todo.controller.ts
-+```
-+
-+### `src/features/todos/README.md`
-+```markdown
-+# Slice: Todos Feature
-+
-+## Duties
-+Handles todo creation, completion toggling, filtering, and persistent storage.
-+
-+## Files
-+- todo.model.ts: Domain entities and validation schemas.
-+- todo.service.ts: Business logic, persistence interactions, and error handling.
-+- todo.controller.ts: HTTP route handlers and request/response mapping.
-+
-+## Key Risks & Invariants
-+- Todos must belong to a verified tenant; never query across tenant boundaries.
-+- Soft-deleted items must not appear in count aggregations.
-+```
-+
-+### `src/features/todos/DECISIONS.md`
-+```markdown
-+# Architectural Decisions: Todos Feature
-+
-+## [2026-08-25] ADR-001: Soft Deletion via Sidecar DeletedAt Column
-+- Context: Hard deletion caused cascade failures with audit reports.
-+- Decision: All deletion marks deleted_at timestamp; queries filter deleted_at IS NULL.
-+- Consequences: Existing indexes required compound update on (tenant_id, deleted_at).
-+- Rollback: Revert migration 0042 and restore hard delete cascade.
-+```
-+
-+### Code Pointer Standard (`src/features/todos/todo.service.ts`)
-+```typescript
-+// Sibling Docs: src/features/todos/README.md | Decisions: src/features/todos/DECISIONS.md
-+export class TodoService {
-+  // implementation
-+}
-+```
-+
-+## 5. Phased Implementation Breakdown (Follow-Up Tasks)
-+
-+- **Phase 1 (Conventions & System Prompts):** Update `docs/conventions.md`, prompt fragments `13-constraints.md` and `09-hands_protocols.md`, assemble `system-prompt.md`, and mirror in `agents/cognitive-executor.md`.
-+- **Phase 2 (MCP Context & Lint Tooling):** Add sibling doc auto-attachment in `mcp-context-server/server.py` and structural validation in `mcp-lint-server/server.py`.
-+- **Phase 3 (Task Templates & Skills):** Update `task-generator` template to mandate folder-docs checklist items.
-+- **Phase 4 (Persona Gates & ADR Memory Integration):** Wire QA/Reviewer adversarial gates and test the full cycle on a sample slice.
-```
+**Factual Git Diff:** Stored in Commit Hash: `accbcd54154e35641907e4f711d04bb61bf4fc6c`
 <!-- END_GIT_DIFF -->
