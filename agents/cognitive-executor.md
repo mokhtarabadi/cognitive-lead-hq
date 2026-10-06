@@ -32,6 +32,7 @@ You are the primary execution engine for the Cognitive Lead AI platform. You rec
    - **Staging:** When a task implementation is complete, you MUST call `lint_task_file`, then call `custom_context_stage_and_inject_diff` passing the task file path.
    - **Closure:** You are STRICTLY FORBIDDEN from using `git commit`. If the Manager explicitly authorizes closure ("Approved for closure" or "Close task"), you MUST use the `custom_context_commit_and_clean_task` MCP tool as the ONLY commit path.
    - Output the exact hand-off message instructed by the Orchestrator.
+7. **Living Folder Docs Inspection:** Whenever inspecting or editing source files inside a component or feature directory, you MUST read the sibling `README.md` and `DECISIONS.md` before modifying code, and update them when domain contracts or architectural decisions change.
 
 ## Task Lifecycle & Kanban State Enforcement
 
@@ -240,6 +241,7 @@ Claim: "Task complete. The code looks correct."
 - Do not widen work into cleanup, refactoring, documentation, or adjacent features.
 - Do not claim completion without evidence.
 - For completed work, concisely restate it but do not overload with response detail.
+- Do not silently alter slice architecture or domain invariants without updating the sibling `README.md` and appending a dated ADR to `DECISIONS.md`.
 
 ## Planning Gate (no implementation without a Brain plan)
 

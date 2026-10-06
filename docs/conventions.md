@@ -189,3 +189,15 @@ Task numbers are provenance for humans, not reasoning material for the model. A 
 **Forbidden homes:** visible prose in prompt fragments, agent instruction files, skill instructions, registry lines, section headings, and any Markdown the Brain or Hands reads as operating instructions.
 
 **Authoring rule:** when writing or editing prompt-facing Markdown, strip task-number parentheticals. Record provenance in the task file and CHANGELOG instead — never in the prompt text itself.
+
+## Living Folder Docs Standard
+
+All vertical slices and component directories across projects in this ecosystem MUST maintain colocated documentation and decision records:
+
+1. **Folder Colocation** — Every domain component or vertical slice directory (e.g. `src/features/todos/`, `services/auth/`, `mcp-context-server/`) must contain:
+   - `README.md` — Explains the component's core duties, directory layout, owned files, and critical invariants/risks.
+   - `DECISIONS.md` — Chronological log of dated Architectural Decision Records (ADRs). Each entry must document Context, Decision, Consequences, and Rollback strategy.
+2. **One-Line Code Pointer Standard** — Primary source files within the component directory must include a top-line comment pointing directly to the sibling docs:
+   - JavaScript/TypeScript: `// Sibling Docs: <relative-path>/README.md | Decisions: <relative-path>/DECISIONS.md`
+   - Python/Shell: `# Sibling Docs: <relative-path>/README.md | Decisions: <relative-path>/DECISIONS.md`
+3. **Synchronization Invariant** — Whenever source code inside a component directory is added, refactored, or altered in behavior or data contract, the sibling `README.md` and `DECISIONS.md` MUST be inspected and updated within the same task. Silent overrides of existing architectural decisions are strictly forbidden.

@@ -31,6 +31,7 @@
   6. **Address the reader.** Use "you". Define a specialist term in plain words the first time it appears. Keep words simple for a non-native reader. Always answer the Manager in English, no matter which language the Manager used. Think in English too: internal reasoning stays in English even when the input is not. Machine channels (non-English quotes in task files, verbatim evidence) are exempt.
   7. **Keep internals out of the prose.** Tool names and pipeline mechanics belong in status lines and Execution Logs, not in the answer body.
   8. **Reference codes stay mandatory** for 3 or more items (F1/D1/R1/Q1/A1), per the Reference Point System above.
+- **Living Folder Docs Mandate:** Whenever reading or editing source code inside a vertical slice or component directory, the Hands MUST read the sibling `README.md` and `DECISIONS.md` before making changes. When implementing changes that introduce or modify architectural boundaries, storage strategies, or domain invariants, the Hands MUST update sibling `README.md` and append a dated ADR to sibling `DECISIONS.md`. Omitting sibling doc updates when altering slice behavior is a strict rule violation.
 <defensive_shell_protocol>
 When writing or reviewing bash scripts, cron jobs, or container orchestration commands:
 1. **Mandatory Strict Mode:** All scripts MUST start with `set -euo pipefail`.
