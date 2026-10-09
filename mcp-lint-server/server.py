@@ -35,15 +35,18 @@ mcp = FastMCP("LintServer", host="127.0.0.1", port=8101)
 # Client-visible project-isolation warning (Task 279 F6/V1); see
 # mcp-context-server for rationale. No absolute paths echoed (privacy).
 _FALLBACK_FIRED: contextvars.ContextVar[bool] = contextvars.ContextVar(
-    "lint_fallback_fired", default=False)
+    "lint_fallback_fired", default=False
+)
 ROOT_FALLBACK_WARNING = (
     "WARNING [project-isolation]: project_root was omitted, so this call "
     "was scoped to the singleton server's own directory instead of the "
-    "calling project. Pass an absolute project_root on every call.")
+    "calling project. Pass an absolute project_root on every call."
+)
 
 
 def _project_tool(fn):
     """Register an MCP tool that surfaces root-fallback client-visibly."""
+
     @functools.wraps(fn)
     def wrapper(*args, **kwargs):
         _FALLBACK_FIRED.set(False)
@@ -53,6 +56,7 @@ def _project_tool(fn):
         if isinstance(out, str):
             return ROOT_FALLBACK_WARNING + "\n" + out
         return out
+
     return mcp.tool()(wrapper)
 
 
@@ -106,7 +110,7 @@ def _check_markdown_basics(content: str, file_path: str) -> list[str]:
         A list of issue descriptions found in the content.
     """
     issues: list[str] = []
-    lines = content.split('\n')
+    lines = content.split("\n")
 
     # The machine-generated `## Factual Git Diff` block (between the
     # BEGIN_GIT_DIFF / END_GIT_DIFF markers) can contain arbitrary raw git
@@ -167,7 +171,11 @@ def _check_markdown_basics(content: str, file_path: str) -> list[str]:
                 issues.append(f"Line {i}: Missing blank line before heading.")
 
             # Check for missing blank line after heading
-            if i < len(lines) and lines[i].strip() != "" and not lines[i].strip().startswith("#"):
+            if (
+                i < len(lines)
+                and lines[i].strip() != ""
+                and not lines[i].strip().startswith("#")
+            ):
                 issues.append(f"Line {i}: Missing blank line after heading.")
 
         # Check for trailing whitespace (excluding intentional double-space for line breaks)
@@ -217,13 +225,13 @@ def _check_task_file_structure(content: str, file_path: str) -> list[str]:
     filename = Path(file_path).name
 
     # 1. Title number matches filename ID
-    id_match = re.match(r'^(\d+)-', filename)
+    id_match = re.match(r"^(\d+)-", filename)
     if id_match:
         file_id = id_match.group(1)
-        title_match = re.search(r'^# Task (\d+):', content, re.MULTILINE)
+        title_match = re.search(r"^# Task (\d+):", content, re.MULTILINE)
         if title_match:
             title_id = title_match.group(1)
-            if file_id.lstrip('0') != title_id.lstrip('0'):
+            if file_id.lstrip("0") != title_id.lstrip("0"):
                 issues.append(
                     f"Task ID mismatch: Filename has '{file_id}' but title has '{title_id}'."
                 )
@@ -247,7 +255,7 @@ def _check_task_file_structure(content: str, file_path: str) -> list[str]:
     # symlinks so equivalent spellings of the same file never false-positive.
     # This still catches genuinely stale headers left behind after git mv
     # between Kanban directories (different file => different resolved path).
-    file_header_match = re.search(r'\*\*File:\*\*\s*`([^`]+)`', content)
+    file_header_match = re.search(r"\*\*File:\*\*\s*`([^`]+)`", content)
     if not file_header_match:
         issues.append("Missing `**File:**` metadata field.")
     else:
@@ -285,7 +293,7 @@ def _check_task_file_structure(content: str, file_path: str) -> list[str]:
     # instead of test-command evidence: the required-section set swaps
     # `## Verification Evidence` for `## Report Evidence`, whose body must
     # name the report file and carry a non-empty multi-line result.
-    task_type_match = re.search(r'\*\*Type:\*\*\s*(\w+)', content)
+    task_type_match = re.search(r"\*\*Type:\*\*\s*(\w+)", content)
     is_analysis = bool(task_type_match and task_type_match.group(1) == "analysis")
     required_sections = [
         "## Goal",
@@ -338,10 +346,9 @@ def _check_task_file_structure(content: str, file_path: str) -> list[str]:
     # matches this intentional backward-compatibility shim inside the linter.
     canonical_execution_log_header = "## Execution Log & Reasoning"
     legacy_execution_log_header = "## OpenCode " + "Execution Log & Reasoning"
-    execution_log_heading_count = (
-        _count_heading(pre_diff, canonical_execution_log_header)
-        + _count_heading(pre_diff, legacy_execution_log_header)
-    )
+    execution_log_heading_count = _count_heading(
+        pre_diff, canonical_execution_log_header
+    ) + _count_heading(pre_diff, legacy_execution_log_header)
     if execution_log_heading_count == 0:
         issues.append("Missing required section: `## Execution Log & Reasoning`")
     elif execution_log_heading_count > 1:
@@ -353,17 +360,22 @@ def _check_task_file_structure(content: str, file_path: str) -> list[str]:
         )
 
     # 3. BEGIN/END markers
-    if "<!-- BEGIN_GIT_DIFF -->" not in content or "<!-- END_GIT_DIFF -->" not in content:
-        issues.append("Missing `<!-- BEGIN_GIT_DIFF -->` or `<!-- END_GIT_DIFF -->` markers.")
+    if (
+        "<!-- BEGIN_GIT_DIFF -->" not in content
+        or "<!-- END_GIT_DIFF -->" not in content
+    ):
+        issues.append(
+            "Missing `<!-- BEGIN_GIT_DIFF -->` or `<!-- END_GIT_DIFF -->` markers."
+        )
 
     # 4. Source field
-    if not re.search(r'\*\*Source:\*\*\s*(orchestrator|telegram|manager)', content):
+    if not re.search(r"\*\*Source:\*\*\s*(orchestrator|telegram|manager)", content):
         issues.append("Missing or invalid `**Source:**` metadata field.")
 
     # 5. Type field (Task 110: allow `meta` for bundled META tasks; canonical META still uses `feature` + `**Meta:** true`;
     # GitHub issue 19 P6: allow `analysis` for analysis-only tasks carrying `## Report Evidence`)
     if not re.search(
-        r'\*\*Type:\*\*\s*(bug|improvement|feature|chore|docs|refactor|security|research|infra|meta|analysis)',
+        r"\*\*Type:\*\*\s*(bug|improvement|feature|chore|docs|refactor|security|research|infra|meta|analysis)",
         content,
     ):
         issues.append("Missing or invalid `**Type:**` metadata field.")
@@ -383,13 +395,12 @@ def _check_report_evidence_body(pre_diff: str) -> list[str]:
     lines = pre_diff.splitlines()
     try:
         start = next(
-            i for i, line in enumerate(lines)
-            if line.strip() == "## Report Evidence"
+            i for i, line in enumerate(lines) if line.strip() == "## Report Evidence"
         )
     except StopIteration:  # Missing-section error already reported above.
         return issues
     body: list[str] = []
-    for line in lines[start + 1:]:
+    for line in lines[start + 1 :]:
         if line.startswith("## ") or line.strip() == "---":
             break
         body.append(line)
@@ -399,18 +410,18 @@ def _check_report_evidence_body(pre_diff: str) -> list[str]:
             "with a non-blank `Report:` line."
         )
     result_idx = next(
-        (i for i, line in enumerate(body)
-         if line.strip().startswith("Result:")), None
+        (i for i, line in enumerate(body) if line.strip().startswith("Result:")), None
     )
     outcome: list[str] = []
     if result_idx is not None:
         # Same-line content after `Result:` counts; bare `Exit code:`
         # residue never substitutes for the recorded outcome.
-        remainder = body[result_idx].strip()[len("Result:"):].strip()
+        remainder = body[result_idx].strip()[len("Result:") :].strip()
         if remainder and not remainder.startswith("Exit code:"):
             outcome.append(remainder)
         outcome.extend(
-            line.strip() for line in body[result_idx + 1:]
+            line.strip()
+            for line in body[result_idx + 1 :]
             if line.strip() and not line.strip().startswith("Exit code:")
         )
     if result_idx is None or not outcome:
@@ -423,6 +434,7 @@ def _check_report_evidence_body(pre_diff: str) -> list[str]:
 
 # --- MCP Tools ---
 
+
 def _explicit_project_root(project_root: str | None, tool_name: str) -> Path:
     """Validate a per-call project root (Task 279 project_path).
 
@@ -434,8 +446,10 @@ def _explicit_project_root(project_root: str | None, tool_name: str) -> Path:
     if project_root is None:
         root = Path.cwd().resolve()
         _FALLBACK_FIRED.set(True)
-        print(f"Warning: {tool_name}: project_root omitted, falling back to server cwd {root}",
-              file=sys.stderr)
+        print(
+            f"Warning: {tool_name}: project_root omitted, falling back to server cwd {root}",
+            file=sys.stderr,
+        )
         return root
     if not isinstance(project_root, str) or not project_root:
         raise ValueError("project_root must be a non-empty absolute path string.")
@@ -443,8 +457,11 @@ def _explicit_project_root(project_root: str | None, tool_name: str) -> Path:
         raise ValueError(f"project_root must be absolute, got: {project_root!r}.")
     root = Path(project_root).resolve()
     if not root.is_dir():
-        raise ValueError(f"project_root must be an existing directory, got: {project_root!r}.")
+        raise ValueError(
+            f"project_root must be an existing directory, got: {project_root!r}."
+        )
     return root
+
 
 @_project_tool
 def lint_markdown(file_path: str, project_root: str | None = None) -> str:
@@ -465,12 +482,14 @@ def lint_markdown(file_path: str, project_root: str | None = None) -> str:
         workspace_root = _explicit_project_root(project_root, "lint_markdown")
     except ValueError as e:
         return f"Error: {e}"
-    path = Path(file_path) if Path(file_path).is_absolute() else workspace_root / file_path
+    path = (
+        Path(file_path) if Path(file_path).is_absolute() else workspace_root / file_path
+    )
     if not path.is_file():
         return f"Error: File not found: {file_path}"
 
     try:
-        with open(path, 'r', encoding='utf-8') as f:
+        with open(path, "r", encoding="utf-8") as f:
             content = f.read()
     except Exception as e:
         return f"Error reading file: {e}"
@@ -480,7 +499,9 @@ def lint_markdown(file_path: str, project_root: str | None = None) -> str:
     if not issues:
         return f"✅ {file_path} passed Markdown linting."
 
-    return f"⚠️ {len(issues)} issues found in {file_path}:\n" + "\n".join(f"- {i}" for i in issues)
+    return f"⚠️ {len(issues)} issues found in {file_path}:\n" + "\n".join(
+        f"- {i}" for i in issues
+    )
 
 
 @_project_tool
@@ -503,12 +524,16 @@ def lint_task_file(task_file_path: str, project_root: str | None = None) -> str:
         workspace_root = _explicit_project_root(project_root, "lint_task_file")
     except ValueError as e:
         return f"Error: {e}"
-    path = Path(task_file_path) if Path(task_file_path).is_absolute() else workspace_root / task_file_path
+    path = (
+        Path(task_file_path)
+        if Path(task_file_path).is_absolute()
+        else workspace_root / task_file_path
+    )
     if not path.is_file():
         return f"Error: File not found: {task_file_path}"
 
     try:
-        with open(path, 'r', encoding='utf-8') as f:
+        with open(path, "r", encoding="utf-8") as f:
             content = f.read()
     except Exception as e:
         return f"Error reading file: {e}"
@@ -521,14 +546,15 @@ def lint_task_file(task_file_path: str, project_root: str | None = None) -> str:
     if not all_issues:
         return f"✅ {task_file_path} passed Task File linting."
 
-    return (
-        f"⚠️ {len(all_issues)} issues found in {task_file_path}:\n"
-        + "\n".join(f"- {i}" for i in all_issues)
+    return f"⚠️ {len(all_issues)} issues found in {task_file_path}:\n" + "\n".join(
+        f"- {i}" for i in all_issues
     )
 
 
 @_project_tool
-def lint_all_tasks(include_archive: bool = False, project_root: str | None = None) -> str:
+def lint_all_tasks(
+    include_archive: bool = False, project_root: str | None = None
+) -> str:
     """
     Run lint_task_file on ALL task files across the ACTIVE Kanban subdirectories.
 
@@ -568,19 +594,23 @@ def lint_all_tasks(include_archive: bool = False, project_root: str | None = Non
         for md_file in sorted(dir_path.glob("*.md")):
             total_files += 1
             try:
-                with open(md_file, 'r', encoding='utf-8') as f:
+                with open(md_file, "r", encoding="utf-8") as f:
                     content = f.read()
             except Exception:
                 continue
 
-            issues = _check_markdown_basics(content, str(md_file)) + _check_task_file_structure(
+            issues = _check_markdown_basics(
                 content, str(md_file)
-            )
+            ) + _check_task_file_structure(content, str(md_file))
             if issues:
                 total_issues += len(issues)
-                report.append(f"**{md_file.relative_to(tasks_dir)}** ({len(issues)} issues)")
+                report.append(
+                    f"**{md_file.relative_to(tasks_dir)}** ({len(issues)} issues)"
+                )
 
-    summary = f"Scanned {total_files} task files. Found {total_issues} total issues.\n\n"
+    summary = (
+        f"Scanned {total_files} task files. Found {total_issues} total issues.\n\n"
+    )
     if report:
         summary += "Files with issues:\n" + "\n".join(f"- {r}" for r in report)
     else:
@@ -745,7 +775,10 @@ def _check_system_prompt_sync(
         diff_text = "".join(diff_lines[:200])  # cap to avoid huge output
         if len(diff_lines) > 200:
             diff_text += f"\n... ({len(diff_lines) - 200} more diff lines truncated)\n"
-        return False, f"⚠️ DRIFT DETECTED — system-prompt.md is out of sync with prompts/:\n{diff_text}"
+        return (
+            False,
+            f"⚠️ DRIFT DETECTED — system-prompt.md is out of sync with prompts/:\n{diff_text}",
+        )
     except Exception as e:
         # BROAD DIAGNOSTIC CATCH (QA Fix Round 3): this function is a
         # diagnostic tool exposed over the MCP lint server. It must degrade

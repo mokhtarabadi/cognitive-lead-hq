@@ -110,8 +110,11 @@ def _sessions_root(explicit: Optional[str] = None) -> Path:
     return project_sessions_root()
 
 
-def _hashes_path(task_id: str, sessions_root: Optional[str] = None,
-                 project_root: Optional[str] = None) -> Path:
+def _hashes_path(
+    task_id: str,
+    sessions_root: Optional[str] = None,
+    project_root: Optional[str] = None,
+) -> Path:
     if not _TASK_ID_RE.match(task_id or ""):
         raise ValueError(f"bad task_id for loop guard: {task_id!r}")
     if project_root and not sessions_root:
@@ -141,7 +144,9 @@ def _read_hashes(path: Path) -> list[str]:
 
 
 def record_attempt(
-    task_id: str, diff_hash: str, sessions_root: Optional[str] = None,
+    task_id: str,
+    diff_hash: str,
+    sessions_root: Optional[str] = None,
     project_root: Optional[str] = None,
 ) -> dict[str, Any]:
     """Record one fix-attempt hash; report whether the loop is spinning.

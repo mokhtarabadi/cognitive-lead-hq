@@ -26,6 +26,7 @@ import session_ledger as ledger
 
 # --- ledger fixtures -------------------------------------------------------
 
+
 def _sessions(tmp_path, name="proj"):
     proj = tmp_path / name
     (proj / "tasks" / ".sessions").mkdir(parents=True)
@@ -34,27 +35,35 @@ def _sessions(tmp_path, name="proj"):
 
 # --- Part 1: session ledger and checkpoints --------------------------------
 
+
 def test_start_session_carries_all_required_fields(tmp_path):
     proj = _sessions(tmp_path)
     rec = ledger.start_session("s1", project_root=str(proj))
-    for field in ("session_id", "phase", "checkpoints", "request_hash",
-                  "response_hash", "retry_counts", "capability_manifest",
-                  "approval_events", "transcript_path",
-                  "transport_corrections", "final_status"):
+    for field in (
+        "session_id",
+        "phase",
+        "checkpoints",
+        "request_hash",
+        "response_hash",
+        "retry_counts",
+        "capability_manifest",
+        "approval_events",
+        "transcript_path",
+        "transport_corrections",
+        "final_status",
+    ):
         assert field in rec, f"missing ledger field: {field}"
     assert rec["session_id"] == "s1"
     assert rec["checkpoints"] == []
     assert rec["final_status"] == "open"
-    assert rec["transcript_path"].endswith(
-        "tasks/.sessions/s1/transcript.jsonl")
+    assert rec["transcript_path"].endswith("tasks/.sessions/s1/transcript.jsonl")
 
 
 def test_checkpoint_rejects_unknown_name(tmp_path):
     proj = _sessions(tmp_path)
     ledger.start_session("s1", project_root=str(proj))
     with pytest.raises(ValueError):
-        ledger.checkpoint("s1", "nonsense_boundary",
-                          project_root=str(proj))
+        ledger.checkpoint("s1", "nonsense_boundary", project_root=str(proj))
 
 
 def test_all_nine_checkpoints_accepted_in_order(tmp_path):
@@ -63,8 +72,11 @@ def test_all_nine_checkpoints_accepted_in_order(tmp_path):
     assert len(ledger.CHECKPOINTS) == 9
     for name in ledger.CHECKPOINTS:
         ledger.checkpoint("s1", name, project_root=str(proj))
-    names = [e["checkpoint"] for e in ledger.read_ledger(
-        project_root=str(proj)) if e["event"] == "checkpoint"]
+    names = [
+        e["checkpoint"]
+        for e in ledger.read_ledger(project_root=str(proj))
+        if e["event"] == "checkpoint"
+    ]
     assert names == list(ledger.CHECKPOINTS)
 
 
@@ -75,15 +87,13 @@ def test_checkpoints_append_only_and_ordered(tmp_path):
     ledger.checkpoint("s1", ledger.CHECKPOINTS[1], project_root=str(proj))
     path = proj / "tasks" / ".sessions" / "session_ledger.jsonl"
     assert len(path.read_text(encoding="utf-8").splitlines()) == 3
-    events = [e["event"] for e in ledger.read_ledger(
-        project_root=str(proj))]
+    events = [e["event"] for e in ledger.read_ledger(project_root=str(proj))]
     assert events == ["session_started", "checkpoint", "checkpoint"]
 
 
 def test_reader_tolerates_unknown_fields_and_corrupt_lines(tmp_path):
     proj = _sessions(tmp_path)
-    ledger.start_session("s1", project_root=str(proj),
-                         future_field="kept")
+    ledger.start_session("s1", project_root=str(proj), future_field="kept")
     path = proj / "tasks" / ".sessions" / "session_ledger.jsonl"
     with path.open("a", encoding="utf-8") as fh:
         fh.write("this is not json\n")
@@ -97,8 +107,11 @@ def test_pending_candidate_stays_out_of_committed_store(tmp_path):
     ledger.start_session("s1", project_root=str(proj))
     cand = {"summary": "use X", "verbatim": "use X now"}
     ledger.record_pending_candidate("s1", cand, project_root=str(proj))
-    events = [e for e in ledger.read_ledger(project_root=str(proj))
-              if e["event"] == "decision_pending"]
+    events = [
+        e
+        for e in ledger.read_ledger(project_root=str(proj))
+        if e["event"] == "decision_pending"
+    ]
     assert len(events) == 1
     assert events[0]["status"] == "pending"
     assert list((proj / "tasks").rglob("DEC-*.json")) == []
@@ -109,32 +122,28 @@ def test_approval_promotes_only_via_explicit_record(tmp_path):
     ledger.start_session("s1", project_root=str(proj))
     cand = {"summary": "use X", "verbatim": "use X now"}
     ledger.record_pending_candidate("s1", cand, project_root=str(proj))
-    returned = ledger.promote_pending_candidate(
-        "s1", 0, project_root=str(proj))
+    returned = ledger.promote_pending_candidate("s1", 0, project_root=str(proj))
     assert returned["summary"] == "use X"
     # Promotion alone writes no committed decision: the caller must pass
     assert list((proj / "tasks").rglob("DEC-*.json")) == []
-    kinds = [e["event"] for e in ledger.read_ledger(
-        project_root=str(proj))]
+    kinds = [e["event"] for e in ledger.read_ledger(project_root=str(proj))]
     assert "decision_approved" in kinds
 
 
 def test_rejected_candidate_auditable_never_active(tmp_path):
     proj = _sessions(tmp_path)
     ledger.start_session("s1", project_root=str(proj))
-    ledger.record_pending_candidate("s1", {"summary": "bad idea"},
-                                    project_root=str(proj))
-    ledger.resolve_pending_candidate("s1", 0, "rejected",
-                                     project_root=str(proj))
+    ledger.record_pending_candidate(
+        "s1", {"summary": "bad idea"}, project_root=str(proj)
+    )
+    ledger.resolve_pending_candidate("s1", 0, "rejected", project_root=str(proj))
     records = ledger.read_ledger(project_root=str(proj))
-    assert {e["event"] for e in records} >= {"decision_pending",
-                                             "decision_rejected"}
+    assert {e["event"] for e in records} >= {"decision_pending", "decision_rejected"}
     assert list((proj / "tasks").rglob("DEC-*.json")) == []
 
 
-
-
 # --- Part 3: lint carve-out and analysis lifecycle --------------------------
+
 
 def _lint_mod():
     path = REPO / "mcp-lint-server" / "server.py"
@@ -206,27 +215,29 @@ def test_source_evidence_fence_exempt_from_prose_checks():
         "verbatim Persian: گزارش خرابی\n"
         "a line with trailing space \n"
         "#looks-like-heading-no-blank-line\n"
-        "```\n")
-    assert mod._check_markdown_basics(
-        body, "tasks/backlog/99-test.md") == []
+        "```\n",
+    )
+    assert mod._check_markdown_basics(body, "tasks/backlog/99-test.md") == []
 
 
 def test_unclosed_source_evidence_fence_fails():
     mod = _lint_mod()
     body = _TASK_HEAD.format(
-        kind="bug",
-        evidence=_VERIFY + "\n```source-evidence\nnever closed\n")
+        kind="bug", evidence=_VERIFY + "\n```source-evidence\nnever closed\n"
+    )
     issues = mod._check_markdown_basics(body, "tasks/backlog/99-test.md")
     assert any("source-evidence" in i for i in issues)
 
 
 def test_unclosed_fence_does_not_exempt_rest():
     mod = _lint_mod()
-    body = ("# Task 99: Lifecycle fixture\n"
-            "## Goal\n"  # missing blank line before heading
-            + _TASK_HEAD.split("## Goal\n", 1)[1].format(
-                kind="bug",
-                evidence=_VERIFY + "\n```source-evidence\nnever closed\n"))
+    body = (
+        "# Task 99: Lifecycle fixture\n"
+        "## Goal\n"  # missing blank line before heading
+        + _TASK_HEAD.split("## Goal\n", 1)[1].format(
+            kind="bug", evidence=_VERIFY + "\n```source-evidence\nnever closed\n"
+        )
+    )
     issues = mod._check_markdown_basics(body, "tasks/backlog/99-test.md")
     assert any("source-evidence" in i for i in issues)
     assert any("blank line" in i for i in issues)
@@ -235,8 +246,8 @@ def test_unclosed_fence_does_not_exempt_rest():
 def test_fence_contents_do_not_satisfy_structure():
     mod = _lint_mod()
     body = _TASK_HEAD.format(
-        kind="bug",
-        evidence=_VERIFY + "\n```source-evidence\n## Goal\n```\n")
+        kind="bug", evidence=_VERIFY + "\n```source-evidence\n## Goal\n```\n"
+    )
     body = body.replace("## Goal\n\nProve the fence.\n\n", "")
     issues = mod._check_task_file_structure(body, "tasks/backlog/99-test.md")
     assert any("## Goal" in i for i in issues)
@@ -245,8 +256,8 @@ def test_fence_contents_do_not_satisfy_structure():
 def test_structure_checks_continue_outside_fence():
     mod = _lint_mod()
     body = _TASK_HEAD.format(
-        kind="bug",
-        evidence=_VERIFY + "\n```source-evidence\nverbatim\n```\n")
+        kind="bug", evidence=_VERIFY + "\n```source-evidence\nverbatim\n```\n"
+    )
     body = body.replace("## Risk & Rollback\n", "")
     issues = mod._check_task_file_structure(body, "tasks/backlog/99-test.md")
     assert any("Risk & Rollback" in i for i in issues)
@@ -255,15 +266,15 @@ def test_structure_checks_continue_outside_fence():
 def test_analysis_task_report_evidence_passes():
     mod = _lint_mod()
     body = _TASK_HEAD.format(kind="analysis", evidence=_REPORT)
-    assert mod._check_task_file_structure(
-        body, "tasks/backlog/99-test.md") == []
+    assert mod._check_task_file_structure(body, "tasks/backlog/99-test.md") == []
 
 
 def test_analysis_task_blank_result_fails():
     mod = _lint_mod()
     body = _TASK_HEAD.format(
         kind="analysis",
-        evidence="## Report Evidence\n\nReport: context-reports/r.md\n\nResult: \n")
+        evidence="## Report Evidence\n\nReport: context-reports/r.md\n\nResult: \n",
+    )
     issues = mod._check_task_file_structure(body, "tasks/backlog/99-test.md")
     assert any("Result" in i for i in issues)
 
@@ -271,8 +282,8 @@ def test_analysis_task_blank_result_fails():
 def test_analysis_task_missing_report_path_fails():
     mod = _lint_mod()
     body = _TASK_HEAD.format(
-        kind="analysis",
-        evidence="## Report Evidence\n\nResult: some finding\n")
+        kind="analysis", evidence="## Report Evidence\n\nResult: some finding\n"
+    )
     issues = mod._check_task_file_structure(body, "tasks/backlog/99-test.md")
     assert any("Report" in i for i in issues)
 
@@ -282,7 +293,8 @@ def test_analysis_task_exit_code_is_not_report():
     body = _TASK_HEAD.format(
         kind="analysis",
         evidence="## Report Evidence\n\nReport: context-reports/r.md\n\n"
-        "Result: \n\nExit code: 0\n")
+        "Result: \n\nExit code: 0\n",
+    )
     issues = mod._check_task_file_structure(body, "tasks/backlog/99-test.md")
     assert any("Result" in i for i in issues)
 
@@ -290,15 +302,16 @@ def test_analysis_task_exit_code_is_not_report():
 def test_implementation_tasks_unaffected_by_analysis_branch():
     mod = _lint_mod()
     body = _TASK_HEAD.format(kind="bug", evidence=_VERIFY)
-    assert mod._check_task_file_structure(
-        body, "tasks/backlog/99-test.md") == []
+    assert mod._check_task_file_structure(body, "tasks/backlog/99-test.md") == []
 
 
 # --- Part 4: brain_turn checkpoint integration -------------------------------
 
+
 class _FakeResp:
-    def __init__(self, status_code=200, text="", payload=None,
-                 ctype="application/json"):
+    def __init__(
+        self, status_code=200, text="", payload=None, ctype="application/json"
+    ):
         self.status_code = status_code
         self.text = text
         self._payload = payload
@@ -346,9 +359,11 @@ def _stub_client(monkeypatch, script, bodies):
 
 
 def _ok_payload(text="ok"):
-    return {"output": [{"type": "message",
-                        "content": [{"type": "output_text",
-                                     "text": text}]}]}
+    return {
+        "output": [
+            {"type": "message", "content": [{"type": "output_text", "text": text}]}
+        ]
+    }
 
 
 def _turn_env(tmp_path, monkeypatch):
@@ -365,34 +380,44 @@ def _turn_env(tmp_path, monkeypatch):
 
 
 def _unsupported_400_text(param):
-    return json.dumps({"error": {
-        "message": f"Unsupported parameter: '{param}'. Try again.",
-        "type": "invalid_request_error",
-        "param": param,
-        "code": "unsupported_parameter",
-    }})
+    return json.dumps(
+        {
+            "error": {
+                "message": f"Unsupported parameter: '{param}'. Try again.",
+                "type": "invalid_request_error",
+                "param": param,
+                "code": "unsupported_parameter",
+            }
+        }
+    )
 
 
 def _ledger_events(proj):
     ledger_path = proj / "tasks" / ".sessions" / "session_ledger.jsonl"
-    return [json.loads(line) for line in
-            ledger_path.read_text(encoding="utf-8").splitlines()]
+    return [
+        json.loads(line)
+        for line in ledger_path.read_text(encoding="utf-8").splitlines()
+    ]
 
 
 def test_brain_turn_emits_ordered_checkpoints(tmp_path, monkeypatch):
     proj = _turn_env(tmp_path, monkeypatch)
     bodies: list = []
-    _stub_client(monkeypatch,
-                 [_FakeResp(200, "fine", _ok_payload())], bodies)
+    _stub_client(monkeypatch, [_FakeResp(200, "fine", _ok_payload())], bodies)
     call = bridge.brain_turn
     target = call.fn if hasattr(call, "fn") else call
     result = target("q", task_id="999", project_root=str(proj))
     assert result["status"] == "REPORT"
-    names = [e.get("checkpoint") for e in _ledger_events(proj)
-             if e["event"] == "checkpoint"]
-    assert names == ["request_accepted", "preflight_completed",
-                     "capability_completed", "transport_started",
-                     "response_parsed"]
+    names = [
+        e.get("checkpoint") for e in _ledger_events(proj) if e["event"] == "checkpoint"
+    ]
+    assert names == [
+        "request_accepted",
+        "preflight_completed",
+        "capability_completed",
+        "transport_started",
+        "response_parsed",
+    ]
 
 
 def test_brain_turn_unsupported_param_fails_fast(tmp_path, monkeypatch):

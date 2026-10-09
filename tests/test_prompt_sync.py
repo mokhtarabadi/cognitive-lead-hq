@@ -44,7 +44,7 @@ def test_shipped_version_is_expected_minor_bump():
     shipped = re.search(
         r"<system_version>(.*?)</system_version>", _read(SHIPPED)
     ).group(1)
-    assert shipped == "9.54.0"
+    assert shipped == "9.56.0"
 
 
 def test_compaction_protocol_in_shipped_prompt():

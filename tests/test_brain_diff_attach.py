@@ -28,7 +28,8 @@ def _injected_task_text(diff_body: str) -> str:
     """The shape stage_and_inject_diff writes: a fenced diff body."""
     return (
         "# Task 99: Sample\n\nSome working content.\n\n"
-        "<!-- BEGIN_GIT_DIFF -->\n\n```diff\n" + diff_body
+        "<!-- BEGIN_GIT_DIFF -->\n\n```diff\n"
+        + diff_body
         + "\n```\n<!-- END_GIT_DIFF -->\n"
     )
 
@@ -38,10 +39,7 @@ def test_extract_diff_survives_embedded_end_marker():
     # source text inside its own hunk, so the FIRST marker is not the
     # block end. Extraction must keep the whole body (the seat was judging
     # a change set that stopped two lines into the file it was reviewing).
-    embedded = (
-        '+_TASK_DIFF_END = "<!-- END_GIT_DIFF -->"\n'
-        "+tail-sentinel"
-    )
+    embedded = '+_TASK_DIFF_END = "<!-- END_GIT_DIFF -->"\n+tail-sentinel'
     text = _injected_task_text(embedded)
     diff = bridge.extract_task_diff(text)
     assert "_TASK_DIFF_END" in diff
@@ -49,10 +47,7 @@ def test_extract_diff_survives_embedded_end_marker():
 
 
 def test_strip_task_diff_survives_embedded_end_marker():
-    embedded = (
-        '+_TASK_DIFF_END = "<!-- END_GIT_DIFF -->"\n'
-        "+tail-sentinel"
-    )
+    embedded = '+_TASK_DIFF_END = "<!-- END_GIT_DIFF -->"\n+tail-sentinel'
     text = _injected_task_text(embedded)
     cleaned, omitted, truncated = bridge._strip_task_diff(text, "99-sample.md")
     assert "tail-sentinel" not in cleaned
@@ -94,22 +89,21 @@ def test_build_diff_attach_resolved_with_diff(monkeypatch, tmp_path):
     target = tmp_path / "99-sample.md"
     target.write_text(_task_text("+added"), encoding="utf-8")
     monkeypatch.setattr(
-        bridge, "_resolve_task_file",
-        lambda tid, project_root=None: target)
+        bridge, "_resolve_task_file", lambda tid, project_root=None: target
+    )
     monkeypatch.setattr(bridge, "_workspace_root", lambda: tmp_path)
     out = bridge.build_diff_attach("99")
     assert "+added" in out
 
 
-def test_build_diff_attach_no_diff_returns_inline_empty_note(
-        monkeypatch, tmp_path):
+def test_build_diff_attach_no_diff_returns_inline_empty_note(monkeypatch, tmp_path):
     # Re-QA repair: stderr is invisible to the model, so an empty diff
     # returns an inline EMPTY note (never silent "") with the remedy.
     target = tmp_path / "99-sample.md"
     target.write_text("# Task 99: no diff\n", encoding="utf-8")
     monkeypatch.setattr(
-        bridge, "_resolve_task_file",
-        lambda tid, project_root=None: target)
+        bridge, "_resolve_task_file", lambda tid, project_root=None: target
+    )
     out = bridge.build_diff_attach("99")
     assert "EMPTY" in out
     assert "stage_and_inject_diff" in out
@@ -119,7 +113,8 @@ def test_build_diff_attach_unresolvable_returns_inline_note(monkeypatch):
     # Re-QA repair: unresolvable file returns an inline UNAVAILABLE
     # note (never silent "") naming project_root as the remedy.
     monkeypatch.setattr(
-        bridge, "_resolve_task_file", lambda tid, project_root=None: None)
+        bridge, "_resolve_task_file", lambda tid, project_root=None: None
+    )
     out = bridge.build_diff_attach("nope")
     assert "UNAVAILABLE" in out
     assert "project_root" in out
@@ -129,8 +124,8 @@ def test_build_diff_attach_over_cap_truncates(monkeypatch, tmp_path):
     target = tmp_path / "99-sample.md"
     target.write_text(_task_text("x" * 50000), encoding="utf-8")
     monkeypatch.setattr(
-        bridge, "_resolve_task_file",
-        lambda tid, project_root=None: target)
+        bridge, "_resolve_task_file", lambda tid, project_root=None: target
+    )
     monkeypatch.setattr(bridge, "_workspace_root", lambda: tmp_path)
     monkeypatch.setattr(bridge, "_TASK_DIFF_CAP", 100)
     out = bridge.build_diff_attach("99")
@@ -145,8 +140,8 @@ def test_build_diff_attach_truncation_note_is_unverifiable(monkeypatch, tmp_path
     target = tmp_path / "99-sample.md"
     target.write_text(_task_text("x" * 50000), encoding="utf-8")
     monkeypatch.setattr(
-        bridge, "_resolve_task_file",
-        lambda tid, project_root=None: target)
+        bridge, "_resolve_task_file", lambda tid, project_root=None: target
+    )
     monkeypatch.setattr(bridge, "_workspace_root", lambda: tmp_path)
     monkeypatch.setattr(bridge, "_TASK_DIFF_CAP", 100)
     out = bridge.build_diff_attach("99")
@@ -165,8 +160,8 @@ def test_build_diff_attach_breaks_embedded_fences(monkeypatch, tmp_path):
     target = tmp_path / "99-sample.md"
     target.write_text(_task_text("line\n```evil\nline"), encoding="utf-8")
     monkeypatch.setattr(
-        bridge, "_resolve_task_file",
-        lambda tid, project_root=None: target)
+        bridge, "_resolve_task_file", lambda tid, project_root=None: target
+    )
     monkeypatch.setattr(bridge, "_workspace_root", lambda: tmp_path)
     out = bridge.build_diff_attach("99")
     assert "```evil" not in out
@@ -177,11 +172,10 @@ def test_failsafe_qa_prompt_attaches_without_flag(monkeypatch, tmp_path):
     target = tmp_path / "99-sample.md"
     target.write_text(_task_text("+added"), encoding="utf-8")
     monkeypatch.setattr(
-        bridge, "_resolve_task_file",
-        lambda tid, project_root=None: target)
+        bridge, "_resolve_task_file", lambda tid, project_root=None: target
+    )
     monkeypatch.setattr(bridge, "_workspace_root", lambda: tmp_path)
-    out = bridge._failsafe_qa_attach(
-        "QA engineer, adversarial review please", "99")
+    out = bridge._failsafe_qa_attach("QA engineer, adversarial review please", "99")
     assert "+added" in out
 
 
@@ -189,8 +183,8 @@ def test_failsafe_normal_prompt_stays_empty(monkeypatch, tmp_path):
     target = tmp_path / "99-sample.md"
     target.write_text(_task_text("+added"), encoding="utf-8")
     monkeypatch.setattr(
-        bridge, "_resolve_task_file",
-        lambda tid, project_root=None: target)
+        bridge, "_resolve_task_file", lambda tid, project_root=None: target
+    )
     assert bridge._failsafe_qa_attach("fix the login bug", "99") == ""
 
 
@@ -199,7 +193,8 @@ def _mk_project(tmp_path, name="proj"):
     lane = proj / "tasks" / "qa"
     lane.mkdir(parents=True)
     (lane / "999-sample.md").write_text(
-        _task_text("+via-project-root"), encoding="utf-8")
+        _task_text("+via-project-root"), encoding="utf-8"
+    )
     return proj
 
 
@@ -213,12 +208,10 @@ def test_resolve_task_file_honors_project_root(monkeypatch, tmp_path):
     assert bridge._resolve_task_file("999") is None
 
 
-def test_resolve_task_file_project_root_without_tasks_falls_back(
-        monkeypatch, tmp_path):
+def test_resolve_task_file_project_root_without_tasks_falls_back(monkeypatch, tmp_path):
     lane = tmp_path / "tasks" / "qa"
     lane.mkdir(parents=True)
-    (lane / "999-sample.md").write_text(
-        _task_text("+via-workspace"), encoding="utf-8")
+    (lane / "999-sample.md").write_text(_task_text("+via-workspace"), encoding="utf-8")
     monkeypatch.setattr(bridge, "_workspace_root", lambda: tmp_path)
     bare = tmp_path / "bare"
     bare.mkdir()
@@ -237,8 +230,8 @@ def test_build_diff_attach_via_project_root(monkeypatch, tmp_path):
 
 def test_build_diff_attach_unresolvable_says_so(monkeypatch, capsys):
     monkeypatch.setattr(
-        bridge, "_resolve_task_file",
-        lambda tid, project_root=None: None)
+        bridge, "_resolve_task_file", lambda tid, project_root=None: None
+    )
     out = bridge.build_diff_attach("nope")
     assert "UNAVAILABLE" in out  # inline note for the model, not ""
     assert "unresolvable" in capsys.readouterr().err  # stderr kept too
@@ -248,8 +241,8 @@ def test_build_diff_attach_empty_diff_says_so(monkeypatch, tmp_path, capsys):
     target = tmp_path / "99-sample.md"
     target.write_text("# Task 99: no diff\n", encoding="utf-8")
     monkeypatch.setattr(
-        bridge, "_resolve_task_file",
-        lambda tid, project_root=None: target)
+        bridge, "_resolve_task_file", lambda tid, project_root=None: target
+    )
     out = bridge.build_diff_attach("99")
     assert "EMPTY" in out  # inline note for the model, not ""
     assert "no Factual Git Diff block" in capsys.readouterr().err

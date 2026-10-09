@@ -21,8 +21,16 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 GLOBAL = Path.home() / ".config" / "opencode"
-SKIP_DIRS = {".git", "__pycache__", ".venv", "node_modules",
-             ".pytest_cache", "archive", "tasks", "context-reports"}
+SKIP_DIRS = {
+    ".git",
+    "__pycache__",
+    ".venv",
+    "node_modules",
+    ".pytest_cache",
+    "archive",
+    "tasks",
+    "context-reports",
+}
 SKIP_NAMES = {"index.md"}  # generated memory index mirrors references
 TEXT_SUFFIXES = {".md", ".json", ".py", ".toml", ".txt", ".js"}
 
@@ -45,9 +53,9 @@ def _check_denies() -> list[str]:
         if glob and repo != glob:
             errors.append(
                 f"deny sets differ: repo-only={sorted(repo - glob)} "
-                f"global-only={sorted(glob - repo)}")
-    table = (ROOT / "docs" / "opencode-shell-strategy.md").read_text(
-        encoding="utf-8")
+                f"global-only={sorted(glob - repo)}"
+            )
+    table = (ROOT / "docs" / "opencode-shell-strategy.md").read_text(encoding="utf-8")
     verbs = {d.split()[1] for d in repo}  # "git <verb>[ *]"
     for verb in sorted(verbs):
         if f"`git {verb}`" not in table:
@@ -70,16 +78,22 @@ def _live_text_files() -> list[Path]:
 
 def _check_orphans() -> list[str]:
     orphans: list[str] = []
-    candidates = [p for p in (ROOT / "scripts").rglob("*")
-                  if p.is_file() and "__pycache__" not in p.parts]
-    haystacks = {p: p.read_text(encoding="utf-8", errors="replace")
-                 for p in _live_text_files()}
+    candidates = [
+        p
+        for p in (ROOT / "scripts").rglob("*")
+        if p.is_file() and "__pycache__" not in p.parts
+    ]
+    haystacks = {
+        p: p.read_text(encoding="utf-8", errors="replace") for p in _live_text_files()
+    }
     for script in candidates:
         name = script.name
         stem = script.stem
         hit = any(
             (name in text or (stem and stem in text))
-            for p, text in haystacks.items() if p != script)
+            for p, text in haystacks.items()
+            if p != script
+        )
         if not hit:
             orphans.append(str(script.relative_to(ROOT)))
     return orphans

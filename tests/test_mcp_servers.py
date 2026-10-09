@@ -3063,7 +3063,25 @@ def test_graph_qa_followups_empty_label_and_confined_graph():
         repo = Path(td)
         (repo / "a.py").write_text("def hub():\n    return 1\n", encoding="utf-8")
         assert "✅ Success" in mod.build_graph(".", project_root=str(repo))
-        assert mod.explain_node("", project_root=str(repo)).startswith("Error:"), "empty label must error, not list"
+        assert mod.explain_node("", project_root=str(repo)).startswith("Error:"), (
+            "empty label must error, not list"
+        )
         assert mod.explain_node("   ", project_root=str(repo)).startswith("Error:")
         outside = mod.graph_stats(graph_path="/etc/hostname", project_root=str(repo))
         assert "No graph found" in outside, outside
+
+
+def test_graph_split_oversize_fallback_names_resolve():
+    """QA reject fix: oversize read_source_files must attach signatures, not NameError."""
+    mod = _load_context_server_hardening()
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as td:
+        repo = Path(td)
+        (repo / "big.py").write_text("def big_symbol():\n    return 1\n" + "x=1\n" * 5000, encoding="utf-8")
+        report = mod.read_source_files(["big.py"], max_size=100, project_root=str(repo))
+        assert "Generated Report:" in report, report[:300]
+        rp = report.split("`")[1]
+        content = Path(rp).read_text(encoding="utf-8")
+        assert "def big_symbol():" in content, content[:300]
+        assert "Signature fallback failed" not in content

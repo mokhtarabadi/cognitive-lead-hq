@@ -4,7 +4,12 @@
   "instructions": [
     "docs/opencode-shell-strategy.md"
   ],
-  "formatter": true,
+  "formatter": {
+    "ruff-format": {
+      "command": ["ruff", "format", "$FILE"],
+      "extensions": [".py"]
+    }
+  },
   "permission": {
     "custom_context_*": "allow",
     "project_memory_*": "allow",

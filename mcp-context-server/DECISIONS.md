@@ -41,3 +41,10 @@
 - **Decision:** Full-file symbol scans (200/file cap bounds cost); zero-hit queries suggest closest vocabulary; query_graph gains mode bfs/dfs (depth 6); Task NNN/ADR-NNN code mentions become INFERRED rationale_for edges to task files/decision sections; god_nodes skips dunders plus run/json/post/data; truncation carries an explicit note.
 - **Consequences:** No silent drops; dead ends guide vocabulary; rationale links bind code to prior decisions. Plain helpers must sit above `@_project_tool` — a decorator left above a helper silently registers it as a 15th tool (caught live via catalog change); registry test pins exactly 14 tools.
 - **Rollback:** Restore the line head and drop new options.
+
+## [2026-10-09] ADR-007: Context Server Modules plus Ruff Enforcement
+
+- **Context:** server.py grew to 3189 lines single-file while the Brain side splits entrypoint plus stdlib-pure concern modules. No formatter was pinned (`formatter: true`); ruff/black absent from PATH.
+- **Decision:** Mirror the brain layout: server.py owns the FastMCP app plus the 14 tool defs and re-exports everything (test/shim surface, monkeypatch-settable); fsutil, signatures, graph, gitops, bundle stay stdlib-pure with acyclic imports (graph→fsutil, bundle→gitops). Formatter is ruff 0.16.10 via pinned global install; opencode.json pins named map ruff-format on .py; ruff format applied repo-wide (13 files).
+- **Consequences:** Same 14 tools, same behaviors, full suite green; global deploy copies all *.py.
+- **Rollback:** Restore single server.py from git; remove new modules; revert opencode.json to `formatter: true`.

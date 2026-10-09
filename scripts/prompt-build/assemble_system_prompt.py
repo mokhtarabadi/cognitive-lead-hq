@@ -50,9 +50,7 @@ from typing import List
 # Matches an include-marker comment, e.g.:
 #   <!--INCLUDE:shared/validation-phase.md|NEXT_PHASE=Context-->
 # Group 1 = path (relative to prompts/), group 2 = pipe-separated params.
-_INCLUDE_RE = re.compile(
-    r"<!--INCLUDE:([^|]+?)(?:\|([^>]*))?-->"
-)
+_INCLUDE_RE = re.compile(r"<!--INCLUDE:([^|]+?)(?:\|([^>]*))?-->")
 # Matches a {{PARAM}} placeholder in shared-file content.
 _PARAM_RE = re.compile(r"\{\{([A-Z_]+)\}\}")
 
@@ -208,6 +206,7 @@ def _resolve_includes(text: str, prompts_dir: Path) -> str:
         The text with all include markers substituted by their resolved
         content.
     """
+
     def _replace(match: re.Match) -> str:
         rel_path = match.group(1)
         params_str = match.group(2) or ""
@@ -239,6 +238,7 @@ def _resolve_includes(text: str, prompts_dir: Path) -> str:
 # Public API
 # ---------------------------------------------------------------------------
 
+
 def assemble(
     output_path: str = "system-prompt.md",
     fragments_dir: str = "prompts/fragments",
@@ -265,7 +265,9 @@ def assemble(
         The assembled system-prompt text (also written to output_path).
     """
     frag_dir = Path(fragments_dir)
-    prompts_dir = frag_dir.parent  # fragments/ lives under prompts/, so parent is prompts/
+    prompts_dir = (
+        frag_dir.parent
+    )  # fragments/ lives under prompts/, so parent is prompts/
 
     # Read the ordered manifest.
     manifest = Path(manifest_path).read_text(encoding="utf-8").splitlines()
@@ -365,6 +367,7 @@ def assemble(
 # ---------------------------------------------------------------------------
 # CLI entry point
 # ---------------------------------------------------------------------------
+
 
 def main() -> None:
     """Command-line entry point for assembling system-prompt.md.

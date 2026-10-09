@@ -6,7 +6,12 @@ Custom-context MCP daemon: directory trees, source reads, signature extraction, 
 
 ## Files
 
-- `server.py` — Daemon entrypoint (tree reports, source reads, signatures, lite graph, staging, bundling tools).
+- `server.py` — Entrypoint: FastMCP app, fallback framework, the 14 tool defs, `__main__`; re-exports every helper (test/shim surface).
+- `fsutil.py` — Gitignore filtering, trees, source reads, report writes.
+- `signatures.py` — Tree-sitter signature extraction with regex fallback.
+- `graph.py` — Knowledge-graph constants, parsers, build and query primitives.
+- `gitops.py` — Repo roots, commit gates, task discovery, archive patching.
+- `bundle.py` — Meta-task content builder.
 - `pyproject.toml` / `uv.lock` — Runtime deps (`pathspec`, `mcp[cli]`) and lockfile.
 
 ## Key Risks & Invariants

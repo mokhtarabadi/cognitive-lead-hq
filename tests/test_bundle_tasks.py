@@ -49,6 +49,7 @@ detect_stack = _bundler._detect_stack
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def tmp_tasks(tmp_path: Path):
     """Create a temporary tasks/ directory with Kanban subdirs."""
@@ -133,6 +134,7 @@ def _create_task_file(
 # T1: Multi-line checklist preservation
 # ---------------------------------------------------------------------------
 
+
 def test_multiline_checklist_preservation(tmp_tasks: Path):
     """B1: Verify indented continuation lines survive bundling.
 
@@ -177,7 +179,12 @@ _(fill)_"""
             in_checklist = True
             result.append(stripped)
         elif in_checklist:
-            if stripped and not stripped.startswith("- [") and not stripped.startswith("## ") and not stripped.startswith("---"):
+            if (
+                stripped
+                and not stripped.startswith("- [")
+                and not stripped.startswith("## ")
+                and not stripped.startswith("---")
+            ):
                 result.append(line)
             else:
                 in_checklist = False
@@ -194,6 +201,7 @@ _(fill)_"""
 # ---------------------------------------------------------------------------
 # T2: Duplicate ID hard halt
 # ---------------------------------------------------------------------------
+
 
 def test_duplicate_active_id_halt(tmp_tasks: Path):
     """B2: Verify hard failure when two active tasks share the same ID."""
@@ -247,6 +255,7 @@ def test_duplicate_active_id_halt(tmp_tasks: Path):
 # T3: Partial archive failure rollback
 # ---------------------------------------------------------------------------
 
+
 def test_partial_archive_failure_rollback(tmp_tasks: Path, monkeypatch):
     """B3: Verify rollback mechanism exists and handles failures."""
     _create_task_file(tmp_tasks, "backlog", "01", "Task A", ["Criterion A"])
@@ -267,11 +276,13 @@ def test_partial_archive_failure_rollback(tmp_tasks: Path, monkeypatch):
 
     source_data = []
     for tid in ["01", "02"]:
-        p = tmp_tasks / "backlog" / f"{int(tid):02d}-task-{chr(96+int(tid))}.md"
+        p = tmp_tasks / "backlog" / f"{int(tid):02d}-task-{chr(96 + int(tid))}.md"
         c = p.read_text(encoding="utf-8")
-        source_data.append((tid, p, c, f"Task {chr(64+int(tid))}"))
+        source_data.append((tid, p, c, f"Task {chr(64 + int(tid))}"))
 
-    meta_content = _build_meta_content(100, "test-bundle", "Test Bundle", ["01", "02"], source_data)
+    meta_content = _build_meta_content(
+        100, "test-bundle", "Test Bundle", ["01", "02"], source_data
+    )
     assert "## Bundled Checklist" in meta_content
 
 
@@ -279,14 +290,17 @@ def test_partial_archive_failure_rollback(tmp_tasks: Path, monkeypatch):
 # T4: Persian unicode slug
 # ---------------------------------------------------------------------------
 
+
 def test_persian_unicode_slug(tmp_tasks: Path):
     """B4: Verify Persian titles produce valid kebab slugs."""
     slug = kebab_case("تست باندل فارسی")
     assert slug, "Slug should not be empty"
-    assert re.match(r"^[a-z0-9\u0600-\u06FF\u0750-\u077F\uFB50-\uFDFF\uFE70-\uFEFF-]+$", slug), \
-        f"Slug '{slug}' contains invalid characters"
-    assert any("\u0600" <= c <= "\u06FF" for c in slug), \
+    assert re.match(
+        r"^[a-z0-9\u0600-\u06FF\u0750-\u077F\uFB50-\uFDFF\uFE70-\uFEFF-]+$", slug
+    ), f"Slug '{slug}' contains invalid characters"
+    assert any("\u0600" <= c <= "\u06ff" for c in slug), (
         f"Slug '{slug}' should contain Persian characters"
+    )
 
     slug2 = kebab_case("Android پالایش")
     assert slug2, "Slug should not be empty"
@@ -302,6 +316,7 @@ def test_persian_unicode_slug(tmp_tasks: Path):
 # T5: Stack conflict guardrail
 # ---------------------------------------------------------------------------
 
+
 def test_stack_conflict_guardrail(tmp_tasks: Path):
     """M1: Verify conflicting stack detection without --force."""
     assert detect_stack("Task for Jetpack Compose + Hilt + SQLDelight") == "android"
@@ -313,31 +328,43 @@ def test_stack_conflict_guardrail(tmp_tasks: Path):
 # T6: Verbatim SHA validation
 # ---------------------------------------------------------------------------
 
+
 def test_verbatim_sha_validation(tmp_tasks: Path):
     """M2: Verify exact text presence check."""
-    _create_task_file(tmp_tasks, "backlog", "01", "Task A", ["Criterion Alpha", "Criterion Beta with details"])
+    _create_task_file(
+        tmp_tasks,
+        "backlog",
+        "01",
+        "Task A",
+        ["Criterion Alpha", "Criterion Beta with details"],
+    )
     _create_task_file(tmp_tasks, "backlog", "02", "Task B", ["Criterion Gamma"])
 
     source_data = []
     for tid, dirname in [("01", "backlog"), ("02", "backlog")]:
-        p = tmp_tasks / dirname / f"{int(tid):02d}-task-{chr(96+int(tid))}.md"
+        p = tmp_tasks / dirname / f"{int(tid):02d}-task-{chr(96 + int(tid))}.md"
         c = p.read_text(encoding="utf-8")
-        source_data.append((tid, p, c, f"Task {chr(64+int(tid))}"))
+        source_data.append((tid, p, c, f"Task {chr(64 + int(tid))}"))
 
-    meta_content = _build_meta_content(100, "test-bundle", "Test Bundle", ["01", "02"], source_data)
-    assert _verify_verbatim_checksums(source_data, meta_content), \
+    meta_content = _build_meta_content(
+        100, "test-bundle", "Test Bundle", ["01", "02"], source_data
+    )
+    assert _verify_verbatim_checksums(source_data, meta_content), (
         "Verbatim check should pass for correctly generated META"
+    )
 
     # Tamper: replace in the BUNDLED CHECKLIST only (not the appendix)
     # The verbatim check specifically looks at the Bundled Checklist section
     tampered = meta_content.replace("[01] Criterion Alpha", "[01] CORRUPTED")
-    assert not _verify_verbatim_checksums(source_data, tampered), \
+    assert not _verify_verbatim_checksums(source_data, tampered), (
         "Verbatim check should fail for tampered META"
+    )
 
 
 # ---------------------------------------------------------------------------
 # Integration: Dry-run CLI with Persian title
 # ---------------------------------------------------------------------------
+
 
 def test_cli_dry_run_persian(tmp_tasks: Path):
     """Integration test: verify Persian title handling end-to-end."""
@@ -346,10 +373,14 @@ def test_cli_dry_run_persian(tmp_tasks: Path):
 
     source_data = []
     for tid in ["01", "02"]:
-        p = tmp_tasks / "backlog" / f"{int(tid):02d}-task-{chr(96+int(tid))}.md"
+        p = tmp_tasks / "backlog" / f"{int(tid):02d}-task-{chr(96 + int(tid))}.md"
         c = p.read_text(encoding="utf-8")
-        source_data.append((tid, p, c, f"Task {chr(64+int(tid))}"))
+        source_data.append((tid, p, c, f"Task {chr(64 + int(tid))}"))
 
-    meta_content = _build_meta_content(100, "تست-باندل", "تست باندل فارسی", ["01", "02"], source_data)
+    meta_content = _build_meta_content(
+        100, "تست-باندل", "تست باندل فارسی", ["01", "02"], source_data
+    )
     assert "تست-باندل" in meta_content, "Persian slug should appear in META content"
-    assert "تست باندل فارسی" in meta_content, "Persian title should appear in META content"
+    assert "تست باندل فارسی" in meta_content, (
+        "Persian title should appear in META content"
+    )

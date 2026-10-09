@@ -6,6 +6,7 @@ non-English or noisy Manager input through validate, normalize,
 translate, enrich, and prompt-refactor steps, and every clarification
 or response must stay in simple English.
 """
+
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
