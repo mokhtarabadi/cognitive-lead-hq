@@ -1,9 +1,9 @@
 # Task 309: Unified Graph over Code, SQL, Markdown, and Docs
 
-**File:** `tasks/qa/309-unified-graph-code-sql-markdown-docs.md`
+**File:** `tasks/archive/309-unified-graph-code-sql-markdown-docs.md`
 **Source:** manager
 **Type:** feature
-**Status:** in-progress
+**Status:** superseded-progress
 
 ## Goal
 
@@ -62,6 +62,8 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 - **Rollback plan:** Revert server.py graph block to schema 1 code-only; docs drop out, code graph unchanged
 
 ---
+
+> **Superseded:** This task was bundled into META task `313-unified-context-graph` and archived on 2026-10-09. See `tasks/backlog/313-unified-context-graph.md` (or its Kanban successor) for the unified execution. History preserved via `git log --follow -- tasks/archive/309-unified-graph-code-sql-markdown-docs.md`.
 
 ## Execution Log & Reasoning
 

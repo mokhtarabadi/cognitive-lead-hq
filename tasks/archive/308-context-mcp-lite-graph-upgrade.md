@@ -1,9 +1,9 @@
 # Task 308: Context MCP Lite Graph Upgrade from Graphify
 
-**File:** `tasks/qa/308-context-mcp-lite-graph-upgrade.md`
+**File:** `tasks/archive/308-context-mcp-lite-graph-upgrade.md`
 **Source:** manager
 **Type:** feature
-**Status:** in-progress
+**Status:** superseded-progress
 
 ## Goal
 
@@ -58,6 +58,8 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 - **Rollback plan:** Revert server.py and docs to prior commit, keep existing tree/read/signatures tools
 
 ---
+
+> **Superseded:** This task was bundled into META task `313-unified-context-graph` and archived on 2026-10-09. See `tasks/backlog/313-unified-context-graph.md` (or its Kanban successor) for the unified execution. History preserved via `git log --follow -- tasks/archive/308-context-mcp-lite-graph-upgrade.md`.
 
 ## Execution Log & Reasoning
 

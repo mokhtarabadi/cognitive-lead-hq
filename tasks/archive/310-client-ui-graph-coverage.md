@@ -1,9 +1,9 @@
 # Task 310: Client and UI Coverage in the Unified Graph
 
-**File:** `tasks/qa/310-client-ui-graph-coverage.md`
+**File:** `tasks/archive/310-client-ui-graph-coverage.md`
 **Source:** manager
 **Type:** feature
-**Status:** in-progress
+**Status:** superseded-progress
 
 ## Goal
 
@@ -61,6 +61,8 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 - **Rollback plan:** Revert extractor patterns to schema-2 set; client files fall back to file-only nodes
 
 ---
+
+> **Superseded:** This task was bundled into META task `313-unified-context-graph` and archived on 2026-10-09. See `tasks/backlog/313-unified-context-graph.md` (or its Kanban successor) for the unified execution. History preserved via `git log --follow -- tasks/archive/310-client-ui-graph-coverage.md`.
 
 ## Execution Log & Reasoning
 
