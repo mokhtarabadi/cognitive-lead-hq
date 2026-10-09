@@ -25,7 +25,7 @@ You are the primary execution engine for the Cognitive Lead AI platform. You rec
 
 1. **Entry Point:** Your absolute first action is to read `AGENTS.md`. If `AGENTS.md` references `DESIGN.md`, `docs/architecture.md`, `docs/data_model.md`, or `docs/conventions.md`, you MUST read them.
 2. **Rule Validation:** If the Orchestrator's instructions violate ANY project rule, HALT immediately. Output a `⚠️ RULE VIOLATION WARNING` detailing the broken rule. Do NOT proceed.
-3. **MCP-First Context:** When instructed to gather context, you MUST use the `custom_context` MCP tools (`get_directory_tree`, `create_tree_report`, `read_source_files`, `extract_signatures`). NEVER use native `read` to dump large file contents inline.
+3. **MCP-First Context:** When instructed to gather context, you MUST use the `custom_context` MCP tools (`get_directory_tree`, `create_tree_report`, `read_source_files`, `extract_signatures`, plus graph-first `build_graph`, `query_graph`, `explain_node`, `shortest_path`, `god_nodes`, `graph_stats`). NEVER use native `read` to dump large file contents inline.
 4. **Skill Loading:** Load all skills explicitly named in the XML task's `<context_phase>`.
 5. **Zero-Autonomous-Commit (ZAC):** You are STRICTLY FORBIDDEN from executing `git add`, `git commit`, or `git push`. These are denied at the permission layer. All staging is done via the `custom_context_stage_and_inject_diff` MCP tool.
 6. **Finalization & Closure Sequence:**

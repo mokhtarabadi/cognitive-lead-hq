@@ -164,13 +164,17 @@ Test
 <!-- END_GIT_DIFF -->
 """
     # Header says backlog, but the file is actually in in-progress.
-    issues = mod._check_task_file_structure(valid_content, "tasks/in-progress/99-test.md")
+    issues = mod._check_task_file_structure(
+        valid_content, "tasks/in-progress/99-test.md"
+    )
     assert any("File path mismatch" in i for i in issues), (
         f"Expected 'File path mismatch' issue, got: {issues}"
     )
 
     # Sanity: same content with the matching path must produce no mismatch.
-    issues_ok = mod._check_task_file_structure(valid_content, "tasks/backlog/99-test.md")
+    issues_ok = mod._check_task_file_structure(
+        valid_content, "tasks/backlog/99-test.md"
+    )
     assert not any("File path mismatch" in i for i in issues_ok), (
         f"Matching header/path must not be flagged: {issues_ok}"
     )
@@ -315,7 +319,9 @@ def test_lint_task_file_rejects_file_path_mismatch():
     import importlib
 
     server_path = Path(__file__).parent.parent / "mcp-lint-server" / "server.py"
-    spec = importlib.util.spec_from_file_location("lint_server_path_mismatch", server_path)
+    spec = importlib.util.spec_from_file_location(
+        "lint_server_path_mismatch", server_path
+    )
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
 
@@ -453,7 +459,9 @@ Test
 <!-- BEGIN_GIT_DIFF -->
 <!-- END_GIT_DIFF -->
 """
-    issues = mod._check_task_file_structure(incomplete_content, "tasks/backlog/99-test.md")
+    issues = mod._check_task_file_structure(
+        incomplete_content, "tasks/backlog/99-test.md"
+    )
     assert len(issues) > 0, "Expected issues for missing sections, got none"
     # Should flag missing Acceptance Criteria, Verification Evidence, Risk & Rollback
     assert any("Acceptance Criteria" in i for i in issues), (
@@ -520,15 +528,21 @@ Test
 
     # New canonical header must pass.
     new_header_content = template.format(header="Execution Log & Reasoning")
-    issues_new = mod._check_task_file_structure(new_header_content, "tasks/backlog/99-test.md")
-    assert "Missing required section: `## Execution Log & Reasoning`" not in issues_new, (
-        f"Canonical '## Execution Log & Reasoning' header must pass; got: {issues_new}"
+    issues_new = mod._check_task_file_structure(
+        new_header_content, "tasks/backlog/99-test.md"
     )
+    assert (
+        "Missing required section: `## Execution Log & Reasoning`" not in issues_new
+    ), f"Canonical '## Execution Log & Reasoning' header must pass; got: {issues_new}"
 
     # Deprecated legacy header must ALSO pass (backward compatibility).
     old_header_content = template.format(header="OpenCode Execution Log & Reasoning")
-    issues_old = mod._check_task_file_structure(old_header_content, "tasks/backlog/99-test.md")
-    assert "Missing required section: `## Execution Log & Reasoning`" not in issues_old, (
+    issues_old = mod._check_task_file_structure(
+        old_header_content, "tasks/backlog/99-test.md"
+    )
+    assert (
+        "Missing required section: `## Execution Log & Reasoning`" not in issues_old
+    ), (
         f"Legacy '## OpenCode Execution Log & Reasoning' header must be accepted "
         f"(non-breaking guarantee); got: {issues_old}"
     )
@@ -612,7 +626,9 @@ def test_commit_and_clean_task_stores_reachable_hash():
         # Set up a git repo with a known identity
         subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
         subprocess.run(["git", "config", "user.name", "Test"], cwd=repo, check=True)
-        subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=repo, check=True)
+        subprocess.run(
+            ["git", "config", "user.email", "test@example.com"], cwd=repo, check=True
+        )
 
         # Code change + task file with diff markers
         (repo / "feature.py").write_text("x = 1\n")
@@ -634,7 +650,9 @@ def test_commit_and_clean_task_stores_reachable_hash():
 
         # Task file must reference a commit hash
         cleaned = task_file.read_text()
-        assert "Stored in Commit Hash:" in cleaned, "Task file should reference the commit hash"
+        assert "Stored in Commit Hash:" in cleaned, (
+            "Task file should reference the commit hash"
+        )
         stored_hash = None
         for line in cleaned.splitlines():
             if "Stored in Commit Hash:" in line and "`" in line:
@@ -645,12 +663,17 @@ def test_commit_and_clean_task_stores_reachable_hash():
         head = subprocess.run(
             ["git", "rev-parse", "HEAD"], cwd=repo, capture_output=True, text=True
         ).stdout.strip()
-        assert stored_hash != head, "Closure commit should sit on top of the feature commit"
+        assert stored_hash != head, (
+            "Closure commit should sit on top of the feature commit"
+        )
         ancestry = subprocess.run(
             ["git", "merge-base", "--is-ancestor", stored_hash, "HEAD"],
-            cwd=repo, capture_output=True,
+            cwd=repo,
+            capture_output=True,
         )
-        assert ancestry.returncode == 0, f"Stored hash {stored_hash} is orphaned/unreachable"
+        assert ancestry.returncode == 0, (
+            f"Stored hash {stored_hash} is orphaned/unreachable"
+        )
 
         # No amend commits in history
         log = subprocess.run(
@@ -660,9 +683,14 @@ def test_commit_and_clean_task_stores_reachable_hash():
 
         # git show <stored_hash> still returns the feature diff
         shown = subprocess.run(
-            ["git", "show", stored_hash, "--stat"], cwd=repo, capture_output=True, text=True
+            ["git", "show", stored_hash, "--stat"],
+            cwd=repo,
+            capture_output=True,
+            text=True,
         ).stdout
-        assert "feature.py" in shown, "git show <stored_hash> should return the code diff"
+        assert "feature.py" in shown, (
+            "git show <stored_hash> should return the code diff"
+        )
 
         # Idempotency: second call must not create more commits
         before = subprocess.run(
@@ -703,14 +731,16 @@ def test_commit_and_clean_task_guard_no_false_positive_on_diff_mention():
         repo = Path(repo_dir)
         subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
         subprocess.run(["git", "config", "user.name", "Test"], cwd=repo, check=True)
-        subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=repo, check=True)
+        subprocess.run(
+            ["git", "config", "user.email", "test@example.com"], cwd=repo, check=True
+        )
 
         (repo / "feature.py").write_text("x = 1\n")
         # Raw diff that itself contains the guard's phrase AND the exact
         # clean-block f-string literal (but with {commit_hash}, not a real hash)
         raw_diff = (
             "```diff\n"
-            "+            if \"Stored in Commit Hash:\" in existing:\n"
+            '+            if "Stored in Commit Hash:" in existing:\n'
             "+**Factual Git Diff:** Stored in Commit Hash: `{commit_hash}`\n"
             "```\n"
         )
@@ -729,7 +759,9 @@ def test_commit_and_clean_task_guard_no_false_positive_on_diff_mention():
         finally:
             os.chdir(old_cwd)
         assert "✅ Success" in result, result
-        assert "already cleaned" not in result, "Guard must not false-positive on raw diff mentions"
+        assert "already cleaned" not in result, (
+            "Guard must not false-positive on raw diff mentions"
+        )
 
         # The stored hash must reference the committed code (reachable, not orphaned)
         cleaned = task_file.read_text()
@@ -740,9 +772,12 @@ def test_commit_and_clean_task_guard_no_false_positive_on_diff_mention():
         assert stored_hash, "Could not parse stored commit hash"
         ancestry = subprocess.run(
             ["git", "merge-base", "--is-ancestor", stored_hash, "HEAD"],
-            cwd=repo, capture_output=True,
+            cwd=repo,
+            capture_output=True,
         )
-        assert ancestry.returncode == 0, f"Stored hash {stored_hash} is orphaned/unreachable"
+        assert ancestry.returncode == 0, (
+            f"Stored hash {stored_hash} is orphaned/unreachable"
+        )
 
 
 def test_create_tree_report_saves_md_in_context_reports():
@@ -787,7 +822,9 @@ def test_create_tree_report_saves_md_in_context_reports():
 
             # .gitignore safeguard: context-reports/ appended by the tool
             gitignore_text = (repo / ".gitignore").read_text()
-            assert "context-reports/" in gitignore_text, "Tool must safeguard context-reports/ in .gitignore"
+            assert "context-reports/" in gitignore_text, (
+                "Tool must safeguard context-reports/ in .gitignore"
+            )
         finally:
             os.chdir(old_cwd)
 
@@ -799,7 +836,9 @@ def test_create_tree_report_default_target_is_cwd():
     import tempfile
 
     server_path = Path(__file__).parent.parent / "mcp-context-server" / "server.py"
-    spec = importlib.util.spec_from_file_location("context_server_tree_default", server_path)
+    spec = importlib.util.spec_from_file_location(
+        "context_server_tree_default", server_path
+    )
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
 
@@ -820,7 +859,9 @@ def test_create_tree_report_default_target_is_cwd():
             assert report_file, "Could not parse report path"
             assert "tree_report_" in Path(report_file).name, report_file
             content = Path(report_file).read_text()
-            assert "main.py" in content, "Project files should appear in the default whole-project tree"
+            assert "main.py" in content, (
+                "Project files should appear in the default whole-project tree"
+            )
         finally:
             os.chdir(old_cwd)
 
@@ -836,7 +877,9 @@ def test_create_tree_report_rapid_calls_do_not_overwrite():
     import tempfile
 
     server_path = Path(__file__).parent.parent / "mcp-context-server" / "server.py"
-    spec = importlib.util.spec_from_file_location("context_server_tree_rapid", server_path)
+    spec = importlib.util.spec_from_file_location(
+        "context_server_tree_rapid", server_path
+    )
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
 
@@ -853,7 +896,9 @@ def test_create_tree_report_rapid_calls_do_not_overwrite():
             assert "✅ Success" in first and "✅ Success" in second
 
             reports = sorted((repo / "context-reports").glob("tree_report_*.md"))
-            assert len(reports) >= 2, f"Expected 2 distinct reports, got {len(reports)}: {reports}"
+            assert len(reports) >= 2, (
+                f"Expected 2 distinct reports, got {len(reports)}: {reports}"
+            )
             assert reports[0].is_file() and reports[1].is_file()
         finally:
             os.chdir(old_cwd)
@@ -866,7 +911,9 @@ def test_create_tree_report_invalid_path():
     import tempfile
 
     server_path = Path(__file__).parent.parent / "mcp-context-server" / "server.py"
-    spec = importlib.util.spec_from_file_location("context_server_tree_invalid", server_path)
+    spec = importlib.util.spec_from_file_location(
+        "context_server_tree_invalid", server_path
+    )
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
 
@@ -894,7 +941,9 @@ def test_create_tree_report_rejects_path_traversal():
     import tempfile
 
     server_path = Path(__file__).parent.parent / "mcp-context-server" / "server.py"
-    spec = importlib.util.spec_from_file_location("context_server_tree_traversal", server_path)
+    spec = importlib.util.spec_from_file_location(
+        "context_server_tree_traversal", server_path
+    )
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
 
@@ -924,7 +973,9 @@ def test_create_tree_report_handles_none_input():
     import tempfile
 
     server_path = Path(__file__).parent.parent / "mcp-context-server" / "server.py"
-    spec = importlib.util.spec_from_file_location("context_server_tree_none", server_path)
+    spec = importlib.util.spec_from_file_location(
+        "context_server_tree_none", server_path
+    )
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
 
@@ -945,7 +996,9 @@ def test_create_tree_report_handles_none_input():
                     report_file = line.split("`")[1]
             assert report_file, "Could not parse report path"
             content = Path(report_file).read_text()
-            assert "main.py" in content, "None input should default to the whole-project tree"
+            assert "main.py" in content, (
+                "None input should default to the whole-project tree"
+            )
         finally:
             os.chdir(old_cwd)
 
@@ -991,17 +1044,24 @@ def test_stage_and_inject_diff_with_ignored_context_reports():
         try:
             # F5 contract (Task 90): stage_and_inject_diff stages ONLY the explicitly
             # listed modified files + the task file — pass the modified file list.
-            result = mod.stage_and_inject_diff(str(task_file), modified_files=["feature.py"])
+            result = mod.stage_and_inject_diff(
+                str(task_file), modified_files=["feature.py"]
+            )
         finally:
             os.chdir(old_cwd)
         assert "✅ Success" in result, result
 
         # Task file now contains the injected diff
-        assert "feature.py" in task_file.read_text(), "Diff should be injected into the task file"
+        assert "feature.py" in task_file.read_text(), (
+            "Diff should be injected into the task file"
+        )
 
         # The ignored report must not be staged; the code change must be
         staged = subprocess.run(
-            ["git", "diff", "--cached", "--name-only"], cwd=repo, capture_output=True, text=True
+            ["git", "diff", "--cached", "--name-only"],
+            cwd=repo,
+            capture_output=True,
+            text=True,
         ).stdout
         assert "feature.py" in staged, "Code change should be staged"
         assert "context-reports" not in staged, "Ignored reports must not be staged"
@@ -1085,7 +1145,9 @@ def test_lint_task_file_rejects_duplicate_factual_git_diff_heading():
     import importlib
 
     server_path = Path(__file__).parent.parent / "mcp-lint-server" / "server.py"
-    spec = importlib.util.spec_from_file_location("lint_server_dup_factual", server_path)
+    spec = importlib.util.spec_from_file_location(
+        "lint_server_dup_factual", server_path
+    )
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
 
@@ -1209,8 +1271,12 @@ def test_system_prompt_summary_mentions_qa_transition():
     repo_root = Path(__file__).parent.parent
     system_prompt = (repo_root / "system-prompt.md").read_text(encoding="utf-8")
 
-    summary_blocks = re.findall(r"<summary_phase>.*?</summary_phase>", system_prompt, re.DOTALL)
-    assert summary_blocks, "system-prompt.md must contain at least one <summary_phase> block"
+    summary_blocks = re.findall(
+        r"<summary_phase>.*?</summary_phase>", system_prompt, re.DOTALL
+    )
+    assert summary_blocks, (
+        "system-prompt.md must contain at least one <summary_phase> block"
+    )
     assert any("tasks/qa/" in block for block in summary_blocks), (
         "At least one <summary_phase> block must mention the `tasks/qa/` QA-transition "
         "destination"
@@ -1245,11 +1311,17 @@ def test_cognitive_executor_preserves_qa_and_closure_rules():
     executor = repo_root / "agents" / "cognitive-executor.md"
     content = executor.read_text(encoding="utf-8")
 
-    assert "- **Rule:** When your implementation and `stage_and_inject_diff` are complete" in content, (
+    assert (
+        "- **Rule:** When your implementation and `stage_and_inject_diff` are complete"
+        in content
+    ), (
         "agents/cognitive-executor.md must preserve the QA/Review Phase Rule bullet "
         "authorizing the git mv from tasks/in-progress/ to tasks/qa/."
     )
-    assert '- **Rule:** Only when the Manager explicitly says "Approved for closure" or "Close task"' in content, (
+    assert (
+        '- **Rule:** Only when the Manager explicitly says "Approved for closure" or "Close task"'
+        in content
+    ), (
         "agents/cognitive-executor.md must preserve the Closure Sequence Rule bullet "
         "requiring explicit Manager closure authorization."
     )
@@ -1308,7 +1380,9 @@ def test_system_prompt_split_assemble_round_trip():
     repo_root = Path(__file__).parent.parent
     pristine_path = repo_root / "system-prompt.md"
     splitter_path = repo_root / "scripts" / "prompt-build" / "split_system_prompt.py"
-    assembler_path = repo_root / "scripts" / "prompt-build" / "assemble_system_prompt.py"
+    assembler_path = (
+        repo_root / "scripts" / "prompt-build" / "assemble_system_prompt.py"
+    )
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp = Path(tmpdir)
@@ -1425,7 +1499,9 @@ def test_lint_system_prompt_sync_detects_drift():
             manifest_path=str(manifest),
             system_prompt_path=str(repo_root / "system-prompt.md"),
         )
-        assert in_sync is False, "Expected drift to be detected, but check reported clean."
+        assert in_sync is False, (
+            "Expected drift to be detected, but check reported clean."
+        )
         assert "DRIFT DETECTED" in msg, f"Expected DRIFT message, got: {msg[:200]}"
 
 
@@ -1472,8 +1548,12 @@ def test_assemble_raises_on_unresolved_placeholder():
     import pytest
 
     repo_root = Path(__file__).parent.parent
-    assembler_path = repo_root / "scripts" / "prompt-build" / "assemble_system_prompt.py"
-    spec = importlib.util.spec_from_file_location("assembler_unresolved", assembler_path)
+    assembler_path = (
+        repo_root / "scripts" / "prompt-build" / "assemble_system_prompt.py"
+    )
+    spec = importlib.util.spec_from_file_location(
+        "assembler_unresolved", assembler_path
+    )
     assembler = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(assembler)
 
@@ -1497,9 +1577,7 @@ def test_assemble_raises_on_unresolved_placeholder():
         # Shared partial containing {{FOO}} placeholder — no include marker
         # provides a value for FOO, so it should remain unresolved.
         shared_path = shared_dir / "test.md"
-        shared_path.write_text(
-            "Content with {{FOO}} placeholder.\n", encoding="utf-8"
-        )
+        shared_path.write_text("Content with {{FOO}} placeholder.\n", encoding="utf-8")
 
         manifest = tmp / "manifest.txt"
         manifest.write_text("01-test.md\n", encoding="utf-8")
@@ -1507,7 +1585,10 @@ def test_assemble_raises_on_unresolved_placeholder():
         assembled_path = tmp / "assembled.md"
 
         # assemble() should raise ValueError with the unresolved placeholder name.
-        with pytest.raises(ValueError, match=r"Unresolved placeholder \{\{FOO\}\} in fragment 01-test.md"):
+        with pytest.raises(
+            ValueError,
+            match=r"Unresolved placeholder \{\{FOO\}\} in fragment 01-test.md",
+        ):
             assembler.assemble(
                 output_path=str(tmp / "out.md"),
                 fragments_dir=str(frag_dir),
@@ -1553,9 +1634,7 @@ def test_lint_system_prompt_sync_handles_unresolved_placeholder():
             encoding="utf-8",
         )
         shared_path = shared_dir / "test.md"
-        shared_path.write_text(
-            "Content with {{FOO}} placeholder.\n", encoding="utf-8"
-        )
+        shared_path.write_text("Content with {{FOO}} placeholder.\n", encoding="utf-8")
         manifest = tmp / "manifest.txt"
         manifest.write_text("01-test.md\n", encoding="utf-8")
 
@@ -1567,7 +1646,9 @@ def test_lint_system_prompt_sync_handles_unresolved_placeholder():
             system_prompt_path=str(repo_root / "system-prompt.md"),
         )
         assert in_sync is False, f"Expected False, got: {msg}"
-        assert "FOO" in msg, f"Expected message to identify the placeholder {{FOO}}, got: {msg}"
+        assert "FOO" in msg, (
+            f"Expected message to identify the placeholder {{FOO}}, got: {msg}"
+        )
 
 
 def test_split_halts_on_missing_top_level_tag():
@@ -1599,7 +1680,9 @@ def test_split_halts_on_missing_top_level_tag():
         # Find the block boundaries
         start = content.find("<ai_objective>")
         end = content.find("</ai_objective>")
-        assert start != -1 and end != -1, "Test setup: ai_objective tag not found in pristine"
+        assert start != -1 and end != -1, (
+            "Test setup: ai_objective tag not found in pristine"
+        )
         end += len("</ai_objective>")
         corrupted = content[:start] + content[end:]
         corrupted_path = tmp / "system-prompt.corrupted.md"
@@ -1635,7 +1718,9 @@ def test_assemble_rejects_path_traversal_include():
     import pytest
 
     repo_root = Path(__file__).parent.parent
-    assembler_path = repo_root / "scripts" / "prompt-build" / "assemble_system_prompt.py"
+    assembler_path = (
+        repo_root / "scripts" / "prompt-build" / "assemble_system_prompt.py"
+    )
     spec = importlib.util.spec_from_file_location("assembler_traversal", assembler_path)
     assembler = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(assembler)
@@ -1694,7 +1779,9 @@ def test_assemble_rejects_malformed_include_marker():
     import pytest
 
     repo_root = Path(__file__).parent.parent
-    assembler_path = repo_root / "scripts" / "prompt-build" / "assemble_system_prompt.py"
+    assembler_path = (
+        repo_root / "scripts" / "prompt-build" / "assemble_system_prompt.py"
+    )
     spec = importlib.util.spec_from_file_location("assembler_malformed", assembler_path)
     assembler = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(assembler)
@@ -1728,7 +1815,9 @@ def test_assemble_rejects_malformed_include_marker():
                 manifest_path=str(manifest),
             )
         msg = str(exc_info.value)
-        assert "01-test.md" in msg, f"Error message must identify the fragment, got: {msg}"
+        assert "01-test.md" in msg, (
+            f"Error message must identify the fragment, got: {msg}"
+        )
         assert "<!--INCLUDE:" in msg or "INCLUDE" in msg, (
             f"Error message must identify the malformed include marker, got: {msg}"
         )
@@ -1747,7 +1836,9 @@ def test_lint_system_prompt_sync_missing_include_file():
 
     repo_root = Path(__file__).parent.parent
     server_path = repo_root / "mcp-lint-server" / "server.py"
-    spec = importlib.util.spec_from_file_location("lint_server_missing_include", server_path)
+    spec = importlib.util.spec_from_file_location(
+        "lint_server_missing_include", server_path
+    )
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
 
@@ -1774,7 +1865,11 @@ def test_lint_system_prompt_sync_missing_include_file():
             system_prompt_path=str(repo_root / "system-prompt.md"),
         )
         assert in_sync is False, f"Expected False, got: {msg}"
-        assert "missing" in msg.lower() or "not found" in msg.lower() or "include" in msg.lower(), (
+        assert (
+            "missing" in msg.lower()
+            or "not found" in msg.lower()
+            or "include" in msg.lower()
+        ), (
             f"Expected message to identify the missing file or include failure, got: {msg[:200]}"
         )
 
@@ -1791,7 +1886,9 @@ def test_lint_system_prompt_sync_invalid_fragments_dir_configuration():
 
     repo_root = Path(__file__).parent.parent
     server_path = repo_root / "mcp-lint-server" / "server.py"
-    spec = importlib.util.spec_from_file_location("lint_server_invalid_cfg", server_path)
+    spec = importlib.util.spec_from_file_location(
+        "lint_server_invalid_cfg", server_path
+    )
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
 
@@ -1800,7 +1897,9 @@ def test_lint_system_prompt_sync_invalid_fragments_dir_configuration():
 
         # A regular text file used as fragments_dir — a misconfiguration.
         bogus_fragments_dir = tmp / "not-a-directory.txt"
-        bogus_fragments_dir.write_text("this is a file, not a directory\n", encoding="utf-8")
+        bogus_fragments_dir.write_text(
+            "this is a file, not a directory\n", encoding="utf-8"
+        )
 
         shared_dir = tmp / "shared"
         shared_dir.mkdir()
@@ -1832,8 +1931,12 @@ def test_assemble_rejects_path_traversal_manifest_entry():
     import pytest
 
     repo_root = Path(__file__).parent.parent
-    assembler_path = repo_root / "scripts" / "prompt-build" / "assemble_system_prompt.py"
-    spec = importlib.util.spec_from_file_location("assembler_manifest_trav", assembler_path)
+    assembler_path = (
+        repo_root / "scripts" / "prompt-build" / "assemble_system_prompt.py"
+    )
+    spec = importlib.util.spec_from_file_location(
+        "assembler_manifest_trav", assembler_path
+    )
     assembler = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(assembler)
 
@@ -1881,8 +1984,12 @@ def test_assemble_rejects_absolute_manifest_entry():
     import pytest
 
     repo_root = Path(__file__).parent.parent
-    assembler_path = repo_root / "scripts" / "prompt-build" / "assemble_system_prompt.py"
-    spec = importlib.util.spec_from_file_location("assembler_manifest_abs", assembler_path)
+    assembler_path = (
+        repo_root / "scripts" / "prompt-build" / "assemble_system_prompt.py"
+    )
+    spec = importlib.util.spec_from_file_location(
+        "assembler_manifest_abs", assembler_path
+    )
     assembler = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(assembler)
 
@@ -1964,7 +2071,9 @@ def test_memory_server_build_index_on_store():
 
     repo_root = Path(__file__).parent.parent
     server_path = repo_root / "mcp-memory-server" / "server.py"
-    spec = importlib.util.spec_from_file_location("memory_server_build_store", server_path)
+    spec = importlib.util.spec_from_file_location(
+        "memory_server_build_store", server_path
+    )
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
 
@@ -1976,17 +2085,26 @@ def test_memory_server_build_index_on_store():
             # Fresh index should not exist
             assert not (repo / ".opencode" / "memory" / "index.md").exists()
             # Store a memory shard
-            result = mod.store_memory("testns", "testkey", "Hello world | with pipe\nSecond line", overwrite=True)
+            result = mod.store_memory(
+                "testns",
+                "testkey",
+                "Hello world | with pipe\nSecond line",
+                overwrite=True,
+            )
             assert "successfully stored" in result.lower(), result
             # Index must now exist and contain table headers and the row
             index_path = repo / ".opencode" / "memory" / "index.md"
-            assert index_path.is_file(), "index.md should be generated after store_memory"
+            assert index_path.is_file(), (
+                "index.md should be generated after store_memory"
+            )
             content = index_path.read_text(encoding="utf-8")
             assert "# Project Memory Index" in content, content[:200]
             assert "| Namespace | Key | Summary | Tags |" in content
             assert "| testns | testkey |" in content
             # Summary should be first non-empty line, clamped and pipe-escaped
-            assert "Hello world \\| with pipe" in content, f"Pipe not escaped: {content}"
+            assert "Hello world \\| with pipe" in content, (
+                f"Pipe not escaped: {content}"
+            )
             assert "Second line" not in content  # only first line is summary
         finally:
             os.chdir(old_cwd)
@@ -2001,7 +2119,9 @@ def test_memory_server_update_index_on_delete():
 
     repo_root = Path(__file__).parent.parent
     server_path = repo_root / "mcp-memory-server" / "server.py"
-    spec = importlib.util.spec_from_file_location("memory_server_build_delete", server_path)
+    spec = importlib.util.spec_from_file_location(
+        "memory_server_build_delete", server_path
+    )
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
 
@@ -2050,7 +2170,9 @@ def test_memory_server_index_empty_store():
             assert index_path.is_file()
             content = index_path.read_text(encoding="utf-8")
             assert "No memories recorded yet" in content
-            assert "| Namespace | Key | Summary | Tags |" not in content  # empty should not have table
+            assert (
+                "| Namespace | Key | Summary | Tags |" not in content
+            )  # empty should not have table
         finally:
             os.chdir(old_cwd)
 
@@ -2076,12 +2198,17 @@ def test_memory_server_index_sanitizes_pipes():
             # Content with pipes and tags with pipes (via frontmatter)
             content_with_pipe = "Summary with | pipe | chars\nMore"
             # Store with frontmatter that includes tags containing pipe via manual content
-            fm_content = "---\ncreated_at: '2026-08-28T00:00:00+00:00'\nupdated_at: '2026-08-28T00:00:00+00:00'\nstatus: active\ntags: ['a|b', 'c']\n---\n\n" + content_with_pipe
+            fm_content = (
+                "---\ncreated_at: '2026-08-28T00:00:00+00:00'\nupdated_at: '2026-08-28T00:00:00+00:00'\nstatus: active\ntags: ['a|b', 'c']\n---\n\n"
+                + content_with_pipe
+            )
             mod.store_memory("ns", "pipekey", fm_content, overwrite=True)
             index_path = repo / ".opencode" / "memory" / "index.md"
             idx = index_path.read_text(encoding="utf-8")
             # Pipes in summary must be escaped as \|
-            assert "Summary with \\| pipe \\| chars" in idx, f"Pipe not escaped in summary: {idx}"
+            assert "Summary with \\| pipe \\| chars" in idx, (
+                f"Pipe not escaped in summary: {idx}"
+            )
             # Pipes in tags must be escaped
             assert "a\\|b" in idx, f"Pipe not escaped in tags: {idx}"
             # Verify table still has exactly 4 columns per data row (pipes not splitting columns)
@@ -2123,7 +2250,9 @@ def test_memory_server_rebuild_tool():
             assert not idx_path.exists()
             # Rebuild via tool
             result = mod.rebuild_memory_index()
-            assert "memories indexed" in result.lower() or "built" in result.lower(), result
+            assert "memories indexed" in result.lower() or "built" in result.lower(), (
+                result
+            )
             assert idx_path.is_file()
             content = idx_path.read_text(encoding="utf-8")
             assert "rk1" in content
@@ -2133,6 +2262,7 @@ def test_memory_server_rebuild_tool():
 
 
 # --- Task 177: traversal-guard + runaway-cap regression tests ---
+
 
 def _load_context_server_hardening():
     """Load mcp-context-server fresh for the hardening tests."""
@@ -2158,7 +2288,7 @@ def _tree_result(mod, *args, **kwargs):
     out = mod.get_directory_tree(*args, **kwargs)
     prefix = getattr(mod, "ROOT_FALLBACK_WARNING", None)
     if prefix and isinstance(out, str) and out.startswith(prefix):
-        out = out[len(prefix):].lstrip("\n")
+        out = out[len(prefix) :].lstrip("\n")
     return out
 
 
@@ -2302,9 +2432,7 @@ def test_tree_depth_cap():
             deep = deep / f"lvl{i}"
             deep.mkdir()
         (deep / "bottom.txt").write_text("x", encoding="utf-8")
-        out = mod.generate_tree(
-            Path(tmpdir), mod.GitIgnoreFilter(), max_depth=3
-        )
+        out = mod.generate_tree(Path(tmpdir), mod.GitIgnoreFilter(), max_depth=3)
         assert "[Max depth reached (3)]" in out
         assert "bottom.txt" not in out
 
@@ -2325,9 +2453,7 @@ def test_tree_entry_cap_and_banned_dirs():
         modules = root / "node_modules"
         modules.mkdir()
         (modules / "dep.js").write_text("x", encoding="utf-8")
-        out = mod.generate_tree(
-            root, mod.GitIgnoreFilter(), max_entries=5
-        )
+        out = mod.generate_tree(root, mod.GitIgnoreFilter(), max_entries=5)
         assert "[Truncated: entry limit reached (5)]" in out
         assert "__pycache__" not in out
         assert "node_modules" not in out
@@ -2370,9 +2496,7 @@ def test_read_source_files_prepends_metrics():
         old_cwd = os.getcwd()
         os.chdir(root)
         try:
-            result = mod.read_source_files(
-                ["a.txt", "b.txt", "big.txt"], max_size=10
-            )
+            result = mod.read_source_files(["a.txt", "b.txt", "big.txt"], max_size=10)
             assert "📊 Report metrics:" in result, result[:300]
             assert "2 processed" in result, result[:300]
             assert "1 skipped" in result, result[:300]
@@ -2437,7 +2561,10 @@ def test_check_conventional_commit_rejects_long_subject():
 def test_check_conventional_commit_ignores_body():
     """Task 211: only the first line is validated; body text is free."""
     mod = _load_context_server_hardening()
-    assert mod._check_conventional_commit("fix: repair bug\n\nLong body " + "y" * 200) is None
+    assert (
+        mod._check_conventional_commit("fix: repair bug\n\nLong body " + "y" * 200)
+        is None
+    )
 
 
 def test_commit_and_clean_task_rejects_nonconventional_message():
@@ -2452,10 +2579,14 @@ def test_commit_and_clean_task_rejects_nonconventional_message():
         repo = Path(repo_dir)
         subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
         subprocess.run(["git", "config", "user.name", "Test"], cwd=repo, check=True)
-        subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=repo, check=True)
+        subprocess.run(
+            ["git", "config", "user.email", "test@example.com"], cwd=repo, check=True
+        )
         (repo / "feature.py").write_text("x = 1\n")
         task_file = repo / "80-bad-msg.md"
-        task_file.write_text("# Task 80\n\n<!-- BEGIN_GIT_DIFF -->\n```diff\n+x\n```\n<!-- END_GIT_DIFF -->\n")
+        task_file.write_text(
+            "# Task 80\n\n<!-- BEGIN_GIT_DIFF -->\n```diff\n+x\n```\n<!-- END_GIT_DIFF -->\n"
+        )
         subprocess.run(["git", "add", "-A"], cwd=repo, check=True)
         old_cwd = os.getcwd()
         os.chdir(repo)
@@ -2489,7 +2620,15 @@ def _read_executor_gate():
 def test_planning_gate_designer_fallback_terms():
     """Task 214 (QA hotfix F1/M1): trigger map covers neutral UX phrasing."""
     gate = _read_executor_gate()
-    for term in ("screen", "navigation", "onboarding", "empty state", "avatar", "settings", "flow"):
+    for term in (
+        "screen",
+        "navigation",
+        "onboarding",
+        "empty state",
+        "avatar",
+        "settings",
+        "flow",
+    ):
         assert term in gate, f"fallback term missing: {term}"
 
 
@@ -2518,12 +2657,15 @@ def test_context_reports_follow_project_root_not_singleton_cwd():
 
     server_path = Path(__file__).parent.parent / "mcp-context-server" / "server.py"
     spec = importlib.util.spec_from_file_location(
-        "context_server_projroot", server_path)
+        "context_server_projroot", server_path
+    )
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
 
-    with tempfile.TemporaryDirectory() as repo_dir, \
-            tempfile.TemporaryDirectory() as foreign_dir:
+    with (
+        tempfile.TemporaryDirectory() as repo_dir,
+        tempfile.TemporaryDirectory() as foreign_dir,
+    ):
         repo = Path(repo_dir)
         foreign = Path(foreign_dir)
         (repo / "src").mkdir()
@@ -2534,10 +2676,8 @@ def test_context_reports_follow_project_root_not_singleton_cwd():
         os.chdir(foreign)  # stand in for the singleton server's own cwd
         try:
             tree = mod.create_tree_report(".", project_root=str(repo))
-            read = mod.read_source_files(
-                ["src/app.py"], project_root=str(repo))
-            sig = mod.extract_signatures(
-                "src/app.py", project_root=str(repo))
+            read = mod.read_source_files(["src/app.py"], project_root=str(repo))
+            sig = mod.extract_signatures("src/app.py", project_root=str(repo))
         finally:
             os.chdir(old_cwd)
 
@@ -2551,6 +2691,379 @@ def test_context_reports_follow_project_root_not_singleton_cwd():
         assert any(n.startswith("signatures_report_") for n in names), names
 
         assert not (foreign / "context-reports").exists(), (
-            "reports must never be written into the singleton server cwd")
+            "reports must never be written into the singleton server cwd"
+        )
         assert "context-reports/" in (repo / ".gitignore").read_text(), (
-            "the .gitignore safeguard must target the project root")
+            "the .gitignore safeguard must target the project root"
+        )
+
+
+def _graph_fixture_repo(tmp: Path):
+    (tmp / "a.py").write_text("def alpha():\n    return beta()\n", encoding="utf-8")
+    (tmp / "b.py").write_text("def beta():\n    return 1\n", encoding="utf-8")
+    (tmp / "c.py").write_text(
+        "from a import alpha\ndef gamma():\n    return alpha()\n", encoding="utf-8"
+    )
+    return tmp
+
+
+def test_graph_build_saves_versioned_json_and_report():
+    """Lite graph: build_graph persists schema-1 graph.json plus markdown report."""
+    import json
+
+    mod = _load_context_server_hardening()
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as td:
+        repo = _graph_fixture_repo(Path(td))
+        out = mod.build_graph(".", project_root=str(repo))
+        assert "✅ Success" in out, out
+        graphs = list((repo / "context-reports").glob("graph_*.json"))
+        reports = list((repo / "context-reports").glob("graph_report_*.md"))
+        assert graphs, out
+        assert reports, out
+        data = json.loads(graphs[0].read_text(encoding="utf-8"))
+        assert data["graph"]["schema_version"] == mod.GRAPH_SCHEMA_VERSION
+        assert len(data["nodes"]) >= 6
+        confs = {e["confidence"] for e in data["links"]}
+        assert "EXTRACTED" in confs, confs
+
+
+def test_graph_query_explain_path_god_stats():
+    """Lite graph: query/explain/path/god/stats work on a built graph."""
+    mod = _load_context_server_hardening()
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as td:
+        repo = _graph_fixture_repo(Path(td))
+        assert "✅ Success" in mod.build_graph(".", project_root=str(repo))
+        q = mod.query_graph("alpha beta", project_root=str(repo))
+        assert "alpha" in q.lower(), q[:500]
+        ex = mod.explain_node("alpha", project_root=str(repo))
+        assert "Node: alpha" in ex, ex[:500]
+        assert "Degree:" in ex
+        sp = mod.shortest_path("gamma", "beta", project_root=str(repo))
+        assert "hops" in sp.lower() or "no path" in sp.lower(), sp[:500]
+        gods = mod.god_nodes(3, project_root=str(repo))
+        assert "God nodes" in gods, gods[:500]
+        stats = mod.graph_stats(project_root=str(repo))
+        assert "Nodes:" in stats and "EXTRACTED" in stats, stats
+
+
+def test_graph_tree_respects_project_root():
+    """Regression: get_directory_tree with project_root lists project files (not server cwd)."""
+    mod = _load_context_server_hardening()
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as td:
+        repo = Path(td)
+        (repo / "kept.py").write_text("x=1\n", encoding="utf-8")
+        out = mod.get_directory_tree(".", project_root=str(repo))
+        assert "kept.py" in out, out[:500]
+
+
+def _unified_fixture_repo(tmp: Path):
+    (tmp / "app.py").write_text(
+        "def signup_user(name):\n    return create_account(name)\n"
+        "\n"
+        "def create_account(name):\n    return name\n",
+        encoding="utf-8",
+    )
+    (tmp / "schema.sql").write_text(
+        "CREATE TABLE accounts (\n  id INTEGER PRIMARY KEY,\n  user_id INTEGER REFERENCES users(id)\n);\n"
+        "CREATE TABLE users (\n  id INTEGER PRIMARY KEY\n);\n",
+        encoding="utf-8",
+    )
+    (tmp / "README.md").write_text(
+        "# Signup Feature\n\nUses signup_user from the backend.\n\nSee [decisions](./DECISIONS.md).\n",
+        encoding="utf-8",
+    )
+    (tmp / "DECISIONS.md").write_text(
+        "# Decisions\n\n## Signup storage\n\nAccounts live in the accounts table.\n",
+        encoding="utf-8",
+    )
+    return tmp
+
+
+def test_unified_graph_indexes_docs_and_sql():
+    """Schema 2: markdown sections, doc links, doc-symbol edges, SQL tables."""
+    import json
+
+    mod = _load_context_server_hardening()
+    assert mod.GRAPH_SCHEMA_VERSION == 2
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as td:
+        repo = _unified_fixture_repo(Path(td))
+        out = mod.build_graph(".", project_root=str(repo))
+        assert "✅ Success" in out, out
+        graphs = sorted((repo / "context-reports").glob("graph_*.json"))
+        data = json.loads(graphs[-1].read_text(encoding="utf-8"))
+        assert data["graph"]["schema_version"] == 2
+        ids = {n["id"] for n in data["nodes"]}
+        assert "file:README.md" in ids
+        assert "sec:README.md#signup-feature" in ids
+        assert "sym:schema.sql#accounts" in ids
+        assert "sym:schema.sql#users" in ids
+        doc_refs = [
+            e
+            for e in data["links"]
+            if e["source"] == "file:README.md"
+            and e["target"] == "file:DECISIONS.md"
+            and e["relation"] == "references"
+        ]
+        assert doc_refs, "markdown link must become a doc references edge"
+        sym_refs = [
+            e
+            for e in data["links"]
+            if e["source"] == "file:README.md"
+            and e["target"] == "sym:app.py#signup_user"
+        ]
+        assert sym_refs and sym_refs[0]["confidence"] == "INFERRED"
+        fk = [
+            e
+            for e in data["links"]
+            if e["relation"] == "references"
+            and e["source"] == "file:schema.sql"
+            and e["target"] == "sym:schema.sql#users"
+        ]
+        assert fk, "SQL REFERENCES must link to the table node"
+
+
+def test_unified_graph_natural_query_and_undirected_arrows():
+    """Natural words match snake_case; undirected reverse hops render <--."""
+    mod = _load_context_server_hardening()
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as td:
+        repo = _unified_fixture_repo(Path(td))
+        assert "✅ Success" in mod.build_graph(".", project_root=str(repo))
+        q = mod.query_graph("signup flow", project_root=str(repo))
+        assert "signup_user" in q, q[:800]
+        p = mod.shortest_path(
+            "signup_user", "create_account", undirected=True, project_root=str(repo)
+        )
+        assert "hops" in p.lower(), p[:500]
+        stats = mod.graph_stats(project_root=str(repo))
+        assert "Schema: 2" in stats, stats
+
+
+def _client_fixture_repo(tmp: Path):
+    pkg = tmp / "com" / "example" / "app"
+    pkg.mkdir(parents=True)
+    (tmp / "backend.py").write_text(
+        "def signup_register(email):\n    return email\n", encoding="utf-8"
+    )
+    (pkg / "Api.kt").write_text(
+        "package com.example.app\n\nobject Api {\n    fun post(path: String) {\n    }\n}\n",
+        encoding="utf-8",
+    )
+    (pkg / "SignupActivity.kt").write_text(
+        "package com.example.app\n\nimport com.example.app.Api\n\nclass SignupActivity {\n    fun signup_register() {\n        val b = findViewById(R.id.signup_button)\n    }\n}\n",
+        encoding="utf-8",
+    )
+    (tmp / "activity_signup.xml").write_text(
+        '<?xml version="1.0"?>\n<LinearLayout>\n    <Button android:id="@+id/signup_button" />\n</LinearLayout>\n',
+        encoding="utf-8",
+    )
+    (tmp / "SignupScreen.vue").write_text(
+        "<template><button>Join</button></template>\n<script>\nexport function signup_register() {\n    return 1\n}\n</script>\n",
+        encoding="utf-8",
+    )
+    (tmp / "SignupView.swift").write_text(
+        "import UIKit\n\nclass SignupView {\n    func signup_register() {\n    }\n}\n",
+        encoding="utf-8",
+    )
+    (tmp / "signup.html").write_text(
+        '<html><body><form id="signup-form"></form></body></html>\n',
+        encoding="utf-8",
+    )
+    (tmp / "README.md").write_text(
+        "# Registration\n\nFlow calls signup_register and shows signup_button.\n",
+        encoding="utf-8",
+    )
+    return tmp
+
+
+def test_client_graph_covers_mobile_frontend_and_markup():
+    """Kotlin/Swift/Vue/XML/HTML symbols and ids become nodes with edges."""
+    import json
+
+    mod = _load_context_server_hardening()
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as td:
+        repo = _client_fixture_repo(Path(td))
+        assert "✅ Success" in mod.build_graph(".", project_root=str(repo))
+        graphs = sorted((repo / "context-reports").glob("graph_*.json"))
+        data = json.loads(graphs[-1].read_text(encoding="utf-8"))
+        ids = {n["id"] for n in data["nodes"]}
+        kt = "com/example/app/SignupActivity.kt"
+        assert f"sym:{kt}#SignupActivity" in ids
+        assert f"sym:{kt}#signup_register" in ids
+        assert "sym:com/example/app/Api.kt#Api" in ids
+        assert "sym:activity_signup.xml#signup_button" in ids
+        assert "sym:SignupScreen.vue#signup_register" in ids
+        assert "sym:SignupView.swift#signup_register" in ids
+        assert "sym:signup.html#signup-form" in ids
+        kt_imports = [
+            e
+            for e in data["links"]
+            if e["source"] == f"file:{kt}" and e["relation"] == "imports"
+        ]
+        assert any(e["target"] == "file:com/example/app/Api.kt" for e in kt_imports), (
+            "Kotlin import Api must resolve to an imports edge"
+        )
+        id_refs = [
+            e
+            for e in data["links"]
+            if e["target"] == "sym:activity_signup.xml#signup_button"
+            and e["confidence"] == "INFERRED"
+        ]
+        assert len(id_refs) >= 2, "R.id use plus doc mention must link the view id"
+        q = mod.query_graph("signup registration", top_n=30, project_root=str(repo))
+        for needle in (
+            "SignupActivity",
+            "signup_button",
+            "SignupScreen",
+            "SignupView",
+            "signup_register",
+        ):
+            assert needle in q, f"{needle} missing: {q[:600]}"
+        ex = mod.explain_node("signup_button", project_root=str(repo))
+        assert "activity_signup.xml" in ex, ex[:500]
+        ex_form = mod.explain_node("signup-form", project_root=str(repo))
+        assert "signup.html" in ex_form, ex_form[:500]
+
+
+def _stack_fixture_repo(tmp: Path):
+    (tmp / "Component.tsx").write_text(
+        "export function LoginScreen() {\n  return null;\n}\n\nexport const SignupForm = () => {\n  return null;\n};\n\nexport const Typed: React.FC<Props> = (p) => {\n  return null;\n};\n\ninterface Props {\n  name: string;\n}\n",
+        encoding="utf-8",
+    )
+    (tmp / "schema.prisma").write_text(
+        "model User {\n  id Int @id\n}\n\nenum Role {\n  ADMIN\n}\n",
+        encoding="utf-8",
+    )
+    (tmp / "AppDelegate.m").write_text(
+        "@implementation AppDelegate\n- (BOOL)doSignup:(NSString *)email {\n  return YES;\n}\n@end\n",
+        encoding="utf-8",
+    )
+    (tmp / "application.properties").write_text("server.port=8080\n", encoding="utf-8")
+    (tmp / "styles.css").write_text(".signup-btn { color: red; }\n", encoding="utf-8")
+    return tmp
+
+
+def test_graph_stack_coverage_arrows_prisma_objc_config():
+    """Every skill-template stack family extracts: arrows, prisma, objc, config."""
+    import json
+
+    mod = _load_context_server_hardening()
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as td:
+        repo = _stack_fixture_repo(Path(td))
+        assert "✅ Success" in mod.build_graph(".", project_root=str(repo))
+        graphs = sorted((repo / "context-reports").glob("graph_*.json"))
+        data = json.loads(graphs[-1].read_text(encoding="utf-8"))
+        by_id = {n["id"]: n for n in data["nodes"]}
+        assert by_id["sym:Component.tsx#SignupForm"]["kind"] == "func"
+        assert by_id["sym:Component.tsx#Typed"]["kind"] == "func"
+        assert by_id["sym:Component.tsx#Props"]["kind"] == "interface"
+        assert by_id["sym:schema.prisma#User"]["kind"] == "model"
+        assert by_id["sym:schema.prisma#Role"]["kind"] == "enum"
+        assert by_id["sym:AppDelegate.m#AppDelegate"]["kind"] == "class"
+        assert by_id["sym:AppDelegate.m#doSignup"]["kind"] == "method"
+        assert by_id["sym:application.properties#server.port"]["kind"] == "config"
+        assert by_id["sym:styles.css#signup-btn"]["kind"] == "style"
+
+
+def _precision_fixture_repo(tmp: Path):
+    filler = "".join(f"# filler line {i}\n" for i in range(2100))
+    (tmp / "big.py").write_text(
+        filler + "def deep_symbol():\n    return 1\n", encoding="utf-8"
+    )
+    (tmp / "worker.py").write_text(
+        "# Task 154 follow-up: keep parity with the staged tool.\n"
+        "def hub():\n    return run()\n"
+        "\n"
+        "def run():\n    return 1\n"
+        "\n"
+        "def __init__():\n    return None\n",
+        encoding="utf-8",
+    )
+    (tmp / "caller.py").write_text(
+        "def caller():\n    return hub()\n", encoding="utf-8"
+    )
+    task_dir = tmp / "tasks" / "archive"
+    task_dir.mkdir(parents=True)
+    (task_dir / "154-demo.md").write_text("# Task 154\n", encoding="utf-8")
+    return tmp
+
+
+def test_graph_precision_full_scan_vocab_dfs_rationale_noise():
+    """312: deep symbols, vocab hints, DFS mode, rationale links, noise filter."""
+    import json
+
+    mod = _load_context_server_hardening()
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as td:
+        repo = _precision_fixture_repo(Path(td))
+        assert "✅ Success" in mod.build_graph(".", project_root=str(repo))
+        graphs = sorted((repo / "context-reports").glob("graph_*.json"))
+        data = json.loads(graphs[-1].read_text(encoding="utf-8"))
+        by_id = {n["id"]: n for n in data["nodes"]}
+        deep = by_id.get("sym:big.py#deep_symbol", {})
+        assert deep.get("source_location") == "L2101", deep
+        rat = [
+            e
+            for e in data["links"]
+            if e["relation"] == "rationale_for" and e["source"] == "file:worker.py"
+        ]
+        assert any(e["target"] == "file:tasks/archive/154-demo.md" for e in rat), rat
+        miss = mod.query_graph("hubb", project_root=str(repo))
+        assert "Closest vocabulary:" in miss, miss[:300]
+        assert "hub" in miss.split("Closest vocabulary:")[1].lower(), miss[:300]
+        dfs = mod.query_graph("hub caller", mode="dfs", project_root=str(repo))
+        assert "Query (dfs):" in dfs, dfs[:300]
+        gods = mod.god_nodes(10, project_root=str(repo))
+        assert "\n- run " not in gods, gods
+        assert "hub" in gods, gods
+
+
+def test_graph_tool_registry_has_no_helper_leak():
+    """Only the 14 intended MCP tools register; plain helpers never expose."""
+    mod = _load_context_server_hardening()
+    names = sorted(mod.mcp._tool_manager._tools.keys())
+    assert names == [
+        "build_graph",
+        "bundle_tasks",
+        "commit_and_clean_task",
+        "create_tree_report",
+        "explain_node",
+        "extract_signatures",
+        "get_directory_tree",
+        "god_nodes",
+        "graph_stats",
+        "qa_transition",
+        "query_graph",
+        "read_source_files",
+        "shortest_path",
+        "stage_and_inject_diff",
+    ], names
+
+
+def test_graph_qa_followups_empty_label_and_confined_graph():
+    """QA follow-ups F1/F3: empty explain label errors; outside graph path refused."""
+    mod = _load_context_server_hardening()
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as td:
+        repo = Path(td)
+        (repo / "a.py").write_text("def hub():\n    return 1\n", encoding="utf-8")
+        assert "✅ Success" in mod.build_graph(".", project_root=str(repo))
+        assert mod.explain_node("", project_root=str(repo)).startswith("Error:"), "empty label must error, not list"
+        assert mod.explain_node("   ", project_root=str(repo)).startswith("Error:")
+        outside = mod.graph_stats(graph_path="/etc/hostname", project_root=str(repo))
+        assert "No graph found" in outside, outside

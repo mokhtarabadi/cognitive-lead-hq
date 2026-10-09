@@ -23,7 +23,8 @@ When invoked, you must use the `custom_context` MCP tools to compile comprehensi
 2. Use `create_tree_report` to persist a `.gitignore-aware` tree of a path or the whole project as `context-reports/tree_report_<timestamp>_<uuid>.md` when the Manager asks to "create a tree of the project".
 3. Use `read_source_files` to fetch the exact source code of requested files.
 4. Use `extract_signatures` to pull function/class signatures for vertical slices.
-5. You still must not write, record, or evolve anything.
+5. Graph-first: run `build_graph` once per scope (saves versioned `graph_*.json` + `graph_report_*.md` with EXTRACTED/INFERRED edges), then prefer `query_graph` / `explain_node` / `shortest_path` / `god_nodes` for cross-file questions before full reads. Use `graph_stats` to confirm coverage.
+6. You still must not write, record, or evolve anything.
 
 Do not modify any files. Do not attempt to execute code. Compile the report and halt.
 

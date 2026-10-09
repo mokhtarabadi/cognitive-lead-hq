@@ -19,6 +19,7 @@
 import contextvars
 import functools
 import importlib
+import json
 import os
 import re
 import shutil
@@ -32,8 +33,10 @@ from typing import Optional
 import pathspec
 from mcp.server.fastmcp import FastMCP
 
+
 class GitIgnoreFilter:
     """Evaluates paths against .gitignore files dynamically."""
+
     def __init__(self) -> None:
         self._specs: dict[Path, Optional[pathspec.PathSpec]] = {}
 
@@ -104,7 +107,9 @@ class GitIgnoreFilter:
             current = current.parent
         return False
 
+
 TEXT_ENCODINGS = ["utf-8", "utf-8-sig", "windows-1256", "windows-1252", "latin-1"]
+
 
 def is_binary(file_path: Path) -> bool:
     try:
@@ -114,16 +119,25 @@ def is_binary(file_path: Path) -> bool:
     except Exception:
         return True
 
+
 # --- Tree-sitter AST signature extraction ---
 
 _EXTENSION_LANG_MAP: dict[str, str] = {
     ".py": "python",
-    ".js": "javascript", ".jsx": "javascript", ".mjs": "javascript", ".cjs": "javascript",
-    ".ts": "typescript", ".tsx": "typescript", ".mts": "typescript", ".cts": "typescript",
+    ".js": "javascript",
+    ".jsx": "javascript",
+    ".mjs": "javascript",
+    ".cjs": "javascript",
+    ".ts": "typescript",
+    ".tsx": "typescript",
+    ".mts": "typescript",
+    ".cts": "typescript",
     ".go": "go",
-    ".java": "java", ".jsp": "java",
+    ".java": "java",
+    ".jsp": "java",
     ".rs": "rust",
-    ".kt": "kotlin", ".kts": "kotlin",
+    ".kt": "kotlin",
+    ".kts": "kotlin",
     ".swift": "swift",
     ".rb": "ruby",
     ".php": "php",
@@ -132,52 +146,53 @@ _EXTENSION_LANG_MAP: dict[str, str] = {
 
 _TS_QUERIES: dict[str, list[str]] = {
     "python": [
-        '(function_definition name: (identifier) @name parameters: (parameters) @params) @sig',
-        '(class_definition name: (identifier) @name) @sig',
+        "(function_definition name: (identifier) @name parameters: (parameters) @params) @sig",
+        "(class_definition name: (identifier) @name) @sig",
     ],
     "javascript": [
-        '(function_declaration name: (identifier) @name parameters: (formal_parameters) @params) @sig',
-        '(class_declaration name: (identifier) @name) @sig',
-        '(method_definition name: (property_identifier) @name) @sig',
-        '(arrow_function) @sig',
-        '(generator_function_declaration name: (identifier) @name) @sig',
+        "(function_declaration name: (identifier) @name parameters: (formal_parameters) @params) @sig",
+        "(class_declaration name: (identifier) @name) @sig",
+        "(method_definition name: (property_identifier) @name) @sig",
+        "(arrow_function) @sig",
+        "(generator_function_declaration name: (identifier) @name) @sig",
     ],
     "typescript": [
-        '(function_declaration name: (identifier) @name parameters: (formal_parameters) @params) @sig',
-        '(class_declaration name: (type_identifier) @name) @sig',
-        '(interface_declaration name: (type_identifier) @name) @sig',
-        '(method_definition name: (property_identifier) @name) @sig',
-        '(type_alias_declaration name: (type_identifier) @name) @sig',
-        '(enum_declaration name: (identifier) @name) @sig',
-        '(arrow_function) @sig',
+        "(function_declaration name: (identifier) @name parameters: (formal_parameters) @params) @sig",
+        "(class_declaration name: (type_identifier) @name) @sig",
+        "(interface_declaration name: (type_identifier) @name) @sig",
+        "(method_definition name: (property_identifier) @name) @sig",
+        "(type_alias_declaration name: (type_identifier) @name) @sig",
+        "(enum_declaration name: (identifier) @name) @sig",
+        "(arrow_function) @sig",
     ],
     "go": [
-        '(function_declaration name: (identifier) @name parameters: (parameter_list) @params) @sig',
-        '(method_declaration receiver: (parameter_list) @receiver name: (field_identifier) @name) @sig',
-        '(type_declaration (type_spec name: (type_identifier) @name)) @sig',
+        "(function_declaration name: (identifier) @name parameters: (parameter_list) @params) @sig",
+        "(method_declaration receiver: (parameter_list) @receiver name: (field_identifier) @name) @sig",
+        "(type_declaration (type_spec name: (type_identifier) @name)) @sig",
     ],
     "java": [
-        '(method_declaration name: (identifier) @name parameters: (formal_parameters) @params) @sig',
-        '(class_declaration name: (identifier) @name) @sig',
-        '(interface_declaration name: (identifier) @name) @sig',
-        '(enum_declaration name: (identifier) @name) @sig',
-        '(record_declaration name: (identifier) @name) @sig',
+        "(method_declaration name: (identifier) @name parameters: (formal_parameters) @params) @sig",
+        "(class_declaration name: (identifier) @name) @sig",
+        "(interface_declaration name: (identifier) @name) @sig",
+        "(enum_declaration name: (identifier) @name) @sig",
+        "(record_declaration name: (identifier) @name) @sig",
     ],
     "rust": [
-        '(function_item name: (identifier) @name parameters: (parameters) @params) @sig',
-        '(struct_item name: (type_identifier) @name) @sig',
-        '(enum_item name: (type_identifier) @name) @sig',
-        '(trait_item name: (type_identifier) @name) @sig',
-        '(type_item name: (type_identifier) @name) @sig',
-        '(impl_item trait: (type_identifier) @name) @sig',
+        "(function_item name: (identifier) @name parameters: (parameters) @params) @sig",
+        "(struct_item name: (type_identifier) @name) @sig",
+        "(enum_item name: (type_identifier) @name) @sig",
+        "(trait_item name: (type_identifier) @name) @sig",
+        "(type_item name: (type_identifier) @name) @sig",
+        "(impl_item trait: (type_identifier) @name) @sig",
     ],
     "kotlin": [
-        '(function_declaration name: (identifier) @name) @sig',
-        '(class_declaration name: (identifier) @name) @sig',
+        "(function_declaration name: (identifier) @name) @sig",
+        "(class_declaration name: (identifier) @name) @sig",
     ],
 }
 
 _ts_language_cache: dict[str, object] = {}
+
 
 def _get_ts_language(lang_id: str) -> object:
     if lang_id in _ts_language_cache:
@@ -186,6 +201,7 @@ def _get_ts_language(lang_id: str) -> object:
     try:
         mod = importlib.import_module(pkg_name)
         from tree_sitter import Language as TSLanguage
+
         if lang_id == "typescript":
             lang = TSLanguage(mod.language_typescript())
         else:
@@ -196,12 +212,13 @@ def _get_ts_language(lang_id: str) -> object:
         _ts_language_cache[lang_id] = None
         return None
 
+
 def _extract_signature_line(source_lines: list[str], start_row: int) -> str:
     first = source_lines[start_row].rstrip("\n").rstrip("\r")
     if not first.rstrip().endswith(",") and first.count("(") == first.count(")"):
         return first
     parts: list[str] = [first]
-    for line in source_lines[start_row + 1:]:
+    for line in source_lines[start_row + 1 :]:
         stripped = line.rstrip("\n").rstrip("\r")
         parts.append(stripped)
         if ":" in stripped and not stripped.rstrip().endswith(","):
@@ -211,6 +228,7 @@ def _extract_signature_line(source_lines: list[str], start_row: int) -> str:
         if stripped.rstrip().endswith("):") or stripped.rstrip().endswith(") {"):
             break
     return "\n".join(parts)
+
 
 def _extract_via_tree_sitter(file_path: Path) -> Optional[str]:
     ext = file_path.suffix.lower()
@@ -230,6 +248,7 @@ def _extract_via_tree_sitter(file_path: Path) -> Optional[str]:
         return None
     source_bytes = content.encode("utf-8")
     from tree_sitter import Parser, Query, QueryCursor
+
     parser = Parser(lang)
     tree = parser.parse(source_bytes)
     source_lines = content.split("\n")
@@ -254,6 +273,7 @@ def _extract_via_tree_sitter(file_path: Path) -> Optional[str]:
         return None
     return f"### Signatures in {file_path}\n" + "\n".join(signatures)
 
+
 # --- End tree-sitter ---
 
 # Runaway-traversal guards (Task 177): a single wedged request (e.g. tree of
@@ -265,8 +285,19 @@ COLLECT_MAX_FILES = 1000
 # Directory names never descended into, at any level. Supplements .gitignore
 # (which cannot cover absolute-path walks outside any repo).
 BANNED_DIRS = frozenset(
-    {".git", ".cache", "__pycache__", "node_modules", ".venv", "venv", "proc", "sys", "dev"}
+    {
+        ".git",
+        ".cache",
+        "__pycache__",
+        "node_modules",
+        ".venv",
+        "venv",
+        "proc",
+        "sys",
+        "dev",
+    }
 )
+
 
 def _is_banned_dir(entry: Path) -> bool:
     """True when a directory entry must never be descended into."""
@@ -274,6 +305,7 @@ def _is_banned_dir(entry: Path) -> bool:
         return entry.is_dir() and entry.name in BANNED_DIRS
     except OSError:
         return True  # Unstatable entries are treated as unsafe to descend.
+
 
 def generate_tree(
     dir_path: Path,
@@ -283,6 +315,7 @@ def generate_tree(
 ) -> str:
     lines = ["```text", dir_path.name or str(dir_path)]
     state = {"count": 0, "truncated": False}
+
     def _walk(current_path: Path, prefix: str, depth: int) -> None:
         if state["truncated"]:
             return
@@ -299,7 +332,9 @@ def generate_tree(
             for e in entries
             if not _is_banned_dir(e) and not ignore_filter.is_ignored(e)
         ]
-        sorted_entries = sorted(valid_entries, key=lambda e: (not e.is_dir(), e.name.lower()))
+        sorted_entries = sorted(
+            valid_entries, key=lambda e: (not e.is_dir(), e.name.lower())
+        )
         for i, entry in enumerate(sorted_entries):
             if state["count"] >= max_entries:
                 lines.append(
@@ -314,9 +349,11 @@ def generate_tree(
             if entry.is_dir():
                 extension = "    " if is_last else "│   "
                 _walk(entry, prefix + extension, depth + 1)
+
     _walk(dir_path, "", 0)
     lines.append("```")
     return "\n".join(lines)
+
 
 def process_source_file(file_path: Path, max_size: int, line_numbers: bool) -> str:
     lines = [f"### `{file_path}`", ""]
@@ -326,14 +363,18 @@ def process_source_file(file_path: Path, max_size: int, line_numbers: bool) -> s
     try:
         size = file_path.stat().st_size
         if size > max_size:
-            lines.append(f"> Skipped: (File too large: {size} bytes > max_size={max_size})\n")
+            lines.append(
+                f"> Skipped: (File too large: {size} bytes > max_size={max_size})\n"
+            )
             # Discovery gap fix (Task 241): a skipped body must not mean
             # zero evidence — attach structural signatures when extractable
             # so the Brain still sees the file's shape. Never raises.
             try:
                 sig = _extract_via_tree_sitter(file_path)
                 if sig:
-                    lines.append("> Body omitted by size cap; structural signatures follow:\n")
+                    lines.append(
+                        "> Body omitted by size cap; structural signatures follow:\n"
+                    )
                     lines.append(sig)
                 else:
                     lines.append(
@@ -359,7 +400,9 @@ def process_source_file(file_path: Path, max_size: int, line_numbers: bool) -> s
         except (UnicodeDecodeError, UnicodeError):
             continue
     if content_text is None:
-        lines.append(f"> Skipped: (Could not decode file with any supported encoding)\n")
+        lines.append(
+            f"> Skipped: (Could not decode file with any supported encoding)\n"
+        )
         return "\n".join(lines)
     file_lines = content_text.split("\n")
     if file_lines and file_lines[-1] == "":
@@ -373,6 +416,7 @@ def process_source_file(file_path: Path, max_size: int, line_numbers: bool) -> s
         lines.append(content)
     lines.append("```\n")
     return "\n".join(lines)
+
 
 def collect_files(
     target: str,
@@ -401,6 +445,7 @@ def collect_files(
                 collected.append(file_path)
     return collected
 
+
 def _ensure_context_reports_ignored(workspace_root: Path | None = None) -> None:
     """Safeguard: Append context-reports/ to <workspace_root>/.gitignore.
 
@@ -421,6 +466,7 @@ def _ensure_context_reports_ignored(workspace_root: Path | None = None) -> None:
         except Exception as e:
             print(f"Warning: Failed to update .gitignore: {e}", file=sys.stderr)
 
+
 mcp = FastMCP("CustomContext", host="127.0.0.1", port=8102)
 
 # Client-visible project-isolation warning (Task 279 F6/V1). When a caller
@@ -429,15 +475,18 @@ mcp = FastMCP("CustomContext", host="127.0.0.1", port=8102)
 # by @_project_tool in the tool result. No absolute paths are echoed
 # (layout privacy, cf. decision-server _active_root_info).
 _FALLBACK_FIRED: contextvars.ContextVar[bool] = contextvars.ContextVar(
-    "custom_context_fallback_fired", default=False)
+    "custom_context_fallback_fired", default=False
+)
 ROOT_FALLBACK_WARNING = (
     "WARNING [project-isolation]: project_root was omitted, so this call "
     "was scoped to the singleton server's own directory instead of the "
-    "calling project. Pass an absolute project_root on every call.")
+    "calling project. Pass an absolute project_root on every call."
+)
 
 
 def _project_tool(fn):
     """Register an MCP tool that surfaces root-fallback client-visibly."""
+
     @functools.wraps(fn)
     def wrapper(*args, **kwargs):
         _FALLBACK_FIRED.set(False)
@@ -447,7 +496,9 @@ def _project_tool(fn):
         if isinstance(out, str):
             return ROOT_FALLBACK_WARNING + "\n" + out
         return out
+
     return mcp.tool()(wrapper)
+
 
 @_project_tool
 def get_directory_tree(target_path: str = ".", project_root: str | None = None) -> str:
@@ -470,15 +521,1302 @@ def get_directory_tree(target_path: str = ".", project_root: str | None = None) 
     except ValueError:
         return "Error: Path traversal detected. target_path must be within the project workspace."
     ignore_filter = GitIgnoreFilter()
-    tree_path = Path(target_path)
     if not tree_path.is_dir():
         return f"Error: {target_path} is not a valid directory."
     if ignore_filter.is_ignored(tree_path):
         return f"Warning: Target tree path is ignored by .gitignore: {target_path}"
-    return f"## Directory Tree: `{tree_path}`\n\n" + generate_tree(tree_path, ignore_filter)
+    return f"## Directory Tree: `{tree_path}`\n\n" + generate_tree(
+        tree_path, ignore_filter
+    )
+
+
+# --- Lite knowledge-graph (Graphify-inspired, stdlib-only) ---
+# Design: deterministic local graph, no LLM, no vector store. Nodes are files
+# + symbols (def/class). Edges carry confidence tags EXTRACTED (explicit in
+# source: contains/imports) or INFERRED (resolved: references across files).
+# Persisted as versioned graph.json + markdown report under context-reports/.
+
+GRAPH_SCHEMA_VERSION = 2
+GRAPH_MAX_FILES = 300
+GRAPH_MAX_NODES = 5000
+GRAPH_MAX_DOCS = 300
+GRAPH_DOC_LINES = 500
+GRAPH_DOC_SECTIONS = 60
+_GRAPH_CODE_EXTS = frozenset(
+    {
+        ".py",
+        ".js",
+        ".jsx",
+        ".mjs",
+        ".cjs",
+        ".ts",
+        ".tsx",
+        ".mts",
+        ".cts",
+        ".go",
+        ".java",
+        ".rs",
+        ".kt",
+        ".kts",
+        ".rb",
+        ".php",
+        ".cs",
+        ".swift",
+        ".lua",
+        ".zig",
+        ".sh",
+        ".bash",
+        ".sql",
+        ".vue",
+        ".svelte",
+        ".astro",
+        ".html",
+        ".htm",
+        ".xml",
+        ".dart",
+        ".m",
+        ".mm",
+        ".gradle",
+        ".prisma",
+        ".properties",
+        ".css",
+        ".scss",
+        ".less",
+    }
+)
+_GRAPH_SYMBOL_RE = re.compile(
+    r"^\s*(?:export\s+|default\s+|public\s+|private\s+|protected\s+|static\s+|async\s+|fun\s+|def\s+|class\s+|interface\s+|type\s+|enum\s+|struct\s+|trait\s+|func(?:tion)?\s+)?"
+    r"(?:class|interface|type|enum|struct|trait|def|fun|func(?:tion)?)\s+([A-Za-z_]\w*)"
+)
+_GRAPH_CALL_RE = re.compile(r"\b([A-Za-z_]\w*)\s*\(")
+_GRAPH_KT_FUN_RE = re.compile(
+    r"^\s*(?:(?:public|private|protected|internal|open|override|suspend|inline|tailrec|operator|infix|external)\s+)*fun\s+(?:<[^>]*>\s*)?([A-Za-z_]\w*)"
+)
+_GRAPH_TYPE_RE = re.compile(
+    r"^\s*(?:(?:public|private|protected|internal|open|abstract|final|sealed|data|object|export|default)\s+)*(?:class|object|interface)\s+([A-Za-z_]\w*)"
+)
+_GRAPH_SWIFT_RE = re.compile(
+    r"^\s*(?:(?:public|private|fileprivate|internal|open|override|static|class|mutating|required|convenience)\s+)*(?:func\s+([A-Za-z_]\w*)|(class|struct|enum|protocol)\s+([A-Za-z_]\w*))"
+)
+_GRAPH_JAVA_METHOD_RE = re.compile(
+    r"^\s*(?:(?:public|private|protected|static|final|synchronized|abstract|native|default|volatile|transient)\s+)+[\w<>\[\]?.,\s]+\s+(\w+)\s*\("
+)
+_GRAPH_JAVA_CTOR_RE = re.compile(r"^\s*(?:public|private|protected)\s+([A-Z]\w*)\s*\(")
+_GRAPH_DART_RE = re.compile(r"^\s*(?:[\w<>?,\s]+\s+)?(\w+)\s*\([^;{}]*\)\s*(?:\{|=>|;)")
+_GRAPH_DART_KEYWORDS = frozenset(
+    {
+        "return",
+        "if",
+        "for",
+        "while",
+        "switch",
+        "assert",
+        "new",
+        "const",
+        "final",
+        "var",
+        "late",
+        "import",
+        "export",
+        "throw",
+        "else",
+        "do",
+    }
+)
+_GRAPH_ARROW_RE = re.compile(
+    r"^\s*(?:export\s+)?(?:const|let)\s+([A-Za-z_]\w*)\s*(?::[^=;]+)?=\s*(?:async\s*)?(?:\([^)]*\)\s*=>|function)"
+)
+_GRAPH_ANDROID_ID_RE = re.compile(r'android:id="@\+id/([\w]+)"')
+_GRAPH_DOM_ID_RE = re.compile(r'(?:id|@\+id)="([\w-]+)"')
+_GRAPH_R_ID_RE = re.compile(r"R\.id\.([\w]+)")
+_GRAPH_GET_ID_RE = re.compile(r"getElementById\(\s*['\"]([\w-]+)['\"]\)")
+_GRAPH_SCRIPT_BLOCK_RE = re.compile(
+    r"<script\b[^>]*>(.*?)</script>", re.DOTALL | re.IGNORECASE
+)
+_GRAPH_OBJC_METHOD_RE = re.compile(r"^\s*[-+]\s*\([^)]*\)\s*([A-Za-z_]\w*)")
+_GRAPH_OBJC_IMPL_RE = re.compile(r"^\s*@implementation\s+([A-Za-z_]\w*)")
+_GRAPH_PRISMA_RE = re.compile(r"^\s*(model|enum)\s+([A-Za-z_]\w*)")
+_GRAPH_PROP_RE = re.compile(r"^\s*([A-Za-z_][\w.\-]*)\s*[=:]")
+_GRAPH_CSS_RE = re.compile(r"^\s*\.([\w-]+)\s*\{")
+_GRAPH_SQL_TABLE_RE = re.compile(
+    r"^\s*CREATE\s+(?:TEMP(?:ORARY)?\s+)?(?:TABLE|VIEW)\s+(?:IF\s+NOT\s+EXISTS\s+)?[`\"\[]?([\w\.]+)[`\"\]]?",
+    re.IGNORECASE,
+)
+_GRAPH_SQL_REF_RE = re.compile(r"REFERENCES\s+[`\"\[]?([\w\.]+)[`\"\]]?", re.IGNORECASE)
+_GRAPH_MD_HEADING_RE = re.compile(r"^(#{1,4})\s+(.+?)\s*$")
+_GRAPH_MD_LINK_RE = re.compile(r"\[[^\]]*\]\(([^)#\s]+\.md)(?:#[^)\s]*)?\)")
+_GRAPH_WIKILINK_RE = re.compile(r"\[\[([^\]|#]+)(?:#[^\]]*)?(?:\|[^\]]*)?\]\]")
+_GRAPH_TOKEN_SPLIT_RE = re.compile(r"(?<=[a-z])(?=[A-Z])")
+_GRAPH_TASK_REF_RE = re.compile(r"\bTask\s+(\d{1,4})\b")
+_GRAPH_ADR_REF_RE = re.compile(r"\bADR-(\d{1,3})\b", re.IGNORECASE)
+_GRAPH_GOD_NOISE = frozenset({"run", "json", "post", "data"})
+
+_GRAPH_MAX_SCAN_BYTES = 1048576
+
+
+def _read_text_capped(file_path: Path, cap: int = _GRAPH_MAX_SCAN_BYTES) -> str | None:
+    """Read text bounded by cap bytes so huge generated files cannot wedge the server."""
+    try:
+        with open(file_path, "r", encoding="utf-8", errors="strict") as f:
+            return f.read(cap + 1)[:cap]
+    except Exception:
+        return None
+
+
+def _graph_rel_posix(p: Path, root: Path) -> str:
+    try:
+        return p.resolve().relative_to(root).as_posix()
+    except ValueError:
+        return p.name
+
+
+def _push_graph_symbol(
+    out: list[tuple[str, str, int]], seen: set[str], name: str, kind: str, lineno: int
+) -> None:
+    if len(out) >= 200 or len(name) < 2 or name in seen:
+        return
+    seen.add(name)
+    out.append((name, kind, lineno))
+
+
+def _scan_js_like_symbols(
+    text: str, base_line: int, out: list[tuple[str, str, int]], seen: set[str]
+) -> None:
+    for i, line in enumerate(text.split("\n")):
+        if len(out) >= 200:
+            return
+        lineno = base_line + i
+        m = _GRAPH_SYMBOL_RE.match(line)
+        if m:
+            lowered = line.lower()
+            _push_graph_symbol(
+                out, seen, m.group(1), "class" if "class" in lowered else "func", lineno
+            )
+            continue
+        m = _GRAPH_ARROW_RE.match(line)
+        if m:
+            _push_graph_symbol(out, seen, m.group(1), "func", lineno)
+
+
+def _extract_graph_symbols(file_path: Path) -> list[tuple[str, str, int]]:
+    """Return [(name, kind, line_no)] capped per file. Regex-based, deterministic.
+
+    Covers backend (Python/JS/TS/Go/Java...), mobile (Kotlin fun/class/object,
+    Swift func/types, Java methods/ctors, Dart classes/members), frontend
+    (Vue/Svelte script blocks, arrow components), and markup (HTML/XML element
+    ids incl. android:id). Markup node labels keep raw ids (dashes included).
+    """
+    out: list[tuple[str, str, int]] = []
+    seen: set[str] = set()
+    text = _read_text_capped(file_path)
+    if text is None:
+        return out
+    lines = text.split("\n")
+    suffix = file_path.suffix.lower()
+    if suffix in (".vue", ".svelte", ".astro", ".html", ".htm"):
+        text = "\n".join(lines)
+        for m in _GRAPH_SCRIPT_BLOCK_RE.finditer(text):
+            base_line = text[: m.start(1)].count("\n") + 1
+            _scan_js_like_symbols(m.group(1), base_line, out, seen)
+    if suffix in (".vue", ".svelte", ".astro", ".html", ".htm", ".xml"):
+        for i, line in enumerate(lines, 1):
+            if len(out) >= 200:
+                break
+            for m in _GRAPH_ANDROID_ID_RE.finditer(line):
+                _push_graph_symbol(out, seen, m.group(1), "view_id", i)
+            for m in _GRAPH_DOM_ID_RE.finditer(line):
+                _push_graph_symbol(out, seen, m.group(1), "element_id", i)
+        return out
+    if suffix in (".kt", ".kts", ".java", ".swift", ".dart", ".m", ".mm", ".gradle"):
+        for i, line in enumerate(lines, 1):
+            if len(out) >= 200:
+                break
+            if suffix in (".m", ".mm"):
+                m = _GRAPH_OBJC_IMPL_RE.match(line)
+                if m:
+                    _push_graph_symbol(out, seen, m.group(1), "class", i)
+                    continue
+                m = _GRAPH_OBJC_METHOD_RE.match(line)
+                if m:
+                    _push_graph_symbol(out, seen, m.group(1), "method", i)
+                    continue
+                continue
+            m = _GRAPH_KT_FUN_RE.match(line)
+            if m:
+                _push_graph_symbol(out, seen, m.group(1), "func", i)
+                continue
+            m = _GRAPH_TYPE_RE.match(line)
+            if m:
+                _push_graph_symbol(out, seen, m.group(1), "class", i)
+                continue
+            m = _GRAPH_SWIFT_RE.match(line)
+            if m:
+                if m.group(1):
+                    _push_graph_symbol(out, seen, m.group(1), "func", i)
+                else:
+                    _push_graph_symbol(out, seen, m.group(3), "class", i)
+                continue
+            m = _GRAPH_JAVA_METHOD_RE.match(line)
+            if m and m.group(1) not in (
+                "if",
+                "for",
+                "while",
+                "switch",
+                "catch",
+                "return",
+            ):
+                _push_graph_symbol(out, seen, m.group(1), "method", i)
+                continue
+            m = _GRAPH_JAVA_CTOR_RE.match(line)
+            if m:
+                _push_graph_symbol(out, seen, m.group(1), "method", i)
+                continue
+            if suffix == ".dart":
+                m = _GRAPH_DART_RE.match(line)
+                if m and m.group(1) not in _GRAPH_DART_KEYWORDS:
+                    _push_graph_symbol(out, seen, m.group(1), "method", i)
+                    continue
+            m = _GRAPH_ARROW_RE.match(line)
+            if m:
+                _push_graph_symbol(out, seen, m.group(1), "func", i)
+        return out
+    if suffix == ".prisma":
+        for i, line in enumerate(lines, 1):
+            if len(out) >= 200:
+                break
+            m = _GRAPH_PRISMA_RE.match(line)
+            if m:
+                _push_graph_symbol(
+                    out,
+                    seen,
+                    m.group(2),
+                    "model" if m.group(1) == "model" else "enum",
+                    i,
+                )
+        return out
+    if suffix == ".properties":
+        for i, line in enumerate(lines, 1):
+            if len(out) >= 200:
+                break
+            stripped = line.strip()
+            if not stripped or stripped.startswith(("#", "!")):
+                continue
+            m = _GRAPH_PROP_RE.match(line)
+            if m:
+                _push_graph_symbol(out, seen, m.group(1), "config", i)
+        return out
+    if suffix in (".css", ".scss", ".less"):
+        for i, line in enumerate(lines, 1):
+            if len(out) >= 200:
+                break
+            m = _GRAPH_CSS_RE.match(line)
+            if m:
+                _push_graph_symbol(out, seen, m.group(1), "style", i)
+        return out
+    for i, line in enumerate(lines, 1):
+        if len(out) >= 200:
+            break
+        m = _GRAPH_SYMBOL_RE.match(line)
+        if m:
+            name = m.group(1)
+            lowered = line.lower()
+            if "interface" in lowered:
+                kind = "interface"
+            elif "enum" in lowered:
+                kind = "enum"
+            elif re.search(r"\btype\b", lowered):
+                kind = "type"
+            elif "class" in lowered:
+                kind = "class"
+            else:
+                kind = "func"
+            _push_graph_symbol(out, seen, name, kind, i)
+            continue
+        m = _GRAPH_ARROW_RE.match(line)
+        if m:
+            _push_graph_symbol(out, seen, m.group(1), "func", i)
+            continue
+    return out
+
+
+def _extract_sql_symbols(
+    file_path: Path,
+) -> tuple[list[tuple[str, str, int]], list[str]]:
+    """Return ([(table, kind, line_no)], [referenced_table, ...]). Deterministic."""
+    tables: list[tuple[str, str, int]] = []
+    refs: list[str] = []
+    text = _read_text_capped(file_path)
+    if text is None:
+        return tables, refs
+    lines = text.split("\n")
+    for i, line in enumerate(lines, 1):
+        m = _GRAPH_SQL_TABLE_RE.match(line)
+        if m and len(tables) < 200:
+            name = m.group(1).split(".")[-1]
+            kind = "view" if "view" in line.lower() else "table"
+            if name not in {n for n, _, _ in tables}:
+                tables.append((name, kind, i))
+        for r in _GRAPH_SQL_REF_RE.finditer(line):
+            ref = r.group(1).split(".")[-1]
+            if ref and ref not in refs:
+                refs.append(ref)
+                if len(refs) >= 40:
+                    break
+    return tables, refs
+
+
+def _extract_md_sections(abs_path: Path) -> list[tuple[str, int, int]]:
+    """Return [(heading_text, level, line_no)] capped. Deterministic."""
+    out: list[tuple[str, int, int]] = []
+    text = _read_text_capped(abs_path)
+    if text is None:
+        return out
+    lines = text.split("\n")[:GRAPH_DOC_LINES]
+    for i, line in enumerate(lines, 1):
+        if len(out) >= GRAPH_DOC_SECTIONS:
+            break
+        m = _GRAPH_MD_HEADING_RE.match(line)
+        if not m:
+            continue
+        text = m.group(2).strip()[:80]
+        if len(text) >= 2:
+            out.append((text, len(m.group(1)), i))
+    return out
+
+
+def _extract_md_link_targets(content: str) -> list[str]:
+    """Return raw Markdown link targets (./other.md, [[wikilinks]]). Deterministic."""
+    targets: list[str] = []
+    for m in _GRAPH_MD_LINK_RE.finditer(content):
+        t = m.group(1).strip()
+        if t and t not in targets and not re.match(r"https?://", t):
+            targets.append(t)
+    for m in _GRAPH_WIKILINK_RE.finditer(content):
+        t = m.group(1).strip()
+        if t and t not in targets:
+            targets.append(t if t.lower().endswith(".md") else t + ".md")
+    return targets[:40]
+
+
+def _resolve_doc_link(target: str, from_rel: str, doc_set: set[str]) -> str | None:
+    if target.startswith("/"):
+        cand = target.lstrip("/")
+    else:
+        from_dir = from_rel.rsplit("/", 1)[0] if "/" in from_rel else ""
+        parts = (from_dir + "/" + target).split("/")
+        stack: list[str] = []
+        for part in parts:
+            if part in ("", "."):
+                continue
+            if part == "..":
+                if stack:
+                    stack.pop()
+            else:
+                stack.append(part)
+        cand = "/".join(stack)
+    if cand in doc_set:
+        return cand
+    base = cand.rsplit("/", 1)[-1]
+    for d in doc_set:
+        if d.rsplit("/", 1)[-1].lower() == base.lower():
+            return d
+    return None
+
+
+def _slugify_section(text: str) -> str:
+    slug = re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")
+    return slug[:60] or "section"
+
+
+def _parse_graph_imports(rel_suffix: str, content: str) -> list[str]:
+    imps: list[str] = []
+    try:
+        if rel_suffix == ".py":
+            for m in re.finditer(
+                r"^\s*(?:from\s+([\w\.]+)\s+import|import\s+([\w\.]+))",
+                content,
+                re.MULTILINE,
+            ):
+                mod = m.group(1) or m.group(2)
+                if mod and mod not in imps:
+                    imps.append(mod)
+        elif rel_suffix in {
+            ".js",
+            ".jsx",
+            ".mjs",
+            ".cjs",
+            ".ts",
+            ".tsx",
+            ".mts",
+            ".cts",
+        }:
+            for m in re.finditer(
+                r"""(?:from\s+['"]([^'"]+)['"]|require\(\s*['"]([^'"]+)['"]|import\(\s*['"]([^'"]+)['"])""",
+                content,
+            ):
+                mod = m.group(1) or m.group(2) or m.group(3)
+                if mod and mod not in imps and mod.startswith("."):
+                    imps.append(mod)
+        elif rel_suffix == ".go":
+            for m in re.finditer(r'"([\w\.\-/]+)"', content):
+                mod = m.group(1)
+                if "/" in mod and mod not in imps:
+                    imps.append(mod)
+                    if len(imps) >= 20:
+                        break
+        elif rel_suffix in {".kt", ".kts", ".java", ".gradle"}:
+            for m in re.finditer(
+                r"^\s*import\s+(?:static\s+)?([\w\.]+)", content, re.MULTILINE
+            ):
+                mod = m.group(1)
+                if mod and mod not in imps:
+                    imps.append(mod)
+        elif rel_suffix in {".swift", ".m", ".mm"}:
+            for m in re.finditer(r"^\s*import\s+(\w+)", content, re.MULTILINE):
+                mod = m.group(1)
+                if mod and mod not in imps:
+                    imps.append(mod)
+    except Exception:
+        return imps
+    return imps[:20]
+
+
+def _resolve_import_to_rel(mod: str, from_rel: str, rel_set: set[str]) -> str | None:
+    if not mod.startswith(".") and "." not in mod and "/" not in mod:
+        return None
+    cand_base = mod.replace(".", "/").strip("/")
+    from_dir = from_rel.rsplit("/", 1)[0] if "/" in from_rel else ""
+    tried: list[str] = []
+    if mod.startswith("."):
+        level = len(mod) - len(mod.lstrip("."))
+        rest = mod.lstrip(".").replace(".", "/")
+        parts = from_dir.split("/") if from_dir else []
+        base = "/".join(parts[: max(0, len(parts) - level + 1)])
+        tried.append(f"{base}/{rest}".strip("/"))
+    else:
+        tried.append(cand_base)
+    exts = [
+        ".py",
+        "/__init__.py",
+        ".ts",
+        ".tsx",
+        ".js",
+        ".jsx",
+        ".go",
+        ".java",
+        ".rs",
+        ".kt",
+        ".kts",
+        ".swift",
+        ".dart",
+        ".vue",
+        ".m",
+        ".mm",
+    ]
+    for t in tried:
+        for e in exts:
+            c = (t + e).strip("/")
+            if c in rel_set:
+                return c
+        if t in rel_set:
+            return t
+    return None
+
+
+def _build_graph_data(workspace_root: Path, target: Path) -> dict:
+    filt = GitIgnoreFilter()
+    all_found = collect_files(str(target), filt)
+    files = [
+        p
+        for p in all_found
+        if p.suffix.lower() in _GRAPH_CODE_EXTS and "context-reports" not in p.parts
+    ]
+    files.sort(key=lambda p: (len(p.parts), p.as_posix()))
+    files = files[:GRAPH_MAX_FILES]
+    docs = [
+        p
+        for p in all_found
+        if p.suffix.lower() == ".md" and "context-reports" not in p.parts
+    ]
+    docs.sort(key=lambda p: (len(p.parts), p.as_posix()))
+    docs = docs[:GRAPH_MAX_DOCS]
+    rels: list[str] = []
+    rel_set: set[str] = set()
+    resolved: list[Path] = []
+    doc_rels: list[str] = []
+    doc_set: set[str] = set()
+    doc_resolved: list[Path] = []
+    for p in files:
+        try:
+            rel = p.resolve().relative_to(workspace_root).as_posix()
+        except ValueError:
+            continue
+        if rel not in rel_set:
+            rel_set.add(rel)
+            rels.append(rel)
+            resolved.append(p.resolve())
+    for p in docs:
+        try:
+            rel = p.resolve().relative_to(workspace_root).as_posix()
+        except ValueError:
+            continue
+        if rel not in doc_set and rel not in rel_set:
+            doc_set.add(rel)
+            doc_rels.append(rel)
+            doc_resolved.append(p.resolve())
+    nodes: list[dict] = []
+    links: list[dict] = []
+    sym_index: dict[str, list[str]] = {}
+    file_contents: dict[str, str] = {}
+    for rel, abs_p in zip(rels, resolved):
+        nodes.append(
+            {"id": f"file:{rel}", "label": rel, "file_type": "code", "source_file": rel}
+        )
+        try:
+            with open(abs_p, "r", encoding="utf-8", errors="strict") as f:
+                content = f.read()[:200000]
+        except Exception:
+            content = ""
+        file_contents[rel] = content
+        if Path(rel).suffix.lower() == ".sql":
+            symbols, sql_refs = _extract_sql_symbols(abs_p)
+            for t in sql_refs:
+                links.append(
+                    {
+                        "source": f"file:{rel}",
+                        "target": f"sqlref:{t}",
+                        "relation": "references",
+                        "confidence": "EXTRACTED",
+                        "source_file": rel,
+                    }
+                )
+        else:
+            symbols = _extract_graph_symbols(abs_p)
+        for name, kind, lineno in symbols:
+            if len(nodes) >= GRAPH_MAX_NODES:
+                break
+            sid = f"sym:{rel}#{name}"
+            nodes.append(
+                {
+                    "id": sid,
+                    "label": name,
+                    "file_type": "code",
+                    "source_file": rel,
+                    "source_location": f"L{lineno}",
+                    "kind": kind,
+                }
+            )
+            links.append(
+                {
+                    "source": f"file:{rel}",
+                    "target": sid,
+                    "relation": "contains",
+                    "confidence": "EXTRACTED",
+                    "source_file": rel,
+                }
+            )
+            sym_index.setdefault(name, []).append(sid)
+    doc_contents: dict[str, str] = {}
+    for rel, abs_p in zip(doc_rels, doc_resolved):
+        if len(nodes) >= GRAPH_MAX_NODES:
+            break
+        nodes.append(
+            {
+                "id": f"file:{rel}",
+                "label": rel,
+                "file_type": "document",
+                "source_file": rel,
+            }
+        )
+        try:
+            with open(abs_p, "r", encoding="utf-8", errors="strict") as f:
+                content = f.read()[:200000]
+        except Exception:
+            content = ""
+        doc_contents[rel] = content
+        for heading, _level, lineno in _extract_md_sections(abs_p):
+            if len(nodes) >= GRAPH_MAX_NODES:
+                break
+            sec_id = f"sec:{rel}#{_slugify_section(heading)}"
+            if sec_id not in {n["id"] for n in nodes}:
+                nodes.append(
+                    {
+                        "id": sec_id,
+                        "label": heading,
+                        "file_type": "document",
+                        "source_file": rel,
+                        "source_location": f"L{lineno}",
+                        "kind": "section",
+                    }
+                )
+                links.append(
+                    {
+                        "source": f"file:{rel}",
+                        "target": sec_id,
+                        "relation": "contains",
+                        "confidence": "EXTRACTED",
+                        "source_file": rel,
+                    }
+                )
+    for rel, content in doc_contents.items():
+        if not content or len(links) >= GRAPH_MAX_NODES * 2:
+            break
+        for tgt in _extract_md_link_targets(content):
+            resolved_tgt = _resolve_doc_link(tgt, rel, doc_set)
+            if resolved_tgt and resolved_tgt != rel:
+                links.append(
+                    {
+                        "source": f"file:{rel}",
+                        "target": f"file:{resolved_tgt}",
+                        "relation": "references",
+                        "confidence": "EXTRACTED",
+                        "source_file": rel,
+                    }
+                )
+        seen_doc_refs: set[str] = set()
+        for pat in (r"\b([A-Za-z_]\w{3,})\b", r"\b([\w]+-[\w-]+)\b"):
+            for m in re.finditer(pat, content):
+                name = m.group(1)
+                if name in seen_doc_refs:
+                    continue
+                targets = sym_index.get(name, [])
+                if not targets:
+                    continue
+                seen_doc_refs.add(name)
+                for tid in targets[:3]:
+                    links.append(
+                        {
+                            "source": f"file:{rel}",
+                            "target": tid,
+                            "relation": "references",
+                            "confidence": "INFERRED",
+                            "source_file": rel,
+                        }
+                    )
+                if len(seen_doc_refs) >= 40 or len(links) >= GRAPH_MAX_NODES * 2:
+                    break
+    for rel in rels:
+        content = file_contents.get(rel, "")
+        if not content:
+            continue
+        suffix = Path(rel).suffix.lower()
+        for mod in _parse_graph_imports(suffix, content):
+            tgt = _resolve_import_to_rel(mod, rel, rel_set)
+            if tgt and tgt != rel:
+                links.append(
+                    {
+                        "source": f"file:{rel}",
+                        "target": f"file:{tgt}",
+                        "relation": "imports",
+                        "confidence": "EXTRACTED",
+                        "source_file": rel,
+                    }
+                )
+        if len(links) >= GRAPH_MAX_NODES * 2:
+            break
+        seen_refs: set[str] = set()
+        for id_re in (_GRAPH_R_ID_RE, _GRAPH_GET_ID_RE):
+            for m in id_re.finditer(content):
+                name = m.group(1)
+                if (rel, name) in seen_refs:
+                    continue
+                for tid in sym_index.get(name, []):
+                    if tid.startswith(f"sym:{rel}#"):
+                        continue
+                    seen_refs.add((rel, name))
+                    links.append(
+                        {
+                            "source": f"file:{rel}",
+                            "target": tid,
+                            "relation": "references",
+                            "confidence": "INFERRED",
+                            "source_file": rel,
+                        }
+                    )
+                    break
+        for m in _GRAPH_CALL_RE.finditer(content):
+            name = m.group(1)
+            if len(name) < 3 or name in {
+                "def",
+                "class",
+                "return",
+                "import",
+                "from",
+                "for",
+                "while",
+                "with",
+            }:
+                continue
+            targets = sym_index.get(name, [])
+            for tid in targets:
+                if tid.startswith(f"sym:{rel}#") or (rel, name) in seen_refs:
+                    continue
+                seen_refs.add((rel, name))
+                links.append(
+                    {
+                        "source": f"file:{rel}",
+                        "target": tid,
+                        "relation": "references",
+                        "confidence": "INFERRED",
+                        "source_file": rel,
+                    }
+                )
+                if len(seen_refs) >= 40 or len(links) >= GRAPH_MAX_NODES * 2:
+                    break
+            if len(seen_refs) >= 40 or len(links) >= GRAPH_MAX_NODES * 2:
+                break
+    rationale_refs: list[tuple[str, str, str]] = []
+    for rel in rels:
+        content = file_contents.get(rel, "")
+        if not content:
+            continue
+        for m in _GRAPH_TASK_REF_RE.finditer(content):
+            rationale_refs.append((rel, "task", m.group(1)))
+            if len(rationale_refs) >= 200:
+                break
+        for m in _GRAPH_ADR_REF_RE.finditer(content):
+            rationale_refs.append((rel, "adr", m.group(1)))
+            if len(rationale_refs) >= 200:
+                break
+    task_rel_by_id: dict[str, str] = {}
+    for cand_dir in ("backlog", "in-progress", "qa", "completed", "archive"):
+        tdir = workspace_root / "tasks" / cand_dir
+        if not tdir.is_dir():
+            continue
+        try:
+            for md in tdir.glob("*.md"):
+                mm = re.match(r"^(\d+)-", md.name)
+                if mm:
+                    task_rel_by_id.setdefault(
+                        mm.group(1).lstrip("0") or "0",
+                        md.resolve().relative_to(workspace_root).as_posix(),
+                    )
+        except OSError:
+            continue
+    node_ids = {n["id"] for n in nodes}
+    seen_rat: set[tuple[str, str]] = set()
+    for rel, kind, num in rationale_refs:
+        target: str | None = None
+        if kind == "task":
+            trel = task_rel_by_id.get(num.lstrip("0") or "0")
+            if trel:
+                target = f"file:{trel}"
+        else:
+            needle = f"adr-{int(num):03d}"
+            for n in nodes:
+                if n["id"].startswith("sec:") and needle in n["label"].lower():
+                    target = n["id"]
+                    break
+        if target and target in node_ids and len(links) < GRAPH_MAX_NODES * 2:
+            if (rel, target) in seen_rat:
+                continue
+            seen_rat.add((rel, target))
+            links.append(
+                {
+                    "source": f"file:{rel}",
+                    "target": target,
+                    "relation": "rationale_for",
+                    "confidence": "INFERRED",
+                    "source_file": rel,
+                }
+            )
+    table_ids: dict[str, str] = {}
+    for n in nodes:
+        if n.get("kind") in ("table", "view"):
+            table_ids.setdefault(n["label"], n["id"])
+    pruned: list[dict] = []
+    for e in links:
+        if e["target"].startswith("sqlref:"):
+            tname = e["target"][len("sqlref:") :]
+            tid = table_ids.get(tname)
+            if tid is None:
+                continue
+            e = {**e, "target": tid}
+        pruned.append(e)
+    return {"nodes": nodes, "links": pruned}
+
+
+def _graph_degrees(data: dict) -> dict[str, int]:
+    deg: dict[str, int] = {}
+    for n in data.get("nodes", []):
+        deg[n["id"]] = 0
+    for e in data.get("links", []):
+        deg[e["source"]] = deg.get(e["source"], 0) + 1
+        deg[e["target"]] = deg.get(e["target"], 0) + 1
+    return deg
+
+
+def _save_graph(
+    workspace_root: Path, data: dict, target_label: str
+) -> tuple[Path, Path]:
+    report_dir = workspace_root / "context-reports"
+    report_dir.mkdir(parents=True, exist_ok=True)
+    timestamp = time.strftime("%Y%m%d_%H%M%S")
+    unique = uuid.uuid4().hex[:8]
+    json_path = report_dir / f"graph_{timestamp}_{unique}.json"
+    md_path = report_dir / f"graph_report_{timestamp}_{unique}.md"
+    envelope = {
+        "nodes": sorted(data.get("nodes", []), key=lambda n: n["id"]),
+        "links": sorted(
+            data.get("links", []),
+            key=lambda e: (e["source"], e["target"], e["relation"]),
+        ),
+        "graph": {
+            "schema_version": GRAPH_SCHEMA_VERSION,
+            "graphify_version": None,
+            "root": target_label,
+        },
+    }
+    with open(json_path, "w", encoding="utf-8") as f:
+        json.dump(envelope, f, indent=1, sort_keys=False)
+    deg = _graph_degrees(envelope)
+    id2node = {n["id"]: n for n in envelope["nodes"]}
+    sym_rank = sorted(
+        ((d, nid) for nid, d in deg.items() if nid.startswith("sym:")), reverse=True
+    )[:10]
+    ext = sum(1 for e in envelope["links"] if e.get("confidence") == "EXTRACTED")
+    inf = sum(1 for e in envelope["links"] if e.get("confidence") == "INFERRED")
+    amb = len(envelope["links"]) - ext - inf
+    n_docs = sum(1 for n in envelope["nodes"] if n.get("file_type") == "document")
+    n_code = len(envelope["nodes"]) - n_docs
+    lines = [
+        f"# Graph Report - {target_label}",
+        "",
+        f"- **Generated:** {timestamp}",
+        f"- **Schema:** {GRAPH_SCHEMA_VERSION}",
+        f"- **Nodes:** {len(envelope['nodes'])} **Edges:** {len(envelope['links'])}",
+        f"- **Documents:** {n_docs} doc nodes ({n_code} code)",
+        f"- **Confidence:** EXTRACTED {ext} / INFERRED {inf} / AMBIGUOUS {amb}",
+        "",
+        "## God nodes (top by degree)",
+        "",
+    ]
+    for d, nid in sym_rank:
+        n = id2node.get(nid, {})
+        lines.append(
+            f"- {n.get('label', nid)} (degree {d}, {n.get('source_file', '?')})"
+        )
+    lines += [
+        "",
+        "## How to query",
+        "",
+        "- `query_graph` for scoped subgraphs",
+        "- `explain_node` for one concept",
+        "- `shortest_path` to trace two concepts",
+        "",
+    ]
+    md_path.write_text("\n".join(lines), encoding="utf-8")
+    return json_path, md_path
+
+
+def _resolve_graph_file(workspace_root: Path, graph_path: str | None) -> Path | None:
+    report_dir = workspace_root / "context-reports"
+    if graph_path:
+        p = Path(graph_path)
+        cand = p if p.is_absolute() else workspace_root / p
+        try:
+            cand.resolve().relative_to(workspace_root)
+        except ValueError:
+            return None
+        if cand.is_file():
+            return cand
+        alt = report_dir / p.name
+        if alt.is_file():
+            return alt
+        return None
+    if not report_dir.is_dir():
+        return None
+    cands = sorted(
+        report_dir.glob("graph_*.json"), key=lambda q: q.stat().st_mtime, reverse=True
+    )
+    return cands[0] if cands else None
+
+
+def _load_graph_data(
+    workspace_root: Path, graph_path: str | None
+) -> tuple[dict | None, Path | None, str | None]:
+    gp = _resolve_graph_file(workspace_root, graph_path)
+    if gp is None:
+        return None, None, "No graph found. Run build_graph first."
+    try:
+        data = json.loads(gp.read_text(encoding="utf-8"))
+        return data, gp, None
+    except Exception as e:
+        return None, gp, f"Error reading graph {gp}: {e}"
+
+
+def _graph_tokens(text: str) -> set[str]:
+    """Split identifiers so natural words match code: snake_case parts plus
+    camelCase parts, lowercased, minimum length 3. Deterministic."""
+    toks: set[str] = set()
+    for raw in re.findall(r"[A-Za-z0-9]+", text):
+        for part in _GRAPH_TOKEN_SPLIT_RE.split(raw):
+            for sub in part.split("_"):
+                t = sub.lower()
+                if len(t) >= 3:
+                    toks.add(t)
+    return toks
+
+
+def _find_graph_nodes(nodes: list[dict], label: str) -> list[dict]:
+    ll = label.lower()
+    exact = [n for n in nodes if n.get("label", "").lower() == ll]
+    if exact:
+        return exact
+    return [n for n in nodes if ll in n.get("label", "").lower()][:5]
+
+
+def _graph_neighbors(
+    data: dict, nid: str
+) -> tuple[list[tuple[dict, dict]], list[tuple[dict, dict]]]:
+    id2n = {n["id"]: n for n in data.get("nodes", [])}
+    out: list[tuple[dict, dict]] = []
+    inc: list[tuple[dict, dict]] = []
+    for e in data.get("links", []):
+        if e["source"] == nid and e["target"] in id2n:
+            out.append((e, id2n[e["target"]]))
+        elif e["target"] == nid and e["source"] in id2n:
+            inc.append((e, id2n[e["source"]]))
+    return out, inc
+
+
+def _graph_bfs_path(
+    data: dict, src: str, tgt: str, directed: bool = True
+) -> list[tuple[str, dict, str]] | None:
+    from collections import deque
+
+    adj: dict[str, list[tuple[str, dict]]] = {}
+    for e in data.get("links", []):
+        adj.setdefault(e["source"], []).append((e["target"], e))
+        if not directed:
+            adj.setdefault(e["target"], []).append((e["source"], e))
+    if src not in adj and src not in {n["id"] for n in data.get("nodes", [])}:
+        return None
+    prev: dict[str, tuple[str, dict]] = {src: ("", {})}
+    dq = deque([src])
+    while dq:
+        cur = dq.popleft()
+        if cur == tgt:
+            break
+        for nxt, e in sorted(adj.get(cur, []), key=lambda x: x[0]):
+            if nxt not in prev:
+                prev[nxt] = (cur, e)
+                dq.append(nxt)
+    if tgt not in prev:
+        return None
+    path: list[tuple[str, dict, str]] = []
+    cur = tgt
+    while cur != src:
+        pc, e = prev[cur]
+        path.append((pc, e, cur))
+        cur = pc
+    path.reverse()
+    return path
+
 
 @_project_tool
-def read_source_files(paths: list[str], max_size: int = 1048576, no_line_numbers: bool = False, project_root: str | None = None) -> str:
+def build_graph(target_path: str = ".", project_root: str | None = None) -> str:
+    """Builds a unified deterministic knowledge-graph (code incl. SQL plus Markdown docs: files + symbols + sections, contains/imports/references with EXTRACTED/INFERRED tags) and saves versioned graph.json plus a markdown report under context-reports/. Use before query_graph/explain_node/shortest_path/god_nodes. project_root scopes the scan; target_path scopes the subgraph."""
+    if not isinstance(target_path, str):
+        target_path = "."
+    try:
+        workspace_root = _explicit_project_root(project_root, "build_graph")
+    except ValueError as e:
+        return f"Error: {e}"
+    _ensure_context_reports_ignored(workspace_root)
+    tgt = (
+        Path(target_path)
+        if Path(target_path).is_absolute()
+        else workspace_root / target_path
+    )
+    try:
+        tgt = tgt.resolve()
+        tgt.relative_to(workspace_root)
+    except ValueError:
+        return "Error: Path traversal detected. target_path must be within the project workspace."
+    if not tgt.exists():
+        return f"Error: {target_path} not found."
+    started = time.monotonic()
+    data = _build_graph_data(workspace_root, tgt if tgt.is_dir() else tgt.parent)
+    json_path, md_path = _save_graph(workspace_root, data, str(tgt))
+    dur = time.monotonic() - started
+    return f"✅ Success: Graph built for `{tgt}`.\n📊 {len(data['nodes'])} nodes, {len(data['links'])} links in {dur:.2f}s (schema {GRAPH_SCHEMA_VERSION}, caps files {GRAPH_MAX_FILES}).\n📁 Graph: `{json_path}`\n📁 Report: `{md_path}`"
+
+
+def _graph_vocab(data: dict, limit: int = 500) -> list[str]:
+    """Sorted vocabulary tokens from node labels. Powers zero-hit hints."""
+    vocab: set[str] = set()
+    for n in data.get("nodes", []):
+        vocab |= _graph_tokens(n.get("label", ""))
+        if len(vocab) >= limit:
+            break
+    return sorted(vocab)
+
+
+def _suggest_vocab_tokens(
+    vocab: list[str], toks: set[str], limit: int = 8
+) -> list[str]:
+    hints: list[str] = []
+    for t in sorted(toks):
+        for v in vocab:
+            if v.startswith(t) or t in v or t.startswith(v):
+                if v not in hints:
+                    hints.append(v)
+                if len(hints) >= limit:
+                    return hints
+    return hints
+
+
+@_project_tool
+def query_graph(
+    question: str,
+    graph_path: str | None = None,
+    top_n: int = 10,
+    mode: str = "bfs",
+    project_root: str | None = None,
+) -> str:
+    """Queries the lite graph with plain words: scores nodes by token overlap, then traverses (bfs: 2-hop fan-out for 'what connects to X'; dfs: depth-6 chains for 'how does X reach Y') and returns a scoped subgraph. Zero hits suggest closest vocabulary tokens. Run build_graph first. Pass graph_path to pin a graph file, else the latest in context-reports/ is used."""
+    try:
+        workspace_root = _explicit_project_root(project_root, "query_graph")
+    except ValueError as e:
+        return f"Error: {e}"
+    if not isinstance(question, str) or not question.strip():
+        return "Error: question must be a non-empty string."
+    if mode not in ("bfs", "dfs"):
+        return "Error: mode must be 'bfs' or 'dfs'."
+    data, gp, err = _load_graph_data(workspace_root, graph_path)
+    if err or data is None:
+        return f"Error: {err}"
+    toks = _graph_tokens(question)
+    scored: list[tuple[int, dict]] = []
+    for n in data.get("nodes", []):
+        nt = _graph_tokens(f"{n.get('label', '')} {n.get('source_file', '')}")
+        s = len(toks & nt)
+        if s > 0:
+            scored.append((s, n))
+    scored.sort(key=lambda x: (-x[0], x[1]["id"]))
+    seeds = [n for _, n in scored[:3]]
+    if not seeds:
+        hints = _suggest_vocab_tokens(_graph_vocab(data), toks)
+        hint_txt = f" Closest vocabulary: {', '.join(hints)}." if hints else ""
+        return f"No nodes matched '{question}' in `{gp}`.{hint_txt} Try build_graph on a wider target."
+    keep: dict[str, dict] = {}
+    keep_links: list[dict] = []
+    seen_link_keys: set[tuple[str, str, str]] = set()
+
+    def _add_link(e: dict) -> None:
+        key = (e["source"], e["target"], e["relation"])
+        if key not in seen_link_keys:
+            seen_link_keys.add(key)
+            keep_links.append(e)
+
+    if mode == "dfs":
+        adj: dict[str, list[tuple[str, dict]]] = {}
+        for e in data.get("links", []):
+            adj.setdefault(e["source"], []).append((e["target"], e))
+            adj.setdefault(e["target"], []).append((e["source"], e))
+        visited: set[str] = set()
+        stack: list[tuple[str, int]] = [(s["id"], 0) for s in reversed(seeds)]
+        id2n = {n["id"]: n for n in data.get("nodes", [])}
+        while stack and len(keep) < max(10, top_n * 3):
+            nid, depth = stack.pop()
+            if nid in visited or depth > 6 or nid not in id2n:
+                continue
+            visited.add(nid)
+            keep[nid] = id2n[nid]
+            if depth < 6:
+                for nxt, e in sorted(adj.get(nid, []), key=lambda x: x[0]):
+                    if nxt not in visited:
+                        _add_link(e)
+                        stack.append((nxt, depth + 1))
+    else:
+        for s in seeds:
+            keep[s["id"]] = s
+            out, inc = _graph_neighbors(data, s["id"])
+            for e, o in (out + inc)[:20]:
+                keep[o["id"]] = o
+                _add_link(e)
+                out2, inc2 = _graph_neighbors(data, o["id"])
+                for e2, o2 in (out2 + inc2)[:5]:
+                    if len(keep) >= max(10, top_n * 3):
+                        break
+                    keep[o2["id"]] = o2
+                    _add_link(e2)
+    lines = [
+        f"Query ({mode}): {question}",
+        f"Graph: `{gp}`",
+        f"Seeds: {', '.join(s.get('label', '?') for s in seeds)}",
+        "",
+        f"Nodes ({len(keep)}):",
+    ]
+    for nid in sorted(keep)[: max(10, top_n * 3)]:
+        n = keep[nid]
+        lines.append(
+            f"- {n.get('label')} [{n.get('file_type', '?')}] {n.get('source_file', '')} {n.get('source_location', '')}"
+        )
+    lines.append("")
+    lines.append(f"Edges ({len(keep_links)}):")
+    for e in keep_links[:50]:
+        lines.append(
+            f"- {e['source']} --{e['relation']}[{e['confidence']}]--> {e['target']}"
+        )
+    text = "\n".join(lines)
+    if len(text) > 8000:
+        text = (
+            text[:8000] + "\n... (truncated at output cap — narrow top_n or question)"
+        )
+    return text
+
+
+@_project_tool
+def explain_node(
+    label: str, graph_path: str | None = None, project_root: str | None = None
+) -> str:
+    """Explains one graph concept: source location, type, degree, and top connections with [relation][confidence]. Use after build_graph."""
+    try:
+        workspace_root = _explicit_project_root(project_root, "explain_node")
+    except ValueError as e:
+        return f"Error: {e}"
+    if not isinstance(label, str) or not label.strip():
+        return "Error: label must be a non-empty string."
+    data, gp, err = _load_graph_data(workspace_root, graph_path)
+    if err or data is None:
+        return f"Error: {err}"
+    matches = _find_graph_nodes(data.get("nodes", []), label)
+    if not matches:
+        return f"No node matching '{label}' in `{gp}`."
+    if len(matches) > 1:
+        opts = ", ".join(m.get("label", "?") for m in matches[:5])
+        return (
+            f"Ambiguous '{label}' ({len(matches)} matches: {opts}). Be more specific."
+        )
+    n = matches[0]
+    deg = _graph_degrees(data).get(n["id"], 0)
+    out, inc = _graph_neighbors(data, n["id"])
+    lines = [
+        f"Node: {n.get('label')}",
+        f"  ID: {n['id']}",
+        f"  Source: {n.get('source_file', '?')} {n.get('source_location', '')}",
+        f"  Type: {n.get('file_type', '?')}",
+        f"  Degree: {deg}",
+        "",
+        f"Connections ({len(out) + len(inc)}):",
+    ]
+    for e, o in (out + inc)[:20]:
+        arrow = "-->" if e["source"] == n["id"] else "<--"
+        lines.append(
+            f"  {arrow} {o.get('label')} [{e['relation']}] [{e['confidence']}] {o.get('source_file', '')}"
+        )
+    return "\n".join(lines)
+
+
+@_project_tool
+def shortest_path(
+    source: str,
+    target: str,
+    graph_path: str | None = None,
+    undirected: bool = False,
+    project_root: str | None = None,
+) -> str:
+    """Traces the shortest path between two graph concepts. Directed by default; pass undirected=True to ignore edge direction. Use after build_graph."""
+    try:
+        workspace_root = _explicit_project_root(project_root, "shortest_path")
+    except ValueError as e:
+        return f"Error: {e}"
+    data, gp, err = _load_graph_data(workspace_root, graph_path)
+    if err or data is None:
+        return f"Error: {err}"
+    sm = _find_graph_nodes(data.get("nodes", []), source)
+    tm = _find_graph_nodes(data.get("nodes", []), target)
+    if not sm:
+        return f"No node matching source '{source}'."
+    if not tm:
+        return f"No node matching target '{target}'."
+    if len(sm) > 1 or len(tm) > 1:
+        return f"Ambiguous endpoints (source {len(sm)}, target {len(tm)}). Be more specific."
+    path = _graph_bfs_path(data, sm[0]["id"], tm[0]["id"], directed=not undirected)
+    if not path:
+        return f"No path between '{source}' and '{target}' in `{gp}`."
+    id2n = {n["id"]: n for n in data.get("nodes", [])}
+    lines = [f"Shortest path ({len(path)} hops):"]
+    for a, e, b in path:
+        al = id2n.get(a, {}).get("label", a)
+        bl = id2n.get(b, {}).get("label", b)
+        rel = e.get("relation", "?")
+        conf = e.get("confidence", "?")
+        if e.get("source") == a:
+            lines.append(f"  {al} --{rel}[{conf}]--> {bl}")
+        else:
+            lines.append(f"  {al} <--{rel}[{conf}]-- {bl}")
+    return "\n".join(lines)
+
+
+@_project_tool
+def god_nodes(
+    top_n: int = 10, graph_path: str | None = None, project_root: str | None = None
+) -> str:
+    """Lists the most-connected symbol concepts (degree ranking, file hubs and trivial-helper noise excluded). Use after build_graph to find what everything flows through."""
+    try:
+        workspace_root = _explicit_project_root(project_root, "god_nodes")
+    except ValueError as e:
+        return f"Error: {e}"
+    try:
+        top_n = max(1, min(int(top_n), 50))
+    except Exception:
+        top_n = 10
+    data, gp, err = _load_graph_data(workspace_root, graph_path)
+    if err or data is None:
+        return f"Error: {err}"
+    deg = _graph_degrees(data)
+    id2n = {n["id"]: n for n in data.get("nodes", [])}
+
+    def _noisy(label: str) -> bool:
+        ll = label.lower()
+        return (ll.startswith("__") and ll.endswith("__")) or ll in _GRAPH_GOD_NOISE
+
+    ranked = sorted(
+        (
+            (d, nid)
+            for nid, d in deg.items()
+            if nid.startswith("sym:") and not _noisy(id2n.get(nid, {}).get("label", ""))
+        ),
+        reverse=True,
+    )[:top_n]
+    if not ranked:
+        return f"No symbol nodes in `{gp}`."
+    lines = [f"God nodes (top {len(ranked)}) in `{gp}`:"]
+    for d, nid in ranked:
+        n = id2n.get(nid, {})
+        lines.append(
+            f"- {n.get('label', '?')} (degree {d}, {n.get('source_file', '?')} {n.get('source_location', '')})"
+        )
+    return "\n".join(lines)
+
+
+@_project_tool
+def graph_stats(graph_path: str | None = None, project_root: str | None = None) -> str:
+    """Reports node/edge counts plus EXTRACTED/INFERRED/AMBIGUOUS split and schema version for a built graph."""
+    try:
+        workspace_root = _explicit_project_root(project_root, "graph_stats")
+    except ValueError as e:
+        return f"Error: {e}"
+    data, gp, err = _load_graph_data(workspace_root, graph_path)
+    if err or data is None:
+        return f"Error: {err}"
+    ext = sum(1 for e in data.get("links", []) if e.get("confidence") == "EXTRACTED")
+    inf = sum(1 for e in data.get("links", []) if e.get("confidence") == "INFERRED")
+    tot = len(data.get("links", []))
+    schema = (data.get("graph", {}) or {}).get("schema_version", "?")
+    return f"Graph: `{gp}`\nNodes: {len(data.get('nodes', []))} Edges: {tot} (EXTRACTED {ext} / INFERRED {inf} / AMBIGUOUS {tot - ext - inf})\nSchema: {schema}"
+
+
+@_project_tool
+def read_source_files(
+    paths: list[str],
+    max_size: int = 1048576,
+    no_line_numbers: bool = False,
+    project_root: str | None = None,
+) -> str:
     """Reads multiple source files/directories, compiles their contents into a Markdown file under context-reports/, and returns the report file path. Use when exact source content from named files is required. Returns a path, not inline content. Use extract_signatures instead for a structural outline without file bodies. project_root: absolute path to the calling project's repository root. Used to scope file resolution to that project. If omitted, falls back to the server working directory for backward compatibility."""
     try:
         workspace_root = _explicit_project_root(project_root, "read_source_files")
@@ -552,6 +1890,7 @@ def read_source_files(paths: list[str], max_size: int = 1048576, no_line_numbers
         f"Manager: You can now open `{report_file}` in your local editor to view the codebase context or copy/paste it directly for the AI."
     )
 
+
 @_project_tool
 def create_tree_report(target_path: str = ".", project_root: str | None = None) -> str:
     """Creates a .gitignore-aware directory tree of a path or the entire project and saves it as a Markdown file under context-reports/ (named tree_report_<timestamp>_<uuid>.md). Use when the Manager asks to 'create a tree of the project' or 'create a tree of <path>'. Security: target_path is resolved against the workspace root and rejected if it escapes the project (path traversal prevention). project_root: absolute path to the calling project's repository root. Used to scope file resolution to that project. If omitted, falls back to the server working directory for backward compatibility."""
@@ -616,6 +1955,7 @@ def create_tree_report(target_path: str = ".", project_root: str | None = None) 
         f"Manager: You can now open `{report_file}` in your local editor to view the project tree or copy/paste it directly for the AI."
     )
 
+
 @_project_tool
 def extract_signatures(file_path: str, project_root: str | None = None) -> str:
     """Extracts structural signatures (classes, functions, methods) from source files using tree-sitter AST. Falls back to regex when no tree-sitter grammar is available for the language. Saves the result to a Markdown file under context-reports/ and returns the report file path. Use for a structural API outline without file bodies. Use read_source_files instead when full source content is required. project_root: absolute path to the calling project's repository root. Used to scope file resolution to that project. If omitted, falls back to the server working directory for backward compatibility."""
@@ -654,19 +1994,22 @@ def extract_signatures(file_path: str, project_root: str | None = None) -> str:
         if result_content is None:
             # Read the RESOLVED path: under the singleton the raw relative
             # file_path resolves against the server cwd, not the project root.
-            with open(path, 'r', encoding='utf-8') as f:
+            with open(path, "r", encoding="utf-8") as f:
                 content = f.read()
 
             # Match class, function, def, interface, type — with access modifiers
             pattern = re.compile(
-                r'^(?:\s*(?:export|default|public|private|protected|internal|pub|static|abstract|final|override|inline|open|suspend)\s+)*'
-                r'(?:class|struct|enum|trait|impl|interface|type|def|fun|func(?:tion)?)\s+\w+.*$',
-                re.MULTILINE
+                r"^(?:\s*(?:export|default|public|private|protected|internal|pub|static|abstract|final|override|inline|open|suspend)\s+)*"
+                r"(?:class|struct|enum|trait|impl|interface|type|def|fun|func(?:tion)?)\s+\w+.*$",
+                re.MULTILINE,
             )
             matches = pattern.findall(content)
 
             # Match const/let arrow functions
-            arrow_pattern = re.compile(r'^(?:export\s+)?(?:const|let)\s+\w+\s*=\s*(?:async\s*)?(?:\([^)]*\)|[^=]*)\s*=>.*$', re.MULTILINE)
+            arrow_pattern = re.compile(
+                r"^(?:export\s+)?(?:const|let)\s+\w+\s*=\s*(?:async\s*)?(?:\([^)]*\)|[^=]*)\s*=>.*$",
+                re.MULTILINE,
+            )
             arrow_matches = arrow_pattern.findall(content)
 
             all_matches = matches + arrow_matches
@@ -696,6 +2039,7 @@ def extract_signatures(file_path: str, project_root: str | None = None) -> str:
     except Exception as e:
         return f"Error extracting signatures from {file_path}: {str(e)}"
 
+
 def _repo_root(start_path: str, project_root: str | None = None) -> Path:
     """Resolve the git repo root for git subprocess calls.
 
@@ -708,7 +2052,9 @@ def _repo_root(start_path: str, project_root: str | None = None) -> Path:
     if project_root:
         return Path(project_root).resolve()
     p = Path(start_path)
-    start = (p if p.is_dir() else p.parent) if p.is_absolute() else (Path.cwd() / p).parent
+    start = (
+        (p if p.is_dir() else p.parent) if p.is_absolute() else (Path.cwd() / p).parent
+    )
     for cand in [start, *start.parents]:
         if (cand / ".git").exists():
             return cand
@@ -726,8 +2072,10 @@ def _explicit_project_root(project_root: str | None, tool_name: str) -> Path:
     if project_root is None:
         root = Path.cwd().resolve()
         _FALLBACK_FIRED.set(True)
-        print(f"Warning: {tool_name}: project_root omitted, falling back to server cwd {root}",
-              file=sys.stderr)
+        print(
+            f"Warning: {tool_name}: project_root omitted, falling back to server cwd {root}",
+            file=sys.stderr,
+        )
         return root
     if not isinstance(project_root, str) or not project_root:
         raise ValueError("project_root must be a non-empty absolute path string.")
@@ -735,12 +2083,16 @@ def _explicit_project_root(project_root: str | None, tool_name: str) -> Path:
         raise ValueError(f"project_root must be absolute, got: {project_root!r}.")
     root = Path(project_root).resolve()
     if not root.is_dir():
-        raise ValueError(f"project_root must be an existing directory, got: {project_root!r}.")
+        raise ValueError(
+            f"project_root must be an existing directory, got: {project_root!r}."
+        )
     return root
 
 
 @_project_tool
-def stage_and_inject_diff(task_file_path: str, modified_files: list[str] = [], project_root: str | None = None) -> str:
+def stage_and_inject_diff(
+    task_file_path: str, modified_files: list[str] = [], project_root: str | None = None
+) -> str:
     """Stages ONLY the explicitly listed modified files plus the task file, then intelligently injects the staged diff into the task file's Git Diff block.
 
     F5 fix (Task 90): explicit path scoping replaces the old blind `git add -A .`,
@@ -755,35 +2107,47 @@ def stage_and_inject_diff(task_file_path: str, modified_files: list[str] = [], p
         #    This prevents cross-session contamination and keeps the diff table clean for the Brain.
         files_to_stage = modified_files + [task_file_path]
         repo = str(_repo_root(task_file_path, project_root))
-        subprocess.run(["git", "add", "--"] + files_to_stage, check=True, capture_output=True, cwd=repo)
-        
+        subprocess.run(
+            ["git", "add", "--"] + files_to_stage,
+            check=True,
+            capture_output=True,
+            cwd=repo,
+        )
+
         # 2. Extract the diff (EXCLUDING the entire tasks/ directory to prevent recursive diff bloat)
         # Using git pathspec magic ':!tasks/' to ignore the entire task folder
         diff_cmd = ["git", "diff", "--staged", "--", ".", ":!tasks/"]
-        diff_process = subprocess.run(diff_cmd, capture_output=True, text=True, cwd=repo)
+        diff_process = subprocess.run(
+            diff_cmd, capture_output=True, text=True, cwd=repo
+        )
         diff_text = diff_process.stdout.strip()
-        
+
         if not diff_text:
             diff_text = "No code changes detected or staged."
-            
+
         diff_block = f"\n```diff\n{diff_text}\n```\n"
 
         # 3. Read the task file
-        with open(task_file_path, 'r', encoding='utf-8') as f:
+        with open(task_file_path, "r", encoding="utf-8") as f:
             content = f.read()
 
         # 4. Smart Replacement using Regex (greedy match from first BEGIN to last END)
         # Using greedy .* to consume everything between the first BEGIN and the LAST END marker,
         # preventing corruption when injected diff content itself contains 'END_GIT_DIFF'
-        pattern = re.compile(r'<!-- BEGIN_GIT_DIFF -->.*<!-- END_GIT_DIFF -->', re.DOTALL)
-        
+        pattern = re.compile(
+            r"<!-- BEGIN_GIT_DIFF -->.*<!-- END_GIT_DIFF -->", re.DOTALL
+        )
+
         if not pattern.search(content):
             return f"Error: Could not find the <!-- BEGIN_GIT_DIFF --> markers in {task_file_path}. Did you alter the template?"
 
-        new_content = pattern.sub(lambda m: f'<!-- BEGIN_GIT_DIFF -->{diff_block}<!-- END_GIT_DIFF -->', content)
+        new_content = pattern.sub(
+            lambda m: f"<!-- BEGIN_GIT_DIFF -->{diff_block}<!-- END_GIT_DIFF -->",
+            content,
+        )
 
         # 5. Write back to the task file
-        with open(task_file_path, 'w', encoding='utf-8') as f:
+        with open(task_file_path, "w", encoding="utf-8") as f:
             f.write(new_content)
 
         return f"✅ Success: Changes staged and factual diff intelligently injected into {task_file_path}."
@@ -791,8 +2155,11 @@ def stage_and_inject_diff(task_file_path: str, modified_files: list[str] = [], p
     except Exception as e:
         return f"❌ Error staging or updating task file: {str(e)}"
 
+
 @_project_tool
-def qa_transition(task_file_path: str, modified_files: list[str] = [], project_root: str | None = None) -> str:
+def qa_transition(
+    task_file_path: str, modified_files: list[str] = [], project_root: str | None = None
+) -> str:
     """
     Atomically transitions a task from tasks/in-progress/ to tasks/qa/:
     1. Validates path and ensures task resides in tasks/in-progress/
@@ -833,7 +2200,9 @@ def qa_transition(task_file_path: str, modified_files: list[str] = [], project_r
 
         task_name = src_resolved.name
         if not task_name.endswith(".md"):
-            return f"❌ Error: task file must be a Markdown file (*.md), got: {task_name}"
+            return (
+                f"❌ Error: task file must be a Markdown file (*.md), got: {task_name}"
+            )
 
         dest = workspace_root / "tasks" / "qa" / task_name
         expected_header = f"tasks/qa/{task_name}"
@@ -841,9 +2210,16 @@ def qa_transition(task_file_path: str, modified_files: list[str] = [], project_r
 
         # 2. Move task file to tasks/qa/ via git mv (fallback to shutil.move + git add)
         try:
-            result = subprocess.run(["git", "mv", str(src_resolved), str(dest)], capture_output=True, text=True, cwd=str(workspace_root))
+            result = subprocess.run(
+                ["git", "mv", str(src_resolved), str(dest)],
+                capture_output=True,
+                text=True,
+                cwd=str(workspace_root),
+            )
             if result.returncode != 0:
-                raise RuntimeError(result.stderr.strip() or result.stdout.strip() or "git mv failed")
+                raise RuntimeError(
+                    result.stderr.strip() or result.stdout.strip() or "git mv failed"
+                )
         except Exception as e:
             # Fallback for untracked files or git mv failure
             if not src_resolved.exists():
@@ -857,7 +2233,12 @@ def qa_transition(task_file_path: str, modified_files: list[str] = [], project_r
                 if src_resolved.exists():
                     shutil.move(str(src_resolved), str(dest))
                 # Stage the moved file
-                subprocess.run(["git", "add", "--", str(dest)], check=True, capture_output=True, cwd=str(workspace_root))
+                subprocess.run(
+                    ["git", "add", "--", str(dest)],
+                    check=True,
+                    capture_output=True,
+                    cwd=str(workspace_root),
+                )
             except Exception as move_err:
                 return f"❌ Error: Fallback move failed: {src_resolved} → {dest}: {move_err}"
 
@@ -869,7 +2250,9 @@ def qa_transition(task_file_path: str, modified_files: list[str] = [], project_r
         header_pattern = re.compile(r"\*\*File:\*\*\s*`[^`]+`")
         if not header_pattern.search(content):
             return f"❌ Error: Could not find **File:** header in {dest}"
-        new_content_header = header_pattern.sub(f"**File:** `{expected_header}`", content, count=1)
+        new_content_header = header_pattern.sub(
+            f"**File:** `{expected_header}`", content, count=1
+        )
         try:
             dest.write_text(new_content_header, encoding="utf-8")
         except Exception as e:
@@ -878,13 +2261,23 @@ def qa_transition(task_file_path: str, modified_files: list[str] = [], project_r
         # 4. Stages modified_files + destination task file (explicit staging)
         files_to_stage = list(modified_files) + [str(dest)]
         try:
-            subprocess.run(["git", "add", "--"] + files_to_stage, check=True, capture_output=True, cwd=str(workspace_root))
+            subprocess.run(
+                ["git", "add", "--"] + files_to_stage,
+                check=True,
+                capture_output=True,
+                cwd=str(workspace_root),
+            )
         except subprocess.CalledProcessError as e:
             return f"❌ Error staging files {files_to_stage}: {e.stderr.decode() if hasattr(e.stderr, 'decode') else e.stderr}"
 
         # 5. Extracts staged diff excluding tasks/ (:!tasks/)
         try:
-            diff_proc = subprocess.run(["git", "diff", "--staged", "--", ".", ":!tasks/"], capture_output=True, text=True, cwd=str(workspace_root))
+            diff_proc = subprocess.run(
+                ["git", "diff", "--staged", "--", ".", ":!tasks/"],
+                capture_output=True,
+                text=True,
+                cwd=str(workspace_root),
+            )
             diff_text = diff_proc.stdout.strip()
         except Exception as e:
             return f"❌ Error extracting staged diff: {e}"
@@ -897,17 +2290,27 @@ def qa_transition(task_file_path: str, modified_files: list[str] = [], project_r
             content_after_header = dest.read_text(encoding="utf-8")
         except Exception as e:
             return f"❌ Error re-reading task file for diff injection: {e}"
-        diff_pattern = re.compile(r"<!-- BEGIN_GIT_DIFF -->.*<!-- END_GIT_DIFF -->", re.DOTALL)
+        diff_pattern = re.compile(
+            r"<!-- BEGIN_GIT_DIFF -->.*<!-- END_GIT_DIFF -->", re.DOTALL
+        )
         if not diff_pattern.search(content_after_header):
             return f"❌ Error: Could not find <!-- BEGIN_GIT_DIFF --> markers in {dest}"
-        new_content_final = diff_pattern.sub(lambda m: f"<!-- BEGIN_GIT_DIFF -->{diff_block}<!-- END_GIT_DIFF -->", content_after_header)
+        new_content_final = diff_pattern.sub(
+            lambda m: f"<!-- BEGIN_GIT_DIFF -->{diff_block}<!-- END_GIT_DIFF -->",
+            content_after_header,
+        )
         try:
             dest.write_text(new_content_final, encoding="utf-8")
         except Exception as e:
             return f"❌ Error writing diff injection to {dest}: {e}"
         # Re-stage the task file after injection so final QA state is staged (header + diff)
         try:
-            subprocess.run(["git", "add", "--", str(dest)], check=True, capture_output=True, cwd=str(workspace_root))
+            subprocess.run(
+                ["git", "add", "--", str(dest)],
+                check=True,
+                capture_output=True,
+                cwd=str(workspace_root),
+            )
         except Exception as e:
             return f"❌ Error re-staging QA task file after injection: {e}"
 
@@ -928,7 +2331,11 @@ def qa_transition(task_file_path: str, modified_files: list[str] = [], project_r
         except Exception as e:
             return f"❌ Error validating header: {e}"
 
-        files_str = ", ".join(modified_files) if modified_files else "(no code files — diff will be sentinel)"
+        files_str = (
+            ", ".join(modified_files)
+            if modified_files
+            else "(no code files — diff will be sentinel)"
+        )
         return (
             f"✅ QA transition complete: {task_file_path} → {expected_header}\n"
             f"   Staged files: {files_str}\n"
@@ -938,6 +2345,7 @@ def qa_transition(task_file_path: str, modified_files: list[str] = [], project_r
     except Exception as e:
         return f"❌ Unexpected error in qa_transition: {str(e)}"
 
+
 def _derive_task_slug(task_file_path: str) -> str:
     """Derives a 'task <NN> - <slug>' label from a task file name (e.g. '78-fix-bug.md' -> 'task 78 - fix bug')."""
     name = Path(task_file_path).stem
@@ -946,14 +2354,20 @@ def _derive_task_slug(task_file_path: str) -> str:
         return f"task {parts[0]} - {parts[1].replace('-', ' ')}"
     return f"task - {name.replace('-', ' ')}"
 
+
 # Conventional Commits enforcement (Task 211): `commit_and_clean_task` is the
 # ONLY commit path, so the caller-supplied feature message is validated here
 # against skill-templates/versioning-and-release (`type: subject`, ≤72 chars).
 _CONVENTIONAL_RE = re.compile(r"^(feat|fix|docs|refactor|chore): \S.*$")
 
+
 def _check_conventional_commit(commit_message: str) -> Optional[str]:
     """Returns an error string when commit_message violates Conventional Commits, else None."""
-    first_line = commit_message.splitlines()[0] if commit_message and commit_message.strip() else ""
+    first_line = (
+        commit_message.splitlines()[0]
+        if commit_message and commit_message.strip()
+        else ""
+    )
     if not _CONVENTIONAL_RE.match(first_line):
         return (
             "❌ Commit message rejected: must match Conventional Commits "
@@ -967,8 +2381,11 @@ def _check_conventional_commit(commit_message: str) -> Optional[str]:
         )
     return None
 
+
 @_project_tool
-def commit_and_clean_task(task_file_path: str, commit_message: str, project_root: str | None = None) -> str:
+def commit_and_clean_task(
+    task_file_path: str, commit_message: str, project_root: str | None = None
+) -> str:
     """Commits staged changes, captures the feature commit hash, replaces the raw diff in the task file with the hash reference, and commits the cleaned task file as a separate closure commit. The stored hash always points to the feature commit, which stays reachable forever (no amend, no orphaned commits)."""
     try:
         # 0. Idempotency guard: skip if the task file was already cleaned.
@@ -982,11 +2399,11 @@ def commit_and_clean_task(task_file_path: str, commit_message: str, project_root
         if not path.is_absolute():
             path = Path(repo) / path
         if path.is_file():
-            with open(path, 'r', encoding='utf-8') as f:
+            with open(path, "r", encoding="utf-8") as f:
                 existing = f.read()
             cleaned_block = re.compile(
-                r'<!-- BEGIN_GIT_DIFF -->\s*\*\*Factual Git Diff:\*\* Stored in Commit Hash: `[0-9a-f]{7,40}`\s*<!-- END_GIT_DIFF -->',
-                re.DOTALL
+                r"<!-- BEGIN_GIT_DIFF -->\s*\*\*Factual Git Diff:\*\* Stored in Commit Hash: `[0-9a-f]{7,40}`\s*<!-- END_GIT_DIFF -->",
+                re.DOTALL,
             )
             if cleaned_block.search(existing):
                 return "⚠️ Task file already cleaned (Stored in Commit Hash present). Nothing to commit."
@@ -999,41 +2416,70 @@ def commit_and_clean_task(task_file_path: str, commit_message: str, project_root
             return conventional_error
 
         # 0.5 Safety check before commit
-        staged_check = subprocess.run(["git", "diff", "--staged", "--quiet"], capture_output=True, cwd=repo)
+        staged_check = subprocess.run(
+            ["git", "diff", "--staged", "--quiet"], capture_output=True, cwd=repo
+        )
         if staged_check.returncode == 0:
             return "⚠️ No staged changes to commit."
 
         # 1. Commit staged changes (feature commit H1)
-        subprocess.run(["git", "commit", "-m", commit_message], check=True, capture_output=True, text=True, cwd=repo)
+        subprocess.run(
+            ["git", "commit", "-m", commit_message],
+            check=True,
+            capture_output=True,
+            text=True,
+            cwd=repo,
+        )
 
         # 2. Capture H1 — the feature commit hash. It stays reachable forever
         #    as the parent of the closure commit (step 5). NEVER amend it.
-        hash_proc = subprocess.run(["git", "rev-parse", "HEAD"], check=True, capture_output=True, text=True, cwd=repo)
+        hash_proc = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            check=True,
+            capture_output=True,
+            text=True,
+            cwd=repo,
+        )
         commit_hash = hash_proc.stdout.strip()
 
         # 3. Read task file and replace raw diff with the hash reference
         if path.is_file():
-            with open(path, 'r', encoding='utf-8') as f:
+            with open(path, "r", encoding="utf-8") as f:
                 content = f.read()
 
-            pattern = re.compile(r'<!-- BEGIN_GIT_DIFF -->.*<!-- END_GIT_DIFF -->', re.DOTALL)
+            pattern = re.compile(
+                r"<!-- BEGIN_GIT_DIFF -->.*<!-- END_GIT_DIFF -->", re.DOTALL
+            )
             if pattern.search(content):
                 clean_block = f"<!-- BEGIN_GIT_DIFF -->\n**Factual Git Diff:** Stored in Commit Hash: `{commit_hash}`\n<!-- END_GIT_DIFF -->"
                 new_content = pattern.sub(clean_block, content)
 
-                with open(path, 'w', encoding='utf-8') as f:
+                with open(path, "w", encoding="utf-8") as f:
                     f.write(new_content)
 
         # 4. Stage the cleaned task file ONLY (F5 fix: never `git add -A tasks/`,
         #    which swept foreign/parallel-session task files into this commit).
-        subprocess.run(["git", "add", "--", task_file_path], check=True, capture_output=True, cwd=repo)
+        subprocess.run(
+            ["git", "add", "--", task_file_path],
+            check=True,
+            capture_output=True,
+            cwd=repo,
+        )
 
         # 5. Commit the cleaned task file as a separate closure commit.
         #    A plain commit (NOT --amend) keeps H1 reachable from HEAD.
         slug = _derive_task_slug(task_file_path)
-        staged_after = subprocess.run(["git", "diff", "--staged", "--quiet"], capture_output=True)
+        staged_after = subprocess.run(
+            ["git", "diff", "--staged", "--quiet"], capture_output=True
+        )
         if staged_after.returncode != 0:
-            subprocess.run(["git", "commit", "-m", f"chore: close {slug}"], check=True, capture_output=True, text=True, cwd=repo)
+            subprocess.run(
+                ["git", "commit", "-m", f"chore: close {slug}"],
+                check=True,
+                capture_output=True,
+                text=True,
+                cwd=repo,
+            )
 
         return f"✅ Success: Code committed (Hash: `{commit_hash}`). Task file {task_file_path} cleaned; closure commit `chore: close {slug}` created on top."
     except subprocess.CalledProcessError as e:
@@ -1053,9 +2499,12 @@ DIFF_SIZE_WARNING_THRESHOLD = 400
 def _kebab_case(text: str) -> str:
     """Convert arbitrary title to kebab-case slug (B4: supports Unicode/Persian)."""
     import unicodedata
+
     normalized = unicodedata.normalize("NFKD", text)
     slug = normalized.lower().strip()
-    slug = re.sub(r"[^a-z0-9\u0600-\u06FF\u0750-\u077F\uFB50-\uFDFF\uFE70-\uFEFF]+", "-", slug)
+    slug = re.sub(
+        r"[^a-z0-9\u0600-\u06FF\u0750-\u077F\uFB50-\uFDFF\uFE70-\uFEFF]+", "-", slug
+    )
     slug = re.sub(r"-{2,}", "-", slug)
     slug = slug.strip("-")
     return slug or "bundle"
@@ -1093,7 +2542,11 @@ def _find_task_file(task_id: str, tasks_root: Path = Path("tasks")) -> Path | No
     if len(candidates) > 1:
         return None  # B2: hard halt — duplicate active IDs
     # Check archive for better error (already archived)
-    for md in (tasks_root / "archive").glob("*.md") if (tasks_root / "archive").is_dir() else []:
+    for md in (
+        (tasks_root / "archive").glob("*.md")
+        if (tasks_root / "archive").is_dir()
+        else []
+    ):
         m = re.match(r"^(\d+)-", md.name)
         if m and m.group(1).lstrip("0") == norm:
             return None
@@ -1101,7 +2554,10 @@ def _find_task_file(task_id: str, tasks_root: Path = Path("tasks")) -> Path | No
 
 
 def _extract_section(content: str, heading: str) -> str | None:
-    pattern = re.compile(rf"^## {re.escape(heading)}\s*$\n(.*?)(?=^## |\n---\s*\n|\Z)", re.MULTILINE | re.DOTALL)
+    pattern = re.compile(
+        rf"^## {re.escape(heading)}\s*$\n(.*?)(?=^## |\n---\s*\n|\Z)",
+        re.MULTILINE | re.DOTALL,
+    )
     m = pattern.search(content)
     return m.group(1).strip() if m else None
 
@@ -1127,7 +2583,12 @@ def _extract_checklist_with_continuations(section_text: str) -> list[str]:
             in_checklist = True
             result.append(stripped)
         elif in_checklist:
-            if stripped and not line.startswith("- [") and not stripped.startswith("## ") and not stripped.startswith("---"):
+            if (
+                stripped
+                and not line.startswith("- [")
+                and not stripped.startswith("## ")
+                and not stripped.startswith("---")
+            ):
                 result.append(line)
             else:
                 in_checklist = False
@@ -1140,7 +2601,10 @@ def _extract_checklist_with_continuations(section_text: str) -> list[str]:
 def _detect_stack(content: str) -> str | None:
     """M1: Detect tech stack from task content."""
     lower = content.lower()
-    if any(kw in lower for kw in ["jetpack compose", "kotlin", "android", "hilt", "sqldelight"]):
+    if any(
+        kw in lower
+        for kw in ["jetpack compose", "kotlin", "android", "hilt", "sqldelight"]
+    ):
         return "android"
     if any(kw in lower for kw in ["react", "vite", "jsx", "tsx", "next.js", "nextjs"]):
         return "react"
@@ -1155,7 +2619,9 @@ def _detect_stack(content: str) -> str | None:
     return None
 
 
-def _verify_verbatim_checksums(source_data: list[tuple[str, Path, str, str]], meta_content: str) -> bool:
+def _verify_verbatim_checksums(
+    source_data: list[tuple[str, Path, str, str]], meta_content: str
+) -> bool:
     """M2: Verify 100% of extracted source AC text is in the Bundled Checklist."""
     bundled_match = re.search(
         r"^## Bundled Checklist.*?\n\n(.*?)(?=^## |\Z)",
@@ -1183,13 +2649,23 @@ def _verify_verbatim_checksums(source_data: list[tuple[str, Path, str, str]], me
 def _git_mv_or_fallback(src: Path, dst: Path) -> bool:
     dst.parent.mkdir(parents=True, exist_ok=True)
     repo = str(_repo_root(str(src)))
-    result = subprocess.run(["git", "mv", str(src), str(dst)], capture_output=True, text=True, cwd=repo)
+    result = subprocess.run(
+        ["git", "mv", str(src), str(dst)], capture_output=True, text=True, cwd=repo
+    )
     if result.returncode == 0:
         return True
-    if "not under version control" in result.stderr or "not tracked" in result.stderr.lower():
+    if (
+        "not under version control" in result.stderr
+        or "not tracked" in result.stderr.lower()
+    ):
         try:
             src.rename(dst)
-            subprocess.run(["git", "add", "--", str(dst)], check=True, capture_output=True, cwd=repo)
+            subprocess.run(
+                ["git", "add", "--", str(dst)],
+                check=True,
+                capture_output=True,
+                cwd=repo,
+            )
             return True
         except Exception:
             return False
@@ -1204,13 +2680,27 @@ def _patch_archived_file(archive_path: Path, meta_id: str, meta_slug: str) -> No
     new_file_header = f"**File:** `tasks/archive/{archive_path.name}`"
     content = re.sub(r"\*\*File:\*\*\s*`[^`]+`", new_file_header, content, count=1)
     if re.search(r"\*\*Status:\*\*\s*\w+", content):
-        content = re.sub(r"\*\*Status:\*\*\s*\w+", "**Status:** superseded", content, count=1)
+        content = re.sub(
+            r"\*\*Status:\*\*\s*\w+", "**Status:** superseded", content, count=1
+        )
     else:
-        content = re.sub(r"(\*\*Type:\*\*\s*\w+)", r"\1\n**Status:** superseded", content, count=1)
+        content = re.sub(
+            r"(\*\*Type:\*\*\s*\w+)", r"\1\n**Status:** superseded", content, count=1
+        )
     if "**Superseded-By:**" not in content:
-        content = re.sub(r"(\*\*Status:\*\*\s*superseded)", rf"\1\n**Superseded-By:** `{meta_id}-{meta_slug}`", content, count=1)
+        content = re.sub(
+            r"(\*\*Status:\*\*\s*superseded)",
+            rf"\1\n**Superseded-By:** `{meta_id}-{meta_slug}`",
+            content,
+            count=1,
+        )
         timestamp = time.strftime("%Y-%m-%d")
-        content = re.sub(r"(\*\*Superseded-By:\*\*\s*`[^`]+`)", rf"\1\n**Superseded-At:** `{timestamp}`", content, count=1)
+        content = re.sub(
+            r"(\*\*Superseded-By:\*\*\s*`[^`]+`)",
+            rf"\1\n**Superseded-At:** `{timestamp}`",
+            content,
+            count=1,
+        )
     superseded_note = (
         f"> **Superseded:** This task was bundled into META task `{meta_id}-{meta_slug}` "
         f"and archived on {time.strftime('%Y-%m-%d')}. "
@@ -1219,16 +2709,26 @@ def _patch_archived_file(archive_path: Path, meta_id: str, meta_slug: str) -> No
     )
     if superseded_note.strip() not in content:
         if "## Execution Log" in content:
-            content = content.replace("## Execution Log", superseded_note + "\n## Execution Log", 1)
+            content = content.replace(
+                "## Execution Log", superseded_note + "\n## Execution Log", 1
+            )
         elif "## Factual Git Diff" in content:
-            content = content.replace("## Factual Git Diff", superseded_note + "\n## Factual Git Diff", 1)
+            content = content.replace(
+                "## Factual Git Diff", superseded_note + "\n## Factual Git Diff", 1
+            )
     try:
         archive_path.write_text(content, encoding="utf-8")
     except Exception:
         pass
 
 
-def _build_meta_content(meta_id: int, meta_slug: str, meta_title: str, source_ids: list[str], source_data: list[tuple[str, Path, str, str]]) -> str:
+def _build_meta_content(
+    meta_id: int,
+    meta_slug: str,
+    meta_title: str,
+    source_ids: list[str],
+    source_data: list[tuple[str, Path, str, str]],
+) -> str:
     meta_id_str = f"{meta_id:02d}" if meta_id < 100 else str(meta_id)
     if meta_id >= 100:
         meta_id_str = str(meta_id)
@@ -1241,7 +2741,10 @@ def _build_meta_content(meta_id: int, meta_slug: str, meta_title: str, source_id
     per_source_blocks: list[str] = []
     for sid, path, content, stitle in source_data:
         goal = _extract_section(content, "Goal") or "_(No Goal section found)_"
-        ac = _extract_section(content, "Acceptance Criteria") or "_(No Acceptance Criteria)_"
+        ac = (
+            _extract_section(content, "Acceptance Criteria")
+            or "_(No Acceptance Criteria)_"
+        )
         todos = _extract_section(content, "Local TODOs") or "_(No Local TODOs)_"
         risk = _extract_section(content, "Risk & Rollback")
         manager_notes = _extract_section(content, "Manager's Notes")
@@ -1254,7 +2757,11 @@ def _build_meta_content(meta_id: int, meta_slug: str, meta_title: str, source_id
         # B1: multi-line checklist extraction
         ac_lines = _extract_checklist_with_continuations(ac)
         if not ac_lines:
-            ac_lines = [f"- [ ] {line.strip()}" for line in ac.splitlines() if line.strip() and not line.strip().startswith("#")][:3]
+            ac_lines = [
+                f"- [ ] {line.strip()}"
+                for line in ac.splitlines()
+                if line.strip() and not line.strip().startswith("#")
+            ][:3]
         for line in ac_lines:
             if line.startswith("- ["):
                 m = re.match(r"^- \[[ xX]\]\s*(.*)", line)
@@ -1302,9 +2809,13 @@ def _build_meta_content(meta_id: int, meta_slug: str, meta_title: str, source_id
     )
     for t in deduped_todos:
         meta_local_todos += f"{t}\n"
-    meta_local_todos += f"- [ ] Step {len(deduped_todos)+3}: Verify all bundled checklist items and run lint_task_file + verification-before-completion\n"
-    meta_local_todos += f"- [ ] Step {len(deduped_todos)+4}: Update CHANGELOG.md and record Verification Evidence\n"
-    meta_ac = "\n".join(bundled_checklist_items) if bundled_checklist_items else "- [ ] _(No aggregated criteria — check per-source blocks)_"
+    meta_local_todos += f"- [ ] Step {len(deduped_todos) + 3}: Verify all bundled checklist items and run lint_task_file + verification-before-completion\n"
+    meta_local_todos += f"- [ ] Step {len(deduped_todos) + 4}: Update CHANGELOG.md and record Verification Evidence\n"
+    meta_ac = (
+        "\n".join(bundled_checklist_items)
+        if bundled_checklist_items
+        else "- [ ] _(No aggregated criteria — check per-source blocks)_"
+    )
     meta_ac += f"\n- [ ] Traceability: All {len(source_data)} source tasks are archived with superseded-by marker and reachable via `git log --follow`"
     meta_verification = (
         f"- **Test command:** `lint_task_file` on META file; `git log --oneline --follow -- tasks/archive/<id>-*.md | head` for archived sources; project test suite if logic changed\n"
@@ -1335,9 +2846,9 @@ def _build_meta_content(meta_id: int, meta_slug: str, meta_title: str, source_id
         f"**Created:** {timestamp}\n"
         f"**Bundled:** {len(source_data)} tasks\n\n"
         f"## Goal\n\n"
-        f"Unified execution of {len(source_data)} related small tasks as a single META task to eliminate sequential overhead. This META bundles tasks {_format_task_id_list(source_ids)} — \"{meta_title}\" — into one branch, one diff, and one QA gate (all-or-nothing). Every requirement below is preserved **verbatim** from its source task; no summarization or omission is allowed.\n\n"
+        f'Unified execution of {len(source_data)} related small tasks as a single META task to eliminate sequential overhead. This META bundles tasks {_format_task_id_list(source_ids)} — "{meta_title}" — into one branch, one diff, and one QA gate (all-or-nothing). Every requirement below is preserved **verbatim** from its source task; no summarization or omission is allowed.\n\n'
         f"{warning_note}**Source IDs:** {_format_task_id_list(source_ids)}\n"
-        f"**Next ID:** {meta_id} (discovered via `find tasks -name \"*.md\" | sort -n | tail -1 +1`)\n"
+        f'**Next ID:** {meta_id} (discovered via `find tasks -name "*.md" | sort -n | tail -1 +1`)\n'
         f"**Archive Policy:** Source files will be moved to `tasks/archive/` with `superseded-by: {meta_id}-{meta_slug}` and remain reachable via `git log --follow` (never purged until META is completed).\n\n"
         f"## Manager's Notes\n\n"
         f"**Bundle Decision (2026-08-21):** Manager requested fully automatic bundling with archive (not purge). This META was generated deterministically by the `bundle_tasks` MCP tool to execute {len(source_data)} small related tasks together and speed up turnaround.\n\n"
@@ -1381,7 +2892,13 @@ def _build_meta_content(meta_id: int, meta_slug: str, meta_title: str, source_id
 
 
 @_project_tool
-def bundle_tasks(task_ids: list[str], title: str, dry_run: bool = False, force: bool = False, project_root: str | None = None) -> str:
+def bundle_tasks(
+    task_ids: list[str],
+    title: str,
+    dry_run: bool = False,
+    force: bool = False,
+    project_root: str | None = None,
+) -> str:
     """
     Bundle multiple small related tasks into a single META task with auto-archive (Task 110).
 
@@ -1472,12 +2989,18 @@ def bundle_tasks(task_ids: list[str], title: str, dry_run: bool = False, force: 
         if output_path.exists():
             return f"❌ Task ID collision: {output_path} already exists. Re-run ID discovery."
         # Also check backlog glob for same ID prefix
-        if list((tasks_root / "backlog").glob(f"{next_id}-*.md")) if (tasks_root / "backlog").is_dir() else []:
+        if (
+            list((tasks_root / "backlog").glob(f"{next_id}-*.md"))
+            if (tasks_root / "backlog").is_dir()
+            else []
+        ):
             # This would also match our not-yet-created file if we had a race, but we already checked exists
             pass
 
         meta_title_full = title
-        meta_content = _build_meta_content(next_id, meta_slug, meta_title_full, task_ids, source_data)
+        meta_content = _build_meta_content(
+            next_id, meta_slug, meta_title_full, task_ids, source_data
+        )
         total_loc = sum(len(c.splitlines()) for _, _, c, _ in source_data)
 
         # M1: Stack detection
@@ -1498,13 +3021,17 @@ def bundle_tasks(task_ids: list[str], title: str, dry_run: bool = False, force: 
 
         if dry_run:
             lines = []
-            lines.append(f"🔍 Dry-run (MCP): Would create META task {next_id}-{meta_slug}")
+            lines.append(
+                f"🔍 Dry-run (MCP): Would create META task {next_id}-{meta_slug}"
+            )
             lines.append(f"   Output: {output_path}")
             lines.append(f"   Bundles: {task_ids} ({len(task_ids)} tasks)")
             lines.append(f"   Sources:")
             for sid, p, _, t in source_data:
                 lines.append(f"     - {sid}: {t} ({p})")
-            lines.append(f"   Combined LOC: {total_loc} {'⚠️ >400' if total_loc > 400 else '✅'}")
+            lines.append(
+                f"   Combined LOC: {total_loc} {'⚠️ >400' if total_loc > 400 else '✅'}"
+            )
             lines.append(f"   Supersedes will be: {task_ids}")
             lines.append(f"   Archive destinations:")
             for sid, p, _, _ in source_data:
@@ -1513,18 +3040,32 @@ def bundle_tasks(task_ids: list[str], title: str, dry_run: bool = False, force: 
             for i, line in enumerate(meta_content.splitlines()[:40], 1):
                 lines.append(f"   {i:3d}| {line}")
             lines.append(f"\n   ... {len(meta_content.splitlines()) - 40} more lines")
-            required = ["## Goal", "## Local TODOs", "## Acceptance Criteria", "## Verification Evidence", "## Risk & Rollback", "## Factual Git Diff", "## Execution Log"]
+            required = [
+                "## Goal",
+                "## Local TODOs",
+                "## Acceptance Criteria",
+                "## Verification Evidence",
+                "## Risk & Rollback",
+                "## Factual Git Diff",
+                "## Execution Log",
+            ]
             missing_sections = [s for s in required if s not in meta_content]
             if missing_sections:
-                lines.append(f"⚠️ Missing required sections in preview: {missing_sections}")
+                lines.append(
+                    f"⚠️ Missing required sections in preview: {missing_sections}"
+                )
                 return "\n".join(lines)
             lines.append(f"\n✅ Dry-run lint check: All required sections present.")
             if len(task_ids) > 6 and force:
-                lines.insert(0, f"⚠️ --force: Bundling {len(task_ids)} tasks (> 6). Mega-diff risk.")
+                lines.insert(
+                    0,
+                    f"⚠️ --force: Bundling {len(task_ids)} tasks (> 6). Mega-diff risk.",
+                )
             return "\n".join(lines)
 
         # --- B5: Atomic creation with retry loop ---
         import subprocess as _sp
+
         MAX_ID_RETRIES = 5
         for attempt in range(MAX_ID_RETRIES):
             try:
@@ -1580,22 +3121,41 @@ def bundle_tasks(task_ids: list[str], title: str, dry_run: bool = False, force: 
                     restore_dst = tasks_root / "backlog" / original_name
                 try:
                     restore_dst.parent.mkdir(parents=True, exist_ok=True)
-                    _sp.run(["git", "mv", str(archived_path), str(restore_dst)], check=True, capture_output=True)
+                    _sp.run(
+                        ["git", "mv", str(archived_path), str(restore_dst)],
+                        check=True,
+                        capture_output=True,
+                    )
                     # Remove superseded headers
                     content = restore_dst.read_text(encoding="utf-8")
-                    content = re.sub(r"\n\*\*Superseded-By:\*\*.*$", "", content, flags=re.MULTILINE)
-                    content = re.sub(r"\n\*\*Superseded-At:\*\*.*$", "", content, flags=re.MULTILINE)
-                    superseded_pattern = re.compile(r"> \*\*Superseded:\*\*.*?History preserved.*?\n\n", re.DOTALL)
+                    content = re.sub(
+                        r"\n\*\*Superseded-By:\*\*.*$", "", content, flags=re.MULTILINE
+                    )
+                    content = re.sub(
+                        r"\n\*\*Superseded-At:\*\*.*$", "", content, flags=re.MULTILINE
+                    )
+                    superseded_pattern = re.compile(
+                        r"> \*\*Superseded:\*\*.*?History preserved.*?\n\n", re.DOTALL
+                    )
                     content = superseded_pattern.sub("", content)
-                    content = re.sub(r"\*\*Status:\*\*\s*superseded", "**Status:** open", content)
-                    content = re.sub(r"\*\*File:\*\*\s*`[^`]+`", f"**File:** `tasks/backlog/{restore_dst.name}`", content, count=1)
+                    content = re.sub(
+                        r"\*\*Status:\*\*\s*superseded", "**Status:** open", content
+                    )
+                    content = re.sub(
+                        r"\*\*File:\*\*\s*`[^`]+`",
+                        f"**File:** `tasks/backlog/{restore_dst.name}`",
+                        content,
+                        count=1,
+                    )
                     restore_dst.write_text(content, encoding="utf-8")
                 except Exception:
                     pass
             output_path.unlink(missing_ok=True)
             return f"❌ Bundle aborted. Archive failed for {failed}. All changes rolled back. Fix and retry."
         else:
-            out_lines.append(f"✅ Archived {len(archived)} source tasks to tasks/archive/ with superseded-by: {meta_id_str}-{meta_slug}")
+            out_lines.append(
+                f"✅ Archived {len(archived)} source tasks to tasks/archive/ with superseded-by: {meta_id_str}-{meta_slug}"
+            )
         # Light validation
         try:
             cc = output_path.read_text(encoding="utf-8")
@@ -1604,10 +3164,16 @@ def bundle_tasks(task_ids: list[str], title: str, dry_run: bool = False, force: 
                     out_lines.append(f"⚠️ Lint warning: {req} missing in created META.")
         except Exception:
             pass
-        out_lines.append(f"\nDone. Next: move {output_path} through Kanban (backlog → in-progress → qa → completed) as a single Hands implementation.")
-        out_lines.append(f"Traceability: git log --oneline --follow -- tasks/archive/<id>-*.md | head")
+        out_lines.append(
+            f"\nDone. Next: move {output_path} through Kanban (backlog → in-progress → qa → completed) as a single Hands implementation."
+        )
+        out_lines.append(
+            f"Traceability: git log --oneline --follow -- tasks/archive/<id>-*.md | head"
+        )
         if len(task_ids) > 6 and force:
-            out_lines.insert(0, f"⚠️ --force: Bundling {len(task_ids)} tasks (> 6). Mega-diff risk.")
+            out_lines.insert(
+                0, f"⚠️ --force: Bundling {len(task_ids)} tasks (> 6). Mega-diff risk."
+            )
         return "\n".join(out_lines)
 
     except Exception as e:

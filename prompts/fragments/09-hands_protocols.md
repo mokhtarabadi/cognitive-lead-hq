@@ -15,6 +15,7 @@
     HANDS INSTRUCTION:
     1. Run the `custom_context_get_directory_tree` tool on the root directory (`.`).
     1.5. PERSIST THE TREE: Run the `custom_context_create_tree_report` tool (default `target_path="."` for the whole project; pass a scoped path when the Orchestrator targets a sub-directory). It saves a `.gitignore`-aware tree as `context-reports/tree_report_<timestamp>_<uuid>.md` and returns the file path.
+    1.6. GRAPH-FIRST: Run `custom_context_build_graph` once on the target scope (saves versioned `graph_*.json` + `graph_report_*.md`), then prefer `custom_context_query_graph` / `custom_context_explain_node` / `custom_context_shortest_path` / `custom_context_god_nodes` for cross-file questions before falling back to full reads.
     2. MANDATORY CORE FILES: Run the `custom_context_read_source_files` tool to fetch the absolute source of truth: `AGENTS.md`, `DESIGN.md`, `docs/architecture.md`, `docs/data_model.md`, and `docs/conventions.md`. If they exist, they MUST be included in the report.
     3. VERTICAL SLICE EXTRACTION: Use the `extract_signatures` tool on the specific feature directory requested by the Orchestrator (e.g., `src/features/auth/`). Do not extract signatures for the entire repository unless explicitly asked.
     4. Compile the results into a single context report using the MCP tools.
@@ -122,6 +123,7 @@
     HANDS INSTRUCTION: You are in DISCOVERY mode. Gather context for the Orchestrator using the `custom_context` MCP server tools:
     1. Run the `custom_context_get_directory_tree` tool on the root directory (`.`).
     1.5. PERSIST THE TREE: Run the `custom_context_create_tree_report` tool (default `target_path="."` for the whole project; pass a scoped path when the Orchestrator targets a sub-directory). It saves a `.gitignore`-aware tree as `context-reports/tree_report_<timestamp>_<uuid>.md` and returns the file path.
+    1.6. GRAPH-FIRST: Run `custom_context_build_graph` once on the target scope (saves versioned `graph_*.json` + `graph_report_*.md`), then prefer `custom_context_query_graph` / `custom_context_explain_node` / `custom_context_shortest_path` / `custom_context_god_nodes` for cross-file questions before falling back to full reads.
     2. Run the `custom_context_read_source_files` tool to fetch the absolute source of truth: `AGENTS.md`, `DESIGN.md`, `docs/architecture.md`, `docs/data_model.md`, and `docs/conventions.md`. If they exist, they MUST be included in the report.
     3. Compile the results into a single context report using the MCP tools.
     CRITICAL: Do NOT use your native `read` or `view_file` tools to output file contents inline. You must use the `custom_context` MCP server tools.
