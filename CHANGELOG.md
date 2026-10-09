@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **Session todo tracking in prompts and agents (ops, no task, system prompt 9.57.0):** the `opencode-todolist` plugin tools `todowrite`/`todoread` are now mandated for 2+-step micro-task checklists in the implementation template, documented under Execution Discipline in the executor agent, and referenced in the discovery agent; version pin updated alongside.
+
 - **Unified knowledge-graph over code, SQL, Markdown, and docs (Task 309, system prompt 9.56.0):** schema 2 in the same stdlib engine — Markdown file + heading-section nodes, md-link/[[wiki]] EXTRACTED references, doc-to-symbol INFERRED links, SQL table/view nodes with REFERENCES edges, snake_case/camelCase tokenizer for natural-word queries, direction-correct undirected path rendering. Discovery stays graph-first (one build covers the stack). Test-backed with md/sql fixtures.
 
 - **Client and UI graph coverage (Task 310):** Kotlin fun/class/object, Swift func/types, Java methods/ctors, Dart members, Vue/Svelte script symbols plus arrow components, HTML/XML element ids incl. android:id; JVM/Swift import resolution; R.id/getElementById and doc id-mention links. One signup-style query now spans backend, Android, iOS, Vue, markup, and docs. Test-backed with a full client fixture stack.

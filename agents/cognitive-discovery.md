@@ -35,6 +35,7 @@ Do not modify any files. Do not attempt to execute code. Compile the report and 
 - Read only what is explicitly requested. Do not explore beyond the target scope.
 - Prefer `extract_signatures` over full file reads to minimize token usage.
 - When gathering context for multiple files, batch them in a single `read_source_files` call.
+- If the session `todowrite` / `todoread` tools are available, track multi-step mapping progress with them (one `in_progress` at a time); they never substitute for the context report itself.
 
 ### Evidence-Based Reporting
 

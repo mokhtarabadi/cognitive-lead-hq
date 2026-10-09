@@ -181,6 +181,10 @@ Do not skip the observe step. Every code change MUST be verified before claiming
 
 Test-suite verification runs begin with `rtk test <underlying command>` by default. Inspect the active task's `## Verification Evidence` before running verification and record the exact `rtk test`-prefixed command, expected result, actual result, and exit code there. A raw test command is a diagnostic retry after a failed RTK run only — it never replaces the initial RTK verification run. Never claim completion without a successful exit code and recorded evidence.
 
+### Micro-Task Tracking (todowrite/todoread)
+
+The `opencode-todolist` plugin provides session-scoped `todowrite` (create/replace the whole list; empty array clears) and `todoread` (read it back), with fields `content` (imperative), `status` (`pending`/`in_progress`/`completed`/`cancelled`), and optional `priority`. Whenever a task decomposes into 2 or more micro-steps, maintain them here alongside the task file: keep exactly one `in_progress`, mark steps `completed` the moment they finish, and `todoread` to recover the list after any compaction instead of reconstructing it from memory.
+
 ### Circuit Breakers
 
 If you detect any of these failure modes, HALT immediately and surface to the Manager:
