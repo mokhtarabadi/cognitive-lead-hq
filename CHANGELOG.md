@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **Index-safe staging mode for `stage_and_inject_diff` (Task 315, fixes #29):** new opt-in `skip_add` flag skips the `git add` step and only extracts + injects the staged diff, so parallel sessions sharing files can keep hunk-level index surgery (`git apply --cached`) intact; the default path now snapshots pre-existing staged state and warns naming affected files; whole-file staging contract documented in the tool docstring. Trailing-optional param, fully backwards compatible. Test-backed (preserve / warn / default-unchanged).
+
+- **Agent-managed unstage + parallel-isolation docs (Task 315 follow-up, system prompt 9.58.0):** new `unstage_files` MCP tool (`git reset -q -- <files>`, index-only, worktree untouched, empty list rejected) completes the agent-managed round-trip `unstage_files` → hunk surgery → `stage_and_inject_diff(skip_add=True)`; registry 14 → 15 tools. Documented in 09-hands_protocols (RULE 2b + 2b parallel check), 13-constraints (ZAC line now bans `git checkout` too), AGENTS.md staging step, executor ZAC, versioning-and-release, audit-agents (new Parallel Index Isolation criterion), shell-strategy overrides, slice README/DECISIONS (ADR-009). Systemd units verified unchanged (same entrypoint).
+
 - **Session todo tracking in prompts and agents (ops, no task, system prompt 9.57.0):** the `opencode-todolist` plugin tools `todowrite`/`todoread` are now mandated for 2+-step micro-task checklists in the implementation template, documented under Execution Discipline in the executor agent, and referenced in the discovery agent; version pin updated alongside.
 
 - **Unified knowledge-graph over code, SQL, Markdown, and docs (Task 309, system prompt 9.56.0):** schema 2 in the same stdlib engine — Markdown file + heading-section nodes, md-link/[[wiki]] EXTRACTED references, doc-to-symbol INFERRED links, SQL table/view nodes with REFERENCES edges, snake_case/camelCase tokenizer for natural-word queries, direction-correct undirected path rendering. Discovery stays graph-first (one build covers the stack). Test-backed with md/sql fixtures.

@@ -746,7 +746,10 @@ def _explicit_project_root(project_root: str | None, tool_name: str) -> Path:
 
 @_project_tool
 def stage_and_inject_diff(
-    task_file_path: str, modified_files: list[str] = [], project_root: str | None = None
+    task_file_path: str,
+    modified_files: list[str] = [],
+    project_root: str | None = None,
+    skip_add: bool = False,
 ) -> str:
     """Stages ONLY the explicitly listed modified files plus the task file, then intelligently injects the staged diff into the task file's Git Diff block.
 
@@ -756,18 +759,76 @@ def stage_and_inject_diff(
     file it modified via `modified_files`; if omitted or empty, only the task file is
     staged and the diff table will be empty (by design — the Brain cannot review work
     that was never explicitly listed).
+    To remove foreign files from the index without touching the worktree, use
+    `unstage_files` first, then re-run with `skip_add=True`.
+    Whole-file staging contract: staging is ALWAYS whole-file blobs (`git add -- <files>`).
+    Any pre-existing hunk-level index surgery on the listed files (e.g. `git apply
+    --cached` to scope a shared file to one task) is overwritten by the worktree blob.
+    When two parallel sessions share files, the session that did hunk surgery MUST pass
+    `skip_add=True` and manage the index itself: the tool then skips the `git add` step
+    entirely and only extracts + injects (the caller also owns staging the task file).
+    On the default path the tool reports pre-existing staged state as a warning.
     """
     try:
         # 1. F5 Fix: Explicit path scoping. Stage ONLY the files OpenCode modified + the task file.
         #    This prevents cross-session contamination and keeps the diff table clean for the Brain.
         files_to_stage = modified_files + [task_file_path]
         repo = str(_repo_root(task_file_path, project_root))
-        subprocess.run(
-            ["git", "add", "--"] + files_to_stage,
-            check=True,
-            capture_output=True,
-            cwd=repo,
-        )
+        warning = ""
+        if skip_add:
+            # Index-safe mode (issue #29): the caller owns the index entirely
+            # (including hunk-level surgery and the task file itself). Extract +
+            # inject only; never touch the index.
+            pass
+        else:
+            # Snapshot pre-existing staged state for the listed files: `git add`
+            # below stages whole-file blobs and would silently overwrite any
+            # hunk-level surgery a parallel session performed on shared files.
+            try:
+                pre_proc = subprocess.run(
+                    ["git", "diff", "--cached", "--name-only", "--"] + files_to_stage,
+                    capture_output=True,
+                    text=True,
+                    cwd=repo,
+                )
+                # The task file is managed by this tool itself (re-written and
+                # staged on every call), so its own staged state is noise —
+                # warn only about real code files.
+                task_ids = {task_file_path, Path(task_file_path).name}
+                try:
+                    task_ids.add(
+                        str(
+                            Path(task_file_path)
+                            .resolve()
+                            .relative_to(Path(repo).resolve())
+                            .as_posix()
+                        )
+                    )
+                except ValueError:
+                    pass
+                pre_staged = sorted(
+                    line
+                    for line in pre_proc.stdout.splitlines()
+                    if line.strip() and line.strip() not in task_ids
+                )
+            except Exception:
+                pre_staged = []
+            subprocess.run(
+                ["git", "add", "--"] + files_to_stage,
+                check=True,
+                capture_output=True,
+                cwd=repo,
+            )
+            if pre_staged:
+                warning = (
+                    " ⚠️ Warning: "
+                    + str(len(pre_staged))
+                    + " file(s) already had staged changes before this call "
+                    + "(whole-file staging overwrites hunk-level index surgery): "
+                    + ", ".join(pre_staged)
+                    + ". If those hunks belong to another task, unstage them and "
+                    + "re-run with skip_add=True after doing your own hunk staging."
+                )
 
         # 2. Extract the diff (EXCLUDING the entire tasks/ directory to prevent recursive diff bloat)
         # Using git pathspec magic ':!tasks/' to ignore the entire task folder
@@ -805,10 +866,67 @@ def stage_and_inject_diff(
         with open(task_file_path, "w", encoding="utf-8") as f:
             f.write(new_content)
 
-        return f"✅ Success: Changes staged and factual diff intelligently injected into {task_file_path}."
+        suffix = (
+            " (staging skipped: skip_add=True — index left untouched)"
+            if skip_add
+            else ""
+        )
+        return (
+            f"✅ Success: Changes staged and factual diff intelligently injected into {task_file_path}.{suffix}"
+            + warning
+        )
 
     except Exception as e:
         return f"❌ Error staging or updating task file: {str(e)}"
+
+
+@_project_tool
+def unstage_files(files: list[str], project_root: str | None = None) -> str:
+    """Removes the listed files from the Git index WITHOUT touching the worktree.
+
+    Parallel-session isolation primitive: when a staged diff contains foreign
+    hunks (another task's work in a shared file), call this with exactly those
+    files, redo hunk-level surgery (`git apply --cached`), then call
+    `stage_and_inject_diff` with `skip_add=True` so the index is never
+    overwritten again. Uses `git reset -q -- <files>` (mixed reset of the
+    listed paths only — worktree bytes are never modified, nothing is
+    committed, nothing is pushed; works with or without a HEAD commit).
+    ZAC holds:
+    this tool cannot commit, check out, or push by construction.
+    An empty file list is rejected (nothing to do is a caller bug, not success).
+    """
+    try:
+        if not files:
+            return "❌ Error: files must be a non-empty list of repo-relative or absolute paths."
+        repo = str(_repo_root(files[0], project_root))
+        proc = subprocess.run(
+            ["git", "reset", "-q", "--"] + files,
+            capture_output=True,
+            text=True,
+            cwd=repo,
+        )
+        if proc.returncode != 0:
+            return f"❌ Error unstaging {files}: {proc.stderr.strip() or proc.stdout.strip()}"
+        remaining_proc = subprocess.run(
+            ["git", "diff", "--cached", "--name-only"],
+            capture_output=True,
+            text=True,
+            cwd=repo,
+        )
+        remaining = sorted(
+            line for line in remaining_proc.stdout.splitlines() if line.strip()
+        )
+        remaining_txt = (
+            " Still staged: " + ", ".join(remaining) + "."
+            if remaining
+            else " Index is now clean."
+        )
+        return (
+            f"✅ Success: unstaged {len(files)} file(s) (worktree untouched)."
+            + remaining_txt
+        )
+    except Exception as e:
+        return f"❌ Error unstaging files: {str(e)}"
 
 
 @_project_tool

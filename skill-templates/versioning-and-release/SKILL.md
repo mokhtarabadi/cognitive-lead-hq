@@ -73,6 +73,7 @@ All git commit messages MUST use lowercase prefixes followed by a colon and a sp
 
 1. Call the `custom_context_stage_and_inject_diff` MCP tool, providing the exact path to your active task file.
 2. This stages your modified codebase files and automatically injects the factual diff into your task file, ensuring the Code Reviewer has a grounded reference.
+3. Parallel sessions sharing files: if the staged diff carries another task's hunks, call `custom_context_unstage_files` with exactly those files (index-only, worktree untouched), redo your hunk-level staging, then re-run staging with `skip_add=True`. Never commit or checkout — both stay forbidden.
 
 ### Phase 4: Closure Commit via MCP (ZAC-Compliant)
 

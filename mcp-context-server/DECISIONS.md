@@ -48,3 +48,17 @@
 - **Decision:** Mirror the brain layout: server.py owns the FastMCP app plus the 14 tool defs and re-exports everything (test/shim surface, monkeypatch-settable); fsutil, signatures, graph, gitops, bundle stay stdlib-pure with acyclic imports (graph→fsutil, bundle→gitops). Formatter is ruff 0.16.10 via pinned global install; opencode.json pins named map ruff-format on .py; ruff format applied repo-wide (13 files).
 - **Consequences:** Same 14 tools, same behaviors, full suite green; global deploy copies all *.py.
 - **Rollback:** Restore single server.py from git; remove new modules; revert opencode.json to `formatter: true`.
+
+## [2026-10-10] ADR-009: Agent-Managed Unstage for Parallel Sessions (`unstage_files`)
+
+- **Context:** `skip_add` covers the stage side, but an agent discovering foreign hunks in its staged diff had no MCP path to remove them — shell `git reset` works but bypasses tool governance, and `git add`/`commit`/`checkout` stay forbidden. Parallel tasks sharing files need a full agent-managed index round-trip.
+- **Decision:** Add `unstage_files(files, project_root)` using `git restore --staged -- <files>`: index-only, worktree never touched, empty list rejected, reports remaining staged state. Canonical flow: `unstage_files` → hunk surgery (`git apply --cached`) → `stage_and_inject_diff(skip_add=True)`. Registry grows 14 → 15 tools; no new deps; systemd units unchanged (same entrypoint).
+- **Consequences:** Agents isolate their own files without involving foreign ones; commit/checkout/push remain forbidden by construction and permission layer.
+- **Rollback:** Remove the tool + tests; registry returns to 14.
+
+## [2026-10-10] ADR-008: Index-Safe Staging Mode (`skip_add`)
+
+- **Context:** `stage_and_inject_diff` ran bare `git add -- <files>` on every call, staging whole-file blobs and silently discarding hunk-level index surgery (`git apply --cached`) a parallel session performed on shared files (CHANGELOG.md, slice DECISIONS.md) — the staged diff, Brain-review block, and closure commit then carried foreign hunks (live reproduction in the linked issue).
+- **Decision:** Add opt-in `skip_add: bool = False` to `stage_and_inject_diff`: when true, skip the `git add` step entirely and only extract + inject (caller owns the whole index, task file included). On the default path, snapshot `git diff --cached --name-only` for the listed files before adding and append a warning naming files with pre-existing staged state. Document the whole-file contract in the tool docstring. `qa_transition` shares the pattern but its `git mv` interplay is out of scope (follow-up).
+- **Consequences:** Index-safe flows sequence hunk surgery before the call with `skip_add=True`; default callers get a loud warning instead of silent overwrite. Signature change is trailing-optional, fully backwards compatible.
+- **Rollback:** Revert `server.py` + tests; redeploy singleton.

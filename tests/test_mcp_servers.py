@@ -3033,7 +3033,7 @@ def test_graph_precision_full_scan_vocab_dfs_rationale_noise():
 
 
 def test_graph_tool_registry_has_no_helper_leak():
-    """Only the 14 intended MCP tools register; plain helpers never expose."""
+    """Only the 15 intended MCP tools register; plain helpers never expose."""
     mod = _load_context_server_hardening()
     names = sorted(mod.mcp._tool_manager._tools.keys())
     assert names == [
@@ -3051,6 +3051,7 @@ def test_graph_tool_registry_has_no_helper_leak():
         "read_source_files",
         "shortest_path",
         "stage_and_inject_diff",
+        "unstage_files",
     ], names
 
 
@@ -3078,10 +3079,205 @@ def test_graph_split_oversize_fallback_names_resolve():
 
     with tempfile.TemporaryDirectory() as td:
         repo = Path(td)
-        (repo / "big.py").write_text("def big_symbol():\n    return 1\n" + "x=1\n" * 5000, encoding="utf-8")
+        (repo / "big.py").write_text(
+            "def big_symbol():\n    return 1\n" + "x=1\n" * 5000, encoding="utf-8"
+        )
         report = mod.read_source_files(["big.py"], max_size=100, project_root=str(repo))
         assert "Generated Report:" in report, report[:300]
         rp = report.split("`")[1]
         content = Path(rp).read_text(encoding="utf-8")
         assert "def big_symbol():" in content, content[:300]
         assert "Signature fallback failed" not in content
+
+
+def _stage_fixture_repo(tmp):
+    """Temp git repo with a shared file carrying an own hunk + a foreign hunk.
+
+    Base file committed; worktree modifies both lines; only the OWN line is
+    surgically staged via `git apply --cached` (hunk-level index surgery).
+    """
+    import subprocess
+
+    repo = Path(tmp)
+    subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
+    subprocess.run(["git", "config", "user.name", "Test"], cwd=repo, check=True)
+    subprocess.run(
+        ["git", "config", "user.email", "test@example.com"], cwd=repo, check=True
+    )
+    (repo / "shared.py").write_text("own = 1\nforeign = 1\n", encoding="utf-8")
+    subprocess.run(["git", "add", "-A"], cwd=repo, check=True)
+    subprocess.run(["git", "commit", "-qm", "base"], cwd=repo, check=True)
+    (repo / "shared.py").write_text("own = 2\nforeign = 2\n", encoding="utf-8")
+    own_patch = (
+        "diff --git a/shared.py b/shared.py\n"
+        "--- a/shared.py\n"
+        "+++ b/shared.py\n"
+        "@@ -1,2 +1,2 @@\n"
+        "-own = 1\n"
+        "+own = 2\n"
+        " foreign = 1\n"
+    )
+    subprocess.run(
+        ["git", "apply", "--cached"],
+        input=own_patch,
+        cwd=repo,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    task_file = repo / "tasks" / "99-stage.md"
+    task_file.parent.mkdir()
+    task_file.write_text(
+        "# Task 99: Stage\n\n## Factual Git Diff\n\n"
+        "<!-- BEGIN_GIT_DIFF -->\n<!-- END_GIT_DIFF -->\n"
+    )
+    return repo, task_file
+
+
+def _cached_diff(repo):
+    import subprocess
+
+    return subprocess.run(
+        ["git", "diff", "--cached"],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+
+
+def test_stage_skip_add_preserves_index():
+    """Issue #29: skip_add=True must leave hunk-level index surgery untouched."""
+    import importlib
+    import tempfile
+
+    server_path = Path(__file__).parent.parent / "mcp-context-server" / "server.py"
+    spec = importlib.util.spec_from_file_location("context_server_skip", server_path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    with tempfile.TemporaryDirectory() as td:
+        repo, task_file = _stage_fixture_repo(Path(td))
+        before = _cached_diff(repo)
+        assert "own = 2" in before and "foreign = 2" not in before
+        result = mod.stage_and_inject_diff(
+            str(task_file),
+            modified_files=["shared.py"],
+            project_root=str(repo),
+            skip_add=True,
+        )
+        assert "✅ Success" in result, result
+        assert "skip_add=True" in result, result
+        assert _cached_diff(repo) == before, "index must be byte-identical"
+        injected = task_file.read_text(encoding="utf-8")
+        assert "own = 2" in injected
+        assert "foreign = 2" not in injected, (
+            "foreign worktree-only hunk must not leak into the staged diff block"
+        )
+
+
+def test_stage_warns_on_preexisting_staged():
+    """Issue #29: default path must warn naming files with pre-existing staged hunks."""
+    import importlib
+    import tempfile
+
+    server_path = Path(__file__).parent.parent / "mcp-context-server" / "server.py"
+    spec = importlib.util.spec_from_file_location("context_server_warn", server_path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    with tempfile.TemporaryDirectory() as td:
+        repo, task_file = _stage_fixture_repo(Path(td))
+        # Also stage the tool-managed task file: the warning must still only
+        # name the real code file, never the task file itself.
+        import subprocess
+
+        subprocess.run(["git", "add", "--", str(task_file)], cwd=repo, check=True)
+        result = mod.stage_and_inject_diff(
+            str(task_file), modified_files=["shared.py"], project_root=str(repo)
+        )
+        assert "✅ Success" in result, result
+        assert "⚠️ Warning" in result, result
+        assert "shared.py" in result, result
+        warning_part = result.split("⚠️ Warning", 1)[1]
+        assert "99-stage.md" not in warning_part, (
+            "tool-managed task file must not appear in the warning"
+        )
+
+
+def test_stage_default_no_warning_clean():
+    """Default path with a clean index keeps prior behavior: success, no warning."""
+    import importlib
+    import subprocess
+    import tempfile
+
+    server_path = Path(__file__).parent.parent / "mcp-context-server" / "server.py"
+    spec = importlib.util.spec_from_file_location("context_server_clean", server_path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    with tempfile.TemporaryDirectory() as td:
+        repo = Path(td)
+        subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
+        (repo / "feature.py").write_text("x = 2\n", encoding="utf-8")
+        task_file = repo / "tasks" / "99-stage.md"
+        task_file.parent.mkdir()
+        task_file.write_text(
+            "# Task 99: Stage\n\n## Factual Git Diff\n\n"
+            "<!-- BEGIN_GIT_DIFF -->\n<!-- END_GIT_DIFF -->\n"
+        )
+        result = mod.stage_and_inject_diff(
+            str(task_file), modified_files=["feature.py"], project_root=str(repo)
+        )
+        assert "✅ Success" in result, result
+        assert "Warning" not in result, result
+
+
+def test_unstage_files_removes_index_only():
+    """Parallel isolation: unstage_files clears the index, worktree untouched."""
+    import importlib
+    import subprocess
+    import tempfile
+
+    server_path = Path(__file__).parent.parent / "mcp-context-server" / "server.py"
+    spec = importlib.util.spec_from_file_location("context_server_unstage", server_path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    with tempfile.TemporaryDirectory() as td:
+        repo = Path(td)
+        subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
+        (repo / "a.py").write_text("x = 1\n", encoding="utf-8")
+        (repo / "b.py").write_text("y = 1\n", encoding="utf-8")
+        subprocess.run(["git", "add", "-A"], cwd=repo, check=True)
+        (repo / "a.py").write_text("x = 2\n", encoding="utf-8")
+        result = mod.unstage_files(["a.py"], project_root=str(repo))
+        assert "✅ Success" in result, result
+        assert "worktree untouched" in result, result
+        staged = subprocess.run(
+            ["git", "diff", "--cached", "--name-only"],
+            cwd=repo,
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout
+        assert "a.py" not in staged.split()
+        assert "b.py" in staged.split()
+        assert (repo / "a.py").read_text(encoding="utf-8") == "x = 2\n"
+
+
+def test_unstage_files_rejects_empty_list():
+    """Empty file list is a caller bug: reject, never report success."""
+    import importlib
+    import tempfile
+
+    server_path = Path(__file__).parent.parent / "mcp-context-server" / "server.py"
+    spec = importlib.util.spec_from_file_location(
+        "context_server_unstage_empty", server_path
+    )
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    with tempfile.TemporaryDirectory() as td:
+        result = mod.unstage_files([], project_root=str(td))
+        assert result.startswith("❌ Error"), result

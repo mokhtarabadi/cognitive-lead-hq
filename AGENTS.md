@@ -34,7 +34,7 @@ This repository is the Headquarters for the Cognitive Lead AI multi-agent system
   -> **Do** use the decentralized `tasks/` directory with individual task files as the single source of truth.
 - **Don't** make UI/UX changes without consulting `DESIGN.md`.
   -> **Do** enforce the color palette, typography, spacing, and component styling defined in `DESIGN.md`.
-- **Don't** execute `git add`, `git commit`, or `git push` autonomously or try to guess when to stage code — these commands are STRICTLY FORBIDDEN.
+- **Don't** execute `git add`, `git commit`, `git checkout`, or `git push` autonomously or try to guess when to stage code — these commands are STRICTLY FORBIDDEN.
   -> **Do** execute Git commands ONLY when explicitly instructed by an Orchestrator task block. Otherwise, rely on the `custom_context_stage_and_inject_diff` MCP tool.
   -> **Exception:** the ONLY permitted autonomous Git operation is `git mv` for moving task files between Kanban directories (`backlog`, `in-progress`, `qa`, `completed`, `archive`).
 - **Don't** guess blindly when facing complex bugs, deadlocks, race conditions, or silent failures.
@@ -127,7 +127,7 @@ When finishing a task, you MUST execute these exact steps in order:
 
 1. **Update Changelog:** You MUST insert a formal entry into CHANGELOG.md logging your modifications.
 2. **Write your Summary:** Manually write your architectural reasoning, local TODO checks, and execution notes into the active task file under "Execution Log & Reasoning".
-3. **Call MCP Tool (Staging):** Call the `custom_context_stage_and_inject_diff` MCP tool passing the task file path AND the `modified_files` array (list of all code files you changed) to automatically stage ONLY those files and inject the factual code diff. DO NOT execute any `git commit` commands afterward.
+3. **Call MCP Tool (Staging):** Call the `custom_context_stage_and_inject_diff` MCP tool passing the task file path AND the `modified_files` array (list of all code files you changed) to automatically stage ONLY those files and inject the factual code diff. DO NOT execute any `git commit` commands afterward. If the staged diff contains another task's files, remove them first with the `custom_context_unstage_files` MCP tool (index-only, worktree untouched), then re-run staging with `skip_add=True` after your own hunk-level staging.
 4. **QA Transition (implementation tasks only):** After successful staging, move the implementation task file from `tasks/in-progress/` to `tasks/qa/` via the explicitly authorized `git mv` — the ONLY autonomous Git operation, reserved for Kanban transitions. Discovery tasks stay in place. Do NOT move the task to `tasks/completed/` at this stage.
 5. **Kanban Metadata Synchronization (mandatory after ANY authorized `git mv`):** After the move, you MUST update the task file's `**File:**` metadata header to the new path. If the move happened AFTER staging, you MUST also re-run `lint_task_file` and call `custom_context_stage_and_inject_diff` again using the NEW task path before notifying the Manager — the re-stage keeps the injected diff and the staging state in sync with the final path. Never notify the Manager with a stale `**File:**` header.
 6. **Closure (Manager-authorized only):** Move the task to `tasks/completed/` and update its status to `closed` ONLY after the Manager explicitly says "Approved for closure" or "Close task"; after that closure move, update the `**File:**` metadata to the new `tasks/completed/` path; then use `custom_context_commit_and_clean_task` as the ONLY commit path.

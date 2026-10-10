@@ -24,3 +24,5 @@ Custom-context MCP daemon: directory trees, source reads, signature extraction, 
 - Graph clients (310): Kotlin fun/class/object, Swift func/types, Java methods/ctors, Dart members, Vue/Svelte script symbols, HTML/XML element ids incl. android:id; JVM/Swift imports; R.id/getElementById and doc id-mention links.
 - Graph stacks (311): arrow components in all JS/TS suffixes, Prisma models/enums, ObjC methods, properties keys, CSS selectors; correct interface/type/enum kinds.
 - Graph precision (312): full-file scans, vocab hints, DFS mode, Task/ADR rationale links, god-node noise filter, truncation note.
+- Staging index-safety: `stage_and_inject_diff` stages whole-file blobs; `skip_add=True` skips `git add` and only extracts + injects for self-managed hunk-level index surgery; default path warns naming files with pre-existing staged hunks.
+- Parallel isolation: `unstage_files` removes listed files from the index without touching the worktree — the agent-managed unstage path for shared-file parallel sessions (no commit, no checkout, no push; ZAC holds).
