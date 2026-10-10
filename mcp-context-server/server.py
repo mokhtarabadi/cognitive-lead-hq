@@ -898,6 +898,16 @@ def unstage_files(files: list[str], project_root: str | None = None) -> str:
     try:
         if not files:
             return "❌ Error: files must be a non-empty list of repo-relative or absolute paths."
+        # Defense in depth: reject flag-looking arguments outright. The `--`
+        # separator below already neutralizes them, but a hallucinating caller
+        # must get a loud error instead of relying on git's parsing.
+        flagged = [f for f in files if f.startswith("-")]
+        if flagged:
+            return (
+                "❌ Error: refusing flag-like paths (possible flag injection): "
+                + ", ".join(flagged)
+                + ". Pass plain file paths only."
+            )
         repo = str(_repo_root(files[0], project_root))
         proc = subprocess.run(
             ["git", "reset", "-q", "--"] + files,

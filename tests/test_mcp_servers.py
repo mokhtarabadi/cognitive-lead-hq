@@ -3281,3 +3281,25 @@ def test_unstage_files_rejects_empty_list():
     with tempfile.TemporaryDirectory() as td:
         result = mod.unstage_files([], project_root=str(td))
         assert result.startswith("❌ Error"), result
+
+
+def test_unstage_files_rejects_flag_like_paths():
+    """Defense in depth: --hard style args are refused before touching git."""
+    import importlib
+    import subprocess
+    import tempfile
+
+    server_path = Path(__file__).parent.parent / "mcp-context-server" / "server.py"
+    spec = importlib.util.spec_from_file_location(
+        "context_server_unstage_flags", server_path
+    )
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    with tempfile.TemporaryDirectory() as td:
+        repo = Path(td)
+        subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
+        (repo / "a.py").write_text("x = 1\n", encoding="utf-8")
+        result = mod.unstage_files(["--hard", "a.py"], project_root=str(repo))
+        assert result.startswith("❌ Error"), result
+        assert "--hard" in result, result
