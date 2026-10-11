@@ -1,7 +1,7 @@
 import { test } from "node:test"
 import assert from "node:assert/strict"
 import { readFile, rm, writeFile } from "node:fs/promises"
-import { handleRetry, isFreeTierLimit, resolveConfig } from "./index.js"
+import { handleRetry, isFreeTierLimit, resetRescueCounts, resolveConfig } from "./index.js"
 
 const FREE = { providerID: "opencode", id: "muse-spark-1.3-contributor-free" }
 const PAID = { providerID: "anthropic", id: "paid-model" }
@@ -106,4 +106,78 @@ test("ECONNRESET transport fault is rescued with kind=transport", async () => {
   assert.equal(event.decision.delay, 2_000)
   const line = JSON.parse(await readFile("/tmp/rlr-t.jsonl", "utf8"))
   assert.equal(line.kind, "transport")
+})
+
+test("forced rescues stop after 10 per session", async () => {
+  resetRescueCounts()
+  await rm(TMP, { force: true })
+  const mk = (attempt) => ({
+    error: { status: 429, message: "Rate limit exceeded free tier quota" },
+    attempt,
+    sessionID: "cap10",
+    model: FREE,
+  })
+  for (let i = 1; i <= 10; i++) {
+    assert.equal(await handleRetry(mk(i), { command: "echo ok", metricsPath: TMP }), "rescued")
+  }
+  const cappedEvent = mk(11)
+  assert.equal(await handleRetry(cappedEvent, { command: "echo ok", metricsPath: TMP }), "capped")
+  assert.equal(cappedEvent.decision, undefined)
+  const lines = (await readFile(TMP, "utf8")).trim().split("\n").map(JSON.parse)
+  assert.equal(lines.length, 11)
+  assert.equal(lines[10].capped, true)
+  resetRescueCounts()
+})
+
+test("quota hit passes reason to command", async () => {
+  const event = {
+    error: { status: 429, message: "Rate limit exceeded" },
+    attempt: 1,
+    sessionID: "rsn-q",
+    model: FREE,
+  }
+  await handleRetry(event, { command: "echo rotated", metricsPath: TMP })
+  const lines = (await readFile(TMP, "utf8")).trim().split("\n")
+  assert.match(JSON.parse(lines.pop()).command, / --reason quota$/)
+})
+
+test("transport hit passes reason to command", async () => {
+  const event = {
+    error: { message: "ECONNRESET: socket closed unexpectedly" },
+    attempt: 1,
+    sessionID: "rsn-t",
+    model: FREE,
+  }
+  await handleRetry(event, { command: "echo rotated", metricsPath: TMP })
+  const lines = (await readFile(TMP, "utf8")).trim().split("\n")
+  assert.match(JSON.parse(lines.pop()).command, / --reason transport$/)
+})
+
+test("bare rr default gets next subcommand plus reason", async () => {
+  const event = {
+    error: { status: 429, message: "Rate limit exceeded" },
+    attempt: 1,
+    sessionID: "rsn-d",
+    model: FREE,
+  }
+  await handleRetry(event, { command: "/home/u/.local/bin/rr", metricsPath: TMP })
+  const lines = (await readFile(TMP, "utf8")).trim().split("\n")
+  assert.match(JSON.parse(lines.pop()).command, /rr next --reason quota$/)
+})
+
+test("cap is configurable via options and env", async () => {
+  resetRescueCounts()
+  const mk = () => ({
+    error: { status: 429, message: "Rate limit exceeded free tier quota" },
+    attempt: 1,
+    sessionID: "capopt",
+    model: FREE,
+  })
+  assert.equal(await handleRetry(mk(), { command: "echo ok", metricsPath: TMP }), "rescued")
+  assert.equal(await handleRetry(mk(), { command: "echo ok", metricsPath: TMP, maxRescues: 1 }), "capped")
+  process.env.RATE_LIMIT_MAX_RESCUES = "1"
+  assert.equal(resolveConfig({}).maxRescues, 1)
+  delete process.env.RATE_LIMIT_MAX_RESCUES
+  assert.equal(resolveConfig({}).maxRescues, 10)
+  resetRescueCounts()
 })

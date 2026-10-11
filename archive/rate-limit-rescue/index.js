@@ -17,6 +17,16 @@ try {
 // Every other error passes through untouched.
 const RETRY_DELAY_MS = 2_000
 
+// Attempt ceiling: the engine gives up after 5 retries, but forcing
+// retry:true extends the run (observed attempt 11 in production). Cap
+// forced rescues per session so a dead endpoint cannot loop forever.
+const MAX_RESCUES_PER_SESSION = 10
+const rescueCounts = new Map()
+
+export function resetRescueCounts() {
+  rescueCounts.clear()
+}
+
 export function isFreeTierLimit(error, model) {
   if (!error) return false
   // Ground truth (opencode.log 2026-09-26): "AI.Error: Rate limit exceeded.
@@ -38,20 +48,34 @@ export function isFreeTierLimit(error, model) {
 
 // Transient transport failures (explicit Manager order 2026-09-29): e.g.
 // "ECONNRESET: The socket connection was closed unexpectedly". These are
-// proxy/node faults, not quota — rr rotation is the fix, same 2s retry.
+// network faults, not quota — rr recovery is the fix, same 2s retry.
 export function isTransportFault(error) {
   if (!error) return false
   const hay = `${error.message ?? ""} ${error.type ?? ""} ${error.code ?? ""} ${error.name ?? ""}`.toLowerCase()
   return /econnreset|socket hang up|etimedout|epipe|socket connection was closed|network socket/.test(hay)
 }
 
+export function reasonSuffix(command, kind) {
+  // The bundled rr wrapper defaults bare invocation to `next`, but an
+  // explicit subcommand is required once flags are appended. Custom
+  // commands that already name their own subcommand only get the flag.
+  const bin = String(command || "").trim().split(/\s+/)[0] || ""
+  const base = bin.split("/").pop() || ""
+  const needsSub = /^(rr|rr_balancer\.py)$/.test(base);
+  return (needsSub ? " next" : "") + " --reason " + kind
+}
+
 export function resolveConfig(options) {
+  const rawMax = options?.maxRescues ?? process.env.RATE_LIMIT_MAX_RESCUES ?? MAX_RESCUES_PER_SESSION
+  const parsedMax = Number(rawMax)
   return {
     command: options?.command || process.env.RATE_LIMIT_COMMAND || `${homedir()}/.local/bin/rr`,
     metricsPath:
       options?.metricsPath ||
       process.env.RATE_LIMIT_METRICS ||
       `${homedir()}/.local/share/opencode/ratelimit-metrics.jsonl`,
+    maxRescues:
+      Number.isFinite(parsedMax) && parsedMax > 0 ? Math.floor(parsedMax) : MAX_RESCUES_PER_SESSION,
   }
 }
 
@@ -74,11 +98,40 @@ export async function handleRetry(event, options) {
   const transport = !quota && isTransportFault(event?.error)
   if (!quota && !transport) return "pass"
   const cfg = resolveConfig(options)
+  // Attempt ceiling: stop forcing retries past maxRescues per session so a
+  // dead endpoint ends instead of looping. No decision is set, so the engine
+  // applies its own give-up policy. The capped hit is still logged.
+  const sessionKey = event?.sessionID ?? ""
+  if (sessionKey) {
+    const count = (rescueCounts.get(sessionKey) ?? 0) + 1
+    rescueCounts.set(sessionKey, count)
+    if (rescueCounts.size > 1000) rescueCounts.delete(rescueCounts.keys().next().value)
+    if (count > cfg.maxRescues) {
+      try {
+        await appendMetrics(cfg.metricsPath, {
+          ts: new Date().toISOString(),
+          kind: quota ? "quota" : "transport",
+          capped: true,
+          sessionID: event.sessionID,
+          providerID: event.model?.providerID,
+          modelID: event.model?.id,
+          attempt: event.attempt,
+          command: cfg.command,
+          retryDelayMs: null,
+        })
+      } catch {
+        // metrics are best-effort
+      }
+      return "capped"
+    }
+  }
   // Never let observability break the retry: command/metrics failures are
   // recorded but the 2s decision is always set on a free-tier match.
+  const reason = quota ? "quota" : "transport"
+  const finalCommand = cfg.command + reasonSuffix(cfg.command, reason)
   let cmdResult = { ok: false, code: -1, stdout: "", stderr: "hook-guard" }
   try {
-    cmdResult = await runCommand(cfg.command)
+    cmdResult = await runCommand(finalCommand)
   } catch (err) {
     cmdResult = { ok: false, code: -1, stdout: "", stderr: String(err?.message ?? err).slice(0, 200) }
   }
@@ -98,7 +151,7 @@ export async function handleRetry(event, options) {
       message: String(event.error.message ?? "").slice(0, 300),
       attempt: event.attempt,
       proposedDelayMs: event.decision?.delay ?? null,
-      command: cfg.command,
+      command: finalCommand,
       commandOk: cmdResult.ok,
       commandCode: cmdResult.code,
       commandOut: cmdResult.stdout,

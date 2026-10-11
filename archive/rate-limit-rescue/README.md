@@ -7,13 +7,14 @@ Fires **only** on free-tier rate limits — every other error passes through unt
 
 On a free-tier 429-class failure it:
 
-1. Runs the env-configured command (default `~/.local/bin/rr` — rotates the balancer node).
+1. Runs the env-configured command (default `~/.local/bin/rr`).
 2. Appends one JSONL metrics line (default `~/.local/share/opencode/ratelimit-metrics.jsonl`), tagged `kind: "quota"` or `kind: "transport"`.
 3. Overrides the wait to 2s (`event.decision = { retry: true, delay: 2_000 }`).
+4. Stops forcing after 10 rescues per session (`capped: true` line, no decision set) so a dead endpoint ends instead of looping.
 
 It also rescues transient transport faults (`ECONNRESET`, socket hang-up/closed,
-`ETIMEDOUT`, `EPIPE`) the same way — these are proxy/node faults where `rr`
-rotation is the fix.
+`ETIMEDOUT`, `EPIPE`) the same way — these are network faults where `rr`
+recovery is the fix.
 
 ## Detection ground truth
 
@@ -34,6 +35,12 @@ No HTTP status, no free/tier words — so scope comes from the **model id**
 | --- | ------- | ------- |
 | `RATE_LIMIT_COMMAND` | `~/.local/bin/rr` | Command run on each hit |
 | `RATE_LIMIT_METRICS` | `~/.local/share/opencode/ratelimit-metrics.jsonl` | Metrics sink (one JSON object per line) |
+| `RATE_LIMIT_MAX_RESCUES` | `10` | Forced rescues per session before letting the engine give up |
+
+The detected kind (`quota` or `transport`) is appended to the command as
+`next --reason <kind>` for the bundled `rr` wrapper (custom commands
+receive only `--reason <kind>`), so per-cause failures are recorded.
+The final command string is stored in the metrics `command` field.
 
 Plugin options (`command`, `metricsPath` in `opencode.json`) override env.
 
@@ -44,7 +51,7 @@ Each line carries `ts`, `sessionID`, provider/model, `status`,
 `proposedDelayMs` (what OpenCode wanted), command result, and the applied
 `retryDelayMs`. Correlate by timestamp against:
 
-- `rr` rotation timeline: `rotation_log (ts, node, delay_ms, reason)` SQLite DB in `v2ray-to-subs/`
+- local rotation timeline: timestamped command history in the local state DB
 - OpenCode's own log lines around the same `ts` (`Failed to drain Session`)
 
 ## Verify
