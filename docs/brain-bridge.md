@@ -17,9 +17,9 @@ retired persona engine. The Hands calls it for every Brain turn
    (`<hands_implementation_task>`, `<hands_discovery_task>`,
    `<hands_combined_task>`, `<failure_report>`, `<hotfix>`), the bridge returns
    `XML_EXTRACTED` with the block; otherwise `REPORT` with the text.
-   Explicit ```xml fences count as real XML: when the unfenced scan finds
-   nothing, allowlist tags inside ```xml bodies still extract (other
-   fences stay documentation-only).
+   Bare unfenced XML extracts first (automatic mode); when none exists,
+   allowlisted blocks inside explicit ```xml fences extract (manual
+   copy-paste mode). Other fences stay documentation-only.
 4. **Questions relay to the Manager.** A `QUESTION` verdict pauses
    the Hands until the Manager answers.
 

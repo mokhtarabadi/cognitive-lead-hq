@@ -871,9 +871,11 @@ def _extract_unclosed_tail(text: str) -> str | None:
     return None
 
 
-#: Strict XML reject codes (Task 305 C1). Lenient fallback paths were
-#: deleted: unclosed trailing blocks and xml-fenced blocks now raise
-#: instead of extracting. The Brain must emit bare unfenced XML.
+#: Strict XML reject codes. Bare unclosed trailing blocks and truncated
+#: ```xml fences (no closed block inside) raise instead of extracting.
+#: Non-string input raises the contract code. Explicit ```xml fences
+#: holding complete allowlisted blocks extract via the fallback below
+#: (manual copy-paste mode); other fences stay documentation-only.
 STRICT_XML_FENCE_FALLBACK_CODE = "XML_STRICT_REJECT_FENCE_FALLBACK"
 STRICT_XML_UNCLOSED_CODE = "XML_STRICT_REJECT_UNCLOSED_TAIL"
 STRICT_XML_CONTRACT_CODE = "XML_STRICT_REJECT_CONTRACT"
@@ -889,14 +891,14 @@ def _strict_reject(code: str, msg: str) -> None:
 
 
 def extract_xml_blocks(output: str) -> list[str]:
-    """Return verbatim XML control blocks in document order. Only bare
-    unfenced blocks extract: fenced code blocks are documentation, and
-    unclosed trailing openers are rejected, never repaired. Fenced or
-    unclosed allowlisted input raises ``ValueError`` with a strict code
-    (Task 305 C1) instead of extracting. Empty list means plain
-    conversation — the Hands takes the whole output. Input contract is
-    ``str``: non-string input raises ``ValueError`` with a strict code
-    instead of a bare ``TypeError``."""
+    """Return verbatim XML control blocks in document order. Bare
+    unfenced blocks extract first (automatic mode); when none exist,
+    allowlisted blocks inside explicit ```xml fences extract as the
+    manual copy-paste fallback (other fences stay documentation-only).
+    Bare unclosed trailing openers are rejected, never repaired.
+    Empty list means plain conversation — the Hands takes the whole
+    output. Input contract is ``str``: non-string input raises
+    ``ValueError`` with a strict code instead of a bare ``TypeError``."""
     if not isinstance(output, str):
         _strict_reject(
             STRICT_XML_CONTRACT_CODE,
@@ -912,9 +914,14 @@ def extract_xml_blocks(output: str) -> list[str]:
             STRICT_XML_UNCLOSED_CODE,
             "unclosed trailing block: re-emit bare unfenced XML",
         )
+    fence_blocks: list[str] = []
     for body in _XML_FENCE_RE.finditer(output):
         content = body.group(1)
-        if _XML_RE.search(content) or _extract_unclosed_tail(content):
+        fence_blocks.extend(m.group(0) for m in _XML_RE.finditer(content))
+    if fence_blocks:
+        return fence_blocks
+    for body in _XML_FENCE_RE.finditer(output):
+        if _extract_unclosed_tail(body.group(1)):
             _strict_reject(
                 STRICT_XML_FENCE_FALLBACK_CODE,
                 "xml-fenced block: re-emit bare unfenced XML",

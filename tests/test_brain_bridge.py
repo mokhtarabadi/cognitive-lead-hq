@@ -574,7 +574,7 @@ def test_brain_turn_none_output_reports_without_crash(tmp_path, monkeypatch):
 
 
 def test_brain_turn_consecutive_fenced_both_report_code(tmp_path, monkeypatch):
-    # Task 305 C1 loop: two fenced turns both REPORT with strict code.
+    # Dual-mode: two fenced turns both extract at turn level.
     monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
     _mk_sys_prompt(tmp_path, monkeypatch)
     monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
@@ -591,14 +591,13 @@ def test_brain_turn_consecutive_fenced_both_report_code(tmp_path, monkeypatch):
     target = call.fn if hasattr(call, "fn") else call
     first = target("q", task_id="219")
     second = target("q2", task_id="219")
-    assert first["status"] == "REPORT" and second["status"] == "REPORT"
-    assert "XML_STRICT_REJECT_FENCE_FALLBACK" in first["output"]
-    assert "XML_STRICT_REJECT_FENCE_FALLBACK" in second["output"]
+    assert first["status"] == "XML_EXTRACTED" and second["status"] == "XML_EXTRACTED"
+    assert len(first["xml_blocks"]) == 1 and len(second["xml_blocks"]) == 1
 
 
 def test_brain_turn_strict_reject_reports_code(tmp_path, monkeypatch):
-    # Task 305 C1: fenced operative XML never extracts at turn level.
-    # The tool stays stable and reports with the explicit strict code.
+    # Dual-mode: fenced operative XML extracts at turn level.
+    # The tool stays stable and returns the block.
     monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
     _mk_sys_prompt(tmp_path, monkeypatch)
     monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
@@ -608,8 +607,8 @@ def test_brain_turn_strict_reject_reports_code(tmp_path, monkeypatch):
     call = bridge.brain_turn
     target = call.fn if hasattr(call, "fn") else call
     result = target("q", task_id="217")
-    assert result["status"] == "REPORT"
-    assert "XML_STRICT_REJECT_FENCE_FALLBACK" in result["output"]
+    assert result["status"] == "XML_EXTRACTED"
+    assert len(result["xml_blocks"]) == 1
 
 
 def test_brain_turn_budget_return_fields(tmp_path, monkeypatch):
@@ -2067,23 +2066,26 @@ def test_extract_hotfix_bare_block():
 
 
 def test_extract_known_tag_inside_xml_fence():
-    # Task 305 C1 strict: lenient fallback raises with code.
-    with pytest.raises(ValueError, match="XML_STRICT_REJECT_FENCE_FALLBACK"):
-        bridge.extract_xml_blocks(
-            "notes\n```xml\n<failure_report>root cause</failure_report>\n```\ntail"
-        )
+    # Dual-mode fallback: manual copy-paste ```xml fences extract.
+    blocks = bridge.extract_xml_blocks(
+        "notes\n```xml\n<failure_report>root cause</failure_report>\n```\ntail"
+    )
+    assert len(blocks) == 1
+    assert blocks[0].startswith("<failure_report>")
 
 
 def test_extract_hotfix_inside_xml_fence():
-    # Task 305 C1 strict: lenient fallback raises with code.
-    with pytest.raises(ValueError, match="XML_STRICT_REJECT_FENCE_FALLBACK"):
-        bridge.extract_xml_blocks("```xml\n<hotfix>apply A1-A8</hotfix>\n```")
+    # Dual-mode fallback: manual copy-paste ```xml fences extract.
+    blocks = bridge.extract_xml_blocks("```xml\n<hotfix>apply A1-A8</hotfix>\n```")
+    assert len(blocks) == 1
+    assert blocks[0].startswith("<hotfix>")
 
 
 def test_extract_unclosed_xml_fence_to_eof():
-    # Task 305 C1 strict: lenient fallback raises with code.
-    with pytest.raises(ValueError, match="XML_STRICT_REJECT_FENCE_FALLBACK"):
-        bridge.extract_xml_blocks("notes\n```xml\n<hotfix>apply A1</hotfix>\n")
+    # Dual-mode fallback: unclosed ```xml fence still yields to EOF.
+    blocks = bridge.extract_xml_blocks("notes\n```xml\n<hotfix>apply A1</hotfix>\n")
+    assert len(blocks) == 1
+    assert blocks[0].startswith("<hotfix>")
 
 
 def test_extract_ignores_hotfix_in_non_xml_fences():
@@ -2117,17 +2119,20 @@ def test_extract_unfenced_wins_over_fenced_xml():
 
 
 def test_extract_multiple_xml_fences_in_order():
-    # Task 305 C1 strict: lenient fallback raises with code.
-    with pytest.raises(ValueError, match="XML_STRICT_REJECT_FENCE_FALLBACK"):
-        bridge.extract_xml_blocks(
-            "```xml\n<hotfix>first</hotfix>\n```\ntext\n```xml\n<failure_report>second</failure_report>\n```"
-        )
+    # Dual-mode fallback: multiple ```xml fences extract in order.
+    blocks = bridge.extract_xml_blocks(
+        "```xml\n<hotfix>first</hotfix>\n```\ntext\n```xml\n<failure_report>second</failure_report>\n```"
+    )
+    assert len(blocks) == 2
+    assert blocks[0].startswith("<hotfix>")
+    assert blocks[1].startswith("<failure_report>")
 
 
 def test_extract_uppercase_fence_lowercase_tag():
-    # Task 305 C1 strict: lenient fallback raises with code.
-    with pytest.raises(ValueError, match="XML_STRICT_REJECT_FENCE_FALLBACK"):
-        bridge.extract_xml_blocks("```XML\n<hotfix>loud fence</hotfix>\n```")
+    # Dual-mode fallback: case-insensitive ```XML fence extracts.
+    blocks = bridge.extract_xml_blocks("```XML\n<hotfix>loud fence</hotfix>\n```")
+    assert len(blocks) == 1
+    assert blocks[0].startswith("<hotfix>")
 
 
 def test_extract_uppercase_tag_tolerated():
@@ -2135,9 +2140,9 @@ def test_extract_uppercase_tag_tolerated():
     # varies in case; an operative tag in any case still extracts.
     blocks = bridge.extract_xml_blocks("<HOTFIX>x</HOTFIX>")
     assert len(blocks) == 1
-    # Task 305 C1 strict: the fenced twin raises with code.
-    with pytest.raises(ValueError, match="XML_STRICT_REJECT_FENCE_FALLBACK"):
-        bridge.extract_xml_blocks("```xml\n<HOTFIX>x</HOTFIX>\n```")
+    # Dual-mode fallback: the fenced twin extracts as well.
+    blocks = bridge.extract_xml_blocks("```xml\n<HOTFIX>x</HOTFIX>\n```")
+    assert len(blocks) == 1
 
 
 def test_extract_fence_without_newline_ignored():
