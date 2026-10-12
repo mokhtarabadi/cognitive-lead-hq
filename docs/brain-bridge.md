@@ -23,6 +23,16 @@ retired persona engine. The Hands calls it for every Brain turn
 4. **Questions relay to the Manager.** A `QUESTION` verdict pauses
    the Hands until the Manager answers.
 
+## Pre-send budget guard
+
+Before any provider call the bridge estimates input as chars divided by
+four, adds the live reserved output cap, and trims oldest history, then
+diffs and context, then bundle. Persistent over-budget returns a
+`BRAIN_BUDGET_OVER` REPORT hint with the numbers and skips the provider,
+so an oversize turn never becomes a hard provider 400. Window and margin
+are env-tunable (`BRAIN_CONTEXT_WINDOW_TOKENS`, `BRAIN_BUDGET_MARGIN_TOKENS`;
+defaults 1048576 and 8192) — no hardcoded numbers in the send path.
+
 ## Session-first chat history
 
 The LLM is stateless, so the bridge keeps a JSONL transcript per
@@ -115,6 +125,8 @@ repo-root `.env`). Real process env wins; blank counts as unset. See
 | `BRAIN_CTX_TOTAL_CAP` | `200000` — all `context_paths` per turn; blank/unset = default |
 | `BRAIN_INPUT_BUDGET` | `1000000` — input budget ceiling (system + prompt + history), chars |
 | `BRAIN_MODEL_WINDOW_CHARS` | `200000` — utilization monitor only, never a send cap |
+| `BRAIN_CONTEXT_WINDOW_TOKENS` | `1048576` — provider window for the pre-send guard; blank/unset = default |
+| `BRAIN_BUDGET_MARGIN_TOKENS` | `8192` — safety margin for the pre-send guard; blank/unset = default |
 
 `BRAIN_INPUT_BUDGET` defaults to 1,000,000 chars (~217k input tokens at
 the measured ~4.6 chars/token) — room for full context and diff reports

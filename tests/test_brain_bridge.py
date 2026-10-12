@@ -2246,6 +2246,122 @@ def test_extract_closed_block_wins_over_truncated_tail():
     assert blocks[0].startswith("<failure_report>")
 
 
+# --- Pre-send token budget guard (REPORT hint instead of provider 400) ---
+
+
+def test_pure_estimate_matches_chars_divided_by_four():
+    assert bridge._estimate_input_tokens_from_chars(4000) == 1000
+    assert bridge._estimate_input_tokens_from_chars(0) == 0
+    assert bridge._estimate_input_tokens_from_chars(-5) == 0
+
+
+def test_pure_budget_fits_window_minus_margin():
+    assert bridge._PROVIDER_CONTEXT_WINDOW_DEFAULT == 1048576
+    assert bridge._BUDGET_SAFETY_MARGIN_DEFAULT == 8192
+    assert bridge._pre_send_budget_fits(105898, 32768) is True
+    assert bridge._pre_send_budget_fits(105898, 943718) is False
+
+
+def test_budget_window_and_margin_read_env_overrides(monkeypatch):
+    monkeypatch.setenv("BRAIN_CONTEXT_WINDOW_TOKENS", "100000")
+    monkeypatch.setenv("BRAIN_BUDGET_MARGIN_TOKENS", "1000")
+    assert bridge._provider_window_tokens() == 100000
+    assert bridge._budget_margin_tokens() == 1000
+    assert bridge._pre_send_budget_fits(90000, 8000) is True
+    assert bridge._pre_send_budget_fits(90000, 9001) is False
+    assert "100000" in bridge._over_budget_hint(90000, 9001)
+
+
+def test_pure_budget_fits_exact_boundary():
+    limit = (
+        bridge._PROVIDER_CONTEXT_WINDOW_DEFAULT - bridge._BUDGET_SAFETY_MARGIN_DEFAULT
+    )
+    assert bridge._pre_send_budget_fits(limit - 32768, 32768) is True
+    assert bridge._pre_send_budget_fits(limit - 32768 + 1, 32768) is False
+
+
+def test_over_budget_returns_report_with_numbers_and_skips_provider(
+    tmp_path, monkeypatch
+):
+    # Reserve above the window can never fit: provider must not be called.
+    monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
+    _mk_sys_prompt(tmp_path, monkeypatch)
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    monkeypatch.delenv("BRAIN_TEMPERATURE", raising=False)
+    monkeypatch.setattr(bridge, "_get_max_tokens", lambda: 2000000)
+    _mk_bridge_client(monkeypatch, [_FakeResp(200, "fine", _ok_payload("ok"))])
+    call = bridge.brain_turn
+    target = call.fn if hasattr(call, "fn") else call
+    result = target("q", task_id="399", include_bundle=False)
+    assert result["status"] == "REPORT"
+    assert "BRAIN_BUDGET_OVER" in result["output"]
+    assert "2000000" in result["output"]
+    assert "1048576" in result["output"]
+    assert result["output"] != "ok"
+
+
+def test_trim_order_history_first_then_diffs_then_bundle(tmp_path, monkeypatch):
+    # History exhausts first (every replayed turn dropped) before bundle
+    # trims; diffs and context are empty in this env so their counts stay
+    # zero. The load view compacts old turns, so the count is dynamic.
+    monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
+    _mk_sys_prompt(tmp_path, monkeypatch)
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    monkeypatch.delenv("BRAIN_TEMPERATURE", raising=False)
+    for _ in range(14):
+        bridge.append_turn("398", "user", "x" * 30000)
+    monkeypatch.setattr(bridge, "_get_max_tokens", lambda: 2000000)
+    _mk_bridge_client(monkeypatch, [_FakeResp(200, "fine", _ok_payload("ok"))])
+    call = bridge.brain_turn
+    target = call.fn if hasattr(call, "fn") else call
+    result = target("q", task_id="398", include_bundle=False)
+    assert result["status"] == "REPORT"
+    assert "BRAIN_BUDGET_OVER" in result["output"]
+    # The load view compacts old turns, so pin the dropped count dynamically:
+    # every replayed turn must be trimmed before the guard gives up.
+    assert result["history_turns_dropped"] > 0
+    assert f"history turns={result['history_turns_dropped']}" in result["output"]
+    assert "diffs=0" in result["output"]
+    assert "bundle=0" in result["output"]
+
+
+def test_xhigh_caps_fit_inside_window(tmp_path, monkeypatch):
+    # 128K and 256K reserves with small input must call the provider.
+    for task_id, reserve in (("396", 131072), ("397", 262144)):
+        monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
+        _mk_sys_prompt(tmp_path, monkeypatch)
+        monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+        monkeypatch.delenv("BRAIN_TEMPERATURE", raising=False)
+        monkeypatch.setattr(bridge, "_get_max_tokens", lambda r=reserve: r)
+        _mk_bridge_client(monkeypatch, [_FakeResp(200, "fine", _ok_payload("ok"))])
+        call = bridge.brain_turn
+        target = call.fn if hasattr(call, "fn") else call
+        result = target("q", task_id=task_id, include_bundle=False)
+        assert result["output"] == "ok"
+        assert "BRAIN_BUDGET_OVER" not in result["output"]
+
+
+def test_trim_order_diffs_then_bundle_with_context_present(tmp_path, monkeypatch):
+    # Empty history with a big context file forces the diffs and context
+    # stage before the bundle stage; both counts ride the hint.
+    big = tmp_path / "big.txt"
+    big.write_text("z" * 600000, encoding="utf-8")
+    monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
+    _mk_sys_prompt(tmp_path, monkeypatch)
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    monkeypatch.delenv("BRAIN_TEMPERATURE", raising=False)
+    monkeypatch.setattr(bridge, "_get_max_tokens", lambda: 2000000)
+    _mk_bridge_client(monkeypatch, [_FakeResp(200, "fine", _ok_payload("ok"))])
+    call = bridge.brain_turn
+    target = call.fn if hasattr(call, "fn") else call
+    result = target("q", task_id="395", context_paths=[str(big)])
+    assert result["status"] == "REPORT"
+    assert "BRAIN_BUDGET_OVER" in result["output"]
+    assert "history turns=0" in result["output"]
+    assert "diffs=1" in result["output"]
+    assert "context=1" in result["output"]
+
+
 # --- Task-number gate: task_id is a bare number, never suffixed ---
 # (Session finding: "215qa"/"215rev"/"215plan" forked one task's history
 # into separate transcript dirs. The tool entry now rejects them.)

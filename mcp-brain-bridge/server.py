@@ -1386,6 +1386,41 @@ def _get_max_tokens() -> int:
         return 32768
 
 
+# Pre-send token budget guard: values are operator-tunable via env
+# (BRAIN_CONTEXT_WINDOW_TOKENS, BRAIN_BUDGET_MARGIN_TOKENS — see
+# _provider_window_tokens/_budget_margin_tokens); built-in defaults match
+# the provider 400 context length. Margin absorbs tokenizer drift.
+_PROVIDER_CONTEXT_WINDOW_DEFAULT = 1048576
+_BUDGET_SAFETY_MARGIN_DEFAULT = 8192
+
+
+def _estimate_input_tokens_from_chars(budget_chars: int) -> int:
+    """Estimate input tokens from character count for pre-send budget check. Why this exists: provider bills tokens while bridge only sees chars, so chars divided by four gives a conservative fast estimate matching existing lines 3030 and 3056. Args budget_chars total chars of system plus effective plus history plus diffs plus context plus bundle. Returns integer token estimate. Edge: zero or negative input returns zero, never negative."""
+    # Guard trivial input first so downstream math never sees negative totals.
+    if budget_chars <= 0:
+        return 0
+    # Integer division matches existing estimate behavior exactly.
+    return budget_chars // 4
+
+
+def _pre_send_budget_fits(
+    est_input_tokens: int,
+    reserved_output_tokens: int,
+    window: Optional[int] = None,
+    margin: Optional[int] = None,
+) -> bool:
+    """Decide if estimated input plus reserved output fits inside provider window minus margin. Why: prevents provider 400 by blocking or trimming before send. Window and margin resolve from env when omitted so operators tune without code edits. Returns True when total fits, False when over."""
+    # Resolve env-tunable numbers late so tests and operators override freely.
+    if window is None:
+        window = _provider_window_tokens()
+    if margin is None:
+        margin = _budget_margin_tokens()
+    # Add first so overflow is visible in one total, then compare against window minus margin.
+    total = est_input_tokens + reserved_output_tokens
+    limit = window - margin
+    return total <= limit
+
+
 def _get_api_key() -> str:
     """Provider key. Fail-closed: an empty key cannot authenticate, so
     raise instead of sending a bare ``Bearer `` header."""
@@ -1675,6 +1710,20 @@ def _env_positive_int(name: str, default: int) -> int:
 def _task_attach_cap() -> int:
     """Configured task-attachment cap (chars)."""
     return _env_positive_int("BRAIN_TASK_ATTACH_CAP", _TASK_ATTACH_CAP)
+
+
+def _provider_window_tokens() -> int:
+    """Provider context window (tokens) for the pre-send budget guard."""
+    return _env_positive_int(
+        "BRAIN_CONTEXT_WINDOW_TOKENS", _PROVIDER_CONTEXT_WINDOW_DEFAULT
+    )
+
+
+def _budget_margin_tokens() -> int:
+    """Safety margin (tokens) for the pre-send budget guard."""
+    return _env_positive_int(
+        "BRAIN_BUDGET_MARGIN_TOKENS", _BUDGET_SAFETY_MARGIN_DEFAULT
+    )
 
 
 def _task_diff_cap() -> int:
@@ -3020,14 +3069,89 @@ def brain_turn(
     effective_prompt = "\n\n---\n\n".join(_blocks)
 
     # Input budget: system + prompt + history chars count against the
-    # configured ceiling. History is NEVER dropped to fit: the shipped
-    # transcript is already bounded at load (``_HISTORY_LIMIT``), so the
-    # full session thread always rides along. History loss is reported
-    # separately from attachment loss.
+    # configured ceiling. The shipped transcript is bounded at load
+    # (``_HISTORY_LIMIT``), and the pre-send guard below may additionally
+    # drop oldest history turns to fit the provider window. History loss
+    # is reported separately from attachment loss.
     history_turns_dropped = 0
     truncated_count = history_turns_dropped
     budget_chars = len(system_prompt) + len(effective_prompt) + _hist_chars()
     util_pct = budget_chars * 100 // _model_window_chars()
+    # Pre-send token budget guard: estimate input tokens, add the live
+    # reserved output, and trim in fixed order before any provider call so
+    # an oversize turn returns a REPORT hint instead of a provider 400.
+    # Diffs, context, and bundle already ride inside effective_prompt, so
+    # the estimate covers them with zero extras and no double count.
+    _est_input_tokens = _estimate_input_tokens_from_chars(budget_chars)
+    _reserved_output_tokens = _get_max_tokens()
+    _trimmed_history = 0
+    _trimmed_diffs = 0
+    _trimmed_context = 0
+    _trimmed_bundle = 0
+    while (
+        not _pre_send_budget_fits(_est_input_tokens, _reserved_output_tokens)
+        and history
+    ):
+        # Oldest first: index zero is the oldest turn; the current turn
+        # lives in effective_prompt and is never touched here.
+        history.pop(0)
+        _trimmed_history += 1
+        budget_chars = len(system_prompt) + len(effective_prompt) + _hist_chars()
+        _est_input_tokens = _estimate_input_tokens_from_chars(budget_chars)
+    if not _pre_send_budget_fits(_est_input_tokens, _reserved_output_tokens) and (
+        diff_append_text or paths_text
+    ):
+        # Diffs and context travel in after_blocks; drop the whole tail.
+        after_blocks = []
+        _blocks = [b for b in before_blocks if b] + [user_prompt]
+        effective_prompt = "\n\n---\n\n".join(_blocks)
+        diff_append_text = ""
+        paths_text = ""
+        _trimmed_diffs = 1
+        _trimmed_context = 1
+        budget_chars = len(system_prompt) + len(effective_prompt) + _hist_chars()
+        _est_input_tokens = _estimate_input_tokens_from_chars(budget_chars)
+    if (
+        not _pre_send_budget_fits(_est_input_tokens, _reserved_output_tokens)
+        and bundle_text
+    ):
+        # Bundle travels in before_blocks; rebuild without the bundle kind.
+        before_blocks = [
+            block
+            for cand, block, _meta in rendered
+            if cand.get("kind") in ("fed_context", "task") and block
+        ]
+        _blocks = [b for b in before_blocks if b] + [user_prompt]
+        _blocks.extend(b for b in after_blocks if b)
+        effective_prompt = "\n\n---\n\n".join(_blocks)
+        bundle_text = ""
+        _trimmed_bundle = 1
+        budget_chars = len(system_prompt) + len(effective_prompt) + _hist_chars()
+        _est_input_tokens = _estimate_input_tokens_from_chars(budget_chars)
+    history_turns_dropped = _trimmed_history
+    truncated_count = history_turns_dropped
+    util_pct = budget_chars * 100 // _model_window_chars()
+    _budget_over_hint_text: Optional[str] = None
+    if not _pre_send_budget_fits(_est_input_tokens, _reserved_output_tokens):
+        _budget_state = _task_state_note(history_key, project_root)
+        _budget_over_hint_text = _over_budget_hint(
+            _est_input_tokens,
+            _reserved_output_tokens,
+            trimmed_history=_trimmed_history,
+            trimmed_diffs=_trimmed_diffs,
+            trimmed_context=_trimmed_context,
+            trimmed_bundle=_trimmed_bundle,
+            task_id=task_id,
+            state=_budget_state,
+        )
+        print(
+            "brain-bridge: pre-send budget over "
+            f"(est_input~{_est_input_tokens} reserved={_reserved_output_tokens} "
+            f"trimmed_history={_trimmed_history} trimmed_diffs={_trimmed_diffs} "
+            f"trimmed_context={_trimmed_context} "
+            f"trimmed_bundle={_trimmed_bundle}); provider skipped",
+            file=sys.stderr,
+        )
     # Sidecar only: the split descriptor never touches wire bytes —
     # effective_prompt, chat payload, and prompt_hash stay identical.
     cache_split = build_prompt_cache_split(
@@ -3113,6 +3237,19 @@ def brain_turn(
     # must never stitch a fragment — the whole call is retried with more
     # visible-answer headroom instead.
     for _transport_pass in (0, 1):
+        if _budget_over_hint_text is not None:
+            # Pre-send budget guard tripped: skip the provider entirely and
+            # ride the normal REPORT tail below with the hint text.
+            output = _budget_over_hint_text
+            xml_blocks = []
+            _raw_text_present = False
+            diag = {
+                "status": "complete",
+                "incomplete_reason": None,
+                "error": None,
+                "refusal": None,
+            }
+            break
         _note_checkpoint(
             "transport_started",
             task_id=task_id,
@@ -3376,6 +3513,45 @@ def _task_state_note(task_id: Optional[str], project_root: Optional[str] = None)
         return f"{rel} | status={status} | diff={dh}"
     except Exception:
         return "unknown"
+
+
+def _over_budget_hint(
+    est_input_tokens: int,
+    reserved_output_tokens: int,
+    window: Optional[int] = None,
+    margin: Optional[int] = None,
+    trimmed_history: int = 0,
+    trimmed_diffs: int = 0,
+    trimmed_context: int = 0,
+    trimmed_bundle: int = 0,
+    task_id: Optional[str] = None,
+    state: Optional[str] = None,
+) -> str:
+    """Retry hint substituted when the pre-send budget guard trips.
+
+    Pure function (no I/O) so tests can assert the contract directly.
+    The bridge MUST NOT invent verdict content here — hint only.
+    ``state`` is a precomputed task path/status/diff note (see
+    ``_task_state_note``); the hint stays pure, the caller does the I/O.
+    Window and margin resolve from env when omitted.
+    """
+    if window is None:
+        window = _provider_window_tokens()
+    if margin is None:
+        margin = _budget_margin_tokens()
+    where = f" for task {task_id}" if task_id else ""
+    note = f" Current state: {state}." if state else ""
+    return (
+        f"BRAIN_BUDGET_OVER: estimated input ~{est_input_tokens} tokens plus "
+        f"reserved output {reserved_output_tokens} tokens exceeds the "
+        f"{window}-token provider window minus {margin} margin{where} "
+        f"(trimmed history turns={trimmed_history}, diffs={trimmed_diffs}, "
+        f"context={trimmed_context}, bundle={trimmed_bundle}). "
+        "The provider was NOT called, so retrying as-is will fail the same "
+        "way. Retry leaner: same task_id, include_bundle=false, short "
+        "prompt, or narrower context_paths — never raise the output cap "
+        "to fix this." + note
+    )
 
 
 def _empty_output_hint(
