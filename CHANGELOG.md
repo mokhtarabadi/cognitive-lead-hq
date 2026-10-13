@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **AGENTS.md living-docs guardrail (audit-agents).** New Don't/Do rule requires inspecting the sibling `README.md` and `DECISIONS.md` before editing code in any component or vertical slice directory, closing the one gap found by the refreshed auditor skill; `.gitignore` verified compliant, no change.
+
+- **Project smart-compact config.** `.opencode/smart-compact.jsonc` now exists (validated against `@mokhtarabadi/opencode-smart-compact` v0.2.1, git main): enables the plugin for this project on top of the global defaults, with an in-file note restating the auditor-ignore rule so the file is never flagged, patched, or gitignored.
+
 - **Night mode workflow** (`prompts/fragments/23-night_mode.md`, cross-referenced from the execution workflow, human-readable copy in `docs/night-mode.md`). Documents the overnight autopilot mode proven in practice: a locked no-questions rule with self-decisions logged in the task file, delegated authority bounded to plan/QA/review/closure (never deploys, release bumps, credentials or pushes), a one-task-at-a-time pipeline, evidence rules including the dispute path for rejections that contradict the working tree, compaction survival through project memory, and a fixed morning-report shape. `system-prompt.md` rebuilt; version bumped to 9.59.0.
 - **`audit-agents` ignores the session-compact config.** `.opencode/smart-compact.jsonc` is deliberate, agent-managed plugin configuration, so the auditor never flags it as OpenCode scaffolding, never patches or deletes it, and never demands it be gitignored.
 

@@ -59,6 +59,8 @@ This repository is the Headquarters for the Cognitive Lead AI multi-agent system
   -> **Do** spawn parallel subagents (up to 4 concurrent agents, e.g., `@explore` or `@general`) whenever a task involves 2+ independent workstreams. (Parallel Agent Execution — V9.1.0)
 - **Don't** reference task numbers in Markdown prose (prompts, skills, docs, headings).
   -> **Do** reference task numbers ONLY in code comments, `CHANGELOG.md`, task files, history archives, and HTML comments. See Task-Number Reference Discipline in `docs/conventions.md`.
+- **Don't** silently alter slice architecture or domain invariants.
+  -> **Do** inspect the sibling `README.md` and `DECISIONS.md` before editing code in any component or vertical slice directory, and update them when domain contracts or architectural decisions change. See Living Folder Docs in `docs/conventions.md`.
 
 ## Documentation Sync Rules
 
