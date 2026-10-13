@@ -9,6 +9,7 @@ Human-readable spec hub for conventions, architecture-adjacent guides, service t
 - `conventions.md` — Syntax, naming, file boundaries, and automation patterns (bound spec).
 - `brain-bridge.md` — Brain Bridge protocol reference for QA/review turns.
 - `compaction.md` — Context compaction and smart-compact usage.
+- `night-mode.md` — Overnight autopilot workflow (delegated authority, per-task pipeline, morning report).
 - `openchamber.md` — OpenChamber session linking guide.
 - `opencode-shell-strategy.md` — Shell execution strategy.
 - `services.md` — Service topology for MCP daemons.

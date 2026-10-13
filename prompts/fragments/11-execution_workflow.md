@@ -41,4 +41,6 @@ The Orchestrator strictly operates as an Industrialized Software Production Line
 
 9. **Step 9: Next Task Transition (Sprint Strategist)**
    - Sprint Strategist verifies backlog priority and immediately initiates Step 1 on the next sprint candidate.
+
+**Night mode override.** When the Manager hands over the night ("night mode", "100% autopilot until morning"), `<night_mode>` governs: the Step 6 QA gate, the Step 7 review gate, and the Step 8 closure approval are pre-authorized and played by the Hands, and the question tool is not used until he returns. Every other step in this pipeline is unchanged.
 </execution_workflow>
