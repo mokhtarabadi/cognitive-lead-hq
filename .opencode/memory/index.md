@@ -26,3 +26,4 @@
 | workflows | no_task_for_global_upgrade | Global install upgrades run WITHOUT a task file: Manager order 2026-09-14 — delete any upgrade task file, execute wor... |  |
 | workflows | rtk_first_verification | RTK-first verification rule (Manager order 2026-09-17, structurally wired): every test-suite verification run begins ... |  |
 | workflows | telegram-file-delivery | # Sending Task Files to Telegram — MANAGER PREFERENCE (updated 2026-08-10, overrides previous version) |  |
+| workflows | upstream-upgrade-dep-sync | # Upstream Upgrade Dependency Sync (Manager standing rule 2026-10-15) |  |
