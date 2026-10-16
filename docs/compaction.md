@@ -32,6 +32,17 @@ opencode plugin add @mokhtarabadi/opencode-smart-compact
 
 Note: `opencode plugin add` accepts npm registry packages or Git specs only — a bare local directory path is rejected, so use the Git spec (or list the directory in `plugins` and restart) while developing.
 
+### Goal plugin install
+
+```bash
+# Interim (works now, installs from the pushed repo):
+opencode plugin add github:mokhtarabadi/opencode-goal-plugin
+# Once published to npm:
+opencode plugin add opencode-goal-plugin
+```
+
+`/goal` tracks one long-running objective in `.opencode/goal-state.json` with evidence in `.opencode/goal-evidence.json`: `/goal <objective>` to set, `/goal status` to check, `/goal block <reason>`, `/goal complete` (needs file citations plus passing tests), `/goal clear`. Create `.opencode/STOP_GOAL` to pause the loop immediately.
+
 This writes the package (or path) into `plugins` in the global config; OpenCode loads it at startup. New machines get the entry from the global `opencode.json` in `LLM.txt` §7 plus the install command in `LLM.txt` §7.7.
 
 > **Do not install `magic-compact`.** The V1-era npm package exports the V1 plugin shape and fails to load on OpenCode 2 with `PluginModule.LoadError`. Smart Compact is the V2-native replacement.
