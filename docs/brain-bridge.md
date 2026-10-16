@@ -8,7 +8,12 @@ retired persona engine. The Hands calls it for every Brain turn
 
 1. **Hands builds the user prompt from machine state** — e.g.
    `QA engineer please make the adversarial testing` plus the
-   attached task file contents.
+   attached task file contents. The prompt MUST open with a one-line
+   mode statement because the Brain cannot know which emission shape is
+   live: `MODE: AUTOMATIC (autopilot locked) — emit bare unfenced XML
+   only; no copy-paste relay instructions` in autopilot, `MODE: MANUAL
+   — xml-fenced blocks and copy-paste relay instructions expected`
+   otherwise.
 2. **The bridge loads the system prompt** from the global install
    (`~/.config/opencode/system-prompt.md`, override via
    `BRAIN_SYSTEM_PROMPT`) and sends system + history + new prompt

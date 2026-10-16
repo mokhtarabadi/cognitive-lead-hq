@@ -375,6 +375,16 @@ needs no extra machinery.
    (e.g. "QA engineer please make the adversarial testing") + the full
    active task file + any prior answers. QA and reviewer turns MUST pass
    `include_diff=True`.
+   **Mode line (mandatory, every call):** open every `brain_turn` prompt
+   with one line stating the live mode, because the Brain's system prompt
+   carries both emission shapes and it cannot know which one is live
+   without being told. Autopilot: `MODE: AUTOMATIC (autopilot locked) —
+   emit bare unfenced XML only, never xml-fenced blocks; do NOT emit any
+   copy-paste relay instructions ("Manager: please copy...") — the Hands
+   chain QA/review turns directly.` Manual: `MODE: MANUAL — xml-fenced
+   blocks expected; copy-paste relay instructions expected.` Skip this
+   line and the Brain fence-strict-rejects in autopilot and keeps
+   emitting admin copy-paste text in a silent pipeline.
    **Session Binding (Mandatory):** You MUST pass `session_id: "$OPENCODE_SESSION_ID"` (reading your active session ID from the environment) in every `brain_turn` call alongside `task_id`. Because the MCP server runs as a separate daemon, you must send this parameter explicitly over the wire so the conversation history continues in `tasks/.sessions/<session_id>/transcript.jsonl`.
 2. **Call** `brain_turn`. Read `status`:
    - `XML_EXTRACTED` — execute `xml_blocks` as the next instruction set,
@@ -436,6 +446,8 @@ calls YOURSELF: QA, re-QA, and review turns are invoked directly by you
 with the same `task_id` — never paste XML or task text for the Manager
 to ferry back. In autopilot the Manager sees only Relay questions and
 the final verdict report. Ferrying work through the Manager is a bug.
+Every chained turn carries the AUTOMATIC mode line from Build, so the
+Brain emits bare XML and never writes copy-paste relay text.
 
 ### Modes: manual (default) vs autopilot (locked)
 

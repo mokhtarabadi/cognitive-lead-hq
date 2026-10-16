@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **Mandatory mode line in every `brain_turn` prompt.** The executor now opens each Brain call with `MODE: AUTOMATIC (autopilot locked) — emit bare unfenced XML only; no copy-paste relay instructions` or `MODE: MANUAL — xml-fenced blocks and copy-paste relay instructions expected`, because the Brain's system prompt carries both emission shapes and cannot know which one is live. Without it the Brain fence-strict-rejects in autopilot and keeps emitting admin copy-paste text in a silent pipeline. Documented in `agents/cognitive-executor.md` (Brain Bridge state machine plus autopilot section) and `docs/brain-bridge.md`.
+
 - **AGENTS.md living-docs guardrail (audit-agents).** New Don't/Do rule requires inspecting the sibling `README.md` and `DECISIONS.md` before editing code in any component or vertical slice directory, closing the one gap found by the refreshed auditor skill; `.gitignore` verified compliant, no change.
 
 - **Project smart-compact config.** `.opencode/smart-compact.jsonc` now exists (validated against `@mokhtarabadi/opencode-smart-compact` v0.2.1, git main): enables the plugin for this project on top of the global defaults, with an in-file note restating the auditor-ignore rule so the file is never flagged, patched, or gitignored.
