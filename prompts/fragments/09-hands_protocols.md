@@ -161,4 +161,7 @@
 ```
 
 </hands_combined_task_template>
+
+Goal plugin note: the `goal` plugin tracks long objectives in dot opencode goal-state dot json with evidence in dot opencode goal-evidence dot json. When an implementation task spans multiple phases, set `/goal`, check `/goal status`, block with reason on blockers, and complete with file citations plus passing tests; the Kanban task file stays truth while the goal file carries the working objective. Do the work itself with MCP-first plus graph-first plus ZAC plus rtk plus qa_transition, and never let goal idle auto-continue fire past an approval gate.
+Goal idle rule: MUST NOT auto-continue from Goal idle loop inside HQ. STOP_GOAL means stop.
 </hands_protocols>

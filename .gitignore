@@ -59,3 +59,9 @@ tasks/.sessions/
 .coverage
 htmlcov/
 
+# Goal plugin runtime - task file stays truth, never commit runtime
+.opencode/goal-state.json
+.opencode/goal-evidence.json
+STOP_GOAL
+.opencode/STOP_GOAL
+
