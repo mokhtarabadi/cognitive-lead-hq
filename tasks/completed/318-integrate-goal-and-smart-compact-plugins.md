@@ -1,9 +1,9 @@
 # Task 318: Integrate goal and smart-compact plugins into HQ system
 
-**File:** `tasks/qa/318-integrate-goal-and-smart-compact-plugins.md`
+**File:** `tasks/completed/318-integrate-goal-and-smart-compact-plugins.md`
 **Source:** manager
 **Type:** feature
-**Status:** open
+**Status:** closed
 
 ## Goal
 
@@ -24,7 +24,7 @@ Translated technical English (prompt-refactor output): Explore `../opencode-goal
 - [x] Step 5: Sync fragments 22 and 09 plus version bump
 - [x] Step 6: Update docs/compaction.md global plugins clarification
 - [x] Step 7: Regenerate system-prompt.md plus sync check
-- [ ] Step 8: Documentation and evidence plus lint plus qa_transition
+- [x] Step 8: Documentation and evidence plus lint plus qa_transition
 
 ## Acceptance Criteria
 
@@ -84,116 +84,11 @@ Brain plan verdict (task 318, session ses_ebac9dae6ffe, stage plan): REPORT with
 Implementation notes: docs and config only across eight paths. `.gitignore` appends four goal runtime lines while smart-compact config stays tracked. Executor gains Goal boundary subsection under compaction with Smart Compact ops untouched. Audit skill gains project-agnostic Goal runtime bullet beside existing deliberate-config rules. Fragment 22 already synced so no edit, fragment 09 appends goal-state note, version bumped 9.59.0 to 9.59.1. `docs/compaction.md` gains global-plugins bullet. `system-prompt.md` regenerated (105766 bytes) with sync check green. CHANGELOG entry appended under Unreleased Added without header duplication. Sibling README plus DECISIONS inspected in agents, prompts/fragments, skill-templates, docs; additive docs only, explicitly no ADR added. No task numbers in prompt-facing prose; CHANGELOG carries the reference as allowed.
 Rework per Manager rejection of the boundary framing: the first pass kept the goal plugin at arm's length, but the essence of this project is a reusable OpenCode workflow, so the executor must know both plugins and call them when needed. Rewrote the executor section, fragment 09 note, docs bullet, Goal, and CHANGELOG entry to operational tool-use; version bumped again to 9.59.2. No new task created; all rework stays inside this task file.
 QA hotfix (QA_REJECTED, 3 gaps): verified kill-switch truth in plugin sources (STOP_FILE_NAME STOP_GOAL inside .opencode per limits.ts, STATE_FILENAME goal-state.json with .opencode join per state.ts 54 and 61-64) and fixed .gitignore header to the exact required block; replaced the executor Goal section with the exact hardened text (MUST NOT auto-send, STOP behavior, exact-only inputs, active-only transitions) keeping slash, state, and evidence knowledge; appended the exact idle-rule line to fragment 09 beside the operational note; appended the exact compaction-precedence paragraph to fragment 22 and docs/compaction (restore never resurrects cleared or completed); bumped version to 9.59.3 and regenerated (106637 bytes, sync green). Stays in qa lane; staged via stage_and_inject_diff, no lane move.
+Autopilot pipeline: re-QA returned QA_PASSED (kill switch covered, idle blocked, precedence present, exact inputs match parser; docs-only so grep plus assembler plus sync plus lint suffice). Code Reviewer returned technically APPROVED with PO_REVIEW_PENDING (5 strengths, 3 lows: executor line numbers may shift, docs spells paths as words, Step 8 unchecked until close; follow-ups R1-R3). Manager accept quote for closure: Approved for closure.
+Closure note 2026-10-16: QA_PASSED plus technical APPROVED with PO_REVIEW_PENDING on record; file moved qa to completed via git mv; staged hunks committed via commit_and_clean_task with docs message; sibling slices inspected, no slice change.
 
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
-```diff
-diff --git a/.gitignore b/.gitignore
-index 2b9d975..afc6aad 100644
---- a/.gitignore
-+++ b/.gitignore
-@@ -59,3 +59,9 @@ tasks/.sessions/
- .coverage
- htmlcov/
- 
-+# Goal plugin runtime state - task file stays truth, never commit runtime
-+.opencode/goal-state.json
-+.opencode/goal-evidence.json
-+STOP_GOAL
-+.opencode/STOP_GOAL
-+
-diff --git a/CHANGELOG.md b/CHANGELOG.md
-index f68197e..6643896 100644
---- a/CHANGELOG.md
-+++ b/CHANGELOG.md
-@@ -45,6 +45,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
- 
- - **Living Folder Docs Standard & Prompt System (Task 307):** Added the Living Folder Docs standard to docs/conventions.md, enforcing colocated README.md and DECISIONS.md alongside code pointers across vertical slices. Extended prompt fragments (13-constraints.md, 09-hands_protocols.md) and agents/cognitive-executor.md with mandatory sibling doc inspection and ADR synchronization rules. Rebuilt system-prompt.md with version bump to v9.54.0; updated skill-templates/audit-agents to audit living docs, and created skill-templates/init-folder-docs for legacy project onboarding.
- 
-+- **Goal and Smart Compact plugin integration (Task 318, system prompt 9.59.2):** the executor now knows both global plugins as callable tools, no plugin-repo edits and no repo `opencode.json` plugins key. `.gitignore` covers goal runtime state (`.opencode/goal-state.json`, `.opencode/goal-evidence.json`, `STOP_GOAL`, `.opencode/STOP_GOAL`) while `smart-compact.jsonc` stays tracked as deliberate config. `agents/cognitive-executor.md` carries an operational Goal section (`/goal` set, status, block, complete with evidence, clear; task file stays Kanban truth, goal file carries the working objective; idle loop never fires past an approval gate). `skill-templates/audit-agents` adds a project-agnostic runtime-vs-config rule. Fragments `09-hands_protocols.md` (goal use note) and `22-compaction_protocol.md` regenerated into `system-prompt.md` with sync check green. `docs/compaction.md` names both global plugins and their operational use.
-+
- ### Fixed
- 
- - **Brain dual-mode XML contract (Task 316, system prompt 9.58.2):** manual copy-paste mode forces fenced `xml output while automatic mode emits bare unfenced XML, and the bridge extracts both shapes (bare first, `xml-fence fallback second; other fences stay documentation-only, bare unclosed tails still strict-reject). This supersedes the bare-only 9.58.1 attempt the Manager rejected: the Senior Programmer, QA hotfix, and Reviewer postfix personas now carry the per-MODE rule, the runbook describes dual-mode extraction, and the fence-fallback tests pin extraction instead of rejection.
-diff --git a/agents/cognitive-executor.md b/agents/cognitive-executor.md
-index d380817..b446f1a 100644
---- a/agents/cognitive-executor.md
-+++ b/agents/cognitive-executor.md
-@@ -102,6 +102,13 @@ Context is finite. Two layers keep long sessions productive, and the agent's dur
- 4. **Trigger it yourself, or hand off the command.** The agent cannot run the `/magic-*` slash commands, but it CAN call the `compact_context` tool directly — prefer that when context pressure is high (pass `keepTurns` to protect recent turns, `mode: "trim"` to prune tool output only), state one line about it, then continue from the task file. Fall back to recommending a `/magic-compact` run to the Manager when a tool call is not available.
- 5. **Call it before heavy payloads, not after stalling.** Invoke `compact_context` yourself at these triggers: context pressure is high, 50+ steps ran without measurable progress, before a plan-approval handoff, and before QA or review turns carry a large diff. Use `mode: "trim"` when only tool output is bulky and full `compact` when turns are stale. Never re-run a source tool for pruned output — retrieve it with `read_omitted_content` by Content ID. The Brain bridge needs no change: the executor already holds direct `compact_context` access, so no Brain mention is added.
- 
-+### Goal Plugin - long-objective tracker, call it when needed
-+
-+- The `goal` plugin (`opencode-goal-plugin`) is installed globally alongside smart-compact. Know it exists and use it for long-running multi-phase objectives: `/goal <objective>` at start (max 2000 chars), `/goal status` to check, `/goal block <reason>` on blockers, `/goal complete` with file citations plus passing-test proof recorded in `.opencode/goal-evidence.json`, `/goal clear` at end. Kill switch: create `.opencode/STOP_GOAL` to pause the loop immediately, delete it to resume.
-+- Goal file state (`.opencode/goal-state.json`) survives compaction; it carries the working objective while the HQ task file stays the single source of truth for Kanban — the two complement, never compete.
-+- Inside approval-gated HQ turns the Brain Bridge stays the sole automation path (ZAC, WIP3, approval gates hold): use the goal slash, state, and evidence surfaces, and never let goal idle auto-continue fire past an approval gate. In target projects running this workflow, suggest `/goal` inside implementation plans so long work resumes correctly after compaction.
-+- Smart Compact operations in lines 95-104 remain unchanged.
-+
- ## Capability Preflight (session start)
- 
- Before approval-sensitive work (plan approval, review approval, closure), check the capability manifest: every `brain_turn` prints a `capability-manifest:` diagnostic line to stderr mapping each required tool to `AVAILABLE`, `UNAVAILABLE_REQUIRED`, or `UNAVAILABLE_OPTIONAL`. A step whose required tool is `UNAVAILABLE_REQUIRED` (for example the `question` tool) is never silently skipped. Emit the relay block the turn returned (missing tool names, stage, one narrow question, one answer slot) through the mode-appropriate channel: manual mode relays it to the Manager verbatim and pauses with the relayed question as the named blocker; autopilot halts with the relay block as the named blocker. Approval collection follows the single approval rule: closure accepts only the exact phrases "Approved for closure" or "Close task" (a bare "approved" never counts); the plan gate accepts "approved" in any case. Blanket acknowledgements ("ok", "yes", "looks good", emoji) never count as approval at any gate. At plan-approval, PO_REVIEW_PENDING relay, and any closure approval gate you MUST collect the decision via the question tool with one narrow question and one answer slot. Prose-only approval asks are forbidden because an auto-continue loop can roll past prose. This holds in manual and autopilot. If question is UNAVAILABLE_REQUIRED, emit the relay block and pause with it as the named blocker; never skip. Only hard blockers may use prose.
-diff --git a/docs/compaction.md b/docs/compaction.md
-index d3c6ca1..57c6c11 100644
---- a/docs/compaction.md
-+++ b/docs/compaction.md
-@@ -87,6 +87,7 @@ Each omission notice carries a Content ID (e.g. `omitted-0001`). The agent calls
- - **System prompt:** the `<compaction_protocol>` fragment (generated into `system-prompt.md`) states the two layers and the survival contract.
- - **Agent:** `agents/cognitive-executor.md` carries the operational steps, including that the agent cannot run the plugin command and instead recommends a `/magic-compact` run when context pressure is high.
- - **Config:** global `opencode.json` holds `plugins` + `compaction`; the repo `opencode.json` stays config-free of both.
-+- **Global plugins:** Global plugins live in user config at tilde config opencode opencode dot json as github mokhtarabadi opencode-smart-compact plus github mokhtarabadi opencode-goal-plugin. Repo opencode dot json has no plugins key by intent. HQ task file stays truth. Use the goal plugin for long objectives (`/goal` set, status, block, complete with evidence, clear); its idle loop never fires past an approval gate.
- 
- **Survival contract** — keep these in the task file so any compaction is recoverable:
- 
-diff --git a/prompts/fragments/01-system_version.md b/prompts/fragments/01-system_version.md
-index d995bff..d92be86 100644
---- a/prompts/fragments/01-system_version.md
-+++ b/prompts/fragments/01-system_version.md
-@@ -1 +1 @@
--<system_version>9.59.0</system_version>
-+<system_version>9.59.2</system_version>
-diff --git a/prompts/fragments/09-hands_protocols.md b/prompts/fragments/09-hands_protocols.md
-index 9f489e6..ab2d8e6 100644
---- a/prompts/fragments/09-hands_protocols.md
-+++ b/prompts/fragments/09-hands_protocols.md
-@@ -161,4 +161,6 @@
- ```
- 
- </hands_combined_task_template>
-+
-+Goal plugin note: the `goal` plugin tracks long objectives in dot opencode goal-state dot json with evidence in dot opencode goal-evidence dot json. When an implementation task spans multiple phases, set `/goal`, check `/goal status`, block with reason on blockers, and complete with file citations plus passing tests; the Kanban task file stays truth while the goal file carries the working objective. Do the work itself with MCP-first plus graph-first plus ZAC plus rtk plus qa_transition, and never let goal idle auto-continue fire past an approval gate.
- </hands_protocols>
-diff --git a/skill-templates/audit-agents/SKILL.md b/skill-templates/audit-agents/SKILL.md
-index 9bdf219..1a273e6 100644
---- a/skill-templates/audit-agents/SKILL.md
-+++ b/skill-templates/audit-agents/SKILL.md
-@@ -39,6 +39,7 @@ The `AGENTS.md` file MUST explicitly contain the following operational constrain
- - **Lite Mode Protocol**: `AGENTS.md` MUST document the `<lite_mode_protocol>` — when eligible (single-file, no security/financial impact, obvious simplicity), the full 9-step production line can be bypassed with a `[LITE]` justification in the task's `## Execution Log & Reasoning` section. Escalation to Full Mode is mandatory if hidden complexity is discovered.
- - **Deprecated-Section Purge Rule**: Scans `AGENTS.md` and all task files across `tasks/` (excluding archive and completed history) for deprecated sections: `## Manager Decisions`, `## Admin Decision`, `Manager Decision`, `Admin Decision`. When detected, the auditor MUST purge the entire deprecated section from the target file, document the purge in the audit findings/changelog, and MUST NOT flag their absence as a missing requirement or recreate them.
- - **Runtime-State gitignore**: If the project writes per-project runtime state (plugin state, worktree checkouts, session/state JSON), `.gitignore` MUST cover those paths while MUST NOT ignore deliberate config checked in on purpose. Audit `.gitignore` read-only first; patch only paths for state actually detected in the project — never speculative entries. Deliberate agent config (`[PROJECT_ROOT]/.opencode/smart-compact.jsonc`) is NOT runtime state and MUST NOT be gitignored. The same rule covers Brain session history: when the audited project carries `tasks/.sessions/` transcript dirs (brain-bridge per-project sessions), `.gitignore` MUST include the `tasks/.sessions/` path — check `.gitignore` first and add the line only if missing (never duplicate), and only after confirming the dir exists in that project.
-+- **Goal Plugin Runtime State**: Goal plugin file state (`[PROJECT_ROOT]/.opencode/goal-state.json`, `[PROJECT_ROOT]/.opencode/goal-evidence.json`, `[PROJECT_ROOT]/STOP_GOAL`, `[PROJECT_ROOT]/.opencode/STOP_GOAL`) is runtime state only and MUST be gitignored. It is external scratch and never replaces decentralized task truth.
- 
- - **Living Folder Docs Sibling Inspection**: AGENTS.md MUST instruct agents to inspect sibling README.md and DECISIONS.md before editing code in any component or vertical slice directory, and update them when domain contracts or architectural decisions change.
- 
-diff --git a/system-prompt.md b/system-prompt.md
-index 0d52a7f..de3a833 100644
---- a/system-prompt.md
-+++ b/system-prompt.md
-@@ -1,4 +1,4 @@
--<system_version>9.59.0</system_version>
-+<system_version>9.59.2</system_version>
- 
- <role>
- You are the Cognitive Lead AI running inside the Orchestrator platform, acting as an elite software agency orchestrator.
-@@ -395,6 +395,8 @@ Before taking any action (either tool calls _or_ responses to the user), you mus
- ```
- 
- </hands_combined_task_template>
-+
-+Goal plugin note: the `goal` plugin tracks long objectives in dot opencode goal-state dot json with evidence in dot opencode goal-evidence dot json. When an implementation task spans multiple phases, set `/goal`, check `/goal status`, block with reason on blockers, and complete with file citations plus passing tests; the Kanban task file stays truth while the goal file carries the working objective. Do the work itself with MCP-first plus graph-first plus ZAC plus rtk plus qa_transition, and never let goal idle auto-continue fire past an approval gate.
- </hands_protocols>
- 
- <lite_mode_protocol>
-```
+**Factual Git Diff:** Stored in Commit Hash: `57560168b3563b8c3c511fa1b5646707d16953a2`
 <!-- END_GIT_DIFF -->
