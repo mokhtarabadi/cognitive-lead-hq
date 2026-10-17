@@ -17,5 +17,7 @@ Context is a finite budget, not a container. Long sessions stay productive throu
 
 **Rule.** The agent cannot run the `/magic-*` slash commands itself, but it CAN call `compact_context` directly — prefer that under pressure, and state one line about it. Either way, continue from the task file, never from a lossy summary. In autopilot never ask the Manager to run slash commands; call `compact_context` yourself and chain the next turn. Over-budget input still compacts with a warning. Do not edit compaction config files; human slash tools are out of scope for the agent. Durable state lives in the task file and project memory, so any compaction stays recoverable.
 
+Task file is the sole reconcile target. Smart Compact via `compact_context` is the sole pruning writer; native auto-compact is a lossy safety net only and is never relied on for state. After any compaction resume from the task file and re-apply pruning through the sole writer.
+
 Compaction precedence: Smart Compact V2 session.hook context transform preserves per-turn summaries and prunable cached I/O per src/index.ts 238-254 with defaults maxChars1024 maxWords128 task4096. Goal compaction snapshot plus restore plus evidence nudge per src/compaction.ts 28-114 MUST NOT resurrect a cleared or completed objective. If goal status is clear or complete, restore is skipped. Task file remains truth.
 </compaction_protocol>

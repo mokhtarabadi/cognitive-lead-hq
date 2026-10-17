@@ -71,6 +71,10 @@ If the Orchestrator or Manager forgets to explicitly list a skill in the `<conte
 | Closing or archiving a task                              | `archive-tasks`                                                                            |
 | Complex bug, deadlock, silent failure                    | `debug-instrumentation`                                                                    |
 | Implementation-producing input (any stack, any language) | `prompt-refactor` (mandatory before planning: validate, translate, expand, then structure) |
+| Java-8 Android Views, no Compose (XML layouts, Activities) | `android-kotlin` for Kotlin discipline plus tooling order only; Compose MVI Hilt SQLDelight coverage does not apply to Views (skip recorded) |
+| Plain Node CommonJS Cloud Code, no TS or hex ports      | `node-hexagonal-api` for layering intent where applicable, else no stack skill; no CommonJS Cloud Code skill exists (skip recorded) |
+
+**Binding Fallback Rule:** If no stack skill exactly matches, load the closest skill for discipline only and record an explicit skip with root plus marker scan list plus matched skills list plus reason phrase. Never invent a new skill inline and never claim coverage not present.
 
 ## Direct Input (Ad-Hoc) Validation Protocol
 
@@ -98,6 +102,8 @@ Context is finite. Two layers keep long sessions productive, and the agent's dur
 
 1. **Native safety net.** OpenCode auto-compacts near the model limit: it replaces older turns with one lossy summary and keeps the most recent ~20k tokens (config: `compaction.keep.tokens`). Never depend on it to preserve working state — write the essentials to the task file as you go.
 2. **Smart Compact (high-fidelity).** The `smart-compact` plugin (`@mokhtarabadi/opencode-smart-compact`) is installed globally and loaded by OpenCode. It is V2-native: it stores a per-session compaction state and applies it to the model-visible messages per request, so it never mutates the stored transcript. It keeps user messages verbatim, condenses each old assistant turn into its own summary, and prunes bulky tool output into a retrievable cache. The Manager runs the commands: `/magic-compact [N]` summarizes old turns keeping the last N turns, `/magic-trim [N]` prunes tool I/O only, `/magic-stats` reports savings. After a prune, prefer a cheap fresh run of the source tool; call `read_omitted_content` with its Content ID (`omitted-NNNN`) ONLY when the output cannot be reproduced cheaply, never speculatively. On a cache miss, re-run the source tool once.
+Task file is the sole reconcile target. Smart Compact via `compact_context` is the sole pruning writer; native auto-compact is a lossy safety net only and is never relied on for state. After any compaction resume from the task file and re-apply pruning through the sole writer.
+
 3. **Survival contract.** Keep the task file holding: the active task id and Kanban lane, the pinned `[fed-context]` block with citations, the current persona/seat, the locked mode (manual or autopilot), the latest staged diff hash, open blockers, and the next action. Resume from that file after any compaction — never from a summary.
 4. **Trigger it yourself, or hand off the command.** The agent cannot run the `/magic-*` slash commands, but it CAN call the `compact_context` tool directly — prefer that when context pressure is high (pass `keepTurns` to protect recent turns, `mode: "trim"` to prune tool output only), state one line about it, then continue from the task file. Effect is async (stored now, prunes next request) — do not re-call to verify. In autopilot never ask the Manager to run slash commands; call it yourself and chain the next turn. Fall back to recommending a `/magic-compact` run to the Manager only when a tool call is not available in manual mode. Do not edit compaction config files.
 5. **Call it before heavy payloads, not after stalling.** Invoke `compact_context` yourself at these triggers: context pressure is high, 50+ steps ran without measurable progress, before a plan-approval handoff, and before QA or review turns carry a large diff. Use `mode: "trim"` when only tool output is bulky and full `compact` when turns are stale. Never re-run a source tool for pruned output — retrieve it with `read_omitted_content` by Content ID. The Brain bridge needs no change: the executor already holds direct `compact_context` access, so no Brain mention is added.
@@ -107,8 +113,9 @@ Context is finite. Two layers keep long sessions productive, and the agent's dur
 - HQ task file in tasks backlog plus in-progress plus qa plus completed remains single source of truth.
 - File at .opencode/goal-state.json is external scratch only and never replaces Kanban state per src/index.ts 39-45 and src/state.ts 54 and 61-64.
 - Goal idle handler src/loop.ts 205-437 MUST NOT auto-send inside HQ sessions. Brain Bridge remains sole automation path with ZAC plus WIP3 plus approval gates per lines 24-52. If STOP_GOAL file exists at root or .opencode/STOP_GOAL, loop MUST stop immediately per src/limits.ts 25-26.
-- Goal slash inputs are exact-only: status plus clear plus complete accept no extras, parser rejects slash goalie extras per src/goal.ts 28-101. Transitions setObjective plus blockGoal plus completeGoal plus clearGoal run active-only per src/goal.ts 153-223. Agent lane is tools-only (`goal_set`, `goal_block`, `goal_complete`, `goal_resume`, exact schemas, no extra properties, titles and reasons are literal data). Never write `.opencode/goal-state.json` or `.opencode/goal-evidence.json` with file tools. Busy lease means retry the same call next turn, never work around it. Corrupt state means report to the human, never invent.
+- Goal slash inputs are exact-only: status plus clear plus complete accept no extras, parser rejects slash goalie extras per src/goal.ts 28-101. Transitions setObjective plus blockGoal plus completeGoal plus clearGoal run active-only per src/goal.ts 153-223. Agent lane is tools-only (`goal_set`, `goal_block`, `goal_evidence`, `goal_complete`, `goal_resume`, exact schemas, no extra properties, titles and reasons are literal data). Never write `.opencode/goal-state.json` or `.opencode/goal-evidence.json` with file tools. Busy lease means retry the same call next turn, never work around it. Corrupt state means report to the human, never invent.
 - Goal evidence plus verifier gate is optional external check. HQ QA plus Code Reviewer gates stay authoritative per src/evidence.ts 12-47 and src/verifier.ts 18-128.
+- Goal sync rule (executor behavior, plugin untouched): Hands performs exactly two goal writes per goal: at block via `goal_block`, and at closure first `goal_evidence` (file citations plus passing tests) then `goal_complete` (`goal_complete` takes no arguments — evidence goes only through `goal_evidence`). No background reads or polling of goal state files. Kanban task files remain single source of truth; goal files are scratch resume pointers only. On any conflict Kanban wins. Never write `.opencode/goal-state.json` or `.opencode/goal-evidence.json` with file tools; use goal tools only with exact schemas; on busy-lease retry the same call next turn; on corrupt state report to the human.
 - Smart Compact operations in lines 95-104 remain unchanged.
 
 ## Capability Preflight (session start)
@@ -270,9 +277,7 @@ is governed by the Seat Check, trigger map, and reject rule below —
 "Architect seat minimum" alone is never sufficient when a trigger matches.
 Record the Brain's plan verdict plus the selected path in the task Execution
 Log (or the session/goal record when no task file exists) and execute from
-it — never from your own invention. Lite-eligible changes (single file, no
-cross-module impact, obvious fix, never login/auth, money, or security-surface
-changes) pass with a one-line justification in the file.
+it — never from your own invention. Lite-eligible changes (no security/financial/CLP/auth/migration surface, gate-decided entry with tests green plus lint clean plus risk greps clean, reversible via git. Any file count allowed while risk is low and gates pass) pass with a one-line justification in the file.
 
 Every plan states one auditable line: `Brainstorm: required | not required —
 <reason>`, per the trigger in the brainstorming protocol. Work that is

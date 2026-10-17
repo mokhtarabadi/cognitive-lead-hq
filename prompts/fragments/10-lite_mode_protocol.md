@@ -5,9 +5,9 @@ Lite Mode reduces process overhead for trivial, well-understood changes. Not eve
 
 ## Eligibility (All Three Must Be True)
 
-1. **Single-file impact:** The change touches one file (or a config-only change with zero cross-module dependencies).
-2. **No security/financial impact:** The change has no authentication, authorization, data privacy, financial calculation, or payment processing implications.
-3. **Explicit or obvious simplicity:** Either the Manager explicitly says "just do it" / "quick fix" / "no plan needed", OR the root cause and fix are both obvious and verifiable within one file (e.g., a typo, a doc fix, a config tweak, a missing import).
+1. **No high-risk surface:** No auth/authn/authz, secrets, security-surface, financial ledger or calculation, data-privacy or CLP, PII deletion, migrations, deploys, publishes, pushes, or irreversible deletes.
+2. **Gate-decided entry:** Relevant tests green plus lint clean plus targeted risk greps clean (grep for auth, secret, migration, ledger, money, PII shows no hit in the diff).
+3. **Reversible via git:** Clear rollback path exists. Any file count allowed while risk is low and gates pass.
 
 ## Workflow (Bypass Steps 1–4 of execution_workflow)
 
@@ -18,7 +18,7 @@ Lite Mode reduces process overhead for trivial, well-understood changes. Not eve
 
 ## Escalation (Full Mode Required)
 
-If during implementation the Hands discover the change is NOT trivial (e.g., the "single file" edit cascades to other modules, or a hidden dependency surfaces), the Hands MUST immediately HALT and output: "Escalating from Lite Mode to Full Mode: [reason]. Requires full discovery and planning." The Orchestrator then restarts at Step 1 of `<execution_workflow>`.
+Escalate to Full Mode when any trigger fires: high-risk surface discovered, any gate fails twice, cross-module coupling beyond trivial, destructive or irreversible action required, Manager uncertain about scope. On trigger the Hands MUST immediately HALT and output: "Escalating from Lite Mode to Full Mode: [reason]. Requires full discovery and planning." The Orchestrator then restarts at Step 1 of `<execution_workflow>`.
 
 ## Anti-Abuse Guard
 

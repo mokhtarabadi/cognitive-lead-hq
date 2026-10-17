@@ -102,9 +102,9 @@ Process is scaled to risk. Not every task requires the full 9-step production li
 
 ### Eligibility (All Three Must Be True)
 
-1. **Single-file impact:** Change touches one file (or config-only, zero cross-module dependencies).
-2. **No security/financial impact:** No authentication, authorization, data privacy, financial calculation, or payment implications.
-3. **Explicit or obvious simplicity:** Manager says "just do it" / "quick fix" / "no plan needed", OR root cause and fix are both obvious and verifiable within one file.
+1. **No high-risk surface:** No auth/authn/authz, secrets, security-surface, financial ledger or calculation, data-privacy or CLP, PII deletion, migrations, deploys, publishes, pushes, or irreversible deletes.
+2. **Gate-decided entry:** Relevant tests green plus lint clean plus targeted risk greps clean (grep for auth, secret, migration, ledger, money, PII shows no hit in the diff).
+3. **Reversible via git:** Clear rollback path exists. Any file count allowed while risk is low and gates pass.
 
 ### Workflow
 
@@ -112,13 +112,13 @@ Bypasses Steps 1–4 of `<execution_workflow>` (Discovery, Brainstorming, Bluepr
 
 ### Escalation
 
-If implementation reveals the change is NOT trivial, the Hands MUST HALT and output: "Escalating from Lite Mode to Full Mode: [reason]." The full workflow restarts at Step 1.
+Escalate to Full Mode when any trigger fires: high-risk surface discovered, any gate fails twice, cross-module coupling beyond trivial, destructive or irreversible action required, Manager uncertain about scope. On trigger the Hands MUST HALT and output: "Escalating from Lite Mode to Full Mode: [reason]." The full workflow restarts at Step 1.
 
 ### Risk Tiers (Autopilot-Ready Contract)
 
 Every task runs at one tier. The tier sets how many human pauses apply.
 
-- **T0 trivial:** meets all three Lite eligibility criteria above. Lite fast path applies. No human pauses except QA and review verdicts.
+- **T0 trivial:** meets all Lite eligibility above (no high-risk surface, gates green, reversible). Lite fast path applies. No human pauses except QA and review verdicts.
 - **T1 standard:** multi-file changes or new behavior. Full supervised autopilot applies with a plan-approval pause plus Relay questions.
 - **T2 destructive or irreversible:** migrations, deletes, publishes, pushes, or secret handling. Each action needs explicit Manager approval. Autopilot MUST halt and never self-approve.
 
