@@ -353,3 +353,50 @@ def test_validate_opencode_positives():
         "spotless-java": {"command": ["mvn", "spotless:apply"], "extensions": [".java"]}
     }
     assert _run_validator(cfg) == (0, "")
+
+
+def _project_skills_table_rows():
+    text = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
+    m = re.search(r"## .*PROJECT SKILLS.*\n\n((?:\|.*\n)+)", text)
+    assert m, "AGENTS.md has no Project Skills table"
+    return [
+        line
+        for line in m.group(1).splitlines()
+        if line.startswith("|") and "Name" not in line and "----" not in line
+    ]
+
+
+def _local_skill_names():
+    return sorted(
+        p.parent.name for p in (ROOT / ".opencode" / "skills").glob("*/SKILL.md")
+    )
+
+
+def test_audit_template_requires_project_skills_table():
+    text = (ROOT / "skill-templates" / "audit-agents" / "SKILL.md").read_text(
+        encoding="utf-8"
+    )
+    assert "Project Skills Table" in text
+    assert "stale row" in text
+
+
+def test_project_skills_table_matches_local_skill_dirs():
+    local = _local_skill_names()
+    assert local, "no local skills found to audit"
+    rows = _project_skills_table_rows()
+    assert len(rows) == len(local), (
+        f"table rows {len(rows)} != local skills {len(local)}"
+    )
+    for name in local:
+        assert any(name in row for row in rows), (
+            f"local skill missing from table: {name}"
+        )
+
+
+def test_project_skills_table_has_no_stale_rows():
+    local = set(_local_skill_names())
+    for row in _project_skills_table_rows():
+        names = re.findall(r"`([a-z0-9-]+)`", row)
+        assert names, f"table row without skill name: {row}"
+        for name in names:
+            assert name in local, f"stale row for deleted skill: {name}"

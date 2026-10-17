@@ -7,6 +7,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- **Project Skills table in AGENTS.md (Task 323):** the `audit-agents` template now mandates a scan-and-table condition on every audit (scan `.opencode/skills/*/SKILL.md`, rebuild the table with name plus trigger plus duty; missing table and stale rows fail the audit); root `AGENTS.md` backfilled with the `sop-maintenance` row; `tests/test_skill_registry.py` enforces table presence, row-count match, and stale-row failure.
+
 - **Language policy: English inside, requested language outside (Task 322):** new `prompts/fragments/24-language_policy.md` (translate-first with complexity gating, per-message detection with Persian default, English-only internals plus Brain turns, approval literals English-only) wired via `prompts/manifest.txt`; fragments 05 (clarification in requested language), 13 (Cognitive Rule plus Output Style item 6 plus Approval Literals Guard), and 20 (handoff-language line) updated; `agents/cognitive-executor.md` Direct Input plus handoff plus Negative Patterns updated with approval gates untouched; `docs/conventions.md` clarification halt aligned; both sync tests updated (pin 9.61.0, new wording asserts, approval-English test). Bumped `<system_version>` 9.60.1 to 9.61.0 with byte-identical re-assemble. Note: `split_system_prompt.py` rewrites fragments from the prompt and drops unassembled files, so round-trip verification uses assemble-twice diff, never split.
 
 - **Goal sync wording fix (Task 321 rework):** closure is now first `goal_evidence` (file citations plus passing tests) then `goal_complete`, since `goal_complete` takes no arguments. Bumped `<system_version>` 9.60.0 to 9.60.1 with byte-identical re-assemble.

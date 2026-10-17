@@ -119,6 +119,12 @@ You MUST follow these skill loading rules in every session:
 - **Task-Generator Skill:** Before creating any new task file, you MUST load the `task-generator` skill using the `skill` tool to ensure the correct template format with `<!-- BEGIN_GIT_DIFF -->` / `<!-- END_GIT_DIFF -->` markers.
 - **Project Skills:** Before implementing any task, you MUST load every available skill matching the project's tech stack (e.g., `android-kotlin`, `spring-boot`, `react-vite`, `nodejs-express`, `python-fastapi`). If a relevant skill exists, it MUST be loaded — this enforces framework-specific conventions and architectural rules.
 
+## 🛑 PROJECT SKILLS (Local, Audited)
+
+| Name | Trigger (when to load) | Duty (one line) |
+| ---- | ---------------------- | --------------- |
+| `sop-maintenance` | When modifying this SOP repository | Rules for modifying the Cognitive Lead AI SOP repository |
+
 ## 🛑 CONTEXT BOOTSTRAPPING
 
 At the start of every task, you MUST call `search_memory` or `list_namespaces` to load any hidden project quirks relevant to your domain before implementing.
