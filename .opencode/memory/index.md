@@ -12,6 +12,7 @@
 | opencode_config | v2_server_password_sync_2026_09_26 | # V2 server auth — managed mode only (updated 2026-10-01) |  |
 | project | absent-file-policy | Absent-File Policy: If a referenced core file does not exist (e.g., DESIGN.md, docs/architecture.md, docs/data_model.... |  |
 | project | fragment-edit-regenerate-workflow | # Fragment-Edit → Regenerate Workflow (Task 129, 2026-08-30) |  |
+| project | free-tier-bash-gate | # Free-tier bash gate (upstream OpenCode behavior, recorded 2026-10-17) |  |
 | project | mcp_tool_audit_2026_09_18 | MCP tool audit 2026-09-18: 28 tools across 5 servers. Strong: decision-server (WHEN TO CALL on all 6), lint-server (4... |  |
 | project | repo-details | # Repository Details |  |
 | project | system-prompt-build-process | system-prompt.md is a GENERATED build artifact, NOT a hand-edited source file. |  |

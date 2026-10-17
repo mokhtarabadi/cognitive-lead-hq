@@ -73,7 +73,7 @@ Assumption A1: issue body quoted in task notes is verbatim from gh issue view. R
 Implementation notes: appended bash-gate section plus smoke-test checklist to agents/README.md (no permission edits); appended accepted DECISIONS entry with six upstream refs; CHANGELOG entry under Unreleased Added; sibling agents README plus DECISIONS inspected before edits per Living Folder Docs, no other slice change.
 Autopilot pipeline (code guard): QA verdict QA_PASSED (no permission drift, frontmatter filter correct, discovery exemption explicit, fallback cannot hide dropped bash). Code Reviewer verdict: technically APPROVED, PO_REVIEW_PENDING (5 strengths, 1 low non-blocking: wildcard deny shape theoretical, follow-up R1). File stays in tasks/qa/ until the exact closure word. Autopilot never commits or closes.
 Manager accept quote for closure: Approved for closure.
-Closure 2026-10-17: file verified in tasks/qa/ with PO_REVIEW_PENDING in log; status closed, moved to completed via git mv; commits via commit_and_clean_task only.
+Closure 2026-10-17: file verified in tasks/qa/ with PO_REVIEW_PENDING in log; status closed, moved to completed via git mv; commits via commit_and_clean_task only. Feature hash 972286928ead6290b3562e2d277b332f0af86b11.
 Task-number correction: file created as 5425 from a bad NEXT_ID scan (grep over full paths caught timestamp fragments); real Kanban max is 318, so renamed via git mv to 319, header updated, lint re-passed, diff re-injected. Brain history continues under the same session thread.
 
 ## Factual Git Diff
