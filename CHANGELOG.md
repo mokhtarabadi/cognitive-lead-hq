@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **Free-tier bash gate documented in agent docs.** `agents/README.md` now states custom agents must keep bash in the tool allowlist for free-tier models (upstream classifies by request-body tool list, 403 otherwise) plus a free-tier smoke-test checklist item; `agents/DECISIONS.md` records the accepted decision with six upstream issue refs. No permission changes.
+
+- **Agent tool gate test.** `tests/test_agent_tool_gate.py` asserts free-tier-intended agents keep bash allow (stdlib frontmatter parse, discovery exempt as deny-by-design with restricted-shape caveat); 2 passed via rtk.
+
 - **Mandatory mode line in every `brain_turn` prompt.** The executor now opens each Brain call with `MODE: AUTOMATIC (autopilot locked) — emit bare unfenced XML only; no copy-paste relay instructions` or `MODE: MANUAL — xml-fenced blocks and copy-paste relay instructions expected`, because the Brain's system prompt carries both emission shapes and cannot know which one is live. Without it the Brain fence-strict-rejects in autopilot and keeps emitting admin copy-paste text in a silent pipeline. Documented in `agents/cognitive-executor.md` (Brain Bridge state machine plus autopilot section) and `docs/brain-bridge.md`.
 
 - **AGENTS.md living-docs guardrail (audit-agents).** New Don't/Do rule requires inspecting the sibling `README.md` and `DECISIONS.md` before editing code in any component or vertical slice directory, closing the one gap found by the refreshed auditor skill; `.gitignore` verified compliant, no change.
