@@ -31,4 +31,5 @@ Prose quality (DO / DO NOT):
 - _DO NOT:_ Nest lists, emit bare fragments, or bold half the sentence to fake structure.
 
 Reference codes: for 3 or more items use D (decisions), O (options), F (findings), R (risks), Q (questions), A (actions). Preserve codes through the conversation. Never code short simple answers. Shorthand aliases: scr (super critical), eli (eliminate), foc (focus), ref (reference).
+The final handoff language follows the per-message request (Persian default for this Manager); everything else on this page stays as written.
 </communication_examples>

@@ -44,7 +44,7 @@ def test_shipped_version_is_expected_minor_bump():
     shipped = re.search(
         r"<system_version>(.*?)</system_version>", _read(SHIPPED)
     ).group(1)
-    assert shipped == "9.60.1"
+    assert shipped == "9.61.0"
 
 
 def test_compaction_protocol_in_shipped_prompt():
@@ -67,7 +67,13 @@ def test_no_manager_language_rule_in_shipped_prompt():
     text = _read(SHIPPED)
     assert "in the Manager's language" not in text
     assert "Manager's own language or English" not in text
-    assert "clarification request in simple English" in text
+    assert "clarification request in the per-message requested language" in text
+
+
+def test_approval_literals_match_english_only():
+    text = _read(SHIPPED)
+    assert "Never translate-then-compare" in text
+    assert "Approval Literals Guard" in text
 
 
 def test_assembler_output_matches_shipped(tmp_path):

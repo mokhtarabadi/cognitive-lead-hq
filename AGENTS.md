@@ -41,6 +41,8 @@ This repository is the Headquarters for the Cognitive Lead AI multi-agent system
   -> **Do** utilize the `debug-instrumentation` skill to inject strategic logs and trace the runtime execution path.
 - **Don't** write bash scripts without strict mode or mask errors with `2>/dev/null` on data commands.
   -> **Do** follow the Defensive Shell Protocol: `set -euo pipefail`, ban error masking, sidecar isolation for Docker backups. See `docs/conventions.md`.
+- **Don't** create or modify files with python, shell, heredoc, `sed -i`, or any script.
+  -> **Do** use native file-editing tools only; shell stays read-only for file content (e.g. grep, cat, diff, ls, git status). A non-unique anchor must fail loudly, never be forced. See `docs/conventions.md`.
 - **Don't** perform financial mutations without snapshotting the prior state or allow nulls in monetary aggregations.
   -> **Do** follow the Universal Financial Ledger Standard: snapshot-on-write, `$ifNull` precedence, discrepancy alerting, deep config merging. See `docs/conventions.md`.
 - **Don't** carry over assumptions, partial results, or architectural hypotheses from a previous task.

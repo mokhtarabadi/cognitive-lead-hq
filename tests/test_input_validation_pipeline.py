@@ -28,11 +28,11 @@ def test_no_manager_language_rule_in_fragments():
         assert "Manager's own language or English" not in text, path
 
 
-def test_english_only_clarification_required():
+def test_clarification_uses_requested_language():
     text_05 = _read(FRAGMENT_05)
-    assert "clarification request in simple English" in text_05
+    assert "clarification request in the per-message requested language" in text_05
     text_conv = _read(CONVENTIONS)
-    assert "simple English" in text_conv
+    assert "per-message requested language" in text_conv
 
 
 def test_validation_runs_before_topic_shift():
@@ -60,6 +60,7 @@ def test_prompt_refactor_in_executor_matrix():
     assert "prompt-refactor" in text
 
 
-def test_executor_clarification_stays_english():
+def test_executor_handoff_uses_requested_language():
     text = _read(EXECUTOR)
-    assert "Never answer the Manager in another language" in text
+    assert "English inside, requested language outside" in text
+    assert "Never answer the Manager in another language" not in text

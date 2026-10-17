@@ -31,6 +31,7 @@ The `AGENTS.md` file MUST explicitly contain the following operational constrain
 - **MCP Report Generation**: `AGENTS.md` MUST instruct agents to generate context reports (`custom_context_read_source_files`) and tree reports (`custom_context_create_tree_report` — "create a tree of the project") via the MCP server and hand the file path to the Manager instead of reading `context-reports/` files inline.
 - **Explicit Staging Contract (F5)**: Verify that the active task's `Execution Log & Reasoning` or `summary_phase` passed a `modified_files` list to `stage_and_inject_diff` — blind `git add -A .` staging is banned because it sweeps parallel-session files into unrelated commits.
 - **Parallel Index Isolation**: Verify the project documents the agent-managed round-trip for shared files — `custom_context_unstage_files` (index-only unstage) followed by `stage_and_inject_diff` with `skip_add=True` — and that `git commit`/`git checkout`/`git push` remain forbidden everywhere.
+- **Edit Tool Discipline**: `AGENTS.md` MUST forbid all scripted file edits — agents may use ONLY native file-editing tools for creating or modifying files (python, shell, heredoc, and `sed -i` are banned for edits; shell stays read-only for file content — e.g. grep, cat, diff, ls, git status). A non-unique anchor must fail loudly, never be forced. `docs/conventions.md` MUST contain a matching `## Edit Tool Discipline` section.
 - **Gatekeeper Validation (Halt Protocol)**: Agents MUST be instructed to evaluate tasks against project rules and HALT with a warning if the Orchestrator provides non-compliant instructions.
 - **Context Bootstrapping**: `AGENTS.md` MUST explicitly instruct the Hands: "At the start of every task, you MUST call `search_memory` or `list_namespaces` to load any hidden project quirks relevant to your domain before implementing."
 - **Buffer Isolation**: The shared validation phase MUST include a buffer-flush directive requiring Hands to treat every task as contextually independent, preventing cross-task context leakage. When the project uses session-keyed conversation threads, the rules MUST note that flushing covers working execution assumptions only — the conversation thread persists across tasks under the active session ID until sprint completion.
@@ -238,6 +239,14 @@ When writing or reviewing bash scripts, cron jobs, or container orchestration co
 3. **No Post-Redirect Status Checks:** Never use `command > file; if [ $? -eq 0 ]` — the shell creates the file before running the command, masking failures.
 4. **Sidecar Isolation for Hostless Backups:** Never rely on host file staging for Docker volume backups. Always use ephemeral containers (`docker run --rm -v volume:/data:ro alpine tar...`) with read-only mounts.
 
+## Edit Tool Discipline
+
+File edits use ONLY native file-editing tools (edit for replacements, file-write tools for new files). Using python, shell, heredoc, `sed -i`, or any script to create or modify files is strictly forbidden — scripted edits fail silently (replace-all on non-unique anchors, quoting and encoding mangling) while native tools fail loudly on a non-unique anchor.
+
+1. **Default native only:** one replacement, one location, exact unique anchor. A no-match or multi-match error is a signal, never a retry hint.
+2. **No scripted edits:** python, shell, heredoc, and `sed -i` are banned for creating or modifying files. Shell stays read-only for file content (e.g. grep, cat, diff, ls, git status).
+3. **Verify always:** grep/diff after every edit.
+
 ## Task-Number Reference Discipline
 
 Task numbers are provenance for humans, not reasoning material for the model. A bare task number in visible prompt prose invites hallucination: the model treats it as load-bearing context it cannot resolve.
@@ -400,6 +409,7 @@ Additionally, the `docs/conventions.md` file MUST exist and contain:
 - **MCP Report Generation**: `AGENTS.md` MUST instruct agents to generate context reports (`custom_context_read_source_files`) and tree reports (`custom_context_create_tree_report` — "create a tree of the project") via the MCP server and hand the file path to the Manager instead of reading `context-reports/` files inline.
 - **Explicit Staging Contract (F5)**: Verify that the active task's `Execution Log & Reasoning` or `summary_phase` passed a `modified_files` list to `stage_and_inject_diff` — blind `git add -A .` staging is banned because it sweeps parallel-session files into unrelated commits.
 - **Parallel Index Isolation**: Verify the project documents the agent-managed round-trip for shared files — `custom_context_unstage_files` (index-only unstage) followed by `stage_and_inject_diff` with `skip_add=True` — and that `git commit`/`git checkout`/`git push` remain forbidden everywhere.
+- **Edit Tool Discipline**: `AGENTS.md` MUST forbid all scripted file edits — agents may use ONLY native file-editing tools for creating or modifying files (python, shell, heredoc, and `sed -i` are banned for edits; shell stays read-only for file content — e.g. grep, cat, diff, ls, git status). A non-unique anchor must fail loudly, never be forced. `docs/conventions.md` MUST contain a matching `## Edit Tool Discipline` section.
 - **Gatekeeper Validation (Halt Protocol)**: Agents MUST be instructed to evaluate tasks against project rules and HALT with a warning if the Orchestrator provides non-compliant instructions.
 - **Bilingual Prompt Refactoring & Brainstorming Protocol**: Agents MUST be instructed not to execute raw, informal, or non-English prompts directly. The `prompt-refactor` skill must be loaded, or the Phase 1.5 Multi-Agent Brainstorming Protocol triggered, to translate and expand intent first. Standard XML task blocks are exempt.
 - **Context Bootstrapping**: `AGENTS.md` MUST explicitly instruct the Hands: "At the start of every task, you MUST call `search_memory` or `list_namespaces` to load any hidden project quirks relevant to your domain before implementing."

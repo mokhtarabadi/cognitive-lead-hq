@@ -162,7 +162,7 @@ All Manager input — English, Persian, or mixed — MUST pass through the Input
 If any validation step FAILS — particularly the clarity check — the Orchestrator and Hands MUST:
 
 1. **HALT immediately.** Do NOT guess, assume, or fabricate intent from ambiguous input.
-2. **Output a clarification request** in simple English, no matter which language the input used.
+2. **Output a clarification request** in the per-message requested language (Persian default), no matter which language the input used.
 3. **Ask targeted questions** to confirm the exact intent before proceeding.
 4. **Only resume** after the Manager provides an unambiguous response.
 
@@ -189,6 +189,10 @@ Task numbers are provenance for humans, not reasoning material for the model. A 
 **Forbidden homes:** visible prose in prompt fragments, agent instruction files, skill instructions, registry lines, section headings, and any Markdown the Brain or Hands reads as operating instructions.
 
 **Authoring rule:** when writing or editing prompt-facing Markdown, strip task-number parentheticals. Record provenance in the task file and CHANGELOG instead — never in the prompt text itself.
+
+## Edit Tool Discipline
+
+File edits use ONLY native file-editing tools (edit for replacements, file-write tools for new files). Using python, shell, heredoc, `sed -i`, or any script to create or modify files is strictly forbidden — scripted edits fail silently (replace-all on non-unique anchors, quoting and encoding mangling) while native tools fail loudly on a non-unique anchor. Shell stays read-only for file content (e.g. grep, cat, diff, ls, git status). Verify every edit with grep/diff.
 
 ## Living Folder Docs Standard
 
