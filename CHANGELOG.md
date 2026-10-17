@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- **Audit against plugin AGENT-TOOLS (compact + goal).** Aligned `prompts/fragments/22-compaction_protocol.md`, `prompts/fragments/09-hands_protocols.md`, `agents/cognitive-executor.md`, `docs/compaction.md`, and `README.md` with the shipped plugin manuals: `compact_context` async effect with no re-call to verify, `read_omitted_content` only on `omitted-NNNN` when a cheap fresh run cannot reproduce (single re-run on cache miss, never speculative), autopilot never asks the Manager for slash commands, no compaction config edits; goal lane split (Manager slash vs agent tools `goal_set`/`goal_block`/`goal_complete`/`goal_resume`, exact schemas, literal titles, never write state files, busy-retry and corrupt-report rules, evidence gate). Bumped `<system_version>` 9.59.3 to 9.59.4 with byte-identical re-assemble.
 
 - **Free-tier bash gate documented in agent docs.** `agents/README.md` now states custom agents must keep bash in the tool allowlist for free-tier models (upstream classifies by request-body tool list, 403 otherwise) plus a free-tier smoke-test checklist item; `agents/DECISIONS.md` records the accepted decision with six upstream issue refs. No permission changes.
 

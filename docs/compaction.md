@@ -41,7 +41,7 @@ opencode plugin add github:mokhtarabadi/opencode-goal-plugin
 opencode plugin add opencode-goal-plugin
 ```
 
-`/goal` tracks one long-running objective in `.opencode/goal-state.json` with evidence in `.opencode/goal-evidence.json`: `/goal <objective>` to set, `/goal status` to check, `/goal block <reason>`, `/goal complete` (needs file citations plus passing tests), `/goal clear`. Create `.opencode/STOP_GOAL` to pause the loop immediately.
+`/goal` tracks one long-running objective in `.opencode/goal-state.json` with evidence in `.opencode/goal-evidence.json`: `/goal <objective>` to set, `/goal status` to check, `/goal block <reason>`, `/goal complete` (needs file citations plus passing tests), `/goal clear` — Manager lane. Agent lane is tools-only: `goal_set`, `goal_block`, `goal_complete`, `goal_resume`; never write the state or evidence files with file tools; busy lease means retry next turn; corrupt state means report to the human. Create `.opencode/STOP_GOAL` to pause the loop immediately.
 
 This writes the package (or path) into `plugins` in the global config; OpenCode loads it at startup. New machines get the entry from the global `opencode.json` in `LLM.txt` §7 plus the install command in `LLM.txt` §7.7.
 
@@ -62,7 +62,7 @@ Compaction is scheduled by the command and applied on the next model request; su
 
 ### Agent-callable tool
 
-The agent can compress the session itself with the `compact_context` tool, which runs the same logic as `/magic-compact` (shared `src/actions.ts` in the plugin, so the paths cannot drift):
+The agent compresses the session itself with the `compact_context` tool (never the `/magic-*` slash commands), which runs the same logic as `/magic-compact` (shared `src/actions.ts` in the plugin, so the paths cannot drift). Effect is async (stored now, prunes next request) — do not re-call to verify. In autopilot never ask the Manager to run slash commands:
 
 | Input | Effect |
 | --- | --- |
@@ -91,12 +91,12 @@ JSONC, project over global: `.opencode/smart-compact.jsonc` over `~/.config/open
 
 ### Retrieving pruned content
 
-Each omission notice carries a Content ID (e.g. `omitted-0001`). The agent calls `read_omitted_content` with that ID to fetch the original — the lookup is scoped to the calling session — instead of re-running the source tool.
+Each omission notice carries a Content ID (e.g. `omitted-0001`). Prefer a cheap fresh run of the source tool; the agent calls `read_omitted_content` with that ID ONLY when the output cannot be reproduced cheaply, never speculatively — the lookup is scoped to the calling session. On a cache miss, re-run the source tool once.
 
 ## Integration in this platform
 
 - **System prompt:** the `<compaction_protocol>` fragment (generated into `system-prompt.md`) states the two layers and the survival contract.
-- **Agent:** `agents/cognitive-executor.md` carries the operational steps, including that the agent cannot run the plugin command and instead recommends a `/magic-compact` run when context pressure is high.
+- **Agent:** `agents/cognitive-executor.md` carries the operational steps: the agent calls `compact_context` itself under pressure (slash commands are Manager-only) and recommends `/magic-compact` only when a tool call is unavailable in manual mode.
 - **Config:** global `opencode.json` holds `plugins` + `compaction`; the repo `opencode.json` stays config-free of both.
 - **Global plugins:** Global plugins live in user config at tilde config opencode opencode dot json as github mokhtarabadi opencode-smart-compact plus github mokhtarabadi opencode-goal-plugin. Repo opencode dot json has no plugins key by intent. HQ task file stays truth. Use the goal plugin for long objectives (`/goal` set, status, block, complete with evidence, clear); its idle loop never fires past an approval gate.
 
