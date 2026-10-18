@@ -1,9 +1,9 @@
 # Task 324: Goal plugin 5-tool specification and evidence workflow alignment
 
-**File:** `tasks/qa/324-goal-tools-sync.md`
+**File:** `tasks/completed/324-goal-tools-sync.md`
 **Source:** manager
 **Type:** chore
-**Status:** in-progress
+**Status:** closed
 **Project:** /home/mohammad/Develop/Projects/cognitive-lead-hq
 **Priority:** High
 
@@ -36,6 +36,7 @@ Align goal plugin tool specification across prompt fragments, docs, and README w
 - Applied five exact edits: 01-system_version 9.61.0 to 9.61.1; 09-hands_protocols four tools to five tools with goal_evidence sole writer and goal_complete closed-empty; docs/compaction.md agent lane plus evidence-before-complete; README.md agent lane; test_prompt_sync.py pin to 9.61.1.
 - Reassembled system-prompt.md (111312 bytes, byte-identical re-assemble verified via cmp).
 - Stack-skill skip record: root=. markers=[package.json, go.mod, build.gradle.kts, pyproject.toml, vite.config] matched=[] reason="docs-only prompt-text change, no stack marker applies"
+- Closed 2026-10-17: Manager approved closure ("Approved for closure"). Full 5-tool goal plugin specification aligned, version 9.61.1 reassembled byte-identical, 39 tests pass.
 
 ## Definition of Done
 
@@ -58,4 +59,5 @@ Align goal plugin tool specification across prompt fragments, docs, and README w
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+**Factual Git Diff:** Stored in Commit Hash: `7b8a7e4740f4213a7f17340c25716bfd48c59a9c`
 <!-- END_GIT_DIFF -->
