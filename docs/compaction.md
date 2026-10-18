@@ -41,7 +41,7 @@ opencode plugin add github:mokhtarabadi/opencode-goal-plugin
 opencode plugin add opencode-goal-plugin
 ```
 
-`/goal` tracks one long-running objective in `.opencode/goal-state.json` with evidence in `.opencode/goal-evidence.json`: `/goal <objective>` to set, `/goal status` to check, `/goal block <reason>`, `/goal complete` (needs file citations plus passing tests), `/goal clear` — Manager lane. Agent lane is tools-only: `goal_set`, `goal_block`, `goal_complete`, `goal_resume`; never write the state or evidence files with file tools; busy lease means retry next turn; corrupt state means report to the human. Create `.opencode/STOP_GOAL` to pause the loop immediately.
+`/goal` tracks one long-running objective in `.opencode/goal-state.json` with evidence in `.opencode/goal-evidence.json`: `/goal <objective>` to set, `/goal status` to check, `/goal block <reason>`, `/goal complete` (needs file citations plus passing tests), `/goal clear` — Manager lane. Agent lane is tools-only: `goal_set`, `goal_block`, `goal_evidence`, `goal_complete`, `goal_resume`; never write the state or evidence files with file tools; record evidence via `goal_evidence` before `goal_complete`; busy lease means retry next turn; corrupt state means report to the human. Create `.opencode/STOP_GOAL` to pause the loop immediately.
 
 This writes the package (or path) into `plugins` in the global config; OpenCode loads it at startup. New machines get the entry from the global `opencode.json` in `LLM.txt` §7 plus the install command in `LLM.txt` §7.7.
 
