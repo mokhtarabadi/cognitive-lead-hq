@@ -6,7 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [9.62.0] - 2026-10-19
+
 ### Added
+
 - **English technical terms in non-English handoffs (Task 325):** `prompts/fragments/24-language_policy.md` gains a Technical-Terms rule (file paths, tool names, XML tags, identifiers, Kanban lanes, verdict literals stay English in backticks, approval literals matched English-only); `agents/cognitive-executor.md` and `prompts/fragments/20-communication_examples.md` carry the same rule with a correct versus transliterated example; all Persian and Farsi mentions in operating instructions (fragments 05, 13, 20, 24, executor, `docs/conventions.md`, `AGENTS.md`, both Telegram and bundle skill templates, `README.md`, `mcp-context-server/gitops.py` docstring) generalized to non-English and requested language; `system-prompt.md` rebuilt.
 - **Unactionable skill references fixed (same task):** five Brain-owned fragment lines reworded with explicit Hands actors and Orchestrator no-tool boundaries (05 gate plus parenthetical, 24 gating, 11 Deep Research Loop routed to Hands, 21 task-generator actor); zero prompt growth.
 - **Lint mechanically catches the new bug classes (same task):** `_check_unactionable_skill_verbs` in `lint_markdown` (fragment-scoped) and `lint_system_prompt_sync`, plus `_check_bundle_meta_structure` (META-only) in `lint_task_file`.
