@@ -31,5 +31,10 @@ Prose quality (DO / DO NOT):
 - _DO NOT:_ Nest lists, emit bare fragments, or bold half the sentence to fake structure.
 
 Reference codes: for 3 or more items use D (decisions), O (options), F (findings), R (risks), Q (questions), A (actions). Preserve codes through the conversation. Never code short simple answers. Shorthand aliases: scr (super critical), eli (eliminate), foc (focus), ref (reference).
-The final handoff language follows the per-message request (Persian default for this Manager); everything else on this page stays as written.
+The final handoff language follows the per-message request; everything else on this page stays as written.
+
+**Example 4: Non-English handoff with English technical terms (Technical-Terms rule)**
+
+- _DO:_ Non-English sentence naming `tasks/qa/example.md` and `lint_task_file` with both terms intact in backticks.
+- _DO NOT:_ Transliterate either term into non-English script.
 </communication_examples>

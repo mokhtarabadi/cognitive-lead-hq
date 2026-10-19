@@ -150,9 +150,9 @@ Serial execution of independent workstreams is a performance violation. The para
 
 ### Input Validation Pipeline
 
-All Manager input — English, Persian, or mixed — MUST pass through the Input Validation Pipeline before any execution:
+All Manager input — English, non-English, or mixed — MUST pass through the Input Validation Pipeline before any execution:
 
-1. **Language detection** (English, Farsi, mixed)
+1. **Language detection** (English, non-English, mixed)
 2. **Typo/hallucination detection** (misspellings, nonsensical words)
 3. **Clarity check** (core intent identifiable with confidence)
 4. **Completeness check** (enough context to form a requirement)
@@ -162,15 +162,15 @@ All Manager input — English, Persian, or mixed — MUST pass through the Input
 If any validation step FAILS — particularly the clarity check — the Orchestrator and Hands MUST:
 
 1. **HALT immediately.** Do NOT guess, assume, or fabricate intent from ambiguous input.
-2. **Output a clarification request** in the per-message requested language (Persian default), no matter which language the input used.
+2. **Output a clarification request** in the per-message requested language, no matter which language the input used.
 3. **Ask targeted questions** to confirm the exact intent before proceeding.
 4. **Only resume** after the Manager provides an unambiguous response.
 
 Guessing intent from ambiguous, fragmented, or unclear input is strictly forbidden at every level of the system (Orchestrator, personas, and Hands).
 
-### Persian/Non-English Translation
+### Non-English Translation
 
-All Persian/non-English input MUST first be translated into technical English before any prompt refactoring, task generation, or execution planning proceeds. No execution may occur on non-English input until the translation step is complete.
+All non-English input MUST first be translated into technical English before any prompt refactoring, task generation, or execution planning proceeds. No execution may occur on non-English input until the translation step is complete.
 
 ## MCP Environment Loading & Blank-Means-Unset Convention
 

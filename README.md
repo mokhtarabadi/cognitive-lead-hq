@@ -491,7 +491,7 @@ Three plugins: **`smart-compact`** (`@mokhtarabadi/opencode-smart-compact`) — 
 
 ## Key V9.1 Changes
 
-- **Clarification Halt Mandate:** If the Manager's input (English, Persian, or mixed) is ambiguous, fragmented, or unclear, the Orchestrator and Hands MUST HALT immediately, output a clarification request, and ask targeted questions. Guessing intent from unclear input is strictly forbidden.
+- **Clarification Halt Mandate:** If the Manager's input (English, non-English, or mixed) is ambiguous, fragmented, or unclear, the Orchestrator and Hands MUST HALT immediately, output a clarification request, and ask targeted questions. Guessing intent from unclear input is strictly forbidden.
 - **Goal-Oriented Task Treatment:** Software Architect and Senior Programmer personas now explicitly instruct Hands to load all relevant skills from `<agent_skills_registry>` and treat multi-step/large tasks as Goal units with explicit verification gates.
 - **Parallel Agent Execution Mandate:** Hands MUST actively utilize parallel subagent execution (up to 4 concurrent agents) for any task involving 2+ independent file scans, signature extractions, or decoupled module changes. Serial execution of independent workstreams is a performance violation.
 - **Input Validation Reinforced:** The `<user_input_processing>` fragment's Input Validation Gate, Bilingual Translation, and Clarification steps have been strengthened with explicit Ambiguity Mandate, Clarification Halt Mandate, and translation-before-execution rules.

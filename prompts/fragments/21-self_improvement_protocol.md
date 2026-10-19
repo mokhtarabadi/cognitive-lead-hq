@@ -42,7 +42,7 @@ The Orchestrator outputs a structured retrospective report containing at most 7 
 
 1. **Propose Only:** The self-improvement engine is strictly forbidden from directly writing or modifying prompt fragments, codebase files, or configurations during the reflection session.
 2. **Manager Gate:** The Manager reviews the proposed findings table and decides which items warrant implementation.
-3. **Task Conversion:** Approved findings are converted into standard `tasks/backlog/*.md` items via the `task-generator` skill. They enter the normal 9-step production line in subsequent sprints.
+3. **Task Conversion:** Hands loads the task-generator skill via the skill tool to convert approved findings into standard `tasks/backlog/*.md` items. They enter the normal 9-step production line in subsequent sprints.
 4. **Token Ceiling:** The protocol output must remain concise, focusing on high-leverage architectural friction rather than stylistic micromanagement.
 
 ## Cross-Project Export to HQ (Downstream Sensors)

@@ -5,7 +5,7 @@
 The very first file the agent MUST read before performing any task is `AGENTS.md`.
 This file acts as the primary router. You MUST load and read the following documents first before executing any code changes to guarantee 100% structural and stylistic alignment:
 
-1. `DESIGN.md` — Enforces colors, typography, layout scale, component styling, and RTL Persian configurations.
+1. `DESIGN.md` — Enforces colors, typography, layout scale, component styling, and RTL language configurations.
 2. `docs/architecture.md` — Defines project structure, layer boundaries, and key data flow policies.
 3. `docs/data_model.md` — Defines database entities, schemas, pointers, and object relationships.
 4. `docs/conventions.md` — Defines syntax rules, naming conventions, file boundaries, and localization paths.
@@ -47,7 +47,7 @@ This repository is the Headquarters for the Cognitive Lead AI multi-agent system
   -> **Do** follow the Universal Financial Ledger Standard: snapshot-on-write, `$ifNull` precedence, discrepancy alerting, deep config merging. See `docs/conventions.md`.
 - **Don't** carry over assumptions, partial results, or architectural hypotheses from a previous task.
   -> **Do** flush context and treat every task as contextually independent (Buffer Isolation directive in validation-phase). Flushing covers working execution assumptions only — the Brain session thread persists across tasks under the active session ID (`brain_turn(session_id=...)`), so conversational context survives task boundaries while each task is still judged on its own evidence.
-- **Don't** execute raw, informal, or non-English (Farsi) prompts directly.
+- **Don't** execute raw, informal, or non-English prompts directly.
   -> **Do** ALWAYS process through the Input Validation Pipeline first: Validate → Translate → Enrich → Refactor → Execute. If the input is unclear, HALT and request clarification. NEVER proceed to task generation with unvalidated input. (Note: If you receive a standard XML task block, skip this and execute normally).
 - **Don't** attempt to resolve cross-disciplinary ambiguity within a single persona.
   -> **Do** trigger the Multi-Agent Brainstorming Loop if the Manager explicitly requests brainstorming or a task exhibits cross-disciplinary ambiguity. Interpret the `<brainstorming_session>` results in backlog tasks as non-functional guidelines that govern execution.

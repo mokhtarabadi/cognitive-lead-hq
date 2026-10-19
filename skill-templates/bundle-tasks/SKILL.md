@@ -53,12 +53,13 @@ The `mcp-context-server/server.py:bundle_tasks` tool is **fully self-contained**
 ## Guardrails (Hard Stops & Warnings)
 
 - **Cap:** `MAX_BUNDLE_SIZE=6` — rejects >6 without `--force` (mega-diff prevention). Use `--force` to override.
+- **Floor:** bundles need 2-6 tasks — a single task or duplicate IDs in one request are rejected with an explicit error, never silently deduped.
 - **Diff-size:** Warns if combined source LOC >400 (`> ⚠️ 400` in notes) — "consider split".
-- **Missing / Duplicate / Collision:** Missing IDs → `❌ Missing tasks`; duplicate active IDs → **hard halt** (returns None, exits with error); `NEXT_ID` collision → atomic creation with retry loop (up to 5 re-discoveries).
+- **Missing / Duplicate / Collision:** Missing IDs → `❌ Missing tasks`; duplicate IDs across active Kanban dirs → distinct `❌ Duplicate task ID` error (never misreported as missing); same-ID-different-slug files for the allocated ID (either zero-padding) → `❌ Task ID collision`; allocation races rebuild the META body after the final ID and create-plus-write atomically, so no stale-ID or empty META file survives.
 - **Stack Conflict (M1):** Auto-detects stack from content (android, react, fastapi, spring, ios, go). If tasks have conflicting stacks → requires `--force` to proceed.
 - **Verbatim Checksum (M2):** After META generation, verifies every AC line from source tasks appears in the META. Fails if any text was dropped.
-- **Archive-only:** Sources go to `tasks/archive/` via `git mv` only. Purge (`git rm`) is blocked until META is `completed`. On ANY archive failure: **transactional rollback** restores all archived files to original locations, deletes META, exits with clear error.
-- **Unicode/Persian Slugs (B4):** `_kebab_case()` normalizes via NFKD and preserves Persian/Arabic characters (\u0600-\u06FF). Persian titles produce valid slugs like `تست-باندل` instead of losing all characters.
+- **Archive-only:** Sources go to `tasks/archive/` via `git mv` only. Purge (`git rm`) is blocked until META is `completed`. On ANY archive failure: **transactional rollback** restores byte-identical originals to their recorded origin dirs (no header guessing, failures surfaced), deletes META, exits with clear error.
+- **Unicode Slugs (B4):** `_kebab_case()` normalizes via NFKD and preserves non-English characters (\u0600-\u06FF). Non-English titles produce valid slugs like `تست-باندل` instead of losing all characters.
 
 ## Verification (Must Pass Before QA)
 

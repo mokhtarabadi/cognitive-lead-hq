@@ -384,3 +384,223 @@ def test_cli_dry_run_persian(tmp_tasks: Path):
     assert "تست باندل فارسی" in meta_content, (
         "Persian title should appear in META content"
     )
+
+
+# ---------------------------------------------------------------------------
+# T7-T16: Real-tool-path bundle tests (B1-B10 red proof + green guards)
+# ---------------------------------------------------------------------------
+# These tests invoke `bundle_tasks` through the real MCP tool function with
+# project_root pointed at an isolated tmp tree — never the real repo.
+
+
+def _init_git_repo(root: Path) -> None:
+    """Make tmp_path a git repo so git-mv paths execute for real."""
+    import subprocess as _sp
+
+    _sp.run(["git", "init", "-q", str(root)], check=True, capture_output=True)
+    _sp.run(
+        ["git", "-C", str(root), "config", "user.email", "t@t.t"],
+        check=True,
+        capture_output=True,
+    )
+    _sp.run(
+        ["git", "-C", str(root), "config", "user.name", "t"],
+        check=True,
+        capture_output=True,
+    )
+
+
+def test_e2e_dry_run_real_tool(tmp_tasks: Path, tmp_path: Path):
+    """B10: Exercise bundle_tasks end-to-end (dry-run) via the real tool."""
+    _create_task_file(tmp_tasks, "backlog", "01", "Task A", ["Criterion A"])
+    _create_task_file(tmp_tasks, "backlog", "02", "Task B", ["Criterion B"])
+    out = _bundler.bundle_tasks(
+        ["01", "02"], "test bundle", dry_run=True, project_root=str(tmp_path)
+    )
+    assert "Would create META task" in out, f"dry-run preview missing:\n{out}"
+    assert "All required sections present" in out, f"section gate missing:\n{out}"
+
+
+def test_e2e_real_bundle_archives(tmp_tasks: Path, tmp_path: Path):
+    """B10: Real bundle archives sources with superseded headers intact."""
+    _init_git_repo(tmp_path)
+    _create_task_file(tmp_tasks, "backlog", "01", "Task A", ["Criterion A"])
+    _create_task_file(tmp_tasks, "backlog", "02", "Task B", ["Criterion B"])
+    out = _bundler.bundle_tasks(
+        ["01", "02"], "test bundle", dry_run=False, project_root=str(tmp_path)
+    )
+    assert "Created META task" in out, f"bundle failed:\n{out}"
+    metas = list((tmp_path / "tasks" / "backlog").glob("*-test-bundle.md"))
+    assert len(metas) == 1, f"expected one META file, got {metas}"
+    meta_text = metas[0].read_text(encoding="utf-8")
+    title_id = re.search(r"^# Task (\d+):", meta_text, re.MULTILINE).group(1)
+    assert metas[0].name.startswith(f"{int(title_id):02d}-"), (
+        "META filename ID must match META title ID"
+    )
+    for tid, letter in [("01", "a"), ("02", "b")]:
+        archived = tmp_path / "tasks" / "archive" / f"{tid}-task-{letter}.md"
+        assert archived.is_file(), f"source {tid} was not archived"
+        archived_text = archived.read_text(encoding="utf-8")
+        assert "**Status:** superseded" in archived_text
+        assert f"**File:** `tasks/archive/{tid}-task-{letter}.md`" in archived_text
+
+
+def test_count_enforcement_rejects_single(tmp_tasks: Path, tmp_path: Path):
+    """B4: A single task is not a bundle — must error naming the 2-6 rule."""
+    _create_task_file(tmp_tasks, "backlog", "01", "Task A", ["Criterion A"])
+    out = _bundler.bundle_tasks(
+        ["01"], "lonely", dry_run=True, project_root=str(tmp_path)
+    )
+    assert "2-6" in out and "Created META" not in out, f"single accepted:\n{out}"
+
+
+def test_duplicate_input_rejected(tmp_tasks: Path, tmp_path: Path):
+    """B4: The same ID twice in one call must error, not silently dedup."""
+    _create_task_file(tmp_tasks, "backlog", "01", "Task A", ["Criterion A"])
+    out = _bundler.bundle_tasks(
+        ["01", "01"], "duped", dry_run=True, project_root=str(tmp_path)
+    )
+    assert "uplicate" in out and "Created META" not in out, f"dupe accepted:\n{out}"
+
+
+def test_cross_dir_duplicate_distinct_error(tmp_tasks: Path, tmp_path: Path):
+    """B5: Same ID in two Kanban dirs must say duplicate, never missing."""
+    _create_task_file(tmp_tasks, "backlog", "05", "Task E", ["Criterion E"])
+    _create_task_file(tmp_tasks, "in-progress", "05", "Task E", ["Criterion E"])
+    _create_task_file(tmp_tasks, "backlog", "06", "Task F", ["Criterion F"])
+    out = _bundler.bundle_tasks(
+        ["05", "06"], "clash", dry_run=True, project_root=str(tmp_path)
+    )
+    assert "uplicate" in out, f"duplicate reported as missing:\n{out}"
+    assert "Missing tasks" not in out
+
+
+def test_id_retry_rebuilds_content(tmp_tasks: Path, tmp_path: Path, monkeypatch):
+    """B1: After an ID retry the written META must carry the final ID."""
+    _init_git_repo(tmp_path)
+    _create_task_file(tmp_tasks, "backlog", "01", "Task A", ["Criterion A"])
+    _create_task_file(tmp_tasks, "backlog", "02", "Task B", ["Criterion B"])
+    real_open = open
+    state = {"failed_once": False}
+
+    def flaky_open(path, mode="r", *args, **kwargs):
+        if (
+            mode == "x"
+            and not state["failed_once"]
+            and str(path).endswith("-retry-bundle.md")
+        ):
+            state["failed_once"] = True
+            # A racer lands first: decoy with the contested ID.
+            decoy = Path(str(path)).parent / "03-decoy.md"
+            decoy.write_text("x", encoding="utf-8")
+            raise FileExistsError(str(path))
+        return real_open(path, mode, *args, **kwargs)
+
+    monkeypatch.setattr("builtins.open", flaky_open)
+    out = _bundler.bundle_tasks(
+        ["01", "02"], "retry bundle", dry_run=False, project_root=str(tmp_path)
+    )
+    assert "Created META task" in out, f"bundle failed:\n{out}"
+    metas = list((tmp_path / "tasks" / "backlog").glob("*-retry-bundle.md"))
+    assert len(metas) == 1
+    meta_text = metas[0].read_text(encoding="utf-8")
+    title_id = re.search(r"^# Task (\d+):", meta_text, re.MULTILINE).group(1)
+    assert metas[0].name.startswith(f"{int(title_id):02d}-"), (
+        f"stale META content: file {metas[0].name} carries title ID {title_id}"
+    )
+
+
+def test_rollback_restores_origin_and_header(
+    tmp_tasks: Path, tmp_path: Path, monkeypatch
+):
+    """B6: Failed archive must restore origin dir AND original File header."""
+    _init_git_repo(tmp_path)
+    _create_task_file(tmp_tasks, "in-progress", "01", "Task A", ["Criterion A"])
+    _create_task_file(tmp_tasks, "in-progress", "02", "Task B", ["Criterion B"])
+    original = (tmp_tasks / "in-progress" / "01-task-a.md").read_text(encoding="utf-8")
+    calls = [0]
+    real_mv = _bundler._git_mv_or_fallback
+
+    def flaky_mv(src: Path, dst: Path) -> bool:
+        calls[0] += 1
+        if calls[0] == 2:
+            return False
+        return real_mv(src, dst)
+
+    monkeypatch.setattr(_bundler, "_git_mv_or_fallback", flaky_mv)
+    out = _bundler.bundle_tasks(
+        ["01", "02"], "doomed", dry_run=False, project_root=str(tmp_path)
+    )
+    assert "rolled back" in out.lower() or "borted" in out.lower()
+    restored = tmp_path / "tasks" / "in-progress" / "01-task-a.md"
+    assert restored.is_file(), "first source was not restored to in-progress/"
+    assert restored.read_text(encoding="utf-8") == original, (
+        "rollback must restore byte-identical original content (File header included)"
+    )
+    assert not list((tmp_path / "tasks" / "backlog").glob("*-doomed.md")), (
+        "META file must be removed after rollback"
+    )
+
+
+def test_next_id_collision_helper(tmp_tasks: Path):
+    """B2: Same-ID-different-slug files must be detected either padding."""
+    (tmp_tasks / "backlog" / "06-taken.md").write_text("x", encoding="utf-8")
+    hits = _bundler._next_id_collision(tmp_tasks, 6)
+    assert hits, "padded 06-taken.md must collide with next_id 6"
+    (tmp_tasks / "backlog" / "7-loose.md").write_text("x", encoding="utf-8")
+    assert _bundler._next_id_collision(tmp_tasks, 7), (
+        "unpadded 7-loose.md must collide with next_id 7"
+    )
+    assert not _bundler._next_id_collision(tmp_tasks, 8)
+
+
+def test_extractor_blank_lines_and_nested(tmp_tasks: Path):
+    """B7: Blank-line paragraph breaks survive; nested boxes are items."""
+    from gitops import _extract_checklist_with_continuations as extract
+
+    section = (
+        "- [ ] Root item\n"
+        "  continuation paragraph\n"
+        "\n"
+        "  second paragraph\n"
+        "  - [ ] nested box\n"
+        "- [ ] Next root\n"
+    )
+    result = extract(section)
+    joined = "\n".join(result)
+    assert "continuation paragraph" in joined
+    assert "second paragraph" in joined, f"blank line split the item: {result}"
+    assert any(r == "- [ ] nested box" for r in result), (
+        f"nested box must be its own stripped item: {result}"
+    )
+
+
+def test_checksum_covers_short_criteria(tmp_tasks: Path):
+    """B8: Short criteria must be verified too, not skipped by length."""
+    _create_task_file(tmp_tasks, "backlog", "01", "Task A", ["Fix it"])
+    source_data = []
+    p = tmp_tasks / "backlog" / "01-task-a.md"
+    source_data.append(("01", p, p.read_text(encoding="utf-8"), "Task A"))
+    meta = _build_meta_content(100, "s", "S", ["01"], source_data)
+    assert _verify_verbatim_checksums(source_data, meta)
+    dropped = meta.replace("[01] Fix it", "[01] GONE")
+    assert not _verify_verbatim_checksums(source_data, dropped), (
+        "dropped short criterion must fail the checksum"
+    )
+
+
+def test_patch_multiword_status(tmp_tasks: Path):
+    """B9: Multi-word statuses must be replaced whole, dates aligned."""
+    from gitops import _patch_archived_file
+
+    p = tmp_tasks / "backlog" / "09-wip.md"
+    p.write_text(
+        "# Task 09: Wip\n\n**File:** `x`\n**Type:** bug\n**Status:** in progress\n",
+        encoding="utf-8",
+    )
+    _patch_archived_file(p, "10", "meta")
+    text = p.read_text(encoding="utf-8")
+    assert "**Status:** superseded\n" in text, f"status line corrupt:\n{text}"
+    assert "progress" not in [line for line in text.splitlines() if "Status" in line][0]
+    created_fmt = re.search(r"\d{4}-\d{2}-\d{2} \d{2}:\d{2} UTC", text)
+    assert created_fmt, f"Superseded-At must match Created datetime format:\n{text}"

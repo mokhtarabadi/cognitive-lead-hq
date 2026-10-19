@@ -80,7 +80,7 @@ DIFF_SIZE_WARNING_THRESHOLD = 400
 
 
 def _kebab_case(text: str) -> str:
-    """Convert arbitrary title to kebab-case slug (B4: supports Unicode/Persian)."""
+    """Convert arbitrary title to kebab-case slug (B4: supports Unicode)."""
     import unicodedata
 
     normalized = unicodedata.normalize("NFKD", text)
@@ -109,7 +109,14 @@ def _discover_next_id(tasks_root: Path = Path("tasks")) -> int:
     return max_id + 1 if max_id else 1
 
 
-def _find_task_file(task_id: str, tasks_root: Path = Path("tasks")) -> Path | None:
+def _locate_task_file(task_id: str, tasks_root: Path = Path("tasks")):
+    """Locate a task ID across active Kanban dirs with distinct states.
+
+    Returns (state, payload): ("ok", Path) for exactly one active match,
+    ("duplicate", [Path, ...]) for >1 active match, ("archived", Path)
+    when only the archive holds it, ("missing", None) otherwise.
+    Distinct states keep duplicate IDs from being misreported as missing.
+    """
     norm = task_id.lstrip("0") or "0"
     candidates: list[Path] = []
     for d in ACTIVE_KANBAN_DIRS:
@@ -121,18 +128,26 @@ def _find_task_file(task_id: str, tasks_root: Path = Path("tasks")) -> Path | No
             if m and m.group(1).lstrip("0") == norm:
                 candidates.append(md)
     if len(candidates) == 1:
-        return candidates[0]
+        return ("ok", candidates[0])
     if len(candidates) > 1:
+        return ("duplicate", candidates)
+    # Check archive for a better error (already archived)
+    if (tasks_root / "archive").is_dir():
+        for md in (tasks_root / "archive").glob("*.md"):
+            m = re.match(r"^(\d+)-", md.name)
+            if m and m.group(1).lstrip("0") == norm:
+                return ("archived", md)
+    return ("missing", None)
+
+
+def _find_task_file(task_id: str, tasks_root: Path = Path("tasks")) -> Path | None:
+    state, payload = _locate_task_file(task_id, tasks_root)
+    if state == "ok":
+        return payload
+    if state == "duplicate":
         return None  # B2: hard halt — duplicate active IDs
-    # Check archive for better error (already archived)
-    for md in (
-        (tasks_root / "archive").glob("*.md")
-        if (tasks_root / "archive").is_dir()
-        else []
-    ):
-        m = re.match(r"^(\d+)-", md.name)
-        if m and m.group(1).lstrip("0") == norm:
-            return None
+    if state == "archived":
+        return None
     return None
 
 
@@ -155,29 +170,29 @@ def _format_task_id_list(ids: list[str]) -> str:
 
 
 def _extract_checklist_with_continuations(section_text: str) -> list[str]:
-    """B1: Extract checklist items with all indented continuation lines."""
+    """B1: Extract checklist items with all indented continuation lines.
+
+    A root or nested `- [ ]` line (column 0 or indented, stripped) starts a
+    new item. Plain indented lines continue the open item. Blank lines are
+    preserved as paragraph separators without closing the block — only a
+    `## ` heading or `---` rule ends it. The old dead branch (an unreachable
+    inner `- [` check) is removed.
+    """
     lines = section_text.splitlines()
     result: list[str] = []
     in_checklist = False
     for line in lines:
         stripped = line.strip()
-        is_root_bullet = line.startswith("- [")
-        if is_root_bullet:
+        if stripped.startswith("- ["):
             in_checklist = True
             result.append(stripped)
         elif in_checklist:
-            if (
-                stripped
-                and not line.startswith("- [")
-                and not stripped.startswith("## ")
-                and not stripped.startswith("---")
-            ):
-                result.append(line)
-            else:
+            if not stripped:
+                result.append("")
+            elif stripped.startswith("## ") or stripped.startswith("---"):
                 in_checklist = False
-                if line.startswith("- ["):
-                    in_checklist = True
-                    result.append(stripped)
+            else:
+                result.append(line)
     return result
 
 
@@ -224,9 +239,27 @@ def _verify_verbatim_checksums(
                 m = re.match(r"^- \[[ xX]\]\s*(.*)", stripped)
                 core = m.group(1) if m else stripped
                 prefixed = f"[{sid}] {core}"
-                if len(core) > 10 and prefixed not in bundled_text:
+                # No length gate: short criteria must be verified too.
+                if prefixed not in bundled_text:
                     return False
     return True
+
+
+def _next_id_collision(tasks_root: Path, next_id: int) -> list[Path]:
+    """Detect same-ID-different-slug files for a candidate NEXT_ID.
+
+    Checks both zero-padded (`06-*.md`) and bare (`6-*.md`) spellings,
+    since hand-created files are not always padded. A hit means the ID
+    allocation is ambiguous and the caller must abort or re-discover.
+    """
+    backlog = tasks_root / "backlog"
+    if not backlog.is_dir():
+        return []
+    padded = f"{next_id:02d}" if next_id < 100 else str(next_id)
+    hits: list[Path] = []
+    for prefix in {padded, str(next_id)}:
+        hits.extend(sorted(backlog.glob(f"{prefix}-*.md")))
+    return hits
 
 
 def _git_mv_or_fallback(src: Path, dst: Path) -> bool:
@@ -262,9 +295,11 @@ def _patch_archived_file(archive_path: Path, meta_id: str, meta_slug: str) -> No
         return
     new_file_header = f"**File:** `tasks/archive/{archive_path.name}`"
     content = re.sub(r"\*\*File:\*\*\s*`[^`]+`", new_file_header, content, count=1)
-    if re.search(r"\*\*Status:\*\*\s*\w+", content):
+    if re.search(r"\*\*Status:\*\*", content):
+        # Replace the whole status line: multi-word statuses
+        # (e.g. "in progress") must not leave remnants behind.
         content = re.sub(
-            r"\*\*Status:\*\*\s*\w+", "**Status:** superseded", content, count=1
+            r"\*\*Status:\*\*[^\n]*", "**Status:** superseded", content, count=1
         )
     else:
         content = re.sub(
@@ -277,7 +312,7 @@ def _patch_archived_file(archive_path: Path, meta_id: str, meta_slug: str) -> No
             content,
             count=1,
         )
-        timestamp = time.strftime("%Y-%m-%d")
+        timestamp = time.strftime("%Y-%m-%d %H:%M UTC")
         content = re.sub(
             r"(\*\*Superseded-By:\*\*\s*`[^`]+`)",
             rf"\1\n**Superseded-At:** `{timestamp}`",
@@ -286,7 +321,7 @@ def _patch_archived_file(archive_path: Path, meta_id: str, meta_slug: str) -> No
         )
     superseded_note = (
         f"> **Superseded:** This task was bundled into META task `{meta_id}-{meta_slug}` "
-        f"and archived on {time.strftime('%Y-%m-%d')}. "
+        f"and archived on {time.strftime('%Y-%m-%d %H:%M UTC')}. "
         f"See `tasks/backlog/{meta_id}-{meta_slug}.md` (or its Kanban successor) for the unified execution. "
         f"History preserved via `git log --follow -- tasks/archive/{archive_path.name}`.\n"
     )

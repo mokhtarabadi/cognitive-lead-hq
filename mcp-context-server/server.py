@@ -131,6 +131,8 @@ from gitops import (
     _format_task_id_list,
     _git_mv_or_fallback,
     _kebab_case,
+    _locate_task_file,
+    _next_id_collision,
     _patch_archived_file,
     _repo_root,
     _verify_verbatim_checksums,
@@ -1295,7 +1297,15 @@ def bundle_tasks(
             if norm not in seen:
                 seen.add(norm)
                 deduped.append(tid)
+        if len(deduped) != len(cleaned_ids):
+            dupes = sorted(
+                {t for t in cleaned_ids if cleaned_ids.count(t) > 1},
+                key=lambda t: int(t),
+            )
+            return f"❌ Duplicate task IDs in request: {dupes}. Each ID may appear only once."
         task_ids = deduped
+        if len(task_ids) < 2:
+            return f"❌ Bundle needs 2-6 tasks, got {len(task_ids)}. Provide 2-6 numeric task IDs."
         if not title or not title.strip():
             return "❌ Error: title is required (e.g., 'android-polish-bundle')."
         title = title.strip()
@@ -1312,16 +1322,22 @@ def bundle_tasks(
         source_data: list[tuple[str, Path, str, str]] = []
         missing: list[str] = []
         for tid in task_ids:
-            p = _find_task_file(tid, tasks_root)
-            if p is None:
-                missing.append(tid)
-            else:
+            state, payload = _locate_task_file(tid, tasks_root)
+            if state == "ok":
+                p = payload
                 try:
                     c = p.read_text(encoding="utf-8")
                 except Exception as e:
                     return f"❌ Could not read {p} for task {tid}: {e}"
                 t = _extract_title(c)
                 source_data.append((tid, p, c, t))
+            elif state == "duplicate":
+                names = sorted(x.name for x in payload)
+                return f"❌ Duplicate task ID {tid} in active Kanban dirs: {names}. Resolve the duplication first — refusing to guess."
+            elif state == "archived":
+                missing.append(f"{tid} (already archived — see tasks/archive/)")
+            else:
+                missing.append(tid)
         if missing:
             return f"❌ Missing tasks (not found in active Kanban dirs): {missing}\n   Searched: {', '.join(ACTIVE_KANBAN_DIRS)} (archive excluded).\n   Hint: Check `ls tasks/backlog/ tasks/in-progress/ tasks/qa/ tasks/completed/ | grep {missing[0]}`"
         if not source_data:
@@ -1337,14 +1353,10 @@ def bundle_tasks(
         output_path = tasks_root / "backlog" / meta_filename
         if output_path.exists():
             return f"❌ Task ID collision: {output_path} already exists. Re-run ID discovery."
-        # Also check backlog glob for same ID prefix
-        if (
-            list((tasks_root / "backlog").glob(f"{next_id}-*.md"))
-            if (tasks_root / "backlog").is_dir()
-            else []
-        ):
-            # This would also match our not-yet-created file if we had a race, but we already checked exists
-            pass
+        clashes = _next_id_collision(tasks_root, next_id)
+        if clashes:
+            names = sorted(p.name for p in clashes)
+            return f"❌ Task ID collision: same-ID file(s) exist for next ID {next_id}: {names}. Re-run ID discovery."
 
         meta_title_full = title
         meta_content = _build_meta_content(
@@ -1412,35 +1424,37 @@ def bundle_tasks(
                 )
             return "\n".join(lines)
 
-        # --- B5: Atomic creation with retry loop ---
-        import subprocess as _sp
-
+        # --- B1+B3: Atomic create with retry; content rebuilt after final ID ---
+        # The META body embeds its own ID (title, headers, rollback note), so
+        # a retry that allocates a NEW id must rebuild the body — writing the
+        # pre-race body would leave a stale-ID file. Create + write happen in
+        # one exclusive open so a crash cannot leave an empty META file.
         MAX_ID_RETRIES = 5
+        meta_live = meta_content
         for attempt in range(MAX_ID_RETRIES):
             try:
                 output_path.parent.mkdir(parents=True, exist_ok=True)
                 with open(output_path, "x", encoding="utf-8") as f:
-                    pass  # Atomic creation
+                    f.write(meta_live)
                 break
             except FileExistsError:
-                # Re-discover next ID
+                # Re-discover next ID (a racer may have landed first)
                 next_id = _discover_next_id(tasks_root)
                 meta_id_str = f"{next_id:02d}" if next_id < 100 else str(next_id)
-                if next_id >= 100:
-                    meta_id_str = str(next_id)
                 meta_slug = _kebab_case(title)
                 meta_filename = f"{meta_id_str}-{meta_slug}.md"
                 output_path = tasks_root / "backlog" / meta_filename
+                if _next_id_collision(tasks_root, next_id):
+                    continue
+                meta_live = _build_meta_content(
+                    next_id, meta_slug, meta_title_full, task_ids, source_data
+                )
                 continue
+            except OSError as e:
+                output_path.unlink(missing_ok=True)
+                return f"❌ Failed to write META file {output_path}: {e}"
         else:
             return f"❌ Failed to find unique ID after {MAX_ID_RETRIES} attempts. Another process may be bundling concurrently."
-
-        # --- Write META content ---
-        try:
-            output_path.write_text(meta_content, encoding="utf-8")
-        except Exception as e:
-            output_path.unlink(missing_ok=True)
-            return f"❌ Failed to write META file {output_path}: {e}"
 
         out_lines = [f"✅ Created META task (MCP): {output_path} (bundles {task_ids})"]
 
@@ -1459,48 +1473,43 @@ def bundle_tasks(
                 out_lines.append(f"   ❌ Failed to archive {sid}: {src_path}")
 
         if failed:
-            # B3: Transactional rollback
+            # B6: Transactional rollback — restore byte-identical originals.
+            # source_data already carries each source's original bytes, so the
+            # restore rewrites them verbatim (File header + status included):
+            # no header guessing, no hardcoded backlog origin. Moves go through
+            # _git_mv_or_fallback (repo-rooted cwd + untracked fallback);
+            # every restore failure is surfaced, never swallowed.
+            restore_errors: list[str] = []
             for archived_path in archived:
                 original_name = archived_path.name
-                for _, src_path, _, _ in source_data:
-                    if src_path.name == original_name:
-                        restore_dst = src_path
-                        break
-                else:
-                    restore_dst = tasks_root / "backlog" / original_name
+                match = next(
+                    (
+                        (src, text)
+                        for _, src, text, _ in source_data
+                        if src.name == original_name
+                    ),
+                    None,
+                )
+                if match is None:
+                    restore_errors.append(
+                        f"{original_name}: origin unknown, left in tasks/archive/"
+                    )
+                    continue
+                src_path, original_text = match
+                if not _git_mv_or_fallback(archived_path, src_path):
+                    restore_errors.append(
+                        f"{original_name}: move back to {src_path} failed"
+                    )
+                    continue
                 try:
-                    restore_dst.parent.mkdir(parents=True, exist_ok=True)
-                    _sp.run(
-                        ["git", "mv", str(archived_path), str(restore_dst)],
-                        check=True,
-                        capture_output=True,
+                    src_path.write_text(original_text, encoding="utf-8")
+                except Exception as e:
+                    restore_errors.append(
+                        f"{original_name}: content restore failed: {e}"
                     )
-                    # Remove superseded headers
-                    content = restore_dst.read_text(encoding="utf-8")
-                    content = re.sub(
-                        r"\n\*\*Superseded-By:\*\*.*$", "", content, flags=re.MULTILINE
-                    )
-                    content = re.sub(
-                        r"\n\*\*Superseded-At:\*\*.*$", "", content, flags=re.MULTILINE
-                    )
-                    superseded_pattern = re.compile(
-                        r"> \*\*Superseded:\*\*.*?History preserved.*?\n\n", re.DOTALL
-                    )
-                    content = superseded_pattern.sub("", content)
-                    content = re.sub(
-                        r"\*\*Status:\*\*\s*superseded", "**Status:** open", content
-                    )
-                    content = re.sub(
-                        r"\*\*File:\*\*\s*`[^`]+`",
-                        f"**File:** `tasks/backlog/{restore_dst.name}`",
-                        content,
-                        count=1,
-                    )
-                    restore_dst.write_text(content, encoding="utf-8")
-                except Exception:
-                    pass
             output_path.unlink(missing_ok=True)
-            return f"❌ Bundle aborted. Archive failed for {failed}. All changes rolled back. Fix and retry."
+            detail = f" (restore issues: {restore_errors})" if restore_errors else ""
+            return f"❌ Bundle aborted. Archive failed for {failed}. All changes rolled back.{detail} Fix and retry."
         else:
             out_lines.append(
                 f"✅ Archived {len(archived)} source tasks to tasks/archive/ with superseded-by: {meta_id_str}-{meta_slug}"

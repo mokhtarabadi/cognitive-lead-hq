@@ -8,7 +8,7 @@ Internal reasoning, task files, evidence, logs, and ALL Brain communication stay
 
 ## Translation Gate by Complexity
 
-Complex or multi-intent non-English input uses the `prompt-refactor` skill to produce constrained technical English.
+Complex or multi-intent non-English input uses Brain-internal structured expansion to produce constrained technical English, and only Hands loads the prompt-refactor skill via the skill tool.
 
 Short clear non-English input uses lightweight inline translation to technical English.
 
@@ -16,7 +16,7 @@ No blanket skill call per message. Gate by complexity every time.
 
 ## Detection
 
-Detect output language per message, never pin to a session default. Persian is the default for this Manager when no explicit request is detected in that message.
+Detect output language per message, never pin to a session default. When no explicit request is detected in that message, fall back to the deployment default.
 
 Mixed input executes in English and answers in the requested language for that message.
 
@@ -25,6 +25,10 @@ Mixed input executes in English and answers in the requested language for that m
 The following stay English always for auditability: reasoning traces, task files, verification evidence, logs, code comments used as provenance, Brain turns, and tool payloads.
 
 A non-English quote inside a task file is verbatim evidence only, never the answer.
+
+## Technical Terms Stay English (Technical-Terms rule)
+
+Inside non-English handoffs, technical terms stay in English with no transliteration into the requested language. Keep in English: file paths such as `tasks/qa/example.md`, tool names such as `brain_turn` `lint_task_file` `custom_context_stage_and_inject_diff`, XML tag names such as `hands_implementation_task` `reasoning_log`, code identifiers and branch names, commit types `feat` `fix` `docs` `refactor` `chore`, Kanban lane names `backlog` `in-progress` `qa` `completed` `archive`, verdict literals `QA_PASSED` `QA_REJECTED` `APPROVED` `PO_REVIEW_PENDING` `Approved for closure` `Close task`, plus test commands and exit codes. Match approval phrases as English literals only. Write non-English sentence structure around the terms and leave each term intact in backticks.
 
 ## Outside Requested Language
 

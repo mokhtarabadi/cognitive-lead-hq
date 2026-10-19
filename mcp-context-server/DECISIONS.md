@@ -62,3 +62,10 @@
 - **Decision:** Add opt-in `skip_add: bool = False` to `stage_and_inject_diff`: when true, skip the `git add` step entirely and only extract + inject (caller owns the whole index, task file included). On the default path, snapshot `git diff --cached --name-only` for the listed files before adding and append a warning naming files with pre-existing staged state. Document the whole-file contract in the tool docstring. `qa_transition` shares the pattern but its `git mv` interplay is out of scope (follow-up).
 - **Consequences:** Index-safe flows sequence hunk surgery before the call with `skip_add=True`; default callers get a loud warning instead of silent overwrite. Signature change is trailing-optional, fully backwards compatible.
 - **Rollback:** Revert `server.py` + tests; redeploy singleton.
+
+## [2026-10-19] ADR-010: Bundle Hardening (ID Retry, Rollback, Validation)
+
+- **Context:** Audit of `bundle_tasks` found data-loss defects: stale META body after ID retry, lossy rollback (hardcoded backlog origin, guessed headers, swallowed errors), duplicate-vs-missing conflation, non-atomic create, dead collision check, silent input dedup, extractor dead branch, checksum length gate, single-word status regex.
+- **Decision:** Rebuild META body after final ID allocation with atomic exclusive-create-plus-write; rollback restores byte-identical originals to recorded origins via `_git_mv_or_fallback` with surfaced errors; `_locate_task_file` returns distinct ok/duplicate/archived/missing states; `_next_id_collision` checks padded and bare spellings; requests enforce 2-6 tasks with explicit duplicate-input errors; extractor preserves blank-line paragraphs and strips nested boxes; checksum covers all non-empty criteria; status replacement spans the full line with Created-aligned datetime.
+- **Consequences:** Same tool surface, stricter errors, 11 new tests (red-proof first) green alongside the 7 baseline tests.
+- **Rollback:** Revert `server.py`, `gitops.py`, `bundle.py` touchpoints + tests; prior behavior returns.

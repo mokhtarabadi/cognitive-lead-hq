@@ -9,7 +9,7 @@ description: Syncs Telegram supergroup topics into local task files and GitHub i
 
 Syncs actionable Telegram messages into GitHub Issues and local `tasks/` files. Unlike the previous version which **summarized** raw messages (BUG: Phase 3 Step 2 had vague "inject translated context" language that allowed LLMs to paraphrase and discard the original text), this SOP enforces:
 
-- **Zero-summarization**: raw Persian (or any original language) text is preserved verbatim
+- **Zero-summarization**: raw non-English text is preserved verbatim in its original language
 - **Bilingual task files**: original message + complete English translation
 - **Prompt refactoring**: loads `prompt-refactor` skill to generate an enhanced prompt from the raw text
 - **Codebase correlation**: autonomously searches the codebase for files relevant to the described bug/feature
@@ -23,7 +23,7 @@ The old Phase 3 Step 2 read:
 
 This was **ambiguously phrased** — it did not mandate verbatim preservation. LLMs interpret "inject context" as "extract the gist and summarize." The fix is:
 
-1. Explicit `## Original Message (Persian)` section with the **exact raw text** — no transformation allowed
+1. Explicit `## Original Message (<Language>)` section with the **exact raw text** — no transformation allowed
 2. A separate `## English Translation` section so the original is never overwritten or merged
 3. Strict `execution_rules` in the system prompt forbidding any truncation or paraphrasing
 
@@ -129,13 +129,13 @@ printf "%02d\n" $NEXT_ID
 
 **2. Generate English Translation:**
 
-Using the `RAW_TEXT` (the verbatim original message, which may be Persian or any language), produce a complete English translation. Store it in a variable `EN_TRANSLATION`.
+Using the `RAW_TEXT` (the verbatim original message, in whatever language it was written), produce a complete English translation. Store it in a variable `EN_TRANSLATION`.
 
 ---
 
 **3. Load & Run Prompt Refactor (The Omni-Channel Filter):**
 
-The `prompt-refactor` skill should already be loaded (from Phase 0). Use it as the omni-channel filter: pass the `RAW_TEXT` (which may be Farsi) to it so it translates the text to English, expands the architectural intent, and generates an enhanced "Max Power" prompt. Store the output in a variable `REFACTORED_PROMPT`.
+The `prompt-refactor` skill should already be loaded (from Phase 0). Use it as the omni-channel filter: pass the `RAW_TEXT` (in its original language) to it so it translates the text to English, expands the architectural intent, and generates an enhanced "Max Power" prompt. Store the output in a variable `REFACTORED_PROMPT`.
 
 The refactored prompt MUST include the 5 XML blocks:
 
@@ -184,7 +184,7 @@ Populate the telegram variant (`## Source Context` → Variant B) by filling the
 - `## Acceptance Criteria` — **MANDATORY.** Derive 2-3 concrete, verifiable conditions from the Telegram message's intent before writing the file.
 - `## Original Message ({LANGUAGE})` — `{RAW_TEXT}` — **verbatim, zero changes.**
 
-  **RULE:** The `## Original Message` section MUST contain the exact text from Telegram. If the text is Persian, the section header is `## Original Message (Persian)`. If Arabic, `## Original Message (Arabic)`, etc. If the language is unknown, use `## Original Message (Raw)`.
+  **RULE:** The `## Original Message` section MUST contain the exact text from Telegram. The section header names the detected language: `## Original Message (<Language>)`. If the language is unknown, use `## Original Message (Raw)`.
 
 - `## English Translation` — `{EN_TRANSLATION}`
 - `## Refactored Prompt` — `{REFACTORED_PROMPT}`
@@ -304,7 +304,7 @@ Task ready. Manager, please copy the contents of tasks/backlog/{NEXT_ID}-task.md
 | Risk                            | Mitigation                                                                                                                                                                         |
 | ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | LLM summarizes raw text         | `## Original Message` is declared as verbatim; the system prompt for the task-generation LLM MUST include "Do NOT summarize, paraphrase, or truncate the Original Message section" |
-| Persian text gets corrupted     | The raw text is stored immediately on fetch and never re-encoded; the task file is written in UTF-8                                                                                |
+| Non-English text gets corrupted | The raw text is stored immediately on fetch and never re-encoded; the task file is written in UTF-8                                                                                |
 | Codebase search misses context  | Three-pass search strategy (grep → glob → read) with fallback: if grep yields 0 results, broaden the search terms                                                                  |
 | State file has concurrent edits | Single-threaded Python updater script with atomic `json.dump` write                                                                                                                |
 | GitHub issue creation fails     | `GH_URL` gracefully defaults to `"Failed to create"`; the task file and Telegram reply still complete                                                                              |

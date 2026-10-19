@@ -2,7 +2,7 @@
 
 ## Duties
 
-Lint MCP daemon: task-file validation (`lint_task_file`), system-prompt sync checks, and Markdown/format gates run before staging and closure.
+Lint MCP daemon: task-file validation (`lint_task_file`, incl. META-shape gate), system-prompt sync checks (incl. unactionable-skill-verb gate), and Markdown/format gates run before staging and closure.
 
 ## Files
 

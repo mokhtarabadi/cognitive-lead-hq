@@ -432,6 +432,117 @@ def _check_report_evidence_body(pre_diff: str) -> list[str]:
     return issues
 
 
+# ---------------------------------------------------------------------------
+# Unactionable skill-verb check (Brain-owned prose only)
+# ---------------------------------------------------------------------------
+# The Brain (Orchestrator) has no skill tool, no file access, and no web;
+# only Hands (cognitive-executor, running in OpenCode) owns the `skill`
+# tool. A skill verb in Brain-owned prose without a Hands actor is
+# unactionable: the Brain cannot execute it and fails silently (training-data
+# hallucination on web facts, unknown block structures). This check flags
+# such lines so every skill reference names Hands or states the no-tool
+# boundary. Hands-owned paths (agents/, skill-templates/, executor matrix
+# lines) are exempt by scope — the check only runs on prompts/fragments/.
+_UNACTIONABLE_SKILL_VERBS = re.compile(
+    r"(prompt-refactor|blowsh)[`\s]+skill|task-generator(?:\s+skill)?"
+)
+
+
+def _is_brain_owned_fragment(file_path: str) -> bool:
+    """True when the path is Brain-owned prompt prose.
+
+    Brain-owned scope is prompts/fragments/ minus the skills registry
+    (07-agent_skills_registry.md), whose lines legitimately enumerate
+    skills for Hands to load. Everything else (agents/, skill-templates/,
+    executor matrix lines) is Hands-owned and exempt by the caller.
+    """
+    p = Path(file_path)
+    return p.parent.name == "fragments" and p.name != "07-agent_skills_registry.md"
+
+
+def _check_unactionable_skill_verbs(content: str, file_path: str) -> list[str]:
+    """Flag skill verbs with no Hands actor in Brain-owned prose.
+
+    A line flags only when it names a skill verb, has no `Hands` token in
+    the same line or the preceding 3 lines, and the file carries no
+    no-skill-tool / no-web boundary sentence. Fenced code blocks and lines
+    carrying an explicit `lint-exempt: skill-mention` HTML marker are
+    skipped (quoted Hands examples must never false-positive).
+    """
+    issues: list[str] = []
+    lines = content.splitlines()
+    has_boundary = ("no skill tool" in content) or ("no web" in content)
+    in_fence = False
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+        if stripped.startswith("```"):
+            in_fence = not in_fence
+            continue
+        if in_fence:
+            continue
+        if "lint-exempt: skill-mention" in line:
+            continue
+        match = _UNACTIONABLE_SKILL_VERBS.search(line)
+        if not match:
+            continue
+        window = "\n".join(lines[max(0, i - 3) : i + 1])
+        if "Hands" in window:
+            continue
+        if has_boundary:
+            continue
+        issues.append(
+            f"Unactionable skill reference (line {i + 1}): "
+            f"`{match.group(1)}` with no Hands actor — the Brain has no "
+            f"skill tool. Name Hands as the actor (only Hands loads skills "
+            f"via the skill tool) or state the no-skill-tool boundary."
+        )
+    return issues
+
+
+# ---------------------------------------------------------------------------
+# Bundle META structural check (META files only)
+# ---------------------------------------------------------------------------
+# A bundle META task carries verbatim source appendices plus an all-or-nothing
+# checklist. Non-META files (including every pre-existing completed/archive
+# file) must skip with pass — they never fail for missing META sections.
+def _check_bundle_meta_structure(content: str, file_path: str) -> list[str]:
+    """Validate bundle META structure, scoped to META files only.
+
+    META is detected by a META title marker, a `**Meta:** true` flag, a
+    `## Supersedes` section, or a `## Bundled Checklist` section. Anything
+    else skips with pass. A detected META file must carry a non-empty
+    `## Supersedes` section naming source tasks and a non-empty
+    `## Bundled Checklist` section carrying verbatim acceptance lines.
+    """
+    issues: list[str] = []
+    title_meta = bool(
+        re.search(r"^# Task \d+:.*\bMETA\b", content, re.MULTILINE | re.IGNORECASE)
+    )
+    is_meta = (
+        title_meta
+        or "**Meta:** true" in content
+        or "## Supersedes" in content
+        or "## Bundled Checklist" in content
+    )
+    if not is_meta:
+        return issues
+    for section in ("## Supersedes", "## Bundled Checklist"):
+        idx = content.find(section)
+        if idx == -1:
+            issues.append(
+                f"Bundle META: missing required `{section}` section "
+                f"(META files must name source tasks and carry the "
+                f"all-or-nothing checklist)."
+            )
+            continue
+        rest = content[idx + len(section) :]
+        next_heading = re.search(r"\n## ", rest)
+        body = rest[: next_heading.start()] if next_heading else rest
+        if not body.strip():
+            issues.append(f"Bundle META: `{section}` section is empty.")
+    return issues
+
+
 # --- MCP Tools ---
 
 
@@ -496,6 +607,12 @@ def lint_markdown(file_path: str, project_root: str | None = None) -> str:
 
     issues = _check_markdown_basics(content, file_path)
 
+    # Brain-owned prompt prose carries one extra gate: skill verbs must name
+    # Hands or state the no-tool boundary. Hands-owned paths are exempt by
+    # scope inside the check (registry + matrix + agents + skill-templates).
+    if _is_brain_owned_fragment(str(path)):
+        issues += _check_unactionable_skill_verbs(content, file_path)
+
     if not issues:
         return f"✅ {file_path} passed Markdown linting."
 
@@ -540,8 +657,9 @@ def lint_task_file(task_file_path: str, project_root: str | None = None) -> str:
 
     md_issues = _check_markdown_basics(content, task_file_path)
     task_issues = _check_task_file_structure(content, task_file_path)
+    meta_issues = _check_bundle_meta_structure(content, task_file_path)
 
-    all_issues = md_issues + task_issues
+    all_issues = md_issues + task_issues + meta_issues
 
     if not all_issues:
         return f"✅ {task_file_path} passed Task File linting."
@@ -830,6 +948,30 @@ def lint_system_prompt_sync(project_root: str | None = None) -> str:
         manifest_path=str(workspace_root / "prompts/manifest.txt"),
         system_prompt_path=str(workspace_root / "system-prompt.md"),
     )
+    if not in_sync:
+        return message
+    # Sync holds — now prove Brain-owned prose has no unactionable skill
+    # verbs. Scan each fragment file on disk (registry exempt inside the
+    # check); the assembled prompt inherits whatever the fragments contain.
+    fragments_dir = workspace_root / "prompts/fragments"
+    verb_issues: list[str] = []
+    if fragments_dir.is_dir():
+        for frag in sorted(fragments_dir.glob("*.md")):
+            try:
+                frag_content = frag.read_text(encoding="utf-8")
+            except Exception:
+                continue
+            if not _is_brain_owned_fragment(str(frag)):
+                continue
+            verb_issues += [
+                f"{frag.name}: {issue}"
+                for issue in _check_unactionable_skill_verbs(frag_content, str(frag))
+            ]
+    if verb_issues:
+        return (
+            "⚠️ system-prompt.md is in sync, but Brain-owned fragments carry unactionable skill references:\n"
+            + "\n".join(f"- {i}" for i in verb_issues)
+        )
     return message
 
 
