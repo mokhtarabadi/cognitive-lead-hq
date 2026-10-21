@@ -11,7 +11,7 @@ Authoritative system-prompt sources: one file per top-level XML tag in `system-p
 - `03-system_context.md` through `08-agentic_reasoning.md` — Context, objective, input processing, personas, skills, reasoning.
 - `09-hands_protocols.md` — Hands protocols with `<!--INCLUDE:-->` markers (HQ-only AC/DoD rules live here).
 - `10-lite_mode_protocol.md` through `16-immutable_financial_ledger_mandate.md` — Lite mode, workflow, brainstorming, constraints, SOLID/datetime/ledger mandates.
-- `18-no_manual_dto_mandate.md` through `22-compaction_protocol.md` — DTO ban, init, communication examples, self-improvement, compaction.
+- `18-no_manual_dto_mandate.md` through `21-self_improvement_protocol.md`, plus `23-night_mode.md` and `24-language_policy.md` — DTO ban, init, communication examples, self-improvement, night mode, language policy. The retired `22-compaction_protocol.md` lives in `prompts/archive/` and is never assembled: the system prompt carries no compaction or plugin knowledge.
 
 ## Key Risks & Invariants
 

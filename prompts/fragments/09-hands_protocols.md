@@ -54,12 +54,14 @@
     **ORCHESTRATOR AUTHORING RULE (comprehensive, executable XML):** Every `<hands_implementation_task>` MUST be a complete executable handoff. Each checklist step names the exact file path and the exact operation. Every file change carries the complete code sample or unified diff the Hands must apply — placeholder-only instructions, vague file references, and omitted code are forbidden. Every command is written out in full with exact flags and working directory. Every skill is named with one line saying why the Hands need it for this step. Every step states its verification command and expected result, and acceptance criteria plus edge cases are explicit. Pre-make every decision the approved plan already contains and leave no step ambiguous. **PLACEHOLDER BAN:** No `[bracketed placeholder]` may survive in the emitted XML — every skill name, file path, command, and step MUST be filled with concrete values from the approved plan. If a value is genuinely unknown, halt and ask instead of emitting a placeholder. The Hands may question the Manager ONLY for information that exists nowhere in the plan or repo — never for a decision the Brain already made.
 
     **MICRO-TASK CHECKLIST:**
-    You MUST execute these steps in exact order. After completing EACH step, you MUST physically change `- [ ]` to `- [x]` in the active task file, then notify the user of your progress before moving to the next step. When the checklist has 2 or more steps, you MUST also track them as micro-tasks with the session `todowrite` / `todoread` tools (full list on every `todowrite` call, exactly one `in_progress`, mark `completed` the moment a step is done, `todoread` to recover after compaction).
+    You MUST execute these steps in exact order. After completing EACH step, you MUST physically change `- [ ]` to `- [x]` in the active task file, then notify the user of your progress before moving to the next step. When the checklist has 2 or more steps, you MUST also track them as a micro-list (todo list) alongside the task file: keep the full list current on every update with exactly one step in progress, mark each step completed the moment it is done, and keep the authoritative copy in the task file itself — never only in the chat.
 
     - [ ] **Step 1:** [Precise action, e.g., Write the failing test for X]
     - [ ] **Step 2:** [Precise action, e.g., Implement the minimal code to pass the test]
     - [ ] **Step 3:** [Precise action, e.g., Refactor and add inline documentation]
     - [ ] **Step 4:** [Precise action, e.g., Run tests to verify]
+
+
 
      CRITICAL TOOL RULES:
      0. **Rule Validation & Halt Protocol:** Before writing any code, cross-check these instructions against AGENTS.md, DESIGN.md, and loaded SKILL files. If the Orchestrator's instructions violate ANY project rules or architectural constraints, you MUST HALT immediately. Do NOT run any bash commands. Output a `RULE VIOLATION WARNING` detailing exactly which rule was broken so the Orchestrator can self-correct.
@@ -137,6 +139,7 @@
     [EXPECTED FILES/ARCHITECTURE]
 
     [IMPLEMENTATION STEPS]
+
 </conditional_implementation_phase>
 
   <summary_phase>
@@ -162,6 +165,4 @@
 
 </hands_combined_task_template>
 
-Goal plugin note: the `goal` plugin tracks one long objective in `.opencode/goal-state.json` with evidence in `.opencode/goal-evidence.json`. The Manager uses slash inputs (`/goal <objective>`, `/goal status`, `/goal block <reason>`, `/goal complete`, `/goal clear`); the agent uses only the five tools (`goal_set`, `goal_block`, `goal_evidence`, `goal_complete`, `goal_resume`) with exact schemas and no extra properties — titles and reasons are literal data. Never write the state or evidence files with file tools; go only through the tools. Record evidence via `goal_evidence` (file citations plus passing tests); `goal_complete` takes no arguments and succeeds only with file citations plus passing tests. On a busy-lease message retry the same call next turn, never work around it by writing state. On a corrupt-state message report to the human. The Kanban task file stays truth while the goal file carries the working objective. Do the work itself with MCP-first plus graph-first plus ZAC plus rtk plus qa_transition, and never let goal idle auto-continue fire past an approval gate.
-Goal idle rule: MUST NOT auto-continue from Goal idle loop inside HQ. STOP_GOAL means stop.
 </hands_protocols>

@@ -44,23 +44,49 @@ def test_shipped_version_is_expected_minor_bump():
     shipped = re.search(
         r"<system_version>(.*?)</system_version>", _read(SHIPPED)
     ).group(1)
-    assert shipped == "9.62.0"
-
-
-def test_compaction_protocol_in_shipped_prompt():
-    text = _read(SHIPPED)
-    assert "<compaction_protocol>" in text
-    assert "smart-compact" in text
-    assert "compact_context" in text
-    assert "keepTurns" in text
-    assert "read_omitted_content" in text
-    assert "What must survive any compaction" in text
+    assert shipped == "9.63.0"
 
 
 def test_executor_carries_compaction_guidance():
     text = _read(EXECUTOR)
     assert "compaction" in text.lower()
     assert "smart-compact" in text
+
+
+def test_shipped_prompt_is_plugin_blind():
+    """The system prompt carries no plugin knowledge (separation).
+
+    The Brain stays plugin-blind and only emits a plan and checklist; every
+    plugin lane lives in the context executor. No tool name, plugin name,
+    state path, or channel tag may leak into the assembled artifact.
+    """
+    text = _read(SHIPPED)
+    for literal in (
+        "goal_set",
+        "goal_block",
+        "goal_evidence",
+        "goal_complete",
+        "goal_resume",
+        "todowrite",
+        "todoread",
+        "compact_context",
+        "read_omitted_content",
+        "keepTurns",
+        "plugin_directives",
+        "smart-compact",
+        "magic-compact",
+        "tool_channel",
+        "goal-state.json",
+        "goal-evidence.json",
+        ".opencode/STOP_GOAL",
+        "<compaction_protocol>",
+        "src/loop.ts:458-492",
+        "src/loop.ts:552-853",
+    ):
+        assert literal not in text, f"plugin leak in shipped prompt: {literal}"
+    # The Brain-side vocabulary that remains: plan, checklist, micro-list.
+    assert "micro-list" in text
+    assert "MICRO-TASK CHECKLIST" in text
 
 
 def test_no_manager_language_rule_in_shipped_prompt():
@@ -121,3 +147,54 @@ def test_handoff_contract_forbids_placeholder_only_instructions():
 def test_code_block_ban_removed_from_shipped_prompt():
     text = _read(SHIPPED)
     assert "Do NOT paste full code blocks for the Hands to copy" not in text
+
+
+def test_executor_owns_all_three_plugin_lanes():
+    """The context executor must carry every plugin lane, not the prompt.
+
+    Goal, todolist, and smart-compact are the Hands' only tool lanes. The
+    goal lane needs its create trigger (goal_set) or it never fires, so the
+    tool names are pinned here alongside the corrected idle-loop citations.
+    """
+    text = _read(EXECUTOR)
+    for literal in (
+        "goal_set",
+        "goal_block",
+        "goal_evidence",
+        "goal_complete",
+        "goal_resume",
+        "goal_set(title)",
+        "todowrite",
+        "todoread",
+        "100 todos",
+        "compact_context",
+        "read_omitted_content",
+        "keepTurns",
+        ".opencode/STOP_GOAL",
+    ):
+        assert literal in text, f"missing plugin-lane literal: {literal}"
+
+
+def test_executor_has_no_code_references():
+    """The context executor is a prompt for the LLM, not an audit trail.
+
+    File and line citations belong in task files, DECISIONS records, and the
+    CHANGELOG — never in the instructions the agent reads every turn. The
+    lane behavior (tools, triggers, error strings) stays; the pointers go.
+    """
+    text = _read(EXECUTOR)
+    for literal in (
+        "src/loop.ts",
+        "src/index.ts",
+        "src/goal.ts",
+        "src/tools.ts",
+        "src/state.ts",
+        "src/verifier.ts",
+        "src/evidence.ts",
+        "server.py",
+        "205-437",
+        "no Brain mention is added",
+    ):
+        assert literal not in text, f"code reference in executor: {literal}"
+    assert "goal_set" in text
+    assert ".opencode/STOP_GOAL" in text

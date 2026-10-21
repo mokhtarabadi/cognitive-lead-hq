@@ -64,4 +64,6 @@ htmlcov/
 .opencode/goal-evidence.json
 STOP_GOAL
 .opencode/STOP_GOAL
+# Task-boundary idle-loop brake stays tracked
+!.opencode/STOP_GOAL
 

@@ -41,7 +41,7 @@ opencode plugin add github:mokhtarabadi/opencode-goal-plugin
 opencode plugin add opencode-goal-plugin
 ```
 
-`/goal` tracks one long-running objective in `.opencode/goal-state.json` with evidence in `.opencode/goal-evidence.json`: `/goal <objective>` to set, `/goal status` to check, `/goal block <reason>`, `/goal complete` (needs file citations plus passing tests), `/goal clear` — Manager lane. Agent lane is tools-only: `goal_set`, `goal_block`, `goal_evidence`, `goal_complete`, `goal_resume`; never write the state or evidence files with file tools; record evidence via `goal_evidence` before `goal_complete`; busy lease means retry next turn; corrupt state means report to the human. Create `.opencode/STOP_GOAL` to pause the loop immediately.
+`/goal` tracks one long-running objective in `.opencode/goal-state.json` with evidence in `.opencode/goal-evidence.json`: `/goal <objective>` to set, `/goal status` to check, `/goal block <reason>`, `/goal resume`, `/goal evidence <args>`, `/goal complete` (needs file citations plus passing tests), `/goal clear` — Manager lane. Agent lane is tools-only: `goal_set`, `goal_block`, `goal_evidence`, `goal_complete`, `goal_resume`; never write the state or evidence files with file tools; record evidence via `goal_evidence` before `goal_complete`; busy lease means retry next turn; corrupt state means report to the human. The agent opens the goal with `goal_set` when an objective is defined and resumes it with `goal_resume` after a block or interruption. The plugin reads its stop marker only at the projectDir `.opencode/STOP_GOAL` path (the project-root `STOP_GOAL` is never read); that marker is tracked in this repo, so the idle auto-continue is braked by a committed control rather than a local file, and it stops only the idle loop — never the five agent tools.
 
 This writes the package (or path) into `plugins` in the global config; OpenCode loads it at startup. New machines get the entry from the global `opencode.json` in `LLM.txt` §7 plus the install command in `LLM.txt` §7.7.
 
@@ -63,6 +63,8 @@ Compaction is scheduled by the command and applied on the next model request; su
 ### Agent-callable tool
 
 The agent compresses the session itself with the `compact_context` tool (never the `/magic-*` slash commands), which runs the same logic as `/magic-compact` (shared `src/actions.ts` in the plugin, so the paths cannot drift). Effect is async (stored now, prunes next request) — do not re-call to verify. In autopilot never ask the Manager to run slash commands:
+
+The agent also compresses at the task boundary: when the previous task is fully finished and the Manager defines a new task in the same session, call `compact_context` with `keepTurns` 0 and `mode` `compact` before starting the new task, so the old turns do not crowd the new task's context. Recover the todo list with `todoread` after any compaction — never from a remembered transcript, because smart-compact replaces `todowrite` output with a short notice.
 
 | Input | Effect |
 | --- | --- |
