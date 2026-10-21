@@ -416,6 +416,31 @@ opencode plugin add opencode-todolist
 
 This writes the spec into `plugins` in `~/.config/opencode/opencode.json`; OpenCode loads it at startup. `opencode plugin add` accepts npm registry packages or Git specs only — a bare local directory path is rejected, so use the Git spec (or list the directory in `plugins` and restart) while developing. It needs registry access: if the machine's `~/.npmrc` points at a dead proxy, remove the `proxy`/`https-proxy` lines first — direct registry access works and the install otherwise fails with `NPMInstallFailedError`.
 
+Then create the recommended smart-compact global config at `~/.config/opencode/smart-compact.jsonc` (write it verbatim — same snippet as `docs/compaction.md` §Configuration):
+
+```jsonc
+// Recommended global config for smart-compact.
+{
+  "enabled": true,
+  "pruning": {
+    "maxChars": 1024, "maxWords": 128, "taskMaxChars": 4096, "taskMaxWords": 512,
+    "protectedTools": ["question"], "alwaysPruneTools": ["read"],
+    "discardTools": {
+      "todowrite": "Successfully updated todos.",
+      "skill": "Skill contents omitted after compaction; recall the skill if needed."
+    },
+    "preserveRecentTurns": 2, "truncateToolsChars": 1024, "useTokens": true
+  },
+  "strategies": {
+    "deduplication": { "enabled": true, "protectedTools": ["question"] },
+    "purgeErrors": { "enabled": true, "turns": 4, "protectedTools": ["question"] },
+    "stripReasoning": { "enabled": true, "thresholdChars": 500 }
+  },
+  "tokens": { "enabled": true, "emergencyBudgetTokens": 50000 },
+  "awareness": { "enabled": true, "warnRatio": 0.7, "emergencyRatio": 0.9, "rearmStep": 0.05 }
+}
+```
+
 Enable the todolist sidebar strip via `~/.config/opencode/cli.json`:
 
 ```json

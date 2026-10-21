@@ -89,7 +89,30 @@ Invalid input returns a friendly message instead of failing. The slash commands 
 
 ### Configuration
 
-JSONC, project over global: `.opencode/smart-compact.jsonc` over `~/.config/opencode/smart-compact.jsonc` over built-in defaults. Only override what you need (`enabled`, `pruning.*`, `strategies.*`).
+JSONC, project over global: `.opencode/smart-compact.jsonc` over `~/.config/opencode/smart-compact.jsonc` over built-in defaults. On a fresh machine create the global file with this recommended content right after `opencode plugin add` (same snippet lives in `LLM.txt` §7.7, so an installer LLM writes it verbatim):
+
+```jsonc
+// Recommended global config for smart-compact.
+{
+  "enabled": true,
+  "pruning": {
+    "maxChars": 1024, "maxWords": 128, "taskMaxChars": 4096, "taskMaxWords": 512,
+    "protectedTools": ["question"], "alwaysPruneTools": ["read"],
+    "discardTools": {
+      "todowrite": "Successfully updated todos.",
+      "skill": "Skill contents omitted after compaction; recall the skill if needed."
+    },
+    "preserveRecentTurns": 2, "truncateToolsChars": 1024, "useTokens": true
+  },
+  "strategies": {
+    "deduplication": { "enabled": true, "protectedTools": ["question"] },
+    "purgeErrors": { "enabled": true, "turns": 4, "protectedTools": ["question"] },
+    "stripReasoning": { "enabled": true, "thresholdChars": 500 }
+  },
+  "tokens": { "enabled": true, "emergencyBudgetTokens": 50000 },
+  "awareness": { "enabled": true, "warnRatio": 0.7, "emergencyRatio": 0.9, "rearmStep": 0.05 }
+}
+```
 
 ### Retrieving pruned content
 
