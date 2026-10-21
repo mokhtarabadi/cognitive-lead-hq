@@ -73,6 +73,7 @@ If the Orchestrator or Manager forgets to explicitly list a skill in the `<conte
 | Implementation-producing input (any stack, any language) | `prompt-refactor` (mandatory before planning: validate, translate, expand, then structure) |
 | Java-8 Android Views, no Compose (XML layouts, Activities) | `android-kotlin` for Kotlin discipline plus tooling order only; Compose MVI Hilt SQLDelight coverage does not apply to Views (skip recorded) |
 | Plain Node CommonJS Cloud Code, no TS or hex ports      | `node-hexagonal-api` for layering intent where applicable, else no stack skill; no CommonJS Cloud Code skill exists (skip recorded) |
+| Any Telegram MCP send, reply, edit, or file caption     | `telegram-message-format` (parse mode, escaping, length splitting, topic targeting, Persian text) |
 
 **Binding Fallback Rule:** If no stack skill exactly matches, load the closest skill for discipline only and record an explicit skip with root plus marker scan list plus matched skills list plus reason phrase. Never invent a new skill inline and never claim coverage not present.
 

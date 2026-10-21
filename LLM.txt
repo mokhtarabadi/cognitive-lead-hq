@@ -171,7 +171,7 @@ Copy all reusable skills from `skill-templates/` into the global OpenCode skills
 cp -r /tmp/cognitive-lead-hq/skill-templates/* ~/.config/opencode/skills/
 ```
 
-After this, the skills will be available via `/help` from any directory. `skill-templates/` contains **31 skills** (`bundle-tasks`, `github`, and 29 more).
+After this, the skills will be available via `/help` from any directory. `skill-templates/` contains **36 skills** (`bundle-tasks`, `github`, `telegram-message-format`, and 33 more).
 
 ### 6.1. (Optional) Bundle CLI Script — Only If You Want `uv run scripts/bundle-tasks.py`
 
@@ -535,7 +535,7 @@ After completing all steps, verify:
 - [ ] `~/.config/opencode/mcp-lint-server/server.py` exists and is executable
 - [ ] `~/.config/opencode/mcp-brain-bridge/server.py` exists and is executable (plus its sibling modules `capability.py`, `preflight.py`, `loop_guard.py`, `session_ledger.py`)
 - [ ] `~/.config/opencode/mcp-common/src/mcp_common/env.py` exists
-- [ ] Skills are installed under `~/.config/opencode/skills/` (at least one subfolder exists) — should include `bundle-tasks` (31 skills total)
+- [ ] Skills are installed under `~/.config/opencode/skills/` (at least one subfolder exists) — should include `bundle-tasks` (36 skills total)
 - [ ] `~/.config/opencode/agents/cognitive-executor.md` exists
 - [ ] `~/.config/opencode/agents/cognitive-discovery.md` exists
 - [ ] `~/.config/opencode/opencode.json` exists with **absolute paths** (not `~` or relative paths) and 6 `mcp` entries (`custom_context`, `project_memory`, `lint`, `brain`, `blowsh`, `telegram`) + `blowsh_*`/`telegram_*`/`brain_turn` permissions, no former browser entry

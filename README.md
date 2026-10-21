@@ -245,6 +245,8 @@ cp .env.example .env
 │   │   └── SKILL.md
 │   ├── telegram-message-export/        # Export Telegram messages to ZIP
 │   │   └── SKILL.md
+│   ├── telegram-message-format/        # Outgoing Telegram message formatting rules
+│   │   └── SKILL.md
 │   ├── verification-before-completion/ # Mandatory verification gate
 │   │   └── SKILL.md
 │   ├── versioning-and-release/         # SemVer, Changelog, Commit standards
@@ -299,6 +301,7 @@ cp .env.example .env
 | `task-generator`          | Automatically generates decentralized task files based on Manager instructions, with correct `<!-- BEGIN_GIT_DIFF -->` / `<!-- END_GIT_DIFF -->` markers.                                                                       |
 | `telegram-issue-sync`     | Syncs Telegram supergroup topics into local task files and GitHub issues, using embedded Python scripts for deterministic JSON state management.                                                                                |
 | `telegram-message-export` | Intelligently exports a range of Telegram messages (text, media, voice notes) into a numbered folder, capturing reply hierarchies, and packing them into a ZIP archive.                                                         |
+| `telegram-message-format` | Formats every outgoing Telegram MCP message — HTML parse mode, escaping, length splitting, forum-topic targeting, Persian text without ZWNJ. Contract evidence in `docs/telegram-message-formatting.md`.                                    |
 | `versioning-and-release`  | Standardizes Semantic Versioning (SemVer), Keep a Changelog formats, Conventional Commits, and Safe Push Protocols across all repositories.                                                                                     |
 
 ### Stack-Specific Blueprints
@@ -420,7 +423,7 @@ Full HQ install covering all core MCP servers plus skills plus both agents is do
 **Optional — auto-installed via `LLM.txt` Step 7.6:**
 
 - `blowsh` (Docker `ghcr.io/mokhtarabadi/blowsh-mcp:latest`, 5 tools) — **JS-capable browsing (retired browser MCP replacement).** `fetch_web` (plain/html/markdown/pdf + selector/max_chars/wait_ms + focus/toc/must_contain/archive/stitch probes), `search_web` (DuckDuckGo+Bing+Brave+Mojeek consensus, intent verticals), `extract_links`, `fetch_web_batch` (10 URLs), `crawl_web` (sitemap-aware multi-page docs/API refs/wikis with focus/depth/char budgets). SSRF guard, TTL cache. Timeout 120s. See https://github.com/mokhtarabadi/blowsh-mcp, `skill-templates/blowsh/SKILL.md`, and `docs/telegram-setup.md` (setup maps to same global install).
-- `telegram` (Telethon, 80+ tools, `$HOME/.config/opencode/mcp-telegram-server/.venv/bin/python` + absolute `main.py` path in opencode config dir) — Accounts (`list_accounts`, multi-account `account` param), chats/groups, messages (`send_message`/`reply_to_message` with `account="personal"`/`"work"`), contacts/aliases, media (`send_file`/`download_media`), events (`wait_for_settled_message`, `enable_incoming_feed`). File roots required for media tools (`/tmp/telegram-mcp` + `$HOME/.config/opencode/mcp-telegram-server/downloads`). Used by `skill-templates/telegram-issue-sync/SKILL.md` (supergroup → tasks) and `telegram-message-export/SKILL.md` (range → ZIP) — see `docs/telegram-setup.md` §6 for the full skill→tool→config table. Single vs work/personal setup documented there plus `LLM.txt` 7.6 (absolute paths, installed in `~/.config/opencode/`).
+- `telegram` (Telethon, 80+ tools, `$HOME/.config/opencode/mcp-telegram-server/.venv/bin/python` + absolute `main.py` path in opencode config dir) — Accounts (`list_accounts`, multi-account `account` param), chats/groups, messages (`send_message`/`reply_to_message` with `account="personal"`/`"work"`), contacts/aliases, media (`send_file`/`download_media`), events (`wait_for_settled_message`, `enable_incoming_feed`). File roots required for media tools (`/tmp/telegram-mcp` + `$HOME/.config/opencode/mcp-telegram-server/downloads`). Used by `skill-templates/telegram-issue-sync/SKILL.md` (supergroup → tasks), `telegram-message-export/SKILL.md` (range → ZIP), and `telegram-message-format/SKILL.md` (HTML parse mode, escaping, length, topic targeting — contract in `docs/telegram-message-formatting.md`) — see `docs/telegram-setup.md` §6 for the full skill→tool→config table. Single vs work/personal setup documented there plus `LLM.txt` 7.6 (absolute paths, installed in `~/.config/opencode/`).
 
 ### Meta-Task Bundling — Pure MCP (No CLI Required)
 

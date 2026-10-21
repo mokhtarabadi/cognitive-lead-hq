@@ -19,6 +19,9 @@ Established by Manager on 2026-08-25 after a mis-scoped sync cycle.
 - Bulk Telegram sends trigger `FloodWaitError` (~287s initial). Retrying before the window expires EXTENDS the penalty (observed 466s).
 - Protocol: send one message → verify → wait ≥30–60s between sends; on FloodWaitError, sleep the FULL demanded duration + buffer before any retry.
 
+## Outgoing Message Formatting (MANDATORY)
+- Every reply/notification sent through the Telegram MCP MUST follow `telegram-sync/message-formatting-contract` (skill `telegram-message-format`): `parse_mode: "HTML"`, escaped `&` `<` `>` inside `<pre>`/`<code>`, no triple-backtick fences, no `*emphasis*`, Persian without U+200C ZWNJ, ~3800-char budget with split parts, topic targeting through `reply_to_message` only.
+
 ## State File Semantics
 - `last_processed_message_id` is a global watermark for the chat; after each cycle set it to the highest observed id and backfill `processed_ids` for the whole range so skipped messages are not refetched.
 - `sync_registry[<msg_id>]` = {task_file, gh_issue, type}. Task files may later be archived — check `tasks/archive/` when the backlog path no longer exists.

@@ -6,7 +6,7 @@ Project-agnostic skill template catalog: source of truth copied into `.opencode/
 
 ## Files
 
-- `*/SKILL.md` — One directory per skill (35 templates: `android-kotlin`, `audit-agents`, `bundle-tasks`, `task-generator`, `prompt-refactor`, `verification-before-completion`, `init-folder-docs`, and others).
+- `*/SKILL.md` — One directory per skill (36 templates: `android-kotlin`, `audit-agents`, `bundle-tasks`, `task-generator`, `prompt-refactor`, `verification-before-completion`, `init-folder-docs`, `telegram-message-format`, and others).
 - `opencode-init/references/` and `opencode-init/scripts/` — Init scaffolding references and helpers.
 
 ## Key Risks & Invariants

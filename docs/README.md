@@ -15,6 +15,7 @@ Human-readable spec hub for conventions, architecture-adjacent guides, service t
 - `services.md` — Service topology for MCP daemons.
 - `setup.md` — Environment setup guide.
 - `telegram-setup.md` — Telegram sync setup.
+- `telegram-message-formatting.md` — Message formatting contract for the Telegram MCP (parse mode, length limit, ZWNJ, topic targeting).
 - `living-folder-docs-roadmap.md` — Rollout roadmap for Living Folder Docs.
 - `workflow-upgrade-v8.4.5.md` — Workflow upgrade notes.
 - `history/` — Per-milestone summaries (milestone-1 through milestone-22).

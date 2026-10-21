@@ -53,6 +53,7 @@ Before any Telegram fetching, you MUST load these skills:
 ```markdown
 1. Load `task-generator` skill — ensures task files use the correct template with `<!-- BEGIN_GIT_DIFF -->` / `<!-- END_GIT_DIFF -->` markers.
 2. Load `prompt-refactor` skill — will be used in Phase 3 to generate the `## Refactored Prompt` section.
+3. Load `telegram-message-format` skill — governs every message this skill sends back to Telegram (parse mode, escaping, length splitting, Persian text, topic targeting). MANDATORY before the Phase 3 reply step.
 ```
 
 Use the `skill` tool for each. If loading fails, HALT and report the error.
@@ -72,7 +73,19 @@ This MCP implementation does **NOT** expose a `topic_id` parameter. Forum topics
 
 - **Reading messages from a specific topic:** Call `telegram_get_history(chat_id=config.chat_id, limit=100, account=config.account)`. It returns messages from all topics. **Filter results by `reply_to`** — direct replies have `reply_to == config.topic_id` (e.g., `458` = Cognitive Lead, `455` = other project, `1` = General). For nested replies, walk the chain via `telegram_get_message_context` recursively until you hit the topic root `MessageActionTopicCreate`; discard messages whose chain terminates at `455`/`1`/`null`.
 - **Sending a message to a specific topic:** You MUST use `telegram_reply_to_message` with `message_id` set to `config.topic_id`. Never post topic confirmations to General.
+- **`telegram_send_message` MUST NOT be used for topic-scoped output:** it has no `topic_id` parameter, so it always lands in General.
 - **MANDATORY per `.opencode/memory/telegram-sync/topic-scoped-sync-workflow.md`:** `config.topic_id` defines the ONLY channel to sync. NEVER fetch/scan group-wide history.
+
+### Outgoing Message Formatting (Critical)
+
+Every message this skill sends to Telegram MUST follow the `telegram-message-format` skill. The short version:
+
+- `parse_mode: "HTML"` — never `Markdown` (it destroys code blocks and leaves `*bold*` literal).
+- `<b>` for headings, `<code>` for inline identifiers, `<pre>` for code blocks; escape `&`, `<`, `>` inside them.
+- No ` ``` ` fences, no `*emphasis*`.
+- Persian text without U+200C ZWNJ (use a normal space where the half-space belongs).
+- Keep each message under ~3800 characters; split longer payloads into parts, each a reply to the same parent id.
+- Anchor the reply to the **source message** (`config.topic_id` root or the candidate's own id) so the message inherits the topic.
 
 ### Phase 2: Manager Approval
 
@@ -276,14 +289,17 @@ rm update_sync.py
 
 **9. Reply in Telegram:**
 
-Call `telegram_reply_to_message` with:
+Call `telegram_reply_to_message` with `parse_mode: "HTML"`, anchored to the **source message** (`config.topic_id` root, or the candidate's own message id) so the reply inherits the topic. The payload MUST follow the `telegram-message-format` skill — no emoji, no Markdown fences, no ZWNJ in Persian text, under ~3800 characters.
 
+```html
+<b>Task synced</b>
+
+<b>File:</b> <code>tasks/backlog/{NEXT_ID}-title.md</code>
+<b>Issue:</b> <code>{GH_URL}</code>
+<b>Type:</b> {BUG|FEATURE|IMPROVE}
 ```
-✅ Task synced successfully.
-📁 Local File: tasks/backlog/{NEXT_ID}-title.md
-🌐 GitHub Issue: {GH_URL}
-📝 Type: {BUG|FEATURE|IMPROVE}
-```
+
+When the candidate is one of several in the same batch, add a leading line `<b>Task synced</b> (2 of 5)` so the Manager can match the reply to the message. If the payload would exceed ~3800 characters, split it into numbered parts, each a reply to the same parent id.
 
 ---
 
@@ -308,3 +324,4 @@ Task ready. Manager, please copy the contents of tasks/backlog/{NEXT_ID}-task.md
 | Codebase search misses context  | Three-pass search strategy (grep → glob → read) with fallback: if grep yields 0 results, broaden the search terms                                                                  |
 | State file has concurrent edits | Single-threaded Python updater script with atomic `json.dump` write                                                                                                                |
 | GitHub issue creation fails     | `GH_URL` gracefully defaults to `"Failed to create"`; the task file and Telegram reply still complete                                                                              |
+| Telegram reply renders broken   | The reply is sent with `parse_mode: "HTML"` and the `telegram-message-format` rules (escaping, no fences, no ZWNJ, length budget, topic anchoring)                             |

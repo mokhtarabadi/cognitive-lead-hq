@@ -355,6 +355,41 @@ def test_validate_opencode_positives():
     assert _run_validator(cfg) == (0, "")
 
 
+def test_telegram_message_format_skill_contract():
+    text = _template_text("telegram-message-format")
+    for required in (
+        'parse_mode: "HTML"',
+        "&amp;",
+        "&lt;",
+        "&gt;",
+        "U+200C",
+        "3800",
+        "reply_to_message",
+        "GEN-ERR-184",
+        "4096",
+    ):
+        assert required in text, f"contract term missing: {required}"
+    reg = REGISTRY.read_text(encoding="utf-8")
+    assert "telegram-message-format" in reg
+
+
+def test_telegram_skills_obey_the_format_contract():
+    for name in ("telegram-issue-sync", "telegram-message-export"):
+        assert "telegram-message-format" in _template_text(name), name
+    issue_sync = _template_text("telegram-issue-sync")
+    assert 'parse_mode: "HTML"' in issue_sync
+    assert "3800" in issue_sync
+    assert "U+200C" in issue_sync
+
+
+def test_telegram_formatting_contract_doc_exists():
+    doc = ROOT / "docs" / "telegram-message-formatting.md"
+    assert doc.is_file(), "formatting contract doc missing"
+    text = doc.read_text(encoding="utf-8")
+    for required in ("4096", "GEN-ERR-184", "U+200C", "topic_id", "parse_mode"):
+        assert required in text, f"doc term missing: {required}"
+
+
 def _project_skills_table_rows():
     text = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
     m = re.search(r"## .*PROJECT SKILLS.*\n\n((?:\|.*\n)+)", text)

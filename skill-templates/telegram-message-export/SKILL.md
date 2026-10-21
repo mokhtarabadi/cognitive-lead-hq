@@ -56,3 +56,17 @@ rm -rf export-{timestamp}/
 ## Phase 4: Notification
 
 Output exactly: "✅ Contextual Telegram export complete. Range: {from_id} to {to_id}. Archive path: <workspace>/telegram-exports/export-{timestamp}.zip"
+
+## Phase 5: Optional Telegram Delivery
+
+When the archive is delivered to a chat through the Telegram MCP, the caption and any follow-up message MUST follow the `telegram-message-format` skill:
+
+- `parse_mode: "HTML"`, with `<b>` for the heading and `<code>` for the archive path.
+- No Markdown fences, no ZWNJ in Persian text, under ~3800 characters.
+- For a forum topic, deliver with `telegram_send_file(chat_id, file_path, caption, topic_id=...)` (it accepts `topic_id`) or with `telegram_reply_to_message` anchored to a message already inside the topic. `telegram_send_message` has no `topic_id` and lands in General.
+
+```html
+<b>Export archive</b>
+
+<code>export-{timestamp}.zip</code> — {count} messages, {media_count} media files.
+```

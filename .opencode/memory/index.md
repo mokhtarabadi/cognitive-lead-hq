@@ -5,6 +5,7 @@
 | Namespace | Key | Summary | Tags |
 | :--- | :--- | :--- | :--- |
 | architecture | brain-hands-architecture-2026-08-21 | # Brain + Hands Architecture Decision — 2026-08-21 |  |
+| architecture | responses_api_best_practice_audit_2026_10_21 | # Responses API best-practice audit (2026-10-21) — Brain Bridge |  |
 | architecture | responses_api_provider_diagnostics | # Responses-API servers must surface provider diagnostics |  |
 | opencode_config | opencode_v2_upgrade_2026_09_26 | # OpenCode V2 Upgrade — 2026-09-26 (state refreshed 2026-10-01) |  |
 | opencode_config | plugin_policy_magic_compact_2026_10_02 | # OpenCode plugin policy — Smart Compact (updated 2026-10-13) |  |
@@ -20,9 +21,11 @@
 | quirks | extract_signatures_file_write_fix | **Bug Fixed (2026-08-21):** `extract_signatures` MCP tool in `mcp-context-server/server.py` was returning signature s... |  |
 | quirks | full_output_verification_rule | Never trust truncated command output. Head tail cuts hide status lines and cause false alarms. Always re-run with ful... |  |
 | release | release-workflow | Release workflow for cognitive-lead-hq. |  |
+| telegram-sync | message-formatting-contract | # Telegram Message Formatting Contract (Manager rule, 2026-10-21) |  |
 | telegram-sync | topic-scoped-sync-workflow | # Telegram Sync Workflow Constraints (Cognitive Lead HQ) |  |
 | workflows | approval_gates_use_question_tool | # Approval gates must use the question tool (Manager standing rule 2026-09-27) |  |
 | workflows | brain_turn_mode_line | # Brain calls MUST carry a mode line (Manager order 2026-10-16) |  |
+| workflows | free-model-context-window-workflow | # Free-model context-window workflow (verified 2026-10-21) |  |
 | workflows | global-install-upgrade | # Global Install Upgrade Workflow (OpenCode) |  |
 | workflows | manual-qa-review-cycle | # Manual QA + Review Cycle (Hands role-plays both) |  |
 | workflows | no_task_for_global_upgrade | Global install upgrades run WITHOUT a task file: Manager order 2026-09-14 — delete any upgrade task file, execute wor... |  |

@@ -201,6 +201,19 @@ codex mcp add telegram --url http://127.0.0.1:8765/mcp
 | **`telegram-issue-sync`** (`skill-templates/telegram-issue-sync/SKILL.md`) | `telegram_get_history` (filter `reply_to == config.topic_id` then `id > last_processed_message_id`), `telegram_get_message_context` (parent chain walk to topic root), `telegram_reply_to_message` (topic-targeted reply), optionally GitHub issue create | `telegram-sync.json` at repo root: `config.chat_id`, `config.topic_id` (**topic-scoped — ONLY this topic syncs**), `config.account`, `target_hashtags` (`bug`, `feature`, `improve`), `last_processed_message_id`, `processed_ids`, `sync_registry` | Phase 1 fetch + client-filter by `reply_to` → Phase 2 manager approval → Phase 3 per-candidate: verbatim `RAW_TEXT` → translate → `prompt-refactor` → codebase `grep/glob` → task file + optional GH issue → topic-targeted reply |
 | **`telegram-message-export`** (`skill-templates/telegram-message-export/SKILL.md`) | `telegram_get_history` (range `[from_id,to_id]`), `telegram_get_media_info`, `telegram_download_media` | No `telegram-sync.json`; takes `[from_id,to_id]` or snippet/link `t.me/c/CHAT/MSG` | Phase 1 fetch & sort → Phase 2 write `{n}.txt` sidecars + `reply_to_message_id` + media download → Phase 3 `zip -r telegram-exports/export-{ts}.zip` → Phase 4 notification |
 | **Direct ad-hoc use** | `send_file` (file attachments to General topic `chat_id=-1003993323129`), `send_message`/`reply_to_message` | `account="personal"` per memory `workflows/telegram-file-delivery` | `telegram_send_file(chat_id, file_path, caption, account="personal")` → verifies via `telegram_get_messages` |
+| **`telegram-message-format`** (`skill-templates/telegram-message-format/SKILL.md`) | No send of its own — it governs every send made by the rows above | n/a | Load before any send: `parse_mode: "HTML"`, escape `&` `<` `>` inside `<pre>`/`<code>`, no ` ``` ` fences, no U+200C ZWNJ, ~3800-char budget with split parts, topic targeting through `reply_to_message` |
+
+### 6.1 Message Formatting Contract
+
+Every message sent through this MCP must follow [`telegram-message-formatting.md`](telegram-message-formatting.md) — the empirical contract proven against the live server on 2026-10-21:
+
+- `parse_mode: "HTML"` only. `Markdown` strips ` ``` ` fences and inline backticks without creating entities, and leaves `*bold*` literal.
+- Escape `&` → `&amp;`, `<` → `&lt;`, `>` → `&gt;` inside `<pre>` and `<code>`; one raw `<` aborts the whole message.
+- Safe elements: `<b>`, `<i>`, `<u>`, `<code>`, `<pre>`, `<a>`.
+- Persian text without U+200C ZWNJ — use a normal space where the half-space belongs.
+- Hard cap 4096 characters; over it the server returns an opaque `GEN-ERR-184`. Plan on ~3800 and split longer payloads into parts, each a reply to the same parent id.
+- `send_message` has no `topic_id` and lands in General; post into a topic with `reply_to_message` anchored to a message inside it. `send_file` and `send_album` do accept `topic_id`.
+- `get_history` resolves entities to plain text, so a read-back text diff cannot prove formatting; use the `&lt;`/`&gt;` round-trip instead.
 
 **Memory quirks that apply:**
 - `workflows/telegram-file-delivery` — send whole file as attachment to General topic (id 1), never chunk into text; `send_file` has no `reply_to` so General is default; chat `-1003993323129`.
@@ -228,4 +241,6 @@ The server prompts the LLM when `account` ambiguous ("unknown / resembles one / 
 
 - `skill-templates/telegram-issue-sync/SKILL.md` — full sync SOP (zero-summarization, bilingual task files)
 - `skill-templates/telegram-message-export/SKILL.md` — export SOP (reply hierarchy + zip)
+- `skill-templates/telegram-message-format/SKILL.md` — outgoing message formatting rules (parse mode, escaping, length, topics)
+- `telegram-message-formatting.md` — the full formatting contract with probe evidence and the upstream defect list
 - `LLM.txt` Steps 7, 7.6, 10 — global auto-install including telegram
