@@ -420,7 +420,9 @@ def test_brain_turn_emits_ordered_checkpoints(tmp_path, monkeypatch):
     ]
 
 
-def test_brain_turn_unsupported_param_fails_fast(tmp_path, monkeypatch):
+def test_brain_turn_unsupported_param_returns_report(tmp_path, monkeypatch):
+    """A 400 unsupported_parameter surfaces as a structured REPORT with
+    debug.provider (Task 329 F7) — never as a raw tool exception."""
     proj = _turn_env(tmp_path, monkeypatch)
     monkeypatch.setenv("BRAIN_TEMPERATURE", "0.7")
     bodies: list = []
@@ -428,5 +430,15 @@ def test_brain_turn_unsupported_param_fails_fast(tmp_path, monkeypatch):
     _stub_client(monkeypatch, script, bodies)
     call = bridge.brain_turn
     target = call.fn if hasattr(call, "fn") else call
-    with pytest.raises(RuntimeError, match="fatal provider error 400"):
-        target("q", task_id="999", project_root=str(proj))
+    result = target("q", task_id="999", project_root=str(proj))
+    assert result["status"] == "REPORT"
+    assert bridge.PROVIDER_ERROR in result["output"]
+    assert "temperature" in result["output"]
+    assert result["debug"]["provider"]["error_code"] == "unsupported_parameter"
+    # The failed turn still records the transport checkpoint, just never
+    # reaches response_parsed.
+    names = [
+        e.get("checkpoint") for e in _ledger_events(proj) if e["event"] == "checkpoint"
+    ]
+    assert "transport_started" in names
+    assert "response_parsed" not in names

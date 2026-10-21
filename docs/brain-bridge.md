@@ -132,6 +132,14 @@ repo-root `.env`). Real process env wins; blank counts as unset. See
 | `BRAIN_MODEL_WINDOW_CHARS` | `200000` — utilization monitor only, never a send cap |
 | `BRAIN_CONTEXT_WINDOW_TOKENS` | `1048576` — provider window for the pre-send guard; blank/unset = default |
 | `BRAIN_BUDGET_MARGIN_TOKENS` | `8192` — safety margin for the pre-send guard; blank/unset = default |
+| `BRAIN_SEND_STORE` | off — when on, sends `store: false` (F1; probed OK on the live gateway 2026-10-21) |
+| `BRAIN_SEND_INCLUDE_ENCRYPTED` | off — when on, sends `include: ["reasoning.encrypted_content"]` (F1/F2; probed OK) |
+| `BRAIN_SEND_CACHE_KEY` | off — when on, sends a stable `prompt_cache_key` derived from the system-prompt hash (F4; probed OK) |
+| `BRAIN_SEND_TRUNCATION` | off — when on, sends `truncation: "auto"` (F3; probed OK) |
+| `BRAIN_SEND_CONTEXT_MANAGEMENT` | off — when on, sends `context_management: [{type: compaction, compact_threshold}]` (F3; probed OK, record-only) |
+| `BRAIN_USE_INSTRUCTIONS` | off — when on, the system prompt moves to top-level `instructions` instead of a `role: system` input item (F10; probed OK) |
+| `BRAIN_CHARS_PER_TOKEN` | unset — explicit chars-per-token override for the pre-send estimate; otherwise calibrated from observed `usage.input_tokens`, else `4.0` (F3) |
+| `BRAIN_COMPACTION_THRESHOLD` | `100000` — token threshold for `context_management` compaction (F3) |
 
 `BRAIN_INPUT_BUDGET` defaults to 1,000,000 chars (~217k input tokens at
 the measured ~4.6 chars/token) — room for full context and diff reports
@@ -186,6 +194,37 @@ always empty:
 
 A capability-blocked turn returns the same field set (with `status:
 "REPORT"`), so callers never face two incompatible schemas.
+
+## Request shape and provider diagnostics
+
+The base request body is `model`, `input`, `reasoning.effort`,
+`max_output_tokens` (plus `temperature` when explicitly set, which still
+deletes `reasoning`). Every newer Responses parameter is opt-in behind
+the `BRAIN_SEND_*` / `BRAIN_USE_INSTRUCTIONS` switches above, each
+defaulting to off so default wire bytes are unchanged. All six were
+probed `HTTP 200` against the live gateway (`127.0.0.1:8081/go/resp`)
+on 2026-10-21 before being wired.
+
+Reasoning continuity: assistant transcript records now carry `phase`,
+`response_id`, and `provider_items` (non-message output items such as
+reasoning blocks with encrypted content); the next turn replays them
+after their message item. Old text-only transcripts replay exactly as
+before. Reasoning effort is validated against the official vocabulary
+(`none/minimal/low/medium/high/xhigh/max`); the truncation-recovery
+ladder runs `max→xhigh→high→medium→low→minimal→minimal` and never
+raises effort. A malformed `BRAIN_MAX_TOKENS` fails loud.
+
+`debug.provider` on every turn now carries `response_model`,
+`response_id`, `service_tier`, `usage.input_tokens_details.cached_tokens`,
+and `error_code` / `error_type` alongside the previous fields, plus
+`requested_model` for the substitution check (mismatch warns on
+stderr, never fails). Billing/spend/quota 429 codes
+(`credit_balance_exhausted`, `organization_spend_limit_exceeded`,
+`project_spend_limit_exceeded`, `organization_usage_limit_exceeded`,
+`insufficient_quota`, `billing_hard_limit_exceeded`) are terminal with
+an actionable hint and are not retried. A fatal 4xx or transport
+failure returns a structured `REPORT` carrying `debug.provider`
+instead of raising a raw exception.
 
 ## Routing
 

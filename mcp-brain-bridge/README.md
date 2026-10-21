@@ -19,3 +19,6 @@ Brain Bridge MCP daemon: single-tool (`brain_turn`) automation path for planning
 - Single-tool invariant: no second tool or slash-command path may bypass `brain_turn`.
 - Helpers (`capability`, `loop_guard`, `preflight`) stay stdlib-only and importable without MCP runtime so tests stay offline.
 - Session ledger is append-only; never rewrite history lines.
+- Request-shape evolution stays opt-in: every new Responses parameter
+  ships behind a `BRAIN_SEND_*` / `BRAIN_USE_INSTRUCTIONS` switch
+  defaulting to off, so default wire bytes never change silently.

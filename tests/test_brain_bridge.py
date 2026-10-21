@@ -1912,10 +1912,13 @@ def test_step_down_effort_map():
     assert bridge._step_down_effort("medium") == "low"
     assert bridge._step_down_effort("max") == "xhigh"
     assert bridge._step_down_effort("XHIGH") == "high"
-    assert bridge._step_down_effort("low") == "low"
-    assert bridge._step_down_effort("turbo") == "medium"
-    assert bridge._step_down_effort("") == "medium"
-    assert bridge._step_down_effort(None) == "medium"
+    assert bridge._step_down_effort("low") == "minimal"
+    assert bridge._step_down_effort("minimal") == "minimal"
+    # Unknown values keep the current effort (floor guard => no recovery),
+    # never jump up. Missing values fall to low.
+    assert bridge._step_down_effort("turbo") == "turbo"
+    assert bridge._step_down_effort("") == "low"
+    assert bridge._step_down_effort(None) == "low"
 
 
 def test_truncation_exhausted_hint_is_terminal():
@@ -1983,7 +1986,7 @@ def test_brain_turn_no_recovery_at_effort_floor(tmp_path, monkeypatch):
     script = [
         _FakeResp(200, "cut", _incomplete_payload(_TRUNCATED_IMPLEMENT)),
     ]
-    result = _run_recovery_turn(monkeypatch, tmp_path, script, holder, effort="low")
+    result = _run_recovery_turn(monkeypatch, tmp_path, script, holder, effort="minimal")
     assert result["status"] == "REPORT"
     assert bridge.TRUNCATION_UNRECOVERABLE in result["output"]
     assert "partial plan text" not in result["output"]
@@ -2031,15 +2034,30 @@ def test_brain_turn_complete_xml_with_incomplete_status_no_recovery(
     assert len(holder["bodies"]) == 1
 
 
-def test_brain_turn_uppercase_low_floor_no_second_call(tmp_path, monkeypatch):
+def test_brain_turn_uppercase_minimal_floor_no_second_call(tmp_path, monkeypatch):
     holder = {}
     script = [
         _FakeResp(200, "cut", _incomplete_payload(_TRUNCATED_IMPLEMENT)),
     ]
-    result = _run_recovery_turn(monkeypatch, tmp_path, script, holder, effort="LOW")
+    result = _run_recovery_turn(monkeypatch, tmp_path, script, holder, effort="MINIMAL")
     assert result["status"] == "REPORT"
     assert bridge.TRUNCATION_UNRECOVERABLE in result["output"]
     assert len(holder["bodies"]) == 1
+
+
+def test_brain_turn_low_steps_down_to_minimal(tmp_path, monkeypatch):
+    """Low is no longer the floor (Task 329 F8): low recovers once at
+    minimal, then the floor guard stops a third call."""
+    holder = {}
+    script = [
+        _FakeResp(200, "cut1", _incomplete_payload(_TRUNCATED_IMPLEMENT)),
+        _FakeResp(200, "cut2", _incomplete_payload("more partial prose")),
+    ]
+    result = _run_recovery_turn(monkeypatch, tmp_path, script, holder, effort="low")
+    assert result["status"] == "REPORT"
+    assert bridge.TRUNCATION_UNRECOVERABLE in result["output"]
+    assert len(holder["bodies"]) == 2
+    assert holder["bodies"][1]["reasoning"]["effort"] == "minimal"
 
 
 def test_brain_turn_prose_only_floor_truncation_is_terminal(tmp_path, monkeypatch):
@@ -2047,7 +2065,7 @@ def test_brain_turn_prose_only_floor_truncation_is_terminal(tmp_path, monkeypatc
     script = [
         _FakeResp(200, "cut", _incomplete_payload("plain prose, cut mid-way")),
     ]
-    result = _run_recovery_turn(monkeypatch, tmp_path, script, holder, effort="low")
+    result = _run_recovery_turn(monkeypatch, tmp_path, script, holder, effort="minimal")
     assert result["status"] == "REPORT"
     assert bridge.TRUNCATION_UNRECOVERABLE in result["output"]
     assert len(holder["bodies"]) == 1
@@ -2481,6 +2499,7 @@ def test_parse_responses_diagnostics_full_payload():
         "input_tokens": 100,
         "output_tokens": 16384,
         "reasoning_tokens": 16384,
+        "cached_tokens": None,
         "total_tokens": 16484,
     }
     assert diag["error"] is None
@@ -2490,11 +2509,24 @@ def test_parse_responses_diagnostics_full_payload():
 def test_parse_responses_diagnostics_tolerates_malformed():
     for bad in ({}, {"output": None}, {"usage": "nope"}, {"error": {}}, []):
         diag = bridge.parse_responses_diagnostics(bad)
-        assert set(diag) == {"status", "incomplete_reason", "usage", "error", "refusal"}
+        assert set(diag) == {
+            "status",
+            "incomplete_reason",
+            "usage",
+            "error",
+            "error_code",
+            "error_type",
+            "refusal",
+            "response_model",
+            "response_id",
+            "service_tier",
+            "provider_status_code",
+        }
         assert set(diag["usage"]) == {
             "input_tokens",
             "output_tokens",
             "reasoning_tokens",
+            "cached_tokens",
             "total_tokens",
         }
     assert bridge.parse_responses_diagnostics(None)["status"] is None
@@ -2643,7 +2675,14 @@ def test_brain_turn_debug_provider_on_success(tmp_path, monkeypatch):
         "incomplete_reason",
         "usage",
         "error",
+        "error_code",
+        "error_type",
         "refusal",
+        "response_model",
+        "response_id",
+        "service_tier",
+        "provider_status_code",
+        "requested_model",
     }
 
 
@@ -2674,7 +2713,19 @@ def test_parse_responses_diagnostics_scalar_content_does_not_raise():
         diag = bridge.parse_responses_diagnostics(
             {"output": [{"type": "message", "content": bad_content}]}
         )
-        assert set(diag) == {"status", "incomplete_reason", "usage", "error", "refusal"}
+        assert set(diag) == {
+            "status",
+            "incomplete_reason",
+            "usage",
+            "error",
+            "error_code",
+            "error_type",
+            "refusal",
+            "response_model",
+            "response_id",
+            "service_tier",
+            "provider_status_code",
+        }
         assert diag["refusal"] is None
 
 
@@ -2694,6 +2745,7 @@ def test_parse_responses_diagnostics_non_finite_usage_is_none():
         "input_tokens": None,
         "output_tokens": None,
         "reasoning_tokens": None,
+        "cached_tokens": None,
         "total_tokens": None,
     }
 

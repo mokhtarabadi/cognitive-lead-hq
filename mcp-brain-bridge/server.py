@@ -1372,6 +1372,200 @@ def build_prompt_cache_split(
     }
 
 
+def _env_flag(name: str) -> bool:
+    """Read a boolean env switch (Task 329: request-shape opt-ins).
+
+    Truthy values are ``1``/``true``/``yes``/``on`` (case-insensitive);
+    everything else — including blank/unset — is off. Every new
+    Responses parameter ships behind one of these switches defaulting
+    to off, so wire bytes stay identical to the pre-329 shape until
+    the operator opts in.
+    """
+    return os.environ.get(name, "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _prompt_cache_key(system_prompt: str) -> str:
+    """Stable prompt-cache key from the static system prefix (Task 329 F4).
+
+    The system prompt is byte-identical across turns, which is the ideal
+    cache prefix. The key carries only a hash — never prompt text.
+    """
+    digest = hashlib.sha256(system_prompt.encode("utf-8")).hexdigest()[:32]
+    return "brain-" + digest
+
+
+def _compaction_threshold() -> int:
+    """Compaction token threshold for ``context_management`` (Task 329 F3).
+
+    Override via ``BRAIN_COMPACTION_THRESHOLD`` (default 100000).
+    Malformed or non-positive values fail loud.
+    """
+    raw = os.environ.get("BRAIN_COMPACTION_THRESHOLD", "100000").strip() or "100000"
+    try:
+        val = int(raw)
+    except ValueError:
+        raise ValueError(
+            f"BRAIN_COMPACTION_THRESHOLD={raw!r} is not an integer; "
+            "set a positive integer or leave it blank"
+        )
+    if val <= 0:
+        raise ValueError(
+            f"BRAIN_COMPACTION_THRESHOLD={raw!r} must be > 0; "
+            "set a positive integer or leave it blank"
+        )
+    return val
+
+
+#: Fallback chars-per-token before any provider measurement (Task 329 F3).
+_CHARS_PER_TOKEN_DEFAULT = 4.0
+#: Calibrated ratio from observed usage (module-global, updated per turn).
+_calibrated_chars_per_token: Optional[float] = None
+
+
+def _chars_per_token() -> float:
+    """Chars-per-token ratio for the pre-send estimate (Task 329 F3).
+
+    Explicit ``BRAIN_CHARS_PER_TOKEN`` wins (fail loud on malformed);
+    otherwise the calibrated ratio from observed usage; otherwise 4.0.
+    """
+    raw = os.environ.get("BRAIN_CHARS_PER_TOKEN", "").strip()
+    if raw:
+        try:
+            val = float(raw)
+        except ValueError:
+            raise ValueError(
+                f"BRAIN_CHARS_PER_TOKEN={raw!r} is not a number; "
+                "set a positive number or leave it blank"
+            )
+        if val <= 0:
+            raise ValueError(
+                f"BRAIN_CHARS_PER_TOKEN={raw!r} must be > 0; "
+                "set a positive number or leave it blank"
+            )
+        return val
+    if _calibrated_chars_per_token is not None:
+        return _calibrated_chars_per_token
+    return _CHARS_PER_TOKEN_DEFAULT
+
+
+def _note_observed_ratio(chars: int, input_tokens: int) -> None:
+    """Calibrate the estimator from one observed turn (Task 329 F3).
+
+    Pure bookkeeping: a plausible observation (ratio inside [1, 8])
+    replaces the ratio; garbage (non-positive inputs, absurd ratios)
+    is ignored so a corrupt usage payload can never corrupt the guard.
+    """
+    global _calibrated_chars_per_token
+    try:
+        if chars <= 0 or input_tokens <= 0:
+            return
+        ratio = chars / input_tokens
+    except (TypeError, ZeroDivisionError):
+        return
+    if 1.0 <= ratio <= 8.0:
+        _calibrated_chars_per_token = ratio
+
+
+def _build_request_body(
+    system_prompt: str,
+    history: Optional[list],
+    effective_prompt: str,
+    *,
+    model: Optional[str] = None,
+    effort: Optional[str] = None,
+    max_tokens: Optional[int] = None,
+) -> dict[str, Any]:
+    """Assemble the Responses request body (Task 329 request-shape work).
+
+    The base shape is the pre-329 contract — ``model``, ``input``,
+    ``reasoning.effort``, ``max_output_tokens`` — plus ``temperature``
+    when explicitly set (which still deletes ``reasoning``). Every new
+    Responses parameter is opt-in behind an env switch defaulting to
+    off, so the default wire bytes are byte-identical to before:
+
+    - ``BRAIN_SEND_STORE`` → ``store: false`` (F1)
+    - ``BRAIN_SEND_INCLUDE_ENCRYPTED`` → ``include:
+      ["reasoning.encrypted_content"]`` (F1/F2)
+    - ``BRAIN_SEND_CACHE_KEY`` → ``prompt_cache_key`` from the system
+      prefix hash (F4)
+    - ``BRAIN_SEND_TRUNCATION`` → ``truncation: "auto"`` (F3)
+    - ``BRAIN_SEND_CONTEXT_MANAGEMENT`` → compaction entry (F3,
+      record-only unless probed)
+    - ``BRAIN_USE_INSTRUCTIONS`` → system prompt moves to top-level
+      ``instructions`` instead of a ``role: system`` input item (F10)
+
+    History items may carry ``phase`` (assistant only — replayed on the
+    item per the official guidance) and ``provider_items`` (non-message
+    output items such as reasoning blocks with encrypted content,
+    replayed verbatim after their turn — F2). Old text-only transcripts
+    carry neither key and replay exactly as before.
+    """
+    if model is None:
+        model = _get_brain_model()
+    if effort is None:
+        effort = _get_reasoning_effort()
+    if max_tokens is None:
+        max_tokens = _get_max_tokens()
+    use_instructions = _env_flag("BRAIN_USE_INSTRUCTIONS")
+    if use_instructions:
+        chat: list[dict[str, Any]] = []
+    else:
+        chat = [{"role": "system", "content": system_prompt}]
+    for turn in history or []:
+        if not isinstance(turn, dict):
+            continue
+        item: dict[str, Any] = {
+            "role": turn.get("role", "user"),
+            "content": turn.get("content", ""),
+        }
+        phase = turn.get("phase")
+        if item["role"] == "assistant" and isinstance(phase, str) and phase:
+            item["phase"] = phase
+        chat.append(item)
+        for extra in turn.get("provider_items") or []:
+            if isinstance(extra, dict):
+                chat.append(extra)
+    chat.append({"role": "user", "content": effective_prompt})
+    body: dict[str, Any] = {
+        "model": model,
+        "input": chat,
+        # Responses API shape: effort nests under reasoning (flat
+        # reasoning_effort is rejected by strict providers, e.g.
+        # OpenAI/OpenRouter 400 unsupported_parameter).
+        "reasoning": {"effort": effort},
+        "max_output_tokens": max_tokens,
+    }
+    if use_instructions:
+        body["instructions"] = system_prompt
+    if _env_flag("BRAIN_SEND_STORE"):
+        body["store"] = False
+    if _env_flag("BRAIN_SEND_INCLUDE_ENCRYPTED"):
+        body["include"] = ["reasoning.encrypted_content"]
+    if _env_flag("BRAIN_SEND_CACHE_KEY"):
+        body["prompt_cache_key"] = _prompt_cache_key(system_prompt)
+    if _env_flag("BRAIN_SEND_TRUNCATION"):
+        body["truncation"] = "auto"
+    if _env_flag("BRAIN_SEND_CONTEXT_MANAGEMENT"):
+        body["context_management"] = [
+            {"type": "compaction", "compact_threshold": _compaction_threshold()}
+        ]
+    # Blank-means-unset: only send temperature when explicitly set. A
+    # non-blank temperature conflicts with reasoning effort on Responses
+    # models, so drop the reasoning key when temperature is present.
+    _temp_raw = os.environ.get("BRAIN_TEMPERATURE", "")
+    if _temp_raw.strip():
+        try:
+            body["temperature"] = float(_temp_raw.strip())
+        except ValueError:
+            raise ValueError(
+                f"BRAIN_TEMPERATURE={_temp_raw.strip()!r} is not a number; "
+                "set a numeric value or leave it blank"
+            )
+        else:
+            del body["reasoning"]
+    return body
+
+
 def _get_max_tokens() -> int:
     """Cap for Brain turns; override via ``BRAIN_MAX_TOKENS``.
 
@@ -1379,11 +1573,25 @@ def _get_max_tokens() -> int:
     output and count against this cap on most providers, so a smaller cap
     lets high-effort reasoning starve the visible answer (blank or
     truncated replies while the reasoning tokens are still charged).
+
+    Fail-loud (Task 329 F9): a non-numeric or non-positive value raises
+    instead of silently falling back — a quiet 32768 would change the
+    output budget and the reasoning-budget warning threshold.
     """
+    raw = os.environ.get("BRAIN_MAX_TOKENS", "32768").strip() or "32768"
     try:
-        return int(os.environ.get("BRAIN_MAX_TOKENS", "32768").strip() or "32768")
+        val = int(raw)
     except ValueError:
-        return 32768
+        raise ValueError(
+            f"BRAIN_MAX_TOKENS={raw!r} is not an integer; "
+            "set a positive integer or leave it blank"
+        )
+    if val <= 0:
+        raise ValueError(
+            f"BRAIN_MAX_TOKENS={raw!r} must be > 0; "
+            "set a positive integer or leave it blank"
+        )
+    return val
 
 
 # Pre-send token budget guard: values are operator-tunable via env
@@ -1395,12 +1603,14 @@ _BUDGET_SAFETY_MARGIN_DEFAULT = 8192
 
 
 def _estimate_input_tokens_from_chars(budget_chars: int) -> int:
-    """Estimate input tokens from character count for pre-send budget check. Why this exists: provider bills tokens while bridge only sees chars, so chars divided by four gives a conservative fast estimate matching existing lines 3030 and 3056. Args budget_chars total chars of system plus effective plus history plus diffs plus context plus bundle. Returns integer token estimate. Edge: zero or negative input returns zero, never negative."""
+    """Estimate input tokens from character count for pre-send budget check. Why this exists: provider bills tokens while bridge only sees chars, so the calibrated ratio gives a fast estimate matching existing lines 3030 and 3056. Args budget_chars total chars of system plus effective plus history plus diffs plus context plus bundle. Returns integer token estimate. Edge: zero or negative input returns zero, never negative."""
     # Guard trivial input first so downstream math never sees negative totals.
     if budget_chars <= 0:
         return 0
-    # Integer division matches existing estimate behavior exactly.
-    return budget_chars // 4
+    # Calibrated ratio (Task 329 F3): explicit BRAIN_CHARS_PER_TOKEN,
+    # else measured from observed usage, else 4.0 — identical to the old
+    # integer division when uncalibrated.
+    return int(budget_chars / _chars_per_token())
 
 
 def _pre_send_budget_fits(
@@ -1440,12 +1650,69 @@ _RETRYABLE_STATUS = {429, 500, 502, 503, 504}
 
 # Fatal client errors: never retried — the request itself is wrong
 # (bad auth, bad route, bad payload). Other 4xx fail fast the same way.
-_FATAL_STATUS = {400, 401, 403, 404, 422}
+# NOTE (Task 329 F9): the old ``_FATAL_STATUS`` constant listed
+# {400, 401, 403, 404, 422} but was never referenced — the branch below
+# is range-based, so the constant was deleted rather than kept in sync.
 
 # Overall deadline (seconds) for the whole retry sequence. Sleeps are
 # capped by the remaining budget; hitting the deadline fast-fails instead
 # of sleeping past it.
 _OVERALL_DEADLINE_S = 500.0
+
+#: Billing/spend/quota 429 codes that must NEVER be retried (Task 329
+#: F6, per the official error-codes guide): "Retrying billing, spend, or
+#: quota errors won't restore API access." These fail terminal with an
+#: actionable hint instead of burning three attempts plus backoff.
+_TERMINAL_429_CODES = frozenset(
+    {
+        "credit_balance_exhausted",
+        "organization_spend_limit_exceeded",
+        "project_spend_limit_exceeded",
+        "organization_usage_limit_exceeded",
+        "insufficient_quota",
+        "billing_hard_limit_exceeded",
+    }
+)
+
+
+def _terminal_429_code(status: Any, data: Any) -> Optional[str]:
+    """Return the terminal billing/spend/quota code, or None (pure).
+
+    Only 429 responses are examined; anything else returns None so the
+    existing retry/fatal branches keep their behavior. Unknown 429 codes
+    and unparseable bodies return None — current retry behavior is the
+    safe default against false-terminal classification.
+    """
+    if status != 429:
+        return None
+    if isinstance(data, dict):
+        error = data.get("error")
+        if isinstance(error, dict):
+            code = error.get("code")
+            if isinstance(code, str) and code.strip().lower() in _TERMINAL_429_CODES:
+                return code.strip().lower()
+    return None
+
+
+def _error_code_from_body(text: Any) -> Optional[str]:
+    """Best-effort ``error.code`` extraction from a response body (pure).
+
+    Never raises: non-JSON or misshapen bodies yield None.
+    """
+    try:
+        if not isinstance(text, str) or not text.strip():
+            return None
+        data = json.loads(text)
+    except (ValueError, TypeError):
+        return None
+    if isinstance(data, dict):
+        error = data.get("error")
+        if isinstance(error, dict):
+            code = error.get("code")
+            if isinstance(code, str) and code.strip():
+                return code.strip()
+    return None
+
 
 # Empty-output contract (Task 232): a REPORT with blank output is a
 # transport/model flake, never a verdict. The bridge MUST NOT return it
@@ -1494,15 +1761,29 @@ def _retry_after_s(resp: Any) -> float:
     return min(val, 120.0)
 
 
-def _transport_fail(message: str, attempts: int) -> RuntimeError:
+def _transport_fail(
+    message: str,
+    attempts: int,
+    *,
+    provider_status: Optional[int] = None,
+    provider_code: Optional[str] = None,
+    provider_type: Optional[str] = None,
+) -> RuntimeError:
     """Build a transport RuntimeError carrying its attempt count.
 
     WS3 seam (GitHub issue 17): the learning send path accounts
     attempts across the failed round and the corrected retry.
     Message text is unchanged — existing message matches keep passing.
+
+    Task 329 F6/F7: the provider status/code/type ride along as
+    attributes so the caller can build a structured REPORT instead of
+    re-parsing the message text. Attributes default to None.
     """
     err = RuntimeError(message)
     err.transport_attempts = attempts  # type: ignore[attr-defined]
+    err.provider_status = provider_status  # type: ignore[attr-defined]
+    err.provider_code = provider_code  # type: ignore[attr-defined]
+    err.provider_type = provider_type  # type: ignore[attr-defined]
     return err
 
 
@@ -1544,17 +1825,43 @@ def _post_with_retry(client: Any, url: str, payload: dict[str, Any]) -> tuple[An
             if resp.status_code < 400:
                 return resp, attempts
             last_status, last_snippet = resp.status_code, resp.text[:500]
+            if resp.status_code == 429:
+                # Terminal billing/spend/quota codes (Task 329 F6): the
+                # official guide says retrying these cannot restore
+                # access, so fail at once with an actionable hint. The
+                # body parse is best-effort — an unparseable body keeps
+                # the current retry behavior.
+                try:
+                    _terminal_data = json.loads(resp.text) if resp.text else None
+                except (ValueError, TypeError):
+                    _terminal_data = None
+                _terminal_code = _terminal_429_code(resp.status_code, _terminal_data)
+                if _terminal_code is not None:
+                    raise _transport_fail(
+                        f"provider billing/quota error 429 "
+                        f"({_terminal_code}, no retry) at "
+                        f"{url.rsplit('/', 1)[-1]}: {last_snippet}. "
+                        "Add credits or raise the organization/project "
+                        "spend or usage limit before sending another request.",
+                        attempts,
+                        provider_status=resp.status_code,
+                        provider_code=_terminal_code,
+                    )
             if resp.status_code not in _RETRYABLE_STATUS:
                 if 400 <= resp.status_code < 500:
                     raise _transport_fail(
                         f"fatal provider error {resp.status_code} (no retry) at "
                         f"{url.rsplit('/', 1)[-1]}: {last_snippet}",
                         attempts,
+                        provider_status=resp.status_code,
+                        provider_code=_error_code_from_body(resp.text),
                     )
                 raise _transport_fail(
                     f"provider error {resp.status_code} at "
                     f"{url.rsplit('/', 1)[-1]}: {last_snippet}",
                     attempts,
+                    provider_status=resp.status_code,
+                    provider_code=_error_code_from_body(resp.text),
                 )
             if resp.status_code == 429:
                 retry_after = _retry_after_s(resp)
@@ -1641,21 +1948,18 @@ def _make_client() -> Any:
     )
 
 
-def _send_with_learning(
+def _send_with_retry(
     make_client: Any,
     url: str,
     body: dict[str, Any],
-    *,
-    task_key: Optional[str] = None,
-    task_id: Optional[str] = None,
-    session_id: Optional[str] = None,
-    project_root: Optional[str] = None,
 ) -> tuple[Any, int]:
     """POST with stateless retry (429/5xx + timeouts via _post_with_retry).
 
     No correction memory and no escalation: 4xx fails fast inside
-    ``_post_with_retry`` and propagates to the caller. Extra keyword
-    arguments stay accepted so existing callers pass unchanged.
+    ``_post_with_retry`` and propagates to the caller. Renamed from
+    ``_send_with_learning`` (Task 329 F9) — the old name promised a
+    learning seam whose kwargs (task_key/task_id/session_id/project_root)
+    the body never used.
     """
     with make_client() as client:
         resp, attempts = _post_with_retry(client, url, body)
@@ -1929,6 +2233,14 @@ _META_KEYS = (
     "models",
     "truncated_total",
     "compacted_count",
+    # Task 329 F2 continuity: assistant phase, provider response id, and
+    # replayable non-message output items (reasoning blocks with
+    # encrypted content). Old records lack these keys and replay exactly
+    # as before — the transcript format is backward compatible by key
+    # presence, no version flag needed.
+    "phase",
+    "response_id",
+    "provider_items",
 )
 
 
@@ -2115,12 +2427,21 @@ def append_turn(
     prompt_hash: Optional[str] = None,
     truncated: int = 0,
     project_root: Optional[str] = None,
+    phase: Optional[str] = None,
+    response_id: Optional[str] = None,
+    provider_items: Optional[list] = None,
 ) -> None:
     """Append one turn to the task transcript (creates dirs as needed).
 
     Traceability keys ride on every record; unset stays None/0 so
     older callers keep working unchanged. Writes always go to the
-    per-project path, never to the legacy global dir."""
+    per-project path, never to the legacy global dir.
+
+    Task 329 F2: assistant records may carry ``phase`` (commentary vs
+    final answer, replayed on the item per the official guidance),
+    ``response_id``, and ``provider_items`` (non-message output items
+    such as reasoning blocks, replayed verbatim after their turn).
+    """
     path = _write_transcript_path(task_id, project_root)
     path.parent.mkdir(parents=True, exist_ok=True)
     record: dict[str, Any] = {
@@ -2130,6 +2451,12 @@ def append_turn(
         "prompt_hash": prompt_hash,
         "truncated": truncated,
     }
+    if isinstance(phase, str) and phase:
+        record["phase"] = phase
+    if isinstance(response_id, str) and response_id:
+        record["response_id"] = response_id
+    if isinstance(provider_items, list) and provider_items:
+        record["provider_items"] = provider_items
     with path.open("a", encoding="utf-8") as fh:
         fcntl.flock(fh, fcntl.LOCK_EX)
         try:
@@ -3189,32 +3516,7 @@ def brain_turn(
             f"(budget_chars={budget_chars} est_tokens~{budget_chars // 4})",
             file=sys.stderr,
         )
-    chat: list[dict[str, str]] = [{"role": "system", "content": system_prompt}]
-    chat.extend({"role": t["role"], "content": t["content"]} for t in history)
-    chat.append({"role": "user", "content": effective_prompt})
-    body: dict[str, Any] = {
-        "model": model,
-        "input": chat,
-        # Responses API shape: effort nests under reasoning (flat
-        # reasoning_effort is rejected by strict providers, e.g.
-        # OpenAI/OpenRouter 400 unsupported_parameter).
-        "reasoning": {"effort": _get_reasoning_effort()},
-        "max_output_tokens": _get_max_tokens(),
-    }
-    # Blank-means-unset: only send temperature when explicitly set. A
-    # non-blank temperature conflicts with reasoning effort on Responses
-    # models, so drop the reasoning key when temperature is present.
-    _temp_raw = os.environ.get("BRAIN_TEMPERATURE", "")
-    if _temp_raw.strip():
-        try:
-            body["temperature"] = float(_temp_raw.strip())
-        except ValueError:
-            raise ValueError(
-                f"BRAIN_TEMPERATURE={_temp_raw.strip()!r} is not a number; "
-                "set a numeric value or leave it blank"
-            )
-        else:
-            del body["reasoning"]
+    body = _build_request_body(system_prompt, history, effective_prompt, model=model)
     if "reasoning" in body:
         # Guard the risky default (Task 259): reasoning tokens count
         # against max_output_tokens, so high/xhigh effort with a small cap
@@ -3235,7 +3537,11 @@ def brain_turn(
     # the fragment is discarded and pass 1 re-issues the whole turn once
     # server-side with stepped-down reasoning effort. Structured output
     # must never stitch a fragment — the whole call is retried with more
-    # visible-answer headroom instead.
+    # visible-answer headroom instead. resp_data stays None on paths that
+    # never reach the provider (budget-over) or that fail before parsing
+    # (structured fatal) — the continuity capture below treats None as
+    # empty, never a crash.
+    resp_data: Any = None
     for _transport_pass in (0, 1):
         if _budget_over_hint_text is not None:
             # Pre-send budget guard tripped: skip the provider entirely and
@@ -3256,17 +3562,38 @@ def brain_turn(
             session_id=session_id,
             project_root=project_root,
         )
-        resp, attempts = _send_with_learning(
-            _make_client,
-            _responses_url(),
-            body,
-            task_key=history_key,
-            task_id=task_id,
-            session_id=session_id,
-            project_root=project_root,
-        )
-        _total_attempts += attempts
-        resp_data = _resp_json(resp)
+        try:
+            resp, attempts = _send_with_retry(
+                _make_client,
+                _responses_url(),
+                body,
+            )
+            _total_attempts += attempts
+            resp_data = _resp_json(resp)
+        except RuntimeError as exc:
+            # Structured fatal (Task 329 F7): a transport failure, a
+            # malformed body, or a fatal 4xx must surface as a REPORT
+            # carrying debug.provider — never as a raw tool exception.
+            # Genuine bugs still raise: only RuntimeError from the send
+            # path converts; anything else propagates untouched.
+            _total_attempts += int(getattr(exc, "transport_attempts", 0) or 0)
+            _fatal_code = getattr(exc, "provider_code", None)
+            if not isinstance(_fatal_code, str):
+                _fatal_code = None
+            _fatal_status = getattr(exc, "provider_status", None)
+            diag = parse_responses_diagnostics(
+                {"error": {"message": str(exc), "code": _fatal_code}}
+            )
+            if isinstance(_fatal_status, int):
+                diag["provider_status_code"] = _fatal_status
+            diag["requested_model"] = model
+            _log_provider_diagnostics(diag)
+            output = _provider_error_hint(
+                diag["error"] or str(exc), diag.get("error_code")
+            )
+            xml_blocks = []
+            _raw_text_present = False
+            break
         output = parse_responses_text(resp_data)
         # Eligibility is judged on the RAW model text: the triage below
         # rewrites blank output into hint text, and a rewritten hint must
@@ -3332,14 +3659,18 @@ def brain_turn(
                 )
                 xml_blocks = []
         diag = parse_responses_diagnostics(resp_data)
+        diag["requested_model"] = model
         _log_provider_diagnostics(diag)
+        _note = _model_substitution_note(diag, model)
+        if _note is not None:
+            print(f"brain-bridge: {_note}", file=sys.stderr)
         if not xml_blocks and not output.strip():
             # Empty-output triage (Task 259): classify the provider diagnosis
             # BEFORE falling back to the flake hint. Order is load-bearing:
             # top-level error -> refusal -> output-budget exhaustion -> flake.
             state = _task_state_note(history_key, project_root)
             if diag["error"]:
-                output = _provider_error_hint(diag["error"])
+                output = _provider_error_hint(diag["error"], diag.get("error_code"))
             elif diag["refusal"]:
                 output = _provider_refusal_hint(diag["refusal"])
             elif (
@@ -3406,6 +3737,19 @@ def brain_turn(
         )
         xml_blocks = []
     fence_drops = list(_last_fence_drops)
+    # Continuity capture (Task 329 F2/F3): replayable provider items
+    # plus estimator calibration from this turn's observed usage. The
+    # fatal-error path leaves resp_data None, which yields empty
+    # continuity and skips calibration — never a crash.
+    _replay_phase, _replay_response_id, _replay_items = _replayable_provider_items(
+        resp_data
+    )
+    if isinstance(resp_data, dict):
+        _seen_usage = resp_data.get("usage")
+        if isinstance(_seen_usage, dict):
+            _seen_input = _as_int(_seen_usage.get("input_tokens"))
+            if _seen_input is not None:
+                _note_observed_ratio(budget_chars, _seen_input)
     if history_key:
         prompt_hash = hashlib.sha256(effective_prompt.encode("utf-8")).hexdigest()
         # Store the compact form: attachment markers, not attachment
@@ -3429,6 +3773,9 @@ def brain_turn(
             prompt_hash=prompt_hash,
             truncated=truncated_count,
             project_root=project_root,
+            phase=_replay_phase,
+            response_id=_replay_response_id,
+            provider_items=_replay_items,
         )
     result: dict[str, Any] = {
         "status": "XML_EXTRACTED" if xml_blocks else "REPORT",
@@ -3475,11 +3822,23 @@ def _get_reasoning_effort() -> str:
     ``xhigh`` (and ``max``) allocate roughly 95% of ``max_output_tokens`` to
     reasoning, so a modest cap leaves almost nothing for the visible answer
     while the reasoning tokens are still billed.
+
+    Validated against the official Responses vocabulary (Task 329 F8):
+    none/minimal/low/medium/high/xhigh/max. Anything else raises instead
+    of reaching the provider as a 400.
     """
     val = os.environ.get("BRAIN_REASONING_EFFORT", "medium").strip() or "medium"
     if not re.fullmatch(r"[\w.-]{1,64}", val):
         raise ValueError(f"bad reasoning effort: {val!r}")
-    return val
+    if val.lower() not in _EFFORT_VOCABULARY:
+        raise ValueError(
+            f"BRAIN_REASONING_EFFORT={val!r} is not a Responses effort; "
+            f"expected one of {sorted(_EFFORT_VOCABULARY)}"
+        )
+    # Normalized to lower (Task 329 QA F4): the provider vocabulary is
+    # lowercase, and a preserved `LOW`/`XHigh` would ship an invalid
+    # effort string after passing validation.
+    return val.lower()
 
 
 def _task_state_note(task_id: Optional[str], project_root: Optional[str] = None) -> str:
@@ -3614,13 +3973,37 @@ def parse_responses_diagnostics(data: Any) -> dict:
             "input_tokens": None,
             "output_tokens": None,
             "reasoning_tokens": None,
+            "cached_tokens": None,
             "total_tokens": None,
         },
         "error": None,
+        "error_code": None,
+        "error_type": None,
         "refusal": None,
+        # Response identity (Task 329 F5): echoed by the provider, read
+        # so a silent model substitution by a routing gateway is visible.
+        # provider_status_code is set only on the fatal-transport path
+        # (Task 329 QA F5): the HTTP status that produced the structured
+        # REPORT, so debug.provider never hides it as status=None.
+        "response_model": None,
+        "response_id": None,
+        "service_tier": None,
+        "provider_status_code": None,
     }
     if not isinstance(data, dict):
         return diag
+
+    response_model = data.get("model")
+    if isinstance(response_model, str) and response_model:
+        diag["response_model"] = response_model
+
+    response_id = data.get("id")
+    if isinstance(response_id, str) and response_id:
+        diag["response_id"] = response_id
+
+    service_tier = data.get("service_tier")
+    if isinstance(service_tier, str) and service_tier:
+        diag["service_tier"] = service_tier
 
     status = data.get("status")
     if isinstance(status, str) and status:
@@ -3637,6 +4020,11 @@ def parse_responses_diagnostics(data: Any) -> dict:
         diag["usage"]["input_tokens"] = _as_int(usage.get("input_tokens"))
         diag["usage"]["output_tokens"] = _as_int(usage.get("output_tokens"))
         diag["usage"]["total_tokens"] = _as_int(usage.get("total_tokens"))
+        in_details = usage.get("input_tokens_details")
+        if isinstance(in_details, dict):
+            # Prompt-cache visibility (Task 329 F4): a populated value
+            # proves the cache key is working; None means unreported.
+            diag["usage"]["cached_tokens"] = _as_int(in_details.get("cached_tokens"))
         details = usage.get("output_tokens_details")
         if isinstance(details, dict):
             diag["usage"]["reasoning_tokens"] = _as_int(details.get("reasoning_tokens"))
@@ -3655,6 +4043,15 @@ def parse_responses_diagnostics(data: Any) -> dict:
                 diag["error"] = json.dumps(error, ensure_ascii=False)
             except (TypeError, ValueError):
                 diag["error"] = str(error)
+        # Machine-readable billing/spend/quota classification (Task 329
+        # F6): the detail lives in error.code, not in error.type or the
+        # message text.
+        code = error.get("code")
+        if isinstance(code, str) and code.strip():
+            diag["error_code"] = code.strip()
+        err_type = error.get("type")
+        if isinstance(err_type, str) and err_type.strip():
+            diag["error_type"] = err_type.strip()
     elif error is not None and not isinstance(error, list):
         diag["error"] = str(error)
 
@@ -3685,6 +4082,64 @@ def parse_responses_diagnostics(data: Any) -> dict:
     return diag
 
 
+def _replayable_provider_items(resp_data: Any) -> tuple[Any, Any, list]:
+    """Extract continuity items from a Responses payload (Task 329 F2).
+
+    Pure (no I/O): returns ``(phase, response_id, provider_items)``.
+    ``phase`` comes from the first assistant message item that carries
+    one (commentary vs final answer); ``response_id`` is the provider
+    response id; ``provider_items`` are the non-message output items
+    (reasoning blocks with encrypted content) replayed verbatim after
+    their turn. Message items are NOT replayed — their text already
+    rides the transcript content rows, and replaying both would
+    duplicate them. Anything malformed yields ``(None, None, [])``.
+    """
+    if not isinstance(resp_data, dict):
+        return None, None, []
+    response_id = resp_data.get("id")
+    if not isinstance(response_id, str) or not response_id:
+        response_id = None
+    phase: Any = None
+    items: list = []
+    output = resp_data.get("output")
+    if isinstance(output, list):
+        for entry in output:
+            if not isinstance(entry, dict):
+                continue
+            if entry.get("type") == "message":
+                if phase is None:
+                    maybe_phase = entry.get("phase")
+                    if isinstance(maybe_phase, str) and maybe_phase:
+                        phase = maybe_phase
+                continue
+            items.append(entry)
+    return phase, response_id, items
+
+
+def _model_substitution_note(diag: dict, requested: str) -> Optional[str]:
+    """Warn when the provider served a different model than requested.
+
+    Pure (no I/O): returns the warning text or None. The bridge points
+    at a routing gateway that may fall back or downgrade tiers, so a
+    silent substitution would invalidate the tier routing that chose
+    the requested id. A mismatch warns — it never fails the turn.
+    """
+    response_model = diag.get("response_model")
+    if (
+        isinstance(response_model, str)
+        and response_model
+        and isinstance(requested, str)
+        and requested
+        and response_model != requested
+    ):
+        return (
+            f"model substitution: requested {requested!r} but provider "
+            f"served {response_model!r} — tier routing assumed the "
+            "requested id"
+        )
+    return None
+
+
 def _log_provider_diagnostics(diag: dict) -> None:
     """Emit one compact diagnostics line to stderr on every turn (AC1).
 
@@ -3708,19 +4163,35 @@ def _log_provider_diagnostics(diag: dict) -> None:
         f"output_tokens={out_tokens} "
         f"reasoning_tokens={reasoning_tokens} "
         f"visible_tokens={visible_tokens} "
+        f"cached_tokens={usage.get('cached_tokens')} "
         f"total_tokens={usage.get('total_tokens')} "
-        f"error={diag.get('error')!r} refusal={diag.get('refusal')!r}",
+        f"model={diag.get('response_model')} "
+        f"tier={diag.get('service_tier')} "
+        f"http_status={diag.get('provider_status_code')} "
+        f"error={diag.get('error')!r} error_code={diag.get('error_code')!r} "
+        f"refusal={diag.get('refusal')!r}",
         file=sys.stderr,
     )
 
 
-def _provider_error_hint(error: str) -> str:
-    """Surface a top-level provider error verbatim (Task 259, terminal)."""
-    return (
+def _provider_error_hint(error: str, code: Optional[str] = None) -> str:
+    """Surface a top-level provider error verbatim (Task 259, terminal).
+
+    Task 329 F6: a terminal billing/spend/quota code appends the
+    actionable remedy — retrying those can never restore access.
+    """
+    hint = (
         f"{PROVIDER_ERROR}: the provider returned an error "
         "(terminal for this turn, never a verdict):\n"
         f"{error}"
     )
+    if isinstance(code, str) and code.strip().lower() in _TERMINAL_429_CODES:
+        hint += (
+            "\nThis is a billing, spend, or quota error: do NOT retry — "
+            "add credits or raise the organization/project spend or usage "
+            "limit before sending another request."
+        )
+    return hint
 
 
 def _provider_refusal_hint(refusal: str) -> str:
@@ -3768,29 +4239,45 @@ def _output_budget_hint(
 #: callers and regression tests match this exact string.
 TRUNCATION_UNRECOVERABLE = "TRUNCATION_UNRECOVERABLE"
 
+#: Official Responses reasoning-effort vocabulary (Task 329 F8).
+#: Model-dependent subset applies per model; the bridge accepts the full
+#: vocabulary and lets the provider reject per-model unsupported values
+#: (surfaced as a structured REPORT via the fatal-error path, never a
+#: raw exception).
+_EFFORT_VOCABULARY = frozenset(
+    {"none", "minimal", "low", "medium", "high", "xhigh", "max"}
+)
+
 #: One-notch reasoning-effort step-down for truncation recovery (Task
 #: 291). Lower effort frees visible-answer share inside the same
 #: ``max_output_tokens`` cap — the only headroom source once the cap
-#: already sits at the model ceiling. Unknown/non-string values fail
-#: safe to ``medium``; ``low`` is the floor (a second step down from
-#: ``low`` would change nothing, so the caller treats equality as
-#: no-recovery).
+#: already sits at the model ceiling. Unknown/non-string values keep
+#: the current effort (``low`` when there is none to keep): the floor
+#: guard treats equality as no-recovery, so an unknown value can never
+#: RAISE effort the way the old ``medium`` fallback did (Task 329 F8).
 _EFFORT_STEPDOWN = {
     "max": "xhigh",
     "xhigh": "high",
     "high": "medium",
     "medium": "low",
-    "low": "low",
+    "low": "minimal",
+    "minimal": "minimal",
 }
 
 
 def _step_down_effort(effort: object) -> str:
-    """Return one notch below ``effort`` (pure, offline)."""
+    """Return one notch below ``effort`` (pure, offline).
+
+    A value already in the ladder maps down it; an unknown string keeps
+    itself (recovery is then a no-op via the floor guard); a missing or
+    non-string value falls to ``low``.
+    """
     if isinstance(effort, str) and effort.strip():
         key = effort.strip().lower()
         if key in _EFFORT_STEPDOWN:
             return _EFFORT_STEPDOWN[key]
-    return "medium"
+        return effort
+    return "low"
 
 
 def _truncation_exhausted_hint(

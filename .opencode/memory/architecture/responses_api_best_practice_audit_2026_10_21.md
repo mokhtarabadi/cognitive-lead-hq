@@ -45,3 +45,17 @@ D3 record only: no behavior change; correct the CHANGELOG claims; keep this memo
 
 ## Gateway probe checklist (prerequisite for any scope)
 One small request per parameter: store:false, prompt_cache_key, truncation:auto, include:[reasoning.encrypted_content], instructions, context_management. Record which are accepted, whether the response echoes model and service_tier, and whether usage.input_tokens_details.cached_tokens is populated.
+
+## Implementation outcome (2026-10-21, task 329 — supersedes the scopes above)
+
+All ten findings implemented in `mcp-brain-bridge/server.py`; all six new wire parameters probed HTTP 200 against the live gateway (`/go/resp/responses`) before wiring. Switches default OFF, so default wire bytes are unchanged until operators opt in.
+
+- F1 `store:false` + F4 `prompt_cache_key` + F3 `truncation:auto` + F10 `instructions` + `include`/`context_management`: one `_build_request_body` builder behind `BRAIN_SEND_STORE`, `BRAIN_SEND_INCLUDE_ENCRYPTED`, `BRAIN_SEND_CACHE_KEY`, `BRAIN_SEND_TRUNCATION`, `BRAIN_SEND_CONTEXT_MANAGEMENT`, `BRAIN_USE_INSTRUCTIONS`.
+- F2: assistant transcript records carry `phase`, `response_id`, `provider_items` (non-message output items replayed verbatim); old text-only transcripts replay exactly as before (key presence is the version).
+- F3: estimator calibrated from observed `usage.input_tokens` (`BRAIN_CHARS_PER_TOKEN` override, fail loud).
+- F5: diagnostics read `response.model`/`response.id`/`service_tier`/`cached_tokens`; mismatch with the requested model warns on stderr.
+- F6: `error.code`/`error.type` parsed; six billing/spend/quota 429 codes terminal with an actionable hint.
+- F7: transport/parse/fatal-4xx failures return a structured REPORT with `debug.provider` instead of raising.
+- F8: effort validated against `none/minimal/low/medium/high/xhigh/max`; ladder `max→xhigh→high→medium→low→minimal→minimal`, unknown values keep current effort (never raise).
+- F9: `_get_max_tokens` fails loud; `_FATAL_STATUS` deleted; `_send_with_learning` renamed to `_send_with_retry`; stale `__pycache__` removed; CHANGELOG Task 298 entry already states the stateless path, so no history rewrite was needed.
+- Full suite: 554 passed, 1 pre-existing failure (`test_system_prompt_split_assemble_round_trip`, proven on HEAD); 23 new tests in `tests/test_brain_responses_alignment.py`.
