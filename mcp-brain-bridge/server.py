@@ -1466,6 +1466,33 @@ def _note_observed_ratio(chars: int, input_tokens: int) -> None:
         _calibrated_chars_per_token = ratio
 
 
+#: Volatile execution-state keys that providers attach to response output
+#: items but reject on input. Observed 2026-10-22: the Go gateway's
+#: gpt-6-luna endpoint 400s with "Unknown parameter: 'input[N].status'"
+#: when a replayed reasoning item still carries the status of the turn
+#: that produced it (e.g. "completed"). muse-spark-1.3-contributor
+#: silently accepts it, which is why this only surfaced after the model
+#: switch. Sanitized at SEND time (not capture time) so transcripts
+#: already on disk are fixed without migration; capture stays verbatim
+#: for audit value.
+_REPLAY_DROPPED_KEYS = frozenset({"status"})
+
+
+def _sanitize_replay_item(item: Any) -> Any:
+    """Strip volatile execution-state keys from a replayed provider item.
+
+    Keeps the item byte-identical (same object) when nothing needs
+    stripping, so the F2 "replay verbatim" contract holds for the common
+    case; returns a filtered copy only when a dropped key is present.
+    Non-dict items pass through untouched.
+    """
+    if not isinstance(item, dict):
+        return item
+    if not any(k in _REPLAY_DROPPED_KEYS for k in item):
+        return item
+    return {k: v for k, v in item.items() if k not in _REPLAY_DROPPED_KEYS}
+
+
 def _build_request_body(
     system_prompt: str,
     history: Optional[list],
@@ -1497,7 +1524,9 @@ def _build_request_body(
     History items may carry ``phase`` (assistant only — replayed on the
     item per the official guidance) and ``provider_items`` (non-message
     output items such as reasoning blocks with encrypted content,
-    replayed verbatim after their turn — F2). Old text-only transcripts
+    replayed after their turn — F2; volatile execution-state keys like
+    ``status`` are stripped at send time since strict providers reject
+    them on input). Old text-only transcripts
     carry neither key and replay exactly as before.
     """
     if model is None:
@@ -1524,7 +1553,7 @@ def _build_request_body(
         chat.append(item)
         for extra in turn.get("provider_items") or []:
             if isinstance(extra, dict):
-                chat.append(extra)
+                chat.append(_sanitize_replay_item(extra))
     chat.append({"role": "user", "content": effective_prompt})
     body: dict[str, Any] = {
         "model": model,

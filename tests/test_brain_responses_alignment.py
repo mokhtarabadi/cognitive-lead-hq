@@ -283,6 +283,47 @@ def test_new_transcript_replays_reasoning_items_and_phase():
     assert {"id": "rs_1", "type": "reasoning"} in body["input"][3:]
 
 
+def test_replay_strips_status_from_reasoning_items():
+    # 2026-10-22: upstream attaches "status" (e.g. "completed") to reasoning
+    # output items; the Go gateway's gpt-6-luna endpoint 400s with
+    # "Unknown parameter: 'input[N].status'" when it is replayed, while
+    # muse-spark-1.3-contributor silently accepts it. The replay must drop
+    # the volatile key but keep id/type/encrypted_content intact.
+    raw = (
+        '{"role": "user", "content": "q"}\n'
+        '{"role": "assistant", "content": "a", "phase": "final_answer", '
+        '"provider_items": [{"id": "rs_1", "type": "reasoning", '
+        '"status": "completed", "content": [], "summary": [], '
+        '"encrypted_content": "e30="}]}\n'
+    )
+    turns, _ = bridge._parse_turns(raw)
+    body = bridge._build_request_body("sys", turns, "next")
+    replayed = [
+        it for it in body["input"][3:]
+        if isinstance(it, dict) and it.get("type") == "reasoning"
+    ]
+    assert len(replayed) == 1
+    assert "status" not in replayed[0]
+    assert replayed[0]["id"] == "rs_1"
+    assert replayed[0]["type"] == "reasoning"
+    assert replayed[0]["encrypted_content"] == "e30="
+
+
+def test_replay_without_status_stays_byte_identical():
+    # No dropped keys present -> the exact same object rides the wire
+    # (F2 verbatim contract).
+    raw = (
+        '{"role": "user", "content": "q"}\n'
+        '{"role": "assistant", "content": "a", '
+        '"provider_items": [{"id": "rs_1", "type": "reasoning", '
+        '"encrypted_content": "e30="}]}\n'
+    )
+    turns, _ = bridge._parse_turns(raw)
+    original = turns[1]["provider_items"][0]
+    body = bridge._build_request_body("sys", turns, "next")
+    assert body["input"][3] is original
+
+
 # --- Estimator calibration (F3) -----------------------------------------------
 
 

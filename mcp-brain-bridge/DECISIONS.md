@@ -27,3 +27,10 @@
 - **Decision:** Fix all ten behind per-parameter env switches defaulting to off (all six new wire parameters probed HTTP 200 against the live gateway first); validate effort against the official vocabulary; parse `error.code`/`error.type` with terminal billing codes; read `response.model`/`cached_tokens` into diagnostics; replay reasoning items and `phase` from version-tolerant transcripts; return structured REPORTs on fatal transport errors; fail loud on malformed numeric config.
 - **Consequences:** Default wire bytes are unchanged until operators opt in; diagnostics expose model substitution and cache hits; transcripts stay backward compatible.
 - **Rollback:** One-function revert of the request builder plus switch-off; diagnostics parser is pure and separately testable.
+
+## [2026-10-22] ADR-005: Strip volatile `status` from replayed provider items
+
+- **Context:** After switching `BRAIN_MODEL` to `gpt-6-luna`, every turn with replayed history failed 400 with `Unknown parameter: 'input[N].status'`. Upstream attaches `status` (e.g. `"completed"`) to reasoning output items; the bridge stored and replayed them verbatim (ADR-004/F2). `muse-spark-1.3-contributor` silently accepts the key, so this only surfaced on the stricter Luna endpoint.
+- **Decision:** Sanitize replayed `provider_items` at send time (`_sanitize_replay_item` drops the `status` key, keeps `id`/`type`/`encrypted_content`/`summary`/`content` intact). Send-time, not capture-time, so transcripts already on disk are fixed without migration; capture stays verbatim for audit. Proven live: a real provider-issued reasoning blob replayed with `status` attached now returns `completed` instead of 400.
+- **Consequences:** Strict providers accept history replays; lenient ones are unaffected (key was ignored anyway). Two regression tests pin the strip and the byte-identical fast path.
+- **Rollback:** Revert the sanitizer call in `_build_request_body` plus the two tests; old transcripts keep working (they replayed verbatim before).
