@@ -34,3 +34,10 @@
 - **Decision:** Sanitize replayed `provider_items` at send time (`_sanitize_replay_item` drops the `status` key, keeps `id`/`type`/`encrypted_content`/`summary`/`content` intact). Send-time, not capture-time, so transcripts already on disk are fixed without migration; capture stays verbatim for audit. Proven live: a real provider-issued reasoning blob replayed with `status` attached now returns `completed` instead of 400.
 - **Consequences:** Strict providers accept history replays; lenient ones are unaffected (key was ignored anyway). Two regression tests pin the strip and the byte-identical fast path.
 - **Rollback:** Revert the sanitizer call in `_build_request_body` plus the two tests; old transcripts keep working (they replayed verbatim before).
+
+## [2026-10-22] ADR-006: Drop replayed items with over-long ids
+
+- **Context:** After ADR-005, `gpt-6-luna` turns with history failed a new way: `Invalid 'input[N].id': string too long` (length 67, cap 64). The platform itself mints reasoning ids longer than its own input cap (`rs_` + 64 hex); Muse ignores it, Luna 400s. An OpenAI community thread ("input item ID exceeds 64 characters", Oct 2026) confirms the platform generates over-limit ids and that the supported recovery is to not replay the offending item.
+- **Decision:** `_sanitize_replay_item` returns None for items whose string `id` exceeds 64 chars; the send loop skips them. The skip diagnostic records only the id length and the cap — never the id, type, or any other item field. Never truncate: the id is bound to `encrypted_content` and editing it breaks decryption. Dropping only loses encrypted-context continuity for that turn.
+- **Consequences:** Strict providers accept history replays regardless of id length. The skip applies on the send path for every provider (lenient ones simply never needed it — they ignored the over-long id instead of 400ing). Three regression tests pin the drop, the at-cap pass-through, and the redacted diagnostic. The skip diagnostic records only the id length and the cap, never item fields.
+- **Rollback:** Revert the length check plus the two tests; old transcripts keep working on lenient models.

@@ -1478,16 +1478,37 @@ def _note_observed_ratio(chars: int, input_tokens: int) -> None:
 _REPLAY_DROPPED_KEYS = frozenset({"status"})
 
 
+#: Maximum input-item id length enforced by strict Responses providers
+#: (observed 2026-10-22: gpt-6-luna 400s with "Invalid 'input[N].id':
+#: string too long", length 67 vs cap 64). The platform itself mints
+#: longer ids (e.g. rs_ + 64 hex chars), so over-long ids must be
+#: dropped whole, never truncated — the id is bound to the item's
+#: encrypted_content and editing it breaks decryption. Dropping only
+#: loses encrypted-context continuity for that turn, never the turn.
+_REPLAY_MAX_ID_LEN = 64
+
+
 def _sanitize_replay_item(item: Any) -> Any:
     """Strip volatile execution-state keys from a replayed provider item.
 
     Keeps the item byte-identical (same object) when nothing needs
     stripping, so the F2 "replay verbatim" contract holds for the common
     case; returns a filtered copy only when a dropped key is present.
+    Returns None when the whole item must be skipped: an ``id`` longer
+    than the provider's input cap (strict providers 400 the turn).
     Non-dict items pass through untouched.
     """
     if not isinstance(item, dict):
         return item
+    item_id = item.get("id")
+    if isinstance(item_id, str) and len(item_id) > _REPLAY_MAX_ID_LEN:
+        print(
+            f"brain-bridge: dropping replayed item with "
+            f"{len(item_id)}-char id (provider cap {_REPLAY_MAX_ID_LEN}); "
+            f"continuity for that block is skipped, the turn proceeds",
+            file=sys.stderr,
+        )
+        return None
     if not any(k in _REPLAY_DROPPED_KEYS for k in item):
         return item
     return {k: v for k, v in item.items() if k not in _REPLAY_DROPPED_KEYS}
@@ -1553,7 +1574,9 @@ def _build_request_body(
         chat.append(item)
         for extra in turn.get("provider_items") or []:
             if isinstance(extra, dict):
-                chat.append(_sanitize_replay_item(extra))
+                sanitized = _sanitize_replay_item(extra)
+                if sanitized is not None:
+                    chat.append(sanitized)
     chat.append({"role": "user", "content": effective_prompt})
     body: dict[str, Any] = {
         "model": model,

@@ -324,6 +324,69 @@ def test_replay_without_status_stays_byte_identical():
     assert body["input"][3] is original
 
 
+def test_replay_drops_item_with_overlong_id():
+    # 2026-10-22: the platform mints reasoning ids longer than its own
+    # 64-char input cap (observed rs_ + 64 hex = 67 chars); Luna 400s
+    # with "Invalid 'input[N].id': string too long". The item must be
+    # skipped whole — truncating the id would break the encrypted_content
+    # binding, and the turn must still go out with the remaining items.
+    long_id = "rs_" + "ab" * 32
+    assert len(long_id) == 67
+    raw = (
+        '{"role": "user", "content": "q"}\n'
+        '{"role": "assistant", "content": "a", '
+        '"provider_items": [{"id": "%s", "type": "reasoning", '
+        '"encrypted_content": "e30="}]}\n' % long_id
+    )
+    turns, _ = bridge._parse_turns(raw)
+    body = bridge._build_request_body("sys", turns, "next")
+    replayed = [
+        it for it in body["input"][3:]
+        if isinstance(it, dict) and it.get("type") == "reasoning"
+    ]
+    assert replayed == []
+
+
+def test_replay_keeps_normal_id_reasoning_item():
+    # A 64-char id is exactly at the cap and must ride through untouched.
+    ok_id = "rs_" + "ab" * 30 + "c"
+    assert len(ok_id) == 64
+    raw = (
+        '{"role": "user", "content": "q"}\n'
+        '{"role": "assistant", "content": "a", '
+        '"provider_items": [{"id": "%s", "type": "reasoning", '
+        '"encrypted_content": "e30="}]}\n' % ok_id
+    )
+    turns, _ = bridge._parse_turns(raw)
+    original = turns[1]["provider_items"][0]
+    body = bridge._build_request_body("sys", turns, "next")
+    assert body["input"][3] is original
+
+
+def test_replay_drop_logs_no_item_fields(capsys):
+    # The overlong-item diagnostic must not carry item-derived values —
+    # only the id length and the cap. A sentinel in `type` must never
+    # reach stderr, and the item must not reach the wire either.
+    long_id = "rs_" + "ab" * 32
+    assert len(long_id) == 67
+    raw = (
+        '{"role": "user", "content": "q"}\n'
+        '{"role": "assistant", "content": "a", '
+        '"provider_items": [{"id": "%s", "type": "SENTINEL_TYPE_XYZ", '
+        '"encrypted_content": "e30="}]}\n' % long_id
+    )
+    turns, _ = bridge._parse_turns(raw)
+    body = bridge._build_request_body("sys", turns, "next")
+    assert [
+        it for it in body["input"][3:]
+        if isinstance(it, dict) and it.get("id") == long_id
+    ] == []
+    captured = capsys.readouterr()
+    assert "SENTINEL_TYPE_XYZ" not in captured.err
+    assert long_id not in captured.err
+    assert "67-char id" in captured.err
+
+
 # --- Estimator calibration (F3) -----------------------------------------------
 
 
