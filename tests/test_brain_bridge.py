@@ -388,13 +388,32 @@ def test_post_overall_deadline_fast_fail(monkeypatch):
     _stub_httpx(monkeypatch)
     monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
     monkeypatch.setattr(_time, "sleep", lambda s: None)
-    monkeypatch.setattr(bridge, "_OVERALL_DEADLINE_S", 0)
+    # The env override wins over the code default, so clear it before
+    # patching the default — otherwise an ambient .env value (900) keeps
+    # the deadline real and the turn just exhausts its retries.
+    monkeypatch.delenv("BRAIN_OVERALL_DEADLINE_S", raising=False)
+    monkeypatch.setattr(bridge, "_DEFAULT_OVERALL_DEADLINE_S", 0)
     import pytest as _pt
 
     with _pt.raises(RuntimeError, match="deadline"):
         bridge._post_with_retry(
             _FakeClient([_FakeResp(500, "boom")]), "http://x/responses", {}
         )
+
+
+def test_overall_deadline_env_override(monkeypatch):
+    monkeypatch.setenv("BRAIN_OVERALL_DEADLINE_S", "1200")
+    assert bridge._overall_deadline_s() == 1200.0
+    monkeypatch.setenv("BRAIN_OVERALL_DEADLINE_S", "junk")
+    import pytest as _pt
+
+    with _pt.raises(RuntimeError, match="BRAIN_OVERALL_DEADLINE_S"):
+        bridge._overall_deadline_s()
+    monkeypatch.setenv("BRAIN_OVERALL_DEADLINE_S", "-5")
+    with _pt.raises(RuntimeError, match="BRAIN_OVERALL_DEADLINE_S"):
+        bridge._overall_deadline_s()
+    monkeypatch.delenv("BRAIN_OVERALL_DEADLINE_S")
+    assert bridge._overall_deadline_s() == bridge._DEFAULT_OVERALL_DEADLINE_S
 
 
 def test_post_retry_after_honored(monkeypatch):

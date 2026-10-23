@@ -41,3 +41,10 @@
 - **Decision:** `_sanitize_replay_item` returns None for items whose string `id` exceeds 64 chars; the send loop skips them. The skip diagnostic records only the id length and the cap — never the id, type, or any other item field. Never truncate: the id is bound to `encrypted_content` and editing it breaks decryption. Dropping only loses encrypted-context continuity for that turn.
 - **Consequences:** Strict providers accept history replays regardless of id length. The skip applies on the send path for every provider (lenient ones simply never needed it — they ignored the over-long id instead of 400ing). Three regression tests pin the drop, the at-cap pass-through, and the redacted diagnostic. The skip diagnostic records only the id length and the cap, never item fields.
 - **Rollback:** Revert the length check plus the two tests; old transcripts keep working on lenient models.
+
+## [2026-10-22] ADR-007: Provider deadline tunable above the proxy hop
+
+- **Context:** Big `xhigh`/`max` turns died as `provider overall deadline hit (500.0s) ... RemoteProtocolError: Server disconnected without sending a response`. Three stacked ceilings existed; the tightest won: zen-proxy `urlopen(timeout=300)`, bridge `_OVERALL_DEADLINE_S = 500`, httpx read timeout 600, MCP client 600s. A deep `gpt-6-luna` turn spends 14-19K reasoning tokens, i.e. 5-10 minutes.
+- **Decision:** `_OVERALL_DEADLINE_S` becomes `BRAIN_OVERALL_DEADLINE_S` (default 900s, fail-loud on malformed), and the proxy hop becomes `ZEN_PROXY_UPSTREAM_TIMEOUT` (default 900s). Ordering contract: httpx read ≤ bridge overall ≤ MCP client execution, with the proxy at or below the bridge overall so its disconnects surface as retryable rather than as a deadline.
+- **Consequences:** Long reasoning turns complete; a truly hung provider now surfaces later (bounded by the client timeout). The existing test that forced the deadline was updated to patch the new default constant.
+- **Rollback:** Unset both env vars to restore code defaults, or set them to 500/300 explicitly for the old behavior.

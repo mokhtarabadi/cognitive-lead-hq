@@ -15,3 +15,4 @@ One plugin is approved and installed: `@mokhtarabadi/opencode-smart-compact` (V2
 - Repo gates: `npm run typecheck`, `npm test`, `npm run verify:package`. CI publishes via npm OIDC trusted publishing once the package name exists on npm.
 - Rollback: `opencode plugin remove github:mokhtarabadi/opencode-smart-compact`; native compaction continues.
 - Docs: docs/compaction.md is the full guide; fragment 22 (<compaction_protocol>) and agents/cognitive-executor.md carry the contract.
+- 2026-10-22: upstream moved to `fa02c759` (v0.2.1). Platform thresholds are now `warnRatio 0.5` / `emergencyRatio 0.8` in the global `smart-compact.jsonc`, plus the incoming `autoTrimRatio 0.5` key that schedules a lossless tool-output trim without an agent call. Refresh path is unchanged: remove + add the github spec, restart.

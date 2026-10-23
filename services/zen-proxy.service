@@ -1,0 +1,28 @@
+[Unit]
+Description=zen-proxy sidecar (OpenAI-compatible clients -> OpenCode Zen/Go gateways, loopback only)
+After=network-online.target
+Wants=network-online.target
+Documentation=file:///home/mohammad/Develop/Projects/cognitive-lead-hq/docs/zen-proxy.md
+
+[Service]
+Type=simple
+# Same global .env every other slice reads (<server-dir>/../.env), so no
+# secret is duplicated. The proxy itself needs no API key: it passes the
+# caller's Authorization header through and only falls back to
+# ZEN_SESSION_ID when the client sends no session header.
+EnvironmentFile=-%h/.config/opencode/.env
+WorkingDirectory=%h/.config/opencode/zen-proxy
+# Outbound egress. Direct by default; uncomment the four lines below to send
+# gateway traffic through the mihomo-subs mixed proxy. NO_PROXY keeps any
+# loopback call out of the tunnel.
+#Environment=HTTP_PROXY=http://127.0.0.1:7890
+#Environment=HTTPS_PROXY=http://127.0.0.1:7890
+#Environment=http_proxy=http://127.0.0.1:7890
+#Environment=https_proxy=http://127.0.0.1:7890
+#Environment=NO_PROXY=localhost,127.0.0.1,::1
+ExecStart=%h/.config/opencode/zen-proxy/.venv/bin/python %h/.config/opencode/zen-proxy/proxy.py
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=default.target

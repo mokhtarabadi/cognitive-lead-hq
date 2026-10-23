@@ -1709,7 +1709,33 @@ _RETRYABLE_STATUS = {429, 500, 502, 503, 504}
 # Overall deadline (seconds) for the whole retry sequence. Sleeps are
 # capped by the remaining budget; hitting the deadline fast-fails instead
 # of sleeping past it.
-_OVERALL_DEADLINE_S = 500.0
+# 2026-10-22: was hard-coded 500, which fired before a single deep
+# xhigh/max turn could finish (gpt-6-luna spends 14-19K reasoning tokens
+# on a large prompt = 5-10 min), so long turns failed as
+# "provider overall deadline hit (500.0s)" no matter the read timeout.
+# Env-tunable; must stay above the proxy's upstream timeout when one is
+# in the path (zen-proxy defaults to 900).
+_DEFAULT_OVERALL_DEADLINE_S = 900.0
+
+
+def _overall_deadline_s() -> float:
+    """Whole-sequence provider deadline; override via BRAIN_OVERALL_DEADLINE_S.
+
+    Fail-loud on a non-numeric or non-positive value: a silent fallback
+    would change the timeout contract without saying so.
+    """
+    raw = os.environ.get("BRAIN_OVERALL_DEADLINE_S", "").strip()
+    if not raw:
+        return _DEFAULT_OVERALL_DEADLINE_S
+    try:
+        val = float(raw)
+    except ValueError:
+        raise RuntimeError(
+            f"BRAIN_OVERALL_DEADLINE_S must be a number, got {raw!r}"
+        )
+    if val <= 0:
+        raise RuntimeError(f"BRAIN_OVERALL_DEADLINE_S must be > 0, got {raw!r}")
+    return val
 
 #: Billing/spend/quota 429 codes that must NEVER be retried (Task 329
 #: F6, per the official error-codes guide): "Retrying billing, spend, or
@@ -1852,14 +1878,15 @@ def _post_with_retry(client: Any, url: str, payload: dict[str, Any]) -> tuple[An
 
     import httpx
 
-    deadline = time.monotonic() + _OVERALL_DEADLINE_S
+    _deadline_s = _overall_deadline_s()
+    deadline = time.monotonic() + _deadline_s
     last_status: int = -1
     last_snippet: str = "no attempt made"
     attempts = 0
     for attempt in range(3):
         if time.monotonic() >= deadline:
             raise _transport_fail(
-                f"provider overall deadline hit ({_OVERALL_DEADLINE_S}s) at "
+                f"provider overall deadline hit ({_deadline_s}s) at "
                 f"{url.rsplit('/', 1)[-1]}: {last_snippet}",
                 attempts,
             )
@@ -1924,7 +1951,7 @@ def _post_with_retry(client: Any, url: str, payload: dict[str, Any]) -> tuple[An
         remaining = deadline - time.monotonic()
         if remaining <= 0:
             raise _transport_fail(
-                f"provider overall deadline hit ({_OVERALL_DEADLINE_S}s) at "
+                f"provider overall deadline hit ({_deadline_s}s) at "
                 f"{url.rsplit('/', 1)[-1]}: {last_snippet}",
                 attempts,
             )

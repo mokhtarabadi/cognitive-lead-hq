@@ -1,0 +1,13 @@
+[project]
+name = "cognitive-zen-proxy"
+version = "1.0.0"
+description = "Loopback sidecar between OpenAI-compatible clients and the OpenCode Zen/Go gateways"
+requires-python = ">=3.11"
+# Intentionally empty: the proxy is stdlib-only (json, os, uuid, time,
+# urllib, http.server). The venv exists so the service launches through a
+# stable interpreter, exactly like the MCP server slices, and so `uv venv`
+# + `uv pip install` remain the single provisioning path.
+dependencies = []
+
+[tool.uv]
+package = false

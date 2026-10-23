@@ -106,11 +106,16 @@ Store this value — you will use it to construct absolute paths in the global c
 Create the global OpenCode directories:
 
 ```bash
-for d in mcp-context-server mcp-memory-server mcp-lint-server mcp-brain-bridge mcp-common; do
+for d in mcp-context-server mcp-memory-server mcp-lint-server mcp-brain-bridge mcp-common zen-proxy; do
   mkdir -p ~/.config/opencode/$d
 done
 mkdir -p ~/.config/opencode/skills
 ```
+
+> `zen-proxy` is not an MCP server — it is the loopback gateway sidecar the
+> Brain Bridge calls as its provider (`BRAIN_API_BASE` → `127.0.0.1:8081`).
+> It is installed globally alongside the servers so one provisioning pass
+> covers both. See the copy block below and `docs/zen-proxy.md`.
 
 ---
 
@@ -127,6 +132,12 @@ done
 # mcp-common: copy CONTENTS into the pre-created dir (the trailing "/." avoids
 # nesting to mcp-common/mcp-common when the destination already exists).
 cp -a /tmp/cognitive-lead-hq/mcp-common/. ~/.config/opencode/mcp-common/
+
+# zen-proxy: the gateway sidecar the Brain calls as its provider. Source only —
+# it is stdlib-only, so the venv has nothing to install (built in §7.5).
+cp /tmp/cognitive-lead-hq/zen-proxy/{proxy.py,pyproject.toml,README.md,DECISIONS.md} \
+   ~/.config/opencode/zen-proxy/
+chmod +x ~/.config/opencode/zen-proxy/proxy.py
 
 # Preserve system-prompt.md globally for the user's Orchestrator
 cp /tmp/cognitive-lead-hq/system-prompt.md ~/.config/opencode/system-prompt.md
@@ -291,7 +302,7 @@ Write the following JSON (replace `$HOME` with the actual home directory path on
 }
 ```
 
-The `plugins` entry loads **`smart-compact`** (install it with `opencode plugin add github:mokhtarabadi/opencode-smart-compact` — Step 7.7) plus **`goal`** (install it with `opencode plugin add github:mokhtarabadi/opencode-goal-plugin` — Step 7.7, tracks one long-running objective with `/goal` set, status, block, complete, clear) plus **`opencode-todolist`** (install it with `opencode plugin add opencode-todolist` — Step 7.7, restores V1 `todowrite`/`todoread` plus the TUI sidebar strip). The `compaction` block keeps OpenCode's native auto-compaction on as the safety net while retaining a larger recent tail; Smart Compact then provides the manual high-fidelity layer. The terminal client config `~/.config/opencode/cli.json` is V2-native (no project `cli.json`, no `tui.json`):
+The `plugins` entry loads **`smart-compact`** (install it with `opencode plugin add github:mokhtarabadi/opencode-smart-compact` — Step 7.7) plus **`goal`** (install it with `opencode plugin add github:mokhtarabadi/opencode-goal-plugin` — Step 7.7, tracks one long-running objective per session in `.opencode/goals/` with `/goal` set, status, block, complete, clear) plus **`opencode-todolist`** (install it with `opencode plugin add opencode-todolist` — Step 7.7, restores V1 `todowrite`/`todoread` plus the TUI sidebar strip). The `compaction` block keeps OpenCode's native auto-compaction on as the safety net while retaining a larger recent tail; Smart Compact then provides the manual high-fidelity layer. The terminal client config `~/.config/opencode/cli.json` is V2-native (no project `cli.json`, no `tui.json`):
 
 ```json
 {
@@ -324,11 +335,17 @@ The config in Step 7 points at services — they must be running before OpenCode
 # Python singletons (Linux): install + start the 6 systemd user units
 # (run from your clone of this repo — services/ ships in the clone, no /tmp copy needed)
 mkdir -p ~/.config/systemd/user
-cp services/mcp-*.service ~/.config/systemd/user/
+cp services/mcp-*.service services/zen-proxy.service ~/.config/systemd/user/
 systemctl --user daemon-reload
 for s in lint context memory decision brain telegram; do
   systemctl --user enable --now mcp-$s
 done
+
+# zen-proxy: the Brain's provider hop. Build its venv with uv (no deps) and
+# start it BEFORE the brain, so the first brain_turn does not race the port.
+cd ~/.config/opencode/zen-proxy && uv venv .venv
+systemctl --user enable --now zen-proxy
+curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:8081/health   # 200
 
 # Blowsh singleton (any OS with Docker): one persistent container
 docker run -d --name blowsh-singleton --restart unless-stopped \
@@ -344,7 +361,9 @@ macOS/Windows equivalents (launchd plist template, Task Scheduler/NSSM): `docs/s
 Verify before continuing:
 
 ```bash
-opencode mcp list   # 7/7 connected
+opencode mcp list                      # 7/7 connected
+systemctl --user is-active zen-proxy    # active — the Brain's provider hop
+curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:8081/health   # 200
 ```
 
 ---
@@ -401,7 +420,7 @@ Telemetry-free cache/SSRF defaults (`CACHE_TTL_MS=300000`, `ALLOW_PRIVATE_URLS=f
 
 ## 7.7. Plugins
 
-Install the three platform plugins — **`smart-compact`** (`@mokhtarabadi/opencode-smart-compact`, lossless V2-native context compaction, maintained in its own repo) plus **`goal`** (`opencode-goal-plugin`, tracks one long-running objective with `/goal` set, status, block, complete with evidence, clear, maintained in its own repo) plus **`todolist`** (`opencode-todolist`, restores V1 `todowrite`/`todoread` plus the TUI sidebar strip removed in V2):
+Install the three platform plugins — **`smart-compact`** (`@mokhtarabadi/opencode-smart-compact`, lossless V2-native context compaction, maintained in its own repo) plus **`goal`** (`opencode-goal-plugin`, tracks one long-running objective per session in `.opencode/goals/<session-id>.json` with `/goal` set, status, block, complete with evidence that is executed at completion, clear, maintained in its own repo) plus **`todolist`** (`opencode-todolist`, restores V1 `todowrite`/`todoread` plus the TUI sidebar strip removed in V2):
 
 ```bash
 # Interim (works now, installs from the pushed repo):
@@ -437,7 +456,7 @@ Then create the recommended smart-compact global config at `~/.config/opencode/s
     "stripReasoning": { "enabled": true, "thresholdChars": 500 }
   },
   "tokens": { "enabled": true, "emergencyBudgetTokens": 50000 },
-  "awareness": { "enabled": true, "warnRatio": 0.7, "emergencyRatio": 0.9, "rearmStep": 0.05 }
+  "awareness": { "enabled": true, "warnRatio": 0.5, "emergencyRatio": 0.8, "rearmStep": 0.05, "autoTrimRatio": 0.5 }
 }
 ```
 
@@ -560,6 +579,7 @@ After completing all steps, verify:
 - [ ] `~/.config/opencode/mcp-lint-server/server.py` exists and is executable
 - [ ] `~/.config/opencode/mcp-brain-bridge/server.py` exists and is executable (plus its sibling modules `capability.py`, `preflight.py`, `loop_guard.py`, `session_ledger.py`)
 - [ ] `~/.config/opencode/mcp-common/src/mcp_common/env.py` exists
+- [ ] `~/.config/opencode/zen-proxy/proxy.py` exists and is executable, `~/.config/opencode/zen-proxy/.venv/bin/python` exists (built with `uv venv`), and `systemctl --user is-active zen-proxy` returns `active` on `127.0.0.1:8081` (`curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8081/health` → 200); the unit reads `~/.config/opencode/.env` and needs no API key of its own
 - [ ] Skills are installed under `~/.config/opencode/skills/` (at least one subfolder exists) — should include `bundle-tasks` (36 skills total)
 - [ ] `~/.config/opencode/agents/cognitive-executor.md` exists
 - [ ] `~/.config/opencode/agents/cognitive-discovery.md` exists

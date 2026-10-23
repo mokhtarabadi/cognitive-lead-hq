@@ -140,6 +140,17 @@ repo-root `.env`). Real process env wins; blank counts as unset. See
 | `BRAIN_USE_INSTRUCTIONS` | off — when on, the system prompt moves to top-level `instructions` instead of a `role: system` input item (F10; probed OK) |
 | `BRAIN_CHARS_PER_TOKEN` | unset — explicit chars-per-token override for the pre-send estimate; otherwise calibrated from observed `usage.input_tokens`, else `4.0` (F3) |
 | `BRAIN_COMPACTION_THRESHOLD` | `100000` — token threshold for `context_management` compaction (F3) |
+| `BRAIN_HTTP_READ_TIMEOUT` | `900` — httpx read timeout for the provider call |
+| `BRAIN_OVERALL_DEADLINE_S` | `900` — whole retry-sequence deadline; must sit at or above any proxy hop in the path and below the MCP client timeout |
+
+The local `BRAIN_API_BASE` is `http://127.0.0.1:8081/go/resp`, served by the
+`zen-proxy` slice in this repo (`docs/zen-proxy.md`, unit
+`services/zen-proxy.service`). That hop imposes its own upstream socket
+timeout, so keep the ordering sound: `ZEN_PROXY_UPSTREAM_TIMEOUT` ≤
+`BRAIN_OVERALL_DEADLINE_S` ≤ the MCP client's execution timeout. A proxy
+timeout below a real turn's duration surfaces here as
+`RemoteProtocolError: Server disconnected without sending a response`
+followed by `provider overall deadline hit`.
 
 `BRAIN_INPUT_BUDGET` defaults to 1,000,000 chars (~217k input tokens at
 the measured ~4.6 chars/token) — room for full context and diff reports

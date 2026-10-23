@@ -13,6 +13,12 @@ One supervised instance of each MCP server, shared across all sessions and proje
 | brain     | 8105 | mcp-brain                 |
 | telegram  | 8106 | mcp-telegram              |
 | blowsh    | 8107 | blowsh-singleton (Docker) |
+| zen-proxy | 8081 | zen-proxy (not MCP — the Brain's provider hop) |
+
+`zen-proxy` is listed here because it is provisioned and supervised the same
+way, but it speaks the OpenAI Responses/Chat API rather than MCP. Its unit
+reads the same global `.env`; it needs no API key of its own (the caller's
+`Authorization` header passes through). See `docs/zen-proxy.md`.
 
 ## Security (accepted risk)
 
