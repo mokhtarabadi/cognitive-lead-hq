@@ -415,6 +415,16 @@ needs no extra machinery.
      exactly like an Orchestrator XML block.
    - `REPORT` — triage like a review verdict: fix what reproduces,
      dispute the rest with evidence in the task file.
+   **Code-mode output discipline (never hand-trim a control payload):** the
+   `execute` runtime returns your `return` value verbatim; only the runtime's
+   own `maxOutputBytes` may cut it, and it says so with a `truncated: true`
+   flag. Never `slice`, `map`, or summarize `xml_blocks` — a cut block loses
+   instructions silently, and a head-only view is how a closure or hotfix step
+   goes missing. Read the block in full and execute from it; summarize
+   `output` only after the block has been consumed. In code mode return
+   `{status, block_count: xml_blocks.length, model}` and keep the block whole
+   instead of printing a prefix. A `truncated` flag means re-read the exact
+   range through the tool again, never assume the tail.
 3. **Relay** — any admin question inside `output` goes to the Manager
    verbatim. Feed the answer back as the next `brain_turn` user prompt.
    Never answer for the Manager.
