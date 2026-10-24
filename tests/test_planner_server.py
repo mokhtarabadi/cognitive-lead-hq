@@ -907,37 +907,36 @@ def test_api_status_allowed_project_root_ok_for_viewer(auth_client, auth_app, tm
 
 
 # ---------------------------------------------------------------------------
-# Auth: /mcp ingress guard (admin only when auth is enabled)
+# Auth: /mcp transport stays open to loopback clients; /api/* stays guarded
 # ---------------------------------------------------------------------------
 
 
-def test_mcp_requires_session_when_auth_enabled(auth_client):
+def test_mcp_open_without_session_when_auth_enabled(auth_client):
+    # Local OpenCode clients send no cookie and must still reach the transport.
     resp = auth_client.post(
         "/mcp", content='{"jsonrpc":"2.0","method":"tools/list","id":1}'
     )
-    assert resp.status_code == 401
-    assert resp.json()["error"] == "unauthenticated"
+    assert resp.status_code not in (401, 403)
 
 
-def test_mcp_blocks_viewer_session(auth_client):
+def test_mcp_open_for_viewer_session(auth_client):
     auth_client.post(
         "/api/login", json={"username": "viewer", "password": "viewer-pass"}
     )
     resp = auth_client.post(
         "/mcp", content='{"jsonrpc":"2.0","method":"tools/list","id":1}'
     )
-    assert resp.status_code == 403
-    assert resp.json()["error"] == "forbidden"
+    assert resp.status_code not in (401, 403)
 
 
-def test_mcp_admits_admin_session(auth_client):
-    auth_client.post("/api/login", json={"username": "admin", "password": "admin-pass"})
-    resp = auth_client.post(
+def test_api_status_stays_guarded_while_mcp_is_open(auth_client):
+    # Same client, same auth-enabled app: /mcp passes, /api/status still 401.
+    mcp_resp = auth_client.post(
         "/mcp", content='{"jsonrpc":"2.0","method":"tools/list","id":1}'
     )
-    # The guard admits the request; the transport then rejects the malformed
-    # MCP handshake with its own status, which must not be a guard status.
-    assert resp.status_code not in (401, 403)
+    assert mcp_resp.status_code not in (401, 403)
+    assert auth_client.get("/api/status").status_code == 401
+    assert auth_client.get("/api/me").status_code == 401
 
 
 # ---------------------------------------------------------------------------

@@ -93,3 +93,32 @@ the CLI test that hashes through the server's own verifier.
 - **Rollback:** Delete `planner-users.json` or run `manage_users.py disable`;
 the server returns to open local mode with no code change. Full code rollback is
 `server.py` + `static/index.html` + `manage_users.py` reverted together.
+- **Superseded in part:** the `/mcp` admin-session requirement only — see
+ADR-006 below. Session auth, scoping, and the CLI remain as decided here.
+
+## [2026-10-24] ADR-006: `/mcp` is auth-free on loopback; the edge is the gate
+
+- **Context:** With auth enabled, the `/mcp` guard returned 401 to every
+  credential-free caller, and OpenCode's local clients connect with no cookie.
+  The transport therefore broke whenever the Manager turned authentication on
+  for the dashboard — the two requirements collided inside one process.
+  The `/mcp` route is already unreachable from outside: the Cloudflare Tunnel
+  ingress answers `http_status: 404` for `^/mcp(/.*)?$` before the catch-all
+  rule, so no remote request ever reaches the process.
+- **Decision:** `_guarded_mcp_app` passes every request straight to the MCP
+  transport, in open mode and with auth enabled alike. No `SESSION_COOKIE`
+  check, no admin-role check, no 401/403 from that path. `/`, `/static/*`,
+  `/api/login`, `/api/logout`, `/api/me`, and `/api/status` keep their session
+  checks unchanged — the dashboard is still authenticated.
+- **Consequences:** Local MCP clients work in both auth modes, which removes the
+  old "set `auth_enabled: false` or lose your tools" coupling. Tool execution
+  now trusts the bind (127.0.0.1) plus the tunnel ingress instead of an
+  in-process guard, so **the ingress rule is load-bearing for security**: adding
+  a catch-all tunnel rule before the `/mcp` 404, or rebinding the port off
+  loopback, exposes unauthenticated tool execution. The ingress ordering and
+  the external `curl …/mcp` → 404 probe in `docs/services.md` are the checks
+  that hold this. Pinned by
+  `tests/test_planner_server.py::test_mcp_open_without_session_when_auth_enabled`
+  and `::test_api_status_stays_guarded_while_mcp_is_open`.
+- **Rollback:** Restore the cookie/role checks in `_guarded_mcp_app` and the
+  three guard tests; no config or dashboard change is involved.

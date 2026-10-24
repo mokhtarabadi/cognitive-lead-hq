@@ -29,8 +29,10 @@ Planner authentication is **optional and off by default**: with no
 server stays in open local mode, byte-identical to the pre-auth
 behaviour. With auth on, `POST /api/login` issues an `HttpOnly`
 `planner_session` cookie, `/api/status` is 401 until sign-in and 403
-outside the caller's `allowed_projects`, and `/mcp` accepts admin
-sessions only. Users are managed with the stdlib CLI (no venv needed):
+outside the caller's `allowed_projects`. `/mcp` is deliberately auth-free on
+loopback (the tunnel answers 404 for it), so local MCP clients connect with
+no credentials even when auth is on. Users are managed with the stdlib CLI
+(no venv needed):
 
 ```bash
 python3 ~/.config/opencode/mcp-planner-server/manage_users.py \

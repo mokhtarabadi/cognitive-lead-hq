@@ -32,7 +32,7 @@ dashboard on loopback port 8108.
 | `POST /api/login` | `{"username","password"}` → `{token, username, role, allowed_projects}` + `HttpOnly` cookie. |
 | `POST /api/logout` | Invalidates the session and clears the cookie. |
 | `GET /api/me` | Current user, or 401 when signed out (200 + `note: "auth disabled"` in open mode). |
-| `POST /mcp` | MCP Streamable HTTP endpoint (tools). Admin-only when auth is enabled. |
+| `POST /mcp` | MCP Streamable HTTP endpoint (tools). Auth-free on loopback; the tunnel 404s it. |
 
 `/api/status` returns per-lane **task lists** (`lanes`), the milestone tree
 (`milestone_tree`), upcoming deadlines (`deadlines`), the pacing figures
@@ -65,9 +65,11 @@ holding `tasks/`, then the working directory. `PLANNER_PROJECTS`
   `project_root` is outside `allowed_projects`, and filters `projects` to the
   allowed roots. Without an explicit root a viewer falls back to their first
   allowed project instead of being denied.
-- **`/mcp`:** admin sessions only when auth is enabled; viewers get 403 and
-  signed-out callers 401. Local MCP clients (no cookie) therefore need
-  `auth_enabled: false`, which is the default.
+- **`/mcp`:** auth-free in every mode, including with auth enabled. Local MCP
+  clients call it on loopback with no cookie; the Cloudflare Tunnel ingress
+  answers `404` for `/mcp` before the catch-all rule, so remote callers never
+  reach it. The dashboard, `/`, and every `/api/*` route keep their session
+  checks.
 - **Known limitation:** tool calls are authorized at the transport level, not
   per argument — an admin whose `allowed_projects` is restricted can still pass
   any `project_root` to a tool. Admins are expected to hold the wildcard grant;
@@ -116,6 +118,9 @@ the tunnel goes live, then verify: `https://planner.example.com/mcp` → 404,
 - `tasks/` Markdown is the canonical source of truth; the planner is a derived
   index (`tasks/.plan/index.json`, gitignored) regenerated per turn.
 - Autopilot QA budget: max 1 unresolved QA/review task (general WIP ceiling 3).
+- `/mcp` trusts the bind and the tunnel ingress, not session auth: the
+  `^/mcp(/.*)?$ → 404` ingress rule must stay ahead of the catch-all, and the
+  port must never leave `127.0.0.1`. Breaking either exposes tool execution.
 - No external integrations in v1 (GitHub/Telegram/Asana/Plane deferred).
 - Zero-Autonomous-Commit: agents never `git commit`/`git push`; staging goes
   through `custom_context_stage_and_inject_diff`.

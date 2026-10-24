@@ -31,8 +31,10 @@ alongside the FastMCP StreamableHTTP endpoint on port 8108.
 Authentication (optional, off by default) lives in
 `~/.config/opencode/planner-users.json` (override with `PLANNER_USERS_CONFIG`).
 When `auth_enabled` is true the dashboard requires a session cookie from
-`POST /api/login`, `/api/status` filters the project list to the caller's
-`allowed_projects` (403 outside them), and `/mcp` accepts admin sessions only.
+`POST /api/login` and `/api/status` filters the project list to the caller's
+`allowed_projects` (403 outside them). The `/mcp` transport stays auth-free:
+loopback MCP clients connect without credentials, and the Cloudflare Tunnel
+ingress 404s `/mcp` before any remote request reaches it.
 With no config file — or `auth_enabled: false` — the server stays in open
 local mode, byte-identical to the pre-auth behaviour.
 
@@ -1400,49 +1402,20 @@ def _api_status(
 
 
 def _guarded_mcp_app(mcp_app):
-    """Wrap the MCP transport app with the admin-only ingress guard.
+    """Wrap the MCP transport app at its trust boundary.
 
-    In open local mode the request passes straight through. When auth is
-    enabled, ``/mcp`` needs a valid session cookie *and* the admin role: a
-    viewer can read the dashboard but never execute tools.
+    The transport is deliberately auth-free, in open mode and with auth
+    enabled alike: local OpenCode clients call ``/mcp`` on loopback with no
+    credentials and must connect. Remote exposure is closed at the network
+    edge instead — the Cloudflare Tunnel ingress answers 404 for ``/mcp``
+    before the catch-all rule, so the endpoint is never reachable off-host.
+    The dashboard and every ``/api/*`` route keep their session checks.
     """
 
-    async def guarded(scope, receive, send):
-        if scope.get("type") != "http" or not _AUTH_ENABLED:
-            await mcp_app(scope, receive, send)
-            return
-
-        headers = {
-            key.decode("latin-1").lower(): value.decode("latin-1")
-            for key, value in scope.get("headers") or []
-        }
-        token = _cookie_from_header(headers.get("cookie", ""), SESSION_COOKIE)
-        session = _session_from_token(token)
-        if session is None:
-            await _send_json(send, 401, {"error": "unauthenticated"})
-            return
-        if ((session.get("user") or {}).get("role") or "") != "admin":
-            await _send_json(send, 403, {"error": "forbidden"})
-            return
+    async def loopback_only(scope, receive, send):
         await mcp_app(scope, receive, send)
 
-    return guarded
-
-
-async def _send_json(send, status: int, payload: dict) -> None:
-    """Send a minimal JSON ASGI response (used by the /mcp guard)."""
-    body = json.dumps(payload).encode("utf-8")
-    await send(
-        {
-            "type": "http.response.start",
-            "status": status,
-            "headers": [
-                (b"content-type", b"application/json"),
-                (b"content-length", str(len(body)).encode("ascii")),
-            ],
-        }
-    )
-    await send({"type": "http.response.body", "body": body})
+    return loopback_only
 
 
 def build_app():
