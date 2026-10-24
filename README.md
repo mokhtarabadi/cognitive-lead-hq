@@ -199,6 +199,9 @@ cp .env.example .env
 │   └── server.py                       # FastMCP server for persistent project memory
 ├── mcp-brain-bridge/                  # Unified Brain bridge
 │   └── server.py                       # FastMCP `BrainBridge`: brain_turn (prompt loader + LLM + XML extract)
+├── mcp-planner-server/                 # Capacity-aware, QA-gated planning layer
+│   ├── server.py                       # FastMCP planning tools + dashboard/MCP on 127.0.0.1:8108
+│   └── static/index.html               # Standalone dashboard (Jalali + Gregorian timeline)
 ├── zen-proxy/                          # Loopback gateway sidecar (NOT an MCP server)
 │   ├── proxy.py                        # Zen/Go mount proxy: session minting, model filters, effort rewrite
 │   ├── pyproject.toml                  # Stdlib-only; exists so `uv venv` provisions the runtime
@@ -332,7 +335,7 @@ cp .env.example .env
 
 ## 🔌 Custom Code Context FastMCP
 
-> **Current path:** supervised remote singletons on `127.0.0.1:8101–8107` — see `docs/services.md`. What follows is the **legacy per-project stdio fallback** (kept for offline/air-gapped use, not the default).
+> **Current path:** supervised remote singletons on `127.0.0.1:8101–8108` — see `docs/services.md`. What follows is the **legacy per-project stdio fallback** (kept for offline/air-gapped use, not the default).
 
 This system uses a local **FastMCP** Python server (`mcp-context-server/server.py`) that runs via its persistent venv interpreter (`<dir>/.venv/bin/python <dir>/server.py`, never `uv run`) with locked dependency management. It provides deterministic, `.gitignore`-aware file reading and directory tree exploration, using far fewer tokens than raw `grep`/`glob` operations.
 

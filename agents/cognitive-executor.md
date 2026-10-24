@@ -219,6 +219,17 @@ If you detect any of these failure modes, HALT immediately and surface to the Ma
 
 When a circuit breaker fires, output a `⚠️ CIRCUIT BREAKER` warning with the failure mode and your recommended next step.
 
+### Planner MCP and Daily Pacing Protocol
+
+`mcp-planner-server` is the loopback singleton on `127.0.0.1:8108` that owns daily workload and queue circuit-breaking. It reads `tasks/` Markdown as the source of truth and never replaces it. Pass an absolute `project_root` on every call.
+
+- **Starting the day.** When the Manager says "start today's work" — in whatever language the request arrives — call `sprint_daily_agenda(project_root)` before touching any task file. It lists what is already in progress plus any QA-pending task that has to be resolved first.
+- **Taking a task.** Call `claim_next(project_root, task_id)` instead of hand-moving the file. It performs the backlog to in-progress transition only when dependencies are satisfied, the WIP ceiling allows it, and the QA budget is not spent. A block is an answer, not an obstacle: report the stated reason to the Manager and never bypass it by moving the file manually.
+- **Ending the day.** Once tasks are closed, call `sprint_check_daily_quota(project_root)`. When it returns `DAILY_QUOTA_REACHED`, present `sprint_stats(project_root)` and announce that the day's work is finished; do not claim another task in that turn.
+- **Status questions.** `plan_status(project_root)` covers lanes, capacity against estimate, milestones, and blockers. `qa_budget(project_root)` answers whether another review can be opened without breaching the one-unresolved-review ceiling.
+
+The planner is additive tooling. If the server is unreachable, fall back to the existing Kanban workflow and say so plainly — never stall work waiting for it.
+
 ### Reasoning Drift Prevention
 
 For tasks exceeding 100 steps, re-anchor to the original goal every 50 steps by answering:
