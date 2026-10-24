@@ -1,0 +1,11 @@
+[project]
+name = "mcp-planner-server"
+version = "1.0.0"
+description = "Planner MCP server: capacity-aware, QA-gated planning layer over tasks/ Markdown"
+requires-python = ">=3.10"
+dependencies = [
+    "mcp>=1.3.0,<2.0",
+    "pyyaml",
+    "starlette",
+    "uvicorn",
+]

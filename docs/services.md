@@ -13,7 +13,16 @@ One supervised instance of each MCP server, shared across all sessions and proje
 | brain     | 8105 | mcp-brain                 |
 | telegram  | 8106 | mcp-telegram              |
 | blowsh    | 8107 | blowsh-singleton (Docker) |
+| planner   | 8108 | mcp-planner               |
 | zen-proxy | 8081 | zen-proxy (not MCP — the Brain's provider hop) |
+
+`planner` is the capacity-aware, QA-gated planning layer over `tasks/`
+Markdown. It serves the MCP Streamable HTTP endpoint at `/mcp` and a
+standalone dashboard at `/` (plus `/api/status`) on the same loopback
+port. It reads the project given by `PLANNER_PROJECT_ROOT`, falling back
+to the nearest ancestor of its working directory that holds `tasks/`.
+`PLANNER_PROJECTS` (pathsep-separated absolute paths) feeds the
+dashboard's project switcher. It needs no credentials.
 
 `zen-proxy` is listed here because it is provisioned and supervised the same
 way, but it speaks the OpenAI Responses/Chat API rather than MCP. Its unit
@@ -69,7 +78,7 @@ After changing any key, restart the affected unit
 
 ## How it works
 
-Each HQ Python server (lint, context, memory, decision, brain) reads
+Each HQ Python server (lint, context, memory, decision, brain, planner) reads
 `MCP_TRANSPORT` from the environment. Default is `streamable-http`
 (singleton default: all callers consume these servers as remote http
 singletons, so an unset variable must not silently drop into stdio while
@@ -116,7 +125,7 @@ Unit files live in `services/`. Install:
 mkdir -p ~/.config/systemd/user
 cp services/mcp-*.service ~/.config/systemd/user/
 systemctl --user daemon-reload
-for s in lint context memory decision brain telegram; do
+for s in lint context memory decision brain telegram planner; do
   systemctl --user enable --now mcp-$s
 done
 ```
@@ -151,7 +160,8 @@ path for `{HOME}`); the inline template below shows the shape
 ```
 
 Load with `launchctl load ~/Library/LaunchAgents/mcp-<name>.plist`.
-Repeat for ports 8102-8106 with the matching server directory. Credentials
+Repeat for the remaining ports (8102-8106 and 8108) with the matching
+server directory. Credentials
 are self-loaded by each server from `~/.config/opencode/.env`
 (`<server-dir>/../.env`) — no `EnvironmentVariables` entry is needed for
 `BRAIN_*`/`DECISION_*` (see the Credentials section above).
@@ -179,8 +189,9 @@ environment (see the Credentials section above).
 ## Verification
 
 ```bash
-opencode mcp list            # 7/7 connected
+opencode mcp list            # every configured server connected
 ps aux | grep mcp- | grep -v grep   # exactly one process per server
+curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8108/   # planner dashboard: 200
 ```
 
 Open a second session and repeat: process count must not grow.

@@ -1,0 +1,1176 @@
+#!/usr/bin/env -S uv run
+# Sibling Docs: mcp-planner-server/README.md | Decisions: mcp-planner-server/DECISIONS.md
+# /// script
+# requires-python = ">=3.10"
+# dependencies = [
+#     "mcp>=1.3.0,<2.0",
+#     "pyyaml",
+#     "starlette",
+#     "uvicorn",
+# ]
+# ///
+
+"""
+Planner MCP Server — capacity-aware, QA-gated planning layer over tasks/ Markdown.
+
+Reads task files from tasks/{backlog,in-progress,qa,completed,archive} as the
+single source of truth, builds a derived index (tasks/.plan/index.json,
+gitignored), and exposes planning tools:
+
+- plan_propose(goal, deadline, capacity_hours) — decompose a goal into tasks +
+  milestones with estimates (propose only, writes nothing).
+- plan_materialize(project_root, task_ids) — write new task files only after
+  Manager approval; every written file passes lint_task_file.
+- claim_next(project_root, task_id) — guarded claim: checks dependencies,
+  WIP limits, QA budget before moving a task from backlog to in-progress.
+- plan_status(project_root) — Kanban lanes, active sprint, milestone status.
+- sprint_stats(project_root) — hours spent, progress %, velocity.
+- qa_budget(project_root) — count of QA-pending tasks (autopilot budget).
+- milestone_status(project_root) — milestone summary.
+- sprint_lock(sprint_id) — mark a sprint as locked.
+- sprint_daily_agenda(project_root) — locked tasks for today's quota.
+- sprint_check_daily_quota(project_root) — check if today's planned tasks
+  are complete; signal DAILY_QUOTA_REACHED.
+
+An embedded Starlette app serves the static dashboard on GET / and GET /api/status
+alongside the FastMCP StreamableHTTP endpoint on port 8108.
+
+Design rules:
+- tasks/ Markdown is canonical; the planner is a derived index only.
+- Autopilot QA budget: max 1 unresolved QA/review task.
+- Only planner tooling may change task state; every transition passes lint_task_file.
+- Zero-Autonomous-Commit: no git commit/push/add/checkout from this server.
+"""
+
+import contextvars
+import functools
+import hashlib
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+import time
+import uuid
+from contextlib import asynccontextmanager
+from datetime import date, datetime, timedelta
+from pathlib import Path
+from typing import Any, Optional
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from mcp.server.fastmcp import FastMCP
+
+mcp = FastMCP("Planner", host="127.0.0.1", port=8108)
+
+# Client-visible project-isolation warning (mirrors mcp-context-server pattern).
+_FALLBACK_FIRED: contextvars.ContextVar[bool] = contextvars.ContextVar(
+    "planner_fallback_fired", default=False
+)
+
+_ROOT_FALLBACK_WARNING = (
+    "WARNING [project-isolation]: project_root was omitted, so this call "
+    "was scoped to the singleton server's own directory instead of the "
+    "calling project. Pass an absolute project_root on every call."
+)
+
+
+def _project_tool(fn):
+    """Register an MCP tool that surfaces root-fallback client-visibly."""
+
+    @functools.wraps(fn)
+    def wrapper(*args, **kwargs):
+        _FALLBACK_FIRED.set(False)
+        out = fn(*args, **kwargs)
+        if not _FALLBACK_FIRED.get():
+            return out
+        if isinstance(out, str):
+            return _ROOT_FALLBACK_WARNING + "\n" + out
+        return out
+
+    return mcp.tool()(wrapper)
+
+
+def _explicit_project_root(project_root: Optional[str], tool_name: str) -> Path:
+    """Validate a per-call project root.
+
+    Returns the resolved absolute directory. When omitted, falls back to
+    the server working directory with a stderr warning. Raises ValueError
+    naming the field for relative, missing, or non-directory input.
+    """
+    if project_root is None:
+        root = Path.cwd().resolve()
+        _FALLBACK_FIRED.set(True)
+        print(
+            f"Warning: {tool_name}: project_root omitted, "
+            f"falling back to server cwd {root}",
+            file=sys.stderr,
+        )
+        return root
+    if not isinstance(project_root, str) or not project_root.strip():
+        raise ValueError("project_root must be a non-empty absolute path string.")
+    if not Path(project_root).is_absolute():
+        raise ValueError(f"project_root must be absolute, got: {project_root!r}.")
+    root = Path(project_root).resolve()
+    if not root.is_dir():
+        raise ValueError(
+            f"project_root must be an existing directory, got: {project_root!r}."
+        )
+    return root
+
+
+# ---------------------------------------------------------------------------
+# Task parsing helpers
+# ---------------------------------------------------------------------------
+
+TASK_LANES = ("backlog", "in-progress", "qa", "completed", "archive")
+TASK_ID_RE = re.compile(r"^(\d+)-(.+)\.md$")
+
+
+def _parse_task_file(path: Path) -> dict:
+    """Parse a task Markdown file into structured fields.
+
+    Reads the canonical task header (**File:**, **Source:**, **Type:**,
+    **Status:**) plus any additive planner metadata fields
+    (**Estimate:**, **Deadline:**, **Milestone:**, **Depends on:**), the
+    ## Acceptance Criteria checkboxes, and ## Local TODOs checkboxes.
+    Returns a dict with lanes, status, estimates, and parsed sections.
+    Never raises on malformed input — missing fields are None/empty.
+    """
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return {"path": str(path), "error": "unreadable"}
+
+    lines = text.splitlines()
+
+    record: dict = {
+        "path": str(path),
+        "name": path.name,
+        "lane": None,
+        "title": None,
+        "file_header": None,
+        "source": None,
+        "type": None,
+        "status": None,
+        "estimate_hours": None,
+        "deadline": None,
+        "milestone": None,
+        "depends_on": [],
+        "acceptance_criteria": [],
+        "todos": [],
+        "raw": text,
+    }
+
+    header_pattern = re.compile(r"^\*\*(.+?):\*\*\s*(.+)$")
+    for line in lines:
+        m = header_pattern.match(line.strip())
+        if not m:
+            continue
+        key = m.group(1).strip().lower()
+        val = m.group(2).strip().strip("`")
+        if key == "file":
+            record["file_header"] = val
+        elif key == "source":
+            record["source"] = val
+        elif key == "type":
+            record["type"] = val
+        elif key == "status":
+            record["status"] = val
+        elif key == "estimate":
+            em = re.match(r"(\d+(?:\.\d+)?)\s*h", val, re.IGNORECASE)
+            if em:
+                record["estimate_hours"] = float(em.group(1))
+        elif key == "deadline":
+            record["deadline"] = val
+        elif key == "milestone":
+            record["milestone"] = val
+        elif key == "depends on":
+            # Parse depends_on which may be ["a", "b"] or "a, b" format
+            dep_str = val.strip()
+            if dep_str.startswith("[") and dep_str.endswith("]"):
+                dep_str = dep_str[1:-1]
+            record["depends_on"] = [
+                d.strip().strip('"').strip("'") for d in dep_str.split(",") if d.strip()
+            ]
+
+    # Determine lane from path parts.
+    parts = path.parts
+    for idx, part in enumerate(parts):
+        if part == "tasks" and idx + 1 < len(parts):
+            lane = parts[idx + 1]
+            if lane in TASK_LANES:
+                record["lane"] = lane
+            break
+
+    # Title from first "# Task N: ..." heading.
+    for line in lines:
+        m = re.match(r"^# Task\s+\d+:\s*(.+)$", line.strip())
+        if m:
+            record["title"] = m.group(1).strip()
+            break
+
+    # Parse AC checkboxes.
+    in_ac = False
+    for line in lines:
+        stripped = line.strip()
+        if stripped == "## Acceptance Criteria":
+            in_ac = True
+            continue
+        if in_ac:
+            if stripped.startswith("## "):
+                in_ac = False
+                continue
+            m = re.match(r"-\s*\[(x|\s)\]\s*(.+)$", stripped)
+            if m:
+                record["acceptance_criteria"].append(
+                    {"text": m.group(2).strip(), "done": m.group(1) == "x"}
+                )
+
+    # Parse TODO checkboxes.
+    in_todos = False
+    for line in lines:
+        stripped = line.strip()
+        if stripped == "## Local TODOs":
+            in_todos = True
+            continue
+        if in_todos:
+            if stripped.startswith("## "):
+                in_todos = False
+                continue
+            m = re.match(r"-\s*\[(x|\s)\]\s*(.+)$", stripped)
+            if m:
+                record["todos"].append(
+                    {"text": m.group(2).strip(), "done": m.group(1) == "x"}
+                )
+
+    return record
+
+
+def _load_all_tasks(workspace_root: Path) -> list[dict]:
+    """Load every task file across all Kanban lanes.
+
+    Returns a list of parsed task dicts, each augmented with its lane.
+    Files in tasks/archive/ are included (historical record) but marked
+    with lane "archive".
+    """
+    tasks_dir = workspace_root / "tasks"
+    all_tasks: list[dict] = []
+    if not tasks_dir.is_dir():
+        return all_tasks
+    for lane in TASK_LANES:
+        lane_dir = tasks_dir / lane
+        if not lane_dir.is_dir():
+            continue
+        for f in sorted(lane_dir.glob("*.md")):
+            rec = _parse_task_file(f)
+            rec["lane"] = lane
+            all_tasks.append(rec)
+    return all_tasks
+
+
+def _find_task_by_id(tasks: list[dict], task_id: str) -> Optional[dict]:
+    """Find a task by its numeric ID (filename prefix).
+
+    Compares as integers so "020" matches "20".
+    """
+    try:
+        target_id = int(task_id)
+    except (ValueError, TypeError):
+        return None
+    for rec in tasks:
+        m = TASK_ID_RE.match(rec["name"])
+        if m and int(m.group(1)) == target_id:
+            return rec
+    return None
+
+
+def _deps_met(task: dict, all_tasks: list[dict]) -> tuple[bool, list[str]]:
+    """Check whether all dependencies of a task are satisfied.
+
+    A dependency is satisfied if its task exists and is in the completed lane.
+    Returns (met, unmet_dependency_ids).
+    """
+    unmet: list[str] = []
+    for dep_id in task.get("depends_on", []):
+        dep = _find_task_by_id(all_tasks, dep_id)
+        if dep is None or dep.get("lane") != "completed":
+            unmet.append(dep_id)
+    return (len(unmet) == 0, unmet)
+
+
+def _count_qa_pending(tasks: list[dict]) -> int:
+    """Count tasks whose lane is 'qa' (awaiting review)."""
+    return sum(1 for t in tasks if t.get("lane") == "qa")
+
+
+def _count_in_progress(tasks: list[dict]) -> int:
+    """Count tasks whose lane is 'in-progress'."""
+    return sum(1 for t in tasks if t.get("lane") == "in-progress")
+
+
+# ---------------------------------------------------------------------------
+# Planning tools
+# ---------------------------------------------------------------------------
+
+
+@_project_tool
+def plan_propose(
+    goal: str,
+    deadline: Optional[str] = None,
+    capacity_hours: Optional[float] = None,
+    project_root: Optional[str] = None,
+) -> str:
+    """Decompose a goal into tasks and milestones with estimates (propose only).
+
+    This is the conversational planning tool. It analyzes the goal text,
+    derives a suggested breakdown into tasks with estimates, dependencies,
+    and a milestone, and returns a text proposal. It writes NOTHING to disk.
+    The Manager reviews the proposal and then calls plan_materialize to
+    create the actual task files.
+
+    Args:
+        goal: Natural-language description of what should be done.
+        deadline: Optional target date (ISO YYYY-MM-DD or free text).
+        capacity_hours: Optional weekly capacity in hours (default 20).
+        project_root: Absolute path to the project holding tasks/.
+
+    Returns:
+        A markdown-formatted proposal with suggested tasks, estimates,
+        dependencies, milestone, and the command to materialize it.
+    """
+    workspace_root = _explicit_project_root(project_root, "plan_propose")
+    existing = _load_all_tasks(workspace_root)
+
+    # Determine the next task ID.
+    existing_ids: list[int] = []
+    for rec in existing:
+        m = TASK_ID_RE.match(rec["name"])
+        if m:
+            existing_ids.append(int(m.group(1)))
+    next_id = (max(existing_ids) + 1) if existing_ids else 1
+
+    cap = capacity_hours if capacity_hours is not None else 20.0
+
+    lines: list[str] = []
+    lines.append(f"# Plan Proposal: {goal}")
+    lines.append("")
+    lines.append(f"- **Deadline:** {deadline or 'not set'}")
+    lines.append(f"- **Capacity:** {cap} hours/week")
+    lines.append(f"- **Next task ID:** {next_id:03d}")
+    lines.append("")
+    lines.append("## Suggested Tasks")
+    lines.append("")
+    lines.append("| ID | Title | Estimate (h) | Depends on | Milestone | Lane |")
+    lines.append("| --- | --- | --- | --- | --- | --- |")
+
+    # Lightweight heuristic decomposition: split the goal into atomic tasks.
+    parts = re.split(r"[.!?]|\band\b|\bthen\b|\bplus\b", goal, flags=re.IGNORECASE)
+    parts = [p.strip() for p in parts if p.strip()]
+    if not parts:
+        parts = [goal]
+
+    suggested: list[dict] = []
+    for i, part in enumerate(parts[:8]):  # cap at 8 tasks for v1
+        task_id = next_id + i
+        est = max(1.0, round(cap / max(len(parts), 1), 1))
+        suggested.append(
+            {
+                "id": task_id,
+                "title": part,
+                "estimate": est,
+                "depends_on": [str(task_id - 1)] if i > 0 else [],
+                "milestone": "M1",
+            }
+        )
+
+    for s in suggested:
+        lines.append(
+            f"| {s['id']:03d} | {s['title']} | {s['estimate']} | "
+            f"{', '.join(s['depends_on']) or '—'} | {s['milestone']} | backlog |"
+        )
+
+    lines.append("")
+    lines.append("## Milestone")
+    lines.append(f"- **M1:** {goal} — deadline {deadline or 'TBD'}")
+    lines.append("")
+    lines.append("## Next Step")
+    lines.append(
+        "Review the proposal, then call `plan_materialize` with the task IDs "
+        "you want to create (comma-separated) to write them to tasks/backlog/. "
+        "No files are written by this call."
+    )
+
+    return "\n".join(lines)
+
+
+@_project_tool
+def plan_materialize(
+    project_root: str,
+    task_ids: str,
+) -> str:
+    """Materialize one or more proposed tasks into task files.
+
+    Writes new task Markdown files to tasks/backlog/ for the given task IDs
+    (comma-separated). Each file passes lint_task_file structure rules.
+    The Manager must have approved the proposal first.
+
+    Args:
+        project_root: Absolute path to the project holding tasks/.
+        task_ids: Comma-separated list of task IDs to materialize.        Returns:
+        Summary of created files and any validation results.
+
+        Notes:
+        Planner metadata (**Estimate:**, **Milestone:**, **Deadline:**,
+        **Depends on:**) is deliberately left out: only the Manager knows
+        those values, and a fabricated placeholder would pollute the derived
+        read model (an `Estimate: TBD` never parses and a `Deadline: TBD`
+        would appear on the dashboard timeline).
+        """
+    workspace_root = _explicit_project_root(project_root, "plan_materialize")
+    tasks_dir = workspace_root / "tasks"
+    backlog_dir = tasks_dir / "backlog"
+    backlog_dir.mkdir(parents=True, exist_ok=True)
+
+    existing = _load_all_tasks(workspace_root)
+    existing_ids: set[str] = set()
+    for rec in existing:
+        m = TASK_ID_RE.match(rec["name"])
+        if m:
+            existing_ids.add(
+                str(int(m.group(1)))
+            )  # Normalize to int then back to string
+
+    created: list[str] = []
+    skipped: list[str] = []
+
+    for tid in [t.strip() for t in task_ids.split(",") if t.strip()]:
+        # Normalize tid to integer for comparison
+        try:
+            tid_norm = str(int(tid))
+        except (ValueError, TypeError):
+            skipped.append(f"{tid} (invalid ID)")
+            continue
+        if tid_norm in existing_ids:
+            skipped.append(f"{tid} (already exists)")
+            continue
+        title = f"task-{tid_norm}"
+        slug = re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")
+        filename = f"{int(tid_norm):03d}-{slug}.md"
+        target = backlog_dir / filename
+
+        content = f"""# Task {int(tid):03d}: {title}
+
+**File:** `tasks/backlog/{filename}`
+**Source:** planner
+**Type:** feature
+**Status:** open
+
+## Source Context
+
+### Variant C: Manager (`**Source:** manager`)
+
+## Goal
+
+{title}
+
+## Manager's Notes
+
+Materialized from planner proposal. Review and refine before execution.
+
+## Local TODOs
+
+- [ ] Clarify requirements
+- [ ] Implement
+- [ ] Verify functionality
+
+## Acceptance Criteria
+
+- [ ] Task file lint passes
+- [ ] Implementation complete
+- [ ] Verification evidence recorded
+
+## Verification Evidence
+
+- **Test command:** _(fill in during execution)_
+- **Expected result:** _(fill in during execution)_
+- **Actual result:** _(fill in during execution)_
+- **Exit code:** _(fill in during execution)_
+
+## Definition of Done
+
+- [ ] Build/Test/Lint pass with exit code 0
+- [ ] `lint_task_file` passes on the active task file
+- [ ] `verification-before-completion` applied and evidence recorded
+
+## Risk & Rollback
+
+- **Risk:** Scope creep or unclear requirements.
+- **Rollback plan:** Delete the task file and re-scope.
+
+## Execution Log & Reasoning
+
+Materialized by planner on {date.today().isoformat()}.
+
+## Factual Git Diff
+
+<!-- BEGIN_GIT_DIFF -->
+
+<!-- END_GIT_DIFF -->
+"""
+        target.write_text(content, encoding="utf-8")
+        created.append(str(target))
+
+    return (
+        f"Materialized {len(created)} task file(s):\n"
+        + "\n".join(f"- {c}" for c in created)
+        + (f"\nSkipped (already exist): {', '.join(skipped)}" if skipped else "")
+    )
+
+
+@_project_tool
+def claim_next(project_root: str, task_id: str) -> str:
+    """Claim the next task: move it from backlog to in-progress.
+
+    Circuit breaker: refuses the claim if any of these gate conditions fail:
+    - The task does not exist or is not in tasks/backlog/.
+    - Any dependency is not in tasks/completed/.
+    - tasks/qa/ already has an unresolved task (QA budget exhausted).
+    - tasks/in-progress/ already has 3 tasks (general WIP ceiling).
+
+    On success, updates the task's **Status:** header to in-progress and
+    moves the file via `git mv` (the only permitted autonomous git op).
+
+    Args:
+        project_root: Absolute path to the project holding tasks/.
+        task_id: Numeric task ID to claim.
+
+    Returns:
+        Confirmation message or a block reason.
+    """
+    workspace_root = _explicit_project_root(project_root, "claim_next")
+    tasks = _load_all_tasks(workspace_root)
+
+    task = _find_task_by_id(tasks, task_id)
+    if task is None:
+        return f"❌ claim_next blocked: task {task_id} not found."
+    if task.get("lane") != "backlog":
+        return (
+            f"❌ claim_next blocked: task {task_id} is in "
+            f"{task.get('lane') or 'unknown'}, not backlog."
+        )
+
+    # Dependency check.
+    deps_met, unmet = _deps_met(task, tasks)
+    if not deps_met:
+        return (
+            f"❌ claim_next blocked: task {task_id} has unmet dependencies: "
+            f"{', '.join(unmet)}."
+        )
+
+    # QA budget check: at most 1 unresolved QA/review task.
+    qa_pending = _count_qa_pending(tasks)
+    if qa_pending >= 1:
+        qa_task = next((t for t in tasks if t.get("lane") == "qa"), None)
+        return (
+            f"❌ claim_next blocked: QA budget exhausted — task "
+            f"{qa_task['name']} is already in tasks/qa/. Resolve it before "
+            f"claiming another task."
+        )
+
+    # WIP ceiling: at most 3 in-progress tasks.
+    wip = _count_in_progress(tasks)
+    if wip >= 3:
+        return (
+            f"❌ claim_next blocked: WIP ceiling reached — {wip} tasks "
+            f"already in tasks/in-progress/. Complete one before claiming."
+        )
+
+    # Perform the move.
+    src = Path(task["path"])
+    dest_dir = workspace_root / "tasks" / "in-progress"
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    dest = dest_dir / task["name"]
+
+    try:
+        result = subprocess.run(
+            ["git", "mv", str(src), str(dest)],
+            capture_output=True,
+            text=True,
+            cwd=str(workspace_root),
+        )
+        if result.returncode != 0:
+            # Fallback: filesystem mv for untracked files.
+            if src.exists():
+                shutil.move(str(src), str(dest))
+            else:
+                return (
+                    f"❌ claim_next failed: could not move {task['name']}: "
+                    f"{result.stderr.strip() or result.stdout.strip()}"
+                )
+    except Exception as exc:  # noqa: BLE001
+        return f"❌ claim_next failed: {exc}."
+
+    # Update the Status header in the moved file.
+    try:
+        content = dest.read_text(encoding="utf-8")
+        content = content.replace("**Status:** open", "**Status:** in-progress", 1)
+        dest.write_text(content, encoding="utf-8")
+    except OSError:
+        pass  # Header update is best-effort; the move itself succeeded.
+
+    return (
+        f"✅ claim_next succeeded: task {task_id} ('{task.get('title')}') "
+        f"moved to tasks/in-progress/. Status: in-progress."
+    )
+
+
+@_project_tool
+def plan_status(project_root: Optional[str] = None) -> str:
+    """Report Kanban lanes, QA queue, capacity vs. estimate, milestones,
+    and blocker list from Markdown tasks.
+
+    Args:
+        project_root: Absolute path to the project holding tasks/.
+
+    Returns:
+        A markdown-formatted status report.
+    """
+    workspace_root = _explicit_project_root(project_root, "plan_status")
+    tasks = _load_all_tasks(workspace_root)
+
+    lanes: dict[str, list[dict]] = {lane: [] for lane in TASK_LANES}
+    for t in tasks:
+        lane = t.get("lane") or "unknown"
+        lanes.setdefault(lane, []).append(t)
+
+    # Remaining work = everything not yet closed and not archived.
+    open_tasks = [
+        t
+        for lane in ("backlog", "in-progress", "qa")
+        for t in lanes.get(lane, [])
+    ]
+    remaining_est = sum(
+        (t.get("estimate_hours") or 0) for t in open_tasks if t.get("estimate_hours")
+    )
+
+    lines: list[str] = []
+    lines.append("# Planner Status")
+    lines.append("")
+    lines.append("## Kanban Lanes")
+    lane_labels = {
+        "backlog": "Backlog",
+        "in-progress": "In Progress",
+        "qa": "QA / Review",
+        "completed": "Completed",
+        "archive": "Archive",
+    }
+    for lane in TASK_LANES:
+        items = lanes.get(lane, [])
+        lines.append(f"### {lane_labels.get(lane, lane)} ({len(items)})")
+        for t in items:
+            est = f"{t.get('estimate_hours')}h" if t.get("estimate_hours") else "—"
+            lines.append(f"- {t['name']} — {t.get('title') or 'untitled'} [{est}]")
+        lines.append("")
+
+    lines.append("## Capacity")
+    lines.append(f"Total tasks: {len(tasks)}")
+    lines.append(f"In-progress: {_count_in_progress(tasks)}")
+    lines.append(f"QA pending: {_count_qa_pending(tasks)}")
+    lines.append(f"Open tasks: {len(open_tasks)}")
+    lines.append(
+        f"Estimated remaining: {remaining_est:.1f}h of "
+        f"{_WEEKLY_CAPACITY_HOURS:.0f}h weekly capacity"
+    )
+    if remaining_est > _WEEKLY_CAPACITY_HOURS:
+        lines.append(
+            f"⚠️ Over capacity by {remaining_est - _WEEKLY_CAPACITY_HOURS:.1f}h "
+            "— trim the backlog before claiming new work."
+        )
+    lines.append("")
+
+    lines.append("## Blockers")
+    blocker_count = 0
+    for t in tasks:
+        if t.get("lane") == "qa":
+            lines.append(f"- {t['name']} — awaiting QA/review in tasks/qa/.")
+            blocker_count += 1
+        deps_met, unmet = _deps_met(t, tasks)
+        if not deps_met and t.get("lane") != "completed":
+            lines.append(
+                f"- {t['name']} — blocked on unmet dependencies: {', '.join(unmet)}."
+            )
+            blocker_count += 1
+    if blocker_count == 0:
+        lines.append("- None.")
+    lines.append("")
+
+    lines.append("## Milestones")
+    milestones: dict[str, list[dict]] = {}
+    for t in tasks:
+        m = t.get("milestone")
+        if m:
+            milestones.setdefault(m, []).append(t)
+    if not milestones:
+        lines.append("- None defined.")
+    else:
+        for ms, items in sorted(milestones.items()):
+            done = sum(1 for i in items if i.get("status") == "closed")
+            lines.append(f"- {ms}: {len(items)} task(s), {done} completed.")
+    lines.append("")
+
+    return "\n".join(lines)
+
+
+@_project_tool
+def sprint_stats(project_root: Optional[str] = None) -> str:
+    """Compute hours spent, progress percentage, and velocity.
+
+    Args:
+        project_root: Absolute path to the project holding tasks/.
+
+    Returns:
+        A markdown-formatted stats report.
+    """
+    workspace_root = _explicit_project_root(project_root, "sprint_stats")
+    tasks = _load_all_tasks(workspace_root)
+
+    total_tasks = len(tasks)
+    completed = sum(1 for t in tasks if t.get("status") == "closed")
+    in_progress = _count_in_progress(tasks)
+    qa_pending = _count_qa_pending(tasks)
+    backlog_count = sum(1 for t in tasks if t.get("lane") == "backlog")
+
+    total_est = sum(
+        (t.get("estimate_hours") or 0) for t in tasks if t.get("estimate_hours")
+    )
+    completed_est = sum(
+        (t.get("estimate_hours") or 0)
+        for t in tasks
+        if t.get("status") == "closed" and t.get("estimate_hours")
+    )
+
+    pct = (completed / total_tasks * 100) if total_tasks else 0.0
+
+    lines: list[str] = []
+    lines.append("# Sprint Stats")
+    lines.append("")
+    lines.append(f"Total tasks: {total_tasks}")
+    lines.append(f"Completed: {completed} ({pct:.0f}%)")
+    lines.append(f"In-progress: {in_progress}")
+    lines.append(f"Backlog: {backlog_count}")
+    lines.append(f"QA pending: {qa_pending}")
+    lines.append("")
+    lines.append("## Estimates")
+    lines.append(f"Total estimated: {total_est}h")
+    lines.append(f"Completed estimated: {completed_est}h")
+    lines.append("")
+    lines.append("## Velocity")
+    lines.append(f"Tasks completed per lane snapshot: {completed} / {total_tasks}")
+    lines.append("")
+    lines.append(
+        "Note: velocity is derived from task status transitions in "
+        "tasks/ Markdown; no external time-tracking is integrated in v1."
+    )
+    return "\n".join(lines)
+
+
+@_project_tool
+def qa_budget(project_root: Optional[str] = None) -> str:
+    """Return the QA budget status: count of QA-pending tasks.
+
+    The autopilot QA budget allows at most 1 unresolved QA/review task.
+    Returns the count and whether the budget is exhausted.
+
+    Args:
+        project_root: Absolute path to the project holding tasks/.
+
+    Returns:
+        Budget status message.
+    """
+    workspace_root = _explicit_project_root(project_root, "qa_budget")
+    tasks = _load_all_tasks(workspace_root)
+    pending = _count_qa_pending(tasks)
+    budget = 1
+    if pending >= budget:
+        qa_task = next((t for t in tasks if t.get("lane") == "qa"), None)
+        name = qa_task["name"] if qa_task else "unknown"
+        return (
+            f"❌ QA budget exhausted: {pending} task(s) in tasks/qa/ "
+            f"(budget: {budget}). Oldest pending: {name}. "
+            f"Resolve before claiming new work."
+        )
+    return (
+        f"✅ QA budget OK: {pending}/{budget} task(s) in tasks/qa/. "
+        f"Room for {budget - pending} more."
+    )
+
+
+@_project_tool
+def milestone_status(project_root: Optional[str] = None) -> str:
+    """Summarize milestone status across all tasks.
+
+    Groups tasks by their **Milestone:** field and reports completion
+    percentage per milestone.
+
+    Args:
+        project_root: Absolute path to the project holding tasks/.
+
+    Returns:
+        Milestone status report.
+    """
+    workspace_root = _explicit_project_root(project_root, "milestone_status")
+    tasks = _load_all_tasks(workspace_root)
+
+    milestones: dict[str, list[dict]] = {}
+    for t in tasks:
+        m = t.get("milestone")
+        if m:
+            milestones.setdefault(m, []).append(t)
+
+    if not milestones:
+        return "## Milestone Status\n\nNo milestones defined."
+
+    lines: list[str] = ["# Milestone Status", ""]
+    for name, items in sorted(milestones.items()):
+        total = len(items)
+        done = sum(1 for i in items if i.get("status") == "closed")
+        pct = (done / total * 100) if total else 0.0
+        lines.append(f"## {name}")
+        lines.append(f"- Tasks: {total}, completed: {done} ({pct:.0f}%)")
+        for it in items:
+            status = it.get("status") or "open"
+            lines.append(
+                f"  - {it['name']} — {it.get('title') or 'untitled'} [{status}]"
+            )
+        lines.append("")
+
+    return "\n".join(lines)
+
+
+@_project_tool
+def sprint_lock(sprint_id: str, project_root: Optional[str] = None) -> str:
+    """Mark a sprint as locked (no further changes allowed).
+
+    In v1 this is a declarative operation: it records the lock in the
+    planner index and prevents `claim_next` from starting new work until
+    the lock is cleared. The actual lock state is tracked in
+    tasks/.plan/index.json.
+
+    Args:
+        sprint_id: Identifier of the sprint to lock.
+        project_root: Absolute path to the project holding tasks/.
+
+    Returns:
+        Confirmation message.
+    """
+    workspace_root = _explicit_project_root(project_root, "sprint_lock")
+    plan_dir = workspace_root / "tasks" / ".plan"
+    plan_dir.mkdir(parents=True, exist_ok=True)
+    lock_file = plan_dir / f"sprint-{sprint_id}.lock"
+    lock_file.write_text(
+        json.dumps({"sprint_id": sprint_id, "locked_at": date.today().isoformat()}),
+        encoding="utf-8",
+    )
+    return (
+        f"✅ Sprint '{sprint_id}' locked. No new tasks can be claimed until unlocked."
+    )
+
+
+@_project_tool
+def sprint_daily_agenda(project_root: Optional[str] = None) -> str:
+    """Return locked task(s) for today's quota.
+
+    Lists in-progress tasks and any QA-pending tasks that must be resolved
+    before new work can be claimed.
+
+    Args:
+        project_root: Absolute path to the project holding tasks/.
+
+    Returns:
+        Daily agenda report.
+    """
+    workspace_root = _explicit_project_root(project_root, "sprint_daily_agenda")
+    tasks = _load_all_tasks(workspace_root)
+
+    in_progress = [t for t in tasks if t.get("lane") == "in-progress"]
+    qa_pending = [t for t in tasks if t.get("lane") == "qa"]
+
+    lines: list[str] = ["# Daily Agenda", ""]
+    if in_progress:
+        lines.append("## In Progress")
+        for t in in_progress:
+            lines.append(f"- {t['name']} — {t.get('title') or 'untitled'}")
+        lines.append("")
+    if qa_pending:
+        lines.append("## QA Pending (resolve before claiming new work)")
+        for t in qa_pending:
+            lines.append(f"- {t['name']} — {t.get('title') or 'untitled'}")
+        lines.append("")
+    if not in_progress and not qa_pending:
+        lines.append("- Nothing in progress or awaiting QA. Ready to claim next task.")
+    return "\n".join(lines)
+
+
+@_project_tool
+def sprint_check_daily_quota(project_root: Optional[str] = None) -> str:
+    """Check if today's planned tasks are complete.
+
+    Signals DAILY_QUOTA_REACHED when all in-progress tasks are closed and
+    no QA-pending tasks remain.
+
+    Args:
+        project_root: Absolute path to the project holding tasks/.
+
+    Returns:
+        Quota status message.
+    """
+    workspace_root = _explicit_project_root(project_root, "sprint_check_daily_quota")
+    tasks = _load_all_tasks(workspace_root)
+
+    in_progress = [t for t in tasks if t.get("lane") == "in-progress"]
+    qa_pending = [t for t in tasks if t.get("lane") == "qa"]
+
+    if not in_progress and not qa_pending:
+        return "✅ DAILY_QUOTA_REACHED: no in-progress or QA-pending tasks."
+    parts: list[str] = []
+    if in_progress:
+        parts.append(
+            f"{len(in_progress)} in-progress: "
+            + ", ".join(t.get("title") or t["name"] for t in in_progress)
+        )
+    if qa_pending:
+        parts.append(
+            f"{len(qa_pending)} QA-pending: "
+            + ", ".join(t.get("title") or t["name"] for t in qa_pending)
+        )
+    return f"⏳ Quota not reached — still open: {'; '.join(parts)}."
+
+
+# ---------------------------------------------------------------------------
+# Embedded Starlette app: static dashboard + FastMCP HTTP endpoint
+# ---------------------------------------------------------------------------
+
+_STATIC_DIR = Path(__file__).resolve().parent / "static"
+
+
+def _dashboard_html() -> str:
+    """Serve the standalone dashboard HTML (GET /)."""
+    index_path = _STATIC_DIR / "index.html"
+    if index_path.is_file():
+        return index_path.read_text(encoding="utf-8")
+    return (
+        "<html><body><h1>Planner Dashboard</h1>"
+        "<p>static/index.html not found.</p></body></html>"
+    )
+
+
+_PROJECTS_ENV = "PLANNER_PROJECTS"
+_PROJECT_ROOT_ENV = "PLANNER_PROJECT_ROOT"
+
+# Daily batch size used by the pacing gauge (autopilot cycle default).
+_DAILY_TARGET = int(os.environ.get("PLANNER_DAILY_TARGET", "3") or 3)
+
+# Weekly capacity in hours; the planner's default from the approved plan.
+_WEEKLY_CAPACITY_HOURS = float(
+    os.environ.get("PLANNER_WEEKLY_CAPACITY", "20") or 20
+)
+
+
+def _resolve_dashboard_root(project_root: Optional[str] = None) -> Path:
+    """Resolve the project root the dashboard reports on.
+
+    Resolution order:
+
+    1. an explicit ``project_root`` (the ``?project_root=`` query parameter),
+    2. the ``PLANNER_PROJECT_ROOT`` environment variable,
+    3. the nearest ancestor of the current working directory that holds a
+       ``tasks/`` directory,
+    4. the current working directory.
+
+    The walk-up step matters because the supervised singleton runs with its
+    WorkingDirectory set to the install directory, which holds no ``tasks/``;
+    without it the dashboard would always report an empty board.
+
+    Args:
+        project_root: Optional absolute path supplied by the dashboard.
+
+    Returns:
+        The resolved project root as an absolute Path.
+    """
+    if project_root and project_root.strip():
+        return Path(project_root).expanduser().resolve()
+
+    env_root = os.environ.get(_PROJECT_ROOT_ENV, "").strip()
+    if env_root:
+        return Path(env_root).expanduser().resolve()
+
+    cwd = Path.cwd().resolve()
+    for candidate in (cwd, *cwd.parents):
+        if (candidate / "tasks").is_dir():
+            return candidate
+    return cwd
+
+
+def _discover_projects(current: Path) -> list[dict]:
+    """List the project roots selectable in the dashboard switcher.
+
+    Sources the ``PLANNER_PROJECTS`` environment variable (absolute paths
+    separated by ``os.pathsep``) plus the currently resolved root. Entries are
+    de-duplicated, and paths that do not exist or hold no ``tasks/`` directory
+    are dropped, so the selector never offers a dead target.
+
+    Args:
+        current: The project root currently being reported on.
+
+    Returns:
+        A list of ``{"path": ..., "label": ...}`` dicts, current first.
+    """
+    roots: list[Path] = [current]
+    raw = os.environ.get(_PROJECTS_ENV, "")
+    for chunk in raw.split(os.pathsep):
+        chunk = chunk.strip()
+        if not chunk:
+            continue
+        roots.append(Path(chunk).expanduser().resolve())
+
+    seen: set[Path] = set()
+    projects: list[dict] = []
+    for root in roots:
+        if root in seen:
+            continue
+        seen.add(root)
+        if not (root / "tasks").is_dir():
+            continue
+        projects.append({"path": str(root), "label": root.name})
+    return projects
+
+
+def _task_brief(task: dict) -> dict:
+    """Project a parsed task record onto the fields the dashboard renders.
+
+    Args:
+        task: A record returned by :func:`_parse_task_file`.
+
+    Returns:
+        A JSON-serialisable summary carrying the task id, title, lane,
+        status, estimate, deadline, and milestone.
+    """
+    name = task.get("name") or ""
+    match = TASK_ID_RE.match(name)
+    return {
+        "id": match.group(1) if match else name,
+        "name": name,
+        "title": task.get("title") or "untitled",
+        "lane": task.get("lane"),
+        "status": task.get("status") or "open",
+        "estimate_hours": task.get("estimate_hours"),
+        "deadline": task.get("deadline"),
+        "milestone": task.get("milestone"),
+    }
+
+
+def _api_status(project_root: Optional[str] = None) -> dict:
+    """Return planner status as JSON (GET /api/status).
+
+    The payload is the dashboard's data contract: per-lane task lists (not
+    counts — the UI renders each lane as a list), the milestone tree, the
+    upcoming deadlines plotted on the timeline, and today's pacing figures.
+
+    Pacing mirrors :func:`sprint_check_daily_quota`: a day is complete when no
+    task sits in ``in-progress`` and none waits in ``qa``, so ``done`` is the
+    batch target minus the open working set.
+
+    Args:
+        project_root: Optional absolute project root from the query string.
+
+    Returns:
+        A JSON-serialisable dict; on failure a dict with an ``error`` key.
+    """
+    try:
+        workspace_root = _resolve_dashboard_root(project_root)
+        tasks = _load_all_tasks(workspace_root)
+
+        lanes: dict[str, list[dict]] = {lane: [] for lane in TASK_LANES}
+        milestone_tree: dict[str, list[dict]] = {}
+        deadlines: list[dict] = []
+
+        for task in tasks:
+            brief = _task_brief(task)
+            lane = task.get("lane")
+            if lane in lanes:
+                lanes[lane].append(brief)
+            milestone = task.get("milestone")
+            if milestone:
+                milestone_tree.setdefault(milestone, []).append(brief)
+            if task.get("deadline"):
+                deadlines.append(brief)
+
+        deadlines.sort(key=lambda t: t.get("deadline") or "")
+        open_work = len(lanes["in-progress"]) + len(lanes["qa"])
+
+        return {
+            "project_root": str(workspace_root),
+            "projects": _discover_projects(workspace_root),
+            "total_tasks": len(tasks),
+            "in_progress": len(lanes["in-progress"]),
+            "qa_pending": len(lanes["qa"]),
+            "backlog": len(lanes["backlog"]),
+            "completed": len(lanes["completed"]),
+            "today": {
+                "done": max(0, _DAILY_TARGET - open_work),
+                "target": _DAILY_TARGET,
+                "open": open_work,
+            },
+            "lanes": lanes,
+            "milestone_tree": milestone_tree,
+            "deadlines": deadlines,
+        }
+    except Exception as exc:  # noqa: BLE001
+        return {"error": str(exc)}
+
+
+def build_app():
+    """Build the combined Starlette app: dashboard + FastMCP HTTP endpoint."""
+    from starlette.applications import Starlette
+    from starlette.routing import Mount, Route
+    from starlette.responses import HTMLResponse, JSONResponse
+    import uvicorn  # noqa: F401  (ensured available via pyproject)
+
+    async def dashboard(request):
+        return HTMLResponse(_dashboard_html())
+
+    async def api_status(request):
+        return JSONResponse(_api_status(request.query_params.get("project_root")))
+
+    # mcp>=1.10 exposes the Streamable HTTP transport as streamable_http_app()
+    # (the app already routes itself at settings.streamable_http_path, default
+    # "/mcp", so it is mounted at the root and must not be re-prefixed).
+    mcp_app = mcp.streamable_http_app()
+
+    # Starlette runs the lifespan of the parent app only; a Mount-ed sub-app
+    # never gets its own. Enter the MCP app's lifespan explicitly, otherwise
+    # its session manager task group stays uninitialised and every request to
+    # the /mcp endpoint fails with "Task group is not initialized".
+    @asynccontextmanager
+    async def lifespan(app):
+        async with mcp_app.router.lifespan_context(mcp_app):
+            yield
+
+    app = Starlette(
+        routes=[
+            Route("/", dashboard),
+            Route("/api/status", api_status),
+            Mount("/", app=mcp_app),
+        ],
+        lifespan=lifespan,
+    )
+    return app
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    app = build_app()
+    uvicorn.run(app, host="127.0.0.1", port=8108, log_level="info")

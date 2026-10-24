@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Planner MCP — Local Dashboard</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0f172a;
+    --panel: #1e293b;
+    --panel-hover: #334155;
+    --text: #f8fafc;
+    --muted: #94a3b8;
+    --accent: #38bdf8;
+    --accent-hover: #7dd3fc;
+    --success: #22c55e;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+    --border: #334155;
+  }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background: var(--bg); color: var(--text); line-height: 1.5; }
+  .container { max-width: 1200px; margin: 0 auto; padding: 24px; }
+  header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
+  .brand { font-size: 1.25rem; font-weight: 700; display: flex; align-items: center; gap: 10px; }
+  .brand .dot { width: 8px; height: 8px; background: var(--success); border-radius: 50%; }
+  .status-chip { display: inline-flex; align-items: center; gap: 6px; font-size: 0.875rem; background: var(--panel); border: 1px solid var(--border); padding: 4px 10px; border-radius: 20px; color: var(--muted); }
+  .status-chip.ok { color: var(--success); border-color: var(--success); }
+  .status-chip.err { color: var(--danger); border-color: var(--danger); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin-bottom: 24px; }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+  .card h3 { font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin-bottom: 12px; }
+  .big { font-size: 2.5rem; font-weight: 700; margin-bottom: 4px; }
+  .sub { font-size: 0.875rem; color: var(--muted); }
+  .gauge { height: 10px; background: #334155; border-radius: 5px; overflow: hidden; margin-top: 8px; }
+  .gauge-bar { height: 100%; background: linear-gradient(90deg, var(--accent), #818cf8); border-radius: 5px; transition: width 0.3s ease; }
+  .section { margin-bottom: 28px; }
+  .section h2 { font-size: 1rem; color: var(--muted); margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+  .section h2 .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+  table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+  th { text-align: left; color: var(--muted); padding: 8px 10px; border-bottom: 1px solid var(--border); font-weight: 600; }
+  td { padding: 8px 10px; border-bottom: 1px solid #334155; }
+  tr:hover { background: #1e293b; }
+  .lane-chip { display: inline-block; font-size: 0.75rem; padding: 2px 8px; border-radius: 10px; font-weight: 700; }
+  .lane-backlog { background: #1e1b4b; color: #c7d2fe; }
+  .lane-in-progress { background: #1c1917; color: #fed7aa; }
+  .lane-qa { background: #451a03; color: #fdba74; }
+  .lane-completed { background: #14532d; color: #bbf7d0; }
+  .lane-archive { background: #3f3f46; color: #a1a1aa; }
+  .tree { padding-left: 20px; border-left: 2px solid var(--border); }
+  .tree-node { margin: 6px 0; display: flex; align-items: center; gap: 8px; }
+  .tree-node .arrow { font-size: 0.75rem; color: var(--muted); cursor: pointer; user-select: none; }
+  .tree-node.collapsed .arrow { transform: rotate(-90deg); }
+  .tree-node.collapsed .children { display: none; }
+  .calendar { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+  .cal-day { text-align: center; padding: 8px 4px; font-size: 0.75rem; border-radius: 6px; background: var(--panel); }
+  .cal-day.header { font-weight: 600; color: var(--muted); background: transparent; }
+  .cal-day.today { background: var(--accent); color: #000; font-weight: 700; }
+  .cal-day.has-task { border: 1px solid var(--accent); }
+  .cal-day.has-deadline { background: rgba(239, 68, 68, 0.2); color: var(--danger); }
+  .cal-day.has-due { background: rgba(239, 68, 68, 0.2); color: var(--danger); position: relative; }
+  .due-badge { font-size: 0.6rem; line-height: 1; margin-top: 2px; }
+  .refresh-btn { background: var(--accent); color: #000; border: none; padding: 6px 14px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 0.875rem; }
+  .refresh-btn:hover { background: var(--accent-hover); }
+  .refresh-btn:loading { opacity: 0.6; cursor: not-allowed; }
+  .empty { color: var(--muted); font-style: italic; padding: 20px; text-align: center; }
+  .project-switcher { display: flex; align-items: center; gap: 10px; }
+  .project-switcher select { background: var(--panel); border: 1px solid var(--border); color: var(--text); padding: 4px 10px; border-radius: 6px; font-size: 0.875rem; }
+  .pacing { display: flex; align-items: center; gap: 12px; }
+  .pacing .label { font-size: 0.875rem; color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <div class="brand"><div class="dot"></div> Planner MCP</div>
+    <div class="status-chip" id="status-chip"><span class="dot" id="status-dot"></span><span id="status-text">Loading…</span></div>
+  </header>
+
+  <div class="grid">
+    <div class="card">
+      <h3>Total Tasks</h3>
+      <div class="big" id="stat-total">—</div>
+      <div class="sub">across all lanes</div>
+    </div>
+    <div class="card">
+      <h3>In Progress</h3>
+      <div class="big" id="stat-inprogress">—</div>
+      <div class="sub">active work</div>
+    </div>
+    <div class="card">
+      <h3>QA Pending</h3>
+      <div class="big" id="stat-qa">—</div>
+      <div class="sub">awaiting review</div>
+    </div>
+    <div class="card">
+      <h3>Completed</h3>
+      <div class="big" id="stat-completed">—</div>
+      <div class="sub">closed tasks</div>
+    </div>
+  </div>
+
+  <div class="section pacing">
+    <h2><span class="dot"></span> Daily Pacing Gauge</h2>
+    <div class="pacing"><span class="label">Today's Work:</span> <span id="pacing-text" class="big">—</span></div>
+    <div class="gauge"><div class="gauge-bar" id="gauge-bar" style="width: 0%"></div></div>
+    <div class="sub" id="pacing-sub">Fetching status…</div>
+  </div>
+
+  <div class="section">
+    <div class="project-switcher">
+      <label for="project-select" style="font-size:0.875rem;color:var(--muted);">Project:</label>
+      <select id="project-select"></select>
+    </div>
+    <button class="refresh-btn" id="refresh-btn">Refresh</button>
+  </div>
+
+  <div class="section">
+    <h2><span class="dot"></span> Kanban Lanes</h2>
+    <div class="grid" id="lanes-grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));"></div>
+  </div>
+
+  <div class="section">
+    <h2><span class="dot"></span> Milestone Tree</h2>
+    <div id="milestone-tree" class="tree"></div>
+  </div>
+
+  <div class="section">
+    <h2><span class="dot"></span> Timeline (Gregorian + Jalali)</h2>
+    <div id="timeline" class="calendar"></div>
+  </div>
+</div>
+
+<script>
+(function() {
+  const BASE_STATUS_URL = window.location.pathname.endsWith('/') ? window.location.href + 'api/status' : window.location.origin + '/api/status';
+  let currentProject = '';
+  const elements = {
+    total: document.getElementById('stat-total'),
+    inprogress: document.getElementById('stat-inprogress'),
+    qa: document.getElementById('stat-qa'),
+    completed: document.getElementById('stat-completed'),
+    statusChip: document.getElementById('status-chip'),
+    statusText: document.getElementById('status-text'),
+    statusDot: document.getElementById('status-dot'),
+    lanesGrid: document.getElementById('lanes-grid'),
+    milestoneTree: document.getElementById('milestone-tree'),
+    timeline: document.getElementById('timeline'),
+    pacingText: document.getElementById('pacing-text'),
+    pacingSub: document.getElementById('pacing-sub'),
+    gaugeBar: document.getElementById('gauge-bar'),
+    refreshBtn: document.getElementById('refresh-btn'),
+    projectSelect: document.getElementById('project-select'),
+  };
+
+  // Jalali (Solar Hijri) calendar conversion (algorithm by M. Amin)
+  function toJalali(gy, gm, gd) {
+    const g_d_m = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
+    let gy2 = (gm > 2) ? gy + 1 : gy;
+    let days = 355666 + (365 * gy2) + ((gy2 + 3) >> 2) - ((gy2 + 99) >> 2) + ((gy2 + 400) >> 2) + g_d_m[gm - 1] + gd - 1;
+    let jy = -1595 + (33 * Math.floor(days / 12053));
+    days %= 12053;
+    jy += 4 * Math.floor(days / 1461);
+    days %= 1461;
+    if (days > 365) {
+      jy += Math.floor((days - 1) / 365);
+      days = (days - 1) % 365;
+    }
+    let jm = (days < 186) ? 1 + Math.floor(days / 31) : 7 + Math.floor((days - 186) / 30);
+    let jd = 1 + ((days < 186) ? (days % 31) : ((days - 186) % 30));
+    return [jy, jm, jd];
+  }
+
+  function formatJalali(d) {
+    const j = toJalali(d.getFullYear(), d.getMonth() + 1, d.getDate());
+    const months = ['Farvardin','Ordibehesht','Khordad','Tir','Mordad','Shahrivar','Mehr','Aban','Azar','Dey','Bahman','Esfand'];
+    return `${j[2]} ${months[j[1]-1]} ${j[0]}`;
+  }
+
+  function statusUrl() {
+    return currentProject
+      ? `${BASE_STATUS_URL}?project_root=${encodeURIComponent(currentProject)}`
+      : BASE_STATUS_URL;
+  }
+
+  async function fetchStatus() {
+    try {
+      const resp = await fetch(statusUrl(), { cache: 'no-cache' });
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const data = await resp.json();
+      render(data);
+      elements.statusChip.className = 'status-chip ok';
+      elements.statusText.textContent = 'Server reachable';
+      elements.statusDot.className = 'dot';
+    } catch (err) {
+      elements.statusChip.className = 'status-chip err';
+      elements.statusText.textContent = `Server unreachable: ${err.message}`;
+      elements.statusDot.className = 'dot';
+    }
+  }
+
+  function render(data) {
+    if (data.error) {
+      elements.statusChip.className = 'status-chip err';
+      elements.statusText.textContent = `Error: ${data.error}`;
+      return;
+    }
+
+    const total = data.total_tasks || 0;
+    const inProgress = data.in_progress || 0;
+    const qaPending = data.qa_pending || 0;
+    const completed = data.completed || 0;
+    const backlog = data.backlog || 0;
+
+    elements.total.textContent = total;
+    elements.inprogress.textContent = inProgress;
+    elements.qa.textContent = qaPending;
+    elements.completed.textContent = completed;
+
+    // Pacing gauge (server computes done/target from the open working set)
+    const today = data.today || { done: 0, target: 3, open: 0 };
+    const pct = Math.min(100, Math.round((today.done / today.target) * 100));
+    elements.pacingText.textContent = `${today.done}/${today.target}`;
+    elements.gaugeBar.style.width = `${pct}%`;
+    elements.pacingSub.textContent = qaPending > 0
+      ? `${qaPending} task(s) awaiting QA — claim paused`
+      : (today.open > 0 ? `${today.open} task(s) still open today` : 'Quota reached');
+
+    // Project selector
+    const projects = data.projects || [];
+    if (projects.length) {
+      elements.projectSelect.innerHTML = projects.map(p =>
+        `<option value="${p.path}"${p.path === data.project_root ? ' selected' : ''}>${p.label}</option>`
+      ).join('');
+      currentProject = data.project_root || projects[0].path;
+    }
+
+    // Lanes
+    const lanes = data.lanes || {};
+    elements.lanesGrid.innerHTML = '';
+    const laneOrder = ['backlog', 'in-progress', 'qa', 'completed', 'archive'];
+    const laneLabels = { backlog: 'Backlog', 'in-progress': 'In Progress', qa: 'QA / Review', completed: 'Completed', archive: 'Archive' };
+    laneOrder.forEach(lane => {
+      const items = lanes[lane] || [];
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.innerHTML = `
+        <h3>${laneLabels[lane] || lane} <span class="lane-chip lane-${lane}">${items.length}</span></h3>
+        ${items.length === 0 ? '<div class="empty">—</div>' : items.map(t => `
+          <div style="padding:6px 0; border-bottom:1px solid #334155; font-size:0.875rem;">
+            <strong>${t.id || t.name || 'task'}</strong> — ${t.title || 'untitled'}
+            ${t.estimate_hours != null ? `<span style="color:var(--muted); font-size:0.75rem;"> ${t.estimate_hours}h</span>` : ''}
+          </div>
+        `).join('')}
+      `;
+      elements.lanesGrid.appendChild(card);
+    });
+
+    // Milestone tree
+    const tree = data.milestone_tree || {};
+    elements.milestoneTree.innerHTML = '';
+    if (!tree || Object.keys(tree).length === 0) {
+      elements.milestoneTree.innerHTML = '<div class="empty">No milestones defined.</div>';
+    } else {
+      Object.entries(tree).forEach(([ms, items]) => {
+        const node = document.createElement('div');
+        node.className = 'tree-node';
+        const done = items.filter(i => i.status === 'closed').length;
+        node.innerHTML = `
+          <span class="arrow">▾</span>
+          <strong>${ms}</strong> <span style="color:var(--muted); font-size:0.875rem;">(${done}/${items.length})</span>
+          <div class="children tree-node" style="margin-left:18px;">
+            ${items.map(i => `<div style="font-size:0.875rem; padding:2px 0;">• ${i.title || i.name || 'untitled'} [${i.status || 'open'}]</div>`).join('')}
+          </div>
+        `;
+        node.querySelector('.arrow').onclick = () => {
+          const children = node.querySelector('.children');
+          children.style.display = children.style.display === 'none' ? 'block' : 'none';
+          node.querySelector('.arrow').textContent = children.style.display === 'none' ? '▾' : '▸';
+        };
+        elements.milestoneTree.appendChild(node);
+      });
+    }
+
+    // Timeline
+    const now = new Date();
+    elements.timeline.innerHTML = '';
+    const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].forEach(dn => {
+      const div = document.createElement('div');
+      div.className = 'cal-day header';
+      div.textContent = dn;
+      elements.timeline.appendChild(div);
+    });
+    // Next 14 days, with due deadlines annotated per day
+    const byDay = {};
+    (data.deadlines || []).forEach(t => {
+      const key = t.deadline;
+      (byDay[key] = byDay[key] || []).push(t);
+    });
+    for (let i = 0; i < 14; i++) {
+      const d = new Date();
+      d.setDate(now.getDate() + i);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      const due = byDay[key] || [];
+      const div = document.createElement('div');
+      div.className = 'cal-day';
+      if (i === 0) div.classList.add('today');
+      if (due.length) div.classList.add('has-due');
+      div.textContent = d.getDate();
+      div.title = `${formatJalali(d)} — ${due.length ? due.map(t => t.title).join(', ') : 'no deadlines'}`;
+      if (due.length) {
+        const badge = document.createElement('div');
+        badge.className = 'due-badge';
+        badge.textContent = `●${due.length}`;
+        div.appendChild(badge);
+      }
+      elements.timeline.appendChild(div);
+    }
+  }
+
+  elements.refreshBtn.addEventListener('click', () => {
+    elements.refreshBtn.textContent = '…';
+    fetchStatus().then(() => { elements.refreshBtn.textContent = 'Refresh'; });
+  });
+
+  // Project selector — switching re-queries the server with ?project_root=
+  elements.projectSelect.addEventListener('change', () => {
+    currentProject = elements.projectSelect.value;
+    fetchStatus();
+  });
+
+  fetchStatus();
+  setInterval(fetchStatus, 30000);
+})();
+</script>
+</body>
+</html>
