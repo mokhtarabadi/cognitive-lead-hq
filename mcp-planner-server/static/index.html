@@ -1,194 +1,151 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-bs-theme="dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Planner MCP — Local Dashboard</title>
-<style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  :root {
-    --bg: #0f172a;
-    --panel: #1e293b;
-    --panel-hover: #334155;
-    --text: #f8fafc;
-    --muted: #94a3b8;
-    --accent: #38bdf8;
-    --accent-hover: #7dd3fc;
-    --success: #22c55e;
-    --warning: #f59e0b;
-    --danger: #ef4444;
-    --border: #334155;
-  }
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background: var(--bg); color: var(--text); line-height: 1.5; }
-  .container { max-width: 1200px; margin: 0 auto; padding: 24px; }
-  header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
-  .brand { font-size: 1.25rem; font-weight: 700; display: flex; align-items: center; gap: 10px; }
-  .brand .dot { width: 8px; height: 8px; background: var(--success); border-radius: 50%; }
-  .status-chip { display: inline-flex; align-items: center; gap: 6px; font-size: 0.875rem; background: var(--panel); border: 1px solid var(--border); padding: 4px 10px; border-radius: 20px; color: var(--muted); }
-  .status-chip.ok { color: var(--success); border-color: var(--success); }
-  .status-chip.err { color: var(--danger); border-color: var(--danger); }
-  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin-bottom: 24px; }
-  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
-  .card h3 { font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin-bottom: 12px; }
-  .big { font-size: 2.5rem; font-weight: 700; margin-bottom: 4px; }
-  .sub { font-size: 0.875rem; color: var(--muted); }
-  .gauge { height: 10px; background: #334155; border-radius: 5px; overflow: hidden; margin-top: 8px; }
-  .gauge-bar { height: 100%; background: linear-gradient(90deg, var(--accent), #818cf8); border-radius: 5px; transition: width 0.3s ease; }
-  .section { margin-bottom: 28px; }
-  .section h2 { font-size: 1rem; color: var(--muted); margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
-  .section h2 .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
-  table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
-  th { text-align: left; color: var(--muted); padding: 8px 10px; border-bottom: 1px solid var(--border); font-weight: 600; }
-  td { padding: 8px 10px; border-bottom: 1px solid #334155; }
-  tr:hover { background: #1e293b; }
-  .lane-chip { display: inline-block; font-size: 0.75rem; padding: 2px 8px; border-radius: 10px; font-weight: 700; }
-  .lane-backlog { background: #1e1b4b; color: #c7d2fe; }
-  .lane-in-progress { background: #1c1917; color: #fed7aa; }
-  .lane-qa { background: #451a03; color: #fdba74; }
-  .lane-completed { background: #14532d; color: #bbf7d0; }
-  .lane-archive { background: #3f3f46; color: #a1a1aa; }
-  .tree { padding-left: 20px; border-left: 2px solid var(--border); }
-  .tree-node { margin: 6px 0; display: flex; align-items: center; gap: 8px; }
-  .tree-node .arrow { font-size: 0.75rem; color: var(--muted); cursor: pointer; user-select: none; }
-  .tree-node.collapsed .arrow { transform: rotate(-90deg); }
-  .tree-node.collapsed .children { display: none; }
-  .calendar { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
-  .cal-day { text-align: center; padding: 8px 4px; font-size: 0.75rem; border-radius: 6px; background: var(--panel); }
-  .cal-day.header { font-weight: 600; color: var(--muted); background: transparent; }
-  .cal-day.today { background: var(--accent); color: #000; font-weight: 700; }
-  .cal-day.has-task { border: 1px solid var(--accent); }
-  .cal-day.has-deadline { background: rgba(239, 68, 68, 0.2); color: var(--danger); }
-  .cal-day.has-due { background: rgba(239, 68, 68, 0.2); color: var(--danger); position: relative; }
-  .due-badge { font-size: 0.6rem; line-height: 1; margin-top: 2px; }
-  .refresh-btn { background: var(--accent); color: #000; border: none; padding: 6px 14px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 0.875rem; }
-  .refresh-btn:hover { background: var(--accent-hover); }
-  .refresh-btn:loading { opacity: 0.6; cursor: not-allowed; }
-  .empty { color: var(--muted); font-style: italic; padding: 20px; text-align: center; }
-  .project-switcher { display: flex; align-items: center; gap: 10px; }
-  .project-switcher select { background: var(--panel); border: 1px solid var(--border); color: var(--text); padding: 4px 10px; border-radius: 6px; font-size: 0.875rem; }
-  .pacing { display: flex; align-items: center; gap: 12px; }
-  .pacing .label { font-size: 0.875rem; color: var(--muted); }
-  /* Auth UI */
-  .hidden { display: none !important; }
-  .user-badge { display: flex; align-items: center; gap: 8px; background: var(--panel); border: 1px solid var(--border); padding: 4px 12px 4px 8px; border-radius: 20px; font-size: 0.875rem; }
-  .user-badge .avatar { width: 22px; height: 22px; border-radius: 50%; background: var(--accent); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.75rem; color: #000; }
-  .user-badge .name { color: var(--text); font-weight: 600; }
-  .role-chip { font-size: 0.7rem; padding: 2px 8px; border-radius: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
-  .role-chip.admin { background: #1e1b4b; color: #c7d2fe; border: 1px solid #3730a3; }
-  .role-chip.viewer { background: #1c1917; color: #fed7aa; border: 1px solid #78350f; }
-  #logout-btn { background: transparent; border: 1px solid var(--border); color: var(--muted); padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 0.8rem; }
-  #logout-btn:hover { background: var(--panel-hover); color: var(--text); }
-  /* Login modal */
-  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 100; }
-  .modal-overlay.hidden { display: none; }
-  .modal { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 24px; width: 360px; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
-  .modal h2 { font-size: 1.125rem; margin-bottom: 4px; }
-  .modal .sub { font-size: 0.875rem; color: var(--muted); margin-bottom: 20px; }
-  .modal .field { margin-bottom: 14px; }
-  .modal .field label { display: block; font-size: 0.8rem; color: var(--muted); margin-bottom: 4px; }
-  .modal .field input { width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 8px 12px; border-radius: 6px; font-size: 0.9rem; outline: none; }
-  .modal .field input:focus { border-color: var(--accent); }
-  .modal .err { color: var(--danger); font-size: 0.8rem; margin-bottom: 12px; min-height: 1.2em; }
-  .modal .actions { display: flex; gap: 10px; margin-top: 8px; }
-  .modal .btn-primary { flex: 1; background: var(--accent); color: #000; border: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 0.9rem; }
-  .modal .btn-primary:hover { background: var(--accent-hover); }
-  .modal .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
-  .modal .btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--muted); padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 0.9rem; }
-  .modal .btn-ghost:hover { background: var(--panel-hover); color: var(--text); }
-</style>
+<link rel="stylesheet" href="/static/vendor/bootstrap.min.css">
+<link rel="stylesheet" href="/static/theme.css">
 </head>
 <body>
-<div class="container">
-  <header>
-    <div class="brand"><div class="dot"></div> Planner MCP</div>
-    <div id="user-area" style="display:flex;align-items:center;gap:10px;">
-      <div class="user-badge hidden" id="user-badge">
-        <div class="avatar" id="user-avatar">?</div>
-        <span class="name" id="user-name">—</span>
-        <span class="role-chip" id="user-role">—</span>
-      </div>
-      <button id="logout-btn" class="hidden">Logout</button>
+
+<div class="page page-wide py-4">
+
+  <header class="d-flex align-items-center justify-content-between gap-3 border-bottom pb-3 mb-4">
+    <div class="d-flex align-items-center gap-2">
+      <span class="badge" style="background:var(--gd-accent);color:var(--gd-accent-ink)">&nbsp;</span>
+      <span class="h5 mb-0 fw-semibold">Planner MCP</span>
     </div>
-    <div class="status-chip" id="status-chip"><span class="dot" id="status-dot"></span><span id="status-text">Loading…</span></div>
+    <div class="d-flex align-items-center gap-2" id="user-area">
+      <div class="d-none align-items-center gap-2 border rounded px-2 py-1" id="user-badge">
+        <span class="badge text-bg-dark" id="user-avatar">?</span>
+        <span class="small fw-semibold" id="user-name">—</span>
+        <span class="badge text-bg-secondary" id="user-role">—</span>
+      </div>
+      <button type="button" class="btn btn-sm btn-outline-secondary d-none" id="logout-btn">Logout</button>
+      <span class="badge text-bg-secondary" id="status-chip"><span class="mono" id="status-dot">•</span> <span id="status-text">Loading…</span></span>
+    </div>
   </header>
-  <div class="modal-overlay hidden" id="login-modal">
-    <div class="modal">
-      <h2>Sign in to Planner</h2>
-      <div class="sub">Authentication is enabled on this server.</div>
-      <div class="err" id="login-err"></div>
-      <div class="field">
-        <label for="login-username">Username</label>
-        <input type="text" id="login-username" placeholder="e.g. admin" autocomplete="off">
-      </div>
-      <div class="field">
-        <label for="login-password">Password</label>
-        <input type="password" id="login-password" placeholder="Enter your password">
-      </div>
-      <div class="actions">
-        <button class="btn-ghost" id="login-cancel">Cancel</button>
-        <button class="btn-primary" id="login-btn">Sign in</button>
-      </div>
+
+  <!-- Stats -->
+  <div class="row g-3 mb-4">
+    <div class="col-6 col-lg-3">
+      <div class="card h-100"><div class="card-body">
+        <div class="label">Total tasks</div>
+        <div class="h3 mb-0 mono" id="stat-total">—</div>
+        <div class="small text-muted">across all lanes</div>
+      </div></div>
+    </div>
+    <div class="col-6 col-lg-3">
+      <div class="card h-100"><div class="card-body">
+        <div class="label">In progress</div>
+        <div class="h3 mb-0 mono" id="stat-inprogress">—</div>
+        <div class="small text-muted">active work</div>
+      </div></div>
+    </div>
+    <div class="col-6 col-lg-3">
+      <div class="card h-100"><div class="card-body">
+        <div class="label">QA pending</div>
+        <div class="h3 mb-0 mono" id="stat-qa">—</div>
+        <div class="small text-muted">awaiting review</div>
+      </div></div>
+    </div>
+    <div class="col-6 col-lg-3">
+      <div class="card h-100"><div class="card-body">
+        <div class="label">Completed</div>
+        <div class="h3 mb-0 mono" id="stat-completed">—</div>
+        <div class="small text-muted">closed tasks</div>
+      </div></div>
     </div>
   </div>
 
-  <div class="grid">
-    <div class="card">
-      <h3>Total Tasks</h3>
-      <div class="big" id="stat-total">—</div>
-      <div class="sub">across all lanes</div>
+  <!-- Pacing -->
+  <div class="card mb-4"><div class="card-body">
+    <div class="d-flex align-items-center justify-content-between mb-2">
+      <span class="label mb-0">Daily pacing</span>
+      <span class="mono" id="pacing-text">—</span>
     </div>
-    <div class="card">
-      <h3>In Progress</h3>
-      <div class="big" id="stat-inprogress">—</div>
-      <div class="sub">active work</div>
+    <div class="progress" style="height:6px;background:var(--gd-raised)">
+      <div class="progress-bar" id="gauge-bar" style="width:0%;background:var(--gd-accent)"></div>
     </div>
-    <div class="card">
-      <h3>QA Pending</h3>
-      <div class="big" id="stat-qa">—</div>
-      <div class="sub">awaiting review</div>
+    <div class="small text-muted mt-2" id="pacing-sub">Fetching status…</div>
+  </div></div>
+
+  <!-- Project + refresh -->
+  <div class="d-flex flex-wrap align-items-end gap-2 mb-4">
+    <div>
+      <label class="form-label" for="project-select">Project</label>
+      <select id="project-select" class="form-select form-select-sm" style="min-width:20rem"></select>
     </div>
-    <div class="card">
-      <h3>Completed</h3>
-      <div class="big" id="stat-completed">—</div>
-      <div class="sub">closed tasks</div>
-    </div>
+    <button type="button" class="btn btn-sm btn-outline-secondary" id="refresh-btn">Refresh</button>
   </div>
 
-  <div class="section pacing">
-    <h2><span class="dot"></span> Daily Pacing Gauge</h2>
-    <div class="pacing"><span class="label">Today's Work:</span> <span id="pacing-text" class="big">—</span></div>
-    <div class="gauge"><div class="gauge-bar" id="gauge-bar" style="width: 0%"></div></div>
-    <div class="sub" id="pacing-sub">Fetching status…</div>
-  </div>
-
-  <div class="section">
-    <div class="project-switcher">
-      <label for="project-select" style="font-size:0.875rem;color:var(--muted);">Project:</label>
-      <select id="project-select"></select>
+  <!-- Lanes -->
+  <section class="mb-4">
+    <div class="d-flex align-items-center justify-content-between mb-2">
+      <span class="label mb-0">Kanban lanes</span>
     </div>
-    <button class="refresh-btn" id="refresh-btn">Refresh</button>
-  </div>
+    <input type="search" id="board-search" class="form-control form-control-sm mb-3" placeholder="Filter tasks by ID or title…" autocomplete="off" aria-label="Filter tasks">
+    <div class="row g-3" id="lanes-grid"></div>
+  </section>
 
-  <div class="section">
-    <h2><span class="dot"></span> Kanban Lanes</h2>
-    <div class="grid" id="lanes-grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));"></div>
-  </div>
+  <!-- Milestones -->
+  <section class="mb-4">
+    <div class="label mb-2">Milestones</div>
+    <div id="milestone-tree"></div>
+  </section>
 
-  <div class="section">
-    <h2><span class="dot"></span> Milestone Tree</h2>
-    <div id="milestone-tree" class="tree"></div>
-  </div>
+  <!-- Timeline -->
+  <section class="mb-4">
+    <div class="label mb-2">Timeline (Gregorian + Jalali)</div>
+    <div id="timeline" class="cal"></div>
+  </section>
 
-  <div class="section">
-    <h2><span class="dot"></span> Timeline (Gregorian + Jalali)</h2>
-    <div id="timeline" class="calendar"></div>
+</div>
+
+<!-- Login overlay -->
+<div class="gd-overlay hidden" id="login-modal">
+  <div class="gd-panel gd-panel-md p-4">
+    <h2 class="h6 mb-1">Sign in to Planner</h2>
+    <p class="small text-muted mb-3">Authentication is enabled on this server.</p>
+    <div class="small mb-2" id="login-err" style="color:var(--gd-danger);min-height:1.2em"></div>
+    <div class="mb-2">
+      <label class="form-label" for="login-username">Username</label>
+      <input type="text" id="login-username" class="form-control form-control-sm" placeholder="e.g. admin" autocomplete="off">
+    </div>
+    <div class="mb-3">
+      <label class="form-label" for="login-password">Password</label>
+      <input type="password" id="login-password" class="form-control form-control-sm" placeholder="Password">
+    </div>
+    <div class="d-flex gap-2 justify-content-end">
+      <button type="button" class="btn btn-sm btn-outline-secondary" id="login-cancel">Cancel</button>
+      <button type="button" class="btn btn-sm btn-primary" id="login-btn">Sign in</button>
+    </div>
   </div>
 </div>
 
+<!-- Task overlay -->
+<div class="gd-overlay hidden" id="task-modal">
+  <div class="gd-panel gd-panel-lg">
+    <div class="d-flex align-items-start justify-content-between gap-3 p-3 border-bottom">
+      <h2 class="h6 mb-0" id="task-modal-title">Task</h2>
+      <button type="button" class="btn btn-sm btn-outline-secondary" id="task-modal-close">Close</button>
+    </div>
+    <div class="small text-muted px-3 pt-2 mono" id="task-modal-meta"></div>
+    <div id="task-modal-body"></div>
+  </div>
+</div>
+
+<script src="/static/vendor/jalaali.min.js"></script>
 <script>
-(function() {
+(function () {
   const BASE_STATUS_URL = window.location.pathname.endsWith('/') ? window.location.href + 'api/status' : window.location.origin + '/api/status';
   let currentProject = '';
+  let query = '';
+  let lastData = null;
+  let archiveOpen = false;
+  try { archiveOpen = window.localStorage.getItem('planner-archive-open') === '1'; } catch (e) { archiveOpen = false; }
+
   const elements = {
     total: document.getElementById('stat-total'),
     inprogress: document.getElementById('stat-inprogress'),
@@ -196,7 +153,6 @@
     completed: document.getElementById('stat-completed'),
     statusChip: document.getElementById('status-chip'),
     statusText: document.getElementById('status-text'),
-    statusDot: document.getElementById('status-dot'),
     lanesGrid: document.getElementById('lanes-grid'),
     milestoneTree: document.getElementById('milestone-tree'),
     timeline: document.getElementById('timeline'),
@@ -205,101 +161,96 @@
     gaugeBar: document.getElementById('gauge-bar'),
     refreshBtn: document.getElementById('refresh-btn'),
     projectSelect: document.getElementById('project-select'),
+    search: document.getElementById('board-search'),
+    taskModal: document.getElementById('task-modal'),
+    taskModalTitle: document.getElementById('task-modal-title'),
+    taskModalMeta: document.getElementById('task-modal-meta'),
+    taskModalBody: document.getElementById('task-modal-body'),
+    taskModalClose: document.getElementById('task-modal-close'),
   };
 
-  // Jalali (Solar Hijri) calendar conversion (algorithm by M. Amin)
-  function toJalali(gy, gm, gd) {
-    const g_d_m = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
-    let gy2 = (gm > 2) ? gy + 1 : gy;
-    let days = 355666 + (365 * gy2) + ((gy2 + 3) >> 2) - ((gy2 + 99) >> 2) + ((gy2 + 400) >> 2) + g_d_m[gm - 1] + gd - 1;
-    let jy = -1595 + (33 * Math.floor(days / 12053));
-    days %= 12053;
-    jy += 4 * Math.floor(days / 1461);
-    days %= 1461;
-    if (days > 365) {
-      jy += Math.floor((days - 1) / 365);
-      days = (days - 1) % 365;
-    }
-    let jm = (days < 186) ? 1 + Math.floor(days / 31) : 7 + Math.floor((days - 186) / 30);
-    let jd = 1 + ((days < 186) ? (days % 31) : ((days - 186) % 30));
-    return [jy, jm, jd];
+  const JALALI_MONTHS = ['Farvardin', 'Ordibehesht', 'Khordad', 'Tir', 'Mordad', 'Shahrivar', 'Mehr', 'Aban', 'Azar', 'Dey', 'Bahman', 'Esfand'];
+
+  // Jalali conversion comes from jalaali-js (vendored, MIT), not from a
+  // hand-rolled algorithm: the previous snippet got leap years and month
+  // boundaries wrong.
+  function jalaliOf(date) {
+    if (!window.jalaali) return null;
+    return window.jalaali.toJalaali(date.getFullYear(), date.getMonth() + 1, date.getDate());
   }
 
   function formatJalali(d) {
-    const j = toJalali(d.getFullYear(), d.getMonth() + 1, d.getDate());
-    const months = ['Farvardin','Ordibehesht','Khordad','Tir','Mordad','Shahrivar','Mehr','Aban','Azar','Dey','Bahman','Esfand'];
-    return `${j[2]} ${months[j[1]-1]} ${j[0]}`;
+    const j = jalaliOf(d);
+    if (!j) return d.toISOString().slice(0, 10);
+    return j.jd + ' ' + JALALI_MONTHS[j.jm - 1] + ' ' + j.jy;
   }
 
   function statusUrl() {
-    return currentProject
-      ? `${BASE_STATUS_URL}?project_root=${encodeURIComponent(currentProject)}`
-      : BASE_STATUS_URL;
+    return currentProject ? BASE_STATUS_URL + '?project_root=' + encodeURIComponent(currentProject) : BASE_STATUS_URL;
   }
 
   async function fetchStatus() {
     try {
       const resp = await fetch(statusUrl(), { cache: 'no-cache' });
       if (resp.status === 401) {
-        // Auth is enabled and this session is not signed in.
         hideUserBadge();
         showLoginModal();
-        elements.statusChip.className = 'status-chip err';
+        elements.statusChip.className = 'badge text-bg-danger';
         elements.statusText.textContent = 'Sign in required';
-        elements.statusDot.className = 'dot';
         return;
       }
       if (resp.status === 403) {
-        elements.statusChip.className = 'status-chip err';
+        elements.statusChip.className = 'badge text-bg-danger';
         elements.statusText.textContent = 'Access denied for this project';
-        elements.statusDot.className = 'dot';
         return;
       }
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
       const data = await resp.json();
       render(data);
-      elements.statusChip.className = 'status-chip ok';
+      elements.statusChip.className = 'badge text-bg-success';
       elements.statusText.textContent = 'Server reachable';
-      elements.statusDot.className = 'dot';
     } catch (err) {
-      elements.statusChip.className = 'status-chip err';
-      elements.statusText.textContent = `Server unreachable: ${err.message}`;
-      elements.statusDot.className = 'dot';
+      elements.statusChip.className = 'badge text-bg-danger';
+      elements.statusText.textContent = 'Server unreachable: ' + err.message;
     }
+  }
+
+  function escapeHtml(value) {
+    return String(value == null ? '' : value)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
 
   function render(data) {
     if (data.error) {
-      elements.statusChip.className = 'status-chip err';
-      elements.statusText.textContent = `Error: ${data.error}`;
+      elements.statusChip.className = 'badge text-bg-danger';
+      elements.statusText.textContent = 'Error: ' + data.error;
       return;
     }
+    lastData = data;
 
     const total = data.total_tasks || 0;
     const inProgress = data.in_progress || 0;
     const qaPending = data.qa_pending || 0;
     const completed = data.completed || 0;
-    const backlog = data.backlog || 0;
 
     elements.total.textContent = total;
     elements.inprogress.textContent = inProgress;
     elements.qa.textContent = qaPending;
     elements.completed.textContent = completed;
 
-    // Pacing gauge (server computes done/target from the open working set)
     const today = data.today || { done: 0, target: 3, open: 0 };
     const pct = Math.min(100, Math.round((today.done / today.target) * 100));
-    elements.pacingText.textContent = `${today.done}/${today.target}`;
-    elements.gaugeBar.style.width = `${pct}%`;
+    elements.pacingText.textContent = today.done + '/' + today.target;
+    elements.gaugeBar.style.width = pct + '%';
     elements.pacingSub.textContent = qaPending > 0
-      ? `${qaPending} task(s) awaiting QA — claim paused`
-      : (today.open > 0 ? `${today.open} task(s) still open today` : 'Quota reached');
+      ? qaPending + ' task(s) awaiting QA — claim paused'
+      : (today.open > 0 ? today.open + ' task(s) still open today' : 'Quota reached');
 
-    // Project selector
     const projects = data.projects || [];
     if (projects.length) {
       elements.projectSelect.innerHTML = projects.map(p =>
-        `<option value="${p.path}"${p.path === data.project_root ? ' selected' : ''}>${p.label}</option>`
+        '<option value="' + escapeHtml(p.path) + '"' + (p.path === data.project_root ? ' selected' : '') + '>' + escapeHtml(p.label) + '</option>'
       ).join('');
       currentProject = data.project_root || projects[0].path;
     }
@@ -309,44 +260,63 @@
     elements.lanesGrid.innerHTML = '';
     const laneOrder = ['backlog', 'in-progress', 'qa', 'completed', 'archive'];
     const laneLabels = { backlog: 'Backlog', 'in-progress': 'In Progress', qa: 'QA / Review', completed: 'Completed', archive: 'Archive' };
-    laneOrder.forEach(lane => {
-      const items = lanes[lane] || [];
-      const card = document.createElement('div');
-      card.className = 'card';
-      card.innerHTML = `
-        <h3>${laneLabels[lane] || lane} <span class="lane-chip lane-${lane}">${items.length}</span></h3>
-        ${items.length === 0 ? '<div class="empty">—</div>' : items.map(t => `
-          <div style="padding:6px 0; border-bottom:1px solid #334155; font-size:0.875rem;">
-            <strong>${t.id || t.name || 'task'}</strong> — ${t.title || 'untitled'}
-            ${t.estimate_hours != null ? `<span style="color:var(--muted); font-size:0.75rem;"> ${t.estimate_hours}h</span>` : ''}
-          </div>
-        `).join('')}
-      `;
-      elements.lanesGrid.appendChild(card);
+    const needle = query.trim().toLowerCase();
+    laneOrder.forEach(function (lane) {
+      const all = lanes[lane] || [];
+      const items = needle ? all.filter(function (t) { return taskMatches(t, needle); }) : all;
+      const isArchive = lane === 'archive';
+      const collapsed = isArchive && !archiveOpen;
+      const chipClass = { backlog: 'text-bg-secondary', 'in-progress': 'text-bg-info', qa: 'text-bg-warning', completed: 'text-bg-success', archive: 'text-bg-secondary' }[lane];
+      const header = '<span>' + laneLabels[lane] + ' <span class="badge ' + chipClass + '">' + all.length + '</span></span>' +
+        (isArchive ? '<button type="button" class="btn btn-sm btn-outline-secondary" id="archive-toggle" aria-expanded="' + (archiveOpen ? 'true' : 'false') + '">' + (archiveOpen ? 'Collapse' : 'Expand') + '</button>' : '');
+      const rows = items.length === 0
+        ? '<div class="text-muted small p-2">' + (needle ? 'No matches' : '—') + '</div>'
+        : items.map(function (t) {
+          return '<div class="task-row" role="button" tabindex="0" data-id="' + escapeHtml(t.id || t.name || '') + '" data-path="' + escapeHtml(t.path || '') + '">' +
+            '<span class="id">' + escapeHtml(t.id || t.name || 'task') + '</span> — ' + escapeHtml(t.title || 'untitled') +
+            (t.estimate_hours != null ? ' <span class="text-muted">' + t.estimate_hours + 'h</span>' : '') +
+            '</div>';
+        }).join('');
+      const hint = isArchive && needle && items.length
+        ? '<div class="lane-hint mb-1">' + items.length + ' match(es) in Archive' + (collapsed ? ' — expand to view' : '') + '</div>'
+        : '';
+      const col = document.createElement('div');
+      col.className = 'col-12 col-md-6 col-xl';
+      col.innerHTML = '<div class="card lane-card h-100"><div class="card-header">' + header + '</div>' +
+        '<div class="card-body py-2">' + hint + '<div class="lane-list' + (collapsed ? ' hidden' : '') + '">' + rows + '</div></div></div>';
+      elements.lanesGrid.appendChild(col);
     });
+    const toggle = document.getElementById('archive-toggle');
+    if (toggle) {
+      toggle.addEventListener('click', function () {
+        archiveOpen = !archiveOpen;
+        try { window.localStorage.setItem('planner-archive-open', archiveOpen ? '1' : '0'); } catch (e) { /* storage may be blocked */ }
+        if (lastData) render(lastData);
+      });
+    }
 
-    // Milestone tree
+    // Milestones
     const tree = data.milestone_tree || {};
     elements.milestoneTree.innerHTML = '';
     if (!tree || Object.keys(tree).length === 0) {
-      elements.milestoneTree.innerHTML = '<div class="empty">No milestones defined.</div>';
+      elements.milestoneTree.innerHTML = '<div class="text-muted small">No milestones defined.</div>';
     } else {
-      Object.entries(tree).forEach(([ms, items]) => {
+      Object.entries(tree).forEach(function (entry) {
+        const ms = entry[0];
+        const items = entry[1];
         const node = document.createElement('div');
-        node.className = 'tree-node';
-        const done = items.filter(i => i.status === 'closed').length;
-        node.innerHTML = `
-          <span class="arrow">▾</span>
-          <strong>${ms}</strong> <span style="color:var(--muted); font-size:0.875rem;">(${done}/${items.length})</span>
-          <div class="children tree-node" style="margin-left:18px;">
-            ${items.map(i => `<div style="font-size:0.875rem; padding:2px 0;">• ${i.title || i.name || 'untitled'} [${i.status || 'open'}]</div>`).join('')}
-          </div>
-        `;
-        node.querySelector('.arrow').onclick = () => {
-          const children = node.querySelector('.children');
-          children.style.display = children.style.display === 'none' ? 'block' : 'none';
-          node.querySelector('.arrow').textContent = children.style.display === 'none' ? '▾' : '▸';
-        };
+        node.className = 'ms-node';
+        const done = items.filter(function (i) { return i.status === 'closed'; }).length;
+        node.innerHTML = '<div class="d-flex align-items-center gap-2">' +
+          '<button type="button" class="btn btn-sm btn-outline-secondary py-0 px-1" data-arrow>▾</button>' +
+          '<strong class="small">' + escapeHtml(ms) + '</strong>' +
+          '<span class="text-muted small mono">' + done + '/' + items.length + '</span></div>' +
+          '<div class="children mt-1">' + items.map(function (i) {
+            return '<div class="small text-muted">• ' + escapeHtml(i.title || i.name || 'untitled') + ' [' + escapeHtml(i.status || 'open') + ']</div>';
+          }).join('') + '</div>';
+        node.querySelector('[data-arrow]').addEventListener('click', function () {
+          node.classList.toggle('collapsed');
+        });
         elements.milestoneTree.appendChild(node);
       });
     }
@@ -354,52 +324,183 @@
     // Timeline
     const now = new Date();
     elements.timeline.innerHTML = '';
-    const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-    ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].forEach(dn => {
+    ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].forEach(function (dn) {
       const div = document.createElement('div');
-      div.className = 'cal-day header';
+      div.className = 'cal-day head';
       div.textContent = dn;
       elements.timeline.appendChild(div);
     });
-    // Next 14 days, with due deadlines annotated per day
     const byDay = {};
-    (data.deadlines || []).forEach(t => {
-      const key = t.deadline;
-      (byDay[key] = byDay[key] || []).push(t);
+    (data.deadlines || []).forEach(function (t) {
+      (byDay[t.deadline] = byDay[t.deadline] || []).push(t);
     });
     for (let i = 0; i < 14; i++) {
       const d = new Date();
       d.setDate(now.getDate() + i);
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      const key = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
       const due = byDay[key] || [];
       const div = document.createElement('div');
-      div.className = 'cal-day';
-      if (i === 0) div.classList.add('today');
-      if (due.length) div.classList.add('has-due');
-      div.textContent = d.getDate();
-      div.title = `${formatJalali(d)} — ${due.length ? due.map(t => t.title).join(', ') : 'no deadlines'}`;
-      if (due.length) {
-        const badge = document.createElement('div');
-        badge.className = 'due-badge';
-        badge.textContent = `●${due.length}`;
-        div.appendChild(badge);
-      }
+      div.className = 'cal-day' + (i === 0 ? ' today' : '') + (due.length ? ' due' : '');
+      const j = jalaliOf(d);
+      const jalaliDay = j ? j.jd : '';
+      const monthLabel = j && j.jd === 1 ? JALALI_MONTHS[j.jm - 1] : '';
+      div.innerHTML = '<div class="cal-primary">' + (jalaliDay || d.getDate()) + '</div>' +
+        '<div class="cal-secondary">' + d.getDate() + (j ? '' : ' (G)') + '</div>' +
+        (monthLabel ? '<div class="cal-secondary">' + monthLabel + '</div>' : '') +
+        (due.length ? '<div class="cal-secondary">•' + due.length + '</div>' : '');
+      div.title = (j ? formatJalali(d) + ' · ' : '') + d.toISOString().slice(0, 10) + ' — ' +
+        (due.length ? due.map(function (t) { return t.title; }).join(', ') : 'no deadlines');
       elements.timeline.appendChild(div);
     }
   }
 
-  elements.refreshBtn.addEventListener('click', () => {
-    elements.refreshBtn.textContent = '…';
-    fetchStatus().then(() => { elements.refreshBtn.textContent = 'Refresh'; });
+  function taskMatches(task, needle) {
+    return ((task.id || '') + ' ' + (task.name || '') + ' ' + (task.title || '')).toLowerCase().indexOf(needle) !== -1;
+  }
+
+  // ---- Markdown renderer (self-contained) ----
+  const MAX_RENDER_LINES = 2000;
+
+  function inlineMarkdown(text) {
+    return text
+      .replace(/`([^`]+)`/g, '<code>$1</code>')
+      .replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>')
+      .replace(/(^|[^*])\*([^*]+)\*(?!\*)/g, '$1<i>$2</i>')
+      .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, function (m, label, href) {
+        return (href.charAt(0) === '#' || href.charAt(0) === '/')
+          ? '<a href="' + href + '" target="_blank" rel="noopener">' + label + '</a>'
+          : label;
+      });
+  }
+
+  function renderMarkdown(source) {
+    const all = escapeHtml(source).split('\n');
+    const truncated = all.length > MAX_RENDER_LINES;
+    const body = truncated ? all.slice(0, MAX_RENDER_LINES) : all;
+    const out = [];
+    let fence = null;
+    let buffer = [];
+
+    function flushFence() {
+      if (!buffer.length) return;
+      const isDiff = fence === 'diff' || buffer.some(function (line) { return /^(\+|-{3}|\+{3}|@@)/.test(line); });
+      const html = buffer.map(function (line) {
+        if (!isDiff) return line;
+        if (/^@@/.test(line)) return '<span style="color:var(--gd-info)">' + line + '</span>';
+        if (/^\+/.test(line) && !/^\+\+\+/.test(line)) return '<span class="add">' + line + '</span>';
+        if (/^-/.test(line) && !/^---/.test(line)) return '<span class="del">' + line + '</span>';
+        return line;
+      }).join('\n');
+      out.push('<pre' + (isDiff ? ' class="diff"' : '') + '><code>' + html + '</code></pre>');
+      buffer = [];
+    }
+
+    for (let i = 0; i < body.length; i++) {
+      const line = body[i];
+      const fenceMatch = line.match(/^```([\w-]*)\s*$/);
+      if (fenceMatch) {
+        if (fence === null) { fence = fenceMatch[1] || ''; buffer = []; }
+        else { flushFence(); fence = null; }
+        continue;
+      }
+      if (fence !== null) { buffer.push(line); continue; }
+      if (!line.trim()) continue;
+      let m;
+      if ((m = line.match(/^(#{1,6})\s+(.*)$/))) {
+        out.push('<h' + m[1].length + '>' + inlineMarkdown(m[2]) + '</h' + m[1].length + '>');
+        continue;
+      }
+      if ((m = line.match(/^\s*[-*]\s+\[([ xX])\]\s+(.*)$/))) {
+        out.push('<div class="todo"><input type="checkbox" disabled' + (m[1].toLowerCase() === 'x' ? ' checked' : '') + '> ' + inlineMarkdown(m[2]) + '</div>');
+        continue;
+      }
+      if ((m = line.match(/^\s*[-*]\s+(.*)$/))) { out.push('<li>' + inlineMarkdown(m[1]) + '</li>'); continue; }
+      if ((m = line.match(/^&gt;\s?(.*)$/))) { out.push('<blockquote>' + inlineMarkdown(m[1]) + '</blockquote>'); continue; }
+      if (/^\|/.test(line)) {
+        const rows = [line];
+        while (i + 1 < body.length && /^\|/.test(body[i + 1])) { i += 1; rows.push(body[i]); }
+        out.push('<pre><code>' + rows.join('\n') + '</code></pre>');
+        continue;
+      }
+      out.push('<p>' + inlineMarkdown(line) + '</p>');
+    }
+    if (fence !== null) flushFence();
+    if (truncated) out.push('<p class="truncated">truncated: showing the first ' + MAX_RENDER_LINES + ' lines</p>');
+    return out.join('\n');
+  }
+
+  function relTaskPath(absPath) {
+    if (!absPath) return '';
+    const marker = absPath.indexOf('/tasks/');
+    return marker >= 0 ? absPath.slice(marker + 1) : '';
+  }
+
+  function openTaskModal(id, absPath) {
+    const params = new URLSearchParams();
+    const rel = relTaskPath(absPath);
+    if (rel) params.set('path', rel);
+    else if (id) params.set('id', id);
+    if (currentProject) params.set('project_root', currentProject);
+    elements.taskModalTitle.textContent = id ? 'Task ' + id : 'Task';
+    elements.taskModalMeta.textContent = 'Loading…';
+    elements.taskModalBody.innerHTML = '<p class="text-muted small">Loading…</p>';
+    elements.taskModal.classList.remove('hidden');
+    elements.taskModalClose.focus();
+    fetch('/api/task?' + params.toString(), { cache: 'no-cache' })
+      .then(async function (resp) {
+        const payload = await resp.json().catch(function () { return {}; });
+        if (!resp.ok) {
+          elements.taskModalMeta.textContent = 'Error ' + resp.status;
+          elements.taskModalBody.innerHTML = '<p class="truncated">' + escapeHtml(payload.error || 'request failed') + '</p>';
+          return;
+        }
+        elements.taskModalTitle.textContent = payload.title || 'Task ' + (payload.id || '');
+        elements.taskModalMeta.textContent = '#' + (payload.id || '?') + ' · ' + (payload.lane || 'unknown lane') + ' · ' + (relTaskPath(payload.path) || payload.path || '');
+        elements.taskModalBody.innerHTML = renderMarkdown(payload.markdown || '');
+        elements.taskModalBody.scrollTop = 0;
+      })
+      .catch(function (err) {
+        elements.taskModalMeta.textContent = 'Network error';
+        elements.taskModalBody.innerHTML = '<p class="truncated">' + escapeHtml(err.message) + '</p>';
+      });
+  }
+
+  function closeTaskModal() { elements.taskModal.classList.add('hidden'); }
+
+  elements.lanesGrid.addEventListener('click', function (event) {
+    const row = event.target.closest('.task-row');
+    if (row) openTaskModal(row.dataset.id, row.dataset.path);
+  });
+  elements.lanesGrid.addEventListener('keydown', function (event) {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    const row = event.target.closest('.task-row');
+    if (!row) return;
+    event.preventDefault();
+    openTaskModal(row.dataset.id, row.dataset.path);
+  });
+  elements.taskModalClose.addEventListener('click', closeTaskModal);
+  elements.taskModal.addEventListener('click', function (event) {
+    if (event.target === elements.taskModal) closeTaskModal();
+  });
+  document.addEventListener('keydown', function (event) {
+    if (event.key === 'Escape' && !elements.taskModal.classList.contains('hidden')) closeTaskModal();
+  });
+  elements.search.addEventListener('input', function () {
+    query = elements.search.value;
+    if (lastData) render(lastData);
   });
 
-  // Project selector — switching re-queries the server with ?project_root=
-  elements.projectSelect.addEventListener('change', () => {
+  elements.refreshBtn.addEventListener('click', function () {
+    elements.refreshBtn.textContent = '…';
+    fetchStatus().then(function () { elements.refreshBtn.textContent = 'Refresh'; });
+  });
+
+  elements.projectSelect.addEventListener('change', function () {
     currentProject = elements.projectSelect.value;
     fetchStatus();
   });
 
-  // ---- Auth (login modal, user badge, logout) ----
+  // ---- Auth ----
   const auth = {
     modal: document.getElementById('login-modal'),
     err: document.getElementById('login-err'),
@@ -412,7 +513,6 @@
     userName: document.getElementById('user-name'),
     userRole: document.getElementById('user-role'),
     userAvatar: document.getElementById('user-avatar'),
-    userArea: document.getElementById('user-area'),
   };
 
   function showLoginModal() {
@@ -422,23 +522,22 @@
     auth.password.value = '';
     auth.username.focus();
   }
+  function hideLoginModal() { auth.modal.classList.add('hidden'); }
 
-  function hideLoginModal() {
-    auth.modal.classList.add('hidden');
-  }
-
-  function showUserBadge(username, role, allowedProjects) {
-    auth.userBadge.classList.remove('hidden');
-    auth.logoutBtn.classList.remove('hidden');
+  function showUserBadge(username, role) {
+    auth.userBadge.classList.remove('d-none');
+    auth.userBadge.classList.add('d-flex');
+    auth.logoutBtn.classList.remove('d-none');
     auth.userName.textContent = username;
     auth.userRole.textContent = role;
-    auth.userRole.className = 'role-chip ' + (role === 'admin' ? 'admin' : 'viewer');
+    auth.userRole.className = 'badge ' + (role === 'admin' ? 'text-bg-info' : 'text-bg-secondary');
     auth.userAvatar.textContent = (username || '?').charAt(0).toUpperCase();
   }
 
   function hideUserBadge() {
-    auth.userBadge.classList.add('hidden');
-    auth.logoutBtn.classList.add('hidden');
+    auth.userBadge.classList.add('d-none');
+    auth.userBadge.classList.remove('d-flex');
+    auth.logoutBtn.classList.add('d-none');
   }
 
   async function login() {
@@ -449,13 +548,10 @@
       const resp = await fetch('/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          username: auth.username.value.trim(),
-          password: auth.password.value,
-        }),
+        body: JSON.stringify({ username: auth.username.value.trim(), password: auth.password.value }),
       });
       if (!resp.ok) {
-        let message = `HTTP ${resp.status}`;
+        let message = 'HTTP ' + resp.status;
         try {
           const errBody = await resp.json();
           if (errBody && errBody.error) message = errBody.error;
@@ -466,11 +562,10 @@
       const data = await resp.json();
       if (data.token) {
         hideLoginModal();
-        showUserBadge(data.username, data.role, data.allowed_projects);
+        showUserBadge(data.username, data.role);
         currentProject = '';
         fetchStatus();
       } else if (data.note === 'auth disabled') {
-        // Auth is disabled server-side: open local mode, no badge to show.
         hideLoginModal();
         fetchStatus();
       }
@@ -483,41 +578,33 @@
   }
 
   async function logout() {
-    try {
-      await fetch('/api/logout', { method: 'POST' });
-    } catch (e) { /* best-effort: the cookie is cleared server-side */ }
+    try { await fetch('/api/logout', { method: 'POST' }); } catch (e) { /* cookie clears server-side */ }
     hideUserBadge();
-    // Reload so no stale board data from the previous session stays on screen.
     window.location.reload();
   }
 
   auth.loginBtn.addEventListener('click', login);
   auth.cancelBtn.addEventListener('click', hideLoginModal);
   auth.logoutBtn.addEventListener('click', logout);
-  auth.username.addEventListener('keydown', (e) => { if (e.key === 'Enter') auth.password.focus(); });
-  auth.password.addEventListener('keydown', (e) => { if (e.key === 'Enter') login(); });
+  auth.username.addEventListener('keydown', function (e) { if (e.key === 'Enter') auth.password.focus(); });
+  auth.password.addEventListener('keydown', function (e) { if (e.key === 'Enter') login(); });
 
-  // Check auth state on load.
   (async function checkAuth() {
     try {
       const resp = await fetch('/api/me');
       if (resp.ok) {
         const data = await resp.json();
-        if (data.authenticated) {
-          showUserBadge(data.username, data.role || 'viewer', data.allowed_projects || []);
-        }
-        // `note: "auth disabled"` is open local mode — nothing to sign in to.
+        if (data.authenticated) showUserBadge(data.username, data.role || 'viewer');
       } else if (resp.status === 401) {
         showLoginModal();
       }
-    } catch (e) {
-      // If the server is unreachable, just show the board as-is.
-    }
+    } catch (e) { /* server unreachable: leave the board as is */ }
   })();
 
   fetchStatus();
   setInterval(fetchStatus, 30000);
 })();
 </script>
+<script src="/static/vendor/bootstrap.bundle.min.js"></script>
 </body>
 </html>

@@ -96,6 +96,36 @@ the server returns to open local mode with no code change. Full code rollback is
 - **Superseded in part:** the `/mcp` admin-session requirement only — see
 ADR-006 below. Session auth, scoping, and the CLI remain as decided here.
 
+## [2026-10-24] ADR-007: `GET /api/task` is a guarded, lane-confined read
+
+- **Context:** The dashboard needs to open a task's full Markdown (todos,
+  acceptance criteria, `## Factual Git Diff`) in a modal, and `/api/status`
+  ships only briefs. A naive `?path=` reader would turn the loopback dashboard
+  into an arbitrary-file reader; the slice has no containment helper today
+  (`_explicit_project_root` never consults `allowed_projects`, and
+  `_resolve_dashboard_root` resolves any absolute `?project_root=`).
+- **Decision:** `/api/task` accepts `?id=` (resolved through `_find_task_by_id`
+  over `_load_all_tasks`, int-normalized) or `?path=tasks/<lane>/<file>.md`
+  (resolved through the new `_safe_task_path`). `id` wins when both arrive.
+  The path form accepts exactly three segments, a lane from `TASK_LANES`, a
+  `.md` suffix, no `..`/`.`/backslash/drive-colon/absolute prefix, and the
+  resolved candidate must remain inside the project root. Authorization reuses
+  `AuthState.project_allowed` and the `_api_status` fallback to the first
+  allowed root. Status mapping is explicit: 400 missing param, 401 no session,
+  403 outside grants **and** unsafe path (never 404, so the route is not an
+  existence oracle), 404 unknown id/missing file, 500 unexpected — the
+  `_api_status` blanket `except → 200 {"error": …}` is deliberately not copied.
+- **Consequences:** The modal can deep-link by id or path and the route remains
+  a read-only view of `tasks/` Markdown. `GET /` stays unauthenticated by
+  design (ADR-005 changed the data routes only); this route gates like
+  `/api/status`. Traversal attempts are logged as 403 by the client, which
+  cannot distinguish "outside your grants" from "not a task path". Pinned by
+  the `/api/task` tests in `tests/test_planner_server.py` (route presence, by id,
+  by path, 400, 401, 403 cross-project, 403 traversal).
+- **Rollback:** Remove the route from `build_app`, drop `_api_task` and
+  `_safe_task_path`, and remove the route from the route-existence test; the
+  dashboard falls back to the brief-only lanes.
+
 ## [2026-10-24] ADR-006: `/mcp` is auth-free on loopback; the edge is the gate
 
 - **Context:** With auth enabled, the `/mcp` guard returned 401 to every

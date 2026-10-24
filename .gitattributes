@@ -1,0 +1,5 @@
+# Vendored third-party assets are committed but never expanded in diffs:
+# they are minified one-liners, and a 228KB CSS blob inside a task's
+# Factual Git Diff buries the reviewable hunks.
+*.min.css -diff
+*.min.js -diff

@@ -29,6 +29,7 @@ dashboard on loopback port 8108.
 | `GET /` | Standalone dark-mode dashboard (no build step). |
 | `GET /static/*` | Dashboard assets (same `static/` directory). |
 | `GET /api/status[?project_root=<abs path>]` | JSON status contract the dashboard renders. |
+| `GET /api/task?id=<id>` or `?path=tasks/<lane>/<file>.md` | One task file as `{id, path, lane, title, markdown}` for the dashboard modal. `id` wins when both are sent. 400 no param, 401 no session, 403 outside grants or unsafe path, 404 unknown, 500 unexpected. |
 | `POST /api/login` | `{"username","password"}` → `{token, username, role, allowed_projects}` + `HttpOnly` cookie. |
 | `POST /api/logout` | Invalidates the session and clears the cookie. |
 | `GET /api/me` | Current user, or 401 when signed out (200 + `note: "auth disabled"` in open mode). |

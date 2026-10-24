@@ -518,6 +518,7 @@ def test_build_app_serves_dashboard_and_mcp_routes(tmp_path):
         paths = [getattr(r, "path", None) for r in app.routes]
         assert "/" in paths
         assert "/api/status" in paths
+        assert "/api/task" in paths
         assert "/api/login" in paths
         assert "/api/logout" in paths
         assert "/static" in paths
@@ -529,6 +530,147 @@ def test_build_app_serves_dashboard_and_mcp_routes(tmp_path):
     assert any(isinstance(route, Mount) for route in app.routes)
     assert planner.mcp.settings.streamable_http_path == "/mcp"
     assert app.router.lifespan_context is not None
+
+
+# ---------------------------------------------------------------------------
+# Dashboard API contract (/api/task) — task detail modal payload
+# ---------------------------------------------------------------------------
+
+
+def test_api_task_by_id_returns_markdown(tmp_path):
+    """A numeric id resolves across lanes and returns the raw Markdown body."""
+    _write_task(tmp_path, "backlog", 7, "Modal target")
+    payload = planner._api_task(str(tmp_path), "7")
+
+    assert "error" not in payload
+    assert payload["id"] == "007"
+    assert payload["lane"] == "backlog"
+    assert payload["title"] == "Modal target"
+    assert "## Goal" in payload["markdown"]
+    assert payload["path"].endswith("007-task.md")
+
+
+def test_api_task_by_path_returns_markdown(tmp_path):
+    """A lane-relative path deep-links the same payload as the id form."""
+    _write_task(tmp_path, "qa", 8, "Path lookup")
+    payload = planner._api_task(str(tmp_path), None, "tasks/qa/008-task.md")
+
+    assert "error" not in payload
+    assert payload["id"] == "008"
+    assert payload["lane"] == "qa"
+    assert payload["title"] == "Path lookup"
+    assert "## Local TODOs" in payload["markdown"]
+
+
+def test_api_task_id_is_int_normalized(tmp_path):
+    """Zero-padded ids match the same file (020 == 20), like _find_task_by_id."""
+    _write_task(tmp_path, "backlog", 9, "Normalized")
+    payload = planner._api_task(str(tmp_path), "009")
+    assert payload["id"] == "009"
+
+
+def test_api_task_unknown_id_is_not_found(tmp_path):
+    (tmp_path / "tasks" / "backlog").mkdir(parents=True, exist_ok=True)
+    assert planner._api_task(str(tmp_path), "424242") == {"error": "not found"}
+
+
+def test_api_task_missing_params_is_client_error(tmp_path):
+    payload = planner._api_task(str(tmp_path))
+    assert payload["error"].startswith("missing param")
+
+
+@pytest.mark.parametrize(
+    "rel_path",
+    [
+        "../server.py",
+        "tasks/backlog/../../server.py",
+        "/etc/passwd",
+        "tasks/backlog/sub/001-task.md",
+        "tasks/nope/001-task.md",
+        "tasks/backlog/001-task.txt",
+        "C:/tasks/backlog/001-task.md",
+        "tasks\\backlog\\001-task.md",
+    ],
+)
+def test_api_task_path_traversal_is_forbidden(tmp_path, rel_path):
+    """Anything outside tasks/<known lane>/<file>.md is 403, never a file read."""
+    _write_task(tmp_path, "backlog", 1, "Guard")
+    assert planner._api_task(str(tmp_path), None, rel_path) == {"error": "forbidden"}
+
+
+def test_api_task_route_exists_in_auth_mode(auth_app):
+    paths = [getattr(r, "path", None) for r in auth_app.routes]
+    assert "/api/task" in paths
+
+
+def test_api_task_401_when_unauthenticated(auth_client):
+    resp = auth_client.get("/api/task", params={"id": "1"})
+    assert resp.status_code == 401
+    assert resp.json().get("error") == "unauthenticated"
+
+
+def test_api_task_400_when_no_param(auth_client):
+    auth_client.post("/api/login", json={"username": "admin", "password": "admin-pass"})
+    resp = auth_client.get("/api/task")
+    assert resp.status_code == 400
+    assert resp.json().get("error", "").startswith("missing param")
+
+
+def test_api_task_404_for_unknown_id(auth_client):
+    auth_client.post("/api/login", json={"username": "admin", "password": "admin-pass"})
+    resp = auth_client.get("/api/task", params={"id": "987654"})
+    assert resp.status_code == 404
+
+
+def test_api_task_serves_task_for_authenticated_admin(auth_client, tmp_path):
+    _write_task(tmp_path, "backlog", 11, "Admin visible")
+    auth_client.post("/api/login", json={"username": "admin", "password": "admin-pass"})
+    resp = auth_client.get(
+        "/api/task", params={"id": "11", "project_root": str(tmp_path)}
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["title"] == "Admin visible"
+    assert "## Goal" in data["markdown"]
+
+
+def test_api_task_403_when_project_root_not_allowed(auth_client, tmp_path):
+    """A viewer cannot read a task from a project outside its grants."""
+    (tmp_path / "project-a").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "project-b").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "project-b" / "tasks").mkdir(parents=True, exist_ok=True)
+    _write_task(tmp_path / "project-b", "backlog", 12, "Not yours")
+    auth_client.post(
+        "/api/login", json={"username": "viewer", "password": "viewer-pass"}
+    )
+    resp = auth_client.get(
+        "/api/task",
+        params={"id": "12", "project_root": str(tmp_path / "project-b")},
+    )
+    assert resp.status_code == 403
+    assert resp.json().get("error") == "forbidden"
+
+
+def test_api_task_403_for_traversal_over_http(auth_client, tmp_path):
+    _write_task(tmp_path, "backlog", 13, "Guard http")
+    auth_client.post("/api/login", json={"username": "admin", "password": "admin-pass"})
+    resp = auth_client.get(
+        "/api/task",
+        params={
+            "path": "tasks/backlog/../../server.py",
+            "project_root": str(tmp_path),
+        },
+    )
+    assert resp.status_code == 403
+
+
+def test_api_task_works_in_open_mode(open_client, tmp_path):
+    _write_task(tmp_path, "backlog", 14, "Open mode")
+    resp = open_client.get(
+        "/api/task", params={"id": "14", "project_root": str(tmp_path)}
+    )
+    assert resp.status_code == 200
+    assert resp.json()["title"] == "Open mode"
 
 
 # ---------------------------------------------------------------------------
@@ -760,6 +902,41 @@ def auth_client(auth_app):
     # MCP session manager behind the /mcp guard.
     with TestClient(auth_app) as client:
         yield client
+
+
+def test_security_headers_present(open_client):
+    """Baseline headers ride every response; HSTS only when the hop is HTTPS."""
+    resp = open_client.get("/api/me")
+    assert resp.headers["x-content-type-options"] == "nosniff"
+    assert resp.headers["referrer-policy"] == "same-origin"
+    assert resp.headers["x-frame-options"] == "DENY"
+    assert "strict-transport-security" not in resp.headers
+    resp_https = open_client.get("/api/me", headers={"x-forwarded-proto": "https"})
+    assert resp_https.headers["strict-transport-security"].startswith("max-age=")
+
+
+def test_relative_project_root_rejected(auth_client):
+    """A relative root must 400 instead of resolving against the daemon cwd."""
+    auth_client.post("/api/login", json={"username": "admin", "password": "admin-pass"})
+    for path in ("/api/status", "/api/task"):
+        resp = auth_client.get(
+            path, params={"project_root": "relative/path", "id": "1"}
+        )
+        assert resp.status_code == 400, path
+        assert resp.json()["error"] == "project_root must be absolute", path
+
+
+def test_session_cookie_is_secure_behind_https_proxy(auth_client):
+    """X-Forwarded-Proto: https makes the session cookie Secure."""
+    resp = auth_client.post(
+        "/api/login",
+        json={"username": "admin", "password": "admin-pass"},
+        headers={"x-forwarded-proto": "https"},
+    )
+    assert resp.status_code == 200
+    cookie = resp.headers["set-cookie"]
+    assert "HttpOnly" in cookie
+    assert "Secure" in cookie
 
 
 def test_login_valid_credentials_returns_token(auth_client):

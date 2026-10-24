@@ -1210,6 +1210,35 @@ _DAILY_TARGET = int(os.environ.get("PLANNER_DAILY_TARGET", "3") or 3)
 _WEEKLY_CAPACITY_HOURS = float(os.environ.get("PLANNER_WEEKLY_CAPACITY", "20") or 20)
 
 
+def _relative_root(project_root: Optional[str]) -> bool:
+    """True when an explicit ``?project_root=`` is present but not absolute.
+
+    ``_resolve_dashboard_root`` runs ``Path(...).resolve()`` on whatever it is
+    given, so a relative value silently resolved against the daemon's working
+    directory and reported an empty project. The routes reject it as a 400
+    before resolution instead of answering with the wrong board.
+    """
+    if not project_root or not project_root.strip():
+        return False
+    try:
+        return not Path(project_root).expanduser().is_absolute()
+    except OSError:
+        return True
+
+
+def _is_https(request) -> bool:
+    """True when the request reached the app over HTTPS.
+
+    The dashboard sits behind a Cloudflare Tunnel, so the origin sees plain
+    HTTP and must trust ``X-Forwarded-Proto``. Used to decide the session
+    cookie's ``Secure`` flag and whether HSTS may be sent.
+    """
+    proto = (request.headers.get("x-forwarded-proto") or "").split(",")[0].strip()
+    if proto:
+        return proto.lower() == "https"
+    return request.url.scheme == "https"
+
+
 def _resolve_dashboard_root(project_root: Optional[str] = None) -> Path:
     """Resolve the project root the dashboard reports on.
 
@@ -1312,6 +1341,7 @@ def _task_brief(task: dict) -> dict:
     return {
         "id": match.group(1) if match else name,
         "name": name,
+        "path": task.get("path"),
         "title": task.get("title") or "untitled",
         "lane": task.get("lane"),
         "status": task.get("status") or "open",
@@ -1319,6 +1349,125 @@ def _task_brief(task: dict) -> dict:
         "deadline": task.get("deadline"),
         "milestone": task.get("milestone"),
     }
+
+
+def _safe_task_path(root: Path, rel_path: str) -> Optional[Path]:
+    """Resolve a lane-relative task Markdown path, or ``None`` when unsafe.
+
+    The dashboard may deep-link a task by path, so the value arrives from the
+    query string and must never become a file-read primitive. Only three
+    shapes are accepted: ``tasks/<lane>/<file>.md`` where ``<lane>`` is one of
+    :data:`TASK_LANES` and the file name carries no path separators. Absolute
+    paths, Windows drive paths, backslashes, ``..`` segments, extra nesting,
+    and non-Markdown suffixes are all rejected. The final candidate is resolved
+    and must still sit inside ``root``.
+
+    Args:
+        root: The resolved project root the request is scoped to.
+        rel_path: The ``?path=`` query value, e.g. ``tasks/qa/0339-x.md``.
+
+    Returns:
+        The resolved :class:`Path` when it is a safe in-tree task file, else
+        ``None`` (the caller maps that to 403 to avoid an existence oracle).
+    """
+    if not rel_path or not isinstance(rel_path, str):
+        return None
+    rel = rel_path.strip()
+    if not rel or rel.startswith("/") or rel.startswith("\\") or ":" in rel:
+        return None
+    if "\\" in rel:
+        return None
+    parts = [part for part in rel.split("/") if part]
+    if ".." in parts or "." in parts:
+        return None
+    if len(parts) != 3 or parts[0] != "tasks" or parts[1] not in TASK_LANES:
+        return None
+    if not parts[2].endswith(".md"):
+        return None
+    try:
+        base = root.resolve()
+        candidate = (base / parts[0] / parts[1] / parts[2]).resolve()
+    except OSError:
+        return None
+    if candidate != base and base not in candidate.parents:
+        return None
+    return candidate
+
+
+def _api_task(
+    project_root: Optional[str] = None,
+    task_id: Optional[str] = None,
+    rel_path: Optional[str] = None,
+    auth: Optional[AuthState] = None,
+) -> dict:
+    """Return one task file as JSON (GET /api/task).
+
+    The dashboard's task modal needs the raw Markdown of a task, including the
+    ``## Factual Git Diff`` section, so this route returns the parsed record's
+    ``raw`` text verbatim alongside its identity fields. ``id`` wins over
+    ``path`` when both are present.
+
+    Error contract (mapped to status codes by the route):
+
+    * ``missing param`` -> 400 when neither ``id`` nor ``path`` is given,
+    * ``unauthenticated`` -> 401 when auth is enabled and no session cookie,
+    * ``forbidden`` -> 403 when the root is outside the session's grants or
+      the requested path fails the containment guard (never 404, so the route
+      cannot be used to probe for file existence),
+    * ``not found`` -> 404 for an unknown id or a safe path that does not exist,
+    * ``internal error`` -> 500, never a 200 envelope.
+
+    Args:
+        project_root: Optional absolute root from ``?project_root=``.
+        task_id: Optional numeric-ish task id from ``?id=``.
+        rel_path: Optional ``tasks/<lane>/<file>.md`` from ``?path=``.
+        auth: Optional session view; ``None`` means open local mode.
+
+    Returns:
+        A JSON-serialisable dict; on failure a dict with an ``error`` key.
+    """
+    if not task_id and not rel_path:
+        return {"error": "missing param: id or path required"}
+    if auth is not None and not auth.authenticated:
+        return {"error": "unauthenticated"}
+
+    workspace_root = _resolve_dashboard_root(project_root)
+    if auth is not None and not auth.project_allowed(workspace_root):
+        if project_root and project_root.strip():
+            return {"error": "forbidden"}
+        fallback = _first_allowed_root(auth)
+        if fallback is None:
+            return {"error": "forbidden"}
+        workspace_root = fallback
+
+    try:
+        if task_id:
+            record = _find_task_by_id(
+                _load_all_tasks(workspace_root), str(task_id).strip()
+            )
+            if record is None:
+                return {"error": "not found"}
+        else:
+            safe_path = _safe_task_path(workspace_root, str(rel_path))
+            if safe_path is None:
+                return {"error": "forbidden"}
+            if not safe_path.is_file():
+                return {"error": "not found"}
+            record = _parse_task_file(safe_path)
+            if record.get("error"):
+                return {"error": "not found"}
+
+        name = record.get("name") or ""
+        match = TASK_ID_RE.match(name)
+        return {
+            "id": match.group(1) if match else name,
+            "path": record.get("path"),
+            "lane": record.get("lane"),
+            "title": record.get("title") or "untitled",
+            "markdown": record.get("raw") or "",
+        }
+    except Exception:  # noqa: BLE001 - surface as 500, never a 200 envelope
+        return {"error": "internal error"}
 
 
 def _api_status(
@@ -1434,13 +1583,44 @@ def build_app():
         return HTMLResponse(_dashboard_html())
 
     async def api_status(request):
+        root = request.query_params.get("project_root")
+        if _relative_root(root):
+            return JSONResponse(
+                {"error": "project_root must be absolute"}, status_code=400
+            )
         auth = _auth_from_request(request)
-        payload = _api_status(request.query_params.get("project_root"), auth)
+        payload = _api_status(root, auth)
         error = payload.get("error")
         if error == "unauthenticated":
             return JSONResponse(payload, status_code=401)
         if error == "forbidden":
             return JSONResponse(payload, status_code=403)
+        return JSONResponse(payload)
+
+    async def api_task(request):
+        root = request.query_params.get("project_root")
+        if _relative_root(root):
+            return JSONResponse(
+                {"error": "project_root must be absolute"}, status_code=400
+            )
+        auth = _auth_from_request(request)
+        payload = _api_task(
+            root,
+            request.query_params.get("id"),
+            request.query_params.get("path"),
+            auth,
+        )
+        error = payload.get("error")
+        if error == "unauthenticated":
+            return JSONResponse(payload, status_code=401)
+        if error == "forbidden":
+            return JSONResponse(payload, status_code=403)
+        if error == "not found":
+            return JSONResponse(payload, status_code=404)
+        if isinstance(error, str) and error.startswith("missing param"):
+            return JSONResponse(payload, status_code=400)
+        if error == "internal error":
+            return JSONResponse(payload, status_code=500)
         return JSONResponse(payload)
 
     async def api_login(request):
@@ -1493,6 +1673,7 @@ def build_app():
             max_age=SESSION_TTL_SECONDS,
             httponly=True,
             samesite="lax",
+            secure=_is_https(request),
             path="/",
         )
         return response
@@ -1549,6 +1730,7 @@ def build_app():
     routes = [
         Route("/", dashboard),
         Route("/api/status", api_status),
+        Route("/api/task", api_task),
         Route("/api/login", api_login, methods=["POST"]),
         Route("/api/logout", api_logout, methods=["POST"]),
         Route("/api/me", api_me),
@@ -1559,7 +1741,28 @@ def build_app():
         )
     routes.append(Mount("/", app=_guarded_mcp_app(mcp_app)))
 
-    app = Starlette(routes=routes, lifespan=lifespan)
+    from starlette.middleware import Middleware
+    from starlette.middleware.base import BaseHTTPMiddleware
+
+    class _SecurityHeaders(BaseHTTPMiddleware):
+        """Baseline response headers for a page served through the tunnel."""
+
+        async def dispatch(self, request, call_next):
+            response = await call_next(request)
+            response.headers.setdefault("X-Content-Type-Options", "nosniff")
+            response.headers.setdefault("Referrer-Policy", "same-origin")
+            response.headers.setdefault("X-Frame-Options", "DENY")
+            if _is_https(request):
+                response.headers.setdefault(
+                    "Strict-Transport-Security", "max-age=31536000; includeSubDomains"
+                )
+            return response
+
+    app = Starlette(
+        routes=routes,
+        lifespan=lifespan,
+        middleware=[Middleware(_SecurityHeaders)],
+    )
     return app
 
 
