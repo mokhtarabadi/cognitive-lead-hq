@@ -939,6 +939,94 @@ def test_session_cookie_is_secure_behind_https_proxy(auth_client):
     assert "Secure" in cookie
 
 
+def test_plan_payload_day_week_month(tmp_path):
+    from datetime import date
+
+    today = date.today().isoformat()
+    _write_task(tmp_path, "backlog", 21, "Undated work", estimate=2)
+    _write_task(tmp_path, "in-progress", 22, "Today work", estimate=1, deadline=today)
+    _write_task(tmp_path, "completed", 23, "Done today", deadline=today)
+
+    day = planner._plan_payload(str(tmp_path), "day")
+    assert day["window"] == "day"
+    assert len(day["days"]) == 1
+    assert len(day["trend"]) == 14
+    assert day["totals"]["in_progress"] >= 1
+    assert any(t["id"] == "022" for t in day["days"][0]["tasks"])
+
+    week = planner._plan_payload(str(tmp_path), "week")
+    assert len(week["days"]) == 7
+    assert len(week["weeks"]) == 1
+    assert week["weeks"][0]["capacity_hours"] > 0
+
+    month = planner._plan_payload(str(tmp_path), "month")
+    assert len(month["weeks"]) >= 4
+
+
+def test_plan_alerts_overdue_and_soon(tmp_path):
+    from datetime import date, timedelta
+
+    today = date.today()
+    _write_task(
+        tmp_path, "qa", 31, "Late", deadline=(today - timedelta(days=2)).isoformat()
+    )
+    _write_task(
+        tmp_path,
+        "backlog",
+        32,
+        "Soon",
+        deadline=(today + timedelta(days=2)).isoformat(),
+    )
+    payload = planner._plan_payload(str(tmp_path), "week")
+    assert [t["id"] for t in payload["alerts"]["overdue"]] == ["031"]
+    assert [t["id"] for t in payload["alerts"]["soon"]] == ["032"]
+
+
+def test_plan_week_sums_all_days(tmp_path):
+    from datetime import date, timedelta
+
+    today = date.today()
+    week_start = today - timedelta(days=today.weekday())
+    _write_task(tmp_path, "backlog", 41, "Mon", deadline=week_start.isoformat())
+    _write_task(
+        tmp_path, "qa", 42, "Thu", deadline=(week_start + timedelta(days=3)).isoformat()
+    )
+    week = planner._plan_payload(str(tmp_path), "week")
+    assert week["weeks"][0]["open"] == 2
+    assert week["weeks"][0]["estimate_hours"] == week["totals"]["estimate_hours"]
+
+
+def test_plan_month_includes_mid_month_dates(tmp_path):
+    from datetime import date
+
+    today = date.today()
+    mid = today.replace(day=min(15, 28))
+    _write_task(
+        tmp_path, "backlog", 43, "Mid month", estimate=3, deadline=mid.isoformat()
+    )
+    month = planner._plan_payload(str(tmp_path), "month")
+    assert month["totals"]["open"] >= 1
+    assert month["totals"]["estimate_hours"] >= 3
+    assert sum(w["open"] for w in month["weeks"]) == month["totals"]["open"]
+
+
+def test_api_plan_http_contract(auth_client):
+    assert auth_client.get("/api/plan").status_code == 401
+    auth_client.post("/api/login", json={"username": "admin", "password": "admin-pass"})
+    assert auth_client.get("/api/plan", params={"window": "year"}).status_code == 400
+
+
+def test_api_plan_relative_root_rejected(open_client):
+    resp = open_client.get("/api/plan", params={"project_root": "relative/path"})
+    assert resp.status_code == 400
+
+
+def test_plan_missing_dir_returns_empty_buckets(tmp_path):
+    payload = planner._plan_payload(str(tmp_path), "week")
+    assert payload["totals"]["estimate_hours"] == 0
+    assert len(payload["days"]) == 7
+
+
 def test_login_valid_credentials_returns_token(auth_client):
     resp = auth_client.post(
         "/api/login", json={"username": "admin", "password": "admin-pass"}

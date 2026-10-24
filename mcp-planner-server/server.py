@@ -59,7 +59,7 @@ import sys
 import time
 import uuid
 from contextlib import asynccontextmanager
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Optional
 
@@ -1470,6 +1470,180 @@ def _api_task(
         return {"error": "internal error"}
 
 
+_PLAN_WINDOWS = ("day", "week", "month")
+
+
+def _empty_bucket(day: date) -> dict:
+    """One planning bucket; ``jalali`` is filled by the client."""
+    return {
+        "date": day.isoformat(),
+        "jalali": None,
+        "open": 0,
+        "in_progress": 0,
+        "done": 0,
+        "estimate_hours": 0.0,
+        "tasks": [],
+    }
+
+
+def _plan_payload(
+    project_root: Optional[str] = None, window: str = "week", auth=None
+) -> dict:
+    """Return day/week/month planning buckets (``GET /api/plan``).
+
+    Completion history is not stored in the task files, so "done" means a task
+    that sits in the ``completed`` lane and carries a deadline inside the
+    bucket. That limitation is part of the contract and is stated in the README
+    and in the dashboard, rather than being papered over with a fake timestamp.
+
+    Args:
+        project_root: Optional absolute root from ``?project_root=``.
+        window: ``day``, ``week`` or ``month`` (validated by the route).
+        auth: Optional session view; ``None`` is open local mode.
+
+    Returns:
+        ``{project_root, window, generated_at, days, weeks, totals, alerts,
+        trend}`` or ``{"error": ...}``.
+    """
+    if auth is not None and not auth.authenticated:
+        return {"error": "unauthenticated"}
+    root = _resolve_dashboard_root(project_root)
+    if auth is not None and not auth.project_allowed(root):
+        if project_root and project_root.strip():
+            return {"error": "forbidden"}
+        fallback = _first_allowed_root(auth)
+        if fallback is None:
+            return {"error": "forbidden"}
+        root = fallback
+
+    today = date.today()
+    week_start = today - timedelta(days=today.weekday())
+    capacity = float(_WEEKLY_CAPACITY_HOURS or 0)
+
+    buckets: dict[str, dict] = {}
+    open_lanes = ("backlog", "in-progress", "qa")
+
+    def bucket_for(day: date) -> dict:
+        key = day.isoformat()
+        if key not in buckets:
+            buckets[key] = _empty_bucket(day)
+        return buckets[key]
+
+    alerts = {"overdue": [], "today": [], "soon": []}
+    undated: list[tuple[dict, str]] = []
+    for task in _load_all_tasks(root):
+        lane = task.get("lane")
+        brief = _task_brief(task)
+        deadline_raw = task.get("deadline")
+        try:
+            deadline = date.fromisoformat(str(deadline_raw)) if deadline_raw else None
+        except ValueError:
+            deadline = None
+        if deadline is not None:
+            bucket = bucket_for(deadline)
+            bucket["tasks"].append(brief)
+            bucket["estimate_hours"] += float(task.get("estimate_hours") or 0)
+            if lane == "completed":
+                bucket["done"] += 1
+            elif lane == "in-progress":
+                bucket["in_progress"] += 1
+            elif lane in open_lanes:
+                bucket["open"] += 1
+        if lane in open_lanes and deadline is not None:
+            delta = (deadline - today).days
+            if delta < 0:
+                alerts["overdue"].append(brief)
+            elif delta == 0:
+                alerts["today"].append(brief)
+            elif delta <= 3:
+                alerts["soon"].append(brief)
+        elif lane in open_lanes:
+            undated.append((task, brief))
+
+    if window == "day":
+        days = [today]
+    elif window == "week":
+        days = [week_start + timedelta(days=offset) for offset in range(7)]
+    else:
+        first = today.replace(day=1)
+        next_month = (first + timedelta(days=32)).replace(day=1)
+        days = [first + timedelta(days=i) for i in range((next_month - first).days)]
+
+    day_rows = [bucket_for(day) for day in days]
+
+    # Undated open work is what "still to do" means in practice: most task
+    # files carry no deadline, so counting deadlines alone would render an
+    # empty cockpit. Attribute it to the current bucket (today, this week, or
+    # the month's first day) and keep the count honest in ``totals``.
+    anchor = today if window == "day" else (week_start if window == "week" else days[0])
+    anchor_bucket = bucket_for(anchor)
+    for task, brief in undated:
+        anchor_bucket["tasks"].append(brief)
+        anchor_bucket["estimate_hours"] += float(task.get("estimate_hours") or 0)
+        if task.get("lane") == "in-progress":
+            anchor_bucket["in_progress"] += 1
+        else:
+            anchor_bucket["open"] += 1
+
+    weeks: list[dict] = []
+    if window in ("week", "month"):
+        grouped: dict[str, list[dict]] = {}
+        for row in day_rows:
+            day = date.fromisoformat(row["date"])
+            key = (day - timedelta(days=day.weekday())).isoformat()
+            grouped.setdefault(key, []).append(row)
+        for start_key in sorted(grouped):
+            rows = grouped[start_key]
+            start = date.fromisoformat(start_key)
+            estimate = round(sum(r["estimate_hours"] for r in rows), 2)
+            weeks.append(
+                {
+                    "start": start_key,
+                    "end": (start + timedelta(days=6)).isoformat(),
+                    "label": f"{start.isocalendar()[0]}-W{start.isocalendar()[1]:02d}",
+                    "open": sum(r["open"] for r in rows),
+                    "in_progress": sum(r["in_progress"] for r in rows),
+                    "done": sum(r["done"] for r in rows),
+                    "estimate_hours": estimate,
+                    "capacity_hours": capacity,
+                    "remaining_hours": round(capacity - estimate, 2),
+                }
+            )
+
+    trend = []
+    for offset in range(13, -1, -1):
+        day = today - timedelta(days=offset)
+        row = bucket_for(day)
+        trend.append(
+            {
+                "date": day.isoformat(),
+                "open": row["open"],
+                "in_progress": row["in_progress"],
+                "done": row["done"],
+                "estimate_hours": round(row["estimate_hours"], 2),
+            }
+        )
+
+    totals = {
+        "open": sum(b["open"] for b in day_rows),
+        "in_progress": sum(b["in_progress"] for b in day_rows),
+        "done": sum(b["done"] for b in day_rows),
+        "estimate_hours": round(sum(b["estimate_hours"] for b in day_rows), 2),
+        "capacity_hours": capacity,
+    }
+
+    return {
+        "project_root": str(root),
+        "window": window,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "days": day_rows,
+        "weeks": weeks,
+        "trend": trend,
+        "totals": totals,
+        "alerts": alerts,
+    }
+
+
 def _api_status(
     project_root: Optional[str] = None, auth: Optional[AuthState] = None
 ) -> dict:
@@ -1623,6 +1797,26 @@ def build_app():
             return JSONResponse(payload, status_code=500)
         return JSONResponse(payload)
 
+    async def api_plan(request):
+        root = request.query_params.get("project_root")
+        if _relative_root(root):
+            return JSONResponse(
+                {"error": "project_root must be absolute"}, status_code=400
+            )
+        window = (request.query_params.get("window") or "week").strip().lower()
+        if window not in _PLAN_WINDOWS:
+            return JSONResponse({"error": "invalid window"}, status_code=400)
+        auth = _auth_from_request(request)
+        payload = _plan_payload(root, window, auth)
+        error = payload.get("error")
+        if error == "unauthenticated":
+            return JSONResponse(payload, status_code=401)
+        if error == "forbidden":
+            return JSONResponse(payload, status_code=403)
+        if error == "internal error":
+            return JSONResponse(payload, status_code=500)
+        return JSONResponse(payload)
+
     async def api_login(request):
         if not _AUTH_ENABLED:
             return JSONResponse(
@@ -1731,6 +1925,7 @@ def build_app():
         Route("/", dashboard),
         Route("/api/status", api_status),
         Route("/api/task", api_task),
+        Route("/api/plan", api_plan),
         Route("/api/login", api_login, methods=["POST"]),
         Route("/api/logout", api_logout, methods=["POST"]),
         Route("/api/me", api_me),

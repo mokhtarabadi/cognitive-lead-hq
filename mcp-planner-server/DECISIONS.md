@@ -152,3 +152,10 @@ ADR-006 below. Session auth, scoping, and the CLI remain as decided here.
   and `::test_api_status_stays_guarded_while_mcp_is_open`.
 - **Rollback:** Restore the cookie/role checks in `_guarded_mcp_app` and the
   three guard tests; no config or dashboard change is involved.
+
+## [2026-10-24] ADR-008: Plan buckets are computed per request, not stored
+
+- **Context:** the Manager asked for day/week/month planning views with charts and deadline pressure. Completion history does not exist in `tasks/` Markdown, and adding a second store would break the "Markdown is the single source of truth" rule.
+- **Decision:** `GET /api/plan` derives `days`, `weeks`, `trend` (14 days), `totals` and `alerts` from `_load_all_tasks` on every request. Week rows sum the day rows they contain; month builds every day of the month and groups by ISO week. Open work without a deadline is attributed to the current bucket so the view is never empty. `done` is a completed-lane task with a deadline in the bucket, and the UI states that history is not stored. Capacity comes from `PLANNER_WEEKLY_CAPACITY`.
+- **Consequences:** no migration, no cache to invalidate, and a slow project with thousands of tasks pays a full scan per request (acceptable at 337 tasks; revisit if it grows). Charts read `trend`, so a future history feature only needs to extend that array.
+- **Rollback:** remove the route and the three dashboard panels; `/api/status` keeps working unchanged.

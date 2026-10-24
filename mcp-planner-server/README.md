@@ -125,3 +125,23 @@ the tunnel goes live, then verify: `https://planner.example.com/mcp` → 404,
 - No external integrations in v1 (GitHub/Telegram/Asana/Plane deferred).
 - Zero-Autonomous-Commit: agents never `git commit`/`git push`; staging goes
   through `custom_context_stage_and_inject_diff`.
+
+## Planning API (`GET /api/plan`)
+
+`GET /api/plan?window=day|week|month[&project_root=<abs path>]` returns the
+cockpit buckets: `days`, `weeks`, `trend` (14 days), `totals` and `alerts`
+(`overdue`, `today`, `soon` = next three days). Buckets are computed from
+`tasks/` at request time — there is no second store.
+
+- `day` is today; `week` is Monday–Sunday of the current week (safe mid-week);
+  `month` covers every day of the current month and groups it by ISO week.
+- Week rows sum the days they contain (`open`, `in_progress`, `done`,
+  `estimate_hours`) and compare the estimate against `PLANNER_WEEKLY_CAPACITY`
+  (`capacity_hours`, `remaining_hours`).
+- Open work without a deadline is attributed to the current bucket, so the
+  cockpit is never empty on a project whose tasks omit deadlines.
+- `done` means a task in the `completed` lane carrying a deadline inside the
+  bucket; task files store no closed timestamp, and the UI says so.
+- `project_root` must be absolute (`400` otherwise); `window` must be one of
+  the three values (`400`); with auth enabled the route answers `401` without a
+  session and `403` outside the session's grants.
