@@ -16,6 +16,7 @@ gateway, no server process required.
 """
 
 import importlib.util
+import json
 import os
 import sys
 from pathlib import Path
@@ -426,8 +427,9 @@ def test_plan_materialize_output_passes_real_lint(tmp_path, monkeypatch):
     # as the real tool is invoked.
     monkeypatch.chdir(tmp_path)
     rel = "tasks/backlog/010-task-10.md"
-    issues = lint._check_markdown_basics(content, rel) + \
-        lint._check_task_file_structure(content, rel)
+    issues = lint._check_markdown_basics(
+        content, rel
+    ) + lint._check_task_file_structure(content, rel)
     assert issues == [], issues
 
     # No fabricated placeholders in the created file.
@@ -466,8 +468,12 @@ def test_api_status_lanes_are_task_lists(tmp_path):
 
 def test_api_status_milestone_tree_and_deadlines(tmp_path):
     _write_task(
-        tmp_path, "backlog", 1, "Milestone task",
-        milestone="M1", deadline="2026-12-01",
+        tmp_path,
+        "backlog",
+        1,
+        "Milestone task",
+        milestone="M1",
+        deadline="2026-12-01",
     )
     payload = planner._api_status(str(tmp_path))
 
@@ -499,11 +505,612 @@ def test_resolve_dashboard_root_uses_env(tmp_path, monkeypatch):
     assert planner._resolve_dashboard_root(None) == tmp_path.resolve()
 
 
-def test_build_app_serves_dashboard_and_mcp_routes():
+def test_build_app_serves_dashboard_and_mcp_routes(tmp_path):
     """The combined app must expose dashboard, API, and the MCP mount."""
+    from starlette.routing import Mount
+
+    (tmp_path / "tasks").mkdir(parents=True, exist_ok=True)
+    monkeypatch = pytest.MonkeyPatch()
+    monkeypatch.setenv("PLANNER_PROJECT_ROOT", str(tmp_path))
+    monkeypatch.setenv("PLANNER_USERS_CONFIG", str(tmp_path / "nonexistent.json"))
     app = planner.build_app()
-    paths = [getattr(r, "path", None) for r in app.routes]
-    assert "/" in paths
-    assert "/api/status" in paths
-    assert "/" in paths  # MCP sub-app is mounted at the root
+    try:
+        paths = [getattr(r, "path", None) for r in app.routes]
+        assert "/" in paths
+        assert "/api/status" in paths
+        assert "/api/login" in paths
+        assert "/api/logout" in paths
+        assert "/static" in paths
+    finally:
+        monkeypatch.undo()
+    assert "/api/me" in paths
+    # The MCP transport routes itself at settings.streamable_http_path
+    # ("/mcp") inside a root Mount, so the mount is the route to assert on.
+    assert any(isinstance(route, Mount) for route in app.routes)
+    assert planner.mcp.settings.streamable_http_path == "/mcp"
     assert app.router.lifespan_context is not None
+
+
+# ---------------------------------------------------------------------------
+# Auth: password hashing, user config, and session management
+# ---------------------------------------------------------------------------
+
+
+def test_hash_password_produces_salt_and_hash():
+    salt, hash_hex = planner._hash_password("test-password")
+    assert len(salt) == 32  # 16 bytes hex
+    assert len(hash_hex) == 64  # 32 bytes hex
+    # Same password, different salt each call.
+    salt2, hash2 = planner._hash_password("test-password")
+    assert salt != salt2
+    assert hash_hex != hash2
+
+
+def test_verify_password_accepts_valid():
+    salt, hash_hex = planner._hash_password("secret")
+    assert planner._verify_password("secret", salt, hash_hex) is True
+
+
+def test_verify_password_rejects_wrong():
+    salt, hash_hex = planner._hash_password("secret")
+    assert planner._verify_password("wrong", salt, hash_hex) is False
+
+
+def test_verify_password_rejects_tampered_hash():
+    salt, hash_hex = planner._hash_password("secret")
+    assert planner._verify_password("secret", salt, hash_hex[:-4] + "0000") is False
+
+
+def test_load_user_config_missing_file_returns_open_mode(tmp_path, monkeypatch):
+    # When the file does not exist, auth is disabled.
+    monkeypatch.setenv("PLANNER_USERS_CONFIG", str(tmp_path / "nonexistent.json"))
+    cfg = planner._load_user_config()
+    assert cfg == {"auth_enabled": False}
+
+
+def test_load_user_config_invalid_json_returns_open_mode(tmp_path, monkeypatch):
+    cfg_path = tmp_path / "planner-users.json"
+    cfg_path.write_text("{not json", encoding="utf-8")
+    monkeypatch.setenv("PLANNER_USERS_CONFIG", str(cfg_path))
+    cfg = planner._load_user_config()
+    assert cfg == {"auth_enabled": False}
+
+
+def test_load_user_config_auth_disabled_by_default(tmp_path, monkeypatch):
+    cfg_path = tmp_path / "planner-users.json"
+    cfg_path.write_text('{"users": []}', encoding="utf-8")
+    monkeypatch.setenv("PLANNER_USERS_CONFIG", str(cfg_path))
+    cfg = planner._load_user_config()
+    assert cfg["auth_enabled"] is False
+    assert cfg["users"] == []
+
+
+def test_load_user_config_with_users(monkeypatch, tmp_path):
+    # When no env var is set, falls back to ~/.config/opencode/planner-users.json.
+    monkeypatch.delenv("PLANNER_USERS_CONFIG", raising=False)
+    fallback = tmp_path / "home" / ".config" / "opencode"
+    fallback.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setattr("pathlib.Path.home", lambda: tmp_path / "home")
+    (fallback / "planner-users.json").write_text(
+        json.dumps(
+            {
+                "auth_enabled": True,
+                "users": [
+                    {"username": "a", "password_hash": "x", "allowed_projects": ["/p"]}
+                ],
+            }
+        )
+    )
+    cfg = planner._load_user_config()
+    assert isinstance(cfg, dict)
+    assert "auth_enabled" in cfg
+    assert isinstance(cfg.get("users"), list)
+
+
+def test_find_user_by_username():
+    cfg = {
+        "auth_enabled": True,
+        "users": [
+            {"username": "alice", "role": "admin"},
+            {"username": "bob", "role": "viewer"},
+        ],
+    }
+    assert planner._find_user(cfg, "alice") is not None
+    assert planner._find_user(cfg, "alice").get("role") == "admin"
+    assert planner._find_user(cfg, "bob").get("role") == "viewer"
+    assert planner._find_user(cfg, "carol") is None
+
+
+def test_auth_state_properties_no_user():
+    state = planner.AuthState({}, None, {})
+    assert state.authenticated is False
+    assert state.is_admin is False
+    assert state.role == ""
+    assert state.allowed_projects == []
+    assert state.project_allowed(Path("/any")) is False
+
+
+def test_auth_state_properties_with_user():
+    user = {
+        "username": "admin",
+        "role": "admin",
+        "allowed_projects": ["/"],
+    }
+    state = planner.AuthState({"users": [user]}, user, {})
+    assert state.authenticated is True
+    assert state.is_admin is True
+    assert state.role == "admin"
+    assert "/" in state.allowed_projects
+
+
+def test_auth_state_allowed_projects_star():
+    user = {"username": "admin", "role": "admin", "allowed_projects": ["*"]}
+    state = planner.AuthState({}, user, {})
+    assert state.project_allowed(Path("/anything")) is True
+    assert state.project_allowed(Path("/deep/nested/project")) is True
+
+
+def test_auth_state_project_allowed_exact_match():
+    user = {"username": "viewer", "role": "viewer", "allowed_projects": ["/shared"]}
+    state = planner.AuthState({}, user, {})
+    assert state.project_allowed(Path("/shared")) is True
+    assert state.project_allowed(Path("/shared/child")) is True
+    assert state.project_allowed(Path("/other")) is False
+
+
+def test_auth_state_project_allowed_subpath():
+    user = {"username": "viewer", "role": "viewer", "allowed_projects": ["/home/dev"]}
+    state = planner.AuthState({}, user, {})
+    assert state.project_allowed(Path("/home/dev/project-a")) is True
+    assert state.project_allowed(Path("/home/other/project-b")) is False
+
+
+def test_auth_state_project_allowed_empty_when_not_authenticated():
+    state = planner.AuthState({}, None, {})
+    # Even if allowed_projects contained "*", an unauthenticated user is blocked.
+    assert state.project_allowed(Path("/anything")) is False
+
+
+def test_auth_state_dedup_allowed_projects():
+    user = {"username": "u", "role": "viewer", "allowed_projects": ["/", "/", "*"]}
+    state = planner.AuthState({}, user, {})
+    assert state.allowed_projects == ["/", "*"]
+
+
+def test_auth_state_allowed_projects_string_coerced_to_list():
+    user = {"username": "u", "role": "viewer", "allowed_projects": "/"}
+    state = planner.AuthState({}, user, {})
+    assert state.allowed_projects == ["/"]
+
+
+def test_auth_token_store_roundtrip():
+    planner._build_auth_url_map().clear()
+    store = planner._build_auth_url_map()
+    store["tok1"] = {"user": {"username": "admin"}, "created": 0.0}
+    assert planner._session_from_token("tok1") is not None
+    assert planner._session_from_token("tok1").get("user").get("username") == "admin"
+    assert planner._session_from_token("tok2") is None
+    planner._invalidate_token("tok1")
+    assert planner._session_from_token("tok1") is None
+
+
+# ---------------------------------------------------------------------------
+# Auth: login / logout / me handlers (tested through Starlette TestClient)
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def auth_app(tmp_path, monkeypatch):
+    """Build the app with auth enabled and a test user config."""
+    cfg_path = tmp_path / "planner-users.json"
+    salt, hash_hex = planner._hash_password("admin-pass")
+    salt2, hash2 = planner._hash_password("viewer-pass")
+    cfg_path.write_text(
+        json.dumps(
+            {
+                "auth_enabled": True,
+                "users": [
+                    {
+                        "username": "admin",
+                        "role": "admin",
+                        "password_salt": salt,
+                        "password_hash": hash_hex,
+                        "allowed_projects": ["*"],
+                    },
+                    {
+                        "username": "viewer",
+                        "role": "viewer",
+                        "password_salt": salt2,
+                        "password_hash": hash2,
+                        "allowed_projects": [str(tmp_path / "project-a")],
+                    },
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("PLANNER_USERS_CONFIG", str(cfg_path))
+    # Both fixture projects feed the dashboard switcher; per-test creation of
+    # their tasks/ dirs happens before the first request, so discovery sees
+    # them and the RBAC filter is what decides who may list them.
+    monkeypatch.setenv(
+        "PLANNER_PROJECTS",
+        os.pathsep.join([str(tmp_path / "project-a"), str(tmp_path / "project-b")]),
+    )
+    # Reset the module-level auth flag and config so the app picks up the
+    # test config. The module was already imported, so we patch the globals.
+    planner._USER_CONFIG = planner._load_user_config()
+    planner._AUTH_ENABLED = bool(planner._USER_CONFIG.get("auth_enabled", False))
+    planner._build_auth_url_map().clear()
+    app = planner.build_app()
+    # Build the app with auth enabled and a test user config — the auth middleware
+    # is mounted inside build_app(), so every fresh app instance already reads the
+    # patched module globals; no custom reset helper is required.
+    # Prevent the build_app() call from signaling _CHANGED during fixture setup —
+    # the signal is only meaningful between test cases, and we rely on the
+    # auth_app fixture being rebuilt per test (pytest caches fixtures by params).
+    return app
+
+
+@pytest.fixture
+def auth_client(auth_app):
+    from starlette.testclient import TestClient
+
+    # A context-managed client runs the app lifespan, which is what starts the
+    # MCP session manager behind the /mcp guard.
+    with TestClient(auth_app) as client:
+        yield client
+
+
+def test_login_valid_credentials_returns_token(auth_client):
+    resp = auth_client.post(
+        "/api/login", json={"username": "admin", "password": "admin-pass"}
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["token"]
+    assert data["username"] == "admin"
+    assert data["role"] == "admin"
+    assert data["allowed_projects"] == ["*"]
+    assert "planner_session" in resp.cookies
+
+
+def test_login_invalid_password_returns_401(auth_client):
+    resp = auth_client.post(
+        "/api/login", json={"username": "admin", "password": "wrong"}
+    )
+    assert resp.status_code == 401
+
+
+def test_login_nonexistent_user_returns_401(auth_client):
+    resp = auth_client.post("/api/login", json={"username": "nobody", "password": "x"})
+    assert resp.status_code == 401
+
+
+def test_login_missing_fields_returns_400(auth_client):
+    resp = auth_client.post("/api/login", json={"username": "admin"})
+    assert resp.status_code == 400
+
+
+def test_login_invalid_json_returns_400(auth_client):
+    resp = auth_client.post("/api/login", content="not json")
+    assert resp.status_code == 400
+
+
+def test_me_returns_user_when_authenticated(auth_client, auth_app):
+    auth_client.post("/api/login", json={"username": "admin", "password": "admin-pass"})
+    resp = auth_client.get("/api/me")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["authenticated"] is True
+    assert data["username"] == "admin"
+    assert data["role"] == "admin"
+    assert data["allowed_projects"] == ["*"]
+
+
+def test_me_returns_401_when_unauthenticated(auth_client):
+    resp = auth_client.get("/api/me")
+    assert resp.status_code == 401
+
+
+def test_logout_clears_session(auth_client, auth_app):
+    auth_client.post("/api/login", json={"username": "admin", "password": "admin-pass"})
+    assert auth_client.get("/api/me").status_code == 200
+    resp = auth_client.post("/api/logout")
+    assert resp.status_code == 200
+    assert resp.json()["ok"] is True
+    assert auth_client.get("/api/me").status_code == 401
+
+
+def test_me_after_logout_is_401(auth_client, auth_app):
+    auth_client.post("/api/login", json={"username": "admin", "password": "admin-pass"})
+    auth_client.post("/api/logout")
+    resp = auth_client.get("/api/me")
+    assert resp.status_code == 401
+
+
+# ---------------------------------------------------------------------------
+# Auth: RBAC — admin sees all, viewer only sees authorized projects
+# ---------------------------------------------------------------------------
+
+
+def test_api_status_401_when_unauthenticated_and_auth_enabled(auth_client):
+    # Without logging in, status is 401.
+    resp = auth_client.get("/api/status")
+    assert resp.status_code == 401
+
+
+def test_api_status_admin_sees_all_projects(auth_client, auth_app, tmp_path):
+    auth_client.post("/api/login", json={"username": "admin", "password": "admin-pass"})
+    (tmp_path / "project-a").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "project-b").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "project-a" / "tasks").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "project-b" / "tasks").mkdir(parents=True, exist_ok=True)
+    resp = auth_client.get("/api/status")
+    assert resp.status_code == 200
+    data = resp.json()
+    project_paths = [p["path"] for p in data["projects"]]
+    assert str(tmp_path / "project-a") in project_paths
+    assert str(tmp_path / "project-b") in project_paths
+
+
+def test_api_status_viewer_sees_only_authorized_project(
+    auth_client, auth_app, tmp_path
+):
+    # Viewer is only allowed into project-a.
+    auth_client.post(
+        "/api/login", json={"username": "viewer", "password": "viewer-pass"}
+    )
+    (tmp_path / "project-a").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "project-b").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "project-a" / "tasks").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "project-b" / "tasks").mkdir(parents=True, exist_ok=True)
+    resp = auth_client.get("/api/status")
+    assert resp.status_code == 200
+    data = resp.json()
+    project_paths = [p["path"] for p in data["projects"]]
+    assert str(tmp_path / "project-a") in project_paths
+    assert str(tmp_path / "project-b") not in project_paths
+
+
+def test_api_status_403_when_project_root_not_allowed(auth_client, auth_app, tmp_path):
+    # Viewer logs in; requesting project-b (not allowed) returns 403.
+    auth_client.post(
+        "/api/login", json={"username": "viewer", "password": "viewer-pass"}
+    )
+    (tmp_path / "project-a").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "project-b").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "project-a" / "tasks").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "project-b" / "tasks").mkdir(parents=True, exist_ok=True)
+    resp = auth_client.get(
+        "/api/status", params={"project_root": str(tmp_path / "project-b")}
+    )
+    assert resp.status_code == 403
+    data = resp.json()
+    assert data.get("error") == "forbidden"
+
+
+def test_api_status_allowed_project_root_ok_for_viewer(auth_client, auth_app, tmp_path):
+    auth_client.post(
+        "/api/login", json={"username": "viewer", "password": "viewer-pass"}
+    )
+    (tmp_path / "project-a").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "project-a" / "tasks").mkdir(parents=True, exist_ok=True)
+    resp = auth_client.get(
+        "/api/status", params={"project_root": str(tmp_path / "project-a")}
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    project_paths = [p["path"] for p in data["projects"]]
+    assert str(tmp_path / "project-a") in project_paths
+    assert str(tmp_path / "project-b") not in project_paths
+
+
+# ---------------------------------------------------------------------------
+# Auth: /mcp ingress guard (admin only when auth is enabled)
+# ---------------------------------------------------------------------------
+
+
+def test_mcp_requires_session_when_auth_enabled(auth_client):
+    resp = auth_client.post(
+        "/mcp", content='{"jsonrpc":"2.0","method":"tools/list","id":1}'
+    )
+    assert resp.status_code == 401
+    assert resp.json()["error"] == "unauthenticated"
+
+
+def test_mcp_blocks_viewer_session(auth_client):
+    auth_client.post(
+        "/api/login", json={"username": "viewer", "password": "viewer-pass"}
+    )
+    resp = auth_client.post(
+        "/mcp", content='{"jsonrpc":"2.0","method":"tools/list","id":1}'
+    )
+    assert resp.status_code == 403
+    assert resp.json()["error"] == "forbidden"
+
+
+def test_mcp_admits_admin_session(auth_client):
+    auth_client.post("/api/login", json={"username": "admin", "password": "admin-pass"})
+    resp = auth_client.post(
+        "/mcp", content='{"jsonrpc":"2.0","method":"tools/list","id":1}'
+    )
+    # The guard admits the request; the transport then rejects the malformed
+    # MCP handshake with its own status, which must not be a guard status.
+    assert resp.status_code not in (401, 403)
+
+
+# ---------------------------------------------------------------------------
+# Auth: backward compatibility when auth is disabled
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def open_app(tmp_path, monkeypatch):
+    """Build the app with auth disabled (no config file)."""
+    monkeypatch.setenv("PLANNER_USERS_CONFIG", str(tmp_path / "nonexistent.json"))
+    planner._USER_CONFIG = planner._load_user_config()
+    planner._AUTH_ENABLED = bool(planner._USER_CONFIG.get("auth_enabled", False))
+    planner._build_auth_url_map().clear()
+    return planner.build_app()
+
+
+@pytest.fixture
+def open_client(open_app):
+    from starlette.testclient import TestClient
+
+    # Context-managed so the app lifespan starts the MCP session manager.
+    with TestClient(open_app) as client:
+        yield client
+
+
+def test_login_when_auth_disabled_returns_note(open_client):
+    resp = open_client.post("/api/login", json={"username": "x", "password": "y"})
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["note"] == "auth disabled"
+    assert data["token"] == ""
+    assert data["username"] == ""
+
+
+def test_me_when_auth_disabled_returns_unauthenticated_note(open_client):
+    resp = open_client.get("/api/me")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["authenticated"] is False
+    assert data["note"] == "auth disabled"
+
+
+def test_status_works_without_auth(open_client, tmp_path):
+    (tmp_path / "tasks").mkdir(parents=True, exist_ok=True)
+    resp = open_client.get("/api/status")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "error" not in data or data.get("error") is None
+
+
+def test_dashboard_frontend_serves_when_auth_disabled(open_client, tmp_path):
+    # The dashboard static files should still serve when auth is disabled.
+    (tmp_path / "tasks").mkdir(parents=True, exist_ok=True)
+    resp = open_client.get("/")
+    assert resp.status_code == 200
+    assert "text/html" in resp.headers.get("content-type", "")
+
+
+def test_dashboard_static_assets_serve_when_auth_disabled(open_client, tmp_path):
+    (tmp_path / "tasks").mkdir(parents=True, exist_ok=True)
+    resp = open_client.get("/static/index.html")
+    assert resp.status_code == 200
+
+
+def test_mcp_route_exists_when_auth_disabled(open_client):
+    # The /mcp route is present regardless of auth mode.
+    resp = open_client.post(
+        "/mcp", content='{"jsonrpc":"2.0","method":"tools/list","id":1}'
+    )
+    # The MCP endpoint returns its own status; we just assert the route is reachable.
+    assert resp.status_code in (
+        200,
+        400,
+        405,
+    )  # 400/405 expected for malformed MCP body
+
+
+def test_login_when_auth_disabled_and_blob_body_returns_200(open_client):
+    resp = open_client.post("/api/login", content="not json")
+    # Auth disabled: the handler still parses JSON and falls through to the note.
+    assert resp.status_code == 200
+    assert resp.json()["note"] == "auth disabled"
+
+
+# ---------------------------------------------------------------------------
+# User management CLI (stdlib only, same hashing scheme as the server)
+# ---------------------------------------------------------------------------
+
+
+def _load_manage_users():
+    spec = importlib.util.spec_from_file_location(
+        "planner_manage_users", PLANNER_DIR / "manage_users.py"
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_manage_users_cli_add_writes_server_verifiable_hash(tmp_path, capsys):
+    manage_users = _load_manage_users()
+    cfg = tmp_path / "planner-users.json"
+
+    code = manage_users.main(
+        [
+            "--config",
+            str(cfg),
+            "add",
+            "--username",
+            "friend",
+            "--role",
+            "viewer",
+            "--projects",
+            str(tmp_path / "shared"),
+            "--password",
+            "friend-pass",
+        ]
+    )
+    assert code == 0
+
+    data = json.loads(cfg.read_text(encoding="utf-8"))
+    assert data["auth_enabled"] is True
+    user = data["users"][0]
+    assert user["username"] == "friend"
+    assert user["role"] == "viewer"
+    assert user["allowed_projects"] == [str(tmp_path / "shared")]
+    # The server verifies with its own PBKDF2 helper — the schemes must agree.
+    assert planner._verify_password(
+        "friend-pass", user["password_salt"], user["password_hash"]
+    )
+
+    out = capsys.readouterr().out
+    assert "Added user 'friend'" in out
+
+
+def test_manage_users_cli_rejects_duplicate_user(tmp_path):
+    manage_users = _load_manage_users()
+    cfg = tmp_path / "planner-users.json"
+    base = [
+        "--config",
+        str(cfg),
+        "add",
+        "--username",
+        "admin",
+        "--role",
+        "admin",
+        "--projects",
+        "*",
+        "--password",
+        "pw",
+    ]
+    assert manage_users.main(base) == 0
+    assert manage_users.main(base) == 1
+
+
+def test_manage_users_cli_disable_keeps_server_open(tmp_path):
+    manage_users = _load_manage_users()
+    cfg = tmp_path / "planner-users.json"
+    manage_users.main(
+        [
+            "--config",
+            str(cfg),
+            "add",
+            "--username",
+            "admin",
+            "--role",
+            "admin",
+            "--projects",
+            "*",
+            "--password",
+            "pw",
+        ]
+    )
+    assert manage_users.main(["--config", str(cfg), "disable"]) == 0
+    data = json.loads(cfg.read_text(encoding="utf-8"))
+    assert data["auth_enabled"] is False

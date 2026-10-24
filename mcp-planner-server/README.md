@@ -13,8 +13,12 @@ dashboard on loopback port 8108.
   (`plan_propose`, `plan_materialize`, `claim_next`, `qa_budget`,
   `milestone_status`, `plan_status`, `sprint_daily_agenda`,
   `sprint_check_daily_quota`, `sprint_lock`) plus an embedded HTTP route
-  serving the static dashboard on `GET /` and `GET /api/status`.
-- `static/index.html` — standalone dark-mode dashboard (no build step).
+  serving the static dashboard on `GET /` and `GET /api/status`, the auth
+  routes, and the admin-guarded MCP endpoint.
+- `manage_users.py` — stdlib-only user CLI (`add`, `update`, `remove`,
+  `list`, `enable`, `disable`) writing `~/.config/opencode/planner-users.json`.
+- `static/index.html` — standalone dark-mode dashboard (no build step),
+  including the login modal and the user badge.
 - `pyproject.toml` / `uv.lock` — runtime deps and lockfile.
 - `README.md` / `DECISIONS.md` — Living Folder Docs for this slice.
 
@@ -23,8 +27,12 @@ dashboard on loopback port 8108.
 | Route | Purpose |
 | ----- | ------- |
 | `GET /` | Standalone dark-mode dashboard (no build step). |
+| `GET /static/*` | Dashboard assets (same `static/` directory). |
 | `GET /api/status[?project_root=<abs path>]` | JSON status contract the dashboard renders. |
-| `POST /mcp` | MCP Streamable HTTP endpoint (tools). |
+| `POST /api/login` | `{"username","password"}` → `{token, username, role, allowed_projects}` + `HttpOnly` cookie. |
+| `POST /api/logout` | Invalidates the session and clears the cookie. |
+| `GET /api/me` | Current user, or 401 when signed out (200 + `note: "auth disabled"` in open mode). |
+| `POST /mcp` | MCP Streamable HTTP endpoint (tools). Admin-only when auth is enabled. |
 
 `/api/status` returns per-lane **task lists** (`lanes`), the milestone tree
 (`milestone_tree`), upcoming deadlines (`deadlines`), the pacing figures
@@ -38,6 +46,70 @@ Project resolution order: the `project_root` query parameter, then
 holding `tasks/`, then the working directory. `PLANNER_PROJECTS`
 (pathsep-separated absolute paths) adds entries to the dashboard switcher;
 `PLANNER_DAILY_TARGET` overrides the daily batch size (default 3).
+
+## Authentication and RBAC (optional, off by default)
+
+- **Config:** `~/.config/opencode/planner-users.json`, overridable with
+  `PLANNER_USERS_CONFIG`. Shape: `{"auth_enabled": bool, "users": [{"username",
+  "role": "admin"|"viewer", "password_salt", "password_hash",
+  "allowed_projects": ["*"] | ["/abs/path", ...]}]}`.
+- **Open mode:** no file, unreadable file, invalid JSON, `auth_enabled: false`,
+  or an empty `users` list ⇒ every request behaves exactly as before
+  (no 401, no filtering). This is the backward-compatibility contract.
+- **Hashing:** `hashlib.pbkdf2_hmac("sha256", …, 600_000)` with a 16-byte
+  `secrets` salt, verified with `hmac.compare_digest`. No third-party crypto.
+- **Sessions:** `secrets.token_urlsafe(32)` held in memory, `HttpOnly` +
+  `SameSite=Lax` cookie `planner_session`, 7-day TTL. A restart drops every
+  session by design (re-login is cheap; no server-side secret to leak).
+- **Scoping:** `/api/status` returns 401 until sign-in, 403 when an explicit
+  `project_root` is outside `allowed_projects`, and filters `projects` to the
+  allowed roots. Without an explicit root a viewer falls back to their first
+  allowed project instead of being denied.
+- **`/mcp`:** admin sessions only when auth is enabled; viewers get 403 and
+  signed-out callers 401. Local MCP clients (no cookie) therefore need
+  `auth_enabled: false`, which is the default.
+- **Known limitation:** tool calls are authorized at the transport level, not
+  per argument — an admin whose `allowed_projects` is restricted can still pass
+  any `project_root` to a tool. Admins are expected to hold the wildcard grant;
+  use a viewer account for read-only scoped access.
+
+Manage users (stdlib CLI, no venv):
+
+```bash
+python3 manage_users.py add --username admin --role admin --projects "*"
+python3 manage_users.py add --username friend --role viewer --projects /path/to/shared-project
+python3 manage_users.py list
+python3 manage_users.py update --username friend --add-project /another/project
+python3 manage_users.py disable        # back to open local mode
+```
+
+Config is read when the app is built, so `systemctl --user restart mcp-planner`
+after any user change.
+
+## Cloudflare Tunnel (external dashboard access)
+
+Keep the unit on `127.0.0.1` and let `cloudflared` dial out. The ingress
+config must block `/mcp` **before** the catch-all rule so tool execution never
+leaves the host:
+
+```yaml
+# ~/.cloudflared/config.yml
+tunnel: planner
+credentials-file: /home/me/.cloudflared/<tunnel-uuid>.json
+
+ingress:
+  - hostname: planner.example.com
+    path: ^/mcp(/.*)?$
+    service: http_status:404
+  - hostname: planner.example.com
+    service: http://127.0.0.1:8108
+  - service: http_status:404
+```
+
+`cloudflared tunnel create planner` → `cloudflared tunnel route dns planner
+planner.example.com` → `sudo cloudflared service install`. Enable auth before
+the tunnel goes live, then verify: `https://planner.example.com/mcp` → 404,
+`/` → 200 with the login modal. Full walkthrough in `docs/services.md`.
 
 ## Key Risks & Invariants
 

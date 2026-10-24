@@ -24,6 +24,77 @@ to the nearest ancestor of its working directory that holds `tasks/`.
 `PLANNER_PROJECTS` (pathsep-separated absolute paths) feeds the
 dashboard's project switcher. It needs no credentials.
 
+Planner authentication is **optional and off by default**: with no
+`~/.config/opencode/planner-users.json` (or `"auth_enabled": false`) the
+server stays in open local mode, byte-identical to the pre-auth
+behaviour. With auth on, `POST /api/login` issues an `HttpOnly`
+`planner_session` cookie, `/api/status` is 401 until sign-in and 403
+outside the caller's `allowed_projects`, and `/mcp` accepts admin
+sessions only. Users are managed with the stdlib CLI (no venv needed):
+
+```bash
+python3 ~/.config/opencode/mcp-planner-server/manage_users.py \
+  add --username admin --role admin --projects "*"
+python3 ~/.config/opencode/mcp-planner-server/manage_users.py \
+  add --username friend --role viewer --projects /home/me/Develop/Projects/shared
+python3 ~/.config/opencode/mcp-planner-server/manage_users.py list
+systemctl --user restart mcp-planner     # config is read at startup
+```
+
+Passwords are PBKDF2-HMAC-SHA256 (600k iterations, per-user salt); the
+file is written `chmod 600`. `PLANNER_USERS_CONFIG` overrides the path,
+and `enable` / `disable` flip `auth_enabled` without touching users.
+
+### Exposing the planner through a Cloudflare Tunnel
+
+The tunnel is the only supported way to reach the dashboard from outside
+the host. Keep the unit bound to loopback and let `cloudflared` make the
+outbound connection — never rebind to `0.0.0.0`.
+
+```bash
+cloudflared tunnel login
+cloudflared tunnel create planner
+cloudflared tunnel route dns planner planner.example.com
+```
+
+`~/.cloudflared/config.yml` — the `/mcp` ingress rule is a deliberate
+`404` so tool execution never leaves the host, even for an admin cookie:
+
+```yaml
+tunnel: planner
+credentials-file: /home/me/.cloudflared/<tunnel-uuid>.json
+
+ingress:
+  # Tool execution stays loopback-only. This rule must come first.
+  - hostname: planner.example.com
+    path: ^/mcp(/.*)?$
+    service: http_status:404
+  # Dashboard + JSON API (login, status, me) through the tunnel.
+  - hostname: planner.example.com
+    service: http://127.0.0.1:8108
+  - service: http_status:404
+```
+
+```bash
+sudo cloudflared service install        # or: cloudflared tunnel run planner
+```
+
+Rules that make the exposure safe:
+
+1. `path: ^/mcp(/.*)?$` → `http_status:404` is ordered **before** the
+   catch-all hostname rule; Cloudflare matches ingress top-down, so a
+   later rule can never re-open `/mcp`.
+2. Enable auth (`manage_users.py add ...`) before starting the tunnel.
+   Without it the dashboard is open to anyone who finds the hostname.
+3. `allowed_projects` is the second gate: a viewer only ever sees the
+   project roots listed for them, and any other `?project_root=` is 403.
+4. The tunnel exposes HTTPS only; the `planner_session` cookie is
+   `HttpOnly` + `SameSite=Lax`, so keep the hostname HTTPS-only in
+   Cloudflare (no plain-HTTP origin rule).
+5. Verify from outside: `curl -s -o /dev/null -w '%{http_code}\n'
+   https://planner.example.com/mcp` must print `404`, while `/` prints
+   `200` and shows the login modal.
+
 `zen-proxy` is listed here because it is provisioned and supervised the same
 way, but it speaks the OpenAI Responses/Chat API rather than MCP. Its unit
 reads the same global `.env`; it needs no API key of its own (the caller's
@@ -38,6 +109,12 @@ already running on this machine can reach them. Do not rebind to
 0.0.0.0 or expose these ports beyond the host. (Inside the blowsh
 container `MCP_HOST=0.0.0.0` is required, but the published port stays
 `-p 127.0.0.1:8107:8107`.)
+
+The planner is the one exception when it is tunneled: it ships optional
+cookie-session auth with per-user project scoping, so an operator can
+expose the dashboard through `cloudflared` while `/mcp` stays
+loopback-only (see the planner section above). Every other singleton
+stays loopback-only with no auth at all.
 
 ## Credentials (`.env`) — how the servers read keys
 

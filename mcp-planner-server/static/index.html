@@ -68,14 +68,68 @@
   .project-switcher select { background: var(--panel); border: 1px solid var(--border); color: var(--text); padding: 4px 10px; border-radius: 6px; font-size: 0.875rem; }
   .pacing { display: flex; align-items: center; gap: 12px; }
   .pacing .label { font-size: 0.875rem; color: var(--muted); }
+  /* Auth UI */
+  .hidden { display: none !important; }
+  .user-badge { display: flex; align-items: center; gap: 8px; background: var(--panel); border: 1px solid var(--border); padding: 4px 12px 4px 8px; border-radius: 20px; font-size: 0.875rem; }
+  .user-badge .avatar { width: 22px; height: 22px; border-radius: 50%; background: var(--accent); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.75rem; color: #000; }
+  .user-badge .name { color: var(--text); font-weight: 600; }
+  .role-chip { font-size: 0.7rem; padding: 2px 8px; border-radius: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
+  .role-chip.admin { background: #1e1b4b; color: #c7d2fe; border: 1px solid #3730a3; }
+  .role-chip.viewer { background: #1c1917; color: #fed7aa; border: 1px solid #78350f; }
+  #logout-btn { background: transparent; border: 1px solid var(--border); color: var(--muted); padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 0.8rem; }
+  #logout-btn:hover { background: var(--panel-hover); color: var(--text); }
+  /* Login modal */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 100; }
+  .modal-overlay.hidden { display: none; }
+  .modal { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 24px; width: 360px; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
+  .modal h2 { font-size: 1.125rem; margin-bottom: 4px; }
+  .modal .sub { font-size: 0.875rem; color: var(--muted); margin-bottom: 20px; }
+  .modal .field { margin-bottom: 14px; }
+  .modal .field label { display: block; font-size: 0.8rem; color: var(--muted); margin-bottom: 4px; }
+  .modal .field input { width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 8px 12px; border-radius: 6px; font-size: 0.9rem; outline: none; }
+  .modal .field input:focus { border-color: var(--accent); }
+  .modal .err { color: var(--danger); font-size: 0.8rem; margin-bottom: 12px; min-height: 1.2em; }
+  .modal .actions { display: flex; gap: 10px; margin-top: 8px; }
+  .modal .btn-primary { flex: 1; background: var(--accent); color: #000; border: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 0.9rem; }
+  .modal .btn-primary:hover { background: var(--accent-hover); }
+  .modal .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  .modal .btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--muted); padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 0.9rem; }
+  .modal .btn-ghost:hover { background: var(--panel-hover); color: var(--text); }
 </style>
 </head>
 <body>
 <div class="container">
   <header>
     <div class="brand"><div class="dot"></div> Planner MCP</div>
+    <div id="user-area" style="display:flex;align-items:center;gap:10px;">
+      <div class="user-badge hidden" id="user-badge">
+        <div class="avatar" id="user-avatar">?</div>
+        <span class="name" id="user-name">—</span>
+        <span class="role-chip" id="user-role">—</span>
+      </div>
+      <button id="logout-btn" class="hidden">Logout</button>
+    </div>
     <div class="status-chip" id="status-chip"><span class="dot" id="status-dot"></span><span id="status-text">Loading…</span></div>
   </header>
+  <div class="modal-overlay hidden" id="login-modal">
+    <div class="modal">
+      <h2>Sign in to Planner</h2>
+      <div class="sub">Authentication is enabled on this server.</div>
+      <div class="err" id="login-err"></div>
+      <div class="field">
+        <label for="login-username">Username</label>
+        <input type="text" id="login-username" placeholder="e.g. admin" autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="login-password">Password</label>
+        <input type="password" id="login-password" placeholder="Enter your password">
+      </div>
+      <div class="actions">
+        <button class="btn-ghost" id="login-cancel">Cancel</button>
+        <button class="btn-primary" id="login-btn">Sign in</button>
+      </div>
+    </div>
+  </div>
 
   <div class="grid">
     <div class="card">
@@ -186,6 +240,21 @@
   async function fetchStatus() {
     try {
       const resp = await fetch(statusUrl(), { cache: 'no-cache' });
+      if (resp.status === 401) {
+        // Auth is enabled and this session is not signed in.
+        hideUserBadge();
+        showLoginModal();
+        elements.statusChip.className = 'status-chip err';
+        elements.statusText.textContent = 'Sign in required';
+        elements.statusDot.className = 'dot';
+        return;
+      }
+      if (resp.status === 403) {
+        elements.statusChip.className = 'status-chip err';
+        elements.statusText.textContent = 'Access denied for this project';
+        elements.statusDot.className = 'dot';
+        return;
+      }
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       const data = await resp.json();
       render(data);
@@ -329,6 +398,122 @@
     currentProject = elements.projectSelect.value;
     fetchStatus();
   });
+
+  // ---- Auth (login modal, user badge, logout) ----
+  const auth = {
+    modal: document.getElementById('login-modal'),
+    err: document.getElementById('login-err'),
+    username: document.getElementById('login-username'),
+    password: document.getElementById('login-password'),
+    loginBtn: document.getElementById('login-btn'),
+    cancelBtn: document.getElementById('login-cancel'),
+    logoutBtn: document.getElementById('logout-btn'),
+    userBadge: document.getElementById('user-badge'),
+    userName: document.getElementById('user-name'),
+    userRole: document.getElementById('user-role'),
+    userAvatar: document.getElementById('user-avatar'),
+    userArea: document.getElementById('user-area'),
+  };
+
+  function showLoginModal() {
+    auth.modal.classList.remove('hidden');
+    auth.err.textContent = '';
+    auth.username.value = '';
+    auth.password.value = '';
+    auth.username.focus();
+  }
+
+  function hideLoginModal() {
+    auth.modal.classList.add('hidden');
+  }
+
+  function showUserBadge(username, role, allowedProjects) {
+    auth.userBadge.classList.remove('hidden');
+    auth.logoutBtn.classList.remove('hidden');
+    auth.userName.textContent = username;
+    auth.userRole.textContent = role;
+    auth.userRole.className = 'role-chip ' + (role === 'admin' ? 'admin' : 'viewer');
+    auth.userAvatar.textContent = (username || '?').charAt(0).toUpperCase();
+  }
+
+  function hideUserBadge() {
+    auth.userBadge.classList.add('hidden');
+    auth.logoutBtn.classList.add('hidden');
+  }
+
+  async function login() {
+    auth.err.textContent = '';
+    auth.loginBtn.disabled = true;
+    auth.loginBtn.textContent = '…';
+    try {
+      const resp = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: auth.username.value.trim(),
+          password: auth.password.value,
+        }),
+      });
+      if (!resp.ok) {
+        let message = `HTTP ${resp.status}`;
+        try {
+          const errBody = await resp.json();
+          if (errBody && errBody.error) message = errBody.error;
+        } catch (e) { /* non-JSON error body */ }
+        auth.err.textContent = message;
+        return;
+      }
+      const data = await resp.json();
+      if (data.token) {
+        hideLoginModal();
+        showUserBadge(data.username, data.role, data.allowed_projects);
+        currentProject = '';
+        fetchStatus();
+      } else if (data.note === 'auth disabled') {
+        // Auth is disabled server-side: open local mode, no badge to show.
+        hideLoginModal();
+        fetchStatus();
+      }
+    } catch (e) {
+      auth.err.textContent = 'Network error: ' + e.message;
+    } finally {
+      auth.loginBtn.disabled = false;
+      auth.loginBtn.textContent = 'Sign in';
+    }
+  }
+
+  async function logout() {
+    try {
+      await fetch('/api/logout', { method: 'POST' });
+    } catch (e) { /* best-effort: the cookie is cleared server-side */ }
+    hideUserBadge();
+    // Reload so no stale board data from the previous session stays on screen.
+    window.location.reload();
+  }
+
+  auth.loginBtn.addEventListener('click', login);
+  auth.cancelBtn.addEventListener('click', hideLoginModal);
+  auth.logoutBtn.addEventListener('click', logout);
+  auth.username.addEventListener('keydown', (e) => { if (e.key === 'Enter') auth.password.focus(); });
+  auth.password.addEventListener('keydown', (e) => { if (e.key === 'Enter') login(); });
+
+  // Check auth state on load.
+  (async function checkAuth() {
+    try {
+      const resp = await fetch('/api/me');
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data.authenticated) {
+          showUserBadge(data.username, data.role || 'viewer', data.allowed_projects || []);
+        }
+        // `note: "auth disabled"` is open local mode — nothing to sign in to.
+      } else if (resp.status === 401) {
+        showLoginModal();
+      }
+    } catch (e) {
+      // If the server is unreachable, just show the board as-is.
+    }
+  })();
 
   fetchStatus();
   setInterval(fetchStatus, 30000);

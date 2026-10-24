@@ -64,3 +64,32 @@ any change to lane shape breaks a test rather than silently blanking the UI.
 `PLANNER_PROJECTS` is the only way to offer several roots in the switcher.
 - **Rollback:** Revert the `/api/status` handler and the dashboard `render()`
 together — they share one contract and must never be changed independently.
+
+## [2026-10-24] ADR-005: Optional cookie-session auth with per-user project scoping
+
+- **Context:** The dashboard is useful from a phone, so the Manager wants it
+reachable through a Cloudflare Tunnel. Loopback-only access was the sole control
+until now, which stops working the moment the port leaves the host. At the same
+time the local OpenCode clients call `/mcp` with no credentials and must keep
+working untouched.
+- **Decision:** Auth is opt-in through `~/.config/opencode/planner-users.json`
+(`PLANNER_USERS_CONFIG` override). A missing, unreadable, non-object, or
+`auth_enabled: false` file — or one with no users — keeps the server in open
+local mode with no 401s and no filtering. When enabled: PBKDF2-HMAC-SHA256
+(600k iterations, 16-byte `secrets` salt, `hmac.compare_digest`) with stdlib
+only; opaque in-memory session tokens in an `HttpOnly` `SameSite=Lax`
+`planner_session` cookie (7-day TTL, dropped on restart); `/api/status` answers
+401 unauthenticated, filters `projects` to `allowed_projects` (`"*"` = all) and
+403s an explicit `project_root` outside them; `/mcp` requires an **admin**
+session while viewers stay read-only. A viewer with no explicit root falls back
+to their first allowed project rather than being denied.
+- **Consequences:** One server serves both audiences: local tooling stays
+credential-free in open mode, remote browsers sign in. Restart is required after
+a user edit because the config is read when the app is built. A restart also
+signs everyone out — acceptable, and it means no long-lived signing secret lives
+on disk. `/mcp` over the tunnel is blocked at ingress (`http_status:404`), so
+tool execution never depends on the guard alone. Pinned by the auth tests plus
+the CLI test that hashes through the server's own verifier.
+- **Rollback:** Delete `planner-users.json` or run `manage_users.py disable`;
+the server returns to open local mode with no code change. Full code rollback is
+`server.py` + `static/index.html` + `manage_users.py` reverted together.

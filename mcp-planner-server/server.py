@@ -2,16 +2,9 @@
 # Sibling Docs: mcp-planner-server/README.md | Decisions: mcp-planner-server/DECISIONS.md
 # /// script
 # requires-python = ">=3.10"
-# dependencies = [
-#     "mcp>=1.3.0,<2.0",
-#     "pyyaml",
-#     "starlette",
-#     "uvicorn",
-# ]
+# dependencies = ["mcp>=1.3.0,<2.0", "pyyaml", "starlette", "uvicorn"]
 # ///
-
-"""
-Planner MCP Server — capacity-aware, QA-gated planning layer over tasks/ Markdown.
+"""Planner MCP Server — capacity-aware, QA-gated planning layer over tasks/ Markdown.
 
 Reads task files from tasks/{backlog,in-progress,qa,completed,archive} as the
 single source of truth, builds a derived index (tasks/.plan/index.json,
@@ -35,6 +28,14 @@ gitignored), and exposes planning tools:
 An embedded Starlette app serves the static dashboard on GET / and GET /api/status
 alongside the FastMCP StreamableHTTP endpoint on port 8108.
 
+Authentication (optional, off by default) lives in
+`~/.config/opencode/planner-users.json` (override with `PLANNER_USERS_CONFIG`).
+When `auth_enabled` is true the dashboard requires a session cookie from
+`POST /api/login`, `/api/status` filters the project list to the caller's
+`allowed_projects` (403 outside them), and `/mcp` accepts admin sessions only.
+With no config file — or `auth_enabled: false` — the server stays in open
+local mode, byte-identical to the pre-auth behaviour.
+
 Design rules:
 - tasks/ Markdown is canonical; the planner is a derived index only.
 - Autopilot QA budget: max 1 unresolved QA/review task.
@@ -45,9 +46,11 @@ Design rules:
 import contextvars
 import functools
 import hashlib
+import hmac
 import json
 import os
 import re
+import secrets
 import shutil
 import subprocess
 import sys
@@ -418,7 +421,8 @@ def plan_materialize(
 
     Args:
         project_root: Absolute path to the project holding tasks/.
-        task_ids: Comma-separated list of task IDs to materialize.        Returns:
+        task_ids: Comma-separated list of task IDs to materialize.
+        Returns:
         Summary of created files and any validation results.
 
         Notes:
@@ -427,7 +431,7 @@ def plan_materialize(
         those values, and a fabricated placeholder would pollute the derived
         read model (an `Estimate: TBD` never parses and a `Deadline: TBD`
         would appear on the dashboard timeline).
-        """
+    """
     workspace_root = _explicit_project_root(project_root, "plan_materialize")
     tasks_dir = workspace_root / "tasks"
     backlog_dir = tasks_dir / "backlog"
@@ -647,9 +651,7 @@ def plan_status(project_root: Optional[str] = None) -> str:
 
     # Remaining work = everything not yet closed and not archived.
     open_tasks = [
-        t
-        for lane in ("backlog", "in-progress", "qa")
-        for t in lanes.get(lane, [])
+        t for lane in ("backlog", "in-progress", "qa") for t in lanes.get(lane, [])
     ]
     remaining_est = sum(
         (t.get("estimate_hours") or 0) for t in open_tasks if t.get("estimate_hours")
@@ -949,6 +951,236 @@ def sprint_check_daily_quota(project_root: Optional[str] = None) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Authentication, RBAC, and per-user project scoping (optional, off by default)
+# ---------------------------------------------------------------------------
+
+_USERS_CONFIG_ENV = "PLANNER_USERS_CONFIG"
+_DEFAULT_USERS_RELATIVE = Path(".config") / "opencode" / "planner-users.json"
+
+SESSION_COOKIE = "planner_session"
+SESSION_TTL_SECONDS = 7 * 24 * 3600
+
+_PBKDF2_ALGORITHM = "sha256"
+_PBKDF2_ITERATIONS = 600_000
+
+# In-memory token -> session store. Sessions deliberately do not survive a
+# restart: a restart is an operator action and re-login is cheap.
+_SESSIONS: dict = {}
+
+_USER_CONFIG: dict = {"auth_enabled": False}
+_AUTH_ENABLED: bool = False
+
+
+def _users_config_path() -> Path:
+    """Return the users config path: ``PLANNER_USERS_CONFIG`` or the home default.
+
+    Resolved per call (never cached at import) so tests and operators can
+    redirect it without reimporting the module.
+    """
+    env = os.environ.get(_USERS_CONFIG_ENV, "").strip()
+    if env:
+        return Path(env).expanduser()
+    return Path.home() / _DEFAULT_USERS_RELATIVE
+
+
+def _hash_password(password: str) -> tuple[str, str]:
+    """Hash a password with PBKDF2-HMAC-SHA256 and a fresh 16-byte salt.
+
+    Returns ``(salt_hex, hash_hex)``. Stdlib only — no third-party crypto.
+    """
+    salt = secrets.token_bytes(16)
+    derived = hashlib.pbkdf2_hmac(
+        _PBKDF2_ALGORITHM,
+        password.encode("utf-8"),
+        salt,
+        _PBKDF2_ITERATIONS,
+    )
+    return salt.hex(), derived.hex()
+
+
+def _verify_password(password: str, salt_hex: str, hash_hex: str) -> bool:
+    """Constant-time verification of a password against a stored salt + hash.
+
+    Returns False on any malformed stored value instead of raising, so a
+    corrupt config entry denies access rather than crashing the handler.
+    """
+    if not password or not salt_hex or not hash_hex:
+        return False
+    try:
+        salt = bytes.fromhex(salt_hex)
+        expected = bytes.fromhex(hash_hex)
+    except (ValueError, TypeError):
+        return False
+    derived = hashlib.pbkdf2_hmac(
+        _PBKDF2_ALGORITHM, password.encode("utf-8"), salt, _PBKDF2_ITERATIONS
+    )
+    return hmac.compare_digest(derived, expected)
+
+
+def _load_user_config() -> dict:
+    """Load the users config, failing closed to open local mode.
+
+    A missing file, unreadable file, invalid JSON, or non-object payload all
+    mean "no auth configured": the server keeps behaving exactly as it did
+    before auth existed.
+    """
+    path = _users_config_path()
+    try:
+        raw = path.read_text(encoding="utf-8")
+    except OSError:
+        return {"auth_enabled": False}
+    try:
+        data = json.loads(raw)
+    except (json.JSONDecodeError, ValueError):
+        return {"auth_enabled": False}
+    if not isinstance(data, dict):
+        return {"auth_enabled": False}
+    users = data.get("users")
+    if not isinstance(users, list):
+        users = []
+    return {
+        "auth_enabled": bool(data.get("auth_enabled", False)),
+        "users": users,
+    }
+
+
+def _find_user(config: dict, username: str) -> Optional[dict]:
+    """Return the user record matching ``username``, or None."""
+    if not isinstance(config, dict) or not username:
+        return None
+    for user in config.get("users") or []:
+        if isinstance(user, dict) and user.get("username") == username:
+            return user
+    return None
+
+
+class AuthState:
+    """Per-request authentication and authorization view.
+
+    ``user`` is None for an unauthenticated request. Project authorization
+    follows the user's ``allowed_projects``: ``"*"`` grants every project,
+    any other entry grants that directory and everything beneath it.
+    """
+
+    def __init__(self, config: dict, user: Optional[dict], sessions: dict):
+        self.config = config or {}
+        self.user = user or None
+        self.sessions = sessions
+
+    @property
+    def authenticated(self) -> bool:
+        return self.user is not None
+
+    @property
+    def username(self) -> str:
+        return str((self.user or {}).get("username") or "")
+
+    @property
+    def role(self) -> str:
+        return str((self.user or {}).get("role") or "")
+
+    @property
+    def is_admin(self) -> bool:
+        return self.authenticated and self.role == "admin"
+
+    @property
+    def allowed_projects(self) -> list[str]:
+        raw = (self.user or {}).get("allowed_projects") or []
+        if isinstance(raw, str):
+            raw = [raw]
+        if not isinstance(raw, (list, tuple)):
+            return []
+        out: list[str] = []
+        for entry in raw:
+            value = str(entry).strip()
+            if value and value not in out:
+                out.append(value)
+        return out
+
+    def project_allowed(self, path) -> bool:
+        """True when this session may read ``path`` (itself or a subdirectory)."""
+        if not self.authenticated:
+            return False
+        allowed = self.allowed_projects
+        if "*" in allowed:
+            return True
+        try:
+            target = Path(path).expanduser().resolve()
+        except OSError:
+            return False
+        for entry in allowed:
+            if entry == "*":
+                continue
+            try:
+                base = Path(entry).expanduser().resolve()
+            except OSError:
+                continue
+            if target == base or base in target.parents:
+                return True
+        return False
+
+
+def _build_auth_url_map() -> dict:
+    """Return the live token -> session map (the module-level session store)."""
+    return _SESSIONS
+
+
+def _session_from_token(token: str) -> Optional[dict]:
+    """Return a live session for ``token``, dropping it when expired."""
+    if not token:
+        return None
+    session = _SESSIONS.get(token)
+    if session is None:
+        return None
+    created = float(session.get("created") or 0.0)
+    if created and (time.time() - created) > SESSION_TTL_SECONDS:
+        _SESSIONS.pop(token, None)
+        return None
+    return session
+
+
+def _invalidate_token(token: str) -> None:
+    """Remove ``token`` from the session store (logout)."""
+    if token:
+        _SESSIONS.pop(token, None)
+
+
+def _refresh_auth_config() -> None:
+    """Reload the users config into the module globals.
+
+    Auth is enabled only when the file says so *and* at least one user is
+    defined — ``auth_enabled: true`` with an empty user list would lock every
+    caller out with no way back in except editing the file.
+    """
+    global _USER_CONFIG, _AUTH_ENABLED
+    _USER_CONFIG = _load_user_config()
+    _AUTH_ENABLED = bool(_USER_CONFIG.get("auth_enabled")) and bool(
+        _USER_CONFIG.get("users")
+    )
+
+
+def _cookie_from_header(header: str, name: str) -> str:
+    """Extract one cookie value from a raw ``Cookie`` header."""
+    for chunk in (header or "").split(";"):
+        key, _, value = chunk.strip().partition("=")
+        if key == name:
+            return value.strip()
+    return ""
+
+
+def _auth_from_request(request) -> Optional[AuthState]:
+    """Build the request's AuthState, or None when auth is disabled.
+
+    None means "open local mode": no session, no filtering, no 401/403.
+    """
+    if not _AUTH_ENABLED:
+        return None
+    token = request.cookies.get(SESSION_COOKIE, "")
+    session = _session_from_token(token)
+    return AuthState(_USER_CONFIG, (session or {}).get("user"), _SESSIONS)
+
+
+# ---------------------------------------------------------------------------
 # Embedded Starlette app: static dashboard + FastMCP HTTP endpoint
 # ---------------------------------------------------------------------------
 
@@ -973,9 +1205,7 @@ _PROJECT_ROOT_ENV = "PLANNER_PROJECT_ROOT"
 _DAILY_TARGET = int(os.environ.get("PLANNER_DAILY_TARGET", "3") or 3)
 
 # Weekly capacity in hours; the planner's default from the approved plan.
-_WEEKLY_CAPACITY_HOURS = float(
-    os.environ.get("PLANNER_WEEKLY_CAPACITY", "20") or 20
-)
+_WEEKLY_CAPACITY_HOURS = float(os.environ.get("PLANNER_WEEKLY_CAPACITY", "20") or 20)
 
 
 def _resolve_dashboard_root(project_root: Optional[str] = None) -> Path:
@@ -1013,16 +1243,18 @@ def _resolve_dashboard_root(project_root: Optional[str] = None) -> Path:
     return cwd
 
 
-def _discover_projects(current: Path) -> list[dict]:
+def _discover_projects(current: Path, auth: Optional[AuthState] = None) -> list[dict]:
     """List the project roots selectable in the dashboard switcher.
 
     Sources the ``PLANNER_PROJECTS`` environment variable (absolute paths
     separated by ``os.pathsep``) plus the currently resolved root. Entries are
     de-duplicated, and paths that do not exist or hold no ``tasks/`` directory
-    are dropped, so the selector never offers a dead target.
+    are dropped, so the selector never offers a dead target. When ``auth`` is
+    given, entries outside the session's ``allowed_projects`` are dropped too.
 
     Args:
         current: The project root currently being reported on.
+        auth: Optional session view used to filter the list.
 
     Returns:
         A list of ``{"path": ..., "label": ...}`` dicts, current first.
@@ -1043,8 +1275,24 @@ def _discover_projects(current: Path) -> list[dict]:
         seen.add(root)
         if not (root / "tasks").is_dir():
             continue
+        if auth is not None and not auth.project_allowed(root):
+            continue
         projects.append({"path": str(root), "label": root.name})
     return projects
+
+
+def _first_allowed_root(auth: AuthState) -> Optional[Path]:
+    """Return the first existing directory in the session's allowed projects."""
+    for entry in auth.allowed_projects:
+        if entry == "*":
+            continue
+        try:
+            candidate = Path(entry).expanduser().resolve()
+        except OSError:
+            continue
+        if candidate.is_dir():
+            return candidate
+    return None
 
 
 def _task_brief(task: dict) -> dict:
@@ -1071,7 +1319,9 @@ def _task_brief(task: dict) -> dict:
     }
 
 
-def _api_status(project_root: Optional[str] = None) -> dict:
+def _api_status(
+    project_root: Optional[str] = None, auth: Optional[AuthState] = None
+) -> dict:
     """Return planner status as JSON (GET /api/status).
 
     The payload is the dashboard's data contract: per-lane task lists (not
@@ -1084,12 +1334,30 @@ def _api_status(project_root: Optional[str] = None) -> dict:
 
     Args:
         project_root: Optional absolute project root from the query string.
+        auth: Optional session view. When given, an unauthenticated session
+            yields ``{"error": "unauthenticated"}``, an explicitly requested
+            root outside the session's allowed projects yields
+            ``{"error": "forbidden"}``, and the ``projects`` list is filtered
+            to the allowed roots. ``None`` means open local mode.
 
     Returns:
         A JSON-serialisable dict; on failure a dict with an ``error`` key.
     """
     try:
+        if auth is not None and not auth.authenticated:
+            return {"error": "unauthenticated"}
+
         workspace_root = _resolve_dashboard_root(project_root)
+        if auth is not None and not auth.project_allowed(workspace_root):
+            if project_root and project_root.strip():
+                return {"error": "forbidden"}
+            # No explicit root: fall back to the first allowed project rather
+            # than denying a viewer whose cwd is outside their grants.
+            fallback = _first_allowed_root(auth)
+            if fallback is None:
+                return {"error": "forbidden"}
+            workspace_root = fallback
+
         tasks = _load_all_tasks(workspace_root)
 
         lanes: dict[str, list[dict]] = {lane: [] for lane in TASK_LANES}
@@ -1112,7 +1380,7 @@ def _api_status(project_root: Optional[str] = None) -> dict:
 
         return {
             "project_root": str(workspace_root),
-            "projects": _discover_projects(workspace_root),
+            "projects": _discover_projects(workspace_root, auth),
             "total_tasks": len(tasks),
             "in_progress": len(lanes["in-progress"]),
             "qa_pending": len(lanes["qa"]),
@@ -1131,22 +1399,169 @@ def _api_status(project_root: Optional[str] = None) -> dict:
         return {"error": str(exc)}
 
 
+def _guarded_mcp_app(mcp_app):
+    """Wrap the MCP transport app with the admin-only ingress guard.
+
+    In open local mode the request passes straight through. When auth is
+    enabled, ``/mcp`` needs a valid session cookie *and* the admin role: a
+    viewer can read the dashboard but never execute tools.
+    """
+
+    async def guarded(scope, receive, send):
+        if scope.get("type") != "http" or not _AUTH_ENABLED:
+            await mcp_app(scope, receive, send)
+            return
+
+        headers = {
+            key.decode("latin-1").lower(): value.decode("latin-1")
+            for key, value in scope.get("headers") or []
+        }
+        token = _cookie_from_header(headers.get("cookie", ""), SESSION_COOKIE)
+        session = _session_from_token(token)
+        if session is None:
+            await _send_json(send, 401, {"error": "unauthenticated"})
+            return
+        if ((session.get("user") or {}).get("role") or "") != "admin":
+            await _send_json(send, 403, {"error": "forbidden"})
+            return
+        await mcp_app(scope, receive, send)
+
+    return guarded
+
+
+async def _send_json(send, status: int, payload: dict) -> None:
+    """Send a minimal JSON ASGI response (used by the /mcp guard)."""
+    body = json.dumps(payload).encode("utf-8")
+    await send(
+        {
+            "type": "http.response.start",
+            "status": status,
+            "headers": [
+                (b"content-type", b"application/json"),
+                (b"content-length", str(len(body)).encode("ascii")),
+            ],
+        }
+    )
+    await send({"type": "http.response.body", "body": body})
+
+
 def build_app():
     """Build the combined Starlette app: dashboard + FastMCP HTTP endpoint."""
     from starlette.applications import Starlette
     from starlette.routing import Mount, Route
     from starlette.responses import HTMLResponse, JSONResponse
+    from starlette.staticfiles import StaticFiles
     import uvicorn  # noqa: F401  (ensured available via pyproject)
+
+    # Pick up users-config edits on every (re)build; requests then read the
+    # module globals, so the hot path stays a dict lookup.
+    _refresh_auth_config()
 
     async def dashboard(request):
         return HTMLResponse(_dashboard_html())
 
     async def api_status(request):
-        return JSONResponse(_api_status(request.query_params.get("project_root")))
+        auth = _auth_from_request(request)
+        payload = _api_status(request.query_params.get("project_root"), auth)
+        error = payload.get("error")
+        if error == "unauthenticated":
+            return JSONResponse(payload, status_code=401)
+        if error == "forbidden":
+            return JSONResponse(payload, status_code=403)
+        return JSONResponse(payload)
 
-    # mcp>=1.10 exposes the Streamable HTTP transport as streamable_http_app()
-    # (the app already routes itself at settings.streamable_http_path, default
-    # "/mcp", so it is mounted at the root and must not be re-prefixed).
+    async def api_login(request):
+        if not _AUTH_ENABLED:
+            return JSONResponse(
+                {
+                    "note": "auth disabled",
+                    "token": "",
+                    "username": "",
+                    "role": "",
+                    "allowed_projects": [],
+                }
+            )
+        try:
+            body = await request.json()
+        except Exception:  # noqa: BLE001 - any parse failure is a 400
+            return JSONResponse({"error": "invalid JSON body"}, status_code=400)
+        if not isinstance(body, dict):
+            return JSONResponse({"error": "invalid JSON body"}, status_code=400)
+
+        username = str(body.get("username") or "").strip()
+        password = str(body.get("password") or "")
+        if not username or not password:
+            return JSONResponse(
+                {"error": "username and password are required"}, status_code=400
+            )
+
+        user = _find_user(_USER_CONFIG, username)
+        if user is None or not _verify_password(
+            password,
+            str(user.get("password_salt") or ""),
+            str(user.get("password_hash") or ""),
+        ):
+            return JSONResponse({"error": "invalid credentials"}, status_code=401)
+
+        token = secrets.token_urlsafe(32)
+        _SESSIONS[token] = {"user": user, "created": time.time()}
+        state = AuthState(_USER_CONFIG, user, _SESSIONS)
+        response = JSONResponse(
+            {
+                "token": token,
+                "username": state.username,
+                "role": state.role,
+                "allowed_projects": state.allowed_projects,
+            }
+        )
+        response.set_cookie(
+            SESSION_COOKIE,
+            token,
+            max_age=SESSION_TTL_SECONDS,
+            httponly=True,
+            samesite="lax",
+            path="/",
+        )
+        return response
+
+    async def api_logout(request):
+        _invalidate_token(request.cookies.get(SESSION_COOKIE, ""))
+        response = JSONResponse({"ok": True})
+        response.delete_cookie(SESSION_COOKIE, path="/")
+        return response
+
+    async def api_me(request):
+        if not _AUTH_ENABLED:
+            return JSONResponse(
+                {
+                    "authenticated": False,
+                    "note": "auth disabled",
+                    "username": "",
+                    "role": "",
+                    "allowed_projects": [],
+                }
+            )
+        auth = _auth_from_request(request)
+        if not auth.authenticated:
+            return JSONResponse({"error": "unauthenticated"}, status_code=401)
+        return JSONResponse(
+            {
+                "authenticated": True,
+                "username": auth.username,
+                "role": auth.role,
+                "is_admin": auth.is_admin,
+                "allowed_projects": auth.allowed_projects,
+            }
+        )
+
+    # The transport app routes itself at settings.streamable_http_path
+    # (default "/mcp"), so it is mounted at the root and must not be
+    # re-prefixed; the guard inspects the path instead.
+    #
+    # FastMCP caches its session manager on the instance, and a manager can be
+    # run() only once. build_app() runs again on every test app and on a real
+    # restart, so drop the cached manager to get a fresh transport app.
+    mcp._session_manager = None
     mcp_app = mcp.streamable_http_app()
 
     # Starlette runs the lifespan of the parent app only; a Mount-ed sub-app
@@ -1158,14 +1573,20 @@ def build_app():
         async with mcp_app.router.lifespan_context(mcp_app):
             yield
 
-    app = Starlette(
-        routes=[
-            Route("/", dashboard),
-            Route("/api/status", api_status),
-            Mount("/", app=mcp_app),
-        ],
-        lifespan=lifespan,
-    )
+    routes = [
+        Route("/", dashboard),
+        Route("/api/status", api_status),
+        Route("/api/login", api_login, methods=["POST"]),
+        Route("/api/logout", api_logout, methods=["POST"]),
+        Route("/api/me", api_me),
+    ]
+    if _STATIC_DIR.is_dir():
+        routes.append(
+            Mount("/static", app=StaticFiles(directory=str(_STATIC_DIR)), name="static")
+        )
+    routes.append(Mount("/", app=_guarded_mcp_app(mcp_app)))
+
+    app = Starlette(routes=routes, lifespan=lifespan)
     return app
 
 
