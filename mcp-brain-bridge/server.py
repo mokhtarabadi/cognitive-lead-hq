@@ -204,10 +204,20 @@ _XML_UNCLOSED_RE = re.compile(
 # Explicit ```xml fences hold REAL xml, not documentation — the info string
 # is the author's own language tag. Only this fence type feeds the
 # extraction fallback (Task 215); json/bare/tilde fences stay stripped.
-# Runs to the next closing fence or \Z so an unclosed fence still yields.
-# The (?<!`) guard keeps ````quad```` fences out: without it the pattern
-# would match at offset 1 inside ````xml (reviewer follow-up A1).
-_XML_FENCE_RE = re.compile(r"(?<!`)```xml[^\S\n]*\n([\s\S]*?)(?:```|\Z)", re.IGNORECASE)
+# Line based, not a regex: CommonMark closes a fence only with a bare run of
+# at least the opener's length, so a four-backtick ````xml body may safely
+# contain three-backtick samples (the canonical way to wrap a Hands XML block
+# that carries code), and a three-backtick body is closed by the first inner
+# bare run — the case the rescue pass below repairs.
+_XML_FENCE_OPEN_RE = re.compile(r"^[ \t]*(`{3,})xml[ \t]*$", re.IGNORECASE)
+_FENCE_BARE_RE = re.compile(r"^[ \t]*(`{3,}|~{3,})[ \t]*$")
+# Line-start allowlisted opener, used by the rescue scan. Anchoring matters:
+# a literal ``<hotfix>`` inside a code sample sits mid-line, so the rescue
+# picks the real control block instead of the sample.
+_XML_START_RE = re.compile(
+    r"(?m)^[ \t]*<(" + "|".join(XML_BLOCK_TAGS) + r")(?:\s[^>]*)?>",
+    re.IGNORECASE,
+)
 # Fenced code blocks are documentation, not instructions — strip them
 # before scanning, or a pasted XML example would false-positive.
 # Covers ``` fences (any length 3+, closed OR unclosed to EOF) and
@@ -237,6 +247,173 @@ def _strip_fences(text: str) -> tuple[str, list[str]]:
         clean = pat.sub(_collect, clean)
     _last_fence_drops = list(dropped)
     return clean, dropped
+
+
+# Line-accurate fence recognition for the bare-block scan. `_strip_fences`
+# removes spans with a non-nesting regex, so a fenced body that carries its
+# own fenced samples is sliced mid-body and the leftover fragment reads like
+# bare prose — an operator-shaped tag parked in a documentation sample then
+# extracted as a real instruction. This scanner only drops what CommonMark
+# treats as a fence: an opener line (run of 3+ backticks or tildes with an
+# optional info string) through the next bare run of at least the same
+# character and length.
+_FENCE_OPEN_RE = re.compile(r"^[ \t]*(`{3,}|~{3,})(.*)$")
+
+
+def _mask_fenced_code(text: str) -> str:
+    """Return the text with every fenced code block dropped, line-accurately.
+
+    Only used to decide whether a *bare* (unfenced) control block exists, so
+    dropping the masked lines instead of replacing them is fine: the caller
+    re-scans the result and needs no offsets.
+    """
+    kept: list[str] = []
+    fence_char = ""
+    fence_len = 0
+    for line in text.splitlines():
+        if fence_char:
+            stripped = line.strip()
+            if (
+                stripped
+                and set(stripped) == {fence_char}
+                and len(stripped) >= fence_len
+            ):
+                fence_char = ""
+                fence_len = 0
+            continue
+        opener = _FENCE_OPEN_RE.match(line)
+        if opener:
+            run = opener.group(1)
+            fence_char = run[0]
+            fence_len = len(run)
+            continue
+        kept.append(line)
+    return "\n".join(kept)
+
+
+def _xml_fence_segments(output: str) -> list[tuple[int, int, int, str]]:
+    """Locate every ```xml fence and return its slices, in document order.
+
+    Line based on purpose: a fence closes only on a bare run of the same
+    character at least as long as the opener, which is what lets a
+    four-backtick ``xml fence carry three-backtick code samples. A
+    three-backtick body that contains its own bare fence closes early, which
+    the caller repairs with the forward rescue scan.
+
+    Returns:
+        ``(opener_start, body_start, body_end, body)`` per fence, where the
+        offsets index ``output`` and ``body`` is the fenced text itself. An
+        unclosed fence yields a body that runs to EOF.
+    """
+    lines = output.splitlines(keepends=True)
+    offsets: list[int] = []
+    cursor = 0
+    for line in lines:
+        offsets.append(cursor)
+        cursor += len(line)
+
+    segments: list[tuple[int, int, int, str]] = []
+    index = 0
+    while index < len(lines):
+        opener = _XML_FENCE_OPEN_RE.match(lines[index].rstrip("\r\n"))
+        if not opener:
+            index += 1
+            continue
+        run = len(opener.group(1))
+        scan = index + 1
+        while scan < len(lines):
+            closer = _FENCE_BARE_RE.match(lines[scan].rstrip("\r\n"))
+            if closer and closer.group(1)[0] == "`" and len(closer.group(1)) >= run:
+                break
+            scan += 1
+        if scan < len(lines):
+            body_end = offsets[scan]
+            body = "".join(lines[index + 1 : scan])
+            next_index = scan + 1
+        else:
+            body_end = len(output)
+            body = "".join(lines[index + 1 :])
+            next_index = len(lines)
+        segments.append(
+            (offsets[index], offsets[index] + len(lines[index]), body_end, body)
+        )
+        index = next_index
+    return segments
+
+
+def _rescue_fenced_block(fragment: str) -> list[str]:
+    """Recover the block a truncated fence body was wrapping.
+
+    A three-backtick fence whose body carries its own fenced samples is closed
+    early, so the complete block lives past the body. Take the first
+    line-start allowlisted opener in the fragment and the first matching close
+    tag after it. Line-start anchoring keeps operator-shaped literals inside
+    code samples from winning the race.
+
+    Args:
+        fragment: Raw text from the fence opener to the next opener or EOF.
+
+    Returns:
+        A one-item list with the recovered block, or an empty list when no
+        complete block exists (a genuinely truncated turn still rejects).
+    """
+    opener = _XML_START_RE.search(fragment)
+    if not opener:
+        return []
+    return _extract_complete_blocks(fragment)[:1]
+
+
+def _bare_blocks(text: str) -> list[str]:
+    """Return bare blocks, skipping literals quoted inside an inline code span.
+
+    The bare path tolerates a control block that starts mid-line (pinned by
+    ``test_extract_multiple_blocks_in_order``). That tolerance also made a
+    *quoted* sample extract as an instruction: a QA reply containing
+    ``sample = "<hotfix>…</hotfix>"`` came back as ``XML_EXTRACTED`` with the
+    fragment as its block. An odd number of backticks earlier on the same line
+    means the match sits inside an inline code span, so it is prose, not an
+    instruction; fenced code never reaches here (it is masked out first).
+    """
+    blocks: list[str] = []
+    for match in _XML_RE.finditer(text):
+        line_start = text.rfind("\n", 0, match.start()) + 1
+        if text[line_start : match.start()].count("`") % 2 == 1:
+            continue
+        blocks.append(match.group(0))
+    return blocks
+
+
+def _extract_complete_blocks(text: str) -> list[str]:
+    """Return complete allowlisted blocks whose opener starts a line.
+
+    The fence path uses this instead of the mid-line tolerant ``_XML_RE``
+    because a fenced body can hold code samples that mention an operator tag
+    as a literal (``sample = "<hotfix>…</hotfix>"``): line-start anchoring
+    keeps those samples out while every real block still matches, since the
+    templates always start the root element at a line start.
+
+    Args:
+        text: A fence body or a forward rescue fragment.
+
+    Returns:
+        Verbatim blocks in document order.
+    """
+    blocks: list[str] = []
+    cursor = 0
+    while True:
+        opener = _XML_START_RE.search(text, cursor)
+        if not opener:
+            return blocks
+        tag = opener.group(1)
+        closer = re.search(
+            rf"</\s*{re.escape(tag)}\s*>", text[opener.end() :], re.IGNORECASE
+        )
+        if not closer:
+            cursor = opener.end()
+            continue
+        end = opener.end() + closer.end()
+        blocks.append(text[opener.start() : end])
+        cursor = end
 
 
 # Task ids become directory names. Strict allowlist: anything else
@@ -904,27 +1081,44 @@ def extract_xml_blocks(output: str) -> list[str]:
             STRICT_XML_CONTRACT_CODE,
             f"expected str input, got {type(output).__name__}",
         )
-    clean, _ = _strip_fences(output)
-    blocks = [m.group(0) for m in _XML_RE.finditer(clean)]
+    _strip_fences(output)  # diagnostics only: populates _last_fence_drops
+    # The bare scan runs on the line-accurate mask, never on the regex strip:
+    # the strip mis-slices nested fences and would let a documentation sample
+    # extract as a real block.
+    clean = _mask_fenced_code(output)
+    blocks = _bare_blocks(clean)
     if blocks:
         return blocks
     tail = _extract_unclosed_tail(clean)
     if tail:
         _strict_reject(
             STRICT_XML_UNCLOSED_CODE,
-            "unclosed trailing block: re-emit bare unfenced XML",
+            "unclosed trailing block: re-emit the complete block bare or inside a four-backtick ```xml fence",
         )
     fence_blocks: list[str] = []
-    for body in _XML_FENCE_RE.finditer(output):
-        content = body.group(1)
-        fence_blocks.extend(m.group(0) for m in _XML_RE.finditer(content))
+    segments = _xml_fence_segments(output)
+    for index, (opener_start, body_start, body_end, body) in enumerate(segments):
+        found = _extract_complete_blocks(body)
+        if not found:
+            # Rescue: a three-backtick fence cannot hold a body with its own
+            # fenced samples (the inner bare run closes it), so the complete
+            # block sits past the truncated body and the turn used to be
+            # rejected outright (whole answer withheld, forcing a costly full
+            # re-emit). Look forward from the opener, bounded by the next one;
+            # a genuinely truncated block finds nothing and still falls
+            # through to the strict reject.
+            scan_end = (
+                segments[index + 1][0] if index + 1 < len(segments) else len(output)
+            )
+            found = _rescue_fenced_block(output[opener_start:scan_end])
+        fence_blocks.extend(found)
     if fence_blocks:
         return fence_blocks
-    for body in _XML_FENCE_RE.finditer(output):
-        if _extract_unclosed_tail(body.group(1)):
+    for _opener_start, _body_start, _body_end, body in segments:
+        if _extract_unclosed_tail(body):
             _strict_reject(
                 STRICT_XML_FENCE_FALLBACK_CODE,
-                "xml-fenced block: re-emit bare unfenced XML",
+                "truncated fenced block: re-emit the complete block bare or inside a four-backtick ```xml fence",
             )
     return []
 
@@ -1730,12 +1924,11 @@ def _overall_deadline_s() -> float:
     try:
         val = float(raw)
     except ValueError:
-        raise RuntimeError(
-            f"BRAIN_OVERALL_DEADLINE_S must be a number, got {raw!r}"
-        )
+        raise RuntimeError(f"BRAIN_OVERALL_DEADLINE_S must be a number, got {raw!r}")
     if val <= 0:
         raise RuntimeError(f"BRAIN_OVERALL_DEADLINE_S must be > 0, got {raw!r}")
     return val
+
 
 #: Billing/spend/quota 429 codes that must NEVER be retried (Task 329
 #: F6, per the official error-codes guide): "Retrying billing, spend, or

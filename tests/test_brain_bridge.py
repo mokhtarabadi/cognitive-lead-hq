@@ -2155,6 +2155,132 @@ def test_extract_unfenced_wins_over_fenced_xml():
 # --- Task 215 QA follow-ups (A1-A4 + attribute lock) ---
 
 
+def test_extract_xml_fenced_hands_block_with_inner_code_fences():
+    """Regression: nested fences must not cost a whole turn.
+
+    A fenced Hands XML body carries its own ```python samples, so the
+    non-nesting fence pattern closed the body at the first inner fence and
+    the extractor rejected the answer as XML_STRICT_REJECT_FENCE_FALLBACK
+    with the entire block withheld — the Hands then had to re-emit a
+    ~25k-char turn. The rescue pass finds the complete block after the
+    opener instead.
+    """
+    block = (
+        "<hands_implementation_task>\n"
+        "  <validation_phase>read AGENTS.md</validation_phase>\n"
+        "  <context_phase>load skills</context_phase>\n"
+        "  <execution_phase>\n"
+        "    Step 1:\n"
+        "    ```python\n"
+        "    print('hi')\n"
+        "    ```\n"
+        "    Step 2 done.\n"
+        "  </execution_phase>\n"
+        "  <bash_phase>run tests</bash_phase>\n"
+        "  <documentation_phase>changelog</documentation_phase>\n"
+        "  <summary_phase>finalize</summary_phase>\n"
+        "</hands_implementation_task>"
+    )
+    out = "Plan follows.\n\n```xml\n" + block + "\n```\n\ntrailing prose"
+    blocks = bridge.extract_xml_blocks(out)
+    assert blocks == [block]
+
+
+def test_extract_quad_xml_fence_wraps_inner_fences():
+    """Four-backtick xml fence is the canonical wrapper for a body with fences.
+
+    CommonMark closes a fence only on a bare run at least as long as the
+    opener, so the inner triple-backtick samples stay inside the body instead
+    of truncating it.
+    """
+    block = (
+        "<hands_implementation_task>\n"
+        "<validation_phase>a</validation_phase>\n"
+        "<context_phase>b</context_phase>\n"
+        "<execution_phase>\n"
+        "```python\n"
+        "print(1)\n"
+        "```\n"
+        "</execution_phase>\n"
+        "<bash_phase>c</bash_phase>\n"
+        "<documentation_phase>d</documentation_phase>\n"
+        "<summary_phase>e</summary_phase>\n"
+        "</hands_implementation_task>"
+    )
+    blocks = bridge.extract_xml_blocks("````xml\n" + block + "\n````\n")
+    assert blocks == [block]
+    assert bridge.validate_hands_xml_blocks(blocks) == []
+
+
+def test_extract_midline_quoted_hotfix_stays_ignored():
+    """A quoted literal in a report is not an instruction.
+
+    Observed live: a QA reply containing `sample = "<hotfix>…</hotfix>"`
+    returned XML_EXTRACTED with that fragment as the block. Hands blocks keep
+    the mid-line tolerance (pinned), but hotfix/failure_report must start a
+    line like the templates emit them.
+    """
+    out = 'V2 doc-sample leak `sample = "<hotfix>…</hotfix>"` was fixed.'
+    assert bridge.extract_xml_blocks(out) == []
+    # Bare mid-line blocks outside inline code keep their pinned tolerance.
+    assert bridge.extract_xml_blocks(
+        'Think <hands_implementation_task>{"a": 1}</hands_implementation_task> tail'
+    )
+    assert (
+        len(bridge.extract_xml_blocks("note <failure_report>x</failure_report>")) == 1
+    )
+
+
+def test_extract_ignores_operator_tag_in_nested_fence_sample():
+    """A doc sample must never extract, even inside a fenced body.
+
+    Regression: the non-nesting fence strip mis-sliced a nested body and left
+    the sample fragment looking bare, so a `<hotfix>` literal inside a python
+    snippet was returned as an instruction while the real block was dropped.
+    """
+    out = "\n".join(
+        [
+            "```xml",
+            "<hands_implementation_task>",
+            "  <validation_phase>x</validation_phase>",
+            "  <context_phase>y</context_phase>",
+            "  <execution_phase>",
+            "    ```python",
+            '    sample = "<hotfix>not real</hotfix>"',
+            "    ```",
+            "  </execution_phase>",
+            "  <bash_phase>t</bash_phase>",
+            "  <documentation_phase>d</documentation_phase>",
+            "  <summary_phase>s</summary_phase>",
+            "</hands_implementation_task>",
+            "```",
+        ]
+    )
+    blocks = bridge.extract_xml_blocks(out)
+    assert len(blocks) == 1
+    assert blocks[0].startswith("<hands_implementation_task>")
+    assert not any(b.startswith("<hotfix>") for b in blocks)
+
+
+def test_extract_rescued_fences_stay_ordered_and_bounded():
+    # Each opener rescues only its own block; the next opener bounds the scan.
+    first = "```xml\n<hotfix>\n```bash\nls\n```\n</hotfix>\n```"
+    second = "```xml\n<failure_report>second</failure_report>\n```"
+    blocks = bridge.extract_xml_blocks(first + "\ntext\n" + second)
+    assert len(blocks) == 2
+    assert blocks[0].startswith("<hotfix>")
+    assert blocks[1].startswith("<failure_report>")
+
+
+def test_extract_truncated_xml_fence_still_rejects():
+    # The rescue must not launder a genuinely cut-off block.
+    with pytest.raises(ValueError) as excinfo:
+        bridge.extract_xml_blocks(
+            "```xml\n<hands_implementation_task>\n<execution_phase>cut off"
+        )
+    assert str(excinfo.value).startswith(bridge.STRICT_XML_FENCE_FALLBACK_CODE)
+
+
 def test_extract_multiple_xml_fences_in_order():
     # Dual-mode fallback: multiple ```xml fences extract in order.
     blocks = bridge.extract_xml_blocks(
@@ -2204,11 +2330,15 @@ def test_extract_tag_with_attributes_tolerated():
         assert len(blocks) == 1, variant
 
 
-def test_extract_quad_xml_fence_stays_ignored():
-    # Reviewer follow-up A1: without the (?<!`) guard the fence pattern
-    # matched at offset 1 inside ````xml. Quad fences stay documentation.
-    out = "````xml\n<hotfix>x</hotfix>\n````"
-    assert bridge.extract_xml_blocks(out) == []
+def test_extract_quad_xml_fence_extracts():
+    # Superseded the old "quad fences stay documentation" pin: a four-backtick
+    # `xml` fence is the canonical way to wrap a body carrying its own
+    # three-backtick samples, so it must extract. A quad fence WITHOUT the xml
+    # info string is still documentation.
+    assert bridge.extract_xml_blocks("````xml\n<hotfix>x</hotfix>\n````") == [
+        "<hotfix>x</hotfix>"
+    ]
+    assert bridge.extract_xml_blocks("````\n<hotfix>x</hotfix>\n````") == []
 
 
 # --- Task 238 fix loop: tolerance + truncation fallback ---

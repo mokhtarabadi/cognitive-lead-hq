@@ -59,12 +59,14 @@ from typing import List, Tuple
 # Configuration
 # ---------------------------------------------------------------------------
 
-# The 20 top-level XML tags in system-prompt.md, in document order.
+# The 21 top-level XML tags in system-prompt.md, in document order.
 # This explicit ordered list is the authoritative contract for the split: the
-# script verifies that these (and only these) 20 tags appear at the top level,
+# script verifies that these (and only these) 21 tags appear at the top level,
 # in this exact order. Nested tags (e.g. <phase>/<workflow>/<personas> inside
 # <brainstorming_protocol>) are part of their parent block's content and are
-# NOT split out separately.
+# NOT split out separately. Text after the last tag (the Markdown language
+# policy) is captured as a final tail fragment so the round trip stays
+# byte-identical.
 TOP_LEVEL_TAGS: List[str] = [
     "system_version",
     "role",
@@ -86,6 +88,7 @@ TOP_LEVEL_TAGS: List[str] = [
     "initialization",
     "communication_examples",
     "self_improvement_protocol",
+    "night_mode",
 ]
 
 # Regex patterns for locating top-level tag boundaries.
@@ -270,6 +273,26 @@ def _extract_and_verify_validation_phases(
 # ---------------------------------------------------------------------------
 
 
+def _slugify_heading(line: str) -> str:
+    """Turn a Markdown heading into a snake_case fragment slug.
+
+    Only used for the trailing Markdown section, which has no tag name to
+    borrow. The heading's leading ``#`` and any subtitle after ``:`` are
+    dropped, and only the first three words survive, so the slug stays short
+    and stable (``# Language Policy: English Inside…`` -> ``language_policy``).
+
+    Args:
+        line: The first non-empty line of the tail section.
+
+    Returns:
+        A lowercase snake_case slug, or ``"tail"`` when nothing survives.
+    """
+    text = line.lstrip("#").split(":", 1)[0]
+    words = [re.sub(r"[^a-z0-9]+", "", word.lower()) for word in text.split()]
+    words = [word for word in words if word][:3]
+    return "_".join(words) or "tail"
+
+
 def split_system_prompt(
     source_path: str = "system-prompt.md",
     fragments_dir: str = "prompts/fragments",
@@ -311,6 +334,27 @@ def split_system_prompt(
     Path(shared_dir).mkdir(parents=True, exist_ok=True)
     Path(manifest_path).parent.mkdir(parents=True, exist_ok=True)
 
+    # Reuse filenames already listed in an existing manifest, matched by the
+    # part after the numeric prefix ("23-night_mode.md" -> "night_mode"), so a
+    # rebuild does not renumber and rename every fragment on disk.
+    existing_names: dict[str, str] = {}
+    manifest_file = Path(manifest_path)
+    if manifest_file.is_file():
+        for entry in manifest_file.read_text(encoding="utf-8").splitlines():
+            entry = entry.strip()
+            if entry.endswith(".md") and "-" in entry:
+                existing_names.setdefault(entry[:-3].split("-", 1)[1], entry)
+
+    # Trailing Markdown after the last tagged block (the language policy) has
+    # no tag of its own; capture it as a final fragment so a rebuild does not
+    # silently drop the whole section.
+    tail_lines = lines[ranges[-1][2] + 1 :]
+    while tail_lines and not tail_lines[0].strip():
+        tail_lines.pop(0)
+    while tail_lines and not tail_lines[-1].strip():
+        tail_lines.pop()
+    has_tail = bool(tail_lines)
+
     for seq, (tag, start, end) in enumerate(ranges, start=1):
         block_text = "\n".join(lines[start : end + 1])
 
@@ -332,11 +376,22 @@ def split_system_prompt(
         # '\n' so the assembler's single '\n' produces the correct '\n\n'
         # termination.
         seq_str = str(seq).zfill(2)
-        filename = f"{seq_str}-{tag}.md"
+        filename = existing_names.get(tag) or f"{seq_str}-{tag}.md"
         write_text = block_text
-        if seq == len(ranges) and content.endswith("\n\n"):
+        if seq == len(ranges) and not has_tail and content.endswith("\n\n"):
             write_text = block_text + "\n"
         (frag_dir / filename).write_text(write_text, encoding="utf-8")
+        fragment_filenames.append(filename)
+
+    # --- 2b. The trailing Markdown fragment ---
+    if has_tail:
+        slug = _slugify_heading(tail_lines[0])
+        seq_str = str(len(fragment_filenames) + 1).zfill(2)
+        filename = existing_names.get(slug) or f"{seq_str}-{slug}.md"
+        tail_text = "\n".join(tail_lines)
+        if content.endswith("\n\n"):
+            tail_text += "\n"
+        (frag_dir / filename).write_text(tail_text, encoding="utf-8")
         fragment_filenames.append(filename)
 
     # --- 3. Emit the manifest (one filename per line, assembly order) ---

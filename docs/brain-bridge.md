@@ -13,7 +13,8 @@ retired persona engine. The Hands calls it for every Brain turn
    live: `MODE: AUTOMATIC (autopilot locked) — emit bare unfenced XML
    only; no copy-paste relay instructions` in autopilot, `MODE: MANUAL
    — xml-fenced blocks and copy-paste relay instructions expected`
-   otherwise.
+   otherwise (a four-backtick ````xml wrapper when the body carries its
+   own fenced code).
 2. **The bridge loads the system prompt** from the global install
    (`~/.config/opencode/system-prompt.md`, override via
    `BRAIN_SYSTEM_PROMPT`) and sends system + history + new prompt
@@ -24,7 +25,12 @@ retired persona engine. The Hands calls it for every Brain turn
    `XML_EXTRACTED` with the block; otherwise `REPORT` with the text.
    Bare unfenced XML extracts first (automatic mode); when none exists,
    allowlisted blocks inside explicit ```xml fences extract (manual
-   copy-paste mode). Other fences stay documentation-only.
+   copy-paste mode). Other fences stay documentation-only. A fenced body
+   that carries its own fenced code samples cannot nest, so the body is
+   rescanned from its opener (bounded by the next opener) for the block's
+   closing tag — that rescue keeps a manual-mode answer from costing a
+   re-emit. A genuinely truncated block is still rejected as
+   `XML_STRICT_REJECT_FENCE_FALLBACK` / `..._UNCLOSED_TAIL`, never repaired.
 4. **Questions relay to the Manager.** A `QUESTION` verdict pauses
    the Hands until the Manager answers.
 

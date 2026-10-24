@@ -405,10 +405,11 @@ needs no extra machinery.
    emit bare unfenced XML only, never xml-fenced blocks; do NOT emit any
    copy-paste relay instructions ("Manager: please copy...") — the Hands
    chain QA/review turns directly.` Manual: `MODE: MANUAL — xml-fenced
-   blocks expected; copy-paste relay instructions expected.` Skip this
-   line and the Brain fence-strict-rejects in autopilot and keeps
-   emitting admin copy-paste text in a silent pipeline.
-   **Session Binding (Mandatory):** You MUST pass `session_id: "$OPENCODE_SESSION_ID"` (reading your active session ID from the environment) in every `brain_turn` call alongside `task_id`. Because the MCP server runs as a separate daemon, you must send this parameter explicitly over the wire so the conversation history continues in `tasks/.sessions/<session_id>/transcript.jsonl`.
+   blocks expected (a four-backtick ````xml wrapper when the body carries
+   its own fenced code); copy-paste relay instructions expected.` Skip this
+   line and the Brain cannot tell which shape is live: it keeps emitting
+   admin copy-paste text in a silent pipeline and fenced output where bare
+   was required.   **Session Binding (Mandatory):** You MUST pass `session_id: "$OPENCODE_SESSION_ID"` (reading your active session ID from the environment) in every `brain_turn` call alongside `task_id`. Because the MCP server runs as a separate daemon, you must send this parameter explicitly over the wire so the conversation history continues in `tasks/.sessions/<session_id>/transcript.jsonl`.
 2. **Call** `brain_turn`. Read `status`:
    - `XML_EXTRACTED` — execute `xml_blocks` as the next instruction set,
      exactly like an Orchestrator XML block.
