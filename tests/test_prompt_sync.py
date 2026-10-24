@@ -171,6 +171,7 @@ def test_executor_owns_all_three_plugin_lanes():
         "read_omitted_content",
         "keepTurns",
         ".opencode/STOP_GOAL",
+        "compact_stats",
     ):
         assert literal in text, f"missing plugin-lane literal: {literal}"
 
