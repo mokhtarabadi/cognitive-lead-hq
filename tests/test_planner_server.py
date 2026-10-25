@@ -1078,6 +1078,34 @@ def test_sprint_daily_agenda_reads_saved_plan(tmp_path, monkeypatch):
     assert "054" in agenda
 
 
+def test_owner_field_parsed_and_briefed(tmp_path):
+    _write_task(tmp_path, "backlog", 61, "Owned work")
+    path = next((tmp_path / "tasks" / "backlog").glob("061-*.md"))
+    path.write_text(
+        path.read_text().replace(
+            "**Status:** open", "**Status:** open\n**Owner:** ehsan"
+        ),
+        encoding="utf-8",
+    )
+    brief = planner._task_brief(planner._parse_task_file(path))
+    assert brief["owner"] == "ehsan"
+
+
+def test_agenda_nudges_when_backlog_waiting(tmp_path, monkeypatch):
+    monkeypatch.setenv("PLANNER_PROJECT_ROOT", str(tmp_path))
+    _write_task(tmp_path, "backlog", 62, "Waiting")
+    agenda = planner.sprint_daily_agenda(str(tmp_path))
+    assert "NUDGE" in agenda
+
+
+def test_claim_next_reports_overdue(tmp_path):
+    _write_task(tmp_path, "backlog", 63, "Late", deadline="2020-01-01")
+    _write_task(tmp_path, "backlog", 64, "Next")
+    result = planner.claim_next(str(tmp_path), "64")
+    assert "claim_next succeeded" in result
+    assert "OVERDUE" in result and "063" in result
+
+
 def test_api_plan_http_contract(auth_client):
     assert auth_client.get("/api/plan").status_code == 401
     auth_client.post("/api/login", json={"username": "admin", "password": "admin-pass"})

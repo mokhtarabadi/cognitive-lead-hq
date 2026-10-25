@@ -162,3 +162,13 @@ truth for each task; the plan only records scheduling decisions.
 - `sprint_daily_agenda` reads the plan first: today's committed tasks, then
   deviations (claimed but uncommitted, saved but unapproved); with no plan it
   says it is using the derived lanes.
+
+### Ownership and pressure signals
+
+A task file may carry `**Owner:** <username>`; briefs expose it and the
+dashboard renders it as a badge, with a **Mine only** toggle that filters lanes
+to the signed-in username (client-side, no round-trip). `sprint_daily_agenda`
+now emits `NUDGE` when nothing is claimed while the backlog is non-empty, and
+`OVERDUE` with the oldest ids; `claim_next` appends the same `OVERDUE` warning
+to a successful claim without ever blocking it. Hand-moving a task file around
+`claim_next` bypasses all of these gates and is a workflow violation.

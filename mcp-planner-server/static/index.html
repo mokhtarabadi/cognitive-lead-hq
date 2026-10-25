@@ -119,6 +119,7 @@
       <span class="label mb-0">Kanban lanes</span>
     </div>
     <input type="search" id="board-search" class="form-control form-control-sm mb-3" placeholder="Filter tasks by ID or title…" autocomplete="off" aria-label="Filter tasks">
+    <div class="d-flex justify-content-end mb-2"><button type="button" class="btn btn-sm btn-outline-secondary" id="mine-toggle" aria-pressed="false">Mine only</button></div>
     <div class="row g-3" id="lanes-grid"></div>
   </section>
 
@@ -215,6 +216,8 @@
   let modalTaskId = '';
   let planDays = [];
   let planCommitted = {};
+  let mineOnly = false;
+  let currentUser = '';
 
   const JALALI_MONTHS = ['Farvardin', 'Ordibehesht', 'Khordad', 'Tir', 'Mordad', 'Shahrivar', 'Mehr', 'Aban', 'Azar', 'Dey', 'Bahman', 'Esfand'];
 
@@ -310,7 +313,8 @@
     const needle = query.trim().toLowerCase();
     laneOrder.forEach(function (lane) {
       const all = lanes[lane] || [];
-      const items = needle ? all.filter(function (t) { return taskMatches(t, needle); }) : all;
+      const scoped = mineOnly && currentUser ? all.filter(function (t) { return t.owner === currentUser; }) : all;
+      const items = needle ? scoped.filter(function (t) { return taskMatches(t, needle); }) : scoped;
       const isArchive = lane === 'archive';
       const collapsed = isArchive && !archiveOpen;
       const chipClass = { backlog: 'text-bg-secondary', 'in-progress': 'text-bg-info', qa: 'text-bg-warning', completed: 'text-bg-success', archive: 'text-bg-secondary' }[lane];
@@ -321,6 +325,7 @@
         : items.map(function (t) {
           return '<div class="task-row" role="button" tabindex="0" data-id="' + escapeHtml(t.id || t.name || '') + '" data-path="' + escapeHtml(t.path || '') + '">' +
             '<span class="id">' + escapeHtml(t.id || t.name || 'task') + '</span> — ' + escapeHtml(t.title || 'untitled') +
+            (t.owner ? ' <span class="badge text-bg-secondary">' + escapeHtml(t.owner) + '</span>' : '') +
             (t.estimate_hours != null ? ' <span class="text-muted">' + t.estimate_hours + 'h</span>' : '') +
             '</div>';
         }).join('');
@@ -546,6 +551,16 @@
     if (lastData) render(lastData);
   });
 
+  const mineToggle = document.getElementById('mine-toggle');
+  if (mineToggle) {
+    mineToggle.addEventListener('click', function () {
+      mineOnly = !mineOnly;
+      mineToggle.setAttribute('aria-pressed', mineOnly ? 'true' : 'false');
+      mineToggle.className = 'btn btn-sm ' + (mineOnly ? 'btn-primary' : 'btn-outline-secondary');
+      if (lastData) render(lastData);
+    });
+  }
+
   // ---- Plan cockpit ----
   const WINDOW_LABELS = { day: 'Today', week: 'This week', month: 'This month' };
 
@@ -739,6 +754,7 @@
   function hideLoginModal() { auth.modal.classList.add('hidden'); }
 
   function showUserBadge(username, role) {
+    currentUser = username || '';
     auth.userBadge.classList.remove('d-none');
     auth.userBadge.classList.add('d-flex');
     auth.logoutBtn.classList.remove('d-none');

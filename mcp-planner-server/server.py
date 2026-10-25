@@ -183,6 +183,8 @@ def _parse_task_file(path: Path) -> dict:
             record["type"] = val
         elif key == "status":
             record["status"] = val
+        elif key == "owner":
+            record["owner"] = val
         elif key == "estimate":
             em = re.match(r"(\d+(?:\.\d+)?)\s*h", val, re.IGNORECASE)
             if em:
@@ -626,9 +628,26 @@ def claim_next(project_root: str, task_id: str) -> str:
     except OSError:
         pass  # Header update is best-effort; the move itself succeeded.
 
+    overdue = []
+    for candidate in _load_all_tasks(workspace_root):
+        if candidate.get("lane") not in ("backlog", "in-progress", "qa"):
+            continue
+        raw = candidate.get("deadline")
+        if not raw:
+            continue
+        try:
+            if date.fromisoformat(str(raw)) < date.today():
+                overdue.append(str(_task_brief(candidate).get("id")))
+        except ValueError:
+            continue
+    warning = (
+        f" ⚠️ OVERDUE: {', '.join(overdue[:3])}" + (" …" if len(overdue) > 3 else "")
+        if overdue
+        else ""
+    )
     return (
         f"✅ claim_next succeeded: task {task_id} ('{task.get('title')}') "
-        f"moved to tasks/in-progress/. Status: in-progress."
+        f"moved to tasks/in-progress/. Status: in-progress.{warning}"
     )
 
 
@@ -953,7 +972,28 @@ def sprint_daily_agenda(project_root: Optional[str] = None) -> str:
             lines.append(f"- {t['name']} — {t.get('title') or 'untitled'}")
         lines.append("")
     if not in_progress and not qa_pending:
-        lines.append("- Nothing in progress or awaiting QA. Ready to claim next task.")
+        backlog = [t for t in tasks if t.get("lane") == "backlog"]
+        if backlog:
+            lines.append(
+                f"- NUDGE: nothing is claimed and {len(backlog)} task(s) wait in backlog. "
+                f"Top: {backlog[0]['name']} — {backlog[0].get('title') or 'untitled'}."
+            )
+        overdue_ids = []
+        for task in tasks:
+            raw = task.get("deadline")
+            if not raw or task.get("lane") not in ("backlog", "in-progress", "qa"):
+                continue
+            try:
+                if date.fromisoformat(str(raw)) < date.today():
+                    overdue_ids.append(str(_task_brief(task).get("id")))
+            except ValueError:
+                continue
+        if overdue_ids:
+            lines.append(f"- OVERDUE: {', '.join(overdue_ids[:5])}")
+        if not backlog and not overdue_ids:
+            lines.append(
+                "- Nothing in progress or awaiting QA. Ready to claim next task."
+            )
     return "\n".join(lines)
 
 
@@ -1386,6 +1426,7 @@ def _task_brief(task: dict) -> dict:
         "lane": task.get("lane"),
         "status": task.get("status") or "open",
         "estimate_hours": task.get("estimate_hours"),
+        "owner": task.get("owner"),
         "deadline": task.get("deadline"),
         "milestone": task.get("milestone"),
     }
