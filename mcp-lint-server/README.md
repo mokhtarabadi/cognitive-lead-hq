@@ -2,7 +2,7 @@
 
 ## Duties
 
-Lint MCP daemon: task-file validation (`lint_task_file`, incl. META-shape gate), system-prompt sync checks (incl. unactionable-skill-verb gate), and Markdown/format gates run before staging and closure.
+Lint MCP daemon: task-file validation (`lint_task_file`, incl. META-shape and planner-metadata gates), system-prompt sync checks (incl. unactionable-skill-verb gate), and Markdown/format gates run before staging and closure.
 
 ## Files
 
@@ -14,3 +14,4 @@ Lint MCP daemon: task-file validation (`lint_task_file`, incl. META-shape gate),
 - Lint is a pre-stage gate; staging with a stale `**File:**` header must fail.
 - Prompt-sync checks must compare assembled output against committed `system-prompt.md`.
 - Keep checks offline and deterministic; no network in lint path.
+- Planner metadata (`**Estimate:**`, `**Deadline:**`, `**Depends on:**`) is validated only when present: the Planner silently drops a value it cannot parse, so a malformed line must fail here instead. Absence is always valid — legacy task files carry none.

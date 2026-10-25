@@ -166,3 +166,11 @@ ADR-006 below. Session auth, scoping, and the CLI remain as decided here.
 - **Decision:** keep `tasks/.plan/week-YYYY-Www.json` as the commitment (deadline edits, per-day capacity, approval stamp, atomic writes, server-side validation with an optional `force`). Buckets from ADR-008 remain derived; `GET /api/plan` merges the saved plan into them. `sprint_daily_agenda` prefers the plan and reports deviations instead of trusting it blindly.
 - **Consequences:** restart-safe commitments, one writer path, and an explicit fallback when no plan exists. Markdown is untouched, so hand edits surface as deviations rather than silent overwrites.
 - **Rollback:** delete the week file or `DELETE /api/plan`; the derived cockpit from task 345 behaves exactly as before.
+
+## [2026-10-25] ADR-010: `schedule_tasks` owns the metadata header
+
+- **Context:** the read model consumes `**Estimate:**`, `**Deadline:**` and `**Depends on:**` from task Markdown, but `plan_materialize` deliberately refuses to write them and nothing else did either, so an agent recording an approved plan had to hand-edit headers. That is where a stray space or a free-text date silently removes a task from capacity and the timeline, with no error on either side.
+- **Decision:** add `schedule_tasks(project_root, assignments)` as the single writer: entries `id:estimate:deadline[:deps]`, active lanes only, line-scoped replacement or insertion directly after `**Status:**`, atomic write, idempotent, and all-or-nothing — one malformed entry rejects the whole batch. Rejections name the reason per entry (unknown or archived id, duplicate id, non-`Nh` estimate, non-ISO date, non-id dependencies). The executor prompt calls it after plan approval and forbids hand-editing those lines; `_check_planner_metadata` in the lint server enforces the same formats.
+- **Consequences:** the metadata has exactly one writer and one validator, so an approved plan lands in the files the Planner reads. The tool refuses to clear a value (`-` means "leave as is") because deleting a deadline stays a Manager decision, and the dashboard week plan (`deadline_edits`) is untouched — task files remain the source of truth it overlays.
+- **Rollback:** unregister the tool and revert the prompt sentence; existing metadata is plain Markdown and needs no cleanup.
+

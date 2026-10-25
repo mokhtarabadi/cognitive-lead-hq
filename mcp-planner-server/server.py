@@ -589,6 +589,175 @@ Materialized by planner on {date.today().isoformat()}.
 
 
 @_project_tool
+def schedule_tasks(project_root: str, assignments: str) -> str:
+    """Write planner metadata into existing task headers, deterministically.
+
+    The Planner derives everything from `tasks/` Markdown, but nothing wrote
+    the metadata it reads, so an agent had to hand-edit headers — the exact
+    place where a stray space silently drops a deadline from the read model.
+    This tool is the single writer for `**Estimate:**`, `**Deadline:**` and
+    `**Depends on:**`.
+
+    Args:
+        project_root: Absolute path to the project holding tasks/.
+        assignments: Comma-separated entries of the form
+            `id:estimate:deadline[:deps]`, e.g.
+            `336:3h:2026-10-25, 339:3h:2026-10-27:338`.
+            `-` leaves a value unchanged (clear is not supported on purpose:
+            deleting a deadline is a Manager decision, not an agent one).
+
+    Returns:
+        One line per task with its path, previous value and new value, or an
+        explicit rejection reason.
+    """
+    workspace_root = _explicit_project_root(project_root, "schedule_tasks")
+    tasks_dir = workspace_root / "tasks"
+
+    estimate_re = re.compile(r"^\d+(?:\.\d+)?h$")
+    date_re = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+    deps_re = re.compile(r"^\[?\s*\d+(\s*,\s*\d+)*\s*\]?$")
+
+    entries = [e.strip() for e in assignments.split(",") if e.strip()]
+    if not entries:
+        return "No assignments given. Use `id:estimate:deadline[:deps]`."
+
+    seen: set[str] = set()
+    parsed: list[tuple[str, str | None, str | None, str | None]] = []
+    rejects: list[str] = []
+    for entry in entries:
+        parts = [p.strip() for p in entry.split(":")]
+        if len(parts) < 3 or len(parts) > 4:
+            rejects.append(f"{entry} (expected id:estimate:deadline[:deps])")
+            continue
+        tid, estimate, deadline = parts[0], parts[1], parts[2]
+        deps = parts[3] if len(parts) == 4 else None
+        try:
+            tid_norm = str(int(tid))
+        except (TypeError, ValueError):
+            rejects.append(f"{entry} (invalid id)")
+            continue
+        if tid_norm in seen:
+            rejects.append(f"{entry} (duplicate id in this call)")
+            continue
+        seen.add(tid_norm)
+        if estimate != "-" and not estimate_re.match(estimate):
+            rejects.append(f"{entry} (estimate must look like 3h or 2.5h)")
+            continue
+        if deadline != "-" and not date_re.match(deadline):
+            rejects.append(f"{entry} (deadline must be YYYY-MM-DD)")
+            continue
+        if deps is not None and deps != "-":
+            if not deps_re.match(deps):
+                rejects.append(f"{entry} (deps must be ids like 338 or [338, 340])")
+                continue
+            ids = [d.strip() for d in re.findall(r"\d+", deps)]
+            deps = f"[{', '.join(ids)}]"
+        parsed.append(
+            (
+                tid_norm,
+                None if estimate == "-" else estimate,
+                None if deadline == "-" else deadline,
+                None if deps in (None, "-") else deps,
+            )
+        )
+
+    all_tasks = _load_all_tasks(workspace_root)
+    results: list[str] = []
+
+    # All-or-nothing: a single bad entry aborts the whole call so a partially
+    # applied schedule can never leave the Planner with half a plan.
+    if rejects:
+        return (
+            f"Rejected {len(rejects)} assignment(s); nothing was written.\n"
+            + "\n".join(f"- {r}" for r in rejects)
+        )
+
+    for tid, estimate, deadline, deps in parsed:
+        task = _find_task_by_id(all_tasks, tid)
+        if task is None:
+            results.append(
+                f"- {tid}: rejected (no task with that id in an active lane)"
+            )
+            continue
+        path = Path(task["path"])
+        if "archive" in path.parts:
+            results.append(f"- {tid}: rejected (task is archived)")
+            continue
+        try:
+            text = path.read_text(encoding="utf-8")
+        except OSError as exc:
+            results.append(f"- {tid}: rejected (unreadable: {exc})")
+            continue
+
+        lines = text.splitlines()
+        changes: list[str] = []
+
+        def set_field(key: str, value: str | None) -> bool:
+            """Replace the header field in place, or insert after Status."""
+            if value is None:
+                return False
+            pattern = re.compile(rf"^\*\*{re.escape(key)}:\*\*\s*(.*)$")
+            for idx, line in enumerate(lines):
+                m = pattern.match(line.strip())
+                if m:
+                    if m.group(1).strip() == value:
+                        return False
+                    changes.append(
+                        f"{key}: {m.group(1).strip() or '(empty)'} -> {value}"
+                    )
+                    lines[idx] = f"**{key}:** {value}"
+                    return True
+            insert_at = None
+            for idx, line in enumerate(lines):
+                if re.match(r"^\*\*Status:\*\*", line.strip()):
+                    insert_at = idx + 1
+                    break
+            if insert_at is None:
+                for idx, line in enumerate(lines):
+                    if re.match(r"^\*\*File:\*\*", line.strip()):
+                        insert_at = idx + 1
+            if insert_at is None:
+                return False
+            lines.insert(insert_at, f"**{key}:** {value}")
+            changes.append(f"{key}: (absent) -> {value}")
+            return True
+
+        # Insert deepest-first so the final order under Status is
+        # Estimate, Deadline, Depends on (each insert lands right after Status).
+        changed = set_field("Depends on", deps)
+        changed = set_field("Deadline", deadline) or changed
+        changed = set_field("Estimate", estimate) or changed
+
+        if not changed:
+            results.append(f"- {tid}: unchanged ({path.relative_to(workspace_root)})")
+            continue
+
+        new_text = "\n".join(lines)
+        if text.endswith("\n"):
+            new_text += "\n"
+        tmp = path.with_suffix(path.suffix + f".tmp{os.getpid()}")
+        try:
+            tmp.write_text(new_text, encoding="utf-8")
+            os.replace(tmp, path)
+        except OSError as exc:
+            results.append(f"- {tid}: rejected (write failed: {exc})")
+            continue
+        results.append(
+            f"- {tid}: updated ({path.relative_to(workspace_root)}) — "
+            + "; ".join(changes)
+        )
+
+    head = f"Scheduled {len(parsed) - len(rejects)} assignment(s)."
+    body = "\n".join(results)
+    tail = (
+        ("\nRejected input:\n" + "\n".join(f"- {r}" for r in rejects))
+        if rejects
+        else ""
+    )
+    return f"{head}\n{body}{tail}"
+
+
+@_project_tool
 def claim_next(project_root: str, task_id: str) -> str:
     """Claim the next task: move it from backlog to in-progress.
 

@@ -10,7 +10,7 @@ dashboard on loopback port 8108.
 ## Files
 
 - `server.py` — MCP daemon entrypoint exposing `brain_turn`-style planning tools
-  (`plan_propose`, `plan_materialize`, `claim_next`, `qa_budget`,
+  (`plan_propose`, `plan_materialize`, `schedule_tasks`, `claim_next`, `qa_budget`,
   `milestone_status`, `plan_status`, `sprint_daily_agenda`,
   `sprint_check_daily_quota`, `sprint_lock`) plus an embedded HTTP route
   serving the static dashboard on `GET /` and `GET /api/status`, the auth
@@ -182,3 +182,25 @@ now emits `NUDGE` when nothing is claimed while the backlog is non-empty, and
 `OVERDUE` with the oldest ids; `claim_next` appends the same `OVERDUE` warning
 to a successful claim without ever blocking it. Hand-moving a task file around
 `claim_next` bypasses all of these gates and is a workflow violation.
+
+### Scheduling metadata (`schedule_tasks`)
+
+The Planner reads `**Estimate:**`, `**Deadline:**` and `**Depends on:**` from
+the task header, and Markdown stays the only source of truth. `schedule_tasks`
+is the single writer for those three lines:
+
+```
+schedule_tasks(project_root, "336:3h:2026-10-25, 339:3h:2026-10-27:338")
+```
+
+Each entry is `id:estimate:deadline[:deps]`; `-` leaves a value untouched.
+The tool resolves the id in the active lanes only, replaces an existing value
+or inserts the line directly after `**Status:**` (final order Estimate,
+Deadline, Depends on), leaves the rest of the file byte-identical, and writes
+atomically. It is idempotent, and the call is **all-or-nothing**: one malformed
+entry rejects the whole batch so a partially applied schedule cannot exist.
+Rejections are explicit — unknown or archived id, duplicate id in one call,
+estimate that is not `Nh`/`N.Nh`, deadline that is not `YYYY-MM-DD`, dependencies
+that are not ids. The lint rule `_check_planner_metadata` enforces the same
+formats, so an agent cannot invent one and have the task silently drop out of
+capacity and the timeline.

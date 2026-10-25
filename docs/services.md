@@ -22,7 +22,10 @@ standalone dashboard at `/` (plus `/api/status`) on the same loopback
 port. It reads the project given by `PLANNER_PROJECT_ROOT`, falling back
 to the nearest ancestor of its working directory that holds `tasks/`.
 `PLANNER_PROJECTS` (pathsep-separated absolute paths) feeds the
-dashboard's project switcher. It needs no credentials.
+dashboard's project switcher. It needs no credentials. `schedule_tasks`
+is the only writer for the `**Estimate:**`, `**Deadline:**` and
+`**Depends on:**` header lines the planner reads, and `lint_task_file`
+rejects a malformed value so the two cannot drift.
 
 Planner authentication is **optional and off by default**: with no
 `~/.config/opencode/planner-users.json` (or `"auth_enabled": false`) the

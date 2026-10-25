@@ -505,6 +505,59 @@ def _check_unactionable_skill_verbs(content: str, file_path: str) -> list[str]:
 # A bundle META task carries verbatim source appendices plus an all-or-nothing
 # checklist. Non-META files (including every pre-existing completed/archive
 # file) must skip with pass — they never fail for missing META sections.
+# ---------------------------------------------------------------------------
+# Planner metadata check
+# ---------------------------------------------------------------------------
+# The Planner reads `**Estimate:**`, `**Deadline:**` and `**Depends on:**` from
+# task headers to build its read model. A malformed value is dropped silently:
+# a task with `**Estimate:** 3 hours` simply never appears in capacity. This
+# check turns that silent loss into a lint failure so an agent cannot invent a
+# format and have it disappear.
+_PLANNER_ESTIMATE_RE = re.compile(r"^\d+(?:\.\d+)?h$")
+_PLANNER_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+_PLANNER_DEPS_RE = re.compile(r"^\[?\s*\d+(\s*,\s*\d+)*\s*\]?$")
+
+
+def _check_planner_metadata(content: str, file_path: str) -> list[str]:
+    """Validate planner metadata lines when present.
+
+    Absence is always allowed: legacy task files carry no metadata and must
+    keep passing. Only a present value that the Planner cannot parse is an
+    issue, plus a duplicated key (the Planner keeps the last one, which hides
+    the mistake).
+    """
+    issues: list[str] = []
+    counts: dict[str, int] = {}
+    for raw in content.splitlines():
+        m = re.match(r"^\*\*(Estimate|Deadline|Depends on):\*\*\s*(.*)$", raw.strip())
+        if not m:
+            continue
+        key, value = m.group(1), m.group(2).strip()
+        counts[key] = counts.get(key, 0) + 1
+        if key == "Estimate" and not _PLANNER_ESTIMATE_RE.match(value):
+            issues.append(
+                f"Planner metadata: `**Estimate:**` must look like `3h` or `2.5h` "
+                f"(got `{value}`) — the Planner silently drops an unparseable value."
+            )
+        elif key == "Deadline" and not _PLANNER_DATE_RE.match(value):
+            issues.append(
+                f"Planner metadata: `**Deadline:**` must be `YYYY-MM-DD` "
+                f"(got `{value}`) — free text never reaches the timeline."
+            )
+        elif key == "Depends on" and not _PLANNER_DEPS_RE.match(value):
+            issues.append(
+                f"Planner metadata: `**Depends on:**` must be ids such as `338` or "
+                f"`[338, 340]` (got `{value}`)."
+            )
+    for key, count in counts.items():
+        if count > 1:
+            issues.append(
+                f"Planner metadata: `**{key}:**` appears {count} times; exactly one "
+                f"line allowed, the Planner keeps the last."
+            )
+    return issues
+
+
 def _check_bundle_meta_structure(content: str, file_path: str) -> list[str]:
     """Validate bundle META structure, scoped to META files only.
 
@@ -658,8 +711,9 @@ def lint_task_file(task_file_path: str, project_root: str | None = None) -> str:
     md_issues = _check_markdown_basics(content, task_file_path)
     task_issues = _check_task_file_structure(content, task_file_path)
     meta_issues = _check_bundle_meta_structure(content, task_file_path)
+    planner_issues = _check_planner_metadata(content, task_file_path)
 
-    all_issues = md_issues + task_issues + meta_issues
+    all_issues = md_issues + task_issues + meta_issues + planner_issues
 
     if not all_issues:
         return f"✅ {task_file_path} passed Task File linting."
@@ -717,9 +771,11 @@ def lint_all_tasks(
             except Exception:
                 continue
 
-            issues = _check_markdown_basics(
-                content, str(md_file)
-            ) + _check_task_file_structure(content, str(md_file))
+            issues = (
+                _check_markdown_basics(content, str(md_file))
+                + _check_task_file_structure(content, str(md_file))
+                + _check_planner_metadata(content, str(md_file))
+            )
             if issues:
                 total_issues += len(issues)
                 report.append(
