@@ -81,6 +81,52 @@ _ROOT_FALLBACK_WARNING = (
 )
 
 
+_PROJECTS_REGISTRY_ENV = "PLANNER_PROJECTS_REGISTRY"
+_PROJECTS_REGISTRY_LIMIT = 50
+
+
+def _registry_path() -> Path:
+    """Machine-local registry of projects that have used the planner."""
+    override = os.environ.get(_PROJECTS_REGISTRY_ENV, "").strip()
+    if override:
+        return Path(override).expanduser()
+    return Path.home() / ".config" / "opencode" / "planner-projects.json"
+
+
+def _read_projects_registry() -> list[str]:
+    """Registered roots, newest first; unreadable files behave as empty."""
+    try:
+        data = json.loads(_registry_path().read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return []
+    projects = data.get("projects") if isinstance(data, dict) else None
+    return [str(p) for p in projects] if isinstance(projects, list) else []
+
+
+def _register_project(project_root: Path) -> None:
+    """Record a root that just used a planner tool (best-effort, atomic).
+
+    Never raises: a registry failure must not fail the tool call the user
+    asked for. Keeps the newest entry first and caps the list.
+    """
+    try:
+        root = str(Path(project_root).resolve())
+        current = _read_projects_registry()
+        if current and current[0] == root:
+            return
+        entries = [root] + [p for p in current if p != root]
+        path = _registry_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = path.with_suffix(".json.tmp")
+        tmp.write_text(
+            json.dumps({"projects": entries[:_PROJECTS_REGISTRY_LIMIT]}, indent=2),
+            encoding="utf-8",
+        )
+        os.replace(tmp, path)
+    except OSError:
+        return
+
+
 def _project_tool(fn):
     """Register an MCP tool that surfaces root-fallback client-visibly."""
 
@@ -88,6 +134,11 @@ def _project_tool(fn):
     def wrapper(*args, **kwargs):
         _FALLBACK_FIRED.set(False)
         out = fn(*args, **kwargs)
+        requested = kwargs.get("project_root")
+        if requested is None and args and isinstance(args[0], str):
+            requested = args[0]
+        if requested and str(requested).strip():
+            _register_project(Path(str(requested)).expanduser())
         if not _FALLBACK_FIRED.get():
             return out
         if isinstance(out, str):
@@ -1377,6 +1428,13 @@ def _discover_projects(current: Path, auth: Optional[AuthState] = None) -> list[
         if not chunk:
             continue
         roots.append(Path(chunk).expanduser().resolve())
+    # Projects that have used a planner tool are remembered automatically, so a
+    # session never has to edit PLANNER_PROJECTS by hand.
+    for entry in _read_projects_registry():
+        try:
+            roots.append(Path(entry).expanduser().resolve())
+        except OSError:
+            continue
 
     seen: set[Path] = set()
     projects: list[dict] = []

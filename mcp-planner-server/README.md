@@ -163,6 +163,16 @@ truth for each task; the plan only records scheduling decisions.
   deviations (claimed but uncommitted, saved but unapproved); with no plan it
   says it is using the derived lanes.
 
+### Project registry
+
+Every planner tool call with an explicit `project_root` records that path in
+`~/.config/opencode/planner-projects.json` (`PLANNER_PROJECTS_REGISTRY`
+overrides), newest first, capped at 50, written atomically. `_discover_projects`
+merges the registry with `PLANNER_PROJECTS` and the current root, then keeps only
+paths that exist and hold `tasks/`, applying session grants as before. So a
+project appears in the dashboard switcher after its first planner call, without
+editing the environment.
+
 ### Ownership and pressure signals
 
 A task file may carry `**Owner:** <username>`; briefs expose it and the

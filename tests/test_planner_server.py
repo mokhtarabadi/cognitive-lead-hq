@@ -1106,6 +1106,46 @@ def test_claim_next_reports_overdue(tmp_path):
     assert "OVERDUE" in result and "063" in result
 
 
+def test_project_registry_records_and_dedupes(tmp_path, monkeypatch):
+    reg = tmp_path / "reg.json"
+    monkeypatch.setenv("PLANNER_PROJECTS_REGISTRY", str(reg))
+    target = tmp_path / "proj"
+    (target / "tasks").mkdir(parents=True)
+    planner._register_project(target)
+    planner._register_project(target)
+    assert planner._read_projects_registry() == [str(target.resolve())]
+
+
+def test_project_registry_is_capped(tmp_path, monkeypatch):
+    reg = tmp_path / "reg.json"
+    monkeypatch.setenv("PLANNER_PROJECTS_REGISTRY", str(reg))
+    for i in range(55):
+        planner._register_project(tmp_path / f"p{i}")
+    assert len(planner._read_projects_registry()) == 50
+
+
+def test_discover_projects_includes_registered(tmp_path, monkeypatch):
+    reg = tmp_path / "reg.json"
+    monkeypatch.setenv("PLANNER_PROJECTS_REGISTRY", str(reg))
+    monkeypatch.delenv("PLANNER_PROJECTS", raising=False)
+    project = tmp_path / "registered"
+    (project / "tasks").mkdir(parents=True)
+    planner._register_project(project)
+    names = [p["path"] for p in planner._discover_projects(tmp_path)]
+    assert str(project.resolve()) in names
+
+
+def test_discover_projects_drops_dead_registered_paths(tmp_path, monkeypatch):
+    reg = tmp_path / "reg.json"
+    monkeypatch.setenv("PLANNER_PROJECTS_REGISTRY", str(reg))
+    monkeypatch.delenv("PLANNER_PROJECTS", raising=False)
+    dead = tmp_path / "no-tasks"
+    dead.mkdir()
+    planner._register_project(dead)
+    names = [p["path"] for p in planner._discover_projects(tmp_path)]
+    assert str(dead.resolve()) not in names
+
+
 def test_api_plan_http_contract(auth_client):
     assert auth_client.get("/api/plan").status_code == 401
     auth_client.post("/api/login", json={"username": "admin", "password": "admin-pass"})
