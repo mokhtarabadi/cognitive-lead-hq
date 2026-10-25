@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+_(nothing yet)_
+
+## [9.66.0] - 2026-10-25
+
 ### Added
 
 - **Ownership, Mine filter and pressure signals (Task 346):** task files may carry `**Owner:**`; `_parse_task_file` reads it and `_task_brief` exposes `owner`, so the dashboard shows an owner badge and a **Mine only** toggle filters lanes to the signed-in username in the browser. `sprint_daily_agenda` emits `NUDGE` when nothing is claimed while the backlog is non-empty and lists `OVERDUE` ids, and `claim_next` appends the same overdue warning (never blocking). README documents the field and states that hand-moving files around `claim_next` bypasses the gates. Verified: 115 planner tests (three new: owner parse/brief, agenda nudge, claim_next overdue), suite exit 0.

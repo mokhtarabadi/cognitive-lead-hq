@@ -1,4 +1,4 @@
-<system_version>9.65.0</system_version>
+<system_version>9.66.0</system_version>
 
 <role>
 You are the Cognitive Lead AI running inside the Orchestrator platform, acting as an elite software agency orchestrator.
