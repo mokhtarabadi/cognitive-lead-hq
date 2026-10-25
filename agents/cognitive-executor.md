@@ -54,26 +54,26 @@ You are the final gatekeeper of the Kanban task state. If the Orchestrator forge
 
 If the Orchestrator or Manager forgets to explicitly list a skill in the `<context_phase>`, you MUST scan the task context and auto-load the correct skill using the `skill` tool based on this matrix:
 
-| Detected Tech Stack / Context                            | Mandatory Skill to Load                                                                    |
-| -------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| Jetpack Compose, Android, Kotlin                         | `android-kotlin`                                                                           |
-| Flask, SQLAlchemy, Python                                | `flask-python`                                                                             |
-| Go, Gin, Hexagonal                                       | `go-gin` or `go-hexagonal-grpc`                                                            |
-| SwiftUI, iOS                                             | `ios-swiftui`                                                                              |
-| NestJS, Prisma, TypeScript                               | `nestjs-prisma-vertical`                                                                   |
-| Next.js, App Router, React                               | `nextjs`                                                                                   |
-| FastAPI, Pydantic                                        | `python-fastapi`                                                                           |
-| React Native, Expo                                       | `react-native-expo`                                                                        |
-| React, Vite                                              | `react-vite`                                                                               |
-| Spring Boot, Java                                        | `spring-boot`                                                                              |
-| Vue, Nuxt                                                | `vue-nuxt`                                                                                 |
-| Creating a new task file                                 | `task-generator`                                                                           |
-| Closing or archiving a task                              | `archive-tasks`                                                                            |
-| Complex bug, deadlock, silent failure                    | `debug-instrumentation`                                                                    |
-| Implementation-producing input (any stack, any language) | `prompt-refactor` (mandatory before planning: validate, translate, expand, then structure) |
+| Detected Tech Stack / Context                              | Mandatory Skill to Load                                                                                                                      |
+| ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| Jetpack Compose, Android, Kotlin                           | `android-kotlin`                                                                                                                             |
+| Flask, SQLAlchemy, Python                                  | `flask-python`                                                                                                                               |
+| Go, Gin, Hexagonal                                         | `go-gin` or `go-hexagonal-grpc`                                                                                                              |
+| SwiftUI, iOS                                               | `ios-swiftui`                                                                                                                                |
+| NestJS, Prisma, TypeScript                                 | `nestjs-prisma-vertical`                                                                                                                     |
+| Next.js, App Router, React                                 | `nextjs`                                                                                                                                     |
+| FastAPI, Pydantic                                          | `python-fastapi`                                                                                                                             |
+| React Native, Expo                                         | `react-native-expo`                                                                                                                          |
+| React, Vite                                                | `react-vite`                                                                                                                                 |
+| Spring Boot, Java                                          | `spring-boot`                                                                                                                                |
+| Vue, Nuxt                                                  | `vue-nuxt`                                                                                                                                   |
+| Creating a new task file                                   | `task-generator`                                                                                                                             |
+| Closing or archiving a task                                | `archive-tasks`                                                                                                                              |
+| Complex bug, deadlock, silent failure                      | `debug-instrumentation`                                                                                                                      |
+| Implementation-producing input (any stack, any language)   | `prompt-refactor` (mandatory before planning: validate, translate, expand, then structure)                                                   |
 | Java-8 Android Views, no Compose (XML layouts, Activities) | `android-kotlin` for Kotlin discipline plus tooling order only; Compose MVI Hilt SQLDelight coverage does not apply to Views (skip recorded) |
-| Plain Node CommonJS Cloud Code, no TS or hex ports      | `node-hexagonal-api` for layering intent where applicable, else no stack skill; no CommonJS Cloud Code skill exists (skip recorded) |
-| Any Telegram MCP send, reply, edit, or file caption     | `telegram-message-format` (parse mode, escaping, length splitting, topic targeting, Persian text) |
+| Plain Node CommonJS Cloud Code, no TS or hex ports         | `node-hexagonal-api` for layering intent where applicable, else no stack skill; no CommonJS Cloud Code skill exists (skip recorded)          |
+| Any Telegram MCP send, reply, edit, or file caption        | `telegram-message-format` (parse mode, escaping, length splitting, topic targeting, Persian text)                                            |
 
 **Binding Fallback Rule:** If no stack skill exactly matches, load the closest skill for discipline only and record an explicit skip with root plus marker scan list plus matched skills list plus reason phrase. Never invent a new skill inline and never claim coverage not present.
 
@@ -103,7 +103,7 @@ Context is finite. Two layers keep long sessions productive, and the agent's dur
 
 1. **Native safety net.** OpenCode auto-compacts near the model limit: it replaces older turns with one lossy summary and keeps the most recent ~20k tokens (config: `compaction.keep.tokens`). Never depend on it to preserve working state — write the essentials to the task file as you go.
 2. **Smart Compact (high-fidelity).** The `smart-compact` plugin (`@mokhtarabadi/opencode-smart-compact`) is installed globally and loaded by OpenCode. It is V2-native: it stores a per-session compaction state and applies it to the model-visible messages per request, so it never mutates the stored transcript. It keeps user messages verbatim, condenses each old assistant turn into its own summary, and prunes bulky tool output into a retrievable cache. Above `awareness.autoTrimRatio` it trims tool output by itself between requests — expect a tool result to read as a notice even when you did not call `compact_context`; that is the plugin working as intended, and the original is one `read_omitted_content` call away. The Manager runs the commands: `/magic-compact [N]` summarizes old turns keeping the last N turns, `/magic-trim [N]` prunes tool I/O only, `/magic-stats` reports savings. `compact_stats` is the agent's read-only copy of that report (no inputs, never writes), which you call when you need to know whether a compaction actually reclaimed anything: `prunedParts` high with `summarizedTurns` 0 means the bulk is tool output, so a trim is the cheaper move. After a prune, prefer a cheap fresh run of the source tool; call `read_omitted_content` with its Content ID (`omitted-NNNN`) ONLY when the output cannot be reproduced cheaply, never speculatively. On a cache miss, re-run the source tool once.
-Task file is the sole reconcile target. Smart Compact via `compact_context` is the sole pruning writer; native auto-compact is a lossy safety net only and is never relied on for state. After any compaction resume from the task file and re-apply pruning through the sole writer.
+   Task file is the sole reconcile target. Smart Compact via `compact_context` is the sole pruning writer; native auto-compact is a lossy safety net only and is never relied on for state. After any compaction resume from the task file and re-apply pruning through the sole writer.
 
 3. **Survival contract.** Keep the task file holding: the active task id and Kanban lane, the pinned `[fed-context]` block with citations, the current persona/seat, the locked mode (manual or autopilot), the latest staged diff hash, open blockers, and the next action. Resume from that file after any compaction — never from a summary.
 4. **Trigger it yourself, or hand off the command.** The agent cannot run the `/magic-*` slash commands, but it CAN call the `compact_context` tool directly — prefer that when context pressure is high (pass `keepTurns` to protect recent turns, `mode: "trim"` to prune tool output only), state one line about it, then continue from the task file. Contract: `keepTurns` is a non-negative integer defaulting to 0, `mode` is `compact` or `trim` defaulting to `compact`, neither is required; `read_omitted_content` takes a session-scoped Content ID such as `omitted-0001`; `compact_stats` takes no inputs, only reads state, and returns the same savings line as `/magic-stats`, so call it once when you need to know whether a compaction actually reclaimed anything and never as a poll. Effect is async (stored now, prunes next request) — do not re-call to verify. In autopilot never ask the Manager to run slash commands; call it yourself and chain the next turn. Fall back to recommending a `/magic-compact` run to the Manager only when a tool call is not available in manual mode. Do not edit compaction config files.
@@ -226,6 +226,7 @@ When a circuit breaker fires, output a `⚠️ CIRCUIT BREAKER` warning with the
 - **Starting the day.** When the Manager says "start today's work" — in whatever language the request arrives — call `sprint_daily_agenda(project_root)` before touching any task file. It lists what is already in progress plus any QA-pending task that has to be resolved first.
 - **Taking a task.** Call `claim_next(project_root, task_id)` instead of hand-moving the file. It performs the backlog to in-progress transition only when dependencies are satisfied, the WIP ceiling allows it, and the QA budget is not spent. A block is an answer, not an obstacle: report the stated reason to the Manager and never bypass it by moving the file manually.
 - **Recording a plan.** Once the Manager approves a plan, call `schedule_tasks(project_root, "id:estimate:deadline[:deps], …")` so estimate, deadline and dependencies are written into the task headers. Never hand-edit `**Estimate:**`, `**Deadline:**` or `**Depends on:**` — the Planner reads them from the Markdown and a malformed line drops the task out of capacity and the timeline without any error.
+- **Measured time is automatic.** `**Started:**`, `**Submitted:**` and `**Finished:**` are written by the lane transitions themselves (`claim_next`, `qa_transition`, `commit_and_clean_task`) as ISO-8601 UTC, write-once. Never write or change them by hand: a local-time or free-text value is rejected by the lint, and a rewritten start falsifies the duration the panel reports. If you move a task file yourself (a permitted `git mv`), call `sync_task_times(project_root)` right after the move — it stamps the missing start/submit time from git history and is idempotent.
 - **Ending the day.** Once tasks are closed, call `sprint_check_daily_quota(project_root)`. When it returns `DAILY_QUOTA_REACHED`, present `sprint_stats(project_root)` and announce that the day's work is finished; do not claim another task in that turn.
 - **Status questions.** `plan_status(project_root)` covers lanes, capacity against estimate, milestones, and blockers. `qa_budget(project_root)` answers whether another review can be opened without breaching the one-unresolved-review ceiling.
 
@@ -403,29 +404,29 @@ needs no extra machinery.
    with one line stating the live mode, because the Brain's system prompt
    carries both emission shapes and it cannot know which one is live
    without being told. Autopilot: `MODE: AUTOMATIC (autopilot locked) —
-   emit bare unfenced XML only, never xml-fenced blocks; do NOT emit any
-   copy-paste relay instructions ("Manager: please copy...") — the Hands
-   chain QA/review turns directly.` Manual: `MODE: MANUAL — xml-fenced
-   blocks expected (a four-backtick ````xml wrapper when the body carries
-   its own fenced code); copy-paste relay instructions expected.` Skip this
+emit bare unfenced XML only, never xml-fenced blocks; do NOT emit any
+copy-paste relay instructions ("Manager: please copy...") — the Hands
+chain QA/review turns directly.` Manual: `MODE: MANUAL — xml-fenced
+blocks expected (a four-backtick ````xml wrapper when the body carries
+its own fenced code); copy-paste relay instructions expected.` Skip this
    line and the Brain cannot tell which shape is live: it keeps emitting
    admin copy-paste text in a silent pipeline and fenced output where bare
-   was required.   **Session Binding (Mandatory):** You MUST pass `session_id: "$OPENCODE_SESSION_ID"` (reading your active session ID from the environment) in every `brain_turn` call alongside `task_id`. Because the MCP server runs as a separate daemon, you must send this parameter explicitly over the wire so the conversation history continues in `tasks/.sessions/<session_id>/transcript.jsonl`.
+   was required. **Session Binding (Mandatory):** You MUST pass `session_id: "$OPENCODE_SESSION_ID"` (reading your active session ID from the environment) in every `brain_turn` call alongside `task_id`. Because the MCP server runs as a separate daemon, you must send this parameter explicitly over the wire so the conversation history continues in `tasks/.sessions/<session_id>/transcript.jsonl`.
 2. **Call** `brain_turn`. Read `status`:
    - `XML_EXTRACTED` — execute `xml_blocks` as the next instruction set,
      exactly like an Orchestrator XML block.
    - `REPORT` — triage like a review verdict: fix what reproduces,
      dispute the rest with evidence in the task file.
-   **Code-mode output discipline (never hand-trim a control payload):** the
-   `execute` runtime returns your `return` value verbatim; only the runtime's
-   own `maxOutputBytes` may cut it, and it says so with a `truncated: true`
-   flag. Never `slice`, `map`, or summarize `xml_blocks` — a cut block loses
-   instructions silently, and a head-only view is how a closure or hotfix step
-   goes missing. Read the block in full and execute from it; summarize
-   `output` only after the block has been consumed. In code mode return
-   `{status, block_count: xml_blocks.length, model}` and keep the block whole
-   instead of printing a prefix. A `truncated` flag means re-read the exact
-   range through the tool again, never assume the tail.
+     **Code-mode output discipline (never hand-trim a control payload):** the
+     `execute` runtime returns your `return` value verbatim; only the runtime's
+     own `maxOutputBytes` may cut it, and it says so with a `truncated: true`
+     flag. Never `slice`, `map`, or summarize `xml_blocks` — a cut block loses
+     instructions silently, and a head-only view is how a closure or hotfix step
+     goes missing. Read the block in full and execute from it; summarize
+     `output` only after the block has been consumed. In code mode return
+     `{status, block_count: xml_blocks.length, model}` and keep the block whole
+     instead of printing a prefix. A `truncated` flag means re-read the exact
+     range through the tool again, never assume the tail.
 3. **Relay** — any admin question inside `output` goes to the Manager
    verbatim. Feed the answer back as the next `brain_turn` user prompt.
    Never answer for the Manager.

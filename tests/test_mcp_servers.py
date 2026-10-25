@@ -3033,7 +3033,7 @@ def test_graph_precision_full_scan_vocab_dfs_rationale_noise():
 
 
 def test_graph_tool_registry_has_no_helper_leak():
-    """Only the 15 intended MCP tools register; plain helpers never expose."""
+    """Only the 16 intended MCP tools register; plain helpers never expose."""
     mod = _load_context_server_hardening()
     names = sorted(mod.mcp._tool_manager._tools.keys())
     assert names == [
@@ -3051,6 +3051,7 @@ def test_graph_tool_registry_has_no_helper_leak():
         "read_source_files",
         "shortest_path",
         "stage_and_inject_diff",
+        "sync_task_times",
         "unstage_files",
     ], names
 

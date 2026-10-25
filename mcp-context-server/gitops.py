@@ -7,6 +7,7 @@ import re
 import shutil
 import subprocess
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -286,6 +287,121 @@ def _git_mv_or_fallback(src: Path, dst: Path) -> bool:
         except Exception:
             return False
     return False
+
+
+def backfill_started_from_git(repo_root: Path, task_path: Path) -> str | None:
+    """Recover a start stamp from git history when the header has none.
+
+    A task moved by hand reaches the next lane with no stamp, so its measured
+    duration would be silently lost. Git already recorded when the file appeared;
+    that is a real moment, not an invention.
+
+    Args:
+        repo_root: repository working tree.
+        task_path: the task file, inside the repository.
+
+    Returns:
+        An ISO-8601 UTC stamp, or ``None`` when git knows nothing about the file.
+    """
+    try:
+        base = repo_root.resolve()
+        target = task_path.resolve()
+        target.relative_to(base)
+    except (ValueError, OSError):
+        return None
+    try:
+        result = subprocess.run(
+            [
+                "git",
+                "log",
+                "--follow",
+                "--format=%aI",
+                "--reverse",
+                "--",
+                str(target),
+            ],
+            capture_output=True,
+            text=True,
+            cwd=str(base),
+            timeout=5,
+        )
+        if result.returncode != 0:
+            return None
+        for line in result.stdout.splitlines():
+            value = line.strip()
+            if not value:
+                continue
+            return (
+                datetime.fromisoformat(value)
+                .astimezone(timezone.utc)
+                .strftime("%Y-%m-%dT%H:%M:%SZ")
+            )
+    except Exception:
+        return None
+    return None
+
+
+def task_start_stamp(repo_root: Path, task_path: Path) -> str | None:
+    """Best available start time for a task that has no ``Started`` header.
+
+    Order: git history first (a recorded fact), then the file's modification time
+    (when it was written or moved into its lane), then nothing. A guessed "now"
+    is deliberately absent: a wrong start is worse than a missing one, because it
+    silently inflates or deflates the measured duration.
+
+    Args:
+        repo_root: repository working tree.
+        task_path: the task file.
+
+    Returns:
+        An ISO-8601 UTC stamp, or ``None`` when neither source can answer.
+    """
+    from_git = backfill_started_from_git(repo_root, task_path)
+    if from_git:
+        return from_git
+    try:
+        mtime = task_path.stat().st_mtime
+        return datetime.fromtimestamp(mtime, timezone.utc).strftime(
+            "%Y-%m-%dT%H:%M:%SZ"
+        )
+    except OSError:
+        return None
+
+
+def stamp_task_header(path: Path, field_name: str, value: str | None = None) -> bool:
+    """Add a UTC ISO-8601 timestamp header line when the field is absent.
+
+    Why write-once: a task can be re-claimed after a block, or re-staged, and the
+    first value is the one that measures the work. The clock is the process clock in
+    UTC on purpose — the stamp must be comparable across machines, not local time.
+
+    Args:
+        path: task Markdown file to patch.
+        field_name: header key without decoration, e.g. ``Submitted``.
+        value: explicit stamp to write (used for a git-recovered start); defaults to now.
+
+    Returns:
+        True when a line was written, False when the field already existed or the
+        file could not be read.
+    """
+    try:
+        content = path.read_text(encoding="utf-8")
+    except Exception:
+        return False
+    if re.search(rf"^\s*\*\*{re.escape(field_name)}:\*\*", content, re.MULTILINE):
+        return False
+    stamp = value or time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    lines = content.splitlines()
+    for idx, line in enumerate(lines):
+        if line.strip().startswith("**Status:**"):
+            lines.insert(idx + 1, f"**{field_name}:** {stamp}")
+            path.write_text(
+                "\n".join(lines) + ("\n" if content.endswith("\n") else ""),
+                encoding="utf-8",
+            )
+            return True
+    path.write_text(f"**{field_name}:** {stamp}\n" + content, encoding="utf-8")
+    return True
 
 
 def _patch_archived_file(archive_path: Path, meta_id: str, meta_slug: str) -> None:

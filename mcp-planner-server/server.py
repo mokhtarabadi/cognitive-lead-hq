@@ -211,6 +211,9 @@ def _parse_task_file(path: Path) -> dict:
         "type": None,
         "status": None,
         "estimate_hours": None,
+        "started_at": None,
+        "submitted_at": None,
+        "finished_at": None,
         "deadline": None,
         "milestone": None,
         "depends_on": [],
@@ -242,6 +245,12 @@ def _parse_task_file(path: Path) -> dict:
                 record["estimate_hours"] = float(em.group(1))
         elif key == "deadline":
             record["deadline"] = val
+        elif key == "started":
+            record["started_at"] = val
+        elif key == "submitted":
+            record["submitted_at"] = val
+        elif key == "finished":
+            record["finished_at"] = val
         elif key == "milestone":
             record["milestone"] = val
         elif key == "depends on":
@@ -757,6 +766,54 @@ def schedule_tasks(project_root: str, assignments: str) -> str:
     return f"{head}\n{body}{tail}"
 
 
+def _stamp_header_once(content: str, field_name: str) -> str:
+    """Add a UTC timestamp header line when the field is absent.
+
+    Why write-once: a task can be claimed again after a block, or re-stamped by a
+    later lane, and the first start is the one that measures the work. A present
+    value is never touched.
+
+    Args:
+        content: the task file body.
+        field_name: header key without the markdown decoration, e.g. ``Started``.
+
+    Returns:
+        The body, with the field inserted after ``**Status:**`` when it was missing.
+    """
+    pattern = re.compile(rf"^\s*\*\*{re.escape(field_name)}:\*\*", re.MULTILINE)
+    if pattern.search(content):
+        return content
+    stamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    lines = content.splitlines()
+    for idx, line in enumerate(lines):
+        if line.strip().startswith("**Status:**"):
+            lines.insert(idx + 1, f"**{field_name}:** {stamp}")
+            return "\n".join(lines) + ("\n" if content.endswith("\n") else "")
+    # No Status line: append at the top so the stamp is never silently lost.
+    return f"**{field_name}:** {stamp}\n" + content
+
+
+def _parse_utc(value: object) -> Optional[datetime]:
+    """Parse an ISO-8601 UTC stamp, returning None when absent, malformed or naive.
+
+    A value without an explicit offset is rejected on purpose: the header contract is
+    UTC with a trailing ``Z``, and assuming a timezone here would silently reinterpret
+    a hand-edited local time as UTC and produce a wrong duration.
+    """
+    if not isinstance(value, str) or not value.strip():
+        return None
+    text = value.strip()
+    try:
+        if text.endswith("Z"):
+            text = text[:-1] + "+00:00"
+        parsed = datetime.fromisoformat(text)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        return None
+    return parsed.astimezone(timezone.utc)
+
+
 @_project_tool
 def claim_next(project_root: str, task_id: str) -> str:
     """Claim the next task: move it from backlog to in-progress.
@@ -840,10 +897,11 @@ def claim_next(project_root: str, task_id: str) -> str:
     except Exception as exc:  # noqa: BLE001
         return f"❌ claim_next failed: {exc}."
 
-    # Update the Status header in the moved file.
+    # Update the Status header in the moved file, stamping the start time once.
     try:
         content = dest.read_text(encoding="utf-8")
         content = content.replace("**Status:** open", "**Status:** in-progress", 1)
+        content = _stamp_header_once(content, "Started")
         dest.write_text(content, encoding="utf-8")
     except OSError:
         pass  # Header update is best-effort; the move itself succeeded.
@@ -993,6 +1051,13 @@ def sprint_stats(project_root: Optional[str] = None) -> str:
         for t in tasks
         if t.get("status") == "closed" and t.get("estimate_hours")
     )
+    # Measured hours: only closed tasks that carry both stamps, so this line can
+    # never quietly reuse an estimate.
+    measured_hours = 0.0
+    for t in tasks:
+        brief = _task_brief(t)
+        if t.get("status") == "closed" and brief.get("elapsed_seconds") is not None:
+            measured_hours += brief["elapsed_seconds"] / 3600.0
 
     pct = (completed / total_tasks * 100) if total_tasks else 0.0
 
@@ -1009,6 +1074,8 @@ def sprint_stats(project_root: Optional[str] = None) -> str:
     lines.append(f"Total estimated: {total_est}h")
     lines.append(f"Completed estimated: {completed_est}h")
     lines.append("")
+    lines.append("## Measured")
+    lines.append(f"Completed measured: {measured_hours:.2f}h")
     lines.append("## Velocity")
     lines.append(f"Tasks completed per lane snapshot: {completed} / {total_tasks}")
     lines.append("")
@@ -1645,6 +1712,27 @@ def _task_brief(task: dict) -> dict:
     """
     name = task.get("name") or ""
     match = TASK_ID_RE.match(name)
+    started = _parse_utc(task.get("started_at"))
+    submitted = _parse_utc(task.get("submitted_at"))
+    finished = _parse_utc(task.get("finished_at"))
+    # Measured durations only: None when a stamp is missing, never 0, so the panel
+    # can distinguish "not measured" from "instant".
+    elapsed = (
+        int((finished - started).total_seconds())
+        if started is not None and finished is not None
+        else None
+    )
+    qa_wait = (
+        int((submitted - started).total_seconds())
+        if started is not None and submitted is not None
+        else None
+    )
+    # Negative means the file is inconsistent; report "not measured" rather than a
+    # number a caller would render as an instant task.
+    if elapsed is not None and elapsed < 0:
+        elapsed = None
+    if qa_wait is not None and qa_wait < 0:
+        qa_wait = None
     return {
         "id": match.group(1) if match else name,
         "name": name,
@@ -1656,6 +1744,11 @@ def _task_brief(task: dict) -> dict:
         "owner": task.get("owner"),
         "deadline": task.get("deadline"),
         "milestone": task.get("milestone"),
+        "started_at": task.get("started_at"),
+        "submitted_at": task.get("submitted_at"),
+        "finished_at": task.get("finished_at"),
+        "elapsed_seconds": elapsed,
+        "qa_wait_seconds": qa_wait,
     }
 
 
@@ -1767,12 +1860,19 @@ def _api_task(
 
         name = record.get("name") or ""
         match = TASK_ID_RE.match(name)
+        brief = _task_brief(record)
         return {
             "id": match.group(1) if match else name,
             "path": record.get("path"),
             "lane": record.get("lane"),
             "title": record.get("title") or "untitled",
             "markdown": record.get("raw") or "",
+            # Measured timing travels with the task so the modal never re-derives it.
+            "started_at": brief.get("started_at"),
+            "submitted_at": brief.get("submitted_at"),
+            "finished_at": brief.get("finished_at"),
+            "elapsed_seconds": brief.get("elapsed_seconds"),
+            "qa_wait_seconds": brief.get("qa_wait_seconds"),
         }
     except Exception:  # noqa: BLE001 - surface as 500, never a 200 envelope
         return {"error": "internal error"}

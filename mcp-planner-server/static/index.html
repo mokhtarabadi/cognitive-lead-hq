@@ -331,6 +331,7 @@
             '<span class="id">' + escapeHtml(t.id || t.name || 'task') + '</span> — ' + escapeHtml(t.title || 'untitled') +
             (t.owner ? ' <span class="badge text-bg-secondary">' + escapeHtml(t.owner) + '</span>' : '') +
             (t.estimate_hours != null ? ' <span class="text-muted">' + t.estimate_hours + 'h</span>' : '') +
+            (t.elapsed_seconds != null ? ' <span class="text-muted mono">· measured ' + formatDuration(t.elapsed_seconds) + '</span>' : '') +
             '</div>';
         }).join('');
       const hint = isArchive && needle && items.length
@@ -491,6 +492,16 @@
     return marker >= 0 ? absPath.slice(marker + 1) : '';
   }
 
+  /** Human duration from measured seconds; never invent a value when it is null. */
+  function formatDuration(totalSeconds) {
+    const secs = Math.max(0, Math.round(Number(totalSeconds) || 0));
+    const h = Math.floor(secs / 3600);
+    const m = Math.floor((secs % 3600) / 60);
+    if (h > 0) return h + 'h ' + m + 'm';
+    if (m > 0) return m + 'm';
+    return secs + 's';
+  }
+
   function openTaskModal(id, absPath) {
     modalTaskId = id || '';
     const params = new URLSearchParams();
@@ -512,7 +523,8 @@
           return;
         }
         elements.taskModalTitle.textContent = payload.title || 'Task ' + (payload.id || '');
-        elements.taskModalMeta.textContent = '#' + (payload.id || '?') + ' · ' + (payload.lane || 'unknown lane') + ' · ' + (relTaskPath(payload.path) || payload.path || '');
+        elements.taskModalMeta.textContent = '#' + (payload.id || '?') + ' · ' + (payload.lane || 'unknown lane') + ' · ' + (relTaskPath(payload.path) || payload.path || '') +
+          (payload.elapsed_seconds != null ? ' · measured ' + formatDuration(payload.elapsed_seconds) : '');
         elements.taskModalBody.innerHTML = renderMarkdown(payload.markdown || '');
         elements.taskModalBody.scrollTop = 0;
       })

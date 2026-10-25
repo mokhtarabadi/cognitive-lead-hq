@@ -516,6 +516,7 @@ def _check_unactionable_skill_verbs(content: str, file_path: str) -> list[str]:
 _PLANNER_ESTIMATE_RE = re.compile(r"^\d+(?:\.\d+)?h$")
 _PLANNER_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 _PLANNER_DEPS_RE = re.compile(r"^\[?\s*\d+(\s*,\s*\d+)*\s*\]?$")
+_PLANNER_STAMP_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
 
 
 def _check_planner_metadata(content: str, file_path: str) -> list[str]:
@@ -528,26 +529,53 @@ def _check_planner_metadata(content: str, file_path: str) -> list[str]:
     """
     issues: list[str] = []
     counts: dict[str, int] = {}
+    stamps: dict[str, str] = {}
     for raw in content.splitlines():
         m = re.match(r"^\*\*(Estimate|Deadline|Depends on):\*\*\s*(.*)$", raw.strip())
-        if not m:
+        if m:
+            key, value = m.group(1), m.group(2).strip()
+            counts[key] = counts.get(key, 0) + 1
+            if key == "Estimate" and not _PLANNER_ESTIMATE_RE.match(value):
+                issues.append(
+                    f"Planner metadata: `**Estimate:**` must look like `3h` or `2.5h` "
+                    f"(got `{value}`) — the Planner silently drops an unparseable value."
+                )
+            elif key == "Deadline" and not _PLANNER_DATE_RE.match(value):
+                issues.append(
+                    f"Planner metadata: `**Deadline:**` must be `YYYY-MM-DD` "
+                    f"(got `{value}`) — free text never reaches the timeline."
+                )
+            elif key == "Depends on" and not _PLANNER_DEPS_RE.match(value):
+                issues.append(
+                    f"Planner metadata: `**Depends on:**` must be ids such as `338` or "
+                    f"`[338, 340]` (got `{value}`)."
+                )
             continue
-        key, value = m.group(1), m.group(2).strip()
-        counts[key] = counts.get(key, 0) + 1
-        if key == "Estimate" and not _PLANNER_ESTIMATE_RE.match(value):
+        s = re.match(r"^\s*\*\*(Started|Submitted|Finished):\*\*\s*(.*)$", raw)
+        if s:
+            key, value = s.group(1), s.group(2).strip()
+            stamps[key] = value
+            counts[key] = counts.get(key, 0) + 1
+            if not _PLANNER_STAMP_RE.match(value):
+                issues.append(
+                    f"Planner metadata: `**{key}:**` must be an ISO-8601 UTC stamp such as "
+                    f"`2026-10-25T14:20:31Z` (got `{value}`) — a local or free-text time "
+                    f"makes measured duration wrong."
+                )
+    # Ordering: a finish earlier than the start is a corrupt measurement, not a fast task.
+    started = stamps.get("Started")
+    for later in ("Submitted", "Finished"):
+        value = stamps.get(later)
+        if (
+            started
+            and value
+            and _PLANNER_STAMP_RE.match(started)
+            and _PLANNER_STAMP_RE.match(value)
+            and value < started
+        ):
             issues.append(
-                f"Planner metadata: `**Estimate:**` must look like `3h` or `2.5h` "
-                f"(got `{value}`) — the Planner silently drops an unparseable value."
-            )
-        elif key == "Deadline" and not _PLANNER_DATE_RE.match(value):
-            issues.append(
-                f"Planner metadata: `**Deadline:**` must be `YYYY-MM-DD` "
-                f"(got `{value}`) — free text never reaches the timeline."
-            )
-        elif key == "Depends on" and not _PLANNER_DEPS_RE.match(value):
-            issues.append(
-                f"Planner metadata: `**Depends on:**` must be ids such as `338` or "
-                f"`[338, 340]` (got `{value}`)."
+                f"Planner metadata: `**{later}:**` ({value}) is earlier than "
+                f"`**Started:**` ({started}); measured duration would be negative."
             )
     for key, count in counts.items():
         if count > 1:

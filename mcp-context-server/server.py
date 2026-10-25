@@ -128,6 +128,9 @@ from gitops import (
     _extract_section,
     _extract_title,
     _find_task_file,
+    backfill_started_from_git,
+    stamp_task_header,
+    task_start_stamp,
     _format_task_id_list,
     _git_mv_or_fallback,
     _kebab_case,
@@ -883,6 +886,73 @@ def stage_and_inject_diff(
 
 
 @_project_tool
+def sync_task_times(project_root: str | None = None, lane: str = "") -> str:
+    """Stamp missing start/submit/finish times for tasks already sitting in a lane.
+
+    Why this exists: the lane transitions stamp their own time, but a task can also be
+    moved by hand (``git mv`` is permitted). Such a file arrives without its stamp and
+    its measured duration would be silently lost. Running this after a manual move
+    closes that gap without turning any move into a hook.
+
+    The start time is recovered from git history first, then from the file's
+    modification time; it is never invented as "now", because a wrong start is worse
+    than a missing one. Submit and finish times have no history to recover from, so
+    they are stamped at call time — which is correct, since the caller runs this
+    immediately after the move.
+
+    Idempotent: an existing stamp is never rewritten.
+
+    Args:
+        project_root: absolute project root holding tasks/.
+        lane: restrict to ``in-progress`` or ``qa``; empty means both.
+
+    Returns:
+        One line per changed file, plus a summary.
+    """
+    workspace_root = _explicit_project_root(project_root, "sync_task_times")
+    # Only the two lanes a human might move a file into by hand. Closure is not offered:
+    # stamping `Finished` now on an old completed task would fabricate a duration, and
+    # `commit_and_clean_task` already handles the real closure moment.
+    wanted: list[tuple[str, str]] = [
+        ("in-progress", "Started"),
+        ("qa", "Submitted"),
+    ]
+    if lane:
+        if lane not in {name for name, _ in wanted}:
+            return "❌ lane must be in-progress or qa."
+        wanted = [pair for pair in wanted if pair[0] == lane]
+
+    changed: list[str] = []
+    skipped: list[str] = []
+    for lane_name, field in wanted:
+        lane_dir = workspace_root / "tasks" / lane_name
+        if not lane_dir.is_dir():
+            continue
+        for path in sorted(lane_dir.glob("*.md")):
+            content = path.read_text(encoding="utf-8", errors="ignore")
+            if re.search(rf"^\*\*{field}:\*\*", content, re.MULTILINE):
+                continue
+            value = None
+            source = "now"
+            if field == "Started":
+                value = task_start_stamp(workspace_root, path)
+                source = "git/mtime"
+                if value is None:
+                    # Never invent a start: a fabricated "now" would report an
+                    # instant task for work that may have taken days.
+                    skipped.append(f"{path.name} (no git history or mtime)")
+                    continue
+            if stamp_task_header(path, field, value):
+                changed.append(f"- {path.name}: **{field}:** ({source})")
+            else:
+                skipped.append(path.name)
+    head = f"Stamped {len(changed)} task(s)."
+    body = "\n".join(changed) if changed else "Nothing to stamp."
+    tail = f"\nNo usable time for: {', '.join(skipped)}" if skipped else ""
+    return f"{head}\n{body}{tail}"
+
+
+@_project_tool
 def unstage_files(files: list[str], project_root: str | None = None) -> str:
     """Removes the listed files from the Git index WITHOUT touching the worktree.
 
@@ -1040,6 +1110,14 @@ def qa_transition(
         )
         try:
             dest.write_text(new_content_header, encoding="utf-8")
+            # Measured QA entry time: written once, so a re-transition never rewrites it.
+            # A hand-moved file may arrive without a start; recover it first so the
+            # QA wait is measured rather than null.
+            if not re.search(r"^\s*\*\*Started:\*\*", new_content_header, re.MULTILINE):
+                recovered = backfill_started_from_git(workspace_root, dest)
+                if recovered:
+                    stamp_task_header(dest, "Started", recovered)
+            stamp_task_header(dest, "Submitted")
         except Exception as e:
             return f"❌ Error writing header update to {dest}: {e}"
 
@@ -1148,6 +1226,16 @@ def commit_and_clean_task(
         if not path.is_absolute():
             path = Path(repo) / path
         if path.is_file():
+            # Closure time: stamped once, so the measured duration is start → close.
+            # A file that skipped claim_next (hand-moved) has no start; recover it from
+            # git so the duration is measured rather than silently lost.
+            if not re.search(
+                r"^\s*\*\*Started:\*\*", path.read_text(encoding="utf-8"), re.MULTILINE
+            ):
+                recovered = backfill_started_from_git(Path(repo), path)
+                if recovered:
+                    stamp_task_header(path, "Started", recovered)
+            stamp_task_header(path, "Finished")
             with open(path, "r", encoding="utf-8") as f:
                 existing = f.read()
             cleaned_block = re.compile(

@@ -20,3 +20,10 @@
 - **Decision:** Add `_check_planner_metadata`, wired into `lint_task_file` and `lint_all_tasks`: a present `**Estimate:**` must match `^\d+(\.\d+)?h$`, `**Deadline:**` must be `YYYY-MM-DD`, `**Depends on:**` must be a bracketed or comma-separated id list, and a duplicated key is an error (the Planner keeps the last, hiding the mistake). Absence stays valid so legacy files and non-planner projects keep passing.
 - **Consequences:** A malformed header fails before staging instead of vanishing from the read model; the check is format-only and never rewrites; the paired writer is `schedule_tasks` in the Planner server, so agents have a correct path rather than a forbidden one.
 - **Rollback:** Remove the check and its two call sites; prior lint behavior returns.
+
+## [2026-10-25] ADR-004: Task time stamps are validated, not trusted
+
+- **Context:** the planner now measures task duration from `**Started:**`, `**Submitted:**` and `**Finished:**`. A local-time or free-text value parses to nothing, and a finish earlier than its start produces a negative duration — both silently, which is exactly the failure mode the earlier metadata gate exists to prevent.
+- **Decision:** `_check_planner_metadata` validates the three stamps when present: `YYYY-MM-DDThh:mm:ssZ` only (a `+02:00` offset is rejected on purpose, because the rest of the header is UTC and mixing them makes comparisons wrong), and a `Submitted`/`Finished` earlier than `Started` is an error. Absence stays valid, so every existing task file keeps passing.
+- **Consequences:** a malformed stamp fails before staging instead of producing a nonsense duration on the dashboard; the writer side already emits `Z`, so the gate only fires on hand edits.
+- **Rollback:** delete the stamp block from the check; the other metadata validations are untouched.

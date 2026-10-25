@@ -77,3 +77,9 @@
 - **Consequences:** A freshly bundled META passes the real linter with no hand edit; telegram provenance survives in the working file; source blocks grow by the preserved sections, which is the intended cost. One new parity test imports the live linter function, so a future divergence between the two servers fails the suite.
 - **Rollback:** Revert `bundle.py` (section writer + extractor), the `server.py` required list, and the four new tests; METAs return to needing manual patching.
 
+## [2026-10-25] ADR-012: The lane transitions stamp their own time
+
+- **Context:** the planner can only measure a task if someone records when it entered each lane, and every candidate writer other than the transition itself (a hook, a shell `date`, a manual edit) is either unreliable or forgettable. `qa_transition` and `commit_and_clean_task` are the only code that moves a task into `tasks/qa/` and closes it.
+- **Decision:** `gitops.stamp_task_header(path, field)` writes `**Submitted:**` / `**Finished:**` as ISO-8601 UTC, inserted after `**Status:**`, and only when the field is absent. Both tools call it at the moment of the move, so the stamp cannot drift from the transition.
+- **Consequences:** durations are measured at the source, re-transitions cannot overwrite a real start, and a failed stamp is harmless (the header update is already best-effort; the move is what matters). The planner reads the same lines and never writes them, keeping one writer per stamp.
+- **Rollback:** remove the two calls and the helper; the header lines become inert and the planner reports `null` durations.

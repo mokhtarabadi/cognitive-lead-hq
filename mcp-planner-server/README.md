@@ -24,16 +24,16 @@ dashboard on loopback port 8108.
 
 ## HTTP surface (loopback 8108)
 
-| Route | Purpose |
-| ----- | ------- |
-| `GET /` | Standalone dark-mode dashboard (no build step). |
-| `GET /static/*` | Dashboard assets (same `static/` directory). |
-| `GET /api/status[?project_root=<abs path>]` | JSON status contract the dashboard renders. |
+| Route                                                     | Purpose                                                                                                                                                                                                   |
+| --------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /`                                                   | Standalone dark-mode dashboard (no build step).                                                                                                                                                           |
+| `GET /static/*`                                           | Dashboard assets (same `static/` directory).                                                                                                                                                              |
+| `GET /api/status[?project_root=<abs path>]`               | JSON status contract the dashboard renders.                                                                                                                                                               |
 | `GET /api/task?id=<id>` or `?path=tasks/<lane>/<file>.md` | One task file as `{id, path, lane, title, markdown}` for the dashboard modal. `id` wins when both are sent. 400 no param, 401 no session, 403 outside grants or unsafe path, 404 unknown, 500 unexpected. |
-| `POST /api/login` | `{"username","password"}` → `{token, username, role, allowed_projects}` + `HttpOnly` cookie. |
-| `POST /api/logout` | Invalidates the session and clears the cookie. |
-| `GET /api/me` | Current user, or 401 when signed out (200 + `note: "auth disabled"` in open mode). |
-| `POST /mcp` | MCP Streamable HTTP endpoint (tools). Auth-free on loopback; the tunnel 404s it. |
+| `POST /api/login`                                         | `{"username","password"}` → `{token, username, role, allowed_projects}` + `HttpOnly` cookie.                                                                                                              |
+| `POST /api/logout`                                        | Invalidates the session and clears the cookie.                                                                                                                                                            |
+| `GET /api/me`                                             | Current user, or 401 when signed out (200 + `note: "auth disabled"` in open mode).                                                                                                                        |
+| `POST /mcp`                                               | MCP Streamable HTTP endpoint (tools). Auth-free on loopback; the tunnel 404s it.                                                                                                                          |
 
 `/api/status` returns per-lane **task lists** (`lanes`), the milestone tree
 (`milestone_tree`), upcoming deadlines (`deadlines`), the pacing figures
@@ -52,8 +52,8 @@ holding `tasks/`, then the working directory. `PLANNER_PROJECTS`
 
 - **Config:** `~/.config/opencode/planner-users.json`, overridable with
   `PLANNER_USERS_CONFIG`. Shape: `{"auth_enabled": bool, "users": [{"username",
-  "role": "admin"|"viewer", "password_salt", "password_hash",
-  "allowed_projects": ["*"] | ["/abs/path", ...]}]}`.
+"role": "admin"|"viewer", "password_salt", "password_hash",
+"allowed_projects": ["*"] | ["/abs/path", ...]}]}`.
 - **Open mode:** no file, unreadable file, invalid JSON, `auth_enabled: false`,
   or an empty `users` list ⇒ every request behaves exactly as before
   (no 401, no filtering). This is the backward-compatibility contract.
@@ -155,7 +155,7 @@ truth for each task; the plan only records scheduling decisions.
 
 - `GET /api/plan` returns the saved plan next to the buckets.
 - `POST /api/plan` accepts `{week?, deadline_edits?, capacity_by_day?, approved?,
-  force?}`; admin session required when auth is on (401 without a session, 403
+force?}`; admin session required when auth is on (401 without a session, 403
   for non-admins). Unknown ids, malformed maps, and over-capacity assignments
   are rejected with 400 unless `force` is set.
 - `DELETE /api/plan?week=...` clears the week.
@@ -204,3 +204,23 @@ estimate that is not `Nh`/`N.Nh`, deadline that is not `YYYY-MM-DD`, dependencie
 that are not ids. The lint rule `_check_planner_metadata` enforces the same
 formats, so an agent cannot invent one and have the task silently drop out of
 capacity and the timeline.
+
+### Measured time (`Started`, `Submitted`, `Finished`)
+
+Estimates are a plan; these three stamps are the measurement. They are written
+by the lane transitions themselves, never by hand:
+
+| Stamp            | Written by              | When                                               |
+| ---------------- | ----------------------- | -------------------------------------------------- |
+| `**Started:**`   | `claim_next`            | the file enters `tasks/in-progress/`               |
+| `**Submitted:**` | `qa_transition`         | the file enters `tasks/qa/`                        |
+| `**Finished:**`  | `commit_and_clean_task` | closure, after the file sits in `tasks/completed/` |
+
+Each is ISO-8601 UTC with a `Z` suffix and is **write-once**: a re-claim or a
+re-stage never rewrites the original start, because the first one is the work
+being measured. `_task_brief` turns them into `elapsed_seconds` (finished −
+started) and `qa_wait_seconds` (submitted − started), both `null` rather than
+`0` when a stamp is missing, so the panel can tell "not measured" from
+"instant". `sprint_stats` keeps the estimate arithmetic and adds a separate
+`Completed measured` line. `_check_planner_metadata` rejects a stamp that is not
+UTC or a `Finished` earlier than its `Started`.
