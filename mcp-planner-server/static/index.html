@@ -142,19 +142,23 @@
   <div class="gd-panel gd-panel-md p-4">
     <h2 class="h6 mb-1">Sign in to Planner</h2>
     <p class="small text-muted mb-3">Authentication is enabled on this server.</p>
-    <div class="small mb-2" id="login-err" style="color:var(--gd-danger);min-height:1.2em"></div>
-    <div class="mb-2">
-      <label class="form-label" for="login-username">Username</label>
-      <input type="text" id="login-username" class="form-control form-control-sm" placeholder="e.g. admin" autocomplete="off">
-    </div>
-    <div class="mb-3">
-      <label class="form-label" for="login-password">Password</label>
-      <input type="password" id="login-password" class="form-control form-control-sm" placeholder="Password">
-    </div>
-    <div class="d-flex gap-2 justify-content-end">
-      <button type="button" class="btn btn-sm btn-outline-secondary" id="login-cancel">Cancel</button>
-      <button type="button" class="btn btn-sm btn-primary" id="login-btn">Sign in</button>
-    </div>
+    <form id="login-form" method="post" action="#" novalidate>
+      <div class="small mb-2" id="login-err" style="color:var(--gd-danger);min-height:1.2em"></div>
+      <div class="mb-2">
+        <label class="form-label" for="login-username">Username</label>
+        <input type="text" id="login-username" name="username" class="form-control form-control-sm"
+               placeholder="Username" autocomplete="username" autocapitalize="none" spellcheck="false" required>
+      </div>
+      <div class="mb-3">
+        <label class="form-label" for="login-password">Password</label>
+        <input type="password" id="login-password" name="password" class="form-control form-control-sm"
+               placeholder="Password" autocomplete="current-password" required>
+      </div>
+      <div class="d-flex gap-2 justify-content-end">
+        <button type="button" class="btn btn-sm btn-outline-secondary" id="login-cancel">Cancel</button>
+        <button type="submit" class="btn btn-sm btn-primary" id="login-btn">Sign in</button>
+      </div>
+    </form>
   </div>
 </div>
 
@@ -813,11 +817,10 @@
     window.location.reload();
   }
 
-  auth.loginBtn.addEventListener('click', login);
+  const loginForm = document.getElementById('login-form');
+  if (loginForm) loginForm.addEventListener('submit', function (event) { event.preventDefault(); login(); });
   auth.cancelBtn.addEventListener('click', hideLoginModal);
   auth.logoutBtn.addEventListener('click', logout);
-  auth.username.addEventListener('keydown', function (e) { if (e.key === 'Enter') auth.password.focus(); });
-  auth.password.addEventListener('keydown', function (e) { if (e.key === 'Enter') login(); });
 
   (async function checkAuth() {
     try {
