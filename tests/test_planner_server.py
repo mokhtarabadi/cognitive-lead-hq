@@ -26,6 +26,20 @@ import pytest
 PLANNER_DIR = Path(__file__).parent.parent / "mcp-planner-server"
 sys.path.insert(0, str(PLANNER_DIR))
 
+
+@pytest.fixture(autouse=True)
+def _isolated_project_registry(tmp_path, monkeypatch):
+    """Keep the auto-registry out of the real home during tests.
+
+    Planner tools register the project root they were called with, and the
+    suite calls them with pytest tmp dirs; without this the machine-local
+    ``~/.config/opencode/planner-projects.json`` fills with /tmp entries.
+    """
+    monkeypatch.setenv(
+        "PLANNER_PROJECTS_REGISTRY", str(tmp_path / "planner-projects.json")
+    )
+
+
 # Load under a unique module name: several test modules in this suite do
 # `import server` for their own MCP server, and sys.modules["server"] caches
 # whichever loaded first — the planner tests then hit the wrong module and
