@@ -159,3 +159,10 @@ ADR-006 below. Session auth, scoping, and the CLI remain as decided here.
 - **Decision:** `GET /api/plan` derives `days`, `weeks`, `trend` (14 days), `totals` and `alerts` from `_load_all_tasks` on every request. Week rows sum the day rows they contain; month builds every day of the month and groups by ISO week. Open work without a deadline is attributed to the current bucket so the view is never empty. `done` is a completed-lane task with a deadline in the bucket, and the UI states that history is not stored. Capacity comes from `PLANNER_WEEKLY_CAPACITY`.
 - **Consequences:** no migration, no cache to invalidate, and a slow project with thousands of tasks pays a full scan per request (acceptable at 337 tasks; revisit if it grows). Charts read `trend`, so a future history feature only needs to extend that array.
 - **Rollback:** remove the route and the three dashboard panels; `/api/status` keeps working unchanged.
+
+## [2026-10-25] ADR-009: The week plan is saved state, buckets stay derived
+
+- **Context:** the Manager's loop is planning-session → edit → approve → run the day from that state. Deriving everything per request cannot remember what was agreed, so "start today's work" had no state to resume from.
+- **Decision:** keep `tasks/.plan/week-YYYY-Www.json` as the commitment (deadline edits, per-day capacity, approval stamp, atomic writes, server-side validation with an optional `force`). Buckets from ADR-008 remain derived; `GET /api/plan` merges the saved plan into them. `sprint_daily_agenda` prefers the plan and reports deviations instead of trusting it blindly.
+- **Consequences:** restart-safe commitments, one writer path, and an explicit fallback when no plan exists. Markdown is untouched, so hand edits surface as deviations rather than silent overwrites.
+- **Rollback:** delete the week file or `DELETE /api/plan`; the derived cockpit from task 345 behaves exactly as before.

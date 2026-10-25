@@ -79,6 +79,8 @@
         <button type="button" class="btn btn-sm btn-outline-secondary" data-window="day">Day</button>
         <button type="button" class="btn btn-sm btn-outline-secondary" data-window="week">Week</button>
         <button type="button" class="btn btn-sm btn-outline-secondary" data-window="month">Month</button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" id="plan-save">Save</button>
+        <button type="button" class="btn btn-sm btn-primary" id="plan-approve">Approve</button>
       </div>
     </div>
     <div class="row g-3">
@@ -211,6 +213,8 @@
   let planWindow = 'week';
   try { planWindow = window.localStorage.getItem('planner-plan-window') || 'week'; } catch (e) { planWindow = 'week'; }
   let modalTaskId = '';
+  let planDays = [];
+  let planCommitted = {};
 
   const JALALI_MONTHS = ['Farvardin', 'Ordibehesht', 'Khordad', 'Tir', 'Mordad', 'Shahrivar', 'Mehr', 'Aban', 'Azar', 'Dey', 'Bahman', 'Esfand'];
 
@@ -568,9 +572,20 @@
   }
 
   function planTaskRow(t) {
-    return '<div class="task-row" role="button" tabindex="0" data-id="' + escapeHtml(t.id || '') + '" data-path="' + escapeHtml(t.path || '') + '">' +
+    const committed = planCommitted[t.id];
+    const options = ['<option value="">—</option>'].concat(
+      planDays.map(function (d) {
+        const sel = committed === d ? ' selected' : '';
+        return '<option value="' + d + '"' + sel + '>' + d.slice(5) + '</option>';
+      })
+    ).join('');
+    return '<div class="d-flex align-items-center gap-2 border-bottom py-1">' +
+      '<div class="task-row flex-grow-1 border-0 py-0" role="button" tabindex="0" data-id="' + escapeHtml(t.id || '') + '" data-path="' + escapeHtml(t.path || '') + '">' +
       laneChip(t.lane) + ' <span class="id">' + escapeHtml(t.id || '') + '</span> — ' + escapeHtml(t.title || '') +
-      (t.estimate_hours != null ? ' <span class="text-muted">' + escapeHtml(t.estimate_hours) + 'h</span>' : '') + '</div>';
+      (t.estimate_hours != null ? ' <span class="text-muted">' + escapeHtml(t.estimate_hours) + 'h</span>' : '') +
+      (committed ? ' <span class="badge text-bg-success">committed</span>' : '') + '</div>' +
+      '<select class="form-select form-select-sm" style="width:8.5rem" data-assign="' + escapeHtml(t.id || '') + '">' + options + '</select>' +
+      '</div>';
   }
 
   function renderPlanChart(trend) {
@@ -607,6 +622,8 @@
 
   function renderPlan(data) {
     const days = data.days || [];
+    planDays = days.map(function (d) { return d.date; });
+    planCommitted = (data.plan && data.plan.deadline_edits) || {};
     const first = days.length ? days[0].date : '';
     const last = days.length ? days[days.length - 1].date : '';
     elements.planTitle.textContent = WINDOW_LABELS[data.window] + (first ? ' · ' + first.slice(5) + ' → ' + last.slice(5) : '');
@@ -628,8 +645,10 @@
         '<div class="progress mb-2" style="height:6px;background:var(--gd-raised)"><div class="progress-bar" style="width:' +
         Math.min(100, Math.round(((w.estimate_hours || 0) / Math.max(1, w.capacity_hours || 1)) * 100)) + '%;background:var(--gd-accent)"></div></div>' +
         days.map(function (d) {
-          return '<div class="d-flex justify-content-between border-bottom py-1 small"><span>' + d.date.slice(5) + '</span>' +
-            '<span class="mono text-muted">' + d.open + ' open · ' + d.in_progress + ' wip · ' + d.done + ' done · ' + (d.estimate_hours || 0) + 'h</span></div>';
+          return '<div class="d-flex justify-content-between align-items-center border-bottom py-1 small gap-2"><span>' + d.date.slice(5) + '</span>' +
+            '<span class="mono text-muted">' + d.open + ' open · ' + d.in_progress + ' wip · ' + d.done + ' done · ' + (d.estimate_hours || 0) + 'h</span>' +
+            '<input type="number" min="0" step="0.5" class="form-control form-control-sm" style="width:5.5rem" data-cap="' + d.date + '" value="' +
+            (((data.plan || {}).capacity_by_day || {})[d.date] || '') + '" aria-label="Capacity ' + d.date + '"></div>';
         }).join('');
     } else {
       html = (data.weeks || []).map(function (w) {
@@ -659,6 +678,30 @@
       fetchPlan();
     });
   });
+
+  function savePlan(approved) {
+    const deadline_edits = {};
+    document.querySelectorAll('[data-assign]').forEach(function (el) {
+      if (el.value) deadline_edits[el.dataset.assign] = el.value;
+    });
+    const capacity_by_day = {};
+    document.querySelectorAll('[data-cap]').forEach(function (el) {
+      if (el.value !== '') capacity_by_day[el.dataset.cap] = parseFloat(el.value);
+    });
+    fetch('/api/plan', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ deadline_edits: deadline_edits, capacity_by_day: capacity_by_day, approved: !!approved }),
+    }).then(function (resp) { return resp.json().then(function (body) { return { ok: resp.ok, body: body }; }); })
+      .then(function (res) {
+        elements.planTotals.textContent = res.ok ? (approved ? 'Plan approved' : 'Plan saved') : 'Save failed: ' + (res.body.error || 'error');
+        if (res.ok) fetchPlan();
+      })
+      .catch(function () { elements.planTotals.textContent = 'Save failed'; });
+  }
+
+  document.getElementById('plan-save').addEventListener('click', function () { savePlan(false); });
+  document.getElementById('plan-approve').addEventListener('click', function () { savePlan(true); });
 
   elements.refreshBtn.addEventListener('click', function () {
     elements.refreshBtn.textContent = '…';

@@ -1010,6 +1010,74 @@ def test_plan_month_includes_mid_month_dates(tmp_path):
     assert sum(w["open"] for w in month["weeks"]) == month["totals"]["open"]
 
 
+def test_week_plan_roundtrip_and_approval(tmp_path):
+    _write_task(tmp_path, "backlog", 51, "Plan me", estimate=2)
+    plan, err = planner._validate_plan_edits(
+        tmp_path,
+        {
+            "week": "2026-W43",
+            "deadline_edits": {"051": "2026-10-26"},
+            "capacity_by_day": {"2026-10-26": 4},
+            "approved": True,
+        },
+    )
+    assert err is None
+    planner._write_week_plan(tmp_path, plan)
+    saved = planner._read_week_plan(tmp_path, "2026-W43")
+    assert saved["deadline_edits"]["051"] == "2026-10-26"
+    assert saved["approved_at"]
+
+
+def test_week_plan_validation_errors(tmp_path):
+    _write_task(tmp_path, "backlog", 52, "Small", estimate=1)
+    _, err = planner._validate_plan_edits(
+        tmp_path, {"deadline_edits": {"999": "2026-10-26"}}
+    )
+    assert "unknown task" in err
+    _, err = planner._validate_plan_edits(
+        tmp_path,
+        {
+            "deadline_edits": {"052": "2026-10-26"},
+            "capacity_by_day": {"2026-10-26": 0.5},
+        },
+    )
+    assert "over capacity" in err
+
+
+def test_plan_api_admin_only_and_persists(open_client, tmp_path, monkeypatch):
+    monkeypatch.setenv("PLANNER_PROJECT_ROOT", str(tmp_path))
+    _write_task(tmp_path, "backlog", 53, "Saved", estimate=1)
+    resp = open_client.post(
+        "/api/plan",
+        json={"week": "2026-W43", "deadline_edits": {"053": "2026-10-26"}},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["deadline_edits"]["053"] == "2026-10-26"
+    status = open_client.get("/api/plan", params={"window": "week"}).json()
+    assert status["plan"]["week"] == "2026-W43"
+
+
+def test_plan_api_viewer_cannot_save(auth_client):
+    auth_client.post(
+        "/api/login", json={"username": "viewer", "password": "viewer-pass"}
+    )
+    resp = auth_client.post("/api/plan", json={"deadline_edits": {}})
+    assert resp.status_code == 403
+
+
+def test_sprint_daily_agenda_reads_saved_plan(tmp_path, monkeypatch):
+    monkeypatch.setenv("PLANNER_PROJECT_ROOT", str(tmp_path))
+    _write_task(tmp_path, "backlog", 54, "Committed", estimate=1)
+    plan, _ = planner._validate_plan_edits(
+        tmp_path,
+        {"deadline_edits": {"054": __import__("datetime").date.today().isoformat()}},
+    )
+    planner._write_week_plan(tmp_path, plan)
+    agenda = planner.sprint_daily_agenda(str(tmp_path))
+    assert "Today's commitment" in agenda
+    assert "054" in agenda
+
+
 def test_api_plan_http_contract(auth_client):
     assert auth_client.get("/api/plan").status_code == 401
     auth_client.post("/api/login", json={"username": "admin", "password": "admin-pass"})

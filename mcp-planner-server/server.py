@@ -886,6 +886,10 @@ def sprint_lock(sprint_id: str, project_root: Optional[str] = None) -> str:
 def sprint_daily_agenda(project_root: Optional[str] = None) -> str:
     """Return locked task(s) for today's quota.
 
+    Reads the saved week plan first: today's committed tasks and any deviation
+    (committed but not claimed, or claimed but not committed) lead the answer.
+    Without a saved plan it falls back to the derived lanes and says so.
+
     Lists in-progress tasks and any QA-pending tasks that must be resolved
     before new work can be claimed.
 
@@ -902,6 +906,42 @@ def sprint_daily_agenda(project_root: Optional[str] = None) -> str:
     qa_pending = [t for t in tasks if t.get("lane") == "qa"]
 
     lines: list[str] = ["# Daily Agenda", ""]
+    week_plan = _read_week_plan(workspace_root, _plan_week_key())
+    if week_plan:
+        today_key = date.today().isoformat()
+        committed_today = [
+            task_id
+            for task_id, day_key in (week_plan.get("deadline_edits") or {}).items()
+            if str(day_key) == today_key
+        ]
+        by_id = {str(_task_brief(t).get("id")): t for t in tasks}
+        lines.append(f"## Today's commitment ({week_plan.get('week')})")
+        if committed_today:
+            for task_id in committed_today:
+                task = by_id.get(str(task_id))
+                lane = task.get("lane") if task else "missing"
+                lines.append(
+                    f"- {task_id} — {(task.get('title') if task else 'unknown task') or 'untitled'} [{lane}]"
+                )
+        else:
+            lines.append("- No task is committed to today in the saved plan.")
+        committed_ids = {str(i) for i in (week_plan.get("deadline_edits") or {})}
+        deviations = [
+            f"- {t['name']}: claimed but not in the committed plan"
+            for t in in_progress
+            if str(_task_brief(t).get("id")) not in committed_ids
+        ]
+        if deviations:
+            lines.append("")
+            lines.append("## Deviations")
+            lines.extend(deviations)
+        if not week_plan.get("approved_at"):
+            lines.append("")
+            lines.append("- Plan is saved but not approved yet.")
+        lines.append("")
+    else:
+        lines.append("- No saved week plan; using the derived lanes.")
+        lines.append("")
     if in_progress:
         lines.append("## In Progress")
         for t in in_progress:
@@ -1486,8 +1526,140 @@ def _empty_bucket(day: date) -> dict:
     }
 
 
+def _hours(value) -> float:
+    """Best-effort hours; malformed values count as zero, never crash."""
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+_PLAN_DIR_NAME = ".plan"
+
+
+def _plan_week_key(day: Optional[date] = None) -> str:
+    """ISO week key for a date, e.g. ``2026-W43``."""
+    target = day or date.today()
+    iso = target.isocalendar()
+    return f"{iso[0]}-W{iso[1]:02d}"
+
+
+def _plan_file(root: Path, week: str) -> Path:
+    return root / "tasks" / _PLAN_DIR_NAME / f"week-{week}.json"
+
+
+def _read_week_plan(root: Path, week: Optional[str] = None) -> Optional[dict]:
+    """Return the saved commitment for ``week`` (default: current week)."""
+    key = week or _plan_week_key()
+    path = _plan_file(root, key)
+    if not path.is_file():
+        return None
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+
+
+def _write_week_plan(root: Path, plan: dict) -> Path:
+    """Atomically persist a week plan (temp file + rename)."""
+    key = str(plan.get("week") or _plan_week_key())
+    plan["week"] = key
+    path = _plan_file(root, key)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps(plan, indent=2, sort_keys=True), encoding="utf-8")
+    os.replace(tmp, path)
+    return path
+
+
+def _validate_plan_edits(root: Path, body: dict) -> tuple[dict, Optional[str]]:
+    """Validate and normalise a plan save request.
+
+    Accepts ``{week?, deadline_edits?, capacity_by_day?, approved?, force?}``
+    where ``deadline_edits`` maps a task id to ``YYYY-MM-DD`` and
+    ``capacity_by_day`` maps a date to hours. Returns ``(plan, error)``.
+    """
+    week = str(body.get("week") or _plan_week_key())
+    if not re.fullmatch(r"\d{4}-W\d{2}", week):
+        return {}, "week must look like 2026-W43"
+    tasks = {str(_task_brief(t).get("id")): t for t in _load_all_tasks(root)}
+    deadline_edits = body.get("deadline_edits") or {}
+    capacity_by_day = body.get("capacity_by_day") or {}
+    if not isinstance(deadline_edits, dict) or not isinstance(capacity_by_day, dict):
+        return {}, "deadline_edits and capacity_by_day must be objects"
+    for task_id, deadline in deadline_edits.items():
+        if str(task_id) not in tasks:
+            return {}, f"unknown task id {task_id}"
+        try:
+            date.fromisoformat(str(deadline))
+        except ValueError:
+            return {}, f"invalid deadline for {task_id}: {deadline}"
+    for day_key, hours in capacity_by_day.items():
+        try:
+            date.fromisoformat(str(day_key))
+            _hours(hours)
+        except (ValueError, TypeError):
+            return {}, f"invalid capacity entry {day_key}"
+    total_estimate = 0.0
+    for task_id in deadline_edits:
+        total_estimate += _hours(tasks[str(task_id)].get("estimate_hours"))
+    capacity_total = sum(_hours(v) for v in capacity_by_day.values())
+    if capacity_total and total_estimate > capacity_total and not body.get("force"):
+        return {}, (
+            f"over capacity: {total_estimate:.1f}h assigned vs "
+            f"{capacity_total:.1f}h capacity (pass force to override)"
+        )
+    previous = _read_week_plan(root, week) or {}
+    merged_edits = (
+        {str(k): str(v) for k, v in deadline_edits.items()}
+        if body.get("replace")
+        else {
+            **(previous.get("deadline_edits") or {}),
+            **{str(k): str(v) for k, v in deadline_edits.items()},
+        }
+    )
+    merged_capacity = (
+        {str(k): _hours(v) for k, v in capacity_by_day.items()}
+        if body.get("replace")
+        else {
+            **(previous.get("capacity_by_day") or {}),
+            **{str(k): _hours(v) for k, v in capacity_by_day.items()},
+        }
+    )
+    merged_estimate = sum(
+        _hours(tasks[str(task_id)].get("estimate_hours"))
+        for task_id in merged_edits
+        if str(task_id) in tasks
+    )
+    merged_capacity_total = sum(merged_capacity.values())
+    if (
+        merged_capacity_total
+        and merged_estimate > merged_capacity_total
+        and not body.get("force")
+    ):
+        return {}, (
+            f"over capacity: {merged_estimate:.1f}h assigned vs "
+            f"{merged_capacity_total:.1f}h capacity (pass force to override)"
+        )
+    plan = {
+        "week": week,
+        "deadline_edits": merged_edits,
+        "capacity_by_day": merged_capacity,
+        "notes": body.get("notes", previous.get("notes", "")),
+        "approved_at": previous.get("approved_at"),
+        "approved_by": previous.get("approved_by"),
+    }
+    if body.get("approved"):
+        plan["approved_at"] = datetime.now(timezone.utc).isoformat()
+        plan["approved_by"] = str(body.get("approved_by") or "manager")
+    return plan, None
+
+
 def _plan_payload(
-    project_root: Optional[str] = None, window: str = "week", auth=None
+    project_root: Optional[str] = None,
+    window: str = "week",
+    auth=None,
+    plan_week: Optional[str] = None,
 ) -> dict:
     """Return day/week/month planning buckets (``GET /api/plan``).
 
@@ -1542,7 +1714,7 @@ def _plan_payload(
         if deadline is not None:
             bucket = bucket_for(deadline)
             bucket["tasks"].append(brief)
-            bucket["estimate_hours"] += float(task.get("estimate_hours") or 0)
+            bucket["estimate_hours"] += _hours(task.get("estimate_hours"))
             if lane == "completed":
                 bucket["done"] += 1
             elif lane == "in-progress":
@@ -1579,7 +1751,7 @@ def _plan_payload(
     anchor_bucket = bucket_for(anchor)
     for task, brief in undated:
         anchor_bucket["tasks"].append(brief)
-        anchor_bucket["estimate_hours"] += float(task.get("estimate_hours") or 0)
+        anchor_bucket["estimate_hours"] += _hours(task.get("estimate_hours"))
         if task.get("lane") == "in-progress":
             anchor_bucket["in_progress"] += 1
         else:
@@ -1641,6 +1813,7 @@ def _plan_payload(
         "trend": trend,
         "totals": totals,
         "alerts": alerts,
+        "plan": _read_week_plan(root, plan_week or _plan_week_key()),
     }
 
 
@@ -1806,8 +1979,13 @@ def build_app():
         window = (request.query_params.get("window") or "week").strip().lower()
         if window not in _PLAN_WINDOWS:
             return JSONResponse({"error": "invalid window"}, status_code=400)
+        plan_week = request.query_params.get("week")
+        if plan_week and not re.fullmatch(r"\d{4}-W\d{2}", plan_week):
+            return JSONResponse(
+                {"error": "week must look like 2026-W43"}, status_code=400
+            )
         auth = _auth_from_request(request)
-        payload = _plan_payload(root, window, auth)
+        payload = _plan_payload(root, window, auth, plan_week)
         error = payload.get("error")
         if error == "unauthenticated":
             return JSONResponse(payload, status_code=401)
@@ -1816,6 +1994,58 @@ def build_app():
         if error == "internal error":
             return JSONResponse(payload, status_code=500)
         return JSONResponse(payload)
+
+    async def api_plan_save(request):
+        if _AUTH_ENABLED:
+            auth = _auth_from_request(request)
+            if not auth.authenticated:
+                return JSONResponse({"error": "unauthenticated"}, status_code=401)
+            if not auth.is_admin:
+                return JSONResponse({"error": "forbidden"}, status_code=403)
+        else:
+            auth = None
+        try:
+            body = await request.json()
+        except Exception:  # noqa: BLE001 - any parse failure is a 400
+            return JSONResponse({"error": "invalid JSON body"}, status_code=400)
+        if not isinstance(body, dict):
+            return JSONResponse({"error": "invalid JSON body"}, status_code=400)
+        root = _resolve_dashboard_root(None)
+        if auth is not None and not auth.project_allowed(root):
+            fallback = _first_allowed_root(auth)
+            if fallback is None:
+                return JSONResponse({"error": "forbidden"}, status_code=403)
+            root = fallback
+        plan, error = _validate_plan_edits(root, body)
+        if error:
+            return JSONResponse({"error": error}, status_code=400)
+        _write_week_plan(root, plan)
+        return JSONResponse(plan)
+
+    async def api_plan_clear(request):
+        if _AUTH_ENABLED:
+            auth = _auth_from_request(request)
+            if not auth.authenticated:
+                return JSONResponse({"error": "unauthenticated"}, status_code=401)
+            if not auth.is_admin:
+                return JSONResponse({"error": "forbidden"}, status_code=403)
+        else:
+            auth = None
+        week = (request.query_params.get("week") or _plan_week_key()).strip()
+        if not re.fullmatch(r"\d{4}-W\d{2}", week):
+            return JSONResponse(
+                {"error": "week must look like 2026-W43"}, status_code=400
+            )
+        root = _resolve_dashboard_root(None)
+        if auth is not None and not auth.project_allowed(root):
+            fallback = _first_allowed_root(auth)
+            if fallback is None:
+                return JSONResponse({"error": "forbidden"}, status_code=403)
+            root = fallback
+        path = _plan_file(root, week)
+        if path.is_file():
+            path.unlink()
+        return JSONResponse({"cleared": week})
 
     async def api_login(request):
         if not _AUTH_ENABLED:
@@ -1925,7 +2155,9 @@ def build_app():
         Route("/", dashboard),
         Route("/api/status", api_status),
         Route("/api/task", api_task),
-        Route("/api/plan", api_plan),
+        Route("/api/plan", api_plan, methods=["GET"]),
+        Route("/api/plan", api_plan_save, methods=["POST"]),
+        Route("/api/plan", api_plan_clear, methods=["DELETE"]),
         Route("/api/login", api_login, methods=["POST"]),
         Route("/api/logout", api_logout, methods=["POST"]),
         Route("/api/me", api_me),

@@ -145,3 +145,20 @@ cockpit buckets: `days`, `weeks`, `trend` (14 days), `totals` and `alerts`
 - `project_root` must be absolute (`400` otherwise); `window` must be one of
   the three values (`400`); with auth enabled the route answers `401` without a
   session and `403` outside the session's grants.
+
+## Weekly plan state (`tasks/.plan/week-YYYY-Www.json`)
+
+The week plan is the Manager's commitment, not a derived report. It stores
+`deadline_edits` (task id → `YYYY-MM-DD`), `capacity_by_day` (date → hours),
+optional notes, and `approved_at` / `approved_by`. Markdown stays the source of
+truth for each task; the plan only records scheduling decisions.
+
+- `GET /api/plan` returns the saved plan next to the buckets.
+- `POST /api/plan` accepts `{week?, deadline_edits?, capacity_by_day?, approved?,
+  force?}`; admin session required when auth is on (401 without a session, 403
+  for non-admins). Unknown ids, malformed maps, and over-capacity assignments
+  are rejected with 400 unless `force` is set.
+- `DELETE /api/plan?week=...` clears the week.
+- `sprint_daily_agenda` reads the plan first: today's committed tasks, then
+  deviations (claimed but uncommitted, saved but unapproved); with no plan it
+  says it is using the derived lanes.
