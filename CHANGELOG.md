@@ -6,7 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
-_(nothing yet)_
+### Fixed
+
+- **Bundle META now passes the canonical lint on first write, and keeps source provenance (Task 0349):** bundling two telegram-sourced tasks produced a META that failed `lint_task_file` immediately and silently dropped `## Original Message (Persian)`, `## English Translation`, `## Refactored Prompt` and `## Relevant Code Context` from the working file. Three mismatches between writer and validator were found through the graph over `mcp-context-server` (`_build_meta_content` as the single writer, ADR-010 as prior hardening): `bundle.py` emitted only the `**Supersedes:**` metadata line where the linter's `_check_bundle_meta_structure` requires a non-empty `## Supersedes` section; the per-source extraction copied only Goal/AC/TODOs/Risk/Manager's Notes/Blueprint, so provenance sections existed only in the archive; and the dry-run "required sections" gate in `server.py` omitted `## Supersedes` and `## Bundled Checklist`, certifying a file the real lint rejects. `_build_meta_content` now writes a `## Supersedes` section naming every source id and title plus the all-or-nothing rule, and copies every unrecognised `## ` section of a source verbatim into that source's block through the new `_extract_preserved_sections`, guarded by an explicit `_STRUCTURAL_SECTIONS` deny-list so Goal/AC/TODOs/Risk/Definition of Done/Execution Log/Git Diff never repeat; per-source `Verification Evidence` is preserved because bundled tasks carry different test commands. The dry-run list gains both linter sections. ADR-011 records the boundary. Verified: 22/22 bundle tests pass (4 new: Supersedes section, provenance preservation, dry-run list parity, and a parity gate that imports the live `mcp-lint-server` function and asserts a generated META passes it), 87/87 MCP server contract tests pass.
 
 ## [9.66.0] - 2026-10-25
 

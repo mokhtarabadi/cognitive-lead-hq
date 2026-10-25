@@ -1403,6 +1403,8 @@ def bundle_tasks(
             lines.append(f"\n   ... {len(meta_content.splitlines()) - 40} more lines")
             required = [
                 "## Goal",
+                "## Supersedes",
+                "## Bundled Checklist",
                 "## Local TODOs",
                 "## Acceptance Criteria",
                 "## Verification Evidence",

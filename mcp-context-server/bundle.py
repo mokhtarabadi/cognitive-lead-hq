@@ -19,6 +19,48 @@ from gitops import (
     _verify_verbatim_checksums,
 )
 
+# Sections the bundler already models explicitly, plus structural tail sections
+# that belong to the META itself. Anything else in a source task is provenance
+# (original message, translation, refactored prompt, code context, analysis)
+# and MUST travel into the META verbatim — the archive is not a substitute for
+# the working file.
+_STRUCTURAL_SECTIONS = frozenset(
+    {
+        "Goal",
+        "Acceptance Criteria",
+        "Local TODOs",
+        "Risk & Rollback",
+        "Manager's Notes",
+        "Blueprint Reference",
+        "Definition of Done",
+        "Execution Log & Reasoning",
+        "Factual Git Diff",
+        "Supersedes",
+        "Bundled Checklist (All-or-Nothing)",
+        "Source Bundles (Verbatim Preservation)",
+    }
+)
+
+
+def _extract_preserved_sections(content: str) -> list[tuple[str, str]]:
+    """Return every `## ` section the bundler does not copy on its own.
+
+    Order follows the source file. A trailing horizontal rule is stripped so
+    the copied body does not carry the source's section separator.
+    """
+    headings = list(re.finditer(r"^## (.+)$", content, re.MULTILINE))
+    preserved: list[tuple[str, str]] = []
+    for index, match in enumerate(headings):
+        heading = match.group(1).strip()
+        if heading in _STRUCTURAL_SECTIONS:
+            continue
+        end = headings[index + 1].start() if index + 1 < len(headings) else len(content)
+        body = content[match.end() : end]
+        body = re.sub(r"\n---\s*$", "", body.rstrip()).strip()
+        if body:
+            preserved.append((heading, body))
+    return preserved
+
 
 def _build_meta_content(
     meta_id: int,
@@ -93,6 +135,9 @@ def _build_meta_content(
         if risk:
             block += "#### Risk & Rollback (verbatim)\n\n"
             block += f"{risk}\n\n"
+        for heading, body in _extract_preserved_sections(content):
+            block += f"#### {heading} (verbatim)\n\n"
+            block += f"{body}\n\n"
         block += "---\n\n"
         per_source_blocks.append(block)
     seen_todos: set[str] = set()
@@ -133,6 +178,22 @@ def _build_meta_content(
             f"> ⚠️ **Guardrail Warning:** Combined source size is {total_loc} LOC (> {DIFF_SIZE_WARNING_THRESHOLD}). "
             f"Unified META diff may be large and hard to review. Consider splitting into two METAs.\n\n"
         )
+    # The linter requires a non-empty `## Supersedes` section, not just the
+    # `**Supersedes:**` metadata line. Emitting both keeps the header machine
+    # readable and the body human readable, and a fresh META now passes
+    # lint_task_file without a hand edit.
+    supersedes_lines = "".join(
+        f"- `{sid}` — {stitle}\n" for sid, _path, _content, stitle in source_data
+    )
+    supersedes_section = (
+        f"## Supersedes\n\n"
+        f"This META supersedes {len(source_data)} source task(s). Each one is archived to "
+        f"`tasks/archive/` with a `**Superseded-By:** {meta_id_str}-{meta_slug}` marker and stays "
+        f"reachable via `git log --oneline --follow -- tasks/archive/<id>-*.md`:\n\n"
+        f"{supersedes_lines}\n"
+        f"Execution is all-or-nothing: every line of `## Bundled Checklist (All-or-Nothing)` must pass, "
+        f"otherwise the whole META is `QA_REJECTED` and returns to `in-progress`. A partial close is forbidden.\n\n"
+    )
     content = (
         f"{title_line}\n\n"
         f"**File:** `{file_header}`\n"
@@ -143,6 +204,7 @@ def _build_meta_content(
         f"**Meta:** true\n"
         f"**Created:** {timestamp}\n"
         f"**Bundled:** {len(source_data)} tasks\n\n"
+        f"{supersedes_section}"
         f"## Goal\n\n"
         f'Unified execution of {len(source_data)} related small tasks as a single META task to eliminate sequential overhead. This META bundles tasks {_format_task_id_list(source_ids)} — "{meta_title}" — into one branch, one diff, and one QA gate (all-or-nothing). Every requirement below is preserved **verbatim** from its source task; no summarization or omission is allowed.\n\n'
         f"{warning_note}**Source IDs:** {_format_task_id_list(source_ids)}\n"

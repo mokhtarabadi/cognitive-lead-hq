@@ -604,3 +604,165 @@ def test_patch_multiword_status(tmp_tasks: Path):
     assert "progress" not in [line for line in text.splitlines() if "Status" in line][0]
     created_fmt = re.search(r"\d{4}-\d{2}-\d{2} \d{2}:\d{2} UTC", text)
     assert created_fmt, f"Superseded-At must match Created datetime format:\n{text}"
+
+
+# ---------------------------------------------------------------------------
+# META lint parity + provenance preservation
+# ---------------------------------------------------------------------------
+
+
+def _telegram_style_source(
+    tasks: Path, task_id: str, title: str, raw_text: str
+) -> Tuple[str, Path, str, str]:
+    """A telegram-sourced task carrying the sections the bundler used to drop."""
+    padded = f"{int(task_id):02d}"
+    filename = f"{padded}-{title.lower().replace(' ', '-')}.md"
+    path = tasks / "backlog" / filename
+    content = (
+        f"# Task {task_id}: {title}\n"
+        f"\n"
+        f"**File:** `tasks/backlog/{filename}`\n"
+        f"**Source:** telegram\n"
+        f"**Type:** bug\n"
+        f"**Status:** open\n"
+        f"\n"
+        f"## Goal\n"
+        f"\n"
+        f"Goal for {title}.\n"
+        f"\n"
+        f"## Original Message (Persian)\n"
+        f"\n"
+        f"{raw_text}\n"
+        f"\n"
+        f"## English Translation\n"
+        f"\n"
+        f"Translation for {title}.\n"
+        f"\n"
+        f"## Refactored Prompt\n"
+        f"\n"
+        f"<role>role for {title}</role>\n"
+        f"\n"
+        f"## Relevant Code Context\n"
+        f"\n"
+        f"- `src/sample.py` — sample pointer\n"
+        f"\n"
+        f"## Local TODOs\n"
+        f"\n"
+        f"- [ ] Step 1\n"
+        f"\n"
+        f"## Acceptance Criteria\n"
+        f"\n"
+        f"- [ ] Criterion for {title}\n"
+        f"\n"
+        f"## Verification Evidence\n"
+        f"\n"
+        f"- **Test command:** pytest\n"
+        f"\n"
+        f"## Definition of Done\n"
+        f"\n"
+        f"- [ ] Build/Test/Lint pass\n"
+        f"\n"
+        f"## Risk & Rollback\n"
+        f"\n"
+        f"- **Risk:** none\n"
+        f"- **Rollback plan:** revert\n"
+        f"\n"
+        f"---\n"
+        f"\n"
+        f"## Execution Log & Reasoning\n"
+        f"\n"
+        f"_(fill)_\n"
+        f"\n"
+        f"## Factual Git Diff\n"
+        f"\n"
+        f"<!-- BEGIN_GIT_DIFF -->\n"
+        f"\n"
+        f"<!-- END_GIT_DIFF -->\n"
+    )
+    path.write_text(content, encoding="utf-8")
+    return (task_id, path, content, title)
+
+
+def test_meta_carries_supersedes_section(tmp_tasks: Path):
+    """The linter wants a `## Supersedes` section, not only metadata."""
+    s1 = _telegram_style_source(tmp_tasks, "51", "first source", "متن اول")
+    s2 = _telegram_style_source(tmp_tasks, "52", "second source", "متن دوم")
+
+    meta = _build_meta_content(
+        90, "sample-bundle", "sample bundle", ["51", "52"], [s1, s2]
+    )
+
+    body = extract_section(meta, "Supersedes")
+    assert body, f"`## Supersedes` must be non-empty:\n{meta[:800]}"
+    assert "`51`" in body and "`52`" in body, f"source ids missing from body:\n{body}"
+    assert "first source" in body and "second source" in body, (
+        f"source titles missing from body:\n{body}"
+    )
+
+
+def test_meta_preserves_provenance_sections(tmp_tasks: Path):
+    """Provenance sections travel into the META; structural ones do not repeat."""
+    s1 = _telegram_style_source(tmp_tasks, "53", "provenance one", "سلام دنیا")
+    s2 = _telegram_style_source(tmp_tasks, "54", "provenance two", "پایان متن")
+
+    meta = _build_meta_content(
+        91, "provenance-bundle", "provenance bundle", ["53", "54"], [s1, s2]
+    )
+
+    assert "#### Original Message (Persian) (verbatim)" in meta, (
+        "original message section must be preserved"
+    )
+    assert "سلام دنیا" in meta and "پایان متن" in meta, "raw text must survive verbatim"
+    assert "#### English Translation (verbatim)" in meta, (
+        "translation must be preserved"
+    )
+    assert "#### Refactored Prompt (verbatim)" in meta, (
+        "refactored prompt must be preserved"
+    )
+    assert "#### Relevant Code Context (verbatim)" in meta, (
+        "code context must be preserved"
+    )
+    assert "<role>role for provenance one</role>" in meta, "prompt body must survive"
+
+    # Structural sections belong to the META only, never inside a source block.
+    assert "#### Goal (verbatim)" in meta
+    assert "#### Acceptance Criteria (verbatim)" in meta
+    assert "#### Verification Evidence (verbatim)" in meta, (
+        "per-source test commands must be preserved"
+    )
+    for structural in (
+        "#### Execution Log & Reasoning (verbatim)",
+        "#### Factual Git Diff (verbatim)",
+        "#### Definition of Done (verbatim)",
+    ):
+        assert structural not in meta, f"{structural} must not be duplicated"
+
+
+def test_dry_run_required_sections_match_linter():
+    """The preview gate must demand the same sections the linter enforces."""
+    import inspect
+
+    source = inspect.getsource(_bundler.bundle_tasks)
+    assert '"## Supersedes"' in source, "dry-run required list must include Supersedes"
+    assert '"## Bundled Checklist"' in source, (
+        "dry-run required list must include the bundled checklist"
+    )
+
+
+def test_generated_meta_passes_real_linter(tmp_tasks: Path):
+    """Parity gate: the real linter must accept a freshly generated META."""
+    lint_spec = importlib.util.spec_from_file_location(
+        "hq_lint_server",
+        PROJECT_ROOT / "mcp-lint-server" / "server.py",
+    )
+    lint_mod = importlib.util.module_from_spec(lint_spec)
+    lint_spec.loader.exec_module(lint_mod)
+
+    s1 = _telegram_style_source(tmp_tasks, "55", "lint parity one", "متن")
+    s2 = _telegram_style_source(tmp_tasks, "56", "lint parity two", "متن دوم")
+    meta = _build_meta_content(
+        92, "lint-parity-bundle", "lint parity bundle", ["55", "56"], [s1, s2]
+    )
+
+    issues = lint_mod._check_bundle_meta_structure(meta, "tasks/backlog/92-x.md")
+    assert issues == [], f"freshly generated META fails the real linter: {issues}"
