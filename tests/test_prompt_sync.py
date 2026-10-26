@@ -53,6 +53,25 @@ def test_executor_carries_compaction_guidance():
     assert "smart-compact" in text
 
 
+def test_executor_shows_plan_before_asking_for_approval():
+    """A plan-approval ask is invalid without the plan visible to the Manager.
+
+    Regression: the executor told the Hands that in autopilot the Manager
+    sees only Relay questions, and to collect plan approval with one narrow
+    question, so the approval card arrived with no plan body to approve.
+    """
+    text = _read(EXECUTOR)
+    assert "Plan presentation contract" in text
+    assert "before calling `question`" in text
+    assert "The `question` body carries the same" in text
+    assert "carries the full plan text" in text
+    assert "is a plan, not a verdict" in text
+    assert "sees the full plan at the approval" in text
+    assert "bare ask is a protocol bug" in text
+    assert "Revision rounds keep the contract" in text
+    assert "sees only Relay questions" not in text
+
+
 def test_shipped_prompt_is_plugin_blind():
     """The system prompt carries no plugin knowledge (separation).
 

@@ -1,5 +1,14 @@
 # Architectural Decisions: agents
 
+## Plan approval shows the plan, not just the question
+
+Date: 2026-10-26
+Status: accepted
+Context: The Manager received approval cards with nothing to approve. The executor told the Hands that in autopilot the Manager "sees only Relay questions and the final verdict report", the preflight asked for "one narrow question", and no paragraph required the plan body — which the Brain already returns in `output` — to reach either the chat or the question payload. The plan was available and got dropped at presentation time.
+Decision: Add a Plan presentation contract to the executor: the full plan text goes into the assistant message before the `question` call, the question body repeats it, a bare ask is a protocol bug, and a revision round prints the revised plan in full before asking again. Fix the autopilot sentence so it names the plan as visible, and treat a plan that arrives as `REPORT` as a plan to surface rather than a verdict to file. Bind the preflight plan-gate sentence to the same contract. A regression test in `tests/test_prompt_sync.py` fails if the contract disappears or the suppressing sentence returns.
+Consequences: A plan-approval card can no longer arrive without the plan. The plan text is duplicated on purpose — chat plus card — because a client may render only one of the two surfaces. No bridge code change: the bridge already delivers the plan in `output`, and a code validator over UI wording would add coupling without safety.
+Rollback: Revert the executor paragraphs and the regression test; the previous behaviour returns.
+
 ## [2026-10-06] ADR-001: Initial Slice Baseline
 
 - **Context:** Baseline documentation initialized via init-folder-docs.

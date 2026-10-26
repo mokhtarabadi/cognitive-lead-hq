@@ -1061,14 +1061,16 @@ def test_week_plan_validation_errors(tmp_path):
 def test_plan_api_admin_only_and_persists(open_client, tmp_path, monkeypatch):
     monkeypatch.setenv("PLANNER_PROJECT_ROOT", str(tmp_path))
     _write_task(tmp_path, "backlog", 53, "Saved", estimate=1)
+    week_dt = __import__("datetime").date.today().isocalendar()
+    week = f"{week_dt[0]}-W{week_dt[1]:02d}"
     resp = open_client.post(
         "/api/plan",
-        json={"week": "2026-W43", "deadline_edits": {"053": "2026-10-26"}},
+        json={"week": week, "deadline_edits": {"053": "2026-10-26"}},
     )
     assert resp.status_code == 200
     assert resp.json()["deadline_edits"]["053"] == "2026-10-26"
     status = open_client.get("/api/plan", params={"window": "week"}).json()
-    assert status["plan"]["week"] == "2026-W43"
+    assert status["plan"]["week"] == week
 
 
 def test_plan_api_viewer_cannot_save(auth_client):

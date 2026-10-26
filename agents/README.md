@@ -13,6 +13,7 @@ Defines the two OpenCode agent personas for the Cognitive Lead HQ: primary execu
 
 - Permission drift: executor allows edit/question, discovery denies edit/bash; never invert.
 - Persona changes must stay in sync with `system-prompt.md` fragments and `prompts/` sources.
+- Plan approval surface: an approval question is only valid after the full plan body is visible in the same turn, and the question payload repeats it. A bare "Approve the plan?" ask is a protocol bug.
 - No runtime code here; changes are prompt-contract changes with system-wide effect.
 
 ### Free-tier bash gate

@@ -122,7 +122,7 @@ Context is finite. Two layers keep long sessions productive, and the agent's dur
 
 ## Capability Preflight (session start)
 
-Before approval-sensitive work (plan approval, review approval, closure), check the capability manifest: every `brain_turn` prints a `capability-manifest:` diagnostic line to stderr mapping each required tool to `AVAILABLE`, `UNAVAILABLE_REQUIRED`, or `UNAVAILABLE_OPTIONAL`. A step whose required tool is `UNAVAILABLE_REQUIRED` (for example the `question` tool) is never silently skipped. Emit the relay block the turn returned (missing tool names, stage, one narrow question, one answer slot) through the mode-appropriate channel: manual mode relays it to the Manager verbatim and pauses with the relayed question as the named blocker; autopilot halts with the relay block as the named blocker. Approval collection follows the single approval rule: closure accepts only the exact phrases "Approved for closure" or "Close task" (a bare "approved" never counts); the plan gate accepts "approved" in any case. Blanket acknowledgements ("ok", "yes", "looks good", emoji) never count as approval at any gate. At plan-approval, PO_REVIEW_PENDING relay, and any closure approval gate you MUST collect the decision via the question tool with one narrow question and one answer slot. Prose-only approval asks are forbidden because an auto-continue loop can roll past prose. This holds in manual and autopilot. If question is UNAVAILABLE_REQUIRED, emit the relay block and pause with it as the named blocker; never skip. Only hard blockers may use prose.
+Before approval-sensitive work (plan approval, review approval, closure), check the capability manifest: every `brain_turn` prints a `capability-manifest:` diagnostic line to stderr mapping each required tool to `AVAILABLE`, `UNAVAILABLE_REQUIRED`, or `UNAVAILABLE_OPTIONAL`. A step whose required tool is `UNAVAILABLE_REQUIRED` (for example the `question` tool) is never silently skipped. Emit the relay block the turn returned (missing tool names, stage, one narrow question, one answer slot) through the mode-appropriate channel: manual mode relays it to the Manager verbatim and pauses with the relayed question as the named blocker; autopilot halts with the relay block as the named blocker. Approval collection follows the single approval rule: closure accepts only the exact phrases "Approved for closure" or "Close task" (a bare "approved" never counts); the plan gate accepts "approved" in any case. Blanket acknowledgements ("ok", "yes", "looks good", emoji) never count as approval at any gate. At plan-approval you MUST collect the decision via the question tool whose body carries the full plan text (see the Plan presentation contract), with one answer slot; at the PO_REVIEW_PENDING relay and any closure approval gate, one narrow question and one answer slot. Prose-only approval asks are forbidden because an auto-continue loop can roll past prose. This holds in manual and autopilot. If question is UNAVAILABLE_REQUIRED, emit the relay block and pause with it as the named blocker; never skip. Only hard blockers may use prose.
 
 ## Subagent Delegation for Context Discovery
 
@@ -321,6 +321,26 @@ planning turn itself (never a separate blocking question): if the Brain
 needs repo data, it returns a discovery task, the Hands feed results back
 under the same `task_id`, and the plan arrives grounded.
 
+#### Plan presentation contract (mandatory, both modes)
+
+The Manager can only approve what he can read, and the Brain's `output`
+is invisible to him. An approval ask is therefore valid only when it
+follows a visible plan, in the same turn:
+
+1. **Chat first, in full.** Write the plan body into the assistant message
+   before calling `question`: the plan text from the Brain's `output`
+   verbatim — steps, seat routing, cited file paths with lines, risks.
+   Never a summary, never "see the task file", never only a status line or
+   a diff.
+2. **The question repeats the plan.** The `question` body carries the same
+   plan text plus the single decision line, because a client may render the
+   question card without the message above it. One answer slot only.
+3. **A bare ask is a protocol bug.** "Approve the plan?" with no plan body
+   in the chat or in the question payload is forbidden. If the plan never
+   arrived from the Brain, re-run the planning turn instead of asking.
+4. **Revision rounds keep the contract.** On a Manager edit, print the
+   revised plan in full, then ask again (max 3 tries, then escalate).
+
 ### Seat Check, trigger map, and lightweight consult (mandatory at plan start)
 
 Seat names and duties are fixed — the Hands
@@ -416,7 +436,9 @@ its own fenced code); copy-paste relay instructions expected.` Skip this
    - `XML_EXTRACTED` — execute `xml_blocks` as the next instruction set,
      exactly like an Orchestrator XML block.
    - `REPORT` — triage like a review verdict: fix what reproduces,
-     dispute the rest with evidence in the task file.
+     dispute the rest with evidence in the task file. A plan that arrives
+     as `REPORT` is a plan, not a verdict: present it in chat under the
+     Plan presentation contract before asking for approval.
      **Code-mode output discipline (never hand-trim a control payload):** the
      `execute` runtime returns your `return` value verbatim; only the runtime's
      own `maxOutputBytes` may cut it, and it says so with a `truncated: true`
@@ -480,8 +502,9 @@ forgotten. Autopilot NEVER auto-commits (ZAC holds) and NEVER closes
 tasks (closure needs the explicit approval word). Chain `brain_turn`
 calls YOURSELF: QA, re-QA, and review turns are invoked directly by you
 with the same `task_id` — never paste XML or task text for the Manager
-to ferry back. In autopilot the Manager sees only Relay questions and
-the final verdict report. Ferrying work through the Manager is a bug.
+to ferry back. In autopilot the Manager sees the full plan at the approval
+gate, Relay questions, and the final verdict report. Ferrying work through
+the Manager is a bug.
 Every chained turn carries the AUTOMATIC mode line from Build, so the
 Brain emits bare XML and never writes copy-paste relay text.
 
