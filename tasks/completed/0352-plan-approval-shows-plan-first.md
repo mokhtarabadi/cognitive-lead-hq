@@ -1,9 +1,10 @@
 # Task 0352: Plan approval must show the plan before asking
 
-**File:** `tasks/qa/0352-plan-approval-shows-plan-first.md`
+**File:** `tasks/completed/0352-plan-approval-shows-plan-first.md`
 **Source:** manager
 **Type:** bug
-**Status:** in-progress
+**Status:** closed
+**Finished:** 2026-10-26T19:43:55Z
 **Submitted:** 2026-10-26T19:34:50Z
 **Estimate:** 1h
 **Deadline:** 2026-10-26
@@ -96,168 +97,12 @@ Autopilot is LOCKED for this task: find the cause and fix it without a separate 
 
 **Final gate state:** QA_PASSED and PO_REVIEW_PENDING recorded. Closure waits for the Manager's exact word.
 
+**Manager closure approval (2026-10-26):** "Approved for closure" via the question tool, answering the relayed PO_REVIEW_PENDING verdict. ZAC holds throughout: no `git add`, no `git commit`, no `git push`; closure runs only through `custom_context_commit_and_clean_task`.
+
+**Closure:** preconditions verified (QA_PASSED, PO_REVIEW_PENDING, exact approval quote, injected diff), file moved with `git mv` to the completed lane, `**Status:** closed` and the `**File:**` header synced.
+
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
-```diff
-diff --git a/CHANGELOG.md b/CHANGELOG.md
-index f07067b..57d46d7 100644
---- a/CHANGELOG.md
-+++ b/CHANGELOG.md
-@@ -14,6 +14,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
- 
- ### Fixed
- 
-+- **Plan approval now shows the plan before it asks (Task 0352):** approval cards arrived with nothing to approve because the plan lived only in the Brain's `output`. The executor's autopilot sentence said the Manager "sees only Relay questions and the final verdict report", the preflight asked for "one narrow question", and nothing required the plan body to reach the chat or the `question` payload. `agents/cognitive-executor.md` now carries a Plan presentation contract — the full plan text is written into the assistant message before the `question` call, the question body repeats the same text plus one decision line, a bare "Approve the plan?" ask is a protocol bug, and revision rounds print the revised plan in full. The autopilot sentence names the plan as visible, the plan gate in Capability Preflight points at the contract, and a plan arriving as `REPORT` is marked as a plan to surface rather than a verdict to file. A regression test in `tests/test_prompt_sync.py` fails if the contract disappears or the suppressing sentence returns. The live agent copy at `~/.config/opencode/agents/cognitive-executor.md` is byte-identical to the repo file. No bridge code change: `brain_turn` already returns the plan in `output`. Adjacent repair found by the full run: `test_plan_api_admin_only_and_persists` hardcoded `2026-W43` while `GET /api/plan?window=week` reads the current ISO week, so it started failing on the W43→W44 rollover; it now derives the week from `date.today().isocalendar()` instead of a calendar guess.
-+
- - **Bundle META now passes the canonical lint on first write, and keeps source provenance (Task 0349):** bundling two telegram-sourced tasks produced a META that failed `lint_task_file` immediately and silently dropped `## Original Message (Persian)`, `## English Translation`, `## Refactored Prompt` and `## Relevant Code Context` from the working file. Three mismatches between writer and validator were found through the graph over `mcp-context-server` (`_build_meta_content` as the single writer, ADR-010 as prior hardening): `bundle.py` emitted only the `**Supersedes:**` metadata line where the linter's `_check_bundle_meta_structure` requires a non-empty `## Supersedes` section; the per-source extraction copied only Goal/AC/TODOs/Risk/Manager's Notes/Blueprint, so provenance sections existed only in the archive; and the dry-run "required sections" gate in `server.py` omitted `## Supersedes` and `## Bundled Checklist`, certifying a file the real lint rejects. `_build_meta_content` now writes a `## Supersedes` section naming every source id and title plus the all-or-nothing rule, and copies every unrecognised `## ` section of a source verbatim into that source's block through the new `_extract_preserved_sections`, guarded by an explicit `_STRUCTURAL_SECTIONS` deny-list so Goal/AC/TODOs/Risk/Definition of Done/Execution Log/Git Diff never repeat; per-source `Verification Evidence` is preserved because bundled tasks carry different test commands. The dry-run list gains both linter sections. ADR-011 records the boundary. Verified: 22/22 bundle tests pass (4 new: Supersedes section, provenance preservation, dry-run list parity, and a parity gate that imports the live `mcp-lint-server` function and asserts a generated META passes it), 87/87 MCP server contract tests pass.
- 
- ## [9.66.0] - 2026-10-25
-diff --git a/agents/DECISIONS.md b/agents/DECISIONS.md
-index 9a88724..b560dfb 100644
---- a/agents/DECISIONS.md
-+++ b/agents/DECISIONS.md
-@@ -1,5 +1,14 @@
- # Architectural Decisions: agents
- 
-+## Plan approval shows the plan, not just the question
-+
-+Date: 2026-10-26
-+Status: accepted
-+Context: The Manager received approval cards with nothing to approve. The executor told the Hands that in autopilot the Manager "sees only Relay questions and the final verdict report", the preflight asked for "one narrow question", and no paragraph required the plan body — which the Brain already returns in `output` — to reach either the chat or the question payload. The plan was available and got dropped at presentation time.
-+Decision: Add a Plan presentation contract to the executor: the full plan text goes into the assistant message before the `question` call, the question body repeats it, a bare ask is a protocol bug, and a revision round prints the revised plan in full before asking again. Fix the autopilot sentence so it names the plan as visible, and treat a plan that arrives as `REPORT` as a plan to surface rather than a verdict to file. Bind the preflight plan-gate sentence to the same contract. A regression test in `tests/test_prompt_sync.py` fails if the contract disappears or the suppressing sentence returns.
-+Consequences: A plan-approval card can no longer arrive without the plan. The plan text is duplicated on purpose — chat plus card — because a client may render only one of the two surfaces. No bridge code change: the bridge already delivers the plan in `output`, and a code validator over UI wording would add coupling without safety.
-+Rollback: Revert the executor paragraphs and the regression test; the previous behaviour returns.
-+
- ## [2026-10-06] ADR-001: Initial Slice Baseline
- 
- - **Context:** Baseline documentation initialized via init-folder-docs.
-diff --git a/agents/README.md b/agents/README.md
-index 98b377a..e8e637e 100644
---- a/agents/README.md
-+++ b/agents/README.md
-@@ -13,6 +13,7 @@ Defines the two OpenCode agent personas for the Cognitive Lead HQ: primary execu
- 
- - Permission drift: executor allows edit/question, discovery denies edit/bash; never invert.
- - Persona changes must stay in sync with `system-prompt.md` fragments and `prompts/` sources.
-+- Plan approval surface: an approval question is only valid after the full plan body is visible in the same turn, and the question payload repeats it. A bare "Approve the plan?" ask is a protocol bug.
- - No runtime code here; changes are prompt-contract changes with system-wide effect.
- 
- ### Free-tier bash gate
-diff --git a/agents/cognitive-executor.md b/agents/cognitive-executor.md
-index d266258..ca41bf2 100644
---- a/agents/cognitive-executor.md
-+++ b/agents/cognitive-executor.md
-@@ -122,7 +122,7 @@ Context is finite. Two layers keep long sessions productive, and the agent's dur
- 
- ## Capability Preflight (session start)
- 
--Before approval-sensitive work (plan approval, review approval, closure), check the capability manifest: every `brain_turn` prints a `capability-manifest:` diagnostic line to stderr mapping each required tool to `AVAILABLE`, `UNAVAILABLE_REQUIRED`, or `UNAVAILABLE_OPTIONAL`. A step whose required tool is `UNAVAILABLE_REQUIRED` (for example the `question` tool) is never silently skipped. Emit the relay block the turn returned (missing tool names, stage, one narrow question, one answer slot) through the mode-appropriate channel: manual mode relays it to the Manager verbatim and pauses with the relayed question as the named blocker; autopilot halts with the relay block as the named blocker. Approval collection follows the single approval rule: closure accepts only the exact phrases "Approved for closure" or "Close task" (a bare "approved" never counts); the plan gate accepts "approved" in any case. Blanket acknowledgements ("ok", "yes", "looks good", emoji) never count as approval at any gate. At plan-approval, PO_REVIEW_PENDING relay, and any closure approval gate you MUST collect the decision via the question tool with one narrow question and one answer slot. Prose-only approval asks are forbidden because an auto-continue loop can roll past prose. This holds in manual and autopilot. If question is UNAVAILABLE_REQUIRED, emit the relay block and pause with it as the named blocker; never skip. Only hard blockers may use prose.
-+Before approval-sensitive work (plan approval, review approval, closure), check the capability manifest: every `brain_turn` prints a `capability-manifest:` diagnostic line to stderr mapping each required tool to `AVAILABLE`, `UNAVAILABLE_REQUIRED`, or `UNAVAILABLE_OPTIONAL`. A step whose required tool is `UNAVAILABLE_REQUIRED` (for example the `question` tool) is never silently skipped. Emit the relay block the turn returned (missing tool names, stage, one narrow question, one answer slot) through the mode-appropriate channel: manual mode relays it to the Manager verbatim and pauses with the relayed question as the named blocker; autopilot halts with the relay block as the named blocker. Approval collection follows the single approval rule: closure accepts only the exact phrases "Approved for closure" or "Close task" (a bare "approved" never counts); the plan gate accepts "approved" in any case. Blanket acknowledgements ("ok", "yes", "looks good", emoji) never count as approval at any gate. At plan-approval you MUST collect the decision via the question tool whose body carries the full plan text (see the Plan presentation contract), with one answer slot; at the PO_REVIEW_PENDING relay and any closure approval gate, one narrow question and one answer slot. Prose-only approval asks are forbidden because an auto-continue loop can roll past prose. This holds in manual and autopilot. If question is UNAVAILABLE_REQUIRED, emit the relay block and pause with it as the named blocker; never skip. Only hard blockers may use prose.
- 
- ## Subagent Delegation for Context Discovery
- 
-@@ -321,6 +321,26 @@ planning turn itself (never a separate blocking question): if the Brain
- needs repo data, it returns a discovery task, the Hands feed results back
- under the same `task_id`, and the plan arrives grounded.
- 
-+#### Plan presentation contract (mandatory, both modes)
-+
-+The Manager can only approve what he can read, and the Brain's `output`
-+is invisible to him. An approval ask is therefore valid only when it
-+follows a visible plan, in the same turn:
-+
-+1. **Chat first, in full.** Write the plan body into the assistant message
-+   before calling `question`: the plan text from the Brain's `output`
-+   verbatim — steps, seat routing, cited file paths with lines, risks.
-+   Never a summary, never "see the task file", never only a status line or
-+   a diff.
-+2. **The question repeats the plan.** The `question` body carries the same
-+   plan text plus the single decision line, because a client may render the
-+   question card without the message above it. One answer slot only.
-+3. **A bare ask is a protocol bug.** "Approve the plan?" with no plan body
-+   in the chat or in the question payload is forbidden. If the plan never
-+   arrived from the Brain, re-run the planning turn instead of asking.
-+4. **Revision rounds keep the contract.** On a Manager edit, print the
-+   revised plan in full, then ask again (max 3 tries, then escalate).
-+
- ### Seat Check, trigger map, and lightweight consult (mandatory at plan start)
- 
- Seat names and duties are fixed — the Hands
-@@ -416,7 +436,9 @@ its own fenced code); copy-paste relay instructions expected.` Skip this
-    - `XML_EXTRACTED` — execute `xml_blocks` as the next instruction set,
-      exactly like an Orchestrator XML block.
-    - `REPORT` — triage like a review verdict: fix what reproduces,
--     dispute the rest with evidence in the task file.
-+     dispute the rest with evidence in the task file. A plan that arrives
-+     as `REPORT` is a plan, not a verdict: present it in chat under the
-+     Plan presentation contract before asking for approval.
-      **Code-mode output discipline (never hand-trim a control payload):** the
-      `execute` runtime returns your `return` value verbatim; only the runtime's
-      own `maxOutputBytes` may cut it, and it says so with a `truncated: true`
-@@ -480,8 +502,9 @@ forgotten. Autopilot NEVER auto-commits (ZAC holds) and NEVER closes
- tasks (closure needs the explicit approval word). Chain `brain_turn`
- calls YOURSELF: QA, re-QA, and review turns are invoked directly by you
- with the same `task_id` — never paste XML or task text for the Manager
--to ferry back. In autopilot the Manager sees only Relay questions and
--the final verdict report. Ferrying work through the Manager is a bug.
-+to ferry back. In autopilot the Manager sees the full plan at the approval
-+gate, Relay questions, and the final verdict report. Ferrying work through
-+the Manager is a bug.
- Every chained turn carries the AUTOMATIC mode line from Build, so the
- Brain emits bare XML and never writes copy-paste relay text.
- 
-diff --git a/tests/test_planner_server.py b/tests/test_planner_server.py
-index 8c4cba3..07fe217 100644
---- a/tests/test_planner_server.py
-+++ b/tests/test_planner_server.py
-@@ -1061,14 +1061,16 @@ def test_week_plan_validation_errors(tmp_path):
- def test_plan_api_admin_only_and_persists(open_client, tmp_path, monkeypatch):
-     monkeypatch.setenv("PLANNER_PROJECT_ROOT", str(tmp_path))
-     _write_task(tmp_path, "backlog", 53, "Saved", estimate=1)
-+    week_dt = __import__("datetime").date.today().isocalendar()
-+    week = f"{week_dt[0]}-W{week_dt[1]:02d}"
-     resp = open_client.post(
-         "/api/plan",
--        json={"week": "2026-W43", "deadline_edits": {"053": "2026-10-26"}},
-+        json={"week": week, "deadline_edits": {"053": "2026-10-26"}},
-     )
-     assert resp.status_code == 200
-     assert resp.json()["deadline_edits"]["053"] == "2026-10-26"
-     status = open_client.get("/api/plan", params={"window": "week"}).json()
--    assert status["plan"]["week"] == "2026-W43"
-+    assert status["plan"]["week"] == week
- 
- 
- def test_plan_api_viewer_cannot_save(auth_client):
-diff --git a/tests/test_prompt_sync.py b/tests/test_prompt_sync.py
-index d70194f..473030d 100644
---- a/tests/test_prompt_sync.py
-+++ b/tests/test_prompt_sync.py
-@@ -53,6 +53,25 @@ def test_executor_carries_compaction_guidance():
-     assert "smart-compact" in text
- 
- 
-+def test_executor_shows_plan_before_asking_for_approval():
-+    """A plan-approval ask is invalid without the plan visible to the Manager.
-+
-+    Regression: the executor told the Hands that in autopilot the Manager
-+    sees only Relay questions, and to collect plan approval with one narrow
-+    question, so the approval card arrived with no plan body to approve.
-+    """
-+    text = _read(EXECUTOR)
-+    assert "Plan presentation contract" in text
-+    assert "before calling `question`" in text
-+    assert "The `question` body carries the same" in text
-+    assert "carries the full plan text" in text
-+    assert "is a plan, not a verdict" in text
-+    assert "sees the full plan at the approval" in text
-+    assert "bare ask is a protocol bug" in text
-+    assert "Revision rounds keep the contract" in text
-+    assert "sees only Relay questions" not in text
-+
-+
- def test_shipped_prompt_is_plugin_blind():
-     """The system prompt carries no plugin knowledge (separation).
-```
+**Factual Git Diff:** Stored in Commit Hash: `ad4cf1252ad4b317403d5ee9b81c56d59ca13db4`
 <!-- END_GIT_DIFF -->
