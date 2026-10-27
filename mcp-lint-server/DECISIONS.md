@@ -21,6 +21,13 @@
 - **Consequences:** A malformed header fails before staging instead of vanishing from the read model; the check is format-only and never rewrites; the paired writer is `schedule_tasks` in the Planner server, so agents have a correct path rather than a forbidden one.
 - **Rollback:** Remove the check and its two call sites; prior lint behavior returns.
 
+## [2026-10-26] ADR-005: Path-drift comparison resolves against the caller's root
+
+- **Context:** `_check_task_file_structure` compared `Path(header).resolve()` with `Path(file_path).resolve()`, both anchored to the lint server process CWD. The server is a long-lived singleton whose CWD is its install directory, so an absolute call path never matched a relative header. `lint_all_tasks` hands the guard absolute paths for every file while headers are normally relative, which produced one false `File path mismatch` per task and made a clean batch report impossible.
+- **Decision:** Add `_resolve_task_reference(path_str, root)` and a `root` parameter on `_check_task_file_structure`; relative and absolute sides both resolve against the caller's `project_root`. `lint_task_file` and `lint_all_tasks` thread their resolved `workspace_root` through. Calling the helper without a root keeps the previous CWD behaviour so direct callers and older tests are unaffected.
+- **Consequences:** An absolute call and its equivalent relative call return the same verdict; the batch linter can report zero issues; a genuinely stale header in another Kanban lane still fails because both sides resolve under the same root to different files.
+- **Rollback:** Drop the `root` parameter, the helper, and the two call-site arguments; CWD-based comparison returns.
+
 ## [2026-10-25] ADR-004: Task time stamps are validated, not trusted
 
 - **Context:** the planner now measures task duration from `**Started:**`, `**Submitted:**` and `**Finished:**`. A local-time or free-text value parses to nothing, and a finish earlier than its start produces a negative duration — both silently, which is exactly the failure mode the earlier metadata gate exists to prevent.

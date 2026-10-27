@@ -195,7 +195,26 @@ def _check_markdown_basics(content: str, file_path: str) -> list[str]:
     return issues
 
 
-def _check_task_file_structure(content: str, file_path: str) -> list[str]:
+def _resolve_task_reference(path_str: str, root: Path | None = None) -> Path:
+    """Resolve a task header or actual file path against the caller's root.
+
+    The lint server runs as a long-lived singleton whose CWD is the install
+    directory, so resolving a relative task header with a bare
+    ``Path(...).resolve()`` anchors it to the server process instead of the
+    project that owns the file. Anchoring both sides of the comparison to the
+    caller's ``project_root`` makes the path-drift guard independent of where
+    the server was started. Without a root the previous CWD behaviour is kept
+    for direct callers and older tests.
+    """
+    candidate = Path(path_str)
+    if not candidate.is_absolute() and root is not None:
+        candidate = Path(root) / candidate
+    return candidate.resolve()
+
+
+def _check_task_file_structure(
+    content: str, file_path: str, root: Path | None = None
+) -> list[str]:
     """
     Validate a task file against the canonical template structure.
 
@@ -217,6 +236,10 @@ def _check_task_file_structure(content: str, file_path: str) -> list[str]:
         content: The raw Markdown text of the task file.
         file_path: The file path (used for filename-based ID checks and the
             **File:** header path-drift comparison).
+        root: The caller's project root. A relative header and a relative
+            actual path are both resolved against it, so the comparison never
+            depends on the lint server process CWD. When omitted, resolution
+            falls back to the process CWD (legacy callers).
 
     Returns:
         A list of issue descriptions found in the content.
@@ -251,8 +274,11 @@ def _check_task_file_structure(content: str, file_path: str) -> list[str]:
     # lint_task_file tool explicitly accepts both absolute and relative paths,
     # so a relative header (`tasks/in-progress/97-foo.md`) and an absolute
     # actual path (`/repo/tasks/in-progress/97-foo.md`) describe the same file
-    # and must match. Path.resolve() collapses relative components, "..", and
-    # symlinks so equivalent spellings of the same file never false-positive.
+    # and must match. Both sides resolve against the caller's project root
+    # (`root`) rather than the server CWD, because the lint server is a
+    # singleton whose CWD is its install directory; resolving against that CWD
+    # flagged every task whose header is relative. Path.resolve() still
+    # collapses "..", and symlinks so equivalent spellings never false-positive.
     # This still catches genuinely stale headers left behind after git mv
     # between Kanban directories (different file => different resolved path).
     file_header_match = re.search(r"\*\*File:\*\*\s*`([^`]+)`", content)
@@ -260,7 +286,9 @@ def _check_task_file_structure(content: str, file_path: str) -> list[str]:
         issues.append("Missing `**File:**` metadata field.")
     else:
         header_path = file_header_match.group(1).strip()
-        if Path(header_path).resolve() != Path(file_path).resolve():
+        if _resolve_task_reference(header_path, root) != _resolve_task_reference(
+            file_path, root
+        ):
             issues.append(
                 f"File path mismatch: header says '{header_path}' but actual path is '{file_path}'."
             )
@@ -737,7 +765,7 @@ def lint_task_file(task_file_path: str, project_root: str | None = None) -> str:
         return f"Error reading file: {e}"
 
     md_issues = _check_markdown_basics(content, task_file_path)
-    task_issues = _check_task_file_structure(content, task_file_path)
+    task_issues = _check_task_file_structure(content, str(path), root=workspace_root)
     meta_issues = _check_bundle_meta_structure(content, task_file_path)
     planner_issues = _check_planner_metadata(content, task_file_path)
 
@@ -801,7 +829,7 @@ def lint_all_tasks(
 
             issues = (
                 _check_markdown_basics(content, str(md_file))
-                + _check_task_file_structure(content, str(md_file))
+                + _check_task_file_structure(content, str(md_file), root=workspace_root)
                 + _check_planner_metadata(content, str(md_file))
             )
             if issues:

@@ -307,6 +307,117 @@ Test
     )
 
 
+def _load_lint_module(name: str):
+    """Import the lint server as an isolated module for path-resolution tests."""
+    import importlib.util
+
+    server_path = Path(__file__).parent.parent / "mcp-lint-server" / "server.py"
+    spec = importlib.util.spec_from_file_location(name, server_path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def _valid_task_body(header_path: str) -> str:
+    """A minimal task file that satisfies every lint section and metadata rule."""
+    return f"""# Task 99: Test
+
+**File:** `{header_path}`
+**Source:** orchestrator
+**Type:** improvement
+**Status:** open
+
+## Goal
+
+Test
+
+## Local TODOs
+
+- [x] Test
+
+## Acceptance Criteria
+
+- [x] Test
+
+## Verification Evidence
+
+Test
+
+## Risk & Rollback
+
+Test
+
+## Execution Log & Reasoning
+
+Test
+
+## Factual Git Diff
+
+<!-- BEGIN_GIT_DIFF -->
+<!-- END_GIT_DIFF -->
+"""
+
+
+def test_lint_task_file_resolves_paths_against_project_root(tmp_path):
+    """The path-drift guard must resolve both sides against `project_root`.
+
+    Fail-first regression: with the comparison anchored to the lint server's
+    CWD, an absolute task path and its equivalent relative header resolve to
+    different absolute paths and the guard reports a mismatch on a correct
+    file. `root` removes the CWD from the comparison entirely.
+    """
+    mod = _load_lint_module("lint_server_root_resolution")
+    content = _valid_task_body("tasks/qa/99-test.md")
+    candidate = tmp_path / "tasks" / "qa" / "99-test.md"
+    candidate.parent.mkdir(parents=True)
+
+    absolute_issues = mod._check_task_file_structure(
+        content, str(candidate), root=tmp_path
+    )
+    assert not any("File path mismatch" in i for i in absolute_issues), (
+        f"Absolute path under root must match its relative header: {absolute_issues}"
+    )
+
+    relative_issues = mod._check_task_file_structure(
+        content, "tasks/qa/99-test.md", root=tmp_path
+    )
+    assert not any("File path mismatch" in i for i in relative_issues), (
+        f"Relative path must resolve under root, not the server CWD: {relative_issues}"
+    )
+
+    stale_issues = mod._check_task_file_structure(
+        content, str(tmp_path / "tasks" / "backlog" / "99-test.md"), root=tmp_path
+    )
+    assert any("File path mismatch" in i for i in stale_issues), (
+        f"Stale header in another lane must still be flagged: {stale_issues}"
+    )
+
+    absolute_header_content = _valid_task_body(str(candidate))
+    mixed_issues = mod._check_task_file_structure(
+        absolute_header_content, "tasks/qa/99-test.md", root=tmp_path
+    )
+    assert not any("File path mismatch" in i for i in mixed_issues), (
+        f"Absolute header must match a relative actual path under root: {mixed_issues}"
+    )
+
+
+def test_lint_all_tasks_accepts_relative_file_header(tmp_path):
+    """Batch lint must not flag every task just because it scans absolute paths.
+
+    Fail-first regression: `lint_all_tasks` handed absolute file paths to the
+    guard while task headers are relative, so it reported one false mismatch
+    per file and no run could ever come back clean.
+    """
+    mod = _load_lint_module("lint_server_all_tasks")
+    task = tmp_path / "tasks" / "backlog" / "99-test.md"
+    task.parent.mkdir(parents=True)
+    task.write_text(_valid_task_body("tasks/backlog/99-test.md"), encoding="utf-8")
+
+    tool = mod.lint_all_tasks
+    report = getattr(tool, "fn", tool)(project_root=str(tmp_path))
+    assert "Found 0 total issues" in report, report
+
+
 def test_lint_task_file_rejects_file_path_mismatch():
     """Verify the lint server rejects a `**File:**` header that drifted across Kanban dirs.
 
