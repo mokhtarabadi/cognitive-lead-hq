@@ -2486,7 +2486,7 @@ _LINE_CAP_CHARS = 200_000
 #:
 #: This bounds ONLY what is sent to the model. The transcript file is
 #: append-only and keeps every turn forever: the industry pattern
-#: (OpenCode, Claude Code, Codex) is to persist the full transcript and
+#: (OpenCode and other agentic clients) is to persist the full transcript and
 #: compact the sent context, never to discard stored history.
 _COMPACT_AFTER_MESSAGES = 30
 _COMPACT_KEEP_LAST = 10
@@ -3349,7 +3349,7 @@ def brain_turn(
             ``<project_root>/tasks/`` (e.g. "tasks/qa/257-x.md").
             Paths escaping the tasks/ lanes are rejected.
         required_tools: Optional list of tool names the turn's stage
-            requires (e.g. ["question"]). Missing-required tools gate
+            requires (e.g. ["default.question"]). Missing-required tools gate
             the turn before transport (see capability).
 
     Returns:

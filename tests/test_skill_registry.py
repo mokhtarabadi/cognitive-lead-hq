@@ -407,6 +407,23 @@ def _local_skill_names():
     )
 
 
+def test_doc_coauthoring_skill_is_runtime_neutral():
+    text = _template_text("doc-coauthoring")
+    for banned in (
+        "Claude",
+        "claude.ai",
+        "Anthropic",
+        "create_file",
+        "str_replace",
+        "connectors",
+        "artifact",
+    ):
+        assert banned not in text, f"Claude-centric term in doc-coauthoring: {banned}"
+    assert "`write` tool" in text
+    assert "`edit` tool" in text
+    assert "subagent" in text
+
+
 def test_audit_template_requires_project_skills_table():
     text = (ROOT / "skill-templates" / "audit-agents" / "SKILL.md").read_text(
         encoding="utf-8"

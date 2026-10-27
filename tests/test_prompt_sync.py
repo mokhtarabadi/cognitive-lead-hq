@@ -44,7 +44,28 @@ def test_shipped_version_is_expected_minor_bump():
     shipped = re.search(
         r"<system_version>(.*?)</system_version>", _read(SHIPPED)
     ).group(1)
-    assert shipped == "9.67.0"
+    assert shipped == "9.68.0"
+
+
+def test_shipped_prompt_names_only_catalog_tools():
+    """The shipped prompt must not name tools outside the session toolset.
+
+    Regression (night sweep): fragments named `nodejs-express` (no such
+    skill), `@explore`/`@general` (no such subagents), and `view_file` /
+    `apply_patch` (no such native tools). The Hands cannot call what does
+    not exist, so phantom names are a hard failure, not style.
+    """
+    text = _read(SHIPPED)
+    for phantom in (
+        "nodejs-express",
+        "@explore",
+        "@general",
+        "view_file",
+        "apply_patch",
+    ):
+        assert phantom not in text, f"phantom tool name in shipped prompt: {phantom}"
+    assert "node-hexagonal-api" in text
+    assert "cognitive-discovery" in text
 
 
 def test_executor_carries_compaction_guidance():

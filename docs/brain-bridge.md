@@ -76,7 +76,7 @@ disk. Only the load VIEW is compacted in memory — one deterministic
 digest record plus the newest records — so a task keeps its full
 history while the send path stays bounded. The earlier lossy rewrite
 (which replaced the file with the digest) was removed. This matches
-the industry pattern: OpenCode, Claude Code, and Codex all persist the
+the industry pattern: OpenCode and other agentic clients all persist the
 full transcript and compact only what they send; OpenCode keeps full
 session history in SQLite.
 

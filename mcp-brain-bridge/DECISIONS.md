@@ -57,3 +57,10 @@
 - **Decision:** `_OVERALL_DEADLINE_S` becomes `BRAIN_OVERALL_DEADLINE_S` (default 900s, fail-loud on malformed), and the proxy hop becomes `ZEN_PROXY_UPSTREAM_TIMEOUT` (default 900s). Ordering contract: httpx read ≤ bridge overall ≤ MCP client execution, with the proxy at or below the bridge overall so its disconnects surface as retryable rather than as a deadline.
 - **Consequences:** Long reasoning turns complete; a truly hung provider now surfaces later (bounded by the client timeout). The existing test that forced the deadline was updated to patch the new default constant.
 - **Rollback:** Unset both env vars to restore code defaults, or set them to 500/300 explicitly for the old behavior.
+
+## [2026-10-27] ADR-009: Server Prose Stays Runtime-Neutral
+
+- **Context:** A code comment named a vendor trio as the transcript-persistence pattern, and the `brain_turn` docstring used `["question"]` as its `required_tools` example although no `tools.question` Code Mode path exists.
+- **Decision:** The comment names OpenCode and other agentic clients; the example names `default.question`, the session tool that actually gates the turn.
+- **Consequences:** Server prose no longer teaches tool names the catalog cannot resolve. Comment-only change; no wire behavior touched.
+- **Rollback:** Restore the two lines from git history.

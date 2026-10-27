@@ -13,7 +13,7 @@
 | **Media** | `send_file`, `download_media`, `send_voice`, `send_sticker` | File-path security via allowed roots |
 | **Profile/Privacy** | `get_me`, `update_profile`, `set_profile_photo`, `get_user_info` | |
 | **Folders/Drafts** | `list_folders`, `create_folder`, `save_draft` | |
-| **Events** | `wait_for_new_message`, `wait_for_settled_message`, `enable_incoming_feed`, `incoming_feed_status` | Callback mode for Claude Code |
+| **Events** | `wait_for_new_message`, `wait_for_settled_message`, `enable_incoming_feed`, `incoming_feed_status` | Callback mode for agentic clients |
 
 All Telegram-controlled strings are sanitized (`sanitize_user_content`) and returned as structured JSON.
 
@@ -23,7 +23,7 @@ All Telegram-controlled strings are sanitized (`sanitize_user_content`) and retu
 
 1. Python 3.10+ and `uv` (`curl -LsSf https://astral.sh/uv/install.sh | sh`)
 2. Telegram API credentials from https://my.telegram.org/apps → `API_ID` + `API_HASH`
-3. MCP client (OpenCode, Claude Desktop, Cursor)
+3. MCP client (OpenCode, or any MCP-compatible client such as Claude Desktop or Cursor)
 4. Optional: `python-socks` for proxy (`uv sync --extra proxy`)
 
 ## 3. Generate a Session String (per account)
@@ -167,7 +167,7 @@ $HOME/.config/opencode/mcp-telegram-server/.venv/bin/python $HOME/.config/openco
 
 Replace `$HOME` with your actual absolute home path (e.g., `/home/<user>` or `/Users/<user>`, see `LLM.txt` Step 3). Restart OpenCode after saving (`opencode.json` loaded once at startup).
 
-### 5.2 Claude Desktop / Cursor
+### 5.2 Other MCP clients (Claude Desktop / Cursor)
 
 ```json
 {
@@ -190,7 +190,8 @@ Replace `$HOME` with your actual absolute home path (e.g., `/home/<user>` or `/U
 ```bash
 MCP_TRANSPORT=http MCP_HOST=0.0.0.0 uv run main.py  # inside container/Docker
 # publish only locally: docker run -p 127.0.0.1:8765:8765
-claude mcp add --transport http telegram http://127.0.0.1:8765/mcp
+# any MCP-compatible CLI can register the shared endpoint, e.g.:
+# <client> mcp add --transport http telegram http://127.0.0.1:8765/mcp
 codex mcp add telegram --url http://127.0.0.1:8765/mcp
 ```
 

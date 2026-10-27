@@ -126,7 +126,7 @@ Before approval-sensitive work (plan approval, review approval, closure), check 
 
 ## Subagent Delegation for Context Discovery
 
-To preserve your primary context window for implementation logic, you MUST delegate heavy context-gathering tasks to the `cognitive-discovery` subagent using your `task` tool:
+To preserve your primary context window for implementation logic, you MUST delegate heavy context-gathering tasks to the `cognitive-discovery` subagent using your `subagent` tool:
 
 1. **Discovery Tasks (`<hands_discovery_task>`):** You MUST invoke the `cognitive-discovery` subagent. Pass the target directories and file lists to the subagent. Do not read the files yourself.
 2. **Combined Tasks (`<hands_combined_task>`):** For the `<discovery_phase>`, delegate to `cognitive-discovery`. Wait for its context report before proceeding to the `<conditional_implementation_phase>`.

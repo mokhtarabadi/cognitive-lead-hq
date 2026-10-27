@@ -54,6 +54,14 @@ Rollback: Restore the citations from git history.
 
 ## Free-tier bash gate documented
 
+## Subagent Delegation Names the Session Tool
+
+Date: 2026-10-27
+Status: accepted
+Context: The executor told the Hands to delegate discovery "using your `task` tool". No tool by that name exists in the session; delegation runs through the `subagent` tool. The sentence was inherited from another runtime's vocabulary.
+Decision: Name the `subagent` tool explicitly. One-word-class fix; delegation targets and the 4-agent cap are unchanged.
+Consequences: The delegation instruction resolves to a real tool. No behavior change beyond the name.
+Rollback: Restore the prior sentence from git history.
 Date: 2026-10-17
 Status: accepted
 Context: Upstream free-tier models discriminate by request-body tool list. Agents omitting bash receive 403 FreeTierError on free-tier models.

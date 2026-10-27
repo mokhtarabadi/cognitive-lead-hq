@@ -7,8 +7,8 @@
 
   <context_phase>
     HANDS INSTRUCTION: You are in DISCOVERY mode. Your goal is to gather context for the Orchestrator.
-    CRITICAL: Do NOT use your native `read` or `view_file` tools to output file contents inline. You must use the `custom_context` MCP server tools.
-    SKILL LOADING: Load every available skill matching the project's tech stack (e.g., android-kotlin, spring-boot, react-vite, nodejs-express, python-fastapi). If the task involves creating a new task file, also load the `task-generator` skill. Skills are optional but if present they MUST be loaded before proceeding.
+    CRITICAL: Do NOT use your native `read` tool to output file contents inline. You must use the `custom_context` MCP server tools.
+    SKILL LOADING: Load every available skill matching the project's tech stack (e.g., android-kotlin, spring-boot, react-vite, node-hexagonal-api, python-fastapi). If the task involves creating a new task file, also load the `task-generator` skill. Skills are optional but if present they MUST be loaded before proceeding.
 </context_phase>
 
   <execution_phase>
@@ -41,7 +41,7 @@
 <!--INCLUDE:shared/validation-phase.md|NEXT_PHASE=Context-->
 
   <context_phase>
-    HANDS INSTRUCTION: Read the active task file in `tasks/`. Use your native tools (`read`, `glob`, `skill`) to gain context. If the task is massive, delegate exploration to your subagents: use a read-only codebase-mapping subagent (e.g., `@explore`) for fast mapping, or a research subagent for external docs/dependency research and complex multi-step research. Utilize any configured MCP servers if external context is required.
+    HANDS INSTRUCTION: Read the active task file in `tasks/`. Use your native tools (`read`, `glob`, `skill`) to gain context. If the task is massive, delegate exploration to your subagents: use the read-only `cognitive-discovery` subagent for fast mapping, or a research subagent for external docs/dependency research and complex multi-step research. Utilize any configured MCP servers if external context is required.
     **MANDATORY SKILL ORCHESTRATION:** Load the following skills:
     1. [Skill Name 1]: [Explain exactly WHY the Hands need this skill and HOW to use it for this task]
     2. [Skill Name 2]: [Explain exactly WHY and HOW...]
@@ -65,7 +65,7 @@
 
      CRITICAL TOOL RULES:
      0. **Rule Validation & Halt Protocol:** Before writing any code, cross-check these instructions against AGENTS.md, DESIGN.md, and loaded SKILL files. If the Orchestrator's instructions violate ANY project rules or architectural constraints, you MUST HALT immediately. Do NOT run any bash commands. Output a `RULE VIOLATION WARNING` detailing exactly which rule was broken so the Orchestrator can self-correct.
-     1. If applying file patches, utilize your native file-editing tools (e.g., `apply_patch`). Use path markers relative to the project root (e.g., `*** Add File: <path>` or `*** Update File: <path>`) with standard unified diff format `@@ ... @@` where the platform supports it.
+     1. If applying file patches, utilize your native file-editing tools (`edit` for replacements, `write` for new files). Use path markers relative to the project root (e.g., `*** Add File: <path>` or `*** Update File: <path>`) with standard unified diff format `@@ ... @@` where the platform supports it.
      2. If user feedback is required, first check the session capability manifest for your question/clarification tool. If the tool is AVAILABLE, utilize it with multi-option schemas. If it is UNAVAILABLE, do NOT silently skip the question: relay it to the Manager as one narrow question with the options inline, then wait for the answer (manual mode) or record the replay-or-halt decision in the task file (autopilot mode).
      3. **Documentation Rule:** You MUST write maximum docstrings on all public functions/classes, verbose inline comments on non-obvious logic, and a brief README or header comment for any new module. See `<constraints>` for the full mandate.
      4. **Syntax Verification:** You MUST explicitly instruct the Hands to use their language/type-check tooling (e.g., `lsp` in OpenCode) to verify types and syntax before concluding the execution phase.
@@ -130,7 +130,7 @@
     1.6. GRAPH-FIRST: Run `custom_context_build_graph` once on the target scope (saves versioned `graph_*.json` + `graph_report_*.md`), then prefer `custom_context_query_graph` / `custom_context_explain_node` / `custom_context_shortest_path` / `custom_context_god_nodes` for cross-file questions before falling back to full reads.
     2. Run the `custom_context_read_source_files` tool to fetch the absolute source of truth: `AGENTS.md`, `DESIGN.md`, `docs/architecture.md`, `docs/data_model.md`, and `docs/conventions.md`. If they exist, they MUST be included in the report.
     3. Compile the results into a single context report using the MCP tools.
-    CRITICAL: Do NOT use your native `read` or `view_file` tools to output file contents inline. You must use the `custom_context` MCP server tools.
+    CRITICAL: Do NOT use your native `read` tool to output file contents inline. You must use the `custom_context` MCP server tools.
 </discovery_phase>
 
   <conditional_implementation_phase>

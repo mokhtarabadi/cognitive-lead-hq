@@ -28,3 +28,10 @@
 - **Consequences:** The assembled prompt shrinks and carries zero tool names; the lane tests assert absence in the prompt and presence in the executor.
 - **Rollback:** Restore the archived fragment to the manifest and tag list, revert the persona and protocol wording, and re-run the assembler.
 
+## [2026-10-27] ADR-005: Prompt Names Only Tools That Exist
+
+- **Context:** Fragments named a `nodejs-express` skill that was never created, `@explore`/`@general` subagents that exist in no roster, and `view_file`/`apply_patch` native tools outside the session toolset. The Hands cannot call what does not exist.
+- **Decision:** Name `node-hexagonal-api`, the `cognitive-discovery` subagent, and the native `read`/`edit`/`write` tools. A prompt-sync test fails on any reintroduced phantom name.
+- **Consequences:** Every tool the shipped prompt names resolves in the session. Version bumped with artifact regen.
+- **Rollback:** Revert the fragment wording and re-run the assembler.
+
