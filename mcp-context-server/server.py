@@ -182,8 +182,29 @@ def _project_tool(fn):
     return mcp.tool()(wrapper)
 
 
+def _safe_depth(value: object) -> int:
+    """Clamp a caller-supplied tree depth to the supported range."""
+    try:
+        return max(1, min(int(value), TREE_MAX_DEPTH))
+    except (TypeError, ValueError):
+        return 3
+
+
+def _safe_entries(value: object) -> int:
+    """Clamp a caller-supplied tree entry cap to the supported range."""
+    try:
+        return max(1, min(int(value), TREE_MAX_ENTRIES))
+    except (TypeError, ValueError):
+        return TREE_MAX_ENTRIES
+
+
 @_project_tool
-def get_directory_tree(target_path: str = ".", project_root: str | None = None) -> str:
+def get_directory_tree(
+    target_path: str = ".",
+    project_root: str | None = None,
+    max_depth: int = 3,
+    max_entries: int = TREE_MAX_ENTRIES,
+) -> str:
     """Generates an ASCII tree representation of the directory, respecting .gitignore. Use this to discover codebase structure with immediate inline output. Use create_tree_report instead when a persistent saved report file is required. project_root: absolute path to the calling project's repository root. Used to scope file resolution to that project. If omitted, falls back to the server working directory for backward compatibility."""
     # Security: mirror create_tree_report — coerce bad types, resolve against
     # the workspace root, reject escapes. Previously a bare "/" walked the
@@ -207,8 +228,12 @@ def get_directory_tree(target_path: str = ".", project_root: str | None = None) 
         return f"Error: {target_path} is not a valid directory."
     if ignore_filter.is_ignored(tree_path):
         return f"Warning: Target tree path is ignored by .gitignore: {target_path}"
-    return f"## Directory Tree: `{tree_path}`\n\n" + generate_tree(
-        tree_path, ignore_filter
+    depth = _safe_depth(max_depth)
+    entries = _safe_entries(max_entries)
+    return (
+        f"## Directory Tree: `{tree_path}`\n\n"
+        f"(depth {depth}, entry cap {entries}; pass max_depth/max_entries for more)\n\n"
+        + generate_tree(tree_path, ignore_filter, max_depth=depth, max_entries=entries)
     )
 
 
@@ -220,7 +245,15 @@ def get_directory_tree(target_path: str = ".", project_root: str | None = None) 
 
 
 @_project_tool
-def build_graph(target_path: str = ".", project_root: str | None = None) -> str:
+def build_graph(
+    target_path: str = ".",
+    project_root: str | None = None,
+    include: list[str] | None = None,
+    exclude: list[str] | None = None,
+    max_files: int | None = None,
+    max_docs: int | None = None,
+    max_nodes: int | None = None,
+) -> str:
     """Builds a unified deterministic knowledge-graph (code incl. SQL plus Markdown docs: files + symbols + sections, contains/imports/references with EXTRACTED/INFERRED tags) and saves versioned graph.json plus a markdown report under context-reports/. Use before query_graph/explain_node/shortest_path/god_nodes. project_root scopes the scan; target_path scopes the subgraph."""
     if not isinstance(target_path, str):
         target_path = "."
@@ -242,10 +275,35 @@ def build_graph(target_path: str = ".", project_root: str | None = None) -> str:
     if not tgt.exists():
         return f"Error: {target_path} not found."
     started = time.monotonic()
-    data = _build_graph_data(workspace_root, tgt if tgt.is_dir() else tgt.parent)
+    data = _build_graph_data(
+        workspace_root,
+        tgt if tgt.is_dir() else tgt.parent,
+        include=include if isinstance(include, list) else None,
+        exclude=exclude if isinstance(exclude, list) else None,
+        max_files=max_files if isinstance(max_files, int) else None,
+        max_docs=max_docs if isinstance(max_docs, int) else None,
+        max_nodes=max_nodes if isinstance(max_nodes, int) else None,
+    )
     json_path, md_path = _save_graph(workspace_root, data, str(tgt))
     dur = time.monotonic() - started
-    return f"✅ Success: Graph built for `{tgt}`.\n📊 {len(data['nodes'])} nodes, {len(data['links'])} links in {dur:.2f}s (schema {GRAPH_SCHEMA_VERSION}, caps files {GRAPH_MAX_FILES}).\n📁 Graph: `{json_path}`\n📁 Report: `{md_path}`"
+    meta = data.get("meta", {})
+    caps = meta.get("caps", {})
+    scanned = meta.get("scanned", {})
+    indexed = meta.get("indexed", {})
+    reasons = [name for name, hit in (meta.get("truncated") or {}).items() if hit]
+    coverage = (
+        f"📈 Coverage: {indexed.get('files', 0)}/{scanned.get('files', 0)} files, "
+        f"{indexed.get('docs', 0)}/{scanned.get('docs', 0)} docs"
+        + (f" (truncated: {', '.join(reasons)})" if reasons else " (complete)")
+    )
+    return (
+        f"✅ Success: Graph built for `{tgt}`.\n"
+        f"📊 {len(data['nodes'])} nodes, {len(data['links'])} links in {dur:.2f}s "
+        f"(schema {GRAPH_SCHEMA_VERSION}, caps files {caps.get('files')}/docs "
+        f"{caps.get('docs')}/nodes {caps.get('nodes')}).\n"
+        f"{coverage}\n"
+        f"📁 Graph: `{json_path}`\n📁 Report: `{md_path}`"
+    )
 
 
 @_project_tool
@@ -269,12 +327,19 @@ def query_graph(
     if err or data is None:
         return f"Error: {err}"
     toks = _graph_tokens(question)
+    exact_needle = question.strip().lower()
     scored: list[tuple[int, dict]] = []
     for n in data.get("nodes", []):
         nt = _graph_tokens(f"{n.get('label', '')} {n.get('source_file', '')}")
-        s = len(toks & nt)
-        if s > 0:
-            scored.append((s, n))
+        overlap = len(toks & nt)
+        if overlap == 0 and n.get("label", "").lower() != exact_needle:
+            continue
+        nid = n.get("id", "")
+        weight = 3 if nid.startswith("sym:") else 2 if nid.startswith("file:") else 1
+        score = overlap * weight
+        if n.get("label", "").lower() == exact_needle or nid.lower() == exact_needle:
+            score += 50
+        scored.append((score, n))
     scored.sort(key=lambda x: (-x[0], x[1]["id"]))
     seeds = [n for _, n in scored[:3]]
     if not seeds:
@@ -326,6 +391,7 @@ def query_graph(
     lines = [
         f"Query ({mode}): {question}",
         f"Graph: `{gp}`",
+        _graph_coverage_line(data, workspace_root),
         f"Seeds: {', '.join(s.get('label', '?') for s in seeds)}",
         "",
         f"Nodes ({len(keep)}):",
@@ -448,7 +514,12 @@ def god_nodes(
     data, gp, err = _load_graph_data(workspace_root, graph_path)
     if err or data is None:
         return f"Error: {err}"
-    deg = _graph_degrees(data)
+    weights = {"EXTRACTED": 2, "INFERRED": 1}
+    deg: dict[str, int] = {n["id"]: 0 for n in data.get("nodes", [])}
+    for e in data.get("links", []):
+        w = weights.get(e.get("confidence"), 1)
+        deg[e["source"]] = deg.get(e["source"], 0) + w
+        deg[e["target"]] = deg.get(e["target"], 0) + w
     id2n = {n["id"]: n for n in data.get("nodes", [])}
 
     def _noisy(label: str) -> bool:
@@ -469,9 +540,59 @@ def god_nodes(
     for d, nid in ranked:
         n = id2n.get(nid, {})
         lines.append(
-            f"- {n.get('label', '?')} (degree {d}, {n.get('source_file', '?')} {n.get('source_location', '')})"
+            f"- {n.get('label', '?')} — {n.get('source_file', '?')}"
+            f"{(' ' + n.get('source_location')) if n.get('source_location') else ''}"
+            f" (weighted degree {d})"
         )
     return "\n".join(lines)
+
+
+def _graph_stale_source(data: dict, workspace_root: Path) -> str | None:
+    """Name the first indexed source modified after the build, if any."""
+    meta = data.get("graph", {}) or {}
+    built_at = meta.get("built_at")
+    sources = meta.get("sources") or []
+    if not built_at or not sources:
+        return None
+    newest_mtime = 0.0
+    newest_path: str | None = None
+    for rel in sources:
+        try:
+            mtime = (workspace_root / rel).stat().st_mtime
+        except OSError:
+            continue
+        if mtime > newest_mtime:
+            newest_mtime, newest_path = mtime, rel
+    return newest_path if newest_mtime > built_at else None
+
+
+def _graph_coverage_line(data: dict, workspace_root: Path) -> str:
+    """One line that makes partial coverage and staleness impossible to miss."""
+    meta = data.get("graph", {}) or {}
+    scanned = meta.get("scanned") or {}
+    indexed = meta.get("indexed") or {}
+    caps = meta.get("caps") or {}
+    truncated = meta.get("truncated") or {}
+    if not scanned:
+        return "Coverage: unknown (graph built before coverage metadata; rebuild)."
+    flags = [name for name, hit in truncated.items() if hit]
+    line = (
+        f"Coverage: {indexed.get('files', 0)}/{scanned.get('files', 0)} files, "
+        f"{indexed.get('docs', 0)}/{scanned.get('docs', 0)} docs; caps "
+        f"files {caps.get('files', '?')}/docs {caps.get('docs', '?')}/"
+        f"nodes {caps.get('nodes', '?')}"
+    )
+    if flags:
+        line += (
+            f"; truncated: {', '.join(flags)} — absence here is not proof of "
+            "absence, rebuild or narrow with include"
+        )
+    else:
+        line += "; complete"
+    stale = _graph_stale_source(data, workspace_root)
+    if stale:
+        line += f"; STALE: `{stale}` changed after the build (rebuild)"
+    return line
 
 
 @_project_tool
@@ -488,7 +609,13 @@ def graph_stats(graph_path: str | None = None, project_root: str | None = None) 
     inf = sum(1 for e in data.get("links", []) if e.get("confidence") == "INFERRED")
     tot = len(data.get("links", []))
     schema = (data.get("graph", {}) or {}).get("schema_version", "?")
-    return f"Graph: `{gp}`\nNodes: {len(data.get('nodes', []))} Edges: {tot} (EXTRACTED {ext} / INFERRED {inf} / AMBIGUOUS {tot - ext - inf})\nSchema: {schema}"
+    return (
+        f"Graph: `{gp}`\n"
+        f"Nodes: {len(data.get('nodes', []))} Edges: {tot} "
+        f"(EXTRACTED {ext} / INFERRED {inf} / AMBIGUOUS {tot - ext - inf})\n"
+        f"{_graph_coverage_line(data, workspace_root)}\n"
+        f"Schema: {schema}"
+    )
 
 
 @_project_tool
@@ -573,7 +700,12 @@ def read_source_files(
 
 
 @_project_tool
-def create_tree_report(target_path: str = ".", project_root: str | None = None) -> str:
+def create_tree_report(
+    target_path: str = ".",
+    project_root: str | None = None,
+    max_depth: int = 3,
+    max_entries: int = TREE_MAX_ENTRIES,
+) -> str:
     """Creates a .gitignore-aware directory tree of a path or the entire project and saves it as a Markdown file under context-reports/ (named tree_report_<timestamp>_<uuid>.md). Use when the Manager asks to 'create a tree of the project' or 'create a tree of <path>'. Security: target_path is resolved against the workspace root and rejected if it escapes the project (path traversal prevention). project_root: absolute path to the calling project's repository root. Used to scope file resolution to that project. If omitted, falls back to the server working directory for backward compatibility."""
     # Security: Coerce None or invalid types back to the whole-project default
     # so a malformed tool invocation degrades gracefully instead of crashing.
@@ -605,7 +737,12 @@ def create_tree_report(target_path: str = ".", project_root: str | None = None) 
     if ignore_filter.is_ignored(tree_path):
         return f"Warning: Target tree path is ignored by .gitignore: {target_path}"
 
-    tree_text = generate_tree(tree_path, ignore_filter)
+    tree_text = generate_tree(
+        tree_path,
+        ignore_filter,
+        max_depth=_safe_depth(max_depth),
+        max_entries=_safe_entries(max_entries),
+    )
 
     # Ensure the PROJECT's output directory exists (never the server cwd).
     report_dir = workspace_root / "context-reports"
@@ -637,9 +774,62 @@ def create_tree_report(target_path: str = ".", project_root: str | None = None) 
     )
 
 
+_SIGNATURE_EXTS = {
+    ".py",
+    ".js",
+    ".jsx",
+    ".mjs",
+    ".cjs",
+    ".ts",
+    ".tsx",
+    ".mts",
+    ".cts",
+    ".go",
+    ".java",
+    ".jsp",
+    ".rs",
+    ".kt",
+    ".kts",
+    ".swift",
+    ".rb",
+    ".php",
+    ".cs",
+}
+
+
+def _signature_block(path: Path, label: str) -> str | None:
+    """Tree-sitter first, regex fallback. None when the file has no signature."""
+    try:
+        ts_result = _extract_via_tree_sitter(path)
+    except Exception:
+        ts_result = None
+    if ts_result:
+        return ts_result
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            content = f.read()
+    except Exception:
+        return None
+    pattern = re.compile(
+        r"^(?:\s*(?:export|default|public|private|protected|internal|pub|static|abstract|final|override|inline|open|suspend)\s+)*"
+        r"(?:class|struct|enum|trait|impl|interface|type|def|fun|func(?:tion)?)\s+\w+.*$",
+        re.MULTILINE,
+    )
+    arrow_pattern = re.compile(
+        r"^(?:export\s+)?(?:const|let)\s+\w+\s*=\s*(?:async\s*)?(?:\([^)]*\)|[^=]*)\s*=>.*$",
+        re.MULTILINE,
+    )
+    all_matches = pattern.findall(content) + arrow_pattern.findall(content)
+    if not all_matches:
+        return None
+    return f"### Signatures in {label}\n" + "\n".join(all_matches)
+
+
 @_project_tool
-def extract_signatures(file_path: str, project_root: str | None = None) -> str:
-    """Extracts structural signatures (classes, functions, methods) from source files using tree-sitter AST. Falls back to regex when no tree-sitter grammar is available for the language. Saves the result to a Markdown file under context-reports/ and returns the report file path. Use for a structural API outline without file bodies. Use read_source_files instead when full source content is required. project_root: absolute path to the calling project's repository root. Used to scope file resolution to that project. If omitted, falls back to the server working directory for backward compatibility."""
+def extract_signatures(
+    file_path: str, project_root: str | None = None, max_chars: int = 12000
+) -> str:
+    """Extracts structural signatures (classes, functions, methods, interfaces) with tree-sitter AST and a regex fallback. Accepts one file OR a directory (up to 200 matching files), writes a Markdown report under context-reports/, and returns the signatures inline (capped by max_chars) so the caller never has to open the report. Markdown/HTML/JSON report that no signatures exist instead of failing silently. project_root scopes resolution; max_chars caps the inline text."""
     # Master try/except: ensure extract_signatures never crashes the MCP server
     try:
         try:
@@ -653,51 +843,47 @@ def extract_signatures(file_path: str, project_root: str | None = None) -> str:
         path = Path(file_path)
         if not path.is_absolute():
             path = workspace_root / file_path
-        if not path.is_file():
-            return f"Error: File not found: {file_path}"
         try:
             path.resolve().relative_to(workspace_root)
         except ValueError:
             return f"Error: path escapes project: {file_path}"
-
-        result_content = None
-
-        # Try tree-sitter AST extraction first (wrapped — fall back to regex on any failure)
-        try:
-            ts_result = _extract_via_tree_sitter(path)
-            if ts_result:
-                result_content = ts_result
-        except Exception as ts_err:
-            # Tree-sitter failed (missing grammar, parse error, etc.) — proceed to regex
-            pass
-
-        # Fallback to regex if tree-sitter did not produce results
-        if result_content is None:
-            # Read the RESOLVED path: under the singleton the raw relative
-            # file_path resolves against the server cwd, not the project root.
-            with open(path, "r", encoding="utf-8") as f:
-                content = f.read()
-
-            # Match class, function, def, interface, type — with access modifiers
-            pattern = re.compile(
-                r"^(?:\s*(?:export|default|public|private|protected|internal|pub|static|abstract|final|override|inline|open|suspend)\s+)*"
-                r"(?:class|struct|enum|trait|impl|interface|type|def|fun|func(?:tion)?)\s+\w+.*$",
-                re.MULTILINE,
+        if not path.exists():
+            return f"Error: File not found: {file_path}"
+        if path.is_dir():
+            ignore = GitIgnoreFilter()
+            targets = sorted(
+                p
+                for p in collect_files(str(path), ignore)
+                if p.is_file() and p.suffix.lower() in _SIGNATURE_EXTS
+            )[:200]
+        else:
+            targets = [path]
+        if not targets:
+            return (
+                f"No structural signatures found in {file_path}. "
+                f"Supported extensions: {', '.join(sorted(_SIGNATURE_EXTS))}."
             )
-            matches = pattern.findall(content)
 
-            # Match const/let arrow functions
-            arrow_pattern = re.compile(
-                r"^(?:export\s+)?(?:const|let)\s+\w+\s*=\s*(?:async\s*)?(?:\([^)]*\)|[^=]*)\s*=>.*$",
-                re.MULTILINE,
+        blocks: list[str] = []
+        without_signatures = 0
+        for target in targets:
+            try:
+                label = target.resolve().relative_to(workspace_root).as_posix()
+            except ValueError:
+                continue
+            block = _signature_block(target, label)
+            if block:
+                blocks.append(block)
+            else:
+                without_signatures += 1
+        if not blocks:
+            return (
+                f"No structural signatures found in {file_path} "
+                f"({len(targets)} file(s) scanned). Supported extensions: "
+                f"{', '.join(sorted(_SIGNATURE_EXTS))}."
             )
-            arrow_matches = arrow_pattern.findall(content)
 
-            all_matches = matches + arrow_matches
-            if not all_matches:
-                return f"No structural signatures found in {file_path}."
-
-            result_content = f"### Signatures in {file_path}\n" + "\n".join(all_matches)
+        result_content = "\n\n".join(blocks)
 
         # Ensure the PROJECT's output directory exists (never the server cwd).
         report_dir = workspace_root / "context-reports"
@@ -712,10 +898,25 @@ def extract_signatures(file_path: str, project_root: str | None = None) -> str:
         with open(report_file, "w", encoding="utf-8") as f:
             f.write(result_content)
 
+        try:
+            cap = max(2000, min(int(max_chars), 60000))
+        except (TypeError, ValueError):
+            cap = 12000
+        inline = result_content
+        if len(inline) > cap:
+            inline = (
+                inline[:cap]
+                + f"\n... (inline cap {cap} chars; full text in the report)"
+            )
+        scope = (
+            f"{len(targets)} file(s), {without_signatures} without signatures"
+            if path.is_dir()
+            else "1 file"
+        )
         return (
-            f"✅ Success: Signatures extracted from `{file_path}`.\n"
+            f"✅ Success: Signatures extracted from `{file_path}` ({scope}).\n"
             f"📁 Generated Report: `{report_file}`\n\n"
-            f"Manager: You can now open `{report_file}` in your local editor to view the extracted signatures or copy/paste it directly for the AI."
+            f"{inline}"
         )
     except Exception as e:
         return f"Error extracting signatures from {file_path}: {str(e)}"

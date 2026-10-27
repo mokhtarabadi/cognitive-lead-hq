@@ -2861,6 +2861,144 @@ def test_graph_query_explain_path_god_stats():
         assert "Nodes:" in stats and "EXTRACTED" in stats, stats
 
 
+def test_graph_indexes_recent_tasks_and_reports_coverage():
+    """Recent task docs survive the cap, and the build reports real coverage."""
+    import json
+
+    mod = _load_context_server_hardening()
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as td:
+        repo = Path(td)
+        (repo / "a.py").write_text("def alpha():\n    return 1\n", encoding="utf-8")
+        for lane, task in (
+            ("archive", "0001-old-history.md"),
+            ("completed", "0355-recent-work.md"),
+        ):
+            (repo / "tasks" / lane).mkdir(parents=True, exist_ok=True)
+            (repo / "tasks" / lane / task).write_text(
+                f"# Task: {task}\n\n## Goal\n\nNotes.\n", encoding="utf-8"
+            )
+        out = mod.build_graph(".", max_docs=1, project_root=str(repo))
+        assert "Coverage:" in out, out
+        assert "truncated: docs" in out, out
+        graphs = sorted((repo / "context-reports").glob("graph_*.json"))
+        data = json.loads(graphs[-1].read_text(encoding="utf-8"))
+        meta = data["graph"]
+        assert meta["indexed"]["docs"] == 1, meta
+        assert meta["truncated"]["docs"] is True, meta
+        ids = {n["id"] for n in data["nodes"]}
+        assert "file:tasks/completed/0355-recent-work.md" in ids, ids
+        assert "file:tasks/archive/0001-old-history.md" not in ids, ids
+
+
+def test_graph_resolves_printed_ids_and_qualifies_god_nodes():
+    """The IDs the graph prints are usable, and god labels carry their file."""
+    mod = _load_context_server_hardening()
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as td:
+        repo = _graph_fixture_repo(Path(td))
+        assert "✅ Success" in mod.build_graph(".", project_root=str(repo))
+        ex = mod.explain_node("sym:a.py#alpha", project_root=str(repo))
+        assert "Node: alpha" in ex, ex[:400]
+        sp = mod.shortest_path(
+            "sym:c.py#gamma", "sym:b.py#beta", undirected=True, project_root=str(repo)
+        )
+        assert "hops" in sp.lower(), sp[:400]
+        gods = mod.god_nodes(3, project_root=str(repo))
+        assert "alpha — a.py" in gods, gods
+
+
+def test_query_graph_prefers_symbols_over_sections():
+    """Equal token overlap must rank the symbol above a prose section."""
+    mod = _load_context_server_hardening()
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as td:
+        repo = _graph_fixture_repo(Path(td))
+        (repo / "NOTES.md").write_text(
+            "# Alpha notes\n\nAlpha is discussed at length here.\n", encoding="utf-8"
+        )
+        assert "✅ Success" in mod.build_graph(".", project_root=str(repo))
+        q = mod.query_graph("alpha", project_root=str(repo))
+        seeds = q.split("Seeds: ", 1)[1].split("\n", 1)[0]
+        assert seeds.split(",")[0].strip() == "alpha", q[:600]
+
+
+def test_graph_cap_overrides_and_include_filter():
+    """Cap overrides are honored on every node path and include globs filter."""
+    import json
+
+    mod = _load_context_server_hardening()
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as td:
+        repo = _graph_fixture_repo(Path(td))
+        out = mod.build_graph(".", max_nodes=6, project_root=str(repo))
+        assert "✅ Success" in out, out
+        graphs = sorted((repo / "context-reports").glob("graph_*.json"))
+        data = json.loads(graphs[-1].read_text(encoding="utf-8"))
+        assert len(data["nodes"]) <= 6, len(data["nodes"])
+        # include filtering keeps only the matching file plus its symbols
+        out2 = mod.build_graph(".", include=["a.py"], project_root=str(repo))
+        assert "✅ Success" in out2, out2
+        filtered_path = Path(out2.split("Graph: `", 1)[1].split("`", 1)[0])
+        filtered = json.loads(filtered_path.read_text(encoding="utf-8"))
+        sources = {
+            n.get("source_file") for n in filtered["nodes"] if n.get("source_file")
+        }
+        assert sources == {"a.py"}, sources
+
+
+def test_graph_stats_reports_stale_sources():
+    """A source touched after the build must make stats say STALE."""
+    mod = _load_context_server_hardening()
+    import os as _os
+    import tempfile
+    import time as _time
+
+    with tempfile.TemporaryDirectory() as td:
+        repo = _graph_fixture_repo(Path(td))
+        assert "✅ Success" in mod.build_graph(".", project_root=str(repo))
+        future = _time.time() + 120
+        _os.utime(repo / "a.py", (future, future))
+        stats = mod.graph_stats(project_root=str(repo))
+        assert "STALE" in stats and "a.py" in stats, stats
+
+
+def test_extract_signatures_inline_and_directory():
+    """Signatures come back inline, a directory works, and docs say why empty."""
+    mod = _load_context_server_hardening()
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as td:
+        repo = Path(td)
+        (repo / "src").mkdir()
+        (repo / "src" / "one.py").write_text("def one():\n    return 1\n")
+        (repo / "src" / "two.py").write_text("class Two:\n    pass\n")
+        (repo / "NOTES.md").write_text("# Notes\n\nprose only\n")
+        out = mod.extract_signatures("src", project_root=str(repo))
+        assert "✅ Success" in out and "Generated Report:" in out, out
+        assert "def one(" in out and "class Two" in out, out
+        empty = mod.extract_signatures("NOTES.md", project_root=str(repo))
+        assert "No structural signatures" in empty, empty
+
+
+def test_directory_tree_depth_is_bounded():
+    """max_depth keeps the root tree small and announces the cut."""
+    mod = _load_context_server_hardening()
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as td:
+        repo = Path(td)
+        (repo / "a" / "b").mkdir(parents=True)
+        (repo / "a" / "b" / "deep.py").write_text("x=1\n")
+        out = mod.get_directory_tree(".", project_root=str(repo), max_depth=1)
+        assert "(depth 1" in out, out
+        assert "deep.py" not in out, out
+
+
 def test_graph_tree_respects_project_root():
     """Regression: get_directory_tree with project_root lists project files (not server cwd)."""
     mod = _load_context_server_hardening()

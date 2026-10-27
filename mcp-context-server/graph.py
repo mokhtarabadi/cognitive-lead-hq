@@ -3,6 +3,7 @@
 
 """Lite knowledge-graph: constants, parsers, build, query primitives. Stdlib-pure: no MCP imports, no registration, no import back to server."""
 
+import fnmatch
 import json
 import re
 import time
@@ -15,13 +16,13 @@ from fsutil import GitIgnoreFilter, collect_files
 GRAPH_SCHEMA_VERSION = 2
 
 
-GRAPH_MAX_FILES = 300
+GRAPH_MAX_FILES = 600
 
 
-GRAPH_MAX_NODES = 5000
+GRAPH_MAX_NODES = 12000
 
 
-GRAPH_MAX_DOCS = 300
+GRAPH_MAX_DOCS = 600
 
 
 GRAPH_DOC_LINES = 500
@@ -195,7 +196,9 @@ _GRAPH_TASK_REF_RE = re.compile(r"\bTask\s+(\d{1,4})\b")
 _GRAPH_ADR_REF_RE = re.compile(r"\bADR-(\d{1,3})\b", re.IGNORECASE)
 
 
-_GRAPH_GOD_NOISE = frozenset({"run", "json", "post", "data"})
+_GRAPH_GOD_NOISE = frozenset(
+    {"run", "json", "post", "data", "output", "system-prompt", "role", "wrapper"}
+)
 
 
 _GRAPH_MAX_SCAN_BYTES = 1048576
@@ -563,47 +566,99 @@ def _resolve_import_to_rel(mod: str, from_rel: str, rel_set: set[str]) -> str | 
     return None
 
 
-def _build_graph_data(workspace_root: Path, target: Path) -> dict:
+_TASK_LANE_ORDER = {
+    "in-progress": 0,
+    "qa": 1,
+    "backlog": 2,
+    "completed": 3,
+    "archive": 4,
+}
+
+
+def _doc_order_key(rel: str) -> tuple:
+    """Order docs so recent task files survive the cap.
+
+    The old ``(depth, path)`` order put ``tasks/archive/0001-...`` first and
+    cut ``tasks/completed/0355-...`` once the doc cap was reached, so the
+    newest work was invisible in the graph. Task docs now come first, in lane
+    order (active lanes before archive) and newest id first; every other doc
+    keeps the shallow-path ordering.
+    """
+    parts = rel.split("/")
+    if len(parts) >= 3 and parts[0] == "tasks" and parts[1] in _TASK_LANE_ORDER:
+        match = re.match(r"(\d+)", parts[2])
+        number = int(match.group(1)) if match else -1
+        return (0, _TASK_LANE_ORDER[parts[1]], -number, rel)
+    return (1, len(parts), rel)
+
+
+def _graph_paths_filtered(
+    candidates: list[Path],
+    workspace_root: Path,
+    include: list[str] | None,
+    exclude: list[str] | None,
+) -> list[tuple[str, Path]]:
+    """Relative-path pairs that pass the optional include/exclude globs."""
+    pairs: list[tuple[str, Path]] = []
+    for path in candidates:
+        try:
+            rel = path.resolve().relative_to(workspace_root).as_posix()
+        except ValueError:
+            continue
+        if include and not any(fnmatch.fnmatch(rel, pat) for pat in include):
+            continue
+        if exclude and any(fnmatch.fnmatch(rel, pat) for pat in exclude):
+            continue
+        pairs.append((rel, path.resolve()))
+    return pairs
+
+
+def _build_graph_data(
+    workspace_root: Path,
+    target: Path,
+    include: list[str] | None = None,
+    exclude: list[str] | None = None,
+    max_files: int | None = None,
+    max_docs: int | None = None,
+    max_nodes: int | None = None,
+) -> dict:
+    cap_files = max(1, min(max_files or GRAPH_MAX_FILES, 5000))
+    cap_docs = max(1, min(max_docs or GRAPH_MAX_DOCS, 5000))
+    cap_nodes = max(1, min(max_nodes or GRAPH_MAX_NODES, 200000))
     filt = GitIgnoreFilter()
     all_found = collect_files(str(target), filt)
-    files = [
+    code_candidates = [
         p
         for p in all_found
         if p.suffix.lower() in _GRAPH_CODE_EXTS and "context-reports" not in p.parts
     ]
-    files.sort(key=lambda p: (len(p.parts), p.as_posix()))
-    files = files[:GRAPH_MAX_FILES]
-    docs = [
+    code_pairs = _graph_paths_filtered(
+        code_candidates, workspace_root, include, exclude
+    )
+    code_pairs.sort(key=lambda item: (len(Path(item[0]).parts), item[0]))
+    doc_candidates = [
         p
         for p in all_found
         if p.suffix.lower() == ".md" and "context-reports" not in p.parts
     ]
-    docs.sort(key=lambda p: (len(p.parts), p.as_posix()))
-    docs = docs[:GRAPH_MAX_DOCS]
-    rels: list[str] = []
-    rel_set: set[str] = set()
-    resolved: list[Path] = []
+    doc_pairs = _graph_paths_filtered(doc_candidates, workspace_root, include, exclude)
+    doc_pairs.sort(key=lambda item: _doc_order_key(item[0]))
+    scanned_files = len(code_pairs)
+    scanned_docs = len(doc_pairs)
+    code_pairs = code_pairs[:cap_files]
+    doc_pairs = doc_pairs[:cap_docs]
+    rels: list[str] = [rel for rel, _path in code_pairs]
+    rel_set: set[str] = set(rels)
+    resolved: list[Path] = [path for _rel, path in code_pairs]
     doc_rels: list[str] = []
     doc_set: set[str] = set()
     doc_resolved: list[Path] = []
-    for p in files:
-        try:
-            rel = p.resolve().relative_to(workspace_root).as_posix()
-        except ValueError:
+    for rel, path in doc_pairs:
+        if rel in rel_set or rel in doc_set:
             continue
-        if rel not in rel_set:
-            rel_set.add(rel)
-            rels.append(rel)
-            resolved.append(p.resolve())
-    for p in docs:
-        try:
-            rel = p.resolve().relative_to(workspace_root).as_posix()
-        except ValueError:
-            continue
-        if rel not in doc_set and rel not in rel_set:
-            doc_set.add(rel)
-            doc_rels.append(rel)
-            doc_resolved.append(p.resolve())
+        doc_set.add(rel)
+        doc_rels.append(rel)
+        doc_resolved.append(path)
     nodes: list[dict] = []
     links: list[dict] = []
     sym_index: dict[str, list[str]] = {}
@@ -633,7 +688,7 @@ def _build_graph_data(workspace_root: Path, target: Path) -> dict:
         else:
             symbols = _extract_graph_symbols(abs_p)
         for name, kind, lineno in symbols:
-            if len(nodes) >= GRAPH_MAX_NODES:
+            if len(nodes) >= cap_nodes:
                 break
             sid = f"sym:{rel}#{name}"
             nodes.append(
@@ -657,8 +712,9 @@ def _build_graph_data(workspace_root: Path, target: Path) -> dict:
             )
             sym_index.setdefault(name, []).append(sid)
     doc_contents: dict[str, str] = {}
+    seen_section_ids: set[str] = set()
     for rel, abs_p in zip(doc_rels, doc_resolved):
-        if len(nodes) >= GRAPH_MAX_NODES:
+        if len(nodes) >= cap_nodes:
             break
         nodes.append(
             {
@@ -675,10 +731,11 @@ def _build_graph_data(workspace_root: Path, target: Path) -> dict:
             content = ""
         doc_contents[rel] = content
         for heading, _level, lineno in _extract_md_sections(abs_p):
-            if len(nodes) >= GRAPH_MAX_NODES:
+            if len(nodes) >= cap_nodes:
                 break
             sec_id = f"sec:{rel}#{_slugify_section(heading)}"
-            if sec_id not in {n["id"] for n in nodes}:
+            if sec_id not in seen_section_ids:
+                seen_section_ids.add(sec_id)
                 nodes.append(
                     {
                         "id": sec_id,
@@ -699,7 +756,7 @@ def _build_graph_data(workspace_root: Path, target: Path) -> dict:
                     }
                 )
     for rel, content in doc_contents.items():
-        if not content or len(links) >= GRAPH_MAX_NODES * 2:
+        if not content or len(links) >= cap_nodes * 2:
             break
         for tgt in _extract_md_link_targets(content):
             resolved_tgt = _resolve_doc_link(tgt, rel, doc_set)
@@ -733,7 +790,7 @@ def _build_graph_data(workspace_root: Path, target: Path) -> dict:
                             "source_file": rel,
                         }
                     )
-                if len(seen_doc_refs) >= 40 or len(links) >= GRAPH_MAX_NODES * 2:
+                if len(seen_doc_refs) >= 40 or len(links) >= cap_nodes * 2:
                     break
     for rel in rels:
         content = file_contents.get(rel, "")
@@ -752,7 +809,7 @@ def _build_graph_data(workspace_root: Path, target: Path) -> dict:
                         "source_file": rel,
                     }
                 )
-        if len(links) >= GRAPH_MAX_NODES * 2:
+        if len(links) >= cap_nodes * 2:
             break
         seen_refs: set[str] = set()
         for id_re in (_GRAPH_R_ID_RE, _GRAPH_GET_ID_RE):
@@ -801,9 +858,9 @@ def _build_graph_data(workspace_root: Path, target: Path) -> dict:
                         "source_file": rel,
                     }
                 )
-                if len(seen_refs) >= 40 or len(links) >= GRAPH_MAX_NODES * 2:
+                if len(seen_refs) >= 40 or len(links) >= cap_nodes * 2:
                     break
-            if len(seen_refs) >= 40 or len(links) >= GRAPH_MAX_NODES * 2:
+            if len(seen_refs) >= 40 or len(links) >= cap_nodes * 2:
                 break
     rationale_refs: list[tuple[str, str, str]] = []
     for rel in rels:
@@ -847,7 +904,7 @@ def _build_graph_data(workspace_root: Path, target: Path) -> dict:
                 if n["id"].startswith("sec:") and needle in n["label"].lower():
                     target = n["id"]
                     break
-        if target and target in node_ids and len(links) < GRAPH_MAX_NODES * 2:
+        if target and target in node_ids and len(links) < cap_nodes * 2:
             if (rel, target) in seen_rat:
                 continue
             seen_rat.add((rel, target))
@@ -873,7 +930,27 @@ def _build_graph_data(workspace_root: Path, target: Path) -> dict:
                 continue
             e = {**e, "target": tid}
         pruned.append(e)
-    return {"nodes": nodes, "links": pruned}
+    newest = 0.0
+    for path in resolved + doc_resolved:
+        try:
+            newest = max(newest, path.stat().st_mtime)
+        except OSError:
+            continue
+    meta = {
+        "built_at": int(time.time()),
+        "target": str(target),
+        "caps": {"files": cap_files, "docs": cap_docs, "nodes": cap_nodes},
+        "scanned": {"files": scanned_files, "docs": scanned_docs},
+        "indexed": {"files": len(rels), "docs": len(doc_rels)},
+        "truncated": {
+            "files": scanned_files > len(rels),
+            "docs": scanned_docs > len(doc_rels),
+            "nodes": len(nodes) >= cap_nodes,
+        },
+        "newest_source_mtime": int(newest),
+        "sources": rels + doc_rels,
+    }
+    return {"nodes": nodes, "links": pruned, "meta": meta}
 
 
 def _graph_degrees(data: dict) -> dict[str, int]:
@@ -905,6 +982,7 @@ def _save_graph(
             "schema_version": GRAPH_SCHEMA_VERSION,
             "graphify_version": None,
             "root": target_label,
+            **(data.get("meta") or {}),
         },
     }
     with open(json_path, "w", encoding="utf-8") as f:
@@ -999,7 +1077,11 @@ def _graph_tokens(text: str) -> set[str]:
 
 
 def _find_graph_nodes(nodes: list[dict], label: str) -> list[dict]:
-    ll = label.lower()
+    needle = label.strip()
+    exact_id = [n for n in nodes if n.get("id", "") == needle]
+    if exact_id:
+        return exact_id
+    ll = needle.lower()
     exact = [n for n in nodes if n.get("label", "").lower() == ll]
     if exact:
         return exact
