@@ -1,5 +1,14 @@
 # Architectural Decisions: agents
 
+## Brain results are returned whole, never field-shaped
+
+Date: 2026-10-27
+Status: accepted
+Context: The Brain Bridge's Code-mode output discipline told the Hands to "return `{status, block_count: xml_blocks.length, model}` and keep the block whole instead of printing a prefix". The intent was to stop the model printing a truncated prefix of a large XML block, but the recipe licensed dropping the payload: a turn returning only `output` lost `xml_blocks`, and a turn returning only `blocks` lost `output`. The executed instructions were complete, yet the transcript and the agent's next turn held less than the server returned, so an audit could no longer see what the Brain actually said.
+Decision: Replace the paragraph with a return-the-payload-whole rule: always return `status`, `output`, `xml_blocks` and any diagnostic/`truncated` field exactly as received, never slice, map, summarize or field-shape a `brain_turn` result, and manage size before the call with `compact_context`, a leaner prompt or `include_bundle=false`. The only acceptable cut is the runtime's own `maxOutputBytes`, which announces itself with `truncated: true` and requires re-reading the exact range. A prompt-sync test fails if the rule disappears or `block_count` returns.
+Consequences: Every plan, verdict and XML block stays verbatim in the transcript, so a later turn or a reviewer can re-read it. The cost is a larger tool result per Brain turn; the pre-call tools absorb that, and the rule keeps the echo out of chat, where the plan presentation contract governs what the Manager sees.
+Rollback: Restore the previous paragraph and drop the test; the trimmed-return behaviour returns.
+
 ## Plan approval shows the plan, not just the question
 
 Date: 2026-10-26

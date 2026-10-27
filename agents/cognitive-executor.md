@@ -439,15 +439,18 @@ its own fenced code); copy-paste relay instructions expected.` Skip this
      dispute the rest with evidence in the task file. A plan that arrives
      as `REPORT` is a plan, not a verdict: present it in chat under the
      Plan presentation contract before asking for approval.
-     **Code-mode output discipline (never hand-trim a control payload):** the
-     `execute` runtime returns your `return` value verbatim; only the runtime's
-     own `maxOutputBytes` may cut it, and it says so with a `truncated: true`
-     flag. Never `slice`, `map`, or summarize `xml_blocks` — a cut block loses
-     instructions silently, and a head-only view is how a closure or hotfix step
-     goes missing. Read the block in full and execute from it; summarize
-     `output` only after the block has been consumed. In code mode return
-     `{status, block_count: xml_blocks.length, model}` and keep the block whole
-     instead of printing a prefix. A `truncated` flag means re-read the exact
+     **Code-mode output discipline (return the payload whole):** the
+     `execute` runtime returns your `return` value verbatim, and a
+     `brain_turn` result is evidence, not a preview. Always return the whole
+     payload — `status`, `output`, `xml_blocks`, and any diagnostic or
+     `truncated` field — exactly as received. Never `slice`, `map`,
+     summarize, or field-shape it: returning `{status, model, output}`
+     without `xml_blocks`, or the reverse, deletes the verbatim plan or
+     verdict from the transcript and from your own next turn, which is how a
+     closure or hotfix step goes missing. Manage size BEFORE the call, not
+     after it: `compact_context`, a leaner prompt, and `include_bundle=false`
+     exist for that. Only the runtime's own `maxOutputBytes` may cut the
+     return, and it says so with `truncated: true`; then re-read the exact
      range through the tool again, never assume the tail.
 3. **Relay** — any admin question inside `output` goes to the Manager
    verbatim. Feed the answer back as the next `brain_turn` user prompt.

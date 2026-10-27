@@ -53,6 +53,23 @@ def test_executor_carries_compaction_guidance():
     assert "smart-compact" in text
 
 
+def test_executor_never_trims_brain_results():
+    """A brain_turn result is evidence: the Hands returns it whole, always.
+
+    Regression: the executor told the Hands to return
+    ``{status, block_count, model}``, which dropped ``output`` and
+    ``xml_blocks`` from the transcript and from the next turn.
+    """
+    text = _read(EXECUTOR)
+    assert "return the whole" in text.lower()
+    assert "payload" in text.lower()
+    assert "field-shape" in text
+    assert "exactly as received" in text
+    assert "summarize `output` only after" not in text
+    assert "range through the tool again" in text
+    assert "block_count" not in text
+
+
 def test_executor_shows_plan_before_asking_for_approval():
     """A plan-approval ask is invalid without the plan visible to the Manager.
 
