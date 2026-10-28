@@ -513,6 +513,123 @@ def test_api_status_explicit_project_root_wins_over_env(tmp_path, monkeypatch):
     assert payload["project_root"] == str(tmp_path.resolve())
 
 
+def _write_mixed_width_task(tmp_path, lane, filename, title, **headers):
+    """Write a task file with an exact filename (mixed widths allowed)."""
+    lane_dir = tmp_path / "tasks" / lane
+    lane_dir.mkdir(parents=True, exist_ok=True)
+    lines = [
+        f"# Task {title}",
+        "",
+        f"**File:** `tasks/{lane}/{filename}`",
+        "**Source:** manager",
+        "**Type:** feature",
+        "**Status:** open",
+    ]
+    for key, value in headers.items():
+        lines.append(f"**{key}:** {value}")
+    lines += [
+        "",
+        "## Goal",
+        "",
+        "Fixture.",
+        "",
+        "## Local TODOs",
+        "",
+        "- [x] Done",
+        "",
+        "## Acceptance Criteria",
+        "",
+        "- [x] Done",
+        "",
+        "## Verification Evidence",
+        "",
+        "Done.",
+        "",
+        "## Risk & Rollback",
+        "",
+        "None.",
+        "",
+        "## Execution Log & Reasoning",
+        "",
+        "Done.",
+        "",
+        "## Factual Git Diff",
+        "",
+        "<!-- BEGIN_GIT_DIFF -->",
+        "<!-- END_GIT_DIFF -->",
+        "",
+    ]
+    (lane_dir / filename).write_text("\n".join(lines), encoding="utf-8")
+
+
+def test_lane_lists_sort_numerically_despite_mixed_widths(tmp_path):
+    """Lexical glob order puts 0356 before 283; the board must not."""
+    _write_mixed_width_task(tmp_path, "backlog", "0356-new.md", "New task")
+    _write_mixed_width_task(tmp_path, "backlog", "283-old.md", "Old task")
+    payload = planner._api_status(str(tmp_path))
+    ids = [b["id"] for b in payload["lanes"]["backlog"]]
+    assert ids == ["283", "0356"], ids
+
+
+def test_milestone_tree_sorts_numerically(tmp_path):
+    _write_mixed_width_task(
+        tmp_path, "backlog", "0356-new.md", "New task", Milestone="M1"
+    )
+    _write_mixed_width_task(
+        tmp_path, "backlog", "283-old.md", "Old task", Milestone="M1"
+    )
+    payload = planner._api_status(str(tmp_path))
+    ids = [b["id"] for b in payload["milestone_tree"]["M1"]]
+    assert ids == ["283", "0356"], ids
+
+
+def test_api_hours_aggregates_measured_only(tmp_path):
+    """Finished+stamped tasks count by finish date; unstamped never count."""
+    from datetime import date, timedelta
+
+    today = date.today()
+    three_days_ago = today - timedelta(days=3)
+    stamp = lambda d, h, m: f"{d.isoformat()}T{h:02d}:{m:02d}:00Z"
+    _write_mixed_width_task(
+        tmp_path,
+        "completed",
+        "283-old.md",
+        "Old done",
+        Started=stamp(today, 10, 0),
+        Finished=stamp(today, 12, 30),
+    )
+    _write_mixed_width_task(
+        tmp_path,
+        "completed",
+        "0356-new.md",
+        "New done",
+        Started=stamp(today, 14, 0),
+        Finished=stamp(today, 15, 0),
+    )
+    _write_mixed_width_task(
+        tmp_path,
+        "completed",
+        "100-earlier.md",
+        "Earlier done",
+        Started=stamp(three_days_ago, 9, 0),
+        Finished=stamp(three_days_ago, 10, 0),
+    )
+    _write_mixed_width_task(tmp_path, "completed", "101-unstamped.md", "No stamps")
+    payload = planner._api_hours(str(tmp_path))
+    assert "error" not in payload
+    by_date = {d["date"]: d for d in payload["days"]}
+    assert by_date[today.isoformat()]["measured_hours"] == 3.5
+    assert by_date[today.isoformat()]["done"] == 2
+    assert by_date[three_days_ago.isoformat()]["measured_hours"] == 1.0
+    assert by_date[three_days_ago.isoformat()]["done"] == 1
+    assert sum(d["done"] for d in payload["days"]) == 3
+    current_week = today - timedelta(days=today.weekday())
+    by_week = {w["week"]: w for w in payload["weeks"]}
+    assert by_week[current_week.isoformat()]["done"] >= 2
+    assert len(payload["days"]) == 14
+    assert len(payload["weeks"]) == 8
+
+
 def test_resolve_dashboard_root_uses_env(tmp_path, monkeypatch):
     (tmp_path / "tasks").mkdir(parents=True, exist_ok=True)
     monkeypatch.setenv("PLANNER_PROJECT_ROOT", str(tmp_path))

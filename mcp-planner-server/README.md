@@ -30,6 +30,7 @@ dashboard on loopback port 8108.
 | `GET /static/*`                                           | Dashboard assets (same `static/` directory).                                                                                                                                                              |
 | `GET /api/status[?project_root=<abs path>]`               | JSON status contract the dashboard renders.                                                                                                                                                               |
 | `GET /api/task?id=<id>` or `?path=tasks/<lane>/<file>.md` | One task file as `{id, path, lane, title, markdown}` for the dashboard modal. `id` wins when both are sent. 400 no param, 401 no session, 403 outside grants or unsafe path, 404 unknown, 500 unexpected. |
+| `GET /api/hours[?project_root=<abs path>]` | Measured hours from task stamps: per-day rows for the last 14 days plus per-week rows for the last 8 ISO weeks (`{date/week, measured_hours, done}`). Measured-only: tasks without `Finished` + `elapsed_seconds` never count. Same 401/403 contract as `/api/status`. |
 | `POST /api/login`                                         | `{"username","password"}` → `{token, username, role, allowed_projects}` + `HttpOnly` cookie.                                                                                                              |
 | `POST /api/logout`                                        | Invalidates the session and clears the cookie.                                                                                                                                                            |
 | `GET /api/me`                                             | Current user, or 401 when signed out (200 + `note: "auth disabled"` in open mode).                                                                                                                        |
@@ -40,7 +41,10 @@ dashboard on loopback port 8108.
 (`today` = `done`/`target`/`open`, mirroring `sprint_check_daily_quota`), the
 selectable project roots (`projects`), and the root actually reported on
 (`project_root`). Lane values are lists, never counts — the dashboard calls
-`.map()` on them.
+`.map()` on them. Every rendered list (lanes, milestone groups, plan buckets,
+alert rails) is ordered lowest task number first by the leading filename
+integer, so mixed widths (`283-*.md` vs `0356-*.md`) still sort numerically;
+names without a numeric prefix sort last, lexically.
 
 Project resolution order: the `project_root` query parameter, then
 `PLANNER_PROJECT_ROOT`, then the nearest ancestor of the working directory

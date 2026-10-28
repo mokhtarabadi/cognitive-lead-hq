@@ -315,6 +315,23 @@ def _parse_task_file(path: Path) -> dict:
     return record
 
 
+def _task_sort_key(name: str) -> tuple:
+    """Sort key ordering tasks lowest-number-first regardless of name width.
+
+    Filenames mix widths (``283-x.md`` vs ``0356-y.md``), so a plain lexical
+    sort puts "0356" before "283". The leading integer decides; names without
+    a numeric prefix sort after numbered ones, lexically.
+    """
+    text = name or ""
+    match = re.match(r"(\d+)", text.strip())
+    if match:
+        try:
+            return (0, int(match.group(1)), text)
+        except ValueError:  # noqa: BLE001 - fall through to lexical
+            pass
+    return (1, text)
+
+
 def _load_all_tasks(workspace_root: Path) -> list[dict]:
     """Load every task file across all Kanban lanes.
 
@@ -330,7 +347,7 @@ def _load_all_tasks(workspace_root: Path) -> list[dict]:
         lane_dir = tasks_dir / lane
         if not lane_dir.is_dir():
             continue
-        for f in sorted(lane_dir.glob("*.md")):
+        for f in sorted(lane_dir.glob("*.md"), key=lambda p: _task_sort_key(p.name)):
             rec = _parse_task_file(f)
             rec["lane"] = lane
             all_tasks.append(rec)
@@ -1878,6 +1895,91 @@ def _api_task(
         return {"error": "internal error"}
 
 
+def _api_hours(
+    project_root: Optional[str] = None,
+    auth: Optional[AuthState] = None,
+) -> dict:
+    """Return measured hours per day and per week as JSON (GET /api/hours).
+
+    Measured-only semantics, mirroring :func:`_task_brief`: a task counts
+    only when it carries both ``finished_at`` and ``elapsed_seconds``;
+    unstamped tasks are skipped (never zero), so backfilled history cannot
+    fabricate hours. Attribution is by finish date (UTC).
+
+    Error contract mirrors :func:`_api_status`: ``unauthenticated`` and
+    ``forbidden`` dicts, mapped to 401/403 by the route.
+
+    Args:
+        project_root: Optional absolute root from ``?project_root=``.
+        auth: Optional session view; ``None`` means open local mode.
+
+    Returns:
+        ``{"days": [...14 x {date, measured_hours, done}],
+        "weeks": [...8 x {week, start, end, measured_hours, done}]}``.
+    """
+    if auth is not None and not auth.authenticated:
+        return {"error": "unauthenticated"}
+
+    workspace_root = _resolve_dashboard_root(project_root)
+    if auth is not None and not auth.project_allowed(workspace_root):
+        if project_root and project_root.strip():
+            return {"error": "forbidden"}
+        fallback = _first_allowed_root(auth)
+        if fallback is None:
+            return {"error": "forbidden"}
+        workspace_root = fallback
+
+    try:
+        today = date.today()
+        day_keys = [
+            (today - timedelta(days=offset)).isoformat() for offset in range(14)
+        ]
+        week_starts: list[date] = []
+        monday = today - timedelta(days=today.weekday())
+        for index in range(8):
+            week_starts.append(monday - timedelta(days=7 * index))
+        days: dict[str, dict] = {
+            key: {"date": key, "measured_hours": 0.0, "done": 0} for key in day_keys
+        }
+        weeks: dict[str, dict] = {
+            start.isoformat(): {
+                "week": start.isoformat(),
+                "start": start.isoformat(),
+                "end": (start + timedelta(days=6)).isoformat(),
+                "measured_hours": 0.0,
+                "done": 0,
+            }
+            for start in week_starts
+        }
+        for task in _load_all_tasks(workspace_root):
+            brief = _task_brief(task)
+            elapsed = brief.get("elapsed_seconds")
+            finished = _parse_utc(task.get("finished_at"))
+            if elapsed is None or finished is None or elapsed < 0:
+                continue
+            hours = round(elapsed / 3600.0, 2)
+            day_key = finished.date().isoformat()
+            if day_key in days:
+                days[day_key]["measured_hours"] = round(
+                    days[day_key]["measured_hours"] + hours, 2
+                )
+                days[day_key]["done"] += 1
+            week_key = (
+                finished.date() - timedelta(days=finished.date().weekday())
+            ).isoformat()
+            if week_key in weeks:
+                weeks[week_key]["measured_hours"] = round(
+                    weeks[week_key]["measured_hours"] + hours, 2
+                )
+                weeks[week_key]["done"] += 1
+        return {
+            "days": [days[key] for key in sorted(days)],
+            "weeks": [weeks[start.isoformat()] for start in sorted(week_starts)],
+        }
+    except Exception:  # noqa: BLE001 - surface as 500, never a 200 envelope
+        return {"error": "internal error"}
+
+
 _PLAN_WINDOWS = ("day", "week", "month")
 
 
@@ -2125,6 +2227,13 @@ def _plan_payload(
         else:
             anchor_bucket["open"] += 1
 
+    # Numeric task order everywhere: buckets and alert rails inherit load
+    # order, which mixes lanes, so sort each rendered list explicitly.
+    for bucket in buckets.values():
+        bucket["tasks"].sort(key=lambda b: _task_sort_key(b.get("name") or ""))
+    for key in alerts:
+        alerts[key].sort(key=lambda b: _task_sort_key(b.get("name") or ""))
+
     weeks: list[dict] = []
     if window in ("week", "month"):
         grouped: dict[str, list[dict]] = {}
@@ -2241,6 +2350,8 @@ def _api_status(
             if task.get("deadline"):
                 deadlines.append(brief)
 
+        for items in milestone_tree.values():
+            items.sort(key=lambda b: _task_sort_key(b.get("name") or ""))
         deadlines.sort(key=lambda t: t.get("deadline") or "")
         open_work = len(lanes["in-progress"]) + len(lanes["qa"])
 
@@ -2334,6 +2445,23 @@ def build_app():
             return JSONResponse(payload, status_code=404)
         if isinstance(error, str) and error.startswith("missing param"):
             return JSONResponse(payload, status_code=400)
+        if error == "internal error":
+            return JSONResponse(payload, status_code=500)
+        return JSONResponse(payload)
+
+    async def api_hours(request):
+        root = request.query_params.get("project_root")
+        if _relative_root(root):
+            return JSONResponse(
+                {"error": "project_root must be absolute"}, status_code=400
+            )
+        auth = _auth_from_request(request)
+        payload = _api_hours(root, auth)
+        error = payload.get("error")
+        if error == "unauthenticated":
+            return JSONResponse(payload, status_code=401)
+        if error == "forbidden":
+            return JSONResponse(payload, status_code=403)
         if error == "internal error":
             return JSONResponse(payload, status_code=500)
         return JSONResponse(payload)
@@ -2523,6 +2651,7 @@ def build_app():
         Route("/", dashboard),
         Route("/api/status", api_status),
         Route("/api/task", api_task),
+        Route("/api/hours", api_hours),
         Route("/api/plan", api_plan, methods=["GET"]),
         Route("/api/plan", api_plan_save, methods=["POST"]),
         Route("/api/plan", api_plan_clear, methods=["DELETE"]),

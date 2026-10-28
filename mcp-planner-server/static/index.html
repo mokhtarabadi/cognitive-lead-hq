@@ -91,8 +91,10 @@
             <span class="small text-muted mono" id="plan-totals"></span>
           </div>
           <div id="plan-view"></div>
-          <div class="small text-muted mt-2">Done means a completed task carrying a deadline in this range; the task files store no closed timestamp.</div>
+          <div class="small text-muted mt-2">Done means a completed task carrying a deadline in this range. Measured hours come from task time stamps (<span class="mono">Started</span> → <span class="mono">Finished</span>); unstamped tasks never count.</div>
           <div id="plan-chart" class="mt-3"></div>
+          <div class="label mt-3 mb-1">Measured hours</div>
+          <div id="hours-chart"><div class="small text-muted">Loading…</div></div>
         </div></div>
       </div>
       <div class="col-12 col-lg-4">
@@ -207,6 +209,7 @@
     planTitle: document.getElementById('plan-title'),
     planTotals: document.getElementById('plan-totals'),
     planChart: document.getElementById('plan-chart'),
+    hoursChart: document.getElementById('hours-chart'),
     deadlineRail: document.getElementById('deadline-rail'),
     taskModal: document.getElementById('task-modal'),
     taskModalTitle: document.getElementById('task-modal-title'),
@@ -222,6 +225,13 @@
   let planCommitted = {};
   let mineOnly = false;
   let currentUser = '';
+  // Deep link (?task=<id>) waits for the first successful status: only then
+  // are the project root and the auth state known, so the modal fetch can
+  // carry ?project_root= instead of failing into a dead 401 box.
+  let pendingDeepTask = null;
+  try { pendingDeepTask = new URLSearchParams(window.location.search).get('task'); } catch (e) { pendingDeepTask = null; }
+  // Task id to reopen automatically right after a successful login.
+  let pendingTaskModalId = '';
 
   const JALALI_MONTHS = ['Farvardin', 'Ordibehesht', 'Khordad', 'Tir', 'Mordad', 'Shahrivar', 'Mehr', 'Aban', 'Azar', 'Dey', 'Bahman', 'Esfand'];
 
@@ -259,10 +269,26 @@
         return;
       }
       if (!resp.ok) throw new Error('HTTP ' + resp.status);
-      const data = await resp.json();
+      // Defensive parse: the edge occasionally serves its HTML login page
+      // with 200 for /api/* when the session lapses. resp.json() would throw
+      // "Unexpected token '<'" — diagnose instead of dumping the token.
+      const text = await resp.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        throw new Error(/^\s*</.test(text)
+          ? 'board served a page instead of data (edge login expired or /api/* misrouted)'
+          : 'board served invalid data');
+      }
       render(data);
       elements.statusChip.className = 'badge text-bg-success';
       elements.statusText.textContent = 'Server reachable';
+      if (pendingDeepTask) {
+        const deepId = pendingDeepTask;
+        pendingDeepTask = null;
+        openTaskModal(deepId);
+      }
     } catch (err) {
       elements.statusChip.className = 'badge text-bg-danger';
       elements.statusText.textContent = 'Server unreachable: ' + err.message;
@@ -516,6 +542,15 @@
     elements.taskModalClose.focus();
     fetch('/api/task?' + params.toString(), { cache: 'no-cache' })
       .then(async function (resp) {
+        if (resp.status === 401) {
+          // Not signed in (typical for a fresh ?task= link): show login and
+          // reopen this task automatically after a successful sign-in.
+          pendingTaskModalId = id || '';
+          showLoginModal();
+          elements.taskModalMeta.textContent = 'Sign in required';
+          elements.taskModalBody.innerHTML = '<p class="text-muted small">Sign in, then the task opens automatically.</p>';
+          return;
+        }
         const payload = await resp.json().catch(function () { return {}; });
         if (!resp.ok) {
           elements.taskModalMeta.textContent = 'Error ' + resp.status;
@@ -638,6 +673,49 @@
     elements.planChart.innerHTML = '<svg viewBox="0 0 100 54" width="100%" height="64" role="img" aria-label="14-day load">' +
       '<line x1="0" y1="50" x2="100" y2="50" stroke="var(--gd-border)" stroke-width="0.4"></line>' + bars + '</svg>' +
       '<div class="d-flex justify-content-between small text-muted mt-1"><span>' + trend[0].date.slice(5) + '</span><span>open / in progress / done</span><span>' + trend[trend.length - 1].date.slice(5) + '</span></div>';
+  }
+
+  function hoursUrl() {
+    const params = new URLSearchParams();
+    if (currentProject) params.set('project_root', currentProject);
+    const query = params.toString();
+    return '/api/hours' + (query ? '?' + query : '');
+  }
+
+  async function fetchHours() {
+    if (!elements.hoursChart) return;
+    try {
+      const resp = await fetch(hoursUrl(), { cache: 'no-cache' });
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      renderHours(await resp.json());
+    } catch (err) {
+      elements.hoursChart.innerHTML = '<div class="small text-muted">Hours unavailable.</div>';
+    }
+  }
+
+  function renderHours(data) {
+    const days = data.days || [];
+    const weeks = data.weeks || [];
+    if (!days.length && !weeks.length) {
+      elements.hoursChart.innerHTML = '<div class="small text-muted">No measured hours yet.</div>';
+      return;
+    }
+    const max = Math.max(0.5, ...days.map(function (d) { return d.measured_hours || 0; }));
+    const width = 100 / Math.max(1, days.length);
+    const bars = days.map(function (d, i) {
+      const h = Math.round(((d.measured_hours || 0) / max) * 46);
+      if (h <= 0) return '';
+      const x = i * width;
+      return '<rect x="' + x + '" y="' + (50 - h) + '" width="' + (width * 0.62) + '" height="' + h + '" fill="var(--gd-accent)"><title>' +
+        d.date.slice(5) + ': ' + d.measured_hours + 'h · ' + d.done + ' done</title></rect>';
+    }).join('');
+    const weekLine = weeks.filter(function (w) { return (w.done || 0) > 0; }).map(function (w) {
+      return '<span class="mono">' + w.start.slice(5) + '→' + w.end.slice(5) + ' ' + w.measured_hours + 'h</span>';
+    }).join(' · ') || '<span class="text-muted">no finished tasks in range</span>';
+    elements.hoursChart.innerHTML = '<svg viewBox="0 0 100 54" width="100%" height="64" role="img" aria-label="Measured hours, last 14 days">' +
+      '<line x1="0" y1="50" x2="100" y2="50" stroke="var(--gd-border)" stroke-width="0.4"></line>' + bars + '</svg>' +
+      '<div class="d-flex justify-content-between small text-muted mt-1"><span>' + (days.length ? days[0].date.slice(5) : '') + '</span><span>measured h/day</span><span>' + (days.length ? days[days.length - 1].date.slice(5) : '') + '</span></div>' +
+      '<div class="small mt-1"><span class="text-muted">Weeks: </span>' + weekLine + '</div>';
   }
 
   function renderDeadlineRail(alerts) {
@@ -810,7 +888,14 @@
         hideLoginModal();
         showUserBadge(data.username, data.role);
         currentProject = '';
-        fetchStatus();
+        fetchStatus().then(function () {
+          if (pendingTaskModalId) {
+            const retryId = pendingTaskModalId;
+            pendingTaskModalId = '';
+            openTaskModal(retryId);
+          }
+        });
+        fetchHours();
       } else if (data.note === 'auth disabled') {
         hideLoginModal();
         fetchStatus();
@@ -848,13 +933,13 @@
 
   fetchStatus();
   fetchPlan();
+  fetchHours();
   setInterval(fetchStatus, 30000);
   setInterval(fetchPlan, 60000);
+  setInterval(fetchHours, 60000);
   document.querySelectorAll('[data-window]').forEach(function (b) {
     b.className = 'btn btn-sm ' + (b.dataset.window === planWindow ? 'btn-primary' : 'btn-outline-secondary');
   });
-  const initialTask = new URLSearchParams(window.location.search).get('task');
-  if (initialTask) openTaskModal(initialTask);
 })();
 </script>
 <script src="/static/vendor/bootstrap.bundle.min.js"></script>
