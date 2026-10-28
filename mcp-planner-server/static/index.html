@@ -182,7 +182,11 @@
 <script src="/static/vendor/jalaali.min.js"></script>
 <script>
 (function () {
-  const BASE_STATUS_URL = window.location.pathname.endsWith('/') ? window.location.href + 'api/status' : window.location.origin + '/api/status';
+  // Absolute origin form only: building from location.href would leak the
+  // query string (?task=283) into the API URL (?task=283api/status hits the
+  // dashboard route and returns HTML with 200), which is exactly the
+  // "board served a page" failure on deep links.
+  const BASE_STATUS_URL = window.location.origin + '/api/status';
   let currentProject = '';
   let query = '';
   let lastData = null;
@@ -253,9 +257,16 @@
     return currentProject ? BASE_STATUS_URL + '?project_root=' + encodeURIComponent(currentProject) : BASE_STATUS_URL;
   }
 
-  async function fetchStatus() {
+  // Cache-buster: API responses must never be served from an edge or browser
+  // cache entry. A poisoned HTML entry cached for one exact URL keeps matching
+  // every identical request, so each GET carries a unique timestamp.
+  function bust(url) {
+    return url + (url.indexOf('?') >= 0 ? '&' : '?') + '_t=' + Date.now();
+  }
+
+  async function fetchStatus(retry) {
     try {
-      const resp = await fetch(statusUrl(), { cache: 'no-cache' });
+      const resp = await fetch(bust(statusUrl()), { cache: 'no-cache' });
       if (resp.status === 401) {
         hideUserBadge();
         showLoginModal();
@@ -269,17 +280,23 @@
         return;
       }
       if (!resp.ok) throw new Error('HTTP ' + resp.status);
-      // Defensive parse: the edge occasionally serves its HTML login page
-      // with 200 for /api/* when the session lapses. resp.json() would throw
-      // "Unexpected token '<'" — diagnose instead of dumping the token.
+      // Defensive parse: the edge occasionally serves an HTML page with 200
+      // for /api/* (lapsed edge login), and a poisoned cache entry can replay
+      // it for one exact URL indefinitely. Retry once (transients pass), then
+      // diagnose with the content type instead of dumping the token.
+      const contentType = resp.headers.get('content-type') || 'unknown type';
       const text = await resp.text();
-      let data;
-      try {
-        data = JSON.parse(text);
-      } catch (e) {
+      let data = null;
+      let parsed = false;
+      try { data = JSON.parse(text); parsed = true; } catch (e) { parsed = false; }
+      if (!parsed || /^\s*</.test(text)) {
+        if (!retry) {
+          await new Promise(function (resolve) { setTimeout(resolve, 1500); });
+          return fetchStatus(true);
+        }
         throw new Error(/^\s*</.test(text)
-          ? 'board served a page instead of data (edge login expired or /api/* misrouted)'
-          : 'board served invalid data');
+          ? 'board served a page (' + contentType + ') instead of data (edge login expired or /api/* misrouted)'
+          : 'board served invalid data (' + contentType + ')');
       }
       render(data);
       elements.statusChip.className = 'badge text-bg-success';
@@ -540,7 +557,7 @@
     elements.taskModalBody.innerHTML = '<p class="text-muted small">Loading…</p>';
     elements.taskModal.classList.remove('hidden');
     elements.taskModalClose.focus();
-    fetch('/api/task?' + params.toString(), { cache: 'no-cache' })
+    fetch(bust('/api/task?' + params.toString()), { cache: 'no-cache' })
       .then(async function (resp) {
         if (resp.status === 401) {
           // Not signed in (typical for a fresh ?task= link): show login and
@@ -618,7 +635,7 @@
   function planUrl() {
     const params = new URLSearchParams({ window: planWindow });
     if (currentProject) params.set('project_root', currentProject);
-    return '/api/plan?' + params.toString();
+    return bust('/api/plan?' + params.toString());
   }
 
   async function fetchPlan() {
@@ -679,7 +696,7 @@
     const params = new URLSearchParams();
     if (currentProject) params.set('project_root', currentProject);
     const query = params.toString();
-    return '/api/hours' + (query ? '?' + query : '');
+    return bust('/api/hours' + (query ? '?' + query : ''));
   }
 
   async function fetchHours() {
@@ -921,7 +938,7 @@
 
   (async function checkAuth() {
     try {
-      const resp = await fetch('/api/me');
+      const resp = await fetch(bust('/api/me'));
       if (resp.ok) {
         const data = await resp.json();
         if (data.authenticated) showUserBadge(data.username, data.role || 'viewer');

@@ -2406,7 +2406,10 @@ def build_app():
     _refresh_auth_config()
 
     async def dashboard(request):
-        return HTMLResponse(_dashboard_html())
+        # No-store: the shell references same-name JS with no version query,
+        # so a cached copy would pin old client logic (stale diagnosis text,
+        # missing bust/retry) across deploys with no visible signal.
+        return HTMLResponse(_dashboard_html(), headers={"Cache-Control": "no-store"})
 
     async def api_status(request):
         root = request.query_params.get("project_root")
