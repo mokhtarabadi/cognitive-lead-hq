@@ -575,6 +575,25 @@ Full runbook: `docs/openchamber.md`. Official docs: https://docs.openchamber.dev
 
 ---
 
+## 7.10. Server Browser — agent-driven web browsing (needs the extension)
+
+Without a browser provider, `openchamber_web` pages open display-only
+(`drivable:false`) and snapshots fail — the agent can never drive a page.
+Install `openchamber-server-browser` (experimental, OpenChamber ≥ 2.0.1):
+
+```bash
+git clone https://github.com/JosueGalRe/openchamber-server-browser.git ~/Develop/openchamber-server-browser
+```
+
+Then: Settings → Extensions → add the folder → approve the service →
+Settings → General → OpenChamber Tools → Browser provider = **Server Browser**.
+Chrome: do **not** `apt install chromium` (snap-stub trap, 1 GB+); install
+`chrome-headless-shell` + wrapper with `--no-sandbox`, set `chromePath` and
+`allowedOrigins` in the extension `config.json`. Full commands, snap-removal
+runbook, and troubleshooting: `docs/openchamber.md` §10.
+
+---
+
 ## 8. Clean Up Temporary Clone
 
 Remove the cloned repository from `/tmp/`:
@@ -618,6 +637,7 @@ After completing all steps, verify:
 - [ ] `opencode plugin list` shows smart-compact, goal, and todolist entries (after restart)
 - [ ] worktrees: OpenChamber native via sidebar/dialog (`https://docs.openchamber.dev/worktrees/`) — no plugin required
 - [ ] (optional) OpenChamber: if installed, `npm list -g @openchamber/web` shows 2.x, `openchamber status` password:yes, `openchamber startup status` shows enabled+active+lingering, `docs/openchamber.md` present; if not requested, this check is N/A
+- [ ] (optional) Server Browser: if requested, extension installed + service approved + Browser provider = Server Browser, `config.json` carries `chromePath` (wrapper with `--no-sandbox` on servers) and `allowedOrigins`, `browser.open` returns a real `tabId`; runbook `docs/openchamber.md` §10
 - [ ] `~/.config/opencode/opencode.json` all 7 `mcp` entries are `type: "remote"` loopback URLs (8101 lint, 8102 context, 8103 memory, 8105 brain, 8106 telegram timeout 30000, 8107 blowsh timeout 120000, 8108 planner timeout 30000) served by the supervised singletons — no stdio/`uv run` entries remain
 - [ ] `~/.config/opencode/opencode-shell-strategy.md` exists (instructions file referenced by the `instructions` key)
 - [ ] `/tmp/cognitive-lead-hq` no longer exists

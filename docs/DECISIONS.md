@@ -20,3 +20,10 @@
 - **Decision:** Callback mode is labeled for agentic clients; client lists name OpenCode first with others as compatible examples; the vendor trio became "OpenCode and other agentic clients".
 - **Consequences:** Setup docs no longer route the reader to another runtime. External-client interop facts are kept, not deleted.
 - **Rollback:** Restore the prior wording from git history.
+
+## [2026-10-28] ADR-004: Server Browser Runbook Lives in `docs/openchamber.md`
+
+- **Context:** Enabling agent-driven browsing took a full debug session (display-only tabs, missing Chrome, snap-stub trap, sandbox SIGTRAP, squashfs leftovers, self-matching `pkill`). None of it was written down, so the next installer would repeat every step.
+- **Decision:** The complete runbook is `docs/openchamber.md` §10 (install, headless-shell over apt-chromium, `--no-sandbox` wrapper, `config.json`, daily use, troubleshooting, snap removal); `LLM.txt` carries a §7.10 pointer plus a verification-checklist line.
+- **Consequences:** Future browser setups follow one doc instead of rediscovery.
+- **Rollback:** Delete §10, §7.10, and the checklist line.
