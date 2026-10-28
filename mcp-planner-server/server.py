@@ -240,7 +240,10 @@ def _parse_task_file(path: Path) -> dict:
         elif key == "owner":
             record["owner"] = val
         elif key == "estimate":
-            em = re.match(r"(\d+(?:\.\d+)?)\s*h", val, re.IGNORECASE)
+            # Strict full-match mirroring the lint contract
+            # (_PLANNER_ESTIMATE_RE): a value like "1h 30m" must book
+            # nothing — never a truncated prefix. Unparseable means None.
+            em = re.match(r"^(\d+(?:\.\d+)?)h$", val)
             if em:
                 record["estimate_hours"] = float(em.group(1))
         elif key == "deadline":

@@ -168,6 +168,19 @@ def test_parse_task_file_basic(tmp_path):
     assert rec["depends_on"] == ["005", "006"]
 
 
+def test_parse_task_file_estimate_strict(tmp_path):
+    p = _write_task(tmp_path, "backlog", 12, "Strict estimate", estimate=2.5)
+    assert planner._parse_task_file(p)["estimate_hours"] == 2.5
+    # A malformed value must book nothing — never a truncated prefix.
+    p.write_text(
+        p.read_text(encoding="utf-8").replace(
+            "**Estimate:** 2.5h", "**Estimate:** 1h 30m"
+        ),
+        encoding="utf-8",
+    )
+    assert planner._parse_task_file(p)["estimate_hours"] is None
+
+
 def test_parse_task_file_ac_and_todos(tmp_path):
     p = _write_task(
         tmp_path,
