@@ -44,7 +44,19 @@ def test_shipped_version_is_expected_minor_bump():
     shipped = re.search(
         r"<system_version>(.*?)</system_version>", _read(SHIPPED)
     ).group(1)
-    assert shipped == "9.68.0"
+    assert shipped == "9.69.0"
+
+
+def test_parallel_mandate_covers_implementation_triggers():
+    """The mandate must name implementation/R&D triggers, not discovery only.
+
+    Regression: the mandate fired only on file scans and signature
+    extraction, leaving R&D and implementation splits to guesswork.
+    """
+    text = _read(SHIPPED)
+    assert "Implementation & R&D triggers" in text
+    assert "Disjoint ownership" in text
+    assert "Verify-and-merge" in text
 
 
 def test_shipped_prompt_names_only_catalog_tools():
@@ -176,6 +188,28 @@ def test_executor_names_rtk_default_runner():
     assert "rtk test" in text
     assert "default" in text.lower()
     assert "first" in text.lower()
+
+
+def test_executor_has_implementation_delegation_lane():
+    """The executor must own an implementation-delegation lane beside discovery.
+
+    Regression: delegation covered read-only discovery only, so parallel
+    implementation splits had no ownership or verification contract.
+    """
+    text = _read(EXECUTOR)
+    assert "Subagent Delegation for Implementation" in text
+    assert "disjoint file list" in text
+    assert "verify every lane" in text
+    assert "`task` tool" not in text
+
+
+def test_code_search_names_only_subagent_tool():
+    """No stale `task`-tool reference may survive in the code-search skill."""
+    text = (REPO / "skill-templates" / "code-search" / "SKILL.md").read_text(
+        encoding="utf-8"
+    )
+    assert "`task`/subagent" not in text
+    assert "`subagent` calls" in text
 
 
 def test_executor_evidence_records_rtk_command():

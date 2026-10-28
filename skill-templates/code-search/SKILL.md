@@ -46,7 +46,7 @@ The same tools are reachable two ways; use whichever surface the session exposes
 
 ## Parallel Discovery
 
-- Split independent scopes (e.g. one subagent per MCP server, one per feature slice) across up to four `task`/subagent calls.
+- Split independent scopes (e.g. one subagent per MCP server, one per feature slice) across up to four `subagent` calls.
 - Inside one `execute` script, run independent tool calls concurrently (`Promise.allSettled`) and return the composed result once.
 - Serial scanning of unrelated directories is a performance bug, not thoroughness.
 

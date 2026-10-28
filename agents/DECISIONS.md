@@ -1,5 +1,14 @@
 # Architectural Decisions: agents
 
+## Implementation Delegation Lane Beside Discovery
+
+Date: 2026-10-28
+Status: accepted
+Context: Subagent Delegation covered read-only context discovery only. Implementation splits across subagents had no lane: no ownership rule, no verification duty, no stop condition on overlap.
+Decision: Add "Subagent Delegation for Implementation" under the discovery section, unchanged otherwise: disjoint per-lane file lists, shared-nothing lanes, Hands verifies every lane gate after merging with per-lane evidence, overlap stops and reports. Single-file, coupled, and sequential work stays with the Hands by rule.
+Consequences: The executor owns the full delegation contract; the shipped prompt stays free of lane machinery per the plugin-blind split.
+Rollback: Delete the lane section; discovery delegation is unaffected.
+
 ## Brain results are returned whole, never field-shaped
 
 Date: 2026-10-27

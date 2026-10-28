@@ -1,5 +1,12 @@
 # Architectural Decisions: fragments
 
+## [2026-10-28] ADR-006: Parallel Mandate Gains Implementation Triggers
+
+- **Context:** The Parallel Agent Execution Mandate fired only on file scans, signature extractions, and decoupled module changes — discovery work. R&D questions and implementation splits had no trigger, no ownership rule, and no merge protocol, so parallel execution outside discovery was either guessed at or avoided.
+- **Decision:** Append implementation & R&D triggers (disjoint files, independently verifiable lanes, independent research questions), a disjoint-ownership partition rule (overlap means stop-and-report), and a verify-and-merge protocol (Hands re-runs every lane gate, per-lane evidence, unverified lane blocks). Discovery wording untouched; single-file and coupled work stays single-threaded by rule.
+- **Consequences:** Parallel splits outside discovery have an explicit contract instead of Manager reminders. Version bumped with artifact regen.
+- **Rollback:** Revert the appended bullets and re-run the assembler.
+
 ## [2026-10-06] ADR-001: Initial Slice Baseline
 
 - **Context:** Baseline documentation initialized via init-folder-docs.

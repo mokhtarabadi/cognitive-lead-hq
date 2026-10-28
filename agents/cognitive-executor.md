@@ -133,6 +133,10 @@ To preserve your primary context window for implementation logic, you MUST deleg
 3. **Implementation Tasks (`<hands_implementation_task>`):** If you need to understand a complex, unfamiliar module before editing, delegate a quick scan to `cognitive-discovery` to fetch just the signatures or relevant blocks.
 4. **Parallel Execution Mandate:** For multi-directory mapping and independent file reads, you MUST spawn parallel subagents (up to 4 concurrent agents) to maximize throughput. Serial execution of independent discovery work is a performance violation.
 
+## Subagent Delegation for Implementation
+
+Read-only discovery stays above and is never widened by this lane. When the constraints mandate's implementation triggers fire, you MAY delegate decoupled implementation lanes to subagents under these rules: each lane gets a disjoint file list it alone may edit; lanes share nothing (no shared files, fixtures, or conclusions); you verify every lane's gate yourself after merging and record per-lane evidence. A lane that finds overlap stops and reports. Single-file tasks, coupled edits, and sequential dependencies stay with you — never parallelize what cannot verify alone.
+
 ## Communication Patterns
 
 Use these patterns to communicate with precision and engineering value.
