@@ -27,6 +27,7 @@
 | telegram-sync | topic-scoped-sync-workflow | # Telegram Sync Workflow Constraints (Cognitive Lead HQ) |  |
 | workflows | approval_gates_use_question_tool | # Approval gates must use the question tool (Manager standing rule 2026-09-27) |  |
 | workflows | brain_turn_mode_line | # Brain calls MUST carry a mode line (Manager order 2026-10-16) |  |
+| workflows | codemode-policy | # Code Mode policy (OpenCode v2, 2026-10-29) |  |
 | workflows | free-model-context-window-workflow | # Free-model context-window workflow (verified 2026-10-21) |  |
 | workflows | global-install-upgrade | # Global Install Upgrade Workflow (OpenCode) |  |
 | workflows | manual-qa-review-cycle | # Manual QA + Review Cycle (Hands role-plays both) |  |

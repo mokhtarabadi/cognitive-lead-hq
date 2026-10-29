@@ -21,6 +21,23 @@ Markdown. It serves the MCP Streamable HTTP endpoint at `/mcp` and a
 standalone dashboard at `/` (plus `/api/status`) on the same loopback
 port. It reads the project given by `PLANNER_PROJECT_ROOT`, falling back
 to the nearest ancestor of its working directory that holds `tasks/`.
+
+### Code Mode policy (v2 `mcp.servers.<name>.codemode`)
+
+Code Mode keeps a server's tool schemas out of the system prompt, but it
+adds one `execute` hop per call. The split follows cost, not seniority:
+
+| Servers | `codemode` | Why |
+| --- | --- | --- |
+| `custom_context`, `project_memory`, `lint`, `brain`, `planner`, `blowsh` | `false` (direct tools) | ~43 small tools in total; all are called directly and their schema cost is small |
+| `telegram` (147 tools) | `true` (default) | 147 schemas would flood the system prompt |
+
+Setting `codemode: false` puts each tool in the native tool list
+(`lint_task_file`, `claim_next`, `brain_turn`, …) instead of behind
+`execute`. It is a host-level flag: the singletons do not change, and a
+session restart applies it. Per-tool hiding still belongs to
+`permission` (`<server>_<tool>`), not to this flag.
+
 `PLANNER_PROJECTS` (pathsep-separated absolute paths) feeds the
 dashboard's project switcher. It needs no credentials. `schedule_tasks`
 is the only writer for the `**Estimate:**`, `**Deadline:**` and

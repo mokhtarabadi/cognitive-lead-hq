@@ -238,30 +238,35 @@ Write the following JSON (replace `$HOME` with the actual home directory path on
       "custom_context": {
         "type": "remote",
         "url": "http://127.0.0.1:8102/mcp",
+        "codemode": false,
         "disabled": false,
         "timeout": { "catalog": 15000, "execution": 15000 }
       },
       "project_memory": {
         "type": "remote",
         "url": "http://127.0.0.1:8103/mcp",
+        "codemode": false,
         "disabled": false,
         "timeout": { "catalog": 15000, "execution": 15000 }
       },
       "lint": {
         "type": "remote",
         "url": "http://127.0.0.1:8101/mcp",
+        "codemode": false,
         "disabled": false,
         "timeout": { "catalog": 15000, "execution": 15000 }
       },
       "brain": {
         "type": "remote",
         "url": "http://127.0.0.1:8105/mcp",
+        "codemode": false,
         "disabled": false,
         "timeout": { "catalog": 600000, "execution": 600000 }
       },
       "blowsh": {
         "type": "remote",
         "url": "http://127.0.0.1:8107/mcp",
+        "codemode": false,
         "disabled": false,
         "timeout": { "catalog": 120000, "execution": 120000 }
       },
@@ -274,6 +279,7 @@ Write the following JSON (replace `$HOME` with the actual home directory path on
       "planner": {
         "type": "remote",
         "url": "http://127.0.0.1:8108/mcp",
+        "codemode": false,
         "disabled": false,
         "timeout": { "catalog": 15000, "execution": 30000 }
       }
