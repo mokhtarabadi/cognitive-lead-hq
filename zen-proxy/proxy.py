@@ -70,6 +70,7 @@ UPSTREAM_TIMEOUT = float(os.environ.get("ZEN_PROXY_UPSTREAM_TIMEOUT", "900"))
 # models.dev); placed on chat as Qwen is OpenAI-compatible by default —
 # move if a real call 400s.
 GO_CHAT = {
+    "beam-free",
     "glm-5.1", "glm-5.2", "glm-5.3", "glm-5.3-flash",
     "kimi-k2.6", "kimi-k2.7-code", "kimi-k3",
     "longcat-2.0", "longcat-2.5-preview-free",
@@ -82,6 +83,7 @@ GO_CHAT = {
     "omen-alpha",
 }
 GO_RESP = {
+    "beam-free",
     "muse-spark-1.3-contributor", "muse-spark-1.2-contributor",
     "gpt-5.6-luna", "gpt-6-luna", "grok-4.6", "grok-4.7",
     # Verified 2026-10-21 on POST /zen/go/v1/responses (200 completed,
