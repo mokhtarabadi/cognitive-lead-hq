@@ -163,3 +163,174 @@ MaxPages, CharBudget, Deadline) are the backstop, never the primary
 stop reason — a stop is a result, not a failure.
 `respect_robots` stays true. `same_host` stays true unless the question
 demands crossing domains.
+
+## Learning Deep-Search Loop (adaptive, step-by-step)
+
+The Spider-Search Workflow above is the skeleton. This loop is the
+*adaptive* layer on top: after every round the agent re-plans from what
+it has learned, instead of blindly running more queries. Use this for
+any question that needs depth (multi-source comparison, contested
+claims, "best X" decisions, trend analysis). For a single fact, use the
+basic workflow.
+
+### State you keep across rounds (write it down each round)
+
+- `QUESTIONS[]`: the sub-questions from step 1, each with `status`
+  (open / partial / answered) and a `confidence` (strong / medium /
+  weak / none).
+- `VISITED`: set of URLs already fetched (never re-fetch).
+- `FINDINGS`: list of {claim, sources[], confidence}.
+- `GAPS`: sub-questions still open, or claims with < 2 corroborating
+  sources.
+- `QUERIES_USED`: every query string already run (avoid semantic
+  duplicates).
+- `ROUND`: current round number (start at 1).
+
+### The loop
+
+```
+ROUND 1 (wide sweep):
+  For each sub-question in QUESTIONS:
+    search_web(query, query_variants, intent)  // parallel across sub-qs
+  Collect candidate URLs → dedupe against VISITED → probe (must_contain/toc/map)
+  Fetch winners (batch) → extract claims → update FINDINGS, VISITED, QUERIES_USED
+  Assess: mark each sub-question status + confidence.
+
+ROUND 2+ (targeted depth) — only if GAPS non-empty:
+  Re-read QUESTIONS: which are still open/partial?
+  For each gap, generate 1-2 REFINED queries that:
+    - add a qualifier the gap revealed (date, region, version, "vs",
+      "criticism", "limitations", "benchmark", "official docs")
+    - switch intent (code→paper, web→news) when the gap is about a
+      different source type
+    - quote a distinctive phrase from a found source to find corroboration
+  Run refined queries in parallel → probe → fetch (only novel URLs)
+  Merge new claims into FINDINGS (corroborate or flag conflict)
+  Update GAPS, confidence.
+
+STOP when ANY of:
+  (a) Saturation: a full round adds < ~10% novel facts vs prior round
+  (b) Query redundancy: new queries are semantically similar to ones in
+      QUERIES_USED (rephrase or stop)
+  (c) All sub-questions answered with at least medium confidence
+  (d) Budget: 5 search calls per branch exhausted (backstop, not primary)
+
+  Never stop solely because a budget cap fired — a Deadline/MaxPages
+  result is a signal to retry cheaper, not to quit.
+```
+
+### Query refinement recipes (use when a gap persists)
+
+- "X vs Y" → add "benchmark", "production", "2026", "trade-offs"
+- Missing numbers → "X cost per 1M", "X latency p95", "X pricing"
+- Contested claim → "X criticism", "X limitations", "X vs [alternative]"
+- Thin evidence → quote a distinctive phrase from the best source and
+  search it (finds corroboration or contradiction)
+- Stale data → add the current year; verify the source date before
+  citing
+- Too broad → add `site:` to a primary domain (docs, github, arxiv)
+- Too narrow → drop qualifiers, broaden to the category
+
+### Confidence scoring (per claim, per sub-question)
+
+- **strong**: 2+ independent primary sources agree (official docs,
+  papers, announcements, primary benchmarks)
+- **medium**: 1 primary OR 2+ secondary (blogs, forums, aggregators)
+- **weak**: single secondary source
+- **none**: no source / single unverified source
+
+A sub-question is "answered" only at medium+. A final recommendation
+requires at least one strong claim per ranked option.
+
+### Conflict handling
+
+When two sources disagree, do NOT silently pick one. Record both with
+their sources and dates, then either:
+- resolve by recency (newer source wins, note the older one), or
+- resolve by source tier (primary > secondary), or
+- leave as an explicit "unresolved conflict" in the final answer with
+  both citations.
+
+### Visited-set and dedup rules
+
+- Keep VISITED as URLs (normalized: strip trailing slash, drop fragments).
+- Never fetch the same URL twice — even across rounds.
+- If a URL redirects, record the final URL in VISITED.
+- A page that returned a guard/captcha is recorded as "guarded" and
+  never re-fetched; find an alternate source.
+
+### Final answer shape (deep research)
+
+```
+## <question restated>
+
+### Plan (sub-questions)
+Q1 …  Q2 …  Qn …
+
+### Findings (by sub-question)
+Q1: <claim> [n] [n]  (confidence: strong)
+   - supporting detail …
+Q2: …
+
+### Conflicts
+- <claim A> [n] vs <claim B> [m]: resolution …
+
+### Ranked options (if decision question)
+1. <option> — evidence [n], trade-offs, confidence
+2. …
+Winner: <X> because …
+
+### Sources
+[n] <title> — <url>  (date, tier)
+```
+
+Every claim carries a citation number. Give each unique URL one number
+across the whole answer. No claim without a read source.
+
+## Capability Test Results & Tuning Tips (validated 2026-10-31)
+
+Tested against blowsh-mcp 2.6.1 on the rebuilt singleton. All 5 tools
+passed functional tests; notes below.
+
+- `search_web`: works for Latin, Persian, Arabic, Cyrillic, CJK queries
+  after the 2.6.1 relevance-guard fix (Unicode tokenizer). Use
+  `query_variants` (≤2) + matching `intent` for best coverage. A bare
+  `[]` means genuine zero results — never a deadline. `Instant Answer`
+  synthetic result has `url: ""`; accept it.
+- `fetch_web`: `toc` → then `section` is the cheapest path for long
+  pages. `focus` cuts 50-80% but may surface link-list blocks first on
+  wiki-style pages — follow with `section` if precision matters.
+  `must_contain` probe collapses 279K→424 chars. `since_last` returns
+  full body on first call, one-line verdict on repeat. `archive=only`
+  rescues dead URLs via Wayback with a labeled snapshot.
+- `fetch_web_batch`: per-URL isolation holds (SSRF-blocked URL returns
+  `ok:false` without failing the batch). Reuses render cache. Drops
+  single-fetch options (`focus`, `toc`, `section`, `archive`, …) — use
+  serial `fetch_web` when you need them.
+- `extract_links`: returns text+absolute URL, dedups, drops
+  non-web protocols. Good for navigation without full DOM.
+- `crawl_web`: `map` mode is very cheap (URL inventory only). `content`
+  mode BFS-fetches; `focus` ranks the frontier but the seed itself is
+  skipped when it does not match focus. `respect_robots` true by
+  default. Resume tokens valid 30 min. Stop reasons are honest signals.
+- Performance: ~5s per fresh search (Firefox render), ~30ms cached
+  fetch, ~2% CPU / 520MB RAM idle. Budget with `deadline_ms`/`deadline_s`.
+- Language: markdown extraction prefers page-language paragraphs
+  (2.6.1 fix). Multi-lang pages return the page-language paragraph.
+
+## Best Search Patterns (validated)
+
+1. Parallel sweep: one `search_web` per sub-question, all in one batch.
+   Use `query_variants` for synonym coverage instead of extra calls.
+2. Probe before guzzle: `must_contain` or `toc` first, then fetch only
+   survivors. Saves 50-95% tokens.
+3. For long pages: `toc` → pick heading → `section`. Never fetch the
+   whole body unless needed.
+4. Corroborate: a claim needs 2+ independent sources. Quote a
+   distinctive phrase from the best source and search it to find
+   corroboration or contradiction.
+5. Visited-set: normalize URLs (strip trailing slash + fragment), never
+   re-fetch. Guarded/captcha pages are recorded as "guarded" and
+   skipped.
+6. Saturation over budget: stop when a round adds <10% novel facts or
+   queries become semantically similar — not when a cap fires.
