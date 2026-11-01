@@ -1,9 +1,10 @@
 # Task 0362: Kanban board manager essentials — close gaps vs canonical Kanban practices
 
-**File:** `tasks/qa/0362-kanban-board-manager-essentials-close-gaps.md`
+**File:** `tasks/completed/0362-kanban-board-manager-essentials-close-gaps.md`
 **Source:** manager
 **Type:** improvement
-**Status:** open
+**Status:** closed
+**Finished:** 2026-11-01T05:55:01Z
 **Submitted:** 2026-10-31T11:56:12Z
 
 ## Goal
@@ -76,7 +77,5 @@ Created docs: `docs/kanban-board-manager-guide.md`, `docs/kanban-policies.md`, `
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
-
-_(Git diff will be automatically injected here by the MCP tool. Do not edit this block manually)_
-
+**Factual Git Diff:** Stored in Commit Hash: `c20ee41da3c9f8986690576c290337a85a7cec37`
 <!-- END_GIT_DIFF -->
