@@ -183,6 +183,97 @@ def _explicit_project_root(project_root: Optional[str], tool_name: str) -> Path:
 TASK_LANES = ("backlog", "in-progress", "qa", "completed", "archive")
 TASK_ID_RE = re.compile(r"^(\d+)-(.+)\.md$")
 
+CFD_LANES = ("backlog", "in_progress", "qa", "completed", "archive")
+
+
+def _cfd_lane_name(task_lane: str) -> str:
+    """Normalize a task lane name to the CFD lane vocabulary."""
+    lane = (task_lane or "").strip().lower()
+    if lane == "in-progress":
+        return "in_progress"
+    return lane
+
+
+def _parse_task_timestamp(value):
+    """Parse a task timestamp into an aware UTC datetime."""
+    if value is None:
+        return None
+    text = str(value).strip()
+    if not text or text.lower() in {"none", "n/a", "null"}:
+        return None
+    if text.endswith("Z"):
+        text = text[:-1] + "+00:00"
+    try:
+        parsed = datetime.fromisoformat(text)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
+
+
+def _first_observed_date(tasks):
+    """Return the earliest timestamp date, or today's UTC date."""
+    observed = []
+    for task in tasks:
+        for key in ("started_at", "submitted_at", "finished_at"):
+            parsed = _parse_task_timestamp(task.get(key))
+            if parsed is not None:
+                observed.append(parsed.date())
+    return min(observed) if observed else datetime.now(timezone.utc).date()
+
+
+def _cfd_lane(task, as_of, first_observed=None):
+    """Classify a task into one CFD lane for a UTC date boundary."""
+    status = str(task.get("status") or task.get("lane") or "").strip().lower()
+    started = _parse_task_timestamp(task.get("started_at"))
+    submitted = _parse_task_timestamp(task.get("submitted_at"))
+    finished = _parse_task_timestamp(task.get("finished_at"))
+    if first_observed is None:
+        first_observed = _first_observed_date([task])
+
+    if status == "archive":
+        if finished is None or finished.date() <= as_of:
+            return "archive"
+    if finished is not None and finished.date() <= as_of:
+        return "completed"
+    if submitted is not None and submitted.date() <= as_of:
+        return "qa"
+    if started is not None and started.date() <= as_of:
+        return "in_progress"
+    if as_of >= first_observed:
+        return "backlog"
+    return None
+
+
+def _build_cfd_series(tasks, days=30):
+    """Build daily CFD snapshots from task timestamps."""
+    if days < 1:
+        days = 1
+    today = datetime.now(timezone.utc).date()
+    first_observed = _first_observed_date(tasks)
+    start = max(today - timedelta(days=days - 1), first_observed)
+    series = []
+
+    for offset in range((today - start).days + 1):
+        as_of = start + timedelta(days=offset)
+        counts = {lane: 0 for lane in CFD_LANES}
+        for task in tasks:
+            lane = _cfd_lane(task, as_of, first_observed)
+            if lane in counts:
+                counts[lane] += 1
+        series.append(
+            {
+                "date": as_of.isoformat(),
+                "backlog": counts["backlog"],
+                "in_progress": counts["in_progress"],
+                "qa": counts["qa"],
+                "completed": counts["completed"],
+                "archive": counts["archive"],
+            }
+        )
+    return series
+
 
 def _header_value(text: str, label: str, default: str = "") -> str:
     """Return the value of a Markdown task header such as **Blocked:** yes.
@@ -2011,6 +2102,102 @@ def _api_hours(
         return {"error": "internal error"}
 
 
+def _api_cfd(
+    project_root: Optional[str] = None,
+    days: int = 30,
+    auth: Optional[AuthState] = None,
+) -> dict:
+    """Return reconstructed CFD snapshots as JSON (GET /api/cfd)."""
+    if auth is not None and not auth.authenticated:
+        return {"error": "unauthenticated"}
+
+    workspace_root = _resolve_dashboard_root(project_root)
+    if auth is not None and not auth.project_allowed(workspace_root):
+        if project_root and project_root.strip():
+            return {"error": "forbidden"}
+        fallback = _first_allowed_root(auth)
+        if fallback is None:
+            return {"error": "forbidden"}
+        workspace_root = fallback
+
+    try:
+        tasks = _load_all_tasks(workspace_root)
+        series = _build_cfd_series(tasks, days=days)
+        return {"derived": True, "window_days": days, "series": series}
+    except Exception:  # noqa: BLE001
+        return {"error": "internal error"}
+
+
+def _api_control_chart(
+    project_root: Optional[str] = None,
+    auth: Optional[AuthState] = None,
+) -> dict:
+    """Return control-chart data as JSON (GET /api/control-chart)."""
+    if auth is not None and not auth.authenticated:
+        return {"error": "unauthenticated"}
+
+    workspace_root = _resolve_dashboard_root(project_root)
+    if auth is not None and not auth.project_allowed(workspace_root):
+        if project_root and project_root.strip():
+            return {"error": "forbidden"}
+        fallback = _first_allowed_root(auth)
+        if fallback is None:
+            return {"error": "forbidden"}
+        workspace_root = fallback
+
+    try:
+        tasks = _load_all_tasks(workspace_root)
+        points = []
+        for task in tasks:
+            status = str(task.get("status") or task.get("lane") or "").strip().lower()
+            if status not in {"completed", "closed", "done", "archive"}:
+                continue
+            started = _parse_task_timestamp(task.get("started_at"))
+            finished = _parse_task_timestamp(task.get("finished_at"))
+            if started is None or finished is None or finished < started:
+                continue
+            hours = (finished - started).total_seconds() / 3600.0
+            points.append(
+                {
+                    "id": task.get("name") or task.get("id"),
+                    "cycle_hours": round(hours, 2),
+                }
+            )
+        if not points:
+            return {
+                "derived": True,
+                "count": 0,
+                "average": None,
+                "p50": None,
+                "p85": None,
+                "p95": None,
+                "points": [],
+            }
+        values = sorted(p["cycle_hours"] for p in points)
+
+        def percentile(pct):
+            if not values:
+                return None
+            idx = (len(values) - 1) * pct
+            lo = int(idx // 1)
+            hi = min(lo + 1, len(values) - 1)
+            frac = idx - lo
+            return round(values[lo] + (values[hi] - values[lo]) * frac, 2)
+
+        avg = round(sum(values) / len(values), 2)
+        return {
+            "derived": True,
+            "count": len(points),
+            "average": avg,
+            "p50": percentile(0.50),
+            "p85": percentile(0.85),
+            "p95": percentile(0.95),
+            "points": points,
+        }
+    except Exception:  # noqa: BLE001
+        return {"error": "internal error"}
+
+
 _PLAN_WINDOWS = ("day", "week", "month")
 
 
@@ -2500,6 +2687,47 @@ def build_app():
             return JSONResponse(payload, status_code=500)
         return JSONResponse(payload)
 
+    async def api_cfd(request):
+        root = request.query_params.get("project_root")
+        if _relative_root(root):
+            return JSONResponse(
+                {"error": "project_root must be absolute"}, status_code=400
+            )
+        days_raw = request.query_params.get("days", "30")
+        try:
+            days = int(days_raw)
+        except (TypeError, ValueError):
+            days = 30
+        if days < 1:
+            days = 1
+        auth = _auth_from_request(request)
+        payload = _api_cfd(root, days, auth)
+        error = payload.get("error")
+        if error == "unauthenticated":
+            return JSONResponse(payload, status_code=401)
+        if error == "forbidden":
+            return JSONResponse(payload, status_code=403)
+        if error == "internal error":
+            return JSONResponse(payload, status_code=500)
+        return JSONResponse(payload)
+
+    async def api_control_chart(request):
+        root = request.query_params.get("project_root")
+        if _relative_root(root):
+            return JSONResponse(
+                {"error": "project_root must be absolute"}, status_code=400
+            )
+        auth = _auth_from_request(request)
+        payload = _api_control_chart(root, auth)
+        error = payload.get("error")
+        if error == "unauthenticated":
+            return JSONResponse(payload, status_code=401)
+        if error == "forbidden":
+            return JSONResponse(payload, status_code=403)
+        if error == "internal error":
+            return JSONResponse(payload, status_code=500)
+        return JSONResponse(payload)
+
     async def api_plan(request):
         root = request.query_params.get("project_root")
         if _relative_root(root):
@@ -2686,6 +2914,8 @@ def build_app():
         Route("/api/status", api_status),
         Route("/api/task", api_task),
         Route("/api/hours", api_hours),
+        Route("/api/cfd", api_cfd),
+        Route("/api/control-chart", api_control_chart),
         Route("/api/plan", api_plan, methods=["GET"]),
         Route("/api/plan", api_plan_save, methods=["POST"]),
         Route("/api/plan", api_plan_clear, methods=["DELETE"]),

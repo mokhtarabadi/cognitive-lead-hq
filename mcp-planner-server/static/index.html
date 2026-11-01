@@ -95,6 +95,10 @@
           <div id="plan-chart" class="mt-3"></div>
           <div class="label mt-3 mb-1">Measured hours</div>
           <div id="hours-chart"><div class="small text-muted">Loading…</div></div>
+          <div class="label mt-3 mb-1">Cumulative flow (derived)</div>
+          <div id="cfd-chart"><div class="small text-muted">Loading…</div></div>
+          <div class="label mt-3 mb-1">Control chart (cycle time)</div>
+          <div id="control-chart"><div class="small text-muted">Loading…</div></div>
         </div></div>
       </div>
       <div class="col-12 col-lg-4">
@@ -214,6 +218,8 @@
     planTotals: document.getElementById('plan-totals'),
     planChart: document.getElementById('plan-chart'),
     hoursChart: document.getElementById('hours-chart'),
+    cfdChart: document.getElementById('cfd-chart'),
+    controlChart: document.getElementById('control-chart'),
     deadlineRail: document.getElementById('deadline-rail'),
     taskModal: document.getElementById('task-modal'),
     taskModalTitle: document.getElementById('task-modal-title'),
@@ -757,6 +763,96 @@
       '<div class="small mt-1"><span class="text-muted">Weeks: </span>' + weekLine + '</div>';
   }
 
+  function renderCFD(series) {
+    const el = elements.cfdChart;
+    if (!el) return;
+    if (!series || !series.length) { el.innerHTML = '<div class="small text-muted">No flow data available.</div>'; return; }
+    const lanes = ['backlog', 'in_progress', 'qa', 'completed', 'archive'];
+    const colors = { backlog: '#8C99AB', in_progress: '#7DD3FC', qa: '#FBBF24', completed: '#34D399', archive: '#5EEAD4' };
+    const width = 720, height = 240, pad = 32;
+    const innerW = width - pad * 2, innerH = height - pad * 2;
+    const cumulative = series.map(function (p) {
+      let t = 0; const v = {};
+      lanes.forEach(function (l) { t += Number(p[l] || 0); v[l] = t; });
+      return v;
+    });
+    const maxT = Math.max(1, ...cumulative.map(function (c) { return c[lanes[lanes.length - 1]]; }));
+    const xAt = function (i) { return series.length === 1 ? pad + innerW / 2 : pad + (i / (series.length - 1)) * innerW; };
+    const yAt = function (v) { return height - pad - (v / maxT) * innerH; };
+    let markup = '<svg viewBox="0 0 ' + width + ' ' + height + '" width="100%" height="240" role="img" aria-label="Cumulative flow diagram">' +
+      '<line x1="' + pad + '" y1="' + (height - pad) + '" x2="' + (width - pad) + '" y2="' + (height - pad) + '" stroke="var(--gd-border)" stroke-width="0.4"></line>' +
+      '<line x1="' + pad + '" y1="' + pad + '" x2="' + pad + '" y2="' + (height - pad) + '" stroke="var(--gd-border)" stroke-width="0.4"></line>';
+    for (let li = 0; li < lanes.length; li++) {
+      const lane = lanes[li];
+      const prev = li > 0 ? lanes[li - 1] : null;
+      const top = series.map(function (p, i) { return xAt(i) + ',' + yAt(cumulative[i][lane]); }).join(' ');
+      const bot = series.map(function (p, i) { return xAt(i) + ',' + yAt(prev ? cumulative[i][prev] : 0); }).reverse().join(' ');
+      markup += '<polygon points="' + top + ' ' + bot + '" fill="' + colors[lane] + '" fill-opacity="0.35" stroke="' + colors[lane] + '" stroke-width="1"></polygon>';
+    }
+    markup += '<text x="' + pad + '" y="' + (pad - 6) + '" fill="var(--gd-muted)" font-size="10">' + maxT + '</text>';
+    markup += '<text x="' + pad + '" y="' + (height - pad + 14) + '" fill="var(--gd-muted)" font-size="10">' + series[0].date.slice(5) + '</text>';
+    markup += '<text x="' + (width - pad) + '" y="' + (height - pad + 14) + '" fill="var(--gd-muted)" font-size="10" text-anchor="end">' + series[series.length - 1].date.slice(5) + '</text>';
+    lanes.forEach(function (lane, i) {
+      const x = width - pad + 6; const y = pad + i * 14;
+      markup += '<rect x="' + x + '" y="' + y + '" width="8" height="8" fill="' + colors[lane] + '" fill-opacity="0.6"></rect>';
+      markup += '<text x="' + (x + 12) + '" y="' + (y + 8) + '" fill="var(--gd-fg)" font-size="9">' + lane.replace('_', ' ') + '</text>';
+    });
+    markup += '</svg>';
+    el.innerHTML = markup;
+  }
+
+  async function loadCFD() {
+    try {
+      const res = await fetch(window.location.origin + '/api/cfd?days=30' + (currentProject ? '&project_root=' + encodeURIComponent(currentProject) : ''));
+      if (!res.ok) { elements.cfdChart.innerHTML = '<div class="small text-muted">CFD unavailable.</div>'; return; }
+      const data = await res.json();
+      renderCFD(data.series || []);
+    } catch (e) { elements.cfdChart.innerHTML = '<div class="small text-muted">CFD unavailable.</div>'; }
+  }
+
+  function renderControlChart(data) {
+    const el = elements.controlChart;
+    if (!el) return;
+    const points = data.points || [];
+    if (!points.length || data.average == null) {
+      el.innerHTML = '<div class="small text-muted">No completed tasks with cycle time.</div>';
+      return;
+    }
+    const width = 720, height = 260, pad = 40;
+    const innerW = width - pad * 2, innerH = height - pad * 2;
+    const maxHours = Math.max(1, data.p95 || 0, data.average, ...points.map(function (p) { return p.cycle_hours; }));
+    const xAt = function (i) { return points.length === 1 ? pad + innerW / 2 : pad + (i / (points.length - 1)) * innerW; };
+    const yAt = function (value) { return height - pad - (value / maxHours) * innerH; };
+    const lineAt = function (value, color, label) {
+      if (value == null) return '';
+      const y = yAt(value);
+      return '<line x1="' + pad + '" y1="' + y + '" x2="' + (width - pad) + '" y2="' + y + '" stroke="' + color + '" stroke-width="1.2" stroke-dasharray="4 4"></line>' +
+        '<text x="' + (width - pad + 4) + '" y="' + (y + 4) + '" fill="' + color + '" font-size="10">' + label + ' ' + value + 'h</text>';
+    };
+    let markup = '<svg viewBox="0 0 ' + width + ' ' + height + '" width="100%" height="260" role="img" aria-label="Control chart">' +
+      '<line x1="' + pad + '" y1="' + (height - pad) + '" x2="' + (width - pad) + '" y2="' + (height - pad) + '" stroke="var(--gd-border)" stroke-width="0.4"></line>' +
+      '<line x1="' + pad + '" y1="' + pad + '" x2="' + pad + '" y2="' + (height - pad) + '" stroke="var(--gd-border)" stroke-width="0.4"></line>';
+    points.forEach(function (point, index) {
+      markup += '<circle cx="' + xAt(index) + '" cy="' + yAt(point.cycle_hours) + '" r="3.5" fill="var(--gd-info)" fill-opacity="0.8"><title>' + escapeHtml(point.id || '') + ': ' + point.cycle_hours + 'h</title></circle>';
+    });
+    markup += lineAt(data.average, 'var(--gd-fg)', 'avg');
+    markup += lineAt(data.p50, 'var(--gd-success)', 'p50');
+    markup += lineAt(data.p85, 'var(--gd-warning)', 'p85');
+    markup += lineAt(data.p95, 'var(--gd-danger)', 'p95');
+    markup += '<text x="' + pad + '" y="' + (pad - 6) + '" fill="var(--gd-muted)" font-size="10">' + maxHours.toFixed(1) + 'h</text>';
+    markup += '</svg>';
+    el.innerHTML = markup;
+  }
+
+  async function loadControlChart() {
+    try {
+      const res = await fetch(window.location.origin + '/api/control-chart' + (currentProject ? '?project_root=' + encodeURIComponent(currentProject) : ''));
+      if (!res.ok) { elements.controlChart.innerHTML = '<div class="small text-muted">Control chart unavailable.</div>'; return; }
+      const data = await res.json();
+      renderControlChart(data);
+    } catch (e) { elements.controlChart.innerHTML = '<div class="small text-muted">Control chart unavailable.</div>'; }
+  }
+
   function renderDeadlineRail(alerts) {
     const groups = [['Overdue', alerts.overdue || [], 'var(--gd-danger)'], ['Today', alerts.today || [], 'var(--gd-warning)'], ['Next 3 days', alerts.soon || [], 'var(--gd-info)']];
     const total = groups.reduce(function (sum, g) { return sum + g[1].length; }, 0);
@@ -973,9 +1069,13 @@
   fetchStatus();
   fetchPlan();
   fetchHours();
+  loadCFD();
+  loadControlChart();
   setInterval(fetchStatus, 30000);
   setInterval(fetchPlan, 60000);
   setInterval(fetchHours, 60000);
+  setInterval(loadCFD, 60000);
+  setInterval(loadControlChart, 60000);
   document.querySelectorAll('[data-window]').forEach(function (b) {
     b.className = 'btn btn-sm ' + (b.dataset.window === planWindow ? 'btn-primary' : 'btn-outline-secondary');
   });
