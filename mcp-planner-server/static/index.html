@@ -956,6 +956,8 @@
     currentProject = elements.projectSelect.value;
     fetchStatus();
     fetchPlan();
+    loadCFD();
+    loadControlChart();
   });
 
   // ---- Auth ----
@@ -1066,11 +1068,12 @@
     } catch (e) { /* server unreachable: leave the board as is */ }
   })();
 
-  fetchStatus();
-  fetchPlan();
-  fetchHours();
-  loadCFD();
-  loadControlChart();
+  fetchStatus().then(function () {
+    fetchPlan();
+    fetchHours();
+    loadCFD();
+    loadControlChart();
+  });
   setInterval(fetchStatus, 30000);
   setInterval(fetchPlan, 60000);
   setInterval(fetchHours, 60000);
