@@ -373,6 +373,10 @@
           return '<div class="task-row" role="button" tabindex="0" data-id="' + escapeHtml(t.id || t.name || '') + '" data-path="' + escapeHtml(t.path || '') + '">' +
             '<span class="id">' + escapeHtml(t.id || t.name || 'task') + '</span> — ' + escapeHtml(t.title || 'untitled') +
             (t.owner ? ' <span class="badge text-bg-secondary">' + escapeHtml(t.owner) + '</span>' : '') +
+            (t.blocked ? ' <span class="badge text-bg-danger">BLOCKED</span>' : '') +
+            (t.blocked && t.blocked_reason && t.blocked_reason !== 'none' ? ' <span class="text-muted small">' + escapeHtml(t.blocked_reason) + '</span>' : '') +
+            (t.swarm && t.swarm !== 'none' ? ' <span class="badge text-bg-warning">swarm: ' + escapeHtml(t.swarm) + '</span>' : '') +
+            (t.lane === 'in-progress' && t.started_at && isStale(t.started_at) ? ' <span class="badge text-bg-danger">STALE</span>' : '') +
             (t.estimate_hours != null ? ' <span class="text-muted">' + t.estimate_hours + 'h</span>' : '') +
             (t.elapsed_seconds != null ? ' <span class="text-muted mono">· measured ' + formatDuration(t.elapsed_seconds) + '</span>' : '') +
             '</div>';
@@ -543,6 +547,24 @@
     if (h > 0) return h + 'h ' + m + 'm';
     if (m > 0) return m + 'm';
     return secs + 's';
+  }
+
+  function isStale(startedAt) {
+    if (!startedAt) return false;
+    const start = new Date(startedAt);
+    if (isNaN(start.getTime())) return false;
+    const now = new Date();
+    let businessDays = 0;
+    const current = new Date(start);
+    while (current < now) {
+      current.setDate(current.getDate() + 1);
+      const day = current.getDay();
+      if (day !== 0 && day !== 6) {
+        businessDays += 1;
+        if (businessDays >= 3) return true;
+      }
+    }
+    return false;
   }
 
   function openTaskModal(id, absPath) {

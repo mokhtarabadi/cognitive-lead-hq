@@ -184,6 +184,22 @@ TASK_LANES = ("backlog", "in-progress", "qa", "completed", "archive")
 TASK_ID_RE = re.compile(r"^(\d+)-(.+)\.md$")
 
 
+def _header_value(text: str, label: str, default: str = "") -> str:
+    """Return the value of a Markdown task header such as **Blocked:** yes.
+
+    The lookup is intentionally line-based so malformed values remain visible
+    instead of being silently normalized.
+    """
+    import re
+
+    pattern = re.compile(
+        rf"^\*\*{re.escape(label)}:\*\*\s*(.+?)\s*$",
+        re.MULTILINE,
+    )
+    match = pattern.search(text)
+    return match.group(1) if match else default
+
+
 def _parse_task_file(path: Path) -> dict:
     """Parse a task Markdown file into structured fields.
 
@@ -217,6 +233,9 @@ def _parse_task_file(path: Path) -> dict:
         "deadline": None,
         "milestone": None,
         "depends_on": [],
+        "blocked": False,
+        "blocked_reason": "none",
+        "swarm": "none",
         "acceptance_criteria": [],
         "todos": [],
         "raw": text,
@@ -264,6 +283,12 @@ def _parse_task_file(path: Path) -> dict:
             record["depends_on"] = [
                 d.strip().strip('"').strip("'") for d in dep_str.split(",") if d.strip()
             ]
+        elif key == "blocked":
+            record["blocked"] = val.strip().lower() in {"yes", "true", "1"}
+        elif key == "blocked reason":
+            record["blocked_reason"] = val.strip()
+        elif key == "swarm":
+            record["swarm"] = val.strip()
 
     # Determine lane from path parts.
     parts = path.parts
@@ -1762,6 +1787,9 @@ def _task_brief(task: dict) -> dict:
         "status": task.get("status") or "open",
         "estimate_hours": task.get("estimate_hours"),
         "owner": task.get("owner"),
+        "blocked": bool(task.get("blocked")),
+        "blocked_reason": task.get("blocked_reason") or "none",
+        "swarm": task.get("swarm") or "none",
         "deadline": task.get("deadline"),
         "milestone": task.get("milestone"),
         "started_at": task.get("started_at"),

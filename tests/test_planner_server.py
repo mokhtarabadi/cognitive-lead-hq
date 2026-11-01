@@ -201,6 +201,31 @@ def test_parse_task_file_ac_and_todos(tmp_path):
     assert rec["todos"][0]["done"] is True
 
 
+def test_parse_task_blocked_metadata(tmp_path):
+    p = tmp_path / "tasks" / "backlog"
+    p.mkdir(parents=True, exist_ok=True)
+    path = p / "099-task.md"
+    path.write_text(
+        "# Task 099: Blocked task\n\n"
+        "**File:** tasks/backlog/099-task.md\n"
+        "**Source:** manager\n"
+        "**Type:** feature\n"
+        "**Status:** open\n"
+        "**Blocked:** yes\n"
+        "**Blocked reason:** waiting on dependency\n"
+        "**Swarm:** alice\n",
+        encoding="utf-8",
+    )
+    rec = planner._parse_task_file(path)
+    assert rec["blocked"] is True
+    assert rec["blocked_reason"] == "waiting on dependency"
+    assert rec["swarm"] == "alice"
+    brief = planner._task_brief(rec)
+    assert brief["blocked"] is True
+    assert brief["blocked_reason"] == "waiting on dependency"
+    assert brief["swarm"] == "alice"
+
+
 def test_load_all_tasks_across_lanes(tmp_path):
     _write_task(tmp_path, "backlog", 1, "Backlog task")
     _write_task(tmp_path, "in-progress", 2, "IP task")

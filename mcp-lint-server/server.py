@@ -655,6 +655,48 @@ def _check_bundle_meta_structure(content: str, file_path: str) -> list[str]:
 # --- MCP Tools ---
 
 
+def _check_dod_advisory(content: str, file_path: str) -> list[str]:
+    """Advisory Definition-of-Done checks (non-blocking).
+
+    These never become hard failures: they are surfaced as warnings so the
+    Manager can decide whether to act. Returns a list of advisory strings.
+    """
+    import re
+
+    warnings: list[str] = []
+
+    required_sections = (
+        "## Acceptance Criteria",
+        "## Definition of Done",
+        "## Verification Evidence",
+    )
+    for section in required_sections:
+        if section not in content:
+            warnings.append(f"advisory: missing required section {section}")
+
+    # Reuse the same line-based header lookup as the planner.
+    def _header_value(label: str, default: str = "") -> str:
+        pattern = re.compile(
+            rf"^\*\*{re.escape(label)}:\*\*\s*(.+?)\s*$",
+            re.MULTILINE,
+        )
+        match = pattern.search(content)
+        return match.group(1) if match else default
+
+    blocked = _header_value("Blocked", "no").strip().lower()
+    blocked_reason = _header_value("Blocked reason", "none").strip()
+    if blocked in {"yes", "true", "1"} and blocked_reason.lower() in {"", "none"}:
+        warnings.append("advisory: blocked item is missing a blocked reason")
+
+    swarm = _header_value("Swarm", "none").strip()
+    if swarm.lower() not in {"", "none"} and blocked not in {"yes", "true", "1"}:
+        warnings.append(
+            "advisory: swarm owner is set but the item is not marked blocked"
+        )
+
+    return warnings
+
+
 def _explicit_project_root(project_root: str | None, tool_name: str) -> Path:
     """Validate a per-call project root (Task 279 project_path).
 
@@ -768,15 +810,24 @@ def lint_task_file(task_file_path: str, project_root: str | None = None) -> str:
     task_issues = _check_task_file_structure(content, str(path), root=workspace_root)
     meta_issues = _check_bundle_meta_structure(content, task_file_path)
     planner_issues = _check_planner_metadata(content, task_file_path)
+    dod_warnings = _check_dod_advisory(content, task_file_path)
 
     all_issues = md_issues + task_issues + meta_issues + planner_issues
 
     if not all_issues:
+        if dod_warnings:
+            return (
+                f"✅ {task_file_path} passed Task File linting. "
+                f"(advisory: {'; '.join(dod_warnings)})"
+            )
         return f"✅ {task_file_path} passed Task File linting."
 
-    return f"⚠️ {len(all_issues)} issues found in {task_file_path}:\n" + "\n".join(
+    result = f"⚠️ {len(all_issues)} issues found in {task_file_path}:\n" + "\n".join(
         f"- {i}" for i in all_issues
     )
+    if dod_warnings:
+        result += "\n" + "\n".join(f"- {w}" for w in dod_warnings)
+    return result
 
 
 @_project_tool
