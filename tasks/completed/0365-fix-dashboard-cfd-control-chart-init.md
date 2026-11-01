@@ -1,9 +1,10 @@
 # Task 0365: Fix dashboard CFD/control chart initial load ordering
 
-**File:** `tasks/qa/0365-fix-dashboard-cfd-control-chart-init.md`
+**File:** `tasks/completed/0365-fix-dashboard-cfd-control-chart-init.md`
 **Source:** manager
 **Type:** improvement
-**Status:** open
+**Status:** closed
+**Finished:** 2026-11-01T06:22:04Z
 **Submitted:** 2026-11-01T06:21:35Z
 
 ## Goal
@@ -48,7 +49,5 @@ Fixed dashboard init ordering: loadCFD/loadControlChart now run after fetchStatu
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
-
-_(Git diff will be automatically injected here by the MCP tool. Do not edit this block manually)_
-
+**Factual Git Diff:** Stored in Commit Hash: `71522101389c12f654f1757542a767ac31d753e9`
 <!-- END_GIT_DIFF -->
