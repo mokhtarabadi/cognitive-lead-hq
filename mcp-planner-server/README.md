@@ -24,17 +24,17 @@ dashboard on loopback port 8108.
 
 ## HTTP surface (loopback 8108)
 
-| Route                                                     | Purpose                                                                                                                                                                                                   |
-| --------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `GET /`                                                   | Standalone dark-mode dashboard (no build step).                                                                                                                                                           |
-| `GET /static/*`                                           | Dashboard assets (same `static/` directory).                                                                                                                                                              |
-| `GET /api/status[?project_root=<abs path>]`               | JSON status contract the dashboard renders.                                                                                                                                                               |
-| `GET /api/task?id=<id>` or `?path=tasks/<lane>/<file>.md` | One task file as `{id, path, lane, title, markdown}` for the dashboard modal. `id` wins when both are sent. 400 no param, 401 no session, 403 outside grants or unsafe path, 404 unknown, 500 unexpected. |
-| `GET /api/hours[?project_root=<abs path>]` | Measured hours from task stamps: per-day rows for the last 14 days plus per-week rows for the last 8 ISO weeks (`{date/week, measured_hours, done}`). Measured-only: tasks without `Finished` + `elapsed_seconds` never count. Same 401/403 contract as `/api/status`. |
-| `POST /api/login`                                         | `{"username","password"}` → `{token, username, role, allowed_projects}` + `HttpOnly` cookie.                                                                                                              |
-| `POST /api/logout`                                        | Invalidates the session and clears the cookie.                                                                                                                                                            |
-| `GET /api/me`                                             | Current user, or 401 when signed out (200 + `note: "auth disabled"` in open mode).                                                                                                                        |
-| `POST /mcp`                                               | MCP Streamable HTTP endpoint (tools). Auth-free on loopback; the tunnel 404s it.                                                                                                                          |
+| Route                                                     | Purpose                                                                                                                                                                                                                                                                |
+| --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /`                                                   | Standalone dark-mode dashboard (no build step).                                                                                                                                                                                                                        |
+| `GET /static/*`                                           | Dashboard assets (same `static/` directory).                                                                                                                                                                                                                           |
+| `GET /api/status[?project_root=<abs path>]`               | JSON status contract the dashboard renders.                                                                                                                                                                                                                            |
+| `GET /api/task?id=<id>` or `?path=tasks/<lane>/<file>.md` | One task file as `{id, path, lane, title, markdown}` for the dashboard modal. `id` wins when both are sent. 400 no param, 401 no session, 403 outside grants or unsafe path, 404 unknown, 500 unexpected.                                                              |
+| `GET /api/hours[?project_root=<abs path>]`                | Measured hours from task stamps: per-day rows for the last 14 days plus per-week rows for the last 8 ISO weeks (`{date/week, measured_hours, done}`). Measured-only: tasks without `Finished` + `elapsed_seconds` never count. Same 401/403 contract as `/api/status`. |
+| `POST /api/login`                                         | `{"username","password"}` → `{token, username, role, allowed_projects}` + `HttpOnly` cookie.                                                                                                                                                                           |
+| `POST /api/logout`                                        | Invalidates the session and clears the cookie.                                                                                                                                                                                                                         |
+| `GET /api/me`                                             | Current user, or 401 when signed out (200 + `note: "auth disabled"` in open mode).                                                                                                                                                                                     |
+| `POST /mcp`                                               | MCP Streamable HTTP endpoint (tools). Auth-free on loopback; the tunnel 404s it.                                                                                                                                                                                       |
 
 `/api/status` returns per-lane **task lists** (`lanes`), the milestone tree
 (`milestone_tree`), upcoming deadlines (`deadlines`), the pacing figures
@@ -123,6 +123,9 @@ the tunnel goes live, then verify: `https://planner.example.com/mcp` → 404,
 - `tasks/` Markdown is the canonical source of truth; the planner is a derived
   index (`tasks/.plan/index.json`, gitignored) regenerated per turn.
 - Autopilot QA budget: max 1 unresolved QA/review task (general WIP ceiling 3).
+- Sprint scope is the calendar week Monday–Sunday (UTC), filtered by Started/Finished stamps; `sprint_stats` accepts an optional `week="YYYY-Www"`.
+- Precedence: Sprint Strategist veto stands unless the Manager explicitly overrides.
+- Sprint locks are enforced: `claim_next` refuses work while any `tasks/.plan/sprint-*.lock` exists; deleting the file unlocks.
 - `/mcp` trusts the bind and the tunnel ingress, not session auth: the
   `^/mcp(/.*)?$ → 404` ingress rule must stay ahead of the catch-all, and the
   port must never leave `127.0.0.1`. Breaking either exposes tool execution.
@@ -189,24 +192,25 @@ to a successful claim without ever blocking it. Hand-moving a task file around
 
 ### Scheduling metadata (`schedule_tasks`)
 
-The Planner reads `**Estimate:**`, `**Deadline:**` and `**Depends on:**` from
-the task header, and Markdown stays the only source of truth. `schedule_tasks`
-is the single writer for those three lines:
+The Planner reads `**Estimate:**`, `**Deadline:**`, `**Depends on:**` and
+`**Milestone:**` from the task header, and Markdown stays the only source of
+truth. `schedule_tasks` is the single writer for those four lines:
 
 ```
 schedule_tasks(project_root, "336:3h:2026-10-25, 339:3h:2026-10-27:338")
 ```
 
-Each entry is `id:estimate:deadline[:deps]`; `-` leaves a value untouched.
+Each entry is `id:estimate:deadline[:deps[:milestone]]` (e.g.
+`340:2h:2026-11-01:-:M03` sets only the milestone); `-` leaves a value untouched.
 The tool resolves the id in the active lanes only, replaces an existing value
 or inserts the line directly after `**Status:**` (final order Estimate,
-Deadline, Depends on), leaves the rest of the file byte-identical, and writes
+Deadline, Depends on, Milestone), leaves the rest of the file byte-identical, and writes
 atomically. It is idempotent, and the call is **all-or-nothing**: one malformed
 entry rejects the whole batch so a partially applied schedule cannot exist.
 Rejections are explicit — unknown or archived id, duplicate id in one call,
 estimate that is not `Nh`/`N.Nh`, deadline that is not `YYYY-MM-DD`, dependencies
 that are not ids. The lint rule `_check_planner_metadata` enforces the same
-formats, so an agent cannot invent one and have the task silently drop out of
+formats (Milestone must be a single non-empty value when present), so an agent cannot invent one and have the task silently drop out of
 capacity and the timeline.
 
 ### Measured time (`Started`, `Submitted`, `Finished`)

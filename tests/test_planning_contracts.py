@@ -1,11 +1,9 @@
-"""Planning-stack regression contracts for task 369.
+"""Planning-stack regression contracts, enforced by task 370.
 
-Zero source edits. Every planner call uses tmp_path as project_root.
-F1 milestone preservation is a must-pass guard.
-F2 grouping split, F5 unlocked claim, and F6 snapshot stats are documented
-gaps marked xfail strict.
-F3 malformed deadlines, F4 QA ceiling, F7 template sync, and F8 lock-file
-behavior are must-pass guards.
+Zero source edits in this file's scope. Every planner call uses tmp_path
+as project_root. F1 milestone preservation, F2 merged grouping, F5 lock
+gate, F3 deadline guards, F4 QA ceiling, F6 week scope, F7 sync guards,
+and F8 lock-file behavior are must-pass guards.
 F10 DoD mismatch is out of code-test scope and is noted only.
 """
 
@@ -91,16 +89,15 @@ def test_f1_milestone_preserved_by_schedule_tasks(tmp_path):
     assert record.get("deadline") == "2026-11-15"
 
 
-@pytest.mark.xfail(strict=True, reason="F2 gap: Milestone grouping is case-sensitive")
-def test_f2_grouping_case_split_documents_gap(tmp_path):
-    """F2 gap: desired canonical grouping merges M1 and m1 into one group."""
+def test_f2_grouping_merges_case_variants(tmp_path):
+    """F2 must-pass: M1 and m1 read as one milestone (first-seen display)."""
     # Targets _parse_task_file (:294) and milestone_status (:1257).
     _write_task(tmp_path, "backlog", "0002-upper.md", _minimal_task(2, milestone="M1"))
     _write_task(tmp_path, "backlog", "0003-lower.md", _minimal_task(3, milestone="m1"))
-    status = SERVER.milestone_status(str(tmp_path))
-    text = str(status)
-    # Desired: a single canonical group, so M1/m1 appear as one entry.
-    assert text.count("M1") + text.count("m1") <= 1
+    text = str(SERVER.milestone_status(str(tmp_path)))
+    # One canonical group: the label appears exactly once (case-insensitive).
+    assert text.lower().count("m1") == 1
+    assert "M1" in text  # first-seen spelling wins the display
 
 
 def test_f3a_schedule_rejects_non_iso_deadline(tmp_path):
@@ -137,25 +134,59 @@ def test_f4_qa_budget_counts_single_ceiling(tmp_path):
     assert "2" in text and ("1" in text or "ceiling" in text or "budget" in text)
 
 
-@pytest.mark.xfail(strict=True, reason="F5 gap: sprint_lock does not block claim_next")
-def test_f5_lock_does_not_block_claim_documents_gap(tmp_path):
-    """F5 gap: desired behavior is that a locked sprint blocks claim_next."""
+def test_f5_lock_blocks_claim(tmp_path):
+    """F5 must-pass: a sprint lock file blocks claim_next with unlock note."""
     # Targets sprint_lock (:1299) and claim_next (:954).
     _write_task(tmp_path, "backlog", "0008-locked.md", _minimal_task(8))
     SERVER.sprint_lock("sprint-1", str(tmp_path))
     outcome = str(SERVER.claim_next(str(tmp_path), "0008")).lower()
-    assert "error" in outcome or "lock" in outcome or "block" in outcome
+    assert "sprint-" in outcome and "unlock" in outcome
+    # A blocked claim moves nothing.
+    assert (tmp_path / "tasks" / "backlog" / "0008-locked.md").is_file()
 
 
-@pytest.mark.xfail(strict=True, reason="F6 gap: unscoped stats and date-blind quota")
-def test_f6_stats_snapshot_and_quota_date_blind_documents_gap(tmp_path):
-    """F6 gap: desired behavior is sprint-scoped stats plus date-aware quota."""
+def test_f6_stats_week_scoped_and_quota_date_aware(tmp_path):
+    """F6 must-pass: stats carry a week scope; quota counts today-finished."""
     # Targets sprint_stats (:1164) and sprint_check_daily_quota (:1424).
-    _write_task(tmp_path, "completed", "0009-done.md", _minimal_task(9))
-    stats_text = str(SERVER.sprint_stats(str(tmp_path))).lower()
-    quota_text = str(SERVER.sprint_check_daily_quota(str(tmp_path))).lower()
-    assert "scope" in stats_text
-    assert "date" in quota_text and "remaining" in quota_text
+    import re
+
+    # An out-of-week stamp must not leak into the week numbers.
+    out_week = _minimal_task(9, estimate="3h") + "**Started:** 2020-01-06T10:00:00Z\n"
+    _write_task(tmp_path, "completed", "0009-done.md", out_week)
+    stats = str(SERVER.sprint_stats(str(tmp_path)))
+    assert "Week scope:" in stats
+    assert re.search(r"Week scope: \d{4}-W\d{2} \(", stats), stats
+    assert "Week estimated: 0h" in stats
+    quota = str(SERVER.sprint_check_daily_quota(str(tmp_path)))
+    assert "Finished today:" in quota
+
+
+def test_f1b_milestone_written_by_schedule_tasks(tmp_path):
+    """F1 must-pass: schedule_tasks writes **Milestone:** via trailing segment."""
+    # Target schedule_tasks milestone segment; `-` deps skips to milestone.
+    name = "0011-writer.md"
+    _write_task(tmp_path, "backlog", name, _minimal_task(11))
+    result = str(SERVER.schedule_tasks(str(tmp_path), "0011:2h:2026-11-20:-:M9"))
+    assert "M9" in result
+    text = (tmp_path / "tasks" / "backlog" / name).read_text(encoding="utf-8")
+    assert "**Milestone:** M9" in text
+    # Dash leaves an existing milestone untouched.
+    SERVER.schedule_tasks(str(tmp_path), "0011:-:-")
+    again = (tmp_path / "tasks" / "backlog" / name).read_text(encoding="utf-8")
+    assert "**Milestone:** M9" in again
+
+
+def test_f1c_milestone_newline_rejected(tmp_path):
+    """F1 must-pass: a multiline milestone is rejected with no file write."""
+    name = "0012-multiline.md"
+    _write_task(tmp_path, "backlog", name, _minimal_task(12))
+    path = tmp_path / "tasks" / "backlog" / name
+    before = path.read_text(encoding="utf-8")
+    result = str(
+        SERVER.schedule_tasks(str(tmp_path), "0012:1h:2026-11-20:-:M03\nINJECTED")
+    ).lower()
+    assert "reject" in result or "single line" in result
+    assert path.read_text(encoding="utf-8") == before
 
 
 def test_f7_retrospective_template_exists():

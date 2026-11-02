@@ -9,7 +9,7 @@ These policies apply to the HQ Kanban/planning system. Task files in `tasks/` re
 - Default global WIP limit: 3 concurrent in-progress tasks.
 - Per-project override is optional and must be documented in the project's board notes or task metadata.
 - Do not start new work when the WIP limit is reached unless a blocked item is being swarmed.
-- QA holds at most 3 tasks awaiting review.
+- QA holds at most 3 tasks awaiting review; automated claiming stops while 1 is unresolved (`claim_next` QA-budget gate).
 
 ## Entry and exit criteria
 
@@ -22,7 +22,7 @@ These policies apply to the HQ Kanban/planning system. Task files in `tasks/` re
 ## Blocked items
 
 - Blocked state must be explicit in task metadata.
-- Every blocked item needs a reason and an owner.
+- Every blocked item needs a reason; name an owner when swarming starts.
 - Blocked items older than one business day require escalation.
 - Swarming takes priority over starting unrelated work.
 
@@ -41,7 +41,8 @@ These fields are advisory in this phase. Planner and dashboard enforcement will 
 - Build, test, and lint pass with exit code 0.
 - `lint_task_file` passes on the active task file.
 - Verification evidence is recorded.
-- Required documentation is updated.
+- `CHANGELOG.md` is updated when required.
+- Living folder docs are updated for behavior or contract changes.
 - No unresolved rule violations remain.
 
 ## Feedback loops

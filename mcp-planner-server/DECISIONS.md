@@ -187,3 +187,10 @@ not initialized`.
 - **Decision:** one numeric sort key (leading filename integer, lexical fallback) applied to lanes, milestone groups, plan buckets and alert rails; the deep-link modal waits for the first successful status, carries `project_root`, and retries once automatically after login on 401; `fetchStatus` sniffs non-JSON bodies and names the edge-login/ingress cause instead of dumping the token; new read-only `GET /api/hours` aggregates `elapsed_seconds` by finish date into 14 daily plus 8 weekly rows (measured-only, unstamped tasks skipped), rendered as an SVG block reusing the plan-chart pattern.
 - **Consequences:** board order is numeric everywhere; deep links survive a cold open; the status line diagnoses instead of dumping. Hours are derived per request like the plan buckets — no second store.
 - **Rollback:** revert `server.py` + `static/index.html`; the board returns to lexical order, immediate modal, and no hours block.
+
+## [2026-11-02] ADR-013: Milestone writer, enforced locks, week scope
+
+- **Context:** the audit found `**Milestone:**` readable but unwritable by any tool (hand-edited free text), `sprint_lock` declarative-only while its docstring claimed enforcement, milestone grouping case-sensitive, and `sprint_stats`/quota unscoped and date-blind. The week scope (calendar Mon-Sun by stamps) and precedence (Strategist veto unless Manager overrides) are Manager decisions recorded here.
+- **Decision:** `schedule_tasks` accepts a trailing optional `:milestone` segment and becomes the single writer for all four header lines (lint enforces non-empty single-line Milestone); grouping keys are casefolded with first-seen display; `claim_next` refuses work while any `tasks/.plan/sprint-*.lock` exists (delete to unlock); `sprint_stats` gains an optional `week="YYYY-Www"` param defaulting to the current week with today-finished reporting in quota.
+- **Consequences:** milestones, locks, and week numbers are managed entities with tests; the 369 xfail tripwires convert to must-pass guards.
+- **Rollback:** revert `server.py` milestone/lock/week hunks plus lint rule; hand-editing returns and tripwires go red again.

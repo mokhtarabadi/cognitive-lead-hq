@@ -16,20 +16,20 @@ This guide onboards board managers to the HQ Kanban/planning system and maps can
 ## Current system map
 
 - Planner MCP: derived index over `tasks/` Markdown; task files remain the source of truth.
-- Dashboard: board lanes, task modal, 14-day load view, and measured-hours view. See `mcp-planner-server/static/index.html:215-216` (chart containers), `:674-690` (14-day load chart), `:703-732` (measured-hours chart).
-- Task files: Kanban state, metadata, acceptance criteria, verification evidence, execution log, and factual diff. See `mcp-planner-server/server.py:187` (`_parse_task_file`).
-- AGENTS protocol: validation, task lifecycle, WIP expectations, QA/review gates, and closure rules. See `mcp-planner-server/server.py:887-891` (WIP ceiling check), `:878-883` (QA budget check).
+- Dashboard: board lanes, task modal, 14-day load view, and measured-hours view. See `mcp-planner-server/static/index.html:221-222` (chart element refs), `:718` (14-day load label), `:767-850` (CFD/control-chart fetch with unavailable-fallback).
+- Task files: Kanban state, metadata, acceptance criteria, verification evidence, execution log, and factual diff. See `mcp-planner-server/server.py:294` (`_parse_task_file`).
+- AGENTS protocol: validation, task lifecycle, WIP expectations, QA/review gates, and closure rules. See `mcp-planner-server/server.py:1014` (QA budget check), `:1024` (WIP ceiling check).
 
 ## Gap audit
 
-| Canonical essential | Current implementation | Gap | Evidence |
-|---|---|---|---|
-| Visualize workflow | Backlog, in-progress, QA, completed, and archive lanes | Partial: lane visualization exists, but flow history is limited | `mcp-planner-server/static/index.html:215-216` |
-| Limit WIP | WIP expectations and QA queue cap are documented | Partial: global default and per-project override need explicit policy and dashboard visibility | `mcp-planner-server/server.py:887-891` |
-| Manage flow | Measured-hours and 14-day load views exist | Missing: CFD, control chart/cycle-time scatterplot, and WIP aging | `mcp-planner-server/static/index.html:674-732` |
-| Explicit policies | AGENTS and task templates encode lifecycle rules | Partial: board-level policies are not centralized | This guide and `docs/kanban-policies.md` |
-| Feedback loops | QA and review gates exist | Missing: retrospective artifact and board-manager onboarding | This guide and `docs/retrospectives/TEMPLATE.md` |
-| Evolve collaboratively | Task execution logs and changelog exist | Partial: no standardized retrospective artifact | `docs/retrospectives/TEMPLATE.md` |
+| Canonical essential    | Current implementation                                 | Gap                                                                                                                  | Evidence                                                 |
+| ---------------------- | ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| Visualize workflow     | Backlog, in-progress, QA, completed, and archive lanes | Partial: lane visualization exists, but flow history is limited                                                      | `mcp-planner-server/static/index.html:221-222`           |
+| Limit WIP              | WIP expectations and QA queue cap are documented       | Partial: global default and per-project override need explicit policy and dashboard visibility                       | `mcp-planner-server/server.py:1024`                      |
+| Manage flow            | Measured-hours and 14-day load views exist             | Partial: CFD/control-chart elements plus fetch wiring with unavailable-fallback exist; verify backend endpoints live | `mcp-planner-server/static/index.html:221-222, :767-850` |
+| Explicit policies      | AGENTS and task templates encode lifecycle rules       | Partial: board-level policies are not centralized                                                                    | This guide and `docs/kanban-policies.md`                 |
+| Feedback loops         | QA and review gates exist                              | Present: retrospective template plus this guide as onboarding                                                        | This guide and `docs/retrospectives/TEMPLATE.md`         |
+| Evolve collaboratively | Task execution logs and changelog exist                | Present: standardized retrospective template; approved actions become backlog tasks                                  | `docs/retrospectives/TEMPLATE.md`                        |
 
 ## Metrics
 
@@ -50,6 +50,10 @@ Prefer flow metrics over utilization metrics. High utilization is not a substitu
 - Daily stand-up: inspect blocked items first, then WIP aging, then flow blockers.
 - Review: compare completed work against Definition of Done and flow metrics.
 - Retrospective: use `docs/retrospectives/TEMPLATE.md` and convert approved actions into backlog tasks.
+
+## Milestone and sprint flow
+
+Schedule with milestone via `schedule_tasks(project_root, "id:estimate:deadline[:deps[:milestone]], …")` — the single writer for all four header lines, where `-` leaves a value untouched. Claim via `claim_next`, which is blocked while any `tasks/.plan/sprint-*.lock` file exists (delete the file to unlock). Review the week via `sprint_stats` (Monday–Sunday UTC scope, optional `week="YYYY-Www"`) and `sprint_check_daily_quota` (includes the Finished-today count). Group status via `milestone_status` (case-insensitive grouping, first-seen spelling on display).
 
 ## Blocked items and swarming
 
@@ -77,11 +81,12 @@ Dashboard and planner integration for these fields is planned for the next imple
 
 A task is not done unless:
 
-- Required tests pass.
-- `lint_task_file` passes.
+- Build, test, and lint pass with exit code 0.
+- `lint_task_file` passes on the active task file.
 - Verification evidence is recorded.
 - `CHANGELOG.md` is updated when required.
 - Living folder docs are updated for behavior or contract changes.
+- No unresolved rule violations remain.
 
 ## Common mistakes to avoid
 

@@ -559,7 +559,9 @@ def _check_planner_metadata(content: str, file_path: str) -> list[str]:
     counts: dict[str, int] = {}
     stamps: dict[str, str] = {}
     for raw in content.splitlines():
-        m = re.match(r"^\*\*(Estimate|Deadline|Depends on):\*\*\s*(.*)$", raw.strip())
+        m = re.match(
+            r"^\*\*(Estimate|Deadline|Depends on|Milestone):\*\*\s*(.*)$", raw.strip()
+        )
         if m:
             key, value = m.group(1), m.group(2).strip()
             counts[key] = counts.get(key, 0) + 1
@@ -578,6 +580,12 @@ def _check_planner_metadata(content: str, file_path: str) -> list[str]:
                     f"Planner metadata: `**Depends on:**` must be ids such as `338` or "
                     f"`[338, 340]` (got `{value}`)."
                 )
+            elif key == "Milestone":
+                if not value or "\n" in value:
+                    issues.append(
+                        f"Planner metadata: `**Milestone:**` must be a single "
+                        f"non-empty value such as `M03` (got `{value or '(empty)'}`)."
+                    )
             continue
         s = re.match(r"^\s*\*\*(Started|Submitted|Finished):\*\*\s*(.*)$", raw)
         if s:

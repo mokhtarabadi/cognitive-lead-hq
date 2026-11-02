@@ -740,14 +740,16 @@ def schedule_tasks(project_root: str, assignments: str) -> str:
     The Planner derives everything from `tasks/` Markdown, but nothing wrote
     the metadata it reads, so an agent had to hand-edit headers — the exact
     place where a stray space silently drops a deadline from the read model.
-    This tool is the single writer for `**Estimate:**`, `**Deadline:**` and
-    `**Depends on:**`.
+    This tool is the single writer for `**Estimate:**`, `**Deadline:**`,
+    `**Depends on:**` and `**Milestone:**`.
 
     Args:
         project_root: Absolute path to the project holding tasks/.
         assignments: Comma-separated entries of the form
-            `id:estimate:deadline[:deps]`, e.g.
-            `336:3h:2026-10-25, 339:3h:2026-10-27:338`.
+            `id:estimate:deadline[:deps[:milestone]]`, e.g.
+            `336:3h:2026-10-25, 339:3h:2026-10-27:338` or
+            `340:2h:2026-11-01:-:M03` (use `-` for deps to set only
+            the milestone).
             `-` leaves a value unchanged (clear is not supported on purpose:
             deleting a deadline is a Manager decision, not an agent one).
 
@@ -764,18 +766,27 @@ def schedule_tasks(project_root: str, assignments: str) -> str:
 
     entries = [e.strip() for e in assignments.split(",") if e.strip()]
     if not entries:
-        return "No assignments given. Use `id:estimate:deadline[:deps]`."
+        return "No assignments given. Use `id:estimate:deadline[:deps[:milestone]]`."
 
     seen: set[str] = set()
-    parsed: list[tuple[str, str | None, str | None, str | None]] = []
+    parsed: list[tuple[str, str | None, str | None, str | None, str | None]] = []
     rejects: list[str] = []
     for entry in entries:
         parts = [p.strip() for p in entry.split(":")]
-        if len(parts) < 3 or len(parts) > 4:
-            rejects.append(f"{entry} (expected id:estimate:deadline[:deps])")
+        if len(parts) < 3 or len(parts) > 5:
+            rejects.append(
+                f"{entry} (expected id:estimate:deadline[:deps[:milestone]])"
+            )
             continue
         tid, estimate, deadline = parts[0], parts[1], parts[2]
-        deps = parts[3] if len(parts) == 4 else None
+        deps = parts[3] if len(parts) >= 4 else None
+        milestone = parts[4] if len(parts) == 5 else None
+        if milestone is not None and milestone not in ("-", ""):
+            # A newline here would inject a raw line into the task file
+            # and break the one-header-per-line contract (QA catch).
+            if "\n" in milestone or "\r" in milestone:
+                rejects.append(f"{entry} (milestone must be a single line)")
+                continue
         try:
             tid_norm = str(int(tid))
         except (TypeError, ValueError):
@@ -803,6 +814,7 @@ def schedule_tasks(project_root: str, assignments: str) -> str:
                 None if estimate == "-" else estimate,
                 None if deadline == "-" else deadline,
                 None if deps in (None, "-") else deps,
+                None if milestone in (None, "-", "") else milestone,
             )
         )
 
@@ -817,7 +829,7 @@ def schedule_tasks(project_root: str, assignments: str) -> str:
             + "\n".join(f"- {r}" for r in rejects)
         )
 
-    for tid, estimate, deadline, deps in parsed:
+    for tid, estimate, deadline, deps, milestone in parsed:
         task = _find_task_by_id(all_tasks, tid)
         if task is None:
             results.append(
@@ -868,8 +880,10 @@ def schedule_tasks(project_root: str, assignments: str) -> str:
             return True
 
         # Insert deepest-first so the final order under Status is
-        # Estimate, Deadline, Depends on (each insert lands right after Status).
-        changed = set_field("Depends on", deps)
+        # Estimate, Deadline, Depends on, Milestone (each insert lands
+        # right after Status).
+        changed = set_field("Milestone", milestone)
+        changed = set_field("Depends on", deps) or changed
         changed = set_field("Deadline", deadline) or changed
         changed = set_field("Estimate", estimate) or changed
 
@@ -955,6 +969,7 @@ def claim_next(project_root: str, task_id: str) -> str:
     """Claim the next task: move it from backlog to in-progress.
 
     Circuit breaker: refuses the claim if any of these gate conditions fail:
+    - A sprint lock file exists under tasks/.plan/ (delete it to unlock).
     - The task does not exist or is not in tasks/backlog/.
     - Any dependency is not in tasks/completed/.
     - tasks/qa/ already has an unresolved task (QA budget exhausted).
@@ -972,6 +987,16 @@ def claim_next(project_root: str, task_id: str) -> str:
     """
     workspace_root = _explicit_project_root(project_root, "claim_next")
     tasks = _load_all_tasks(workspace_root)
+
+    # Sprint lock gate: a locked sprint blocks all new claims until the
+    # lock file is deleted (Manager-owned unlock). Checked first so one
+    # message covers every task id.
+    locks = sorted((workspace_root / "tasks" / ".plan").glob("sprint-*.lock"))
+    if locks:
+        return (
+            f"❌ claim_next blocked: sprint locked ({locks[0].name}). "
+            f"Delete the lock file to unlock."
+        )
 
     task = _find_task_by_id(tasks, task_id)
     if task is None:
@@ -1145,14 +1170,20 @@ def plan_status(project_root: Optional[str] = None) -> str:
 
     lines.append("## Milestones")
     milestones: dict[str, list[dict]] = {}
+    display: dict[str, str] = {}
     for t in tasks:
         m = t.get("milestone")
         if m:
-            milestones.setdefault(m, []).append(t)
+            # Group case-insensitively so M03 and m03 read as one
+            # milestone; display keeps the first-seen spelling.
+            key = str(m).casefold()
+            display.setdefault(key, str(m))
+            milestones.setdefault(key, []).append(t)
     if not milestones:
         lines.append("- None defined.")
     else:
-        for ms, items in sorted(milestones.items()):
+        for key, items in sorted(milestones.items(), key=lambda kv: kv[0]):
+            ms = display[key]
             done = sum(1 for i in items if i.get("status") == "closed")
             lines.append(f"- {ms}: {len(items)} task(s), {done} completed.")
     lines.append("")
@@ -1161,17 +1192,71 @@ def plan_status(project_root: Optional[str] = None) -> str:
 
 
 @_project_tool
-def sprint_stats(project_root: Optional[str] = None) -> str:
+def _week_range(week: Optional[str] = None):
+    """Resolve an ISO week label to a Mon-Sun UTC date range.
+
+    Args:
+        week: ``YYYY-Www`` (e.g. ``2026-W45``) or None for the current week.
+
+    Returns:
+        ``(monday, sunday, label)`` or ``(None, None, "")`` when malformed.
+    """
+    if week is None:
+        today = datetime.now(timezone.utc).date()
+        monday = today - timedelta(days=today.weekday())
+    else:
+        m = re.match(r"^(\d{4})-W(\d{2})$", str(week).strip())
+        if not m:
+            return None, None, ""
+        try:
+            monday = date.fromisocalendar(int(m.group(1)), int(m.group(2)), 1)
+        except ValueError:
+            return None, None, ""
+    sunday = monday + timedelta(days=6)
+    label = f"{monday.isocalendar()[0]:04d}-W{monday.isocalendar()[1]:02d}"
+    return monday, sunday, label
+
+
+def _finished_today_count(tasks) -> int:
+    """Count tasks whose Finished stamp falls on today's UTC date."""
+    today = datetime.now(timezone.utc).date()
+    count = 0
+    for t in tasks:
+        finished = _parse_task_timestamp(t.get("finished_at"))
+        if finished is not None and finished.date() == today:
+            count += 1
+    return count
+
+
+def sprint_stats(project_root: Optional[str] = None, week: Optional[str] = None) -> str:
     """Compute hours spent, progress percentage, and velocity.
+
+    Week-scoped (Manager decision): counts below the snapshot header cover
+    only tasks whose Started or Finished stamp falls in the Mon-Sun week
+    (UTC). ``week`` accepts ``YYYY-Www``; None means the current week.
 
     Args:
         project_root: Absolute path to the project holding tasks/.
+        week: ISO week label or None for the current week.
 
     Returns:
         A markdown-formatted stats report.
     """
     workspace_root = _explicit_project_root(project_root, "sprint_stats")
     tasks = _load_all_tasks(workspace_root)
+
+    monday, sunday, week_label = _week_range(week)
+    if monday is None:
+        return f"❌ sprint_stats blocked: week must look like 2026-W45 (got `{week}`)."
+
+    def _in_week(task) -> bool:
+        for key in ("started_at", "finished_at"):
+            stamp = _parse_task_timestamp(task.get(key))
+            if stamp is not None and monday <= stamp.date() <= sunday:
+                return True
+        return False
+
+    scoped = [t for t in tasks if _in_week(t)]
 
     total_tasks = len(tasks)
     completed = sum(1 for t in tasks if t.get("status") == "closed")
@@ -1187,19 +1272,34 @@ def sprint_stats(project_root: Optional[str] = None) -> str:
         for t in tasks
         if t.get("status") == "closed" and t.get("estimate_hours")
     )
+    week_est = sum(
+        (t.get("estimate_hours") or 0) for t in scoped if t.get("estimate_hours")
+    )
+    week_completed = sum(1 for t in scoped if t.get("status") == "closed")
+    week_completed_est = sum(
+        (t.get("estimate_hours") or 0)
+        for t in scoped
+        if t.get("status") == "closed" and t.get("estimate_hours")
+    )
     # Measured hours: only closed tasks that carry both stamps, so this line can
     # never quietly reuse an estimate.
     measured_hours = 0.0
+    week_measured_hours = 0.0
     for t in tasks:
         brief = _task_brief(t)
         if t.get("status") == "closed" and brief.get("elapsed_seconds") is not None:
             measured_hours += brief["elapsed_seconds"] / 3600.0
+            if _in_week(t):
+                week_measured_hours += brief["elapsed_seconds"] / 3600.0
 
     pct = (completed / total_tasks * 100) if total_tasks else 0.0
 
     lines: list[str] = []
     lines.append("# Sprint Stats")
     lines.append("")
+    lines.append(
+        f"Week scope: {week_label} ({monday.isoformat()}..{sunday.isoformat()}, UTC)"
+    )
     lines.append(f"Total tasks: {total_tasks}")
     lines.append(f"Completed: {completed} ({pct:.0f}%)")
     lines.append(f"In-progress: {in_progress}")
@@ -1209,9 +1309,14 @@ def sprint_stats(project_root: Optional[str] = None) -> str:
     lines.append("## Estimates")
     lines.append(f"Total estimated: {total_est}h")
     lines.append(f"Completed estimated: {completed_est}h")
+    lines.append(f"Week estimated: {week_est}h")
+    lines.append(
+        f"Week completed: {week_completed} task(s), {week_completed_est}h estimated"
+    )
     lines.append("")
     lines.append("## Measured")
     lines.append(f"Completed measured: {measured_hours:.2f}h")
+    lines.append(f"Week measured: {week_measured_hours:.2f}h")
     lines.append("## Velocity")
     lines.append(f"Tasks completed per lane snapshot: {completed} / {total_tasks}")
     lines.append("")
@@ -1270,16 +1375,22 @@ def milestone_status(project_root: Optional[str] = None) -> str:
     tasks = _load_all_tasks(workspace_root)
 
     milestones: dict[str, list[dict]] = {}
+    display: dict[str, str] = {}
     for t in tasks:
         m = t.get("milestone")
         if m:
-            milestones.setdefault(m, []).append(t)
+            # Same casefold grouping as plan_status: one milestone
+            # regardless of spelling case, first-seen display.
+            key = str(m).casefold()
+            display.setdefault(key, str(m))
+            milestones.setdefault(key, []).append(t)
 
     if not milestones:
         return "## Milestone Status\n\nNo milestones defined."
 
     lines: list[str] = ["# Milestone Status", ""]
-    for name, items in sorted(milestones.items()):
+    for key, items in sorted(milestones.items(), key=lambda kv: kv[0]):
+        name = display[key]
         total = len(items)
         done = sum(1 for i in items if i.get("status") == "closed")
         pct = (done / total * 100) if total else 0.0
@@ -1299,10 +1410,9 @@ def milestone_status(project_root: Optional[str] = None) -> str:
 def sprint_lock(sprint_id: str, project_root: Optional[str] = None) -> str:
     """Mark a sprint as locked (no further changes allowed).
 
-    In v1 this is a declarative operation: it records the lock in the
-    planner index and prevents `claim_next` from starting new work until
-    the lock is cleared. The actual lock state is tracked in
-    tasks/.plan/index.json.
+    The lock is enforced: `claim_next` refuses all new work while any
+    `tasks/.plan/sprint-*.lock` file exists. Delete the lock file to
+    unlock (Manager-owned).
 
     Args:
         sprint_id: Identifier of the sprint to lock.
@@ -1438,10 +1548,15 @@ def sprint_check_daily_quota(project_root: Optional[str] = None) -> str:
 
     in_progress = [t for t in tasks if t.get("lane") == "in-progress"]
     qa_pending = [t for t in tasks if t.get("lane") == "qa"]
+    finished_today = _finished_today_count(tasks)
 
     if not in_progress and not qa_pending:
-        return "✅ DAILY_QUOTA_REACHED: no in-progress or QA-pending tasks."
+        return (
+            "✅ DAILY_QUOTA_REACHED: no in-progress or QA-pending tasks. "
+            f"Finished today: {finished_today}."
+        )
     parts: list[str] = []
+    parts.append(f"Finished today: {finished_today}.")
     if in_progress:
         parts.append(
             f"{len(in_progress)} in-progress: "
