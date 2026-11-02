@@ -1,5 +1,12 @@
 # Architectural Decisions: mcp-context-server
 
+## [2026-11-02] ADR-014: Shared Regex Signature Fallback for Tree-sitter-less Envs
+
+- **Context:** The oversize `read_source_files` path called `_extract_via_tree_sitter` only, so minimal installs carrying just the pinned runtime deps (no tree-sitter grammar packages) produced "No signatures extracted" instead of structural evidence. The module docstring already promised "regex fallback", and an equivalent fallback lived inline in `server._signature_block` where the oversize path could not reach it (server imports fsutil, not vice versa).
+- **Decision:** New `_extract_via_regex` in `signatures.py` (stdlib `re`, keyword plus arrow patterns moved verbatim from `server.py`, 200-match cap mirroring the graph per-file symbol cap). `fsutil.process_source_file` chains tree-sitter then regex; `server._signature_block` delegates to the same helper with identical output. No new deps, no surface change.
+- **Consequences:** Oversize reports attach signatures with or without tree-sitter; the pinned-env regression test passes; both callers share one pattern source.
+- **Rollback:** Revert `signatures.py`, `fsutil.py`, `server.py` touchpoints; oversize path returns to tree-sitter-only.
+
 ## [2026-10-06] ADR-001: Initial Slice Baseline
 
 - **Context:** Baseline documentation initialized via init-folder-docs.

@@ -199,9 +199,14 @@ def process_source_file(file_path: Path, max_size: int, line_numbers: bool) -> s
             try:
                 # Lazy import: keeps this module free of sibling edges at import
                 # time (QA catch: the split stranded this call without it).
-                from signatures import _extract_via_tree_sitter
+                from signatures import _extract_via_regex, _extract_via_tree_sitter
 
                 sig = _extract_via_tree_sitter(file_path)
+                if not sig:
+                    # Regex fallback: tree-sitter or its grammar package may
+                    # be absent (minimal installs with only pinned runtime
+                    # deps) — the oversize path must still attach evidence.
+                    sig = _extract_via_regex(file_path)
                 if sig:
                     lines.append(
                         "> Body omitted by size cap; structural signatures follow:\n"

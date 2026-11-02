@@ -50,6 +50,7 @@ from signatures import (
     _EXTENSION_LANG_MAP,
     _TS_QUERIES,
     _extract_signature_line,
+    _extract_via_regex,
     _extract_via_tree_sitter,
     _get_ts_language,
     _ts_language_cache,
@@ -806,23 +807,9 @@ def _signature_block(path: Path, label: str) -> str | None:
     if ts_result:
         return ts_result
     try:
-        with open(path, "r", encoding="utf-8") as f:
-            content = f.read()
+        return _extract_via_regex(path, label=label)
     except Exception:
         return None
-    pattern = re.compile(
-        r"^(?:\s*(?:export|default|public|private|protected|internal|pub|static|abstract|final|override|inline|open|suspend)\s+)*"
-        r"(?:class|struct|enum|trait|impl|interface|type|def|fun|func(?:tion)?)\s+\w+.*$",
-        re.MULTILINE,
-    )
-    arrow_pattern = re.compile(
-        r"^(?:export\s+)?(?:const|let)\s+\w+\s*=\s*(?:async\s*)?(?:\([^)]*\)|[^=]*)\s*=>.*$",
-        re.MULTILINE,
-    )
-    all_matches = pattern.findall(content) + arrow_pattern.findall(content)
-    if not all_matches:
-        return None
-    return f"### Signatures in {label}\n" + "\n".join(all_matches)
 
 
 @_project_tool

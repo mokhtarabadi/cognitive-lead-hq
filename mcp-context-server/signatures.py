@@ -4,6 +4,7 @@
 """Structural signature extraction via tree-sitter AST with regex fallback. Stdlib-pure: no MCP imports, no registration, no import back to server."""
 
 import importlib
+import re
 from pathlib import Path
 from typing import Optional
 
@@ -163,6 +164,42 @@ def _extract_via_tree_sitter(file_path: Path) -> Optional[str]:
 
 
 # --- End tree-sitter ---
+
+_SIGNATURE_KEYWORD_RE = re.compile(
+    r"^(?:\s*(?:export|default|public|private|protected|internal|pub|static|abstract|final|override|inline|open|suspend)\s+)*"
+    r"(?:class|struct|enum|trait|impl|interface|type|def|fun|func(?:tion)?)\s+\w+.*$",
+    re.MULTILINE,
+)
+_SIGNATURE_ARROW_RE = re.compile(
+    r"^(?:export\s+)?(?:const|let)\s+\w+\s*=\s*(?:async\s*)?(?:\([^)]*\)|[^=]*)\s*=>.*$",
+    re.MULTILINE,
+)
+
+
+def _extract_via_regex(
+    file_path: Path, label: str | None = None, max_matches: int = 200
+) -> Optional[str]:
+    """Regex signature fallback: keyword lines plus arrow assignments.
+
+    Stdlib-only backup when tree-sitter (or its grammar package) is
+    unavailable — e.g. minimal installs carrying only the pinned runtime
+    deps. Matches are capped (default 200, mirroring the graph's per-file
+    symbol cap) so oversize files cannot blow up the report. Returns None
+    when the file has no signature-like line. Never raises.
+    """
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
+            content = f.read()
+    except Exception:
+        return None
+    matches = _SIGNATURE_KEYWORD_RE.findall(content) + _SIGNATURE_ARROW_RE.findall(
+        content
+    )
+    if not matches:
+        return None
+    header = label if label is not None else str(file_path)
+    return f"### Signatures in {header}\n" + "\n".join(matches[:max_matches])
+
 
 # Runaway-traversal guards (Task 177): a single wedged request (e.g. tree of
 # "/") used to burn minutes of CPU on the single-threaded stdio server and
