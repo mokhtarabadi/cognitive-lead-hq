@@ -42,3 +42,10 @@
 - **Consequences:** Every tool the shipped prompt names resolves in the session. Version bumped with artifact regen.
 - **Rollback:** Revert the fragment wording and re-run the assembler.
 
+## [2026-11-02] ADR-007: Prompt-refactor becomes two-pass Refactor-then-Execute
+
+- **Context:** The prompt-refactor skill ended at Deliver (output the formatted prompt in a code block) with no Execute pass, so the refined prompt stalled as an artifact instead of running as the live instruction.
+- **Decision:** Retitle the workflow Two-Pass Refactor-then-Execute: Step 1 refactors (validate, translate, expand, structure), Step 2 executes the formatted prompt in the same session under the existing gates (plan approval, Zero-Autonomous-Commit, QA, closure). Mirror one-line execute clauses in the input-processing gate, the executor matrix and Direct Input protocol, the skills registry, and the language policy execution binding.
+- **Consequences:** Refined prompts execute instead of stalling; Step 2 cannot bypass gates, auto-commit, or push. Version bumped with artifact regen.
+- **Rollback:** Restore the four-step workflow wording, drop the mirror lines, and re-run the assembler.
+

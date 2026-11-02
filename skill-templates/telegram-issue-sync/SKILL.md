@@ -90,14 +90,9 @@ Every message this skill sends to Telegram MUST follow the `telegram-message-for
 ### Phase 2: Manager Approval
 
 1. Check the session capability manifest for the `question` tool first. If AVAILABLE, use it to present the identified candidates to the Manager. If UNAVAILABLE, do NOT silently skip this approval: relay the candidate list to the Manager as one message with the options inline and wait for the answer (manual mode), or record the replay-or-halt decision in the task file (autopilot mode).
-2. For each candidate, show:
-   - Message ID
-   - Snippet of the raw text (first 200 chars to identify it)
-   - Detected type (bug/feature/improve)
-   - Reply parent context (if any)
-3. Ask: _"Which of these candidates should be synced? (Provide the Message IDs, or state 'All')"_
-4. Also ask: _"Should GitHub issues be created for these? (yes/no)"_
-5. Only proceed with the approved candidates.
+2. Phase 2 Candidate approval with brief-first options. For each candidate capture timestamp, sender, first 200 characters of the raw text, detected type (bug/feature/improve), topic, reply parent context (if any), and the numeric message ID. Present one `question`-tool option per candidate. Each option label starts with the timestamp in YYYY-MM-DD HH:MM enclosed in square brackets, followed by the sender name, a dash, the first 80 characters single-line, plus type and topic in parentheses. Each option description holds the full 200-character snippet, the type, the reply parent, and the internal ID for audit. Each option machine value is the numeric ID only and the ID is never shown as primary text. Never ask the Manager for bare message IDs: the closing prompt asks the Manager to reply with option numbers, names, or All. Manual-mode fallback when the `question` tool is unavailable renders a numbered brief list with the same label text; the Manager replies with numbers and you map numbers to IDs server-side in the same turn via a lookup table built from the listed candidates. Re-read the table before syncing to prevent a wrong anchor. All Telegram-facing text obeys the `telegram-message-format` contract for HTML parse mode plus escaping plus no fences plus 4096 cap with splitting. Sync only approved IDs.
+3. Also ask: _"Should GitHub issues be created for these? (yes/no)"_
+4. Only proceed with the approved candidates. Log chosen IDs plus the mapping table in the task Execution Log.
 
 Store the Manager's GitHub preference in a variable `GH_ENABLED` (true/false).
 
@@ -294,9 +289,8 @@ Call `telegram_reply_to_message` with `parse_mode: "HTML"`, anchored to the **so
 ```html
 <b>Task synced</b>
 
-<b>File:</b> <code>tasks/backlog/{NEXT_ID}-title.md</code>
-<b>Issue:</b> <code>{GH_URL}</code>
-<b>Type:</b> {BUG|FEATURE|IMPROVE}
+<b>File:</b> <code>tasks/backlog/{NEXT_ID}-title.md</code> <b>Issue:</b>
+<code>{GH_URL}</code> <b>Type:</b> {BUG|FEATURE|IMPROVE}
 ```
 
 When the candidate is one of several in the same batch, add a leading line `<b>Task synced</b> (2 of 5)` so the Manager can match the reply to the message. If the payload would exceed ~3800 characters, split it into numbered parts, each a reply to the same parent id.
@@ -324,4 +318,4 @@ Task ready. Manager, please copy the contents of tasks/backlog/{NEXT_ID}-task.md
 | Codebase search misses context  | Three-pass search strategy (grep → glob → read) with fallback: if grep yields 0 results, broaden the search terms                                                                  |
 | State file has concurrent edits | Single-threaded Python updater script with atomic `json.dump` write                                                                                                                |
 | GitHub issue creation fails     | `GH_URL` gracefully defaults to `"Failed to create"`; the task file and Telegram reply still complete                                                                              |
-| Telegram reply renders broken   | The reply is sent with `parse_mode: "HTML"` and the `telegram-message-format` rules (escaping, no fences, no ZWNJ, length budget, topic anchoring)                             |
+| Telegram reply renders broken   | The reply is sent with `parse_mode: "HTML"` and the `telegram-message-format` rules (escaping, no fences, no ZWNJ, length budget, topic anchoring)                                 |

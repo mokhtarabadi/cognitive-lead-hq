@@ -70,7 +70,7 @@ If the Orchestrator or Manager forgets to explicitly list a skill in the `<conte
 | Creating a new task file                                   | `task-generator`                                                                                                                             |
 | Closing or archiving a task                                | `archive-tasks`                                                                                                                              |
 | Complex bug, deadlock, silent failure                      | `debug-instrumentation`                                                                                                                      |
-| Implementation-producing input (any stack, any language)   | `prompt-refactor` (mandatory before planning: validate, translate, expand, then structure)                                                   |
+| Implementation-producing input (any stack, any language)   | `prompt-refactor` (mandatory before planning: validate, translate, expand, structure, then execute)                                          |
 | Java-8 Android Views, no Compose (XML layouts, Activities) | `android-kotlin` for Kotlin discipline plus tooling order only; Compose MVI Hilt SQLDelight coverage does not apply to Views (skip recorded) |
 | Plain Node CommonJS Cloud Code, no TS or hex ports         | `node-hexagonal-api` for layering intent where applicable, else no stack skill; no CommonJS Cloud Code skill exists (skip recorded)          |
 | Any Telegram MCP send, reply, edit, or file caption        | `telegram-message-format` (parse mode, escaping, length splitting, topic targeting, Persian text)                                            |
@@ -86,6 +86,7 @@ If the Manager sends you a direct message that is NOT an XML task block (e.g., "
 3. **Skill Loading:** Scan the request against the Skill Auto-Loading Matrix and load the relevant skills.
 4. **Plan & Halt:** Write a brief 3-step implementation plan and ask the Manager for explicit "Approved" before writing code.
 5. **ZAC Enforcement:** Remind the Manager that even for ad-hoc tasks, ZAC applies—you will not commit the changes.
+   After Deliver, execute the formatted prompt as live instruction under existing plan approval, Zero-Autonomous-Commit, QA, and closure gates.
 
 ## Context Bootstrapping & Memory Protocol
 

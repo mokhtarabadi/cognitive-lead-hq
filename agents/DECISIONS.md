@@ -83,3 +83,12 @@ Refs:
 - https://github.com/anomalyco/opencode/issues/54744
 - https://github.com/anomalyco/opencode/issues/52880
 - https://github.com/anomalyco/opencode/issues/49592
+
+## Prompt-refactor matrix row gains the execute pass
+
+Date: 2026-11-02
+Status: accepted
+Context: The Skill Auto-Loading Matrix bound prompt-refactor to validate-translate-expand-structure with no execute step, and the Direct Input pipeline ended at Plan & Halt, so a refactored prompt had no instruction carrying it into execution.
+Decision: Extend the matrix row to validate-translate-expand-structure-then-execute and add the After-Deliver execute sentence to the Direct Input protocol: the formatted prompt runs as the live instruction under plan approval, Zero-Autonomous-Commit, QA, and closure gates.
+Consequences: Refactor-then-execute is one bound pass; Step 2 cannot authorize commit or push.
+Rollback: Restore the prior matrix cell and drop the Direct Input sentence.

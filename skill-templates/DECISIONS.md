@@ -19,3 +19,10 @@
 - **Decision:** Remap to native tools: `write` creates the draft, `edit` makes every change, the `subagent` tool runs reader testing with a same-session fallback, and integrations resolve to MCP servers or pasted content. The three-stage workflow is unchanged.
 - **Consequences:** The skill now executes in OpenCode without translation. A registry test fails on any reintroduced Claude-centric term.
 - **Rollback:** Restore the prior SKILL.md from git history.
+
+## [2026-11-02] ADR-004: Brief-first candidate approval in telegram-issue-sync
+
+- **Context:** Phase 2 asked the Manager to reply with bare numeric message IDs, which are invisible in official Telegram apps, so the Manager could not join an ID to its message and risked syncing the wrong anchor.
+- **Decision:** Each `question`-tool option now leads with a brief ([YYYY-MM-DD HH:MM] sender — first 80 chars, type/topic); the numeric ID stays the machine value only, and the closing prompt asks for option numbers, names, or All, with a numbered-list manual fallback and server-side number-to-ID mapping.
+- **Consequences:** The Manager picks by visible brief instead of transcribing IDs; the sync registry still keys on numeric IDs.
+- **Rollback:** Restore the prior Phase 2 steps from git history.

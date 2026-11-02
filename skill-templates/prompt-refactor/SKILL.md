@@ -48,20 +48,15 @@ Before translating or refactoring, scan the raw input for:
 3. **Ambiguity score** — Rate the input clarity from 1 to 5. If below 3, HALT and request clarification before proceeding.
 
 Output a brief correction note at the top of your response:
+
 > 📝 **Input Corrections:** [list of typos fixed, or "None"]
 > ⚠️ **Ambiguous terms:** [list of unclear words, or "None"]
 > 📊 **Clarity Score:** [1-5]
 
-## Workflow Execution
+## Workflow Execution (Two-Pass Refactor-then-Execute)
 
-1. **Bilingual Translation & Enrichment:** Read the Manager's raw prompt. If it is in a non-English language or informal English, seamlessly translate it into technical English. Identify the core goal, missing technical constraints, and desired outcome. Then ENRICH the translated intent:
-   - Add missing edge cases the Manager likely intended
-   - Add security implications if applicable
-   - Add architectural constraints if applicable
-   - Mark all enrichments as [INFERRED]
-2. **Draft:** Construct the prompt using the 5 XML blocks above.
-3. **Refine:** Ensure the language is highly authoritative, objective, and precise.
-4. **Deliver:** Output the final prompt inside a markdown code block.
+1. **Step 1 Refactor:** Validate the raw input, translate to technical English when needed, expand the intent, and structure the result into the constrained XML instruction using the 5 blocks above (role, system_context, agentic_reasoning, execution_rules/constraints, output_format). Keep the Step 0 correction note, the translate-then-enrich pass with [INFERRED] markings, and the draft and refine passes inside this step. Output the final prompt in a single code block, as Deliver does today.
+2. **Step 2 Execute:** Immediately execute the formatted prompt from Step 1 as the live instruction in the same session. Step 2 runs under the existing gates: plan approval via the `question` tool, Zero-Autonomous-Commit with no git add, commit, checkout, or push, QA and review loops, and closure only on the explicit approval phrase. Never bypass gates, never auto-commit, never push. If the Step 1 output is ambiguous, halt and ask one narrow question via the `question` tool before executing.
 
 ## Example Output Format
 
