@@ -44,7 +44,7 @@ def test_shipped_version_is_expected_minor_bump():
     shipped = re.search(
         r"<system_version>(.*?)</system_version>", _read(SHIPPED)
     ).group(1)
-    assert shipped == "9.70.0"
+    assert shipped == "9.70.1"
 
 
 def test_parallel_mandate_covers_implementation_triggers():
