@@ -126,7 +126,7 @@ $HOME/.config/opencode/mcp-telegram-server/.venv/bin/python $HOME/.config/openco
       "type": "local",
       "command": ["$HOME/.config/opencode/mcp-telegram-server/.venv/bin/python", "$HOME/.config/opencode/mcp-telegram-server/main.py", "/tmp/telegram-mcp", "$HOME/.config/opencode/mcp-telegram-server/downloads"],
       "enabled": true,
-      "timeout": 30000
+      "timeout": 300000
     }
   }
 }
@@ -158,7 +158,7 @@ $HOME/.config/opencode/mcp-telegram-server/.venv/bin/python $HOME/.config/openco
       "type": "local",
       "command": ["$HOME/.config/opencode/mcp-telegram-server/.venv/bin/python", "$HOME/.config/opencode/mcp-telegram-server/main.py", "/tmp/telegram-mcp", "$HOME/.config/opencode/mcp-telegram-server/downloads"],
       "enabled": true,
-      "timeout": 30000
+      "timeout": 300000
     }
   },
   "permission": { "telegram_*": "allow" }

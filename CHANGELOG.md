@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- **Telegram MCP timeout raised to 300 s (Task 0371):** `mcp.servers.telegram.timeout` in the global `opencode.json` moves from `30000` to `300000` for both `catalog` and `execution`. A 14.2 MB APK upload completed on Telegram's side while three client calls reported `Request timed out` — the 30 s cap reported a success as a failure, which invites duplicate sends. Every other server keeps its own timeout (`custom_context`/`project_memory`/`lint` 15 s, `blowsh` 120 s, `brain` 1200 s, `planner` 15 s/30 s). The two documented occurrences in `docs/telegram-setup.md` and the reinstall workflow's value list were updated in step; a timestamped backup of the global config was written first and the file validated as JSON. Takes effect after an OpenCode restart.
+
 ### Added
 
 - **Code Mode off for every server except telegram (Task 0361):** `custom_context`, `project_memory`, `lint`, `brain`, `planner` and `blowsh` now set `"codemode": false`, so their ~43 tools are native calls instead of `execute` wrappers; `telegram` (147 tools) stays on Code Mode because its schemas must not enter the system prompt. Applied to the global `opencode.json` after a timestamped backup and validated as JSON; the live session catalog dropped all six out of `execute` in place. Policy documented in `docs/services.md` (rationale table), `docs/setup.md`, `README.md` Option B and the `LLM.txt` install block, and stored as `workflows/codemode-policy` memory for the upgrade workflow.
