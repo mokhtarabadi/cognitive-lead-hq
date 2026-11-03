@@ -128,14 +128,20 @@ The platform runs `warnRatio 0.5` / `emergencyRatio 0.8` because a 1M-token wind
     "purgeErrors": { "enabled": true, "turns": 4, "protectedTools": ["question"] },
     "stripReasoning": { "enabled": true, "thresholdChars": 500 }
   },
-  "tokens": { "enabled": true, "emergencyBudgetTokens": 50000 },
-  "awareness": { "enabled": true, "warnRatio": 0.5, "emergencyRatio": 0.8, "rearmStep": 0.05, "autoTrimRatio": 0.5 }
+  "tokens": { "enabled": true, "emergencyBudgetTokens": 0, "emergencyBudgetRatio": 0.6 },
+  "awareness": { "enabled": true, "warnRatio": 0.5, "emergencyRatio": 0.8, "rearmStep": 0.05, "autoTrimRatio": 0.55, "contextWindowTokens": 1000000 }
 }
 ```
 
+Three rules govern the numbers in that block.
+
+- **The emergency budget follows the window.** A positive `emergencyBudgetTokens` pins an exact number and behaves exactly as before. `0` means *derive*: the budget becomes `emergencyBudgetRatio` (default `0.6`) of the resolved context window, so a large-window model no longer warns from the first few turns. To switch the warning off, set `emergencyBudgetRatio` to `0` — **not** `emergencyBudgetTokens`, because zero there now means derive. An unknown window keeps the warning silent rather than firing against a guessed denominator.
+- **Awareness needs a denominator.** When the model registry entry carries no `limit.context`, set `awareness.contextWindowTokens` to the window size and the reminder states that the figure is configured rather than measured. With neither a registry limit nor a fallback, the advisory (and the lossless auto-trim that depends on the same ratio) stays inert — which is why the sample above carries an explicit `1000000` rather than the neutral `0`, and why a copied config with `0` here silently reproduces a plugin that never speaks.
+- **Auto-trim is armed by default.** `autoTrimRatio` defaults to `0.55`, so bulky completed tool results become notices without any manual call, one trim per sustained pressure period. Pruning is lossless — the original stays cached — so this is safe to leave on.
+
 ### Retrieving pruned content
 
-Each omission notice carries a Content ID (e.g. `omitted-0001`). Prefer a cheap fresh run of the source tool; the agent calls `read_omitted_content` with that ID ONLY when the output cannot be reproduced cheaply, never speculatively — the lookup is scoped to the calling session. On a cache miss, re-run the source tool once.
+Each omission notice carries a Content ID (e.g. `omitted-0001`). Prefer a cheap fresh run of the source tool; the agent calls `read_omitted_content` with that ID ONLY when the output cannot be reproduced cheaply, never speculatively — the lookup is scoped to the calling session, a single response is capped at 20 000 characters (a longer original returns a truncation notice rather than megabytes of text), and an original dropped by the store cap fails closed with a missing-original notice instead of returning stale content. On a cache miss, re-run the source tool once.
 
 Task file is the sole reconcile target. Smart Compact via `compact_context` is the sole pruning writer; native auto-compact is a lossy safety net only and is never relied on for state. After any compaction resume from the task file and re-apply pruning through the sole writer.
 
