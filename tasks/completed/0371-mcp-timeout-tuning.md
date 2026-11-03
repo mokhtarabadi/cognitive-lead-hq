@@ -75,56 +75,5 @@ Remove the client-side 30-second execution cap on the Telegram MCP so a large fi
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
-```diff
-diff --git a/.opencode/memory/workflows/global-install-upgrade.md b/.opencode/memory/workflows/global-install-upgrade.md
-index 1c66985..a50c16f 100644
---- a/.opencode/memory/workflows/global-install-upgrade.md
-+++ b/.opencode/memory/workflows/global-install-upgrade.md
-@@ -49,7 +49,7 @@ Existing users on per-session stdio entries migrate without reinstalling server
- 
- 1. **Backup global config:** `cp ~/.config/opencode/opencode.json ~/.config/opencode/opencode.json.bak-$(date +%Y%m%d-%H%M%S)`.
- 2. **Start the singletons:** install `services/mcp-*.service` to `~/.config/systemd/user/`, `systemctl --user daemon-reload`. For the planner, build its venv (`cd ~/.config/opencode/mcp-planner-server && uv sync`) and write the `PLANNER_PROJECT_ROOT` drop-in **before** starting the unit, because `ExecStart` needs `.venv/bin/python`. Then enable+start every HQ singleton (`for s in lint context memory brain telegram planner`), and start `blowsh-singleton` (`docker run -d --name blowsh-singleton --restart unless-stopped -p 127.0.0.1:8107:8107 -e MCP_TRANSPORT=http -e MCP_HOST=0.0.0.0 -e MCP_PORT=8107 -e BROWSH_PROFILE_DIR=/data/browsh-profile -v blowsh-profile:/data/browsh-profile <image>`).
--3. **Cut config:** replace each stdio `mcp.<name>` block under `mcp.servers` with `{type: remote, url: http://127.0.0.1:<port>/mcp, disabled: false, timeout: {catalog, execution}}` (ports docs/services.md; telegram 30000, blowsh 120000, brain 600000+, planner 15000/30000, rest 15000). Validate JSON after the edit.
-+3. **Cut config:** replace each stdio `mcp.<name>` block under `mcp.servers` with `{type: remote, url: http://127.0.0.1:<port>/mcp, disabled: false, timeout: {catalog, execution}}` (ports docs/services.md; telegram 300000, blowsh 120000, brain 600000+, planner 15000/30000, rest 15000). Validate JSON after the edit.
- 4. **Verify:** `opencode debug config` resolves 7 entries; exactly one process per server (`ps aux | grep -E 'mcp-|telegram_mcp' | grep -v grep`); each port answers.
- 5. **Rollback:** restore the backup config, restart sessions. HQ servers default to `streamable-http` when `MCP_TRANSPORT` is unset (explicit `stdio` still works for local debugging); telegram-mcp accepts `stdio|http|sse`.
- 
-diff --git a/CHANGELOG.md b/CHANGELOG.md
-index 77e50e3..0be33a6 100644
---- a/CHANGELOG.md
-+++ b/CHANGELOG.md
-@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
- 
- ## [Unreleased]
- 
-+### Changed
-+
-+- **Telegram MCP timeout raised to 300 s (Task 0371):** `mcp.servers.telegram.timeout` in the global `opencode.json` moves from `30000` to `300000` for both `catalog` and `execution`. A 14.2 MB APK upload completed on Telegram's side while three client calls reported `Request timed out` — the 30 s cap reported a success as a failure, which invites duplicate sends. Every other server keeps its own timeout (`custom_context`/`project_memory`/`lint` 15 s, `blowsh` 120 s, `brain` 1200 s, `planner` 15 s/30 s). The two documented occurrences in `docs/telegram-setup.md` and the reinstall workflow's value list were updated in step; a timestamped backup of the global config was written first and the file validated as JSON. Takes effect after an OpenCode restart.
-+
- ### Added
- 
- - **Code Mode off for every server except telegram (Task 0361):** `custom_context`, `project_memory`, `lint`, `brain`, `planner` and `blowsh` now set `"codemode": false`, so their ~43 tools are native calls instead of `execute` wrappers; `telegram` (147 tools) stays on Code Mode because its schemas must not enter the system prompt. Applied to the global `opencode.json` after a timestamped backup and validated as JSON; the live session catalog dropped all six out of `execute` in place. Policy documented in `docs/services.md` (rationale table), `docs/setup.md`, `README.md` Option B and the `LLM.txt` install block, and stored as `workflows/codemode-policy` memory for the upgrade workflow.
-diff --git a/docs/telegram-setup.md b/docs/telegram-setup.md
-index 4e9edfc..aa72c32 100644
---- a/docs/telegram-setup.md
-+++ b/docs/telegram-setup.md
-@@ -126,7 +126,7 @@ $HOME/.config/opencode/mcp-telegram-server/.venv/bin/python $HOME/.config/openco
-       "type": "local",
-       "command": ["$HOME/.config/opencode/mcp-telegram-server/.venv/bin/python", "$HOME/.config/opencode/mcp-telegram-server/main.py", "/tmp/telegram-mcp", "$HOME/.config/opencode/mcp-telegram-server/downloads"],
-       "enabled": true,
--      "timeout": 30000
-+      "timeout": 300000
-     }
-   }
- }
-@@ -158,7 +158,7 @@ $HOME/.config/opencode/mcp-telegram-server/.venv/bin/python $HOME/.config/openco
-       "type": "local",
-       "command": ["$HOME/.config/opencode/mcp-telegram-server/.venv/bin/python", "$HOME/.config/opencode/mcp-telegram-server/main.py", "/tmp/telegram-mcp", "$HOME/.config/opencode/mcp-telegram-server/downloads"],
-       "enabled": true,
--      "timeout": 30000
-+      "timeout": 300000
-     }
-   },
-   "permission": { "telegram_*": "allow" }
-```
+**Factual Git Diff:** Stored in Commit Hash: `d355efd760e7dccd4be3728d21ec2f2565d36116`
 <!-- END_GIT_DIFF -->
