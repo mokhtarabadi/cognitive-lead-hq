@@ -596,7 +596,7 @@ def _check_planner_metadata(content: str, file_path: str) -> list[str]:
                 issues.append(
                     f"Planner metadata: `**{key}:**` must be an ISO-8601 UTC stamp such as "
                     f"`2026-10-25T14:20:31Z` (got `{value}`) — a local or free-text time "
-                    f"makes measured duration wrong."
+                    f"corrupts the lead-time stamp the board reports."
                 )
     # Ordering: a finish earlier than the start is a corrupt measurement, not a fast task.
     started = stamps.get("Started")
@@ -611,7 +611,7 @@ def _check_planner_metadata(content: str, file_path: str) -> list[str]:
         ):
             issues.append(
                 f"Planner metadata: `**{later}:**` ({value}) is earlier than "
-                f"`**Started:**` ({started}); measured duration would be negative."
+                f"`**Started:**` ({started}); the resulting lead time would be negative."
             )
     for key, count in counts.items():
         if count > 1:

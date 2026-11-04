@@ -1165,6 +1165,37 @@ def test_plan_week_sums_all_days(tmp_path):
     assert week["weeks"][0]["estimate_hours"] == week["totals"]["estimate_hours"]
 
 
+def test_plan_week_excludes_completed_from_remaining(tmp_path):
+    """Finished work must leave remaining capacity, but stay visible as committed load.
+
+    Why: the week bar summed completed estimates too, so remaining_hours shrank as the week
+    was delivered — the opposite of what a remaining figure claims to mean.
+    """
+    from datetime import date, timedelta
+
+    today = date.today()
+    week_start = today - timedelta(days=today.weekday())
+    deadline = week_start.isoformat()
+    _write_task(tmp_path, "backlog", 51, "Open", estimate=6, deadline=deadline)
+    _write_task(
+        tmp_path,
+        "completed",
+        52,
+        "Done",
+        status="closed",
+        estimate=4,
+        deadline=deadline,
+    )
+
+    week = planner._plan_payload(str(tmp_path), "week")
+    row = week["weeks"][0]
+
+    assert row["estimate_hours"] == 6.0, "remaining capacity counts open work only"
+    assert row["done"] == 1
+    assert row["committed_hours"] == 10.0, "finished work still counts as committed"
+    assert row["remaining_hours"] == row["capacity_hours"] - 6.0
+
+
 def test_plan_month_includes_mid_month_dates(tmp_path):
     from datetime import date
 

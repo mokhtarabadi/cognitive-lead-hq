@@ -30,7 +30,7 @@ dashboard on loopback port 8108.
 | `GET /static/*`                                           | Dashboard assets (same `static/` directory).                                                                                                                                                                                                                           |
 | `GET /api/status[?project_root=<abs path>]`               | JSON status contract the dashboard renders.                                                                                                                                                                                                                            |
 | `GET /api/task?id=<id>` or `?path=tasks/<lane>/<file>.md` | One task file as `{id, path, lane, title, markdown}` for the dashboard modal. `id` wins when both are sent. 400 no param, 401 no session, 403 outside grants or unsafe path, 404 unknown, 500 unexpected.                                                              |
-| `GET /api/hours[?project_root=<abs path>]`                | Measured hours from task stamps: per-day rows for the last 14 days plus per-week rows for the last 8 ISO weeks (`{date/week, measured_hours, done}`). Measured-only: tasks without `Finished` + `elapsed_seconds` never count. Same 401/403 contract as `/api/status`. |
+| `GET /api/hours[?project_root=<abs path>]`                | Lead time from task stamps: per-day rows for the last 14 days plus per-week rows for the last 8 ISO weeks (`{date/week, measured_hours, done}`). The key is historical; the value is `finished − started` wall clock, which counts nights and weekends and is **not** effort. Tasks without `Finished` + `elapsed_seconds` never count, and hours are attributed to the finish day. Same 401/403 contract as `/api/status`. |
 | `POST /api/login`                                         | `{"username","password"}` → `{token, username, role, allowed_projects}` + `HttpOnly` cookie.                                                                                                                                                                           |
 | `POST /api/logout`                                        | Invalidates the session and clears the cookie.                                                                                                                                                                                                                         |
 | `GET /api/me`                                             | Current user, or 401 when signed out (200 + `note: "auth disabled"` in open mode).                                                                                                                                                                                     |
@@ -225,10 +225,16 @@ by the lane transitions themselves, never by hand:
 | `**Finished:**`  | `commit_and_clean_task` | closure, after the file sits in `tasks/completed/` |
 
 Each is ISO-8601 UTC with a `Z` suffix and is **write-once**: a re-claim or a
-re-stage never rewrites the original start, because the first one is the work
-being measured. `_task_brief` turns them into `elapsed_seconds` (finished −
-started) and `qa_wait_seconds` (submitted − started), both `null` rather than
-`0` when a stamp is missing, so the panel can tell "not measured" from
-"instant". `sprint_stats` keeps the estimate arithmetic and adds a separate
-`Completed measured` line. `_check_planner_metadata` rejects a stamp that is not
-UTC or a `Finished` earlier than its `Started`.
+re-stage never rewrites the original start, because the first one is the
+reference point for lead time. `_task_brief` turns them into `elapsed_seconds`
+(finished − started) and `qa_wait_seconds` (submitted − started), both `null`
+rather than `0` when a stamp is missing, so the panel can tell "not stamped"
+from "instant".
+
+**What those seconds mean matters.** `finished − started` is **lead time**: it
+counts nights, weekends and every hour a task sat untouched, so it answers "how
+long until done" and never "how long was worked". No surface may label it
+measured hours or cycle time. `sprint_stats` prints `Completed lead time` and
+`Week lead time` for that reason, and the panel shows `lead time` on task rows.
+`_check_planner_metadata` rejects a stamp that is not UTC or a `Finished`
+earlier than its `Started`.

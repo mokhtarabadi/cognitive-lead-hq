@@ -276,7 +276,8 @@ def test_sprint_stats_separates_measured_from_estimated(tmp_path):
     )
     out = planner.sprint_stats(str(repo))
     assert "Completed estimated: 5.0h" in out
-    assert "Completed measured: 2.00h" in out
+    assert "Completed lead time: 2.00h" in out
+    assert "lead time is finished-minus-started" in out
 
 
 def test_duplicate_start_stamp_is_rejected():

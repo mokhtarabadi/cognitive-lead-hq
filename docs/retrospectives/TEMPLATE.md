@@ -9,8 +9,8 @@
 
 ## Flow metrics review
 
-- Lead time:
-- Cycle time:
+- Lead time (Finished − Started; counts nights and weekends, not effort):
+- Cycle time (active work only — only report this if the work was actually tracked; the planner does not measure it):
 - Throughput:
 - WIP:
 - Blocked items:

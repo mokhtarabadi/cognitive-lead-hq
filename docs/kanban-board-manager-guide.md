@@ -16,7 +16,7 @@ This guide onboards board managers to the HQ Kanban/planning system and maps can
 ## Current system map
 
 - Planner MCP: derived index over `tasks/` Markdown; task files remain the source of truth.
-- Dashboard: board lanes, task modal, 14-day load view, and measured-hours view. See `mcp-planner-server/static/index.html:221-222` (chart element refs), `:718` (14-day load label), `:767-850` (CFD/control-chart fetch with unavailable-fallback).
+- Dashboard: board lanes, task modal, 14-day load view, and lead-time view. "Lead time" is `Finished − Started` wall clock and counts nights and weekends; it is not effort, and no surface may call it measured hours. See `mcp-planner-server/static/index.html:221-222` (chart element refs), `:718` (14-day load label), `:767-850` (CFD/control-chart fetch with unavailable-fallback).
 - Task files: Kanban state, metadata, acceptance criteria, verification evidence, execution log, and factual diff. See `mcp-planner-server/server.py:294` (`_parse_task_file`).
 - AGENTS protocol: validation, task lifecycle, WIP expectations, QA/review gates, and closure rules. See `mcp-planner-server/server.py:1014` (QA budget check), `:1024` (WIP ceiling check).
 
@@ -26,7 +26,7 @@ This guide onboards board managers to the HQ Kanban/planning system and maps can
 | ---------------------- | ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
 | Visualize workflow     | Backlog, in-progress, QA, completed, and archive lanes | Partial: lane visualization exists, but flow history is limited                                                      | `mcp-planner-server/static/index.html:221-222`           |
 | Limit WIP              | WIP expectations and QA queue cap are documented       | Partial: global default and per-project override need explicit policy and dashboard visibility                       | `mcp-planner-server/server.py:1024`                      |
-| Manage flow            | Measured-hours and 14-day load views exist             | Partial: CFD/control-chart elements plus fetch wiring with unavailable-fallback exist; verify backend endpoints live | `mcp-planner-server/static/index.html:221-222, :767-850` |
+| Manage flow            | Lead-time and 14-day load views exist                  | Partial: CFD/control-chart elements plus fetch wiring with unavailable-fallback exist; verify backend endpoints live | `mcp-planner-server/static/index.html:221-222, :767-850` |
 | Explicit policies      | AGENTS and task templates encode lifecycle rules       | Partial: board-level policies are not centralized                                                                    | This guide and `docs/kanban-policies.md`                 |
 | Feedback loops         | QA and review gates exist                              | Present: retrospective template plus this guide as onboarding                                                        | This guide and `docs/retrospectives/TEMPLATE.md`         |
 | Evolve collaboratively | Task execution logs and changelog exist                | Present: standardized retrospective template; approved actions become backlog tasks                                  | `docs/retrospectives/TEMPLATE.md`                        |
@@ -36,7 +36,7 @@ This guide onboards board managers to the HQ Kanban/planning system and maps can
 Track and review these flow metrics:
 
 - Lead time.
-- Cycle time.
+- Lead time (Finished − Started, includes idle time).
 - Throughput.
 - WIP count.
 - Blocked time.

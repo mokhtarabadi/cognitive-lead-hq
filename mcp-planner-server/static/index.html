@@ -91,13 +91,13 @@
             <span class="small text-muted mono" id="plan-totals"></span>
           </div>
           <div id="plan-view"></div>
-          <div class="small text-muted mt-2">Done means a completed task carrying a deadline in this range. Measured hours come from task time stamps (<span class="mono">Started</span> → <span class="mono">Finished</span>); unstamped tasks never count.</div>
+          <div class="small text-muted mt-2">Done means a completed task carrying a deadline in this range. Lead time comes from task time stamps (<span class="mono">Started</span> → <span class="mono">Finished</span>); unstamped tasks never count.</div>
           <div id="plan-chart" class="mt-3"></div>
-          <div class="label mt-3 mb-1">Measured hours</div>
+          <div class="label mt-3 mb-1">Lead time</div>
           <div id="hours-chart"><div class="small text-muted">Loading…</div></div>
           <div class="label mt-3 mb-1">Cumulative flow (derived)</div>
           <div id="cfd-chart"><div class="small text-muted">Loading…</div></div>
-          <div class="label mt-3 mb-1">Control chart (cycle time)</div>
+          <div class="label mt-3 mb-1">Control chart (lead time)</div>
           <div id="control-chart"><div class="small text-muted">Loading…</div></div>
         </div></div>
       </div>
@@ -384,7 +384,7 @@
             (t.swarm && t.swarm !== 'none' ? ' <span class="badge text-bg-warning">swarm: ' + escapeHtml(t.swarm) + '</span>' : '') +
             (t.lane === 'in-progress' && t.started_at && isStale(t.started_at) ? ' <span class="badge text-bg-danger">STALE</span>' : '') +
             (t.estimate_hours != null ? ' <span class="text-muted">' + t.estimate_hours + 'h</span>' : '') +
-            (t.elapsed_seconds != null ? ' <span class="text-muted mono">· measured ' + formatDuration(t.elapsed_seconds) + '</span>' : '') +
+            (t.elapsed_seconds != null ? ' <span class="text-muted mono">· lead time ' + formatDuration(t.elapsed_seconds) + '</span>' : '') +
             '</div>';
         }).join('');
       const hint = isArchive && needle && items.length
@@ -545,7 +545,7 @@
     return marker >= 0 ? absPath.slice(marker + 1) : '';
   }
 
-  /** Human duration from measured seconds; never invent a value when it is null. */
+  /** Human duration from wall-clock seconds; never invent a value when it is null. */
   function formatDuration(totalSeconds) {
     const secs = Math.max(0, Math.round(Number(totalSeconds) || 0));
     const h = Math.floor(secs / 3600);
@@ -604,7 +604,7 @@
         }
         elements.taskModalTitle.textContent = payload.title || 'Task ' + (payload.id || '');
         elements.taskModalMeta.textContent = '#' + (payload.id || '?') + ' · ' + (payload.lane || 'unknown lane') + ' · ' + (relTaskPath(payload.path) || payload.path || '') +
-          (payload.elapsed_seconds != null ? ' · measured ' + formatDuration(payload.elapsed_seconds) : '');
+          (payload.elapsed_seconds != null ? ' · lead time ' + formatDuration(payload.elapsed_seconds) : '');
         elements.taskModalBody.innerHTML = renderMarkdown(payload.markdown || '');
         elements.taskModalBody.scrollTop = 0;
       })
@@ -742,7 +742,7 @@
     const days = data.days || [];
     const weeks = data.weeks || [];
     if (!days.length && !weeks.length) {
-      elements.hoursChart.innerHTML = '<div class="small text-muted">No measured hours yet.</div>';
+      elements.hoursChart.innerHTML = '<div class="small text-muted">No stamped tasks yet.</div>';
       return;
     }
     const max = Math.max(0.5, ...days.map(function (d) { return d.measured_hours || 0; }));
@@ -757,9 +757,9 @@
     const weekLine = weeks.filter(function (w) { return (w.done || 0) > 0; }).map(function (w) {
       return '<span class="mono">' + w.start.slice(5) + '→' + w.end.slice(5) + ' ' + w.measured_hours + 'h</span>';
     }).join(' · ') || '<span class="text-muted">no finished tasks in range</span>';
-    elements.hoursChart.innerHTML = '<svg viewBox="0 0 100 54" width="100%" height="64" role="img" aria-label="Measured hours, last 14 days">' +
+    elements.hoursChart.innerHTML = '<svg viewBox="0 0 100 54" width="100%" height="64" role="img" aria-label="Lead time, last 14 days">' +
       '<line x1="0" y1="50" x2="100" y2="50" stroke="var(--gd-border)" stroke-width="0.4"></line>' + bars + '</svg>' +
-      '<div class="d-flex justify-content-between small text-muted mt-1"><span>' + (days.length ? days[0].date.slice(5) : '') + '</span><span>measured h/day</span><span>' + (days.length ? days[days.length - 1].date.slice(5) : '') + '</span></div>' +
+      '<div class="d-flex justify-content-between small text-muted mt-1"><span>' + (days.length ? days[0].date.slice(5) : '') + '</span><span>lead time h/day</span><span>' + (days.length ? days[days.length - 1].date.slice(5) : '') + '</span></div>' +
       '<div class="small mt-1"><span class="text-muted">Weeks: </span>' + weekLine + '</div>';
   }
 
@@ -815,7 +815,7 @@
     if (!el) return;
     const points = data.points || [];
     if (!points.length || data.average == null) {
-      el.innerHTML = '<div class="small text-muted">No completed tasks with cycle time.</div>';
+      el.innerHTML = '<div class="small text-muted">No completed tasks with a lead time.</div>';
       return;
     }
     const width = 720, height = 260, pad = 40;

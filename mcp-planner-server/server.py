@@ -1315,8 +1315,12 @@ def sprint_stats(project_root: Optional[str] = None, week: Optional[str] = None)
     )
     lines.append("")
     lines.append("## Measured")
-    lines.append(f"Completed measured: {measured_hours:.2f}h")
-    lines.append(f"Week measured: {week_measured_hours:.2f}h")
+    lines.append(f"Completed lead time: {measured_hours:.2f}h")
+    lines.append(f"Week lead time: {week_measured_hours:.2f}h")
+    lines.append(
+        "  (lead time is finished-minus-started wall clock; it counts nights and weekends, "
+        "so it is not effort)"
+    )
     lines.append("## Velocity")
     lines.append(f"Tasks completed per lane snapshot: {completed} / {total_tasks}")
     lines.append("")
@@ -2136,7 +2140,11 @@ def _api_hours(
     project_root: Optional[str] = None,
     auth: Optional[AuthState] = None,
 ) -> dict:
-    """Return measured hours per day and per week as JSON (GET /api/hours).
+    """Return lead time per day and per week as JSON (GET /api/hours).
+
+    Lead time is ``finished − started`` wall clock: it includes nights, weekends and every
+    hour the task sat untouched. It answers "how long until done", never "how long was worked".
+    Hours are attributed to the finish day, so a multi-day task lands on one bar.
 
     Measured-only semantics, mirroring :func:`_task_brief`: a task counts
     only when it carries both ``finished_at`` and ``elapsed_seconds``;
@@ -2324,7 +2332,10 @@ def _empty_bucket(day: date) -> dict:
         "open": 0,
         "in_progress": 0,
         "done": 0,
+        # Open work only: this is what feeds remaining capacity.
         "estimate_hours": 0.0,
+        # Finished work, kept separately so committed load can still be shown.
+        "done_estimate_hours": 0.0,
         "tasks": [],
     }
 
@@ -2517,13 +2528,18 @@ def _plan_payload(
         if deadline is not None:
             bucket = bucket_for(deadline)
             bucket["tasks"].append(brief)
-            bucket["estimate_hours"] += _hours(task.get("estimate_hours"))
             if lane == "completed":
+                # Finished work belongs in committed load, never in remaining capacity.
+                # Counting it here made remaining_hours shrink as the week was delivered,
+                # which is the opposite of what the number claims.
                 bucket["done"] += 1
-            elif lane == "in-progress":
-                bucket["in_progress"] += 1
-            elif lane in open_lanes:
-                bucket["open"] += 1
+                bucket["done_estimate_hours"] += _hours(task.get("estimate_hours"))
+            else:
+                bucket["estimate_hours"] += _hours(task.get("estimate_hours"))
+                if lane == "in-progress":
+                    bucket["in_progress"] += 1
+                elif lane in open_lanes:
+                    bucket["open"] += 1
         if lane in open_lanes and deadline is not None:
             delta = (deadline - today).days
             if delta < 0:
@@ -2578,6 +2594,9 @@ def _plan_payload(
             rows = grouped[start_key]
             start = date.fromisoformat(start_key)
             estimate = round(sum(r["estimate_hours"] for r in rows), 2)
+            committed = round(
+                estimate + sum(r.get("done_estimate_hours", 0.0) for r in rows), 2
+            )
             weeks.append(
                 {
                     "start": start_key,
@@ -2586,7 +2605,10 @@ def _plan_payload(
                     "open": sum(r["open"] for r in rows),
                     "in_progress": sum(r["in_progress"] for r in rows),
                     "done": sum(r["done"] for r in rows),
+                    # remaining capacity: open work only
                     "estimate_hours": estimate,
+                    # everything with a deadline in the window, so finished work stays visible
+                    "committed_hours": committed,
                     "capacity_hours": capacity,
                     "remaining_hours": round(capacity - estimate, 2),
                 }
