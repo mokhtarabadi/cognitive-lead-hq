@@ -3446,6 +3446,7 @@ def test_ledger_carries_model_tier_and_cache_split(tmp_path, monkeypatch):
         "model",
         "risk_tier",
         "prompt_cache_split",
+        "paths",
     }
 
 
@@ -3589,6 +3590,7 @@ def test_cache_split_result_and_ledger(tmp_path, monkeypatch):
         "model",
         "risk_tier",
         "prompt_cache_split",
+        "paths",
     }
 
 
@@ -4365,3 +4367,71 @@ def test_brain_turn_non_plan_stage_stays_silent(tmp_path, monkeypatch, capsys):
     )
     err = capsys.readouterr().err
     assert "context-sufficiency warning" not in err
+
+
+def _rendered_ctx(path, block):
+    return [({"kind": "context_path", "path": path}, block, None)]
+
+
+def test_paths_ledger_summary_marks_outcomes(tmp_path, monkeypatch):
+    assert bridge._paths_ledger_summary([]) == []
+    rows = bridge._paths_ledger_summary(
+        _rendered_ctx("a.md", "[path-injected: a.md]\nbody")
+        + _rendered_ctx(
+            "b.md",
+            "[path-injected: b.md]\n" + "x" * 10 + "\n[...truncated at 60000 chars]",
+        )
+        + _rendered_ctx("c.md", "[skipped: c.md — total budget 200000 chars reached]")
+        + _rendered_ctx("d.md", "[unavailable: d.md — unsupported extension]")
+        + [({"kind": "task"}, "[task-file: 1: x]", None)]
+    )
+    by_path = {r["path"]: r for r in rows}
+    assert set(by_path) == {"a.md", "b.md", "c.md", "d.md"}
+    assert by_path["a.md"]["status"] == "injected"
+    assert by_path["b.md"]["status"] == "truncated"
+    assert by_path["c.md"]["status"] == "skipped-budget"
+    assert by_path["d.md"]["status"] == "unavailable:unsupported extension"
+    assert all(isinstance(r["chars"], int) and r["chars"] > 0 for r in rows)
+    # Paths only — never file text (leak guard: a secret inside a block must
+    # never reach the ledger row).
+    assert "body" not in str(rows)
+    leak_rows = bridge._paths_ledger_summary(
+        _rendered_ctx(
+            "s.md", "[path-injected: s.md]\nsk-test-key-SECRET body text here"
+        )
+    )
+    import json as _json
+
+    assert "sk-test-key-SECRET" not in _json.dumps(leak_rows)
+
+
+def test_record_brain_use_counts_and_warns(tmp_path, monkeypatch):
+    monkeypatch.setenv("BRAIN_USAGE_ROOT", str(tmp_path))
+    monkeypatch.setenv("BRAIN_QUOTA_CAP", "10")
+    monkeypatch.setenv("BRAIN_QUOTA_WARN_AT", "2")
+    first = bridge._record_brain_use("m")
+    assert first == {"count": 1, "cap": 10, "warn_at": 2, "warn": False, "model": "m"}
+    second = bridge._record_brain_use("m")
+    assert second["count"] == 2
+    assert second["warn"] is True
+
+
+def test_record_brain_use_survives_corrupt_file(tmp_path, monkeypatch, capsys):
+    monkeypatch.setenv("BRAIN_USAGE_ROOT", str(tmp_path))
+    import time as _time
+
+    (tmp_path / (_time.strftime("%Y-%m", _time.gmtime()) + ".json")).write_text(
+        "{oops", encoding="utf-8"
+    )
+    out = bridge._record_brain_use(None)
+    assert out is not None and out["count"] >= 1
+    # Quota watch never breaks a turn: warnings go to stderr only on threshold.
+    bridge._warn_brain_quota(None)
+    bridge._warn_brain_quota(
+        {"count": 1, "cap": 10, "warn_at": 5, "warn": False, "model": None}
+    )
+    assert capsys.readouterr().err == ""
+    bridge._warn_brain_quota(
+        {"count": 9, "cap": 10, "warn_at": 5, "warn": True, "model": None}
+    )
+    assert "monthly Brain usage 9/10" in capsys.readouterr().err

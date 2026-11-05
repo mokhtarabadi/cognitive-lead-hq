@@ -2392,6 +2392,7 @@ def _append_context_ledger(
     model: Optional[str] = None,
     risk_tier: Optional[str] = None,
     prompt_cache_split: Optional[dict] = None,
+    paths: Optional[list] = None,
 ) -> None:
     """Best-effort utilization ledger: one JSON line per turn under the
     sessions root (Task 241 context-gap fix). Never raises — a ledger
@@ -2409,11 +2410,104 @@ def _append_context_ledger(
             "model": model,
             "risk_tier": (risk_tier or "").strip() or None,
             "prompt_cache_split": prompt_cache_split,
+            "paths": paths,
         }
         ledger = _sessions_root(project_root) / _CONTEXT_LEDGER_NAME
         ledger.parent.mkdir(parents=True, exist_ok=True)
         with open(ledger, "a", encoding="utf-8") as f:
             f.write(json.dumps(row) + "\n")
+    except Exception:
+        pass
+
+
+# --- Monthly provider-usage counter (Task 374): quota watch. ---------------
+# The Go-plan quota (~21k requests/month) is the binding constraint on the
+# Brain, so every completed provider round-trip increments a tiny monthly
+# JSON counter and warns on stderr past a configurable threshold. Read-only
+# w.r.t. turn execution: best-effort writes, never raises, never blocks.
+_USAGE_DIRNAME = "brain-usage"
+_USAGE_CAP_DEFAULT = 21000
+_USAGE_WARN_DEFAULT = 16800
+
+
+def _usage_root() -> Path:
+    """Dir holding monthly usage counters; overridable for tests."""
+    override = os.environ.get("BRAIN_USAGE_ROOT", "").strip()
+    if override:
+        return Path(override).expanduser()
+    return Path.home() / ".config" / "opencode" / _USAGE_DIRNAME
+
+
+def _quota_cap() -> int:
+    """Monthly request quota the warning is measured against."""
+    return _env_positive_int("BRAIN_QUOTA_CAP", _USAGE_CAP_DEFAULT)
+
+
+def _quota_warn_at() -> int:
+    """Usage count at which the bridge starts warning on stderr."""
+    return _env_positive_int("BRAIN_QUOTA_WARN_AT", _USAGE_WARN_DEFAULT)
+
+
+def _usage_month_key() -> str:
+    import time as _time
+
+    return _time.strftime("%Y-%m", _time.gmtime())
+
+
+def _record_brain_use(model: Optional[str] = None) -> Optional[dict]:
+    """Increment this UTC month's turn counter; return usage summary.
+
+    Returns ``{"count", "cap", "warn_at", "warn", "model"}`` or ``None``
+    when the counter cannot be maintained. File locking keeps concurrent
+    turns from losing increments; every failure mode returns ``None``
+    instead of raising so a broken counter can never break a turn.
+    """
+    try:
+        root = _usage_root()
+        root.mkdir(parents=True, exist_ok=True)
+        path = root / (_usage_month_key() + ".json")
+        import fcntl as _fcntl
+
+        with open(path, "a+", encoding="utf-8") as f:
+            _fcntl.flock(f.fileno(), _fcntl.LOCK_EX)
+            try:
+                f.seek(0)
+                raw = f.read().strip()
+                try:
+                    data = json.loads(raw) if raw else {}
+                except Exception:
+                    data = {}
+                count = int(data.get("count", 0) or 0) + 1
+                f.seek(0)
+                f.truncate()
+                f.write(json.dumps({"count": count, "model": model}))
+            finally:
+                _fcntl.flock(f.fileno(), _fcntl.LOCK_UN)
+        cap = _quota_cap()
+        warn_at = _quota_warn_at()
+        return {
+            "count": count,
+            "cap": cap,
+            "warn_at": warn_at,
+            "warn": count >= warn_at,
+            "model": model,
+        }
+    except Exception:
+        return None
+
+
+def _warn_brain_quota(usage: Optional[dict]) -> None:
+    """Stderr quota warning; silent unless the threshold is reached."""
+    try:
+        if not usage or not usage.get("warn"):
+            return
+        print(
+            "brain-bridge: monthly Brain usage "
+            f"{usage['count']}/{usage['cap']} requests reached "
+            f"(warn at {usage['warn_at']}) — plan the remaining month "
+            "or expect provider quota errors.",
+            file=sys.stderr,
+        )
     except Exception:
         pass
 
@@ -3090,6 +3184,48 @@ def _render_direct(
     return rendered, [], info
 
 
+def _paths_ledger_summary(
+    rendered: list[tuple[dict, str, None]],
+) -> list[dict]:
+    """Per-path attach outcomes for the ledger (Task 374, file-log-half).
+
+    Derives, from already-rendered ``context_path`` blocks, one small row
+    per requested path: which file, what happened (injected / truncated /
+    skipped-budget / unavailable-<reason>), and how many chars went into
+    the prompt. Paths and sizes only — never file text, prompt text, or
+    keys. Never raises; an unparseable block reports ``unknown``.
+    """
+    out: list[dict] = []
+    for cand, block, _meta in rendered:
+        try:
+            if not isinstance(cand, dict) or cand.get("kind") != "context_path":
+                continue
+            path = str(cand.get("path", ""))
+            text = block if isinstance(block, str) else ""
+            if "[path-injected:" in text:
+                status = (
+                    "truncated"
+                    if ("truncated" in text or "[skipped:" in text)
+                    else "injected"
+                )
+            elif "[skipped:" in text:
+                status = "skipped-budget"
+            elif "[unavailable:" in text:
+                reason = text.split("[unavailable:", 1)[1].split("]", 1)[0]
+                reason = (
+                    reason.split("—", 1)[-1].strip()
+                    if "—" in reason
+                    else reason.strip()
+                )
+                status = "unavailable:" + (reason or "unknown")
+            else:
+                status = "unknown"
+            out.append({"path": path, "status": status, "chars": len(text)})
+        except Exception:
+            continue
+    return out
+
+
 def _task_candidate(
     task_id: object, project_root: Optional[str] = None
 ) -> Optional[dict]:
@@ -3672,6 +3808,9 @@ def brain_turn(
     # LAST fallback, so its length can never shrink an attachment and the
     # static prompt-cache prefix stays stable across turns.
     rendered, attachments_truncated, budget_info = _render_direct(candidates)
+    # Task 374: per-path attach outcomes for the ledger (file-log-half).
+    # Paths + statuses + sizes only — never file or prompt text.
+    _paths_summary = _paths_ledger_summary(rendered)
 
     def _slot(name: str) -> str:
         return "\n\n---\n\n".join(
@@ -3829,6 +3968,7 @@ def brain_turn(
         model=model,
         risk_tier=effective_tier,
         prompt_cache_split=cache_split,
+        paths=_paths_summary,
     )
     if budget_chars > _PROMPT_WARN_CHARS:
         print(
@@ -3899,6 +4039,9 @@ def brain_turn(
             )
             _total_attempts += attempts
             resp_data = _resp_json(resp)
+            # Task 374: a completed HTTP round-trip counts against the
+            # monthly quota (retries included — each pass is a real call).
+            _warn_brain_quota(_record_brain_use(model))
         except RuntimeError as exc:
             # Structured fatal (Task 329 F7): a transport failure, a
             # malformed body, or a fatal 4xx must surface as a REPORT
