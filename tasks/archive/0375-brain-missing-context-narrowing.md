@@ -1,9 +1,11 @@
 # Task 0375: Teach the missing_context contract to narrow instead of re-demanding whole files
 
-**File:** `tasks/in-progress/0375-brain-missing-context-narrowing.md`
+**File:** `tasks/archive/0375-brain-missing-context-narrowing.md`
 **Source:** manager (2026-11-05 — Brain looped 3x on `<missing_context>` for files already supplied during dumble task 1039; investigation disproved a server bug)
 **Type:** improvement
-**Status:** in-progress
+**Status:** superseded
+**Superseded-By:** `377-brain-missing-context-narrowing-plus-line-range-slices`
+**Superseded-At:** `2026-11-05 22:31 UTC`
 
 ## Goal
 
@@ -52,6 +54,8 @@ Stop the Brain from stalling on files it already has. When a turn delivers trunc
 
 - **Risk:** a stricter contract makes the model guess instead of asking. Mitigation: the rule only narrows *re-requests*; genuinely absent files are still listed the same way.
 - **Rollback:** revert the fragment hunk + rebuild system-prompt.
+
+> **Superseded:** This task was bundled into META task `377-brain-missing-context-narrowing-plus-line-range-slices` and archived on 2026-11-05 22:31 UTC. See `tasks/backlog/377-brain-missing-context-narrowing-plus-line-range-slices.md` (or its Kanban successor) for the unified execution. History preserved via `git log --follow -- tasks/archive/0375-brain-missing-context-narrowing.md`.
 
 ## Execution Log & Reasoning
 

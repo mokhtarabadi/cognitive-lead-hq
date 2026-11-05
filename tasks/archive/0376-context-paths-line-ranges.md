@@ -1,9 +1,11 @@
 # Task 0376: Line-range slices for brain_turn context_paths
 
-**File:** `tasks/qa/0376-context-paths-line-ranges.md`
+**File:** `tasks/archive/0376-context-paths-line-ranges.md`
 **Source:** manager (2026-11-05 — add line-range/slice support so the Brain can request part of a big file instead of the whole file; web research done first, libraries evaluated and rejected in favor of a suffix convention)
 **Type:** feature
-**Status:** in-progress
+**Status:** superseded
+**Superseded-By:** `377-brain-missing-context-narrowing-plus-line-range-slices`
+**Superseded-At:** `2026-11-05 22:31 UTC`
 
 ## Goal
 
@@ -57,6 +59,8 @@ Let `brain_turn(context_paths=[...])` accept a line-range suffix — `path#Lstar
 ## Definition of Done
 
 - All acceptance criteria evidenced with command exit codes, tests green, lint clean, QA + review verdicts recorded.
+
+> **Superseded:** This task was bundled into META task `377-brain-missing-context-narrowing-plus-line-range-slices` and archived on 2026-11-05 22:31 UTC. See `tasks/backlog/377-brain-missing-context-narrowing-plus-line-range-slices.md` (or its Kanban successor) for the unified execution. History preserved via `git log --follow -- tasks/archive/0376-context-paths-line-ranges.md`.
 
 ## Execution Log & Reasoning
 
