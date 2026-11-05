@@ -4,6 +4,7 @@
 **Source:** manager (2026-11-05 — brain_turn implementation planning starved: `context_paths` with `.java`/`.js`/`.tsx` all returned `[unavailable: unsupported extension]`, only `AGENTS.md` attached (~29.5k of ~87k requested); Brain looped on missing_context and finally refused)
 **Type:** bug
 **Status:** closed
+**Finished:** 2026-11-05T20:20:00Z
 
 ## Goal
 
@@ -55,4 +56,5 @@ Let `brain_turn(context_paths=[...])` inject source-code files (not just docs/re
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+**Factual Git Diff:** Stored in Commit Hash: `7b2af3c500c1a6219c7a071bf622eff3f63d1116`
 <!-- END_GIT_DIFF -->
