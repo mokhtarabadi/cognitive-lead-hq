@@ -1654,6 +1654,117 @@ def test_paths_attach_empty_labelled(tmp_path, monkeypatch):
     assert "empty file" in out
 
 
+def test_path_candidates_line_range_slice(tmp_path, monkeypatch):
+    # QA round 2: the live-turn path must slice exactly like the helper.
+    _ws(tmp_path, monkeypatch)
+    (tmp_path / "code.py").write_text(
+        "".join(f"line {i}\n" for i in range(1, 11)), encoding="utf-8"
+    )
+    cands = bridge._path_candidates(["code.py#L3-5"])
+    assert len(cands) == 1
+    assert cands[0]["open_line"] == "[path-injected: code.py#L3-5 — lines 3-5 of 10]"
+    assert cands[0]["text"] == "line 3\nline 4\nline 5"
+
+
+def test_line_range_malformed_labelled_both_paths(tmp_path, monkeypatch):
+    # QA round 2: `code.py#Lbad` is a caller error — explicit bad-range
+    # label on both the helper and the live-turn path, never a silent drop
+    # and never a misleading resolution/extension label.
+    _ws(tmp_path, monkeypatch)
+    (tmp_path / "code.py").write_text("x = 1\n", encoding="utf-8")
+    out = bridge.build_paths_attach(["code.py#Lbad"])
+    assert "[unavailable: code.py#Lbad — bad range]" in out
+    cands = bridge._path_candidates(["code.py#Lbad"])
+    assert len(cands) == 1
+    assert "bad range" in cands[0]["open_line"]
+
+
+def test_line_range_blank_slice_injects_both_paths(tmp_path, monkeypatch):
+    # Review round 3: a slice selecting exactly one blank line is valid
+    # content ("", lo=2), not the ("", 0, 0) empty-selection sentinel.
+    _ws(tmp_path, monkeypatch)
+    (tmp_path / "code.py").write_text("a\n\nc\n", encoding="utf-8")
+    out = bridge.build_paths_attach(["code.py#L2-2"])
+    assert "[path-injected: code.py#L2-2 — lines 2-2 of 3]" in out
+    assert "empty range" not in out
+    cands = bridge._path_candidates(["code.py#L2-2"])
+    assert len(cands) == 1
+    assert cands[0]["open_line"] == "[path-injected: code.py#L2-2 — lines 2-2 of 3]"
+    assert cands[0]["text"] == ""
+    # The true empty selection still labels on both paths.
+    assert "empty range" in bridge.build_paths_attach(["code.py#L3-2"])
+    assert "empty range" in bridge._path_candidates(["code.py#L3-2"])[0]["open_line"]
+
+
+def test_paths_attach_line_range_slice(tmp_path, monkeypatch):
+    _ws(tmp_path, monkeypatch)
+    (tmp_path / "code.py").write_text(
+        "".join(f"line {i}\n" for i in range(1, 11)), encoding="utf-8"
+    )
+    out = bridge.build_paths_attach(["code.py#L3-5"])
+    assert "[path-injected: code.py#L3-5 — lines 3-5 of 10]" in out
+    assert "line 3\nline 4\nline 5" in out
+    assert "line 2\n" not in out
+    assert "line 6\n" not in out
+
+
+def test_paths_attach_line_range_open_tail(tmp_path, monkeypatch):
+    _ws(tmp_path, monkeypatch)
+    (tmp_path / "code.py").write_text(
+        "".join(f"line {i}\n" for i in range(1, 6)), encoding="utf-8"
+    )
+    out = bridge.build_paths_attach(["code.py#L4-"])
+    assert "lines 4-5 of 5" in out
+    assert "line 4\nline 5" in out
+    assert "line 3\n" not in out
+
+
+def test_paths_attach_line_range_single_line(tmp_path, monkeypatch):
+    _ws(tmp_path, monkeypatch)
+    (tmp_path / "code.py").write_text("a\nb\nc\n", encoding="utf-8")
+    out = bridge.build_paths_attach(["code.py#L2"])
+    assert "lines 2-2 of 3" in out
+    assert "\nb\n" in out or out.rstrip().endswith("b")
+
+
+def test_paths_attach_line_range_clamped(tmp_path, monkeypatch):
+    # Out-of-range ends clamp to the file instead of failing: a stale line
+    # number from an older revision still yields the nearest content.
+    _ws(tmp_path, monkeypatch)
+    (tmp_path / "code.py").write_text("a\nb\nc\n", encoding="utf-8")
+    out = bridge.build_paths_attach(["code.py#L0-99"])
+    assert "lines 1-3 of 3" in out
+    assert "a\nb\nc" in out
+
+
+def test_paths_attach_line_range_empty_labelled(tmp_path, monkeypatch):
+    # start > end and start-past-EOF are caller errors: label, never slice.
+    _ws(tmp_path, monkeypatch)
+    (tmp_path / "code.py").write_text("a\nb\nc\n", encoding="utf-8")
+    assert "empty range" in bridge.build_paths_attach(["code.py#L3-2"])
+    assert "empty range" in bridge.build_paths_attach(["code.py#L9-12"])
+
+
+def test_paths_attach_line_range_counts_toward_total(tmp_path, monkeypatch):
+    _ws(tmp_path, monkeypatch)
+    monkeypatch.setattr(bridge, "_CTX_PATHS_PER_FILE", 10000)
+    monkeypatch.setattr(bridge, "_CTX_PATHS_TOTAL", 30)
+    (tmp_path / "a.py").write_text("x\n" * 50, encoding="utf-8")
+    out = bridge.build_paths_attach(["a.py#L1-10", "a.py#L11-20"])
+    # First slice (~20 chars) fits; the second exceeds the shared total.
+    assert "lines 1-10 of 50" in out
+    assert "total budget" in out
+
+
+def test_paths_attach_hash_in_filename_not_a_range(tmp_path, monkeypatch):
+    # A literal '#' elsewhere in the name must not be mistaken for a range.
+    _ws(tmp_path, monkeypatch)
+    (tmp_path / "a#b.md").write_text("hash\n", encoding="utf-8")
+    out = bridge.build_paths_attach(["a#b.md"])
+    assert "[path-injected: a#b.md]" in out
+    assert "hash" in out
+
+
 def test_paths_attach_per_file_cap(tmp_path, monkeypatch):
     _ws(tmp_path, monkeypatch)
     (tmp_path / "big.md").write_text(
@@ -3776,8 +3887,9 @@ def test_env_positive_int_override_and_guards(monkeypatch):
 def test_default_caps_meet_issue_thresholds():
     assert bridge._TASK_DIFF_CAP >= 200000
     assert bridge._TASK_ATTACH_CAP >= 60000
-    assert bridge._CTX_PATHS_PER_FILE >= 60000
-    assert bridge._CTX_PATHS_TOTAL >= 200000
+    # Pinned exact: a silent default change alters every turn's prompt budget.
+    assert bridge._CTX_PATHS_PER_FILE == 150000
+    assert bridge._CTX_PATHS_TOTAL == 400000
     assert bridge._INPUT_BUDGET >= 200000
 
 

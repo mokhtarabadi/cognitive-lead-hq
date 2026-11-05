@@ -64,3 +64,13 @@
 - **Decision:** The comment names OpenCode and other agentic clients; the example names `default.question`, the session tool that actually gates the turn.
 - **Consequences:** Server prose no longer teaches tool names the catalog cannot resolve. Comment-only change; no wire behavior touched.
 - **Rollback:** Restore the two lines from git history.
+
+## [2026-11-05] ADR-010: missing_context narrowing rule + raised context-paths caps
+
+- **Context:** a planning loop stalled for 3 turns re-requesting files the bridge had already delivered (truncated at the 60 KB/file cap with an explicit note). The `missing_context` contract only said STOP-and-list, giving the model no narrowing strategy, and the caps cut a ~181 KB report to 60 KB.
+- **Decision:** (1) extend the No-Hallucination rule: when a truncation note is present, the file counts as partially present — verify visible scope first, never re-request a fully-present file, and narrow (smaller path, section, symbols) instead of repeating a whole-file request. (2) Raise `_CTX_PATHS_PER_FILE` 60k -> 150k and `_CTX_PATHS_TOTAL` 200k -> 400k. The narrowing contract is the real fix; caps only reduce how often truncation fires.
+- **Consequences:** fewer truncation events on large reports; larger worst-case prompts on explicit `context_paths` turns (opt-in only). The exact-default pin test fails loudly on any silent cap drift.
+- **Incidental finding during implementation:** `build_paths_attach` (the unit-tested helper) and `_path_candidates` (the live-turn path) contain parallel loops over the same logic. The range feature was wired into both through the shared `_split_line_range` / `_slice_text_lines` helpers so they cannot drift, but the duplication itself predates this task and is left for a dedicated dedup task.
+- **Follow-up fix (QA round):** the prompt contract and this ADR now name the `#Lstart-end` / `#Lstart-` slice forms explicitly so the Brain actually uses them; `docs/brain-bridge.md` documents the same syntax in the attachment-rendering section.
+- **Follow-up fix (QA round 2):** `_split_line_range` classifies a malformed trailing `#L` fragment on a supported readable path as `bad range` instead of falling through to resolution; a live-path regression test pins sliced content and labels through `_path_candidates`, plus malformed handling on both entry points. Literal-`#` filenames (e.g. `a#b.md`) still flow through untouched.
+- **Rollback:** revert the fragment sentence + cap constants + pin test; rebuild system-prompt.md.

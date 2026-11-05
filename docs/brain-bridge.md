@@ -132,8 +132,8 @@ repo-root `.env`). Real process env wins; blank counts as unset. See
 | `BRAIN_STAGE_TIERS` | `plan:T2,review:T2,implement:T0,qa:T0,closure:T0`    |
 | `BRAIN_TASK_ATTACH_CAP` | `60000` — task-file attachment chars; blank/unset = default |
 | `BRAIN_TASK_DIFF_CAP` | `200000` — changed-hunks chars; blank/unset = default |
-| `BRAIN_CTX_PER_FILE_CAP` | `60000` — per `context_paths` file; blank/unset = default |
-| `BRAIN_CTX_TOTAL_CAP` | `200000` — all `context_paths` per turn; blank/unset = default |
+| `BRAIN_CTX_PER_FILE_CAP` | `150000` — per `context_paths` file; blank/unset = default |
+| `BRAIN_CTX_TOTAL_CAP` | `400000` — all `context_paths` per turn; blank/unset = default |
 | `BRAIN_INPUT_BUDGET` | `1000000` — input budget ceiling (system + prompt + history), chars |
 | `BRAIN_MODEL_WINDOW_CHARS` | `200000` — utilization monitor only, never a send cap |
 | `BRAIN_CONTEXT_WINDOW_TOKENS` | `1048576` — provider window for the pre-send guard; blank/unset = default |
@@ -193,6 +193,17 @@ Task file and diff blocks keep their stable labels:
 ```
 
 Context paths render as `[path-injected: <path>]` followed by content.
+A trailing `#Lstart-end` requests inclusive 1-based lines `start`–`end`;
+`#Lstart-` requests the tail from `start` through end-of-file
+(e.g. `mcp-brain-bridge/server.py#L3010-3060`). Starts below 1 clamp to
+line 1 and ends beyond EOF clamp to the final line. A selection starting
+past EOF or with start greater than end renders as an explicit
+`[unavailable: … — empty range]` label. A malformed trailing `#L`
+fragment on a supported readable path
+(e.g. `code.py#Lbad`) renders as an unavailable label with the
+`bad range` reason; the same fragment on an unsupported extension flows
+through to the existing unsupported-extension label, and a literal `#`
+elsewhere in a filename is never treated as a range.
 
 ## Response payload: two truncation counters (both normally zero)
 

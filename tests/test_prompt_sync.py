@@ -44,7 +44,19 @@ def test_shipped_version_is_expected_minor_bump():
     shipped = re.search(
         r"<system_version>(.*?)</system_version>", _read(SHIPPED)
     ).group(1)
-    assert shipped == "9.70.2"
+    assert shipped == "9.70.3"
+
+
+def test_shipped_prompt_documents_context_path_line_ranges():
+    """The shipped prompt must name the #L slice forms, not just narrowing.
+
+    Regression (META 377 QA round): the parser accepted `path#Lstart-end`
+    and `path#Lstart-` but the No-Hallucination contract only said "name a
+    smaller path", so the Brain was never told the slice syntax exists.
+    """
+    shipped = _read(SHIPPED)
+    assert "path#Lstart-end" in shipped
+    assert "path#Lstart-" in shipped
 
 
 def test_parallel_mandate_covers_implementation_triggers():

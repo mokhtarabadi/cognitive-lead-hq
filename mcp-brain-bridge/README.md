@@ -13,6 +13,11 @@ Brain Bridge MCP daemon: single-tool (`brain_turn`) automation path for planning
 - `session_ledger.py` — Append-only JSONL session event ledger under `tasks/.sessions/`.
 - `pyproject.toml` / `uv.lock` — Runtime deps and lockfile (`mcp[cli]`, stdlib-first helpers).
 - `context-reports/` — Generated context output (do not hand-read; feed via MCP).
+- `context_paths` line slices: `brain_turn(context_paths=[...])` accepts
+  a trailing `#Lstart-end` (inclusive 1-based lines) or `#Lstart-` (tail
+  to EOF); out-of-range ends clamp, empty selections and malformed
+  `#L` fragments on supported paths render as explicit `[unavailable: …]`
+  labels.
 
 ## Key Risks & Invariants
 

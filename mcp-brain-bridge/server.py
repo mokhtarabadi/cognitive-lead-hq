@@ -3010,13 +3010,17 @@ def load_fed_context(task_id: str, project_root: Optional[str] = None) -> str:
 
 #: Default per-file cap for path-injected context (chars). Overridable via
 #: ``BRAIN_CTX_PER_FILE_CAP``. Rendering truncates with a resume marker.
-_CTX_PATHS_PER_FILE = 60000
+#: Raised 60k -> 150k (task 0375): the largest observed single artifact
+#: (~181 KB context report) was cut to 60 KB; 150 KB covers that class with
+#: headroom while staying a fraction of the 1M input budget.
+_CTX_PATHS_PER_FILE = 150000
 
 #: Default total cap across all path-injected files per turn (chars).
 #: Overridable via ``BRAIN_CTX_TOTAL_CAP``. Files past the total are
 #: skipped with an explicit skipped note — stacked files must never
-#: overflow the turn budget on their own.
-_CTX_PATHS_TOTAL = 200000
+#: overflow the turn budget on their own. Raised 200k -> 400k alongside
+#: the per-file cap so two large files plus the task attach fit one turn.
+_CTX_PATHS_TOTAL = 400000
 
 
 def _paths_base(project_root: Optional[str] = None) -> Path:
@@ -3063,8 +3067,16 @@ def build_paths_attach(paths: object, project_root: Optional[str] = None) -> str
     used = 0
     base = _paths_base(project_root)
     for rel in wanted:
+        # Same range handling as the allocator path (_path_candidates): strip
+        # `#Lstart[-end]` before resolution so the fragment breaks neither the
+        # root check nor the suffix allowlist. Both entry points share
+        # _split_line_range/_slice_text_lines so they cannot drift apart.
+        path_part, range_start, range_end, range_error = _split_line_range(rel)
+        if range_error is not None:
+            blocks.append(f"[unavailable: {rel.strip()} — bad range]")
+            continue
         try:
-            resolved = _resolve_under_root(rel, root=base)
+            resolved = _resolve_under_root(path_part, root=base)
         except ValueError:
             blocks.append(f"[unavailable: {rel.strip()} — outside workspace]")
             continue
@@ -3082,6 +3094,16 @@ def build_paths_attach(paths: object, project_root: Optional[str] = None) -> str
         if not text.strip():
             blocks.append(f"[unavailable: {rel.strip()} — empty file]")
             continue
+        open_line = f"[path-injected: {rel.strip()}]"
+        if range_start is not None:
+            sliced, lo, hi, total = _slice_text_lines(text, range_start, range_end)
+            # Empty-selection sentinel is lo == 0: a valid slice can itself
+            # be blank (sliced == ""), which must still inject.
+            if lo == 0:
+                blocks.append(f"[unavailable: {rel.strip()} — empty range]")
+                continue
+            text = sliced
+            open_line = f"[path-injected: {rel.strip()} — lines {lo}-{hi} of {total}]"
         _per_file = _ctx_paths_per_file_cap()
         _total_cap = _ctx_paths_total_cap()
         if len(text) > _per_file:
@@ -3092,7 +3114,7 @@ def build_paths_attach(paths: object, project_root: Optional[str] = None) -> str
             )
             continue
         used += len(text)
-        blocks.append(f"[path-injected: {rel.strip()}]\n{text}")
+        blocks.append(f"{open_line}\n{text}")
     if not blocks:
         return ""
     return "\n\n---\n\n".join(blocks)
@@ -3360,6 +3382,72 @@ def _inline_path_candidate(rel: str, note: str) -> dict:
     }
 
 
+def _split_line_range(rel: str) -> tuple[str, object, object, object]:
+    """Split a trailing ``#L<start>[-<end>]`` range off a context path.
+
+    Returns ``(path_part, start, end, error)`` where ``start``/``end`` are
+    1-based ints (``end`` is None for the open-ended ``#Lstart-`` form and
+    ``None``/``None`` when no range suffix is present). ``error`` is a short
+    label fragment (``"bad range"``) when the fragment looks like a range
+    but does not parse — the caller turns it into an explicit unavailable
+    label, never a silent drop.
+
+    Only a *trailing* ``#L<digits>`` pattern is treated as a range, so a
+    literal ``#`` anywhere else in a filename flows through untouched.
+    A trailing ``#L`` fragment that does not parse (e.g. ``code.py#Lbad``)
+    on a path with a supported readable extension is a caller error and
+    returns the ``"bad range"`` error instead of falling through to path
+    resolution — the caller labels it explicitly, never silently drops
+    it. The same malformed fragment on an unsupported extension flows
+    through unchanged so the existing unsupported-extension label wins.
+    """
+    match = re.search(r"#L(\d+)(?:-(\d*))?$", rel)
+    if not match:
+        malformed = re.search(r"#L[^/]*$", rel)
+        if malformed:
+            from pathlib import PurePath as _PurePath
+
+            if (
+                _PurePath(rel[: malformed.start()]).suffix.lower()
+                in _ALLOWED_READ_SUFFIXES
+            ):
+                return rel, None, None, "bad range"
+        return rel, None, None, None
+    try:
+        start = int(match.group(1))
+    except (TypeError, ValueError):
+        return rel, None, None, "bad range"
+    end_raw = match.group(2)
+    if end_raw is None:
+        return rel[: match.start()], start, start, None
+    if end_raw == "":
+        return rel[: match.start()], start, None, None
+    try:
+        end = int(end_raw)
+    except (TypeError, ValueError):
+        return rel, None, None, "bad range"
+    return rel[: match.start()], start, end, None
+
+
+def _slice_text_lines(text: str, start: int, end: object) -> tuple[str, int, int, int]:
+    """Slice ``text`` to 1-based ``[start, end]`` (``end=None`` means EOF).
+
+    Clamps out-of-range ends to the file instead of failing, so a stale line
+    number from an older revision still yields the nearest content. Returns
+    ``(sliced, start, end, total)`` with the *effective* bounds, or
+    ``("", 0, 0, total)`` when the range selects nothing (start > end, or
+    start past EOF) — the caller turns that into an explicit empty-range
+    label, never a silent drop.
+    """
+    lines = text.splitlines()
+    total = len(lines)
+    lo = max(start, 1)
+    hi = total if end is None else min(end, total)
+    if lo > hi or lo > total:
+        return "", 0, 0, total
+    return "\n".join(lines[lo - 1 : hi]), lo, hi, total
+
+
 def _path_candidates(paths: object, project_root: Optional[str] = None) -> list[dict]:
     """Full-text candidates for ``context_paths`` ('' labels kept explicit).
 
@@ -3381,8 +3469,17 @@ def _path_candidates(paths: object, project_root: Optional[str] = None) -> list[
     out: list[dict] = []
     base = _paths_base(project_root)
     for rel in wanted:
+        # Line-range suffix: strip `#Lstart[-end]` BEFORE workspace resolution,
+        # otherwise the fragment breaks both the root check and the suffix
+        # allowlist (`file.py#L10-20` has no recognized extension).
+        path_part, range_start, range_end, range_error = _split_line_range(rel)
+        if range_error is not None:
+            out.append(
+                _inline_path_candidate(rel, f"[unavailable: {rel.strip()} — bad range]")
+            )
+            continue
         try:
-            resolved = _resolve_under_root(rel, root=base)
+            resolved = _resolve_under_root(path_part, root=base)
         except ValueError:
             out.append(
                 _inline_path_candidate(
@@ -3420,11 +3517,25 @@ def _path_candidates(paths: object, project_root: Optional[str] = None) -> list[
                 )
             )
             continue
+        open_line = f"[path-injected: {rel.strip()}]"
+        if range_start is not None:
+            sliced, lo, hi, total = _slice_text_lines(text, range_start, range_end)
+            # Same sentinel as the helper path above: lo == 0 means no
+            # selection; a blank but valid slice still injects.
+            if lo == 0:
+                out.append(
+                    _inline_path_candidate(
+                        rel, f"[unavailable: {rel.strip()} — empty range]"
+                    )
+                )
+                continue
+            text = sliced
+            open_line = f"[path-injected: {rel.strip()} — lines {lo}-{hi} of {total}]"
         out.append(
             {
                 "kind": "context_path",
                 "path": rel.strip(),
-                "open_line": f"[path-injected: {rel.strip()}]",
+                "open_line": open_line,
                 "fence_lang": None,
                 "text": text,
                 "cap": per_file,
