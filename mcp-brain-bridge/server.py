@@ -467,8 +467,65 @@ _STRUCTURAL_REPORT_GLOB = "context-reports/tree_report_*.md"
 _STRUCTURAL_FILE_CAP = 40000
 _STRUCTURAL_MARKER = "=== context-reports/tree_report (latest) ==="
 
-# Text extensions readable for server-side path injection.
-_ALLOWED_READ_SUFFIXES = frozenset({".md", ".txt", ".json", ".yaml", ".yml", ".toml"})
+# Text extensions readable for server-side path injection (task 0372:
+# docs/reports AND source files — the Brain plans/reviews code, so code
+# suffixes must inject; binaries stay rejected).
+_ALLOWED_READ_SUFFIXES = frozenset(
+    {
+        # Docs / data (original task-210 scope).
+        ".md",
+        ".txt",
+        ".json",
+        ".yaml",
+        ".yml",
+        ".toml",
+        # Source (task 0372): JVM, JS/TS, Python, Go, Apple, C/C++, misc.
+        ".java",
+        ".kt",
+        ".kts",
+        ".js",
+        ".jsx",
+        ".mjs",
+        ".cjs",
+        ".ts",
+        ".tsx",
+        ".py",
+        ".pyi",
+        ".go",
+        ".swift",
+        ".m",
+        ".mm",
+        ".c",
+        ".h",
+        ".hpp",
+        ".cpp",
+        ".cc",
+        ".cxx",
+        ".cs",
+        ".rb",
+        ".php",
+        ".scala",
+        ".rs",
+        ".dart",
+        ".lua",
+        ".r",
+        ".ex",
+        ".exs",
+        ".sql",
+        ".sh",
+        ".bash",
+        ".zsh",
+        ".xml",
+        ".gradle",
+        ".css",
+        ".scss",
+        ".less",
+        ".html",
+        ".htm",
+        ".vue",
+        ".svelte",
+    }
+)
 
 # Guardrail for path injection (state-machine hotfix round).
 _READ_MAX_BYTES = 2_000_000  # oversized files are refused outright

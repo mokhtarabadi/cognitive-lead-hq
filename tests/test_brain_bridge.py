@@ -1623,9 +1623,22 @@ def test_paths_attach_traversal_labelled(tmp_path, monkeypatch):
 
 def test_paths_attach_bad_suffix_labelled(tmp_path, monkeypatch):
     _ws(tmp_path, monkeypatch)
-    (tmp_path / "run.py").write_text("x = 1\n", encoding="utf-8")
-    out = bridge.build_paths_attach(["run.py"])
+    (tmp_path / "run.exe").write_bytes(b"\x7fELF-binary")
+    out = bridge.build_paths_attach(["run.exe"])
     assert "unsupported extension" in out
+
+
+def test_paths_attach_source_suffixes_inject(tmp_path, monkeypatch):
+    # Task 0372: the Brain plans/reviews code, so source files must inject.
+    _ws(tmp_path, monkeypatch)
+    (tmp_path / "A.java").write_text("class A {}\n", encoding="utf-8")
+    (tmp_path / "b.tsx").write_text("export const x = 1;\n", encoding="utf-8")
+    (tmp_path / "c.py").write_text("x = 1\n", encoding="utf-8")
+    out = bridge.build_paths_attach(["A.java", "b.tsx", "c.py"])
+    assert "[path-injected: A.java]" in out
+    assert "[path-injected: b.tsx]" in out
+    assert "[path-injected: c.py]" in out
+    assert "class A {}" in out
 
 
 def test_paths_attach_missing_labelled(tmp_path, monkeypatch):
