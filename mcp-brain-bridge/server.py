@@ -65,6 +65,7 @@ import re
 import sys
 import json
 import threading
+import unicodedata
 from pathlib import Path
 from typing import Any, Optional
 from urllib.parse import urlsplit
@@ -522,10 +523,93 @@ _ALLOWED_READ_SUFFIXES = frozenset(
         ".less",
         ".html",
         ".htm",
+        # Config / data (skill-template sweep, task 0378 follow-up).
+        ".properties",
+        ".ini",
+        ".cfg",
+        ".conf",
+        # Mobile resources (iOS skill).
+        ".plist",
+        ".strings",
+        ".xcconfig",
+        # Go modules (go skills reference go.mod/go.sum by name).
+        ".mod",
+        ".sum",
+        # SQLDelight (android-kotlin skill).
+        ".sqm",
+        # Web / docs extras referenced across skills.
+        ".mdx",
+        ".csv",
+        ".rst",
+        ".fish",
+        ".ejs",
         ".vue",
         ".svelte",
     }
 )
+
+#: Suffixes that are never sniffed for text, even when undecodable-safe:
+#: known binary containers where content sniffing would only waste I/O.
+#: Everything else unlisted falls through to the UTF-8/NUL sniff below.
+_UNREADABLE_SUFFIXES = frozenset(
+    {
+        ".exe",
+        ".dll",
+        ".so",
+        ".dylib",
+        ".bin",
+        ".zip",
+        ".tar",
+        ".gz",
+        ".tgz",
+        ".rar",
+        ".7z",
+        ".png",
+        ".jpg",
+        ".jpeg",
+        ".gif",
+        ".bmp",
+        ".webp",
+        ".ico",
+        ".mp3",
+        ".mp4",
+        ".pdf",
+        ".aar",
+        ".keystore",
+        ".jks",
+    }
+)
+
+
+def _sniff_text_file(resolved: "Path") -> Optional[str]:
+    """Best-effort bounded text read for paths with unlisted suffixes.
+
+    Dotfiles, extensionless files, and other unlisted names may contain
+    plain text. Read at most one byte beyond the configured cap so an
+    oversized file can be rejected without reading its full contents.
+    Return ``None`` for oversized, NUL-containing, unreadable, or
+    non-UTF-8 content so the caller labels the path unavailable.
+    """
+    try:
+        with resolved.open("rb") as stream:
+            raw = stream.read(_READ_MAX_BYTES + 1)
+    except OSError:
+        return None
+    if len(raw) > _READ_MAX_BYTES or b"\x00" in raw:
+        return None
+    try:
+        text = raw.decode("utf-8")
+    except UnicodeDecodeError:
+        return None
+    # Reject binary-like control payloads that are valid UTF-8 and contain
+    # no NUL. Preserve the whitespace controls routinely used in text files.
+    if any(
+        unicodedata.category(character) == "Cc" and character not in "\t\n\r\f"
+        for character in text
+    ):
+        return None
+    return text
+
 
 # Guardrail for path injection (state-machine hotfix round).
 _READ_MAX_BYTES = 2_000_000  # oversized files are refused outright
@@ -3090,21 +3174,35 @@ def build_paths_attach(paths: object, project_root: Optional[str] = None) -> str
         except ValueError:
             blocks.append(f"[unavailable: {rel.strip()} — outside workspace]")
             continue
+        sniffed: Optional[str] = None
+        sniff_note = ""
         if resolved.suffix.lower() not in _ALLOWED_READ_SUFFIXES:
-            blocks.append(f"[unavailable: {rel.strip()} — unsupported extension]")
-            continue
-        try:
-            if resolved.stat().st_size > _READ_MAX_BYTES:
-                blocks.append(f"[unavailable: {rel.strip()} — file too large]")
+            # Unlisted suffix (dotfiles like `.env.example`, extensionless
+            # files like `Dockerfile`): sniff for plain text instead of
+            # refusing outright. Known binaries skip the sniff.
+            if resolved.suffix.lower() in _UNREADABLE_SUFFIXES:
+                blocks.append(f"[unavailable: {rel.strip()} — unsupported extension]")
                 continue
-            text = resolved.read_text(encoding="utf-8", errors="replace")
+            sniffed = _sniff_text_file(resolved)
+            if sniffed is None:
+                blocks.append(f"[unavailable: {rel.strip()} — unsupported extension]")
+                continue
+            sniff_note = " — sniffed text, unlisted extension"
+        try:
+            if sniffed is None:
+                if resolved.stat().st_size > _READ_MAX_BYTES:
+                    blocks.append(f"[unavailable: {rel.strip()} — file too large]")
+                    continue
+                text = resolved.read_text(encoding="utf-8", errors="replace")
+            else:
+                text = sniffed
         except OSError:
             blocks.append(f"[unavailable: {rel.strip()} — unreadable]")
             continue
         if not text.strip():
             blocks.append(f"[unavailable: {rel.strip()} — empty file]")
             continue
-        open_line = f"[path-injected: {rel.strip()}]"
+        open_line = f"[path-injected: {rel.strip()}{sniff_note}]"
         if range_start is not None:
             sliced, lo, hi, total = _slice_text_lines(text, range_start, range_end)
             # Empty-selection sentinel is lo == 0: a valid slice can itself
@@ -3113,7 +3211,7 @@ def build_paths_attach(paths: object, project_root: Optional[str] = None) -> str
                 blocks.append(f"[unavailable: {rel.strip()} — empty range]")
                 continue
             text = sliced
-            open_line = f"[path-injected: {rel.strip()} — lines {lo}-{hi} of {total}]"
+            open_line = f"[path-injected: {rel.strip()}{sniff_note} — lines {lo}-{hi} of {total}]"
         _per_file = _ctx_paths_per_file_cap()
         _total_cap = _ctx_paths_total_cap()
         if len(text) > _per_file:
@@ -3497,22 +3595,33 @@ def _path_candidates(paths: object, project_root: Optional[str] = None) -> list[
                 )
             )
             continue
+        sniffed: Optional[str] = None
+        sniff_note = ""
         if resolved.suffix.lower() not in _ALLOWED_READ_SUFFIXES:
-            out.append(
-                _inline_path_candidate(
-                    rel, f"[unavailable: {rel.strip()} — unsupported extension]"
-                )
-            )
-            continue
-        try:
-            if resolved.stat().st_size > _READ_MAX_BYTES:
+            # Same sniff fallback as the helper path: dotfiles and
+            # extensionless text inject; known binaries stay rejected.
+            if resolved.suffix.lower() not in _UNREADABLE_SUFFIXES:
+                sniffed = _sniff_text_file(resolved)
+            if sniffed is None:
                 out.append(
                     _inline_path_candidate(
-                        rel, f"[unavailable: {rel.strip()} — file too large]"
+                        rel, f"[unavailable: {rel.strip()} — unsupported extension]"
                     )
                 )
                 continue
-            text = resolved.read_text(encoding="utf-8", errors="replace")
+            sniff_note = " — sniffed text, unlisted extension"
+        try:
+            if sniffed is None:
+                if resolved.stat().st_size > _READ_MAX_BYTES:
+                    out.append(
+                        _inline_path_candidate(
+                            rel, f"[unavailable: {rel.strip()} — file too large]"
+                        )
+                    )
+                    continue
+                text = resolved.read_text(encoding="utf-8", errors="replace")
+            else:
+                text = sniffed
         except OSError:
             out.append(
                 _inline_path_candidate(
@@ -3527,7 +3636,7 @@ def _path_candidates(paths: object, project_root: Optional[str] = None) -> list[
                 )
             )
             continue
-        open_line = f"[path-injected: {rel.strip()}]"
+        open_line = f"[path-injected: {rel.strip()}{sniff_note}]"
         if range_start is not None:
             sliced, lo, hi, total = _slice_text_lines(text, range_start, range_end)
             # Same sentinel as the helper path above: lo == 0 means no
@@ -3540,7 +3649,7 @@ def _path_candidates(paths: object, project_root: Optional[str] = None) -> list[
                 )
                 continue
             text = sliced
-            open_line = f"[path-injected: {rel.strip()} — lines {lo}-{hi} of {total}]"
+            open_line = f"[path-injected: {rel.strip()}{sniff_note} — lines {lo}-{hi} of {total}]"
         out.append(
             {
                 "kind": "context_path",

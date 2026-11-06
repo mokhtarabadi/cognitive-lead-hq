@@ -1641,6 +1641,115 @@ def test_paths_attach_source_suffixes_inject(tmp_path, monkeypatch):
     assert "class A {}" in out
 
 
+def test_paths_attach_skill_sweep_suffixes_inject(tmp_path, monkeypatch):
+    # Skill-template sweep: SQLDelight, Java props, iOS plist/xcconfig/strings,
+    # Go modules, ini/cfg/conf, mdx/csv/rst/fish/ejs must inject as text.
+    _ws(tmp_path, monkeypatch)
+    files = {
+        "q.sqm": "CREATE TABLE t(id INTEGER);\n",
+        "a.properties": "k=v\n",
+        "Info.plist": "<plist/>\n",
+        "Strict.xcconfig": "SETTING = YES\n",
+        "Localizable.strings": '"k" = "v";\n',
+        "go.mod": "module x\n",
+        "go.sum": "h1:abc=\n",
+        "s.ini": "a=b\n",
+        "s.cfg": "a=b\n",
+        "s.conf": "a=b\n",
+        "p.mdx": "# t\n",
+        "d.csv": "a,b\n",
+        "r.rst": "T\n=\n",
+        "f.fish": "echo hi\n",
+        "v.ejs": "<%= x %>\n",
+    }
+    for name, body in files.items():
+        (tmp_path / name).write_text(body, encoding="utf-8")
+    out = bridge.build_paths_attach(sorted(files))
+    for name, body in files.items():
+        assert f"[path-injected: {name}]" in out, name
+        assert body.strip() in out, name
+
+
+def test_paths_attach_dotfile_sniffs_text(tmp_path, monkeypatch):
+    # The 1046-loop root cause: `.env.example` resolved to zero chars.
+    # Unlisted-but-text names must inject via the sniff fallback.
+    _ws(tmp_path, monkeypatch)
+    (tmp_path / ".env.example").write_text(
+        "OPENAI_MODEL=gemma\nOPENAI_HTTP_PROXY=\n", encoding="utf-8"
+    )
+    out = bridge.build_paths_attach([".env.example#L1-1"])
+    assert "sniffed text, unlisted extension" in out
+    assert "OPENAI_MODEL=gemma" in out
+
+
+def test_path_candidates_dotfile_sniffs_text(tmp_path, monkeypatch):
+    """The live-turn candidate entry point injects unlisted dotfile text."""
+    _ws(tmp_path, monkeypatch)
+    (tmp_path / ".env.example").write_text(
+        "OPENAI_MODEL=gemma\nOPENAI_HTTP_PROXY=\n", encoding="utf-8"
+    )
+
+    candidates = bridge._path_candidates([".env.example#L1-1"])
+
+    assert len(candidates) == 1
+    candidate = repr(candidates[0])
+    assert "sniffed text, unlisted extension" in candidate
+    assert "OPENAI_MODEL=gemma" in candidate
+
+
+def test_paths_attach_extensionless_sniffs_text(tmp_path, monkeypatch):
+    _ws(tmp_path, monkeypatch)
+    (tmp_path / "Dockerfile").write_text("FROM x\n", encoding="utf-8")
+    out = bridge.build_paths_attach(["Dockerfile"])
+    assert "sniffed text, unlisted extension" in out
+    assert "FROM x" in out
+
+
+def test_paths_attach_binary_stays_rejected(tmp_path, monkeypatch):
+    """Reject NUL, undecodable, and valid-UTF-8 control-byte payloads."""
+    _ws(tmp_path, monkeypatch)
+    binaries = {
+        "nul-blob": b"\x00\x01binary\xff",
+        "control-blob": b"\x01\x02\x03",
+    }
+
+    for name, payload in binaries.items():
+        (tmp_path / name).write_bytes(payload)
+        out = bridge.build_paths_attach([name])
+        assert f"[unavailable: {name} — unsupported extension]" in out
+
+
+def test_sniff_text_file_reads_only_cap_plus_one(tmp_path, monkeypatch):
+    """The unlisted-suffix sniff must not read an oversized file fully."""
+    path = tmp_path / "payload.unknown"
+    path.write_bytes(b"x" * (bridge._READ_MAX_BYTES + 10))
+    requested_sizes = []
+    original_open = bridge.Path.open
+
+    def tracked_open(target, *args, **kwargs):
+        stream = original_open(target, *args, **kwargs)
+        if target != path:
+            return stream
+
+        class ReadSpy:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc, traceback):
+                return stream.__exit__(exc_type, exc, traceback)
+
+            def read(self, size=-1):
+                requested_sizes.append(size)
+                return stream.read(size)
+
+        return ReadSpy()
+
+    monkeypatch.setattr(bridge.Path, "open", tracked_open)
+
+    assert bridge._sniff_text_file(path) is None
+    assert requested_sizes == [bridge._READ_MAX_BYTES + 1]
+
+
 def test_paths_attach_missing_labelled(tmp_path, monkeypatch):
     _ws(tmp_path, monkeypatch)
     out = bridge.build_paths_attach(["gone.md"])

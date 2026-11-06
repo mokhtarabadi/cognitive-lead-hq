@@ -47,7 +47,7 @@ def test_shipped_version_is_expected_minor_bump():
     shipped = re.search(
         r"<system_version>(.*?)</system_version>", _read(SHIPPED)
     ).group(1)
-    assert shipped == "9.71.0"
+    assert shipped == "9.72.0"
 
 
 def test_shipped_prompt_documents_context_path_line_ranges():
@@ -60,6 +60,20 @@ def test_shipped_prompt_documents_context_path_line_ranges():
     shipped = _read(SHIPPED)
     assert "path#Lstart-end" in shipped
     assert "path#Lstart-" in shipped
+
+
+def test_shipped_prompt_bans_rerequesting_unavailable_paths():
+    """An [unavailable] label must end the loop, not restart it.
+
+    Regression (1046-loop): `.env.example` is not injectable (unlisted
+    suffix, pre-sniff). The bridge labeled it `[unavailable: ...
+    unsupported extension]` twice and the model re-requested the same
+    path twice — the contract only banned re-requesting *visible*
+    content, never uninjectable paths.
+    """
+    shipped = _read(SHIPPED)
+    assert "never re-request the same path" in shipped
+    assert "[unavailable: ...]" in shipped
 
 
 def test_parallel_mandate_covers_implementation_triggers():

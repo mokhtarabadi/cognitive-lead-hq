@@ -1,5 +1,12 @@
 # Architectural Decisions: mcp-brain-bridge
 
+## [2026-11-06] ADR-012: unlisted-suffix sniffing + no-repeat on unavailable paths
+
+- **Context:** a planning loop re-requested `.env.example#L75-100` three times. The suffix allowlist rejected it (`unsupported extension`, zero chars injected both times — proven in the context ledger), and the No-Hallucination contract had no rule for `[unavailable: ...]` labels, so contract-compliant re-requests looped until the Hands-side stop fired.
+- **Decision:** (1) both attach paths (`build_paths_attach`, `_path_candidates`) sniff unlisted-suffix files: valid UTF-8 without NUL or disallowed Unicode control characters injects with a `sniffed text, unlisted extension` label (tab, LF, CR, form feed stay allowed); known binary suffixes stay rejected without sniffing. (2) The contract now states an `[unavailable: ...]` label means uninjectable — never re-request the same path. (3) Allowlist gains the skill-sweep text suffixes (sqm, properties, plist, xcconfig, strings, mod, sum, ini, cfg, conf, mdx, csv, rst, fish, ejs).
+- **Consequences:** dotfiles/extensionless text inject on first ask; a genuinely unreadable path fails once instead of looping. Locks (`.lock`) and other unlisted names fall through to the same sniff gate, capped as before.
+- **Rollback:** revert the sniff branches + suffix list + fragment sentence; rebuild system-prompt.md (9.72.0 → prior).
+
 ## [2026-10-06] ADR-001: Initial Slice Baseline
 
 - **Context:** Baseline documentation initialized via init-folder-docs.

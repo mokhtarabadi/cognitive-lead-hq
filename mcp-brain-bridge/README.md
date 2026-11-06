@@ -17,7 +17,9 @@ Brain Bridge MCP daemon: single-tool (`brain_turn`) automation path for planning
   a trailing `#Lstart-end` (inclusive 1-based lines) or `#Lstart-` (tail
   to EOF); out-of-range ends clamp, empty selections and malformed
   `#L` fragments on supported paths render as explicit `[unavailable: …]`
-  labels.
+  labels. Unlisted-suffix files sniff as text only when valid UTF-8
+  without NUL or disallowed Unicode control characters (tab, LF, CR,
+  form feed allowed); anything else renders `[unavailable: …]`.
 
 ## Key Risks & Invariants
 
