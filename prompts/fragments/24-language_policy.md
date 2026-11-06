@@ -38,7 +38,7 @@ The final Manager-facing handoff follows the per-message requested language. For
 
 Approval phrases match ONLY as English literals. Never translate-then-compare.
 
-Plan gate accepts approved in any case through the question tool path. Closure accepts only the exact phrases Approved for closure or Close task. A bare approved counts only as the next message directly answering the relayed closure question. Good, thanks, ok, yes, done, fine, looks good, emoji-only replies, and silence never count.
+Plan gate accepts `approved` in any case through the question tool path. For closure, accept either the exact standalone Manager answer "Approved for closure" or "Close task" (case-insensitive), or either exact phrase as the answer value in an unmodified question-tool result of the form `User has answered your questions: "<question>"="<answer>"` when that result answers the immediately preceding relayed closure-approval question. Compare only the answer value, not the quoted question/header, and do not require the approval phrase to be the entire Hands message. The existing bare "approved" exception remains limited to the Manager's direct answer to that immediately preceding closure-approval question, including the exact answer value "approved" in its question-tool result. Blanket acknowledgements never count at any gate.
 
 ## Execution Binding
 

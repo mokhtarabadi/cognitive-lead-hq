@@ -47,7 +47,7 @@ def test_shipped_version_is_expected_minor_bump():
     shipped = re.search(
         r"<system_version>(.*?)</system_version>", _read(SHIPPED)
     ).group(1)
-    assert shipped == "9.72.0"
+    assert shipped == "9.73.0"
 
 
 def test_shipped_prompt_documents_context_path_line_ranges():
@@ -222,6 +222,144 @@ def test_approval_literals_match_english_only():
     text = _read(SHIPPED)
     assert "Never translate-then-compare" in text
     assert "Approval Literals Guard" in text
+
+
+def _read_shipped_prompt_for_approval_contract() -> str:
+    """Read the generated prompt that defines the runtime approval contract."""
+    from pathlib import Path
+
+    project_root = Path(__file__).resolve().parents[1]
+    return (project_root / "system-prompt.md").read_text(encoding="utf-8")
+
+
+def test_closure_question_tool_envelope_acceptance_is_pinned():
+    prompt = _read_shipped_prompt_for_approval_contract()
+
+    assert (
+        "either exact phrase as the answer value in an unmodified question-tool result"
+        in prompt
+    )
+    assert 'User has answered your questions: "<question>"="<answer>"' in prompt
+    assert "immediately preceding relayed closure-approval question" in prompt
+    assert "Compare only the answer value, not the quoted question/header" in prompt
+    assert "do not require the approval phrase to be the entire Hands message" in prompt
+    assert 'The existing bare "approved" exception remains limited' in prompt
+
+
+def test_closure_approval_keeps_existing_negative_cases():
+    """Prevent envelope support from broadening unrelated closure approvals.
+
+    Deviation D1 from the QA-prescribed test: the QA hotfix listed the
+    pre-0381 sentence 'A bare "approved" counts only when ... anywhere else
+    never counts', but the approved plan replaced that sentence with the
+    'remains limited' formulation (direct answer + question-tool answer
+    value), already pinned above. Re-adding the removed sentence would be a
+    prompt change, which the hotfix forbids — so this pins the negative
+    cases exactly as shipped.
+    """
+    prompt = _read_shipped_prompt_for_approval_contract()
+
+    preserved_contract = (
+        'These never count: "good", "thanks", "ok", "okay", "yes", "done", '
+        '"fine", "looks good", emoji-only replies, silence, or any autopilot self-decision.',
+        "Blanket acknowledgements never count at any gate.",
+        (
+            'The existing bare "approved" exception remains limited to the '
+            "Manager's direct answer to that immediately preceding "
+            "closure-approval question, including the exact answer value "
+            '"approved" in its question-tool result.'
+        ),
+    )
+
+    for contract in preserved_contract:
+        assert contract in prompt
+
+
+def test_executor_capability_preflight_matches_closure_answer_contract():
+    """Keep startup approval guidance aligned with the operational closure relay.
+
+    Deviation D2 from the reviewer-prescribed test: it called
+    `_read("agents/cognitive-executor.md")` with a str, but `_read` needs a
+    Path — so this uses the existing EXECUTOR constant instead. Same
+    assertions otherwise.
+    """
+    executor = _read(EXECUTOR)
+    capability_preflight = executor.split("## Capability Preflight (session start)", 1)[
+        1
+    ].split("## Subagent Delegation for Context Discovery", 1)[0]
+
+    assert (
+        "either exact phrase as the answer value in an unmodified question-tool result"
+        in capability_preflight
+    )
+    assert (
+        "Compare only the answer value, not the quoted question/header"
+        in capability_preflight
+    )
+    assert (
+        'The existing bare "approved" exception remains limited to the Manager\'s direct answer'
+        in capability_preflight
+    )
+    assert (
+        'including the exact answer value "approved" in its question-tool result'
+        in capability_preflight
+    )
+    assert 'a bare "approved" never counts' not in capability_preflight
+
+
+def test_executor_review_relay_accepts_closure_answer_envelope():
+    """Keep the operational review relay aligned with closure approval rules."""
+    executor = _read(EXECUTOR)
+    review_relay = executor.split("### Review-approval relay (manual mode)", 1)[
+        1
+    ].split("### Autopilot mode", 1)[0]
+
+    assert (
+        'Accept ONLY the exact standalone Manager answers "Approved for closure" or "Close task"'
+        in review_relay
+    )
+    assert (
+        "or either exact phrase as the answer value in an unmodified question-tool result"
+        in review_relay
+    )
+    assert '`User has answered your questions: "<question>"="<answer>"`' in review_relay
+    assert (
+        "when that result answers the immediately preceding relayed closure-approval question"
+        in review_relay
+    )
+    assert (
+        "Compare only the answer value, not the quoted question/header" in review_relay
+    )
+    assert (
+        "do not require the approval phrase to be the entire Hands message"
+        in review_relay
+    )
+    assert (
+        'The existing bare "approved" exception remains limited to the Manager\'s direct answer'
+        in review_relay
+    )
+
+
+def test_closure_answer_verbatim_forwarding_is_pinned():
+    executor = (REPO / "agents" / "cognitive-executor.md").read_text(encoding="utf-8")
+
+    assert (
+        "complete result envelope verbatim in a clearly labeled "
+        "`Question-tool answer (verbatim)` block" in executor
+    )
+    assert (
+        "Do not paraphrase, summarize, normalize, truncate, or strip the envelope"
+        in executor
+    )
+    assert (
+        "Keep the required mode line, full active task context, and the Brain "
+        "instruction outside the unchanged block" in executor
+    )
+
+
+def test_shipped_prompt_version_is_9_73_0():
+    prompt = _read_shipped_prompt_for_approval_contract()
+    assert "9.73.0" in prompt
 
 
 def test_assembler_output_matches_shipped(tmp_path):
