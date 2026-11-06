@@ -66,7 +66,6 @@
 - **Rollback:** Restore the two lines from git history.
 
 ## [2026-11-05] ADR-010: missing_context narrowing rule + raised context-paths caps
-
 - **Context:** a planning loop stalled for 3 turns re-requesting files the bridge had already delivered (truncated at the 60 KB/file cap with an explicit note). The `missing_context` contract only said STOP-and-list, giving the model no narrowing strategy, and the caps cut a ~181 KB report to 60 KB.
 - **Decision:** (1) extend the No-Hallucination rule: when a truncation note is present, the file counts as partially present — verify visible scope first, never re-request a fully-present file, and narrow (smaller path, section, symbols) instead of repeating a whole-file request. (2) Raise `_CTX_PATHS_PER_FILE` 60k -> 150k and `_CTX_PATHS_TOTAL` 200k -> 400k. The narrowing contract is the real fix; caps only reduce how often truncation fires.
 - **Consequences:** fewer truncation events on large reports; larger worst-case prompts on explicit `context_paths` turns (opt-in only). The exact-default pin test fails loudly on any silent cap drift.
@@ -74,3 +73,11 @@
 - **Follow-up fix (QA round):** the prompt contract and this ADR now name the `#Lstart-end` / `#Lstart-` slice forms explicitly so the Brain actually uses them; `docs/brain-bridge.md` documents the same syntax in the attachment-rendering section.
 - **Follow-up fix (QA round 2):** `_split_line_range` classifies a malformed trailing `#L` fragment on a supported readable path as `bad range` instead of falling through to resolution; a live-path regression test pins sliced content and labels through `_path_candidates`, plus malformed handling on both entry points. Literal-`#` filenames (e.g. `a#b.md`) still flow through untouched.
 - **Rollback:** revert the fragment sentence + cap constants + pin test; rebuild system-prompt.md.
+
+## [2026-11-06] ADR-011: server-rendered path context grounds plan turns, spoof-proof
+
+- **Context:** plan turns warned `no fed-context block` even when file bodies arrived server-side via `context_paths`, and the sufficiency diagnostic read a combined prompt that excluded the rendered paths block — a false positive that pushed the Brain to re-request grounded context.
+- **Decision:** the plan-turn diagnostic folds the rendered `paths` slot into the combined prompt, and `context_sufficiency_gaps()` takes an explicit `has_server_paths` flag from the caller instead of scanning user-visible text for a marker. A literal `[path-injected:` string typed by the user never counts — only server-rendered path context grounds.
+- **Consequences:** sufficiency warnings fire only on truly ungrounded plan turns; a spoofed marker cannot suppress them. No status, payload, or cap behavior changes (stderr diagnostic only).
+- **Follow-up fix (QA round):** the first cut scanned the combined prompt for `[path-injected:`, which user text could spoof; replaced with the caller-passed flag. Pinned by spoof-vs-rendered behavioral tests.
+- **Rollback:** restore the fed-only combined prompt and drop the flag; the false positive returns.

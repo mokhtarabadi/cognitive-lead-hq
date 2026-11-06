@@ -28,8 +28,10 @@ This repository is the Headquarters for the Cognitive Lead AI multi-agent system
   -> **Exception:** MCP servers (`mcp-context-server/`, `mcp-memory-server/`, `mcp-lint-server/`), maintenance scripts (`scripts/`), and tooling required for the Cognitive Lead AI platform itself ARE permitted.
 - **Don't** edit `system-prompt.md` without updating the version identifier.
   -> **Do** increment the version inside `<system_version>` at the very top of `system-prompt.md`, update the active task file in `tasks/`, and log a formal entry in `CHANGELOG.md`.
-- **Don't** read `context-reports/` markdown files yourself.
-  -> **Do** generate them using the MCP server — context reports via `custom_context_read_source_files`, tree reports via `custom_context_create_tree_report` ("create a tree of the project") — and hand the file path to the Manager.
+- **Don't** dump raw, multi-thousand-line files inline into the chat or rely on human copy-paste ferrying.
+  -> **Do** generate structured context reports via `custom_context`, extract targeted line ranges (`#Lstart-end`), and feed them directly into `brain_turn(context_paths=[...])`.
+- **Do** keep technical English inside: translate user non-English input to technical English immediately upon ingestion, before planning or task generation.
+- **Do** run all MCP servers under the Universal Code Mode Policy (`codemode: true` default): route every MCP tool call through the `execute` runtime as `tools.<server>.<tool>`.
 - **Don't** create monolithic state files like `TODO.md` or `STATE.md`.
   -> **Do** use the decentralized `tasks/` directory with individual task files as the single source of truth.
 - **Don't** make UI/UX changes without consulting `DESIGN.md`.
@@ -141,4 +143,4 @@ When finishing a task, you MUST execute these exact steps in order:
 4. **QA Transition (implementation tasks only):** After successful staging, move the implementation task file from `tasks/in-progress/` to `tasks/qa/` via the explicitly authorized `git mv` — the ONLY autonomous Git operation, reserved for Kanban transitions. Discovery tasks stay in place. Do NOT move the task to `tasks/completed/` at this stage.
 5. **Kanban Metadata Synchronization (mandatory after ANY authorized `git mv`):** After the move, you MUST update the task file's `**File:**` metadata header to the new path. If the move happened AFTER staging, you MUST also re-run `lint_task_file` and call `custom_context_stage_and_inject_diff` again using the NEW task path before notifying the Manager — the re-stage keeps the injected diff and the staging state in sync with the final path. Never notify the Manager with a stale `**File:**` header.
 6. **Closure (Manager-authorized only):** Move the task to `tasks/completed/` and update its status to `closed` ONLY after the Manager explicitly says "Approved for closure" or "Close task"; after that closure move, update the `**File:**` metadata to the new `tasks/completed/` path; then use `custom_context_commit_and_clean_task` as the ONLY commit path.
-7. **Notify Manager:** Output exactly: "Task ready. Manager, please copy the contents of `tasks/qa/XX-task-name.md` and send it back to the Orchestrator Brain for review."
+7. **Notify Manager:** Read the active task file's `**File:**` path, confirm it is under `tasks/qa/`, and include that actual path in the notification: "Reasoning logged, Git diff injected, QA/review chained via `brain_turn`. Manager, approvals and Relay answers only — no ferrying."

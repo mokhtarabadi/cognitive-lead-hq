@@ -101,3 +101,57 @@ Context: The Skill Auto-Loading Matrix bound prompt-refactor to validate-transla
 Decision: Extend the matrix row to validate-translate-expand-structure-then-execute and add the After-Deliver execute sentence to the Direct Input protocol: the formatted prompt runs as the live instruction under plan approval, Zero-Autonomous-Commit, QA, and closure gates.
 Consequences: Refactor-then-execute is one bound pass; Step 2 cannot authorize commit or push.
 Rollback: Restore the prior matrix cell and drop the Direct Input sentence.
+
+## Unified Context Manifest and Code Mode Tool Execution Protocol
+
+Date: 2026-11-06
+Status: accepted
+Context: Discovery returned prose summaries, the Hands fed prose `[fed-context]`, and the Brain correctly re-emitted `missing_context` — a grounding deadlock. Separately the bridge accepted `context_paths` but the sufficiency check ignored server-side `[path-injected:` bodies and the combined prompt dropped the rendered paths block, so grounded turns were falsely warned.
+Decision: Discovery ends every report with one canonical machine-readable `### Context Manifest` (`Context-Paths:` with one `- path/to/file.ext#Lstart-end` entry per path, no bracketed inline-list alternative); the executor extracts it into `brain_turn(context_paths=[...])`, documents the Code Mode Tool Calling Protocol (`tools.<server>.<tool>` via `execute`), and normalizes non-English input to technical English before planning. The bridge folds rendered paths into the diagnostic prompt and grounds on an explicit server-derived flag, so a user-typed marker cannot spoof it. Fragments, system role, and `AGENTS.md` drop the Manager-as-courier model; prompt rebuilt to `9.71.0`.
+Consequences: Fed retries arrive verifiable; sufficiency warnings fire only on truly ungrounded plan turns. Prompt-sync tests pin the canonical manifest structure, the discovery-summary parity, and the Code Mode section; bridge behavioral tests pin spoof-vs-rendered grounding.
+Rollback: Revert the agent/fragment/bridge hunks, restore the version fragment, rebuild the prompt, and drop the new tests.
+
+## Hands-driven QA/review chaining in both modes (QA round 2)
+
+Date: 2026-11-06
+Status: accepted
+Context: The courier-model cleanup left manual-mode instructions telling the Manager to copy task files and QA/review prompts between the Hands and the Brain (both 09 summaries, the QA/Reviewer/Architect personas, the 02 role delivery line, and the 19 MODE declaration), while the executor already assigns `brain_turn` invocation to the Hands in both modes with the Manager gating approvals only.
+Decision: The Hands invokes QA/review turns itself in manual mode too; the Manager only gates approvals and Relay questions. Fence expectations for manual XML delivery stay. A prompt-sync test fails on any Manager-ferries-task-text wording in the shipped prompt. No version change (still 9.71.0).
+Consequences: One handoff contract across modes; manual turns no longer stall on human ferrying. Follow-up done under O1: the root notify step now reports the staged `tasks/qa/` path with QA/review chained.
+Rollback: Restore the Manager-copy sentences from git history and drop the handoff test.
+
+## Manual mode line + mismatch active voice (QA round 4 follow-up)
+
+Date: 2026-11-06
+Status: accepted
+Context: The manual `brain_turn` mode line still ordered copy-paste relay output, and the combined mismatch summary used passive voice ("is chained") without directing the Hands to call.
+Decision: Manual mode line forbids task-ferrying relay text and names Hands-direct QA/review invocation with approvals-only Manager role, mirrored in the mode-line memory shard and the bridge runbook. Mismatch summary converted to active voice. Handoff test extended to forbid the old mode-line phrase and pin the active-voice sentence. No version change.
+Consequences: Emission contract matches the handoff contract in both modes.
+Rollback: Restore the prior mode-line sentences and the passive mismatch line; drop the added assertions.
+
+## Mismatch branch directs the invocation (QA round 5, autopilot O1)
+
+Date: 2026-11-06
+Status: accepted
+Context: The combined mismatch summary output a sentence claiming a revised-plan turn was chained, without directing the Hands to invoke `brain_turn` with the discovery manifest first.
+Decision: The branch now orders the Hands to invoke the revised-plan turn with the manifest via `context_paths` before stopping with the status message. The handoff test pins the directive sentence. No version change.
+Consequences: A halted combined task always produces a grounded replan turn instead of an ungrounded claim.
+Rollback: Restore the claim-only sentence and drop the directive assertion.
+
+## Conditional/summary mismatch paths reconciled (QA round 6, autopilot O1)
+
+Date: 2026-11-06
+Status: accepted
+Context: The conditional OTHERWISE path ordered halt-and-output-path while the summary halt branch ordered invoke-with-manifest — two incompatible next actions for the same mismatch.
+Decision: Both paths direct the Hands to invoke the revised-plan turn with the discovery manifest via `context_paths`. The handoff test pins both sentences and forbids the old output-path wording. No version change.
+Consequences: One unambiguous mismatch behavior across the combined template.
+Rollback: Restore the output-path sentence and drop the new assertions.
+
+## DONE follows the QA/review chain (QA round 7, autopilot partial O1)
+
+Date: 2026-11-06
+Status: accepted
+Context: The implementation summary declared DONE right after the QA transition while the chaining step came after, permitting an early halt before QA/review.
+Decision: Step 4 now marks implementation complete with an explicit continue; a final step declares DONE only after the QA/review turn is invoked. The handoff test pins the order. The round-7 marker-provenance claim (inline `[fed-context]` spoofing) is disputed — see the task log for evidence — with no behavior change. No version change.
+Consequences: The summary sequence cannot terminate before the chain runs.
+Rollback: Restore the early DONE sentence and drop the order assertion.

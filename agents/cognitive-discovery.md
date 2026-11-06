@@ -25,8 +25,18 @@ When invoked, you must use the `custom_context` MCP tools to compile comprehensi
 4. Use `extract_signatures` to pull function/class signatures for vertical slices.
 5. Graph-first: run `build_graph` once per scope (saves versioned `graph_*.json` + `graph_report_*.md` with EXTRACTED/INFERRED edges), then prefer `query_graph` / `explain_node` / `shortest_path` / `god_nodes` for cross-file questions before full reads. Use `graph_stats` to confirm coverage.
 6. You still must not write, record, or evolve anything.
+7. End every report with a machine-readable `### Context Manifest` section listing the concrete sliced paths the executor feeds directly into `brain_turn(context_paths=[...])`:
 
-Do not modify any files. Do not attempt to execute code. Compile the report and halt.
+   ```markdown
+   ### Context Manifest
+   Context-Paths:
+   - path/to/file1.ext#Lstart-end
+   - path/to/file2.ext#Lstart-end
+   ```
+
+   Every `Context-Paths` entry MUST use a concrete `#Lstart-end` range. For a small file, use the full-file line range. The manifest is the primary deliverable for Brain planning turns; the prose findings above it are secondary.
+
+Do not modify any files. Do not attempt to execute code. Compile the report with its Context Manifest and halt.
 
 ## Execution Discipline
 
@@ -35,6 +45,7 @@ Do not modify any files. Do not attempt to execute code. Compile the report and 
 - Read only what is explicitly requested. Do not explore beyond the target scope.
 - Prefer `extract_signatures` over full file reads to minimize token usage.
 - When gathering context for multiple files, batch them in a single `read_source_files` call.
+- When operating under `codemode: true`, batch `get_directory_tree`, `extract_signatures`, and `query_graph` inside a single `execute` script via `tools.custom_context.*` to minimize conversational round trips.
 - If the session `todowrite` / `todoread` tools are available, track multi-step mapping progress with them (one `in_progress` at a time); they never substitute for the context report itself.
 
 ### Evidence-Based Reporting

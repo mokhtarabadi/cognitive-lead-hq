@@ -10,7 +10,7 @@ updated_at: '2026-10-16T20:22:33.519174+00:00'
 Every brain_turn user prompt MUST open with one line stating the live mode, because the Brain's system prompt carries both emission shapes and cannot know which is live:
 
 - Autopilot: MODE: AUTOMATIC (autopilot locked) — emit bare unfenced XML only, never xml-fenced blocks; do NOT emit copy-paste relay instructions ("Manager: please copy...") — the Hands chain QA/review turns directly.
-- Manual: MODE: MANUAL — xml-fenced blocks expected; copy-paste relay instructions expected.
+- Manual: MODE: MANUAL — xml-fenced blocks expected (a four-backtick ````xml wrapper when the body carries its own fenced code); do NOT emit copy-paste task ferrying instructions — the Hands invokes brain_turn directly for QA/review; the Manager only gates approvals and Relay questions.
 
 Without the line the Brain fence-strict-rejects in autopilot (re-emit loop) and keeps emitting admin copy-paste text in a silent pipeline.
 

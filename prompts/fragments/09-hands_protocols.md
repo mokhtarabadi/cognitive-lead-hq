@@ -26,8 +26,7 @@
 </execution_phase>
 
   <summary_phase>
-    HANDS INSTRUCTION: Once the report is generated, STOP. Do not read the generated report yourself. Output exactly:
-    "Discovery complete. Manager: I have generated the context report at [REPORT_PATH]. Please copy its contents and send them back to the Orchestrator."
+    HANDS INSTRUCTION: Once the report is generated, STOP. Do not implement anything. Output the discovery findings along with the machine-readable manifest from the report, preserving its exact structure: `### Context Manifest`, then `Context-Paths:`, then one `- path/to/file.ext#Lstart-end` entry per path. If chaining to Brain planning, feed these paths directly via `brain_turn(context_paths=[...])` under the active session thread; the Manager never ferries context.
 </summary_phase>
 </hands_discovery_task>
 ```
@@ -104,13 +103,11 @@
        - `task_file_path`: "tasks/in-progress/<task-name>.md"
        - `modified_files`: [<modified_file_1>, <modified_file_2>, ...]
        This atomically moves the task file to `tasks/qa/`, updates the `**File:**` header, stages your modified code, and injects the git diff in one operation.
-     4. Once the atomic QA transition succeeds, you are DONE.
-     5. Output EXACTLY this message to the Manager:
-       "Task implemented, reasoning logged, and Git diff injected. **Manager:** Please copy the entire contents of `tasks/qa/<task-name>.md` and send it back to the Orchestrator Brain with the following message:"
-
-       "(If this task involved logic, backend, or state changes, tell the Manager to copy/paste this:) **'[QA Engineer], please perform adversarial testing.'**"
-       "(If this task was purely documentation, CSS, or trivial, tell the Manager to copy/paste this:) **'[Code Reviewer], please perform the final review.'**"
-       In automatic mode, skip the copy/paste message above and chain the QA/review `brain_turn` yourself under the active session thread; the Manager never ferries task text.
+     4. Once the atomic QA transition succeeds, implementation is complete — continue with QA/review chaining below.
+     5. The Hands invokes the QA/review `brain_turn` itself in both manual and automatic modes under the active session thread — `[QA Engineer], please perform adversarial testing.` for logic, backend, or state changes, `[Code Reviewer], please perform the final review.` for documentation, CSS, or trivial changes. The Manager only gates approvals and Relay questions, never ferries task text.
+     6. Output EXACTLY this message to the Manager:
+       "Task implemented, reasoning logged, Git diff injected, and QA/review chained via `brain_turn`."
+     7. After the QA/review `brain_turn` is invoked, you are DONE.
 </summary_phase>
 </hands_implementation_task>
 ```
@@ -134,7 +131,7 @@
 </discovery_phase>
 
   <conditional_implementation_phase>
-    HANDS INSTRUCTION: IF the discovery context confirms the expected architecture and files listed below, THEN proceed with the implementation steps. OTHERWISE, HALT after discovery and output the context report path for Orchestrator review.
+    HANDS INSTRUCTION: IF the discovery context confirms the expected architecture and files listed below, THEN proceed with the implementation steps. OTHERWISE, HALT after discovery and invoke a revised-plan `brain_turn` yourself with the discovery manifest via `context_paths=[...]` for Orchestrator review.
 
     [EXPECTED FILES/ARCHITECTURE]
 
@@ -144,8 +141,8 @@
 
   <summary_phase>
     HANDS INSTRUCTION:
-    1. If you HALTED after discovery (architecture mismatch): STOP. Do not implement anything. Output exactly:
-       "Discovery complete but architecture mismatch detected. Manager: I have generated the context report at [REPORT_PATH]. Please copy its contents and send them back to the Orchestrator for a revised plan."
+    1. If you HALTED after discovery (architecture mismatch): STOP. Do not implement anything. First invoke a revised-plan `brain_turn` yourself under the active session thread, feeding the discovery report manifest via `context_paths=[...]`; then output exactly:
+       "Discovery complete but architecture mismatch detected. Revised-plan `brain_turn` chained with the discovery manifest."
     2. If implementation completed successfully: Follow the standard finalization sequence — before calling `lint_task_file`, review every `## Acceptance Criteria` and `## Definition of Done` checkbox in the active task file against the `## Verification Evidence` you just recorded. Check `- [x]` any item that is genuinely satisfied by that evidence NOW, in this summary phase — do NOT defer box-checking to a separate closure task. If any item is not yet satisfied, do not check it, and do not proceed to lint/staging until you resolve why. Then call the `lint_task_file` MCP tool (from the `lint` server) on the active task file. If lint fails, fix the structural issues before proceeding.
      2b. Parallel check: inspect `git diff --cached --name-only` (read-only). If files outside your task are staged, call `custom_context_unstage_files` with exactly those files first — never stage or carry another task's files.
      3. Execute the atomic QA transition:
@@ -153,12 +150,9 @@
        - `task_file_path`: "tasks/in-progress/<task-name>.md"
        - `modified_files`: [<modified_file_1>, <modified_file_2>, ...]
        This atomically moves the task file to `tasks/qa/`, updates the `**File:**` header, stages your modified code, and injects the git diff in one operation.
-     4. Then output exactly:
-       "Task implemented, reasoning logged, and Git diff injected. **Manager:** Please copy the entire contents of `tasks/qa/<task-name>.md` and send it back to the Orchestrator Brain with the following message:"
-
-       "(If this task involved logic, backend, or state changes, tell the Manager to copy/paste this:) **'[QA Engineer], please perform adversarial testing.'**"
-       "(If this task was purely documentation, CSS, or trivial, tell the Manager to copy/paste this:) **'[Code Reviewer], please perform the final review.'**"
-       In automatic mode, skip the copy/paste message above and chain the QA/review `brain_turn` yourself under the active session thread; the Manager never ferries task text.
+     4. The Hands invokes the QA/review `brain_turn` itself in both manual and automatic modes under the active session thread — `[QA Engineer], please perform adversarial testing.` for logic, backend, or state changes, `[Code Reviewer], please perform the final review.` for documentation, CSS, or trivial changes. The Manager only gates approvals and Relay questions, never ferries task text.
+     5. Then output exactly:
+       "Combined task complete: discovery verified, implementation applied, Git diff injected, and QA/review chained via `brain_turn`."
 </summary_phase>
 </hands_combined_task>
 ```

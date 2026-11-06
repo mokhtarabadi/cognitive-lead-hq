@@ -87,6 +87,7 @@ If the Manager sends you a direct message that is NOT an XML task block (e.g., "
 4. **Plan & Halt:** Write a brief 3-step implementation plan and ask the Manager for explicit "Approved" before writing code.
 5. **ZAC Enforcement:** Remind the Manager that even for ad-hoc tasks, ZAC applies—you will not commit the changes.
    After Deliver, execute the formatted prompt as live instruction under existing plan approval, Zero-Autonomous-Commit, QA, and closure gates.
+6. **Non-English Normalization:** Any non-English Manager input (Persian, voice dictation, shorthand) MUST be normalized and translated into technical English before planning or task generation. No execution may occur on non-English input until the translation step is complete.
 
 ## Context Bootstrapping & Memory Protocol
 
@@ -405,6 +406,7 @@ by design. The fed retry MUST carry verbatim code (capped ranges, pasted inline)
 pass `context_paths=[paths]` on the `brain_turn` call so the bridge reads the bodies
 server-side; use `#Lstart-end` slices for large files. A retry that carries only
 summaries predicts its own second `missing_context` — never send one.
+When discovery finishes, extract the `Context-Paths` manifest from its report and pass those paths directly via `context_paths=[...]` on the fed `brain_turn` call. Dumping multi-thousand-line files inline into chat is forbidden; reading targeted `#Lstart-end` ranges via native tools or binding them via `context_paths` is mandatory.
 
 ## Manual Workflow (Active Default)
 
@@ -417,6 +419,10 @@ summaries predicts its own second `missing_context` — never send one.
 4. **Hand off** — move the task file per Kanban rules, notify the Manager.
    NEVER auto-commit. QA/review run through the Brain Bridge below, or as
    Manager-directed direct review.
+
+## Code Mode Tool Calling Protocol (tools.<server>.<tool>)
+
+All 7 MCP servers run under `codemode: true`: `brain`, `custom_context`, `lint`, `planner`, `project_memory`, `blowsh`, and `telegram`. Every MCP tool call routes through the `execute` runtime as `tools.<server>.<tool>(...)` — `tools.brain.brain_turn`, `tools.custom_context.*`, `tools.lint.*`, `tools.planner.*`, `tools.project_memory.*`, `tools.blowsh.*`, `tools.telegram.*`. Never call a session tool directly; always go through `execute`, resolving the exact path with the global `search` function first and never guessing tool names. Batch multi-tool queries inside a single `execute` call to reduce round-trip latency, awaiting independent calls concurrently. Pass `project_root: process.cwd()` on all MCP calls to prevent working-directory fallback warnings. A `brain_turn` result is returned whole — `return res` verbatim without slicing or field-shaping (see the Code-mode output discipline under State machine below).
 
 ## Brain Bridge
 
@@ -440,7 +446,7 @@ emit bare unfenced XML only, never xml-fenced blocks; do NOT emit any
 copy-paste relay instructions ("Manager: please copy...") — the Hands
 chain QA/review turns directly.` Manual: `MODE: MANUAL — xml-fenced
 blocks expected (a four-backtick ````xml wrapper when the body carries
-its own fenced code); copy-paste relay instructions expected.` Skip this
+its own fenced code); do NOT emit copy-paste task ferrying instructions — the Hands invokes brain_turn directly for QA/review; the Manager only gates approvals and Relay questions.` Skip this
    line and the Brain cannot tell which shape is live: it keeps emitting
    admin copy-paste text in a silent pipeline and fenced output where bare
    was required. **Session Binding (Mandatory):** You MUST pass `session_id: "$OPENCODE_SESSION_ID"` (reading your active session ID from the environment) in every `brain_turn` call alongside `task_id`. Because the MCP server runs as a separate daemon, you must send this parameter explicitly over the wire so the conversation history continues in `tasks/.sessions/<session_id>/transcript.jsonl`.

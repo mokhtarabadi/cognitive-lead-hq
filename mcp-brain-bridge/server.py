@@ -1311,6 +1311,7 @@ def context_sufficiency_gaps(
     user_prompt: object,
     bundle_text: object,
     bundle_included: bool = True,
+    has_server_paths: bool = False,
 ) -> list[str]:
     """Pure: grounding gaps for a planning turn ([] when sufficient).
 
@@ -1324,6 +1325,11 @@ def context_sufficiency_gaps(
     suppressed (there was never going to be a pack) instead of producing a
     false positive. Takes values only — no environment, no filesystem, no
     network, and never the diff or the API key.
+
+    ``has_server_paths`` is set by the caller when the bridge rendered the
+    ``paths`` slot this turn. A literal ``[path-injected:`` string inside
+    user text never counts — only server-rendered path context grounds —
+    so a typed marker cannot spoof the check.
     """
     if (stage or "").strip().lower() != _PLAN_STAGE:
         return []
@@ -1335,7 +1341,11 @@ def context_sufficiency_gaps(
             "no structural pack (run create_tree_report, or ask the Hands "
             "for repo context before planning)"
         )
-    if _FED_CONTEXT_MARKER not in prompt and _PINNED_FED_MARKER not in prompt:
+    if (
+        _FED_CONTEXT_MARKER not in prompt
+        and _PINNED_FED_MARKER not in prompt
+        and not has_server_paths
+    ):
         gaps.append("no fed-context block")
     return gaps
 
@@ -3937,11 +3947,18 @@ def brain_turn(
     # history is never falsely reported as ungrounded.
     _rendered_bundle = _slot("bundle")
     _rendered_fed = _slot("fed")
+    _rendered_paths = _slot("paths")
     _combined_prompt = (
-        user_prompt + "\n" + _rendered_fed if _rendered_fed else user_prompt
+        user_prompt
+        + ("\n" + _rendered_fed if _rendered_fed else "")
+        + ("\n" + _rendered_paths if _rendered_paths else "")
     )
     _sufficiency_gaps = context_sufficiency_gaps(
-        stage, _combined_prompt, _rendered_bundle, bundle_included=bool(include_bundle)
+        stage,
+        _combined_prompt,
+        _rendered_bundle,
+        bundle_included=bool(include_bundle),
+        has_server_paths=bool(_rendered_paths),
     )
     if _sufficiency_gaps:
         print(

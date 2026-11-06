@@ -18,3 +18,4 @@ Authoritative system-prompt sources: one file per top-level XML tag in `system-p
 - Never edit `system-prompt.md` directly; edit fragments then run the assembler.
 - Fragment order is fixed by `prompts/manifest.txt`; renames break the build.
 - HQ-only fragments (`09-hands_protocols.md`) must not leak into project-agnostic audit templates.
+- Automatic-mode QA and review `brain_turn` calls are invoked by the Hands under the same `task_id`; the Manager does not ferry task text.

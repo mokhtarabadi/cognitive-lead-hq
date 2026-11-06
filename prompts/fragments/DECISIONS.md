@@ -43,9 +43,17 @@
 - **Rollback:** Revert the fragment wording and re-run the assembler.
 
 ## [2026-11-02] ADR-007: Prompt-refactor becomes two-pass Refactor-then-Execute
-
 - **Context:** The prompt-refactor skill ended at Deliver (output the formatted prompt in a code block) with no Execute pass, so the refined prompt stalled as an artifact instead of running as the live instruction.
 - **Decision:** Retitle the workflow Two-Pass Refactor-then-Execute: Step 1 refactors (validate, translate, expand, structure), Step 2 executes the formatted prompt in the same session under the existing gates (plan approval, Zero-Autonomous-Commit, QA, closure). Mirror one-line execute clauses in the input-processing gate, the executor matrix and Direct Input protocol, the skills registry, and the language policy execution binding.
 - **Consequences:** Refined prompts execute instead of stalling; Step 2 cannot bypass gates, auto-commit, or push. Version bumped with artifact regen.
 - **Rollback:** Restore the four-step workflow wording, drop the mirror lines, and re-run the assembler.
+
+## Hands-owned automatic review chaining
+
+Date: 2026-11-06
+Status: accepted
+Context: The QA and Code Reviewer instructions assigned `brain_turn` chaining to the Brain while also assigning calls to the Hands. The Brain has no direct tool access.
+Decision: In automatic mode, the Hands invokes the next QA, re-QA, or review `brain_turn` under the same `task_id`. The Manager does not ferry task text and retains the approval gates.
+Consequences: Both review personas assign the next call to the actor that can execute it. Regression assertions pin the Hands-owned wording.
+Rollback: Restore the Brain-owned automatic-mode overrides and remove the corresponding assertions.
 

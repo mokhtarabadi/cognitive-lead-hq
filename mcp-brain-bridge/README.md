@@ -27,3 +27,7 @@ Brain Bridge MCP daemon: single-tool (`brain_turn`) automation path for planning
 - Request-shape evolution stays opt-in: every new Responses parameter
   ships behind a `BRAIN_SEND_*` / `BRAIN_USE_INSTRUCTIONS` switch
   defaulting to off, so default wire bytes never change silently.
+
+## Plan-Turn Sufficiency Grounding
+
+The bridge builds its plan-turn sufficiency diagnostic from the user prompt and the rendered `fed` and `paths` slots. A non-empty server-rendered `paths` slot grounds the `no fed-context block` diagnostic through the caller-provided `has_server_paths` flag; a literal `[path-injected:]` string in user text does not count as server-rendered path context. The existing `[fed-context]` and `[pinned-fed-context]` markers remain supported by the Hands-fed context contract. This change affects the sufficiency diagnostic only and does not change the request payload or context-path limits.

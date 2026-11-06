@@ -16,6 +16,8 @@ Defines the two OpenCode agent personas for the Cognitive Lead HQ: primary execu
 - Plan approval surface: an approval question is only valid after the full plan body is visible in the same turn, and the question payload repeats it. A bare "Approve the plan?" ask is a protocol bug.
 - Brain results cross into the transcript whole: `status`, `output`, `xml_blocks` and diagnostic/`truncated` fields are never sliced, field-shaped or summarized on return. Size is managed before the call (`compact_context`, leaner prompt, `include_bundle=false`), never after.
 - Discovery-fed grounding: a retry without verbatim code or `context_paths` predicts its own second `missing_context` — prose-only fed-context is a protocol violation.
+- Context-Paths manifest invariant: every discovery report ends with a machine-readable `### Context Manifest` (`Context-Paths:` with `#Lstart-end` slices) that the executor feeds directly into `brain_turn(context_paths=[...])`.
+- Code Mode execution standard: all MCP servers run under `codemode: true`; every tool call routes through `execute` as `tools.<server>.<tool>` with `project_root` on each call, and `brain_turn` results return whole.
 - No runtime code here; changes are prompt-contract changes with system-wide effect.
 
 ### Free-tier bash gate

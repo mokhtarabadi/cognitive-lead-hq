@@ -12,7 +12,7 @@ retired persona engine. The Hands calls it for every Brain turn
    mode statement because the Brain cannot know which emission shape is
    live: `MODE: AUTOMATIC (autopilot locked) — emit bare unfenced XML
    only; no copy-paste relay instructions` in autopilot, `MODE: MANUAL
-   — xml-fenced blocks and copy-paste relay instructions expected`
+   — xml-fenced blocks expected; no copy-paste task ferrying instructions (Hands invokes brain_turn directly)`
    otherwise (a four-backtick ````xml wrapper when the body carries its
    own fenced code).
 2. **The bridge loads the system prompt** from the global install

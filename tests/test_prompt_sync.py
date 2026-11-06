@@ -16,6 +16,9 @@ SHIPPED = REPO / "system-prompt.md"
 FRAGMENT_01 = REPO / "prompts" / "fragments" / "01-system_version.md"
 ASSEMBLER = REPO / "scripts" / "prompt-build" / "assemble_system_prompt.py"
 EXECUTOR = REPO / "agents" / "cognitive-executor.md"
+DISCOVERY = REPO / "agents" / "cognitive-discovery.md"
+FRAGMENT_09 = REPO / "prompts" / "fragments" / "09-hands_protocols.md"
+ROOT_AGENTS = REPO / "AGENTS.md"
 TASKGEN_SKILL = REPO / "skill-templates" / "task-generator" / "SKILL.md"
 
 
@@ -44,7 +47,7 @@ def test_shipped_version_is_expected_minor_bump():
     shipped = re.search(
         r"<system_version>(.*?)</system_version>", _read(SHIPPED)
     ).group(1)
-    assert shipped == "9.70.3"
+    assert shipped == "9.71.0"
 
 
 def test_shipped_prompt_documents_context_path_line_ranges():
@@ -326,3 +329,105 @@ def test_executor_has_no_code_references():
         assert literal not in text, f"code reference in executor: {literal}"
     assert "goal_set" in text
     assert ".opencode/STOP_GOAL" in text
+
+
+def test_discovery_defines_context_paths_manifest():
+    """Discovery must emit one canonical machine-readable manifest.
+
+    Regression: discovery returned prose summaries only, so the Hands fed
+    prose `[fed-context]` and the Brain correctly re-emitted
+    `missing_context`. The manifest binds discovery output to
+    `brain_turn(context_paths=[...])`. A QA round found two competing
+    formats (bullet entries vs a bracketed inline list); exactly one
+    structure is canonical and the discovery summary must repeat it.
+    """
+    text = DISCOVERY.read_text(encoding="utf-8")
+    heading = text.index("### Context Manifest")
+    paths_line = text.index("Context-Paths:", heading)
+    entry = text.index("- path/to/file", paths_line)
+    assert heading < paths_line < entry
+    assert "#Lstart-end" in text[heading : heading + 600]
+    manifest_instructions = text[heading : heading + 600]
+    assert (
+        "Every `Context-Paths` entry MUST use a concrete `#Lstart-end` range."
+        in manifest_instructions
+    )
+    assert "plain paths for small ones" not in text
+    summary = _read(FRAGMENT_09)
+    assert "### Context Manifest" in summary
+    assert "Context-Paths:" in summary
+    assert "- path/to/file.ext#Lstart-end" in summary
+    assert "[path#Lstart-end, ...]" not in summary
+
+
+def test_executor_documents_code_mode_tool_calling():
+    """The executor must document Code Mode tool routing via execute."""
+    text = _read(EXECUTOR)
+    assert "Code Mode Tool Calling Protocol" in text
+    assert "tools.<server>.<tool>" in text
+    assert "tools.brain.brain_turn" in text
+    assert "project_root" in text
+
+
+def test_manual_handoff_assigns_brain_turn_to_hands():
+    """Manual mode must not route task text through the Manager.
+
+    Regression: manual summaries and persona behaviors told the Manager
+    to copy task files and QA/review prompts between the Hands and the
+    Brain, contradicting the Bridge protocol — the Hands invokes
+    `brain_turn` directly in both modes and the Manager only gates
+    approvals and Relay questions.
+    """
+    shipped = _read(SHIPPED)
+    for forbidden in (
+        "Please copy the entire contents of `tasks/qa/",
+        "Manager ferries task files",
+        "ferries task files and XML",
+        "ferries task files by hand",
+        "copies it to the Hands",
+        "brings the result back",
+        "paste the file tree and code context back",
+        "pastes the Hands",
+        "hand over to the Code Reviewer",
+        "copy-paste relay instructions expected",
+    ):
+        assert forbidden not in shipped, f"manual ferrying instruction: {forbidden}"
+    assert "only gates approvals" in shipped
+    impl_line = (
+        '"Task implemented, reasoning logged, Git diff injected, '
+        'and QA/review chained via `brain_turn`."'
+    )
+    combined_line = (
+        '"Combined task complete: discovery verified, implementation applied, '
+        'Git diff injected, and QA/review chained via `brain_turn`."'
+    )
+    assert shipped.count(impl_line) == 1, "impl handoff line must appear exactly once"
+    assert shipped.count(combined_line) == 1, "combined handoff line must differ"
+    agents = _read(ROOT_AGENTS)
+    assert "please copy the contents of `tasks/qa/" not in agents
+    assert "QA/review chained via `brain_turn`" in agents
+    assert "do NOT emit copy-paste task ferrying instructions" in _read(EXECUTOR)
+    assert "Revised-plan `brain_turn` chained with the discovery manifest." in shipped
+    assert "A revised-plan `brain_turn` is chained" not in shipped
+    assert "invoke a revised-plan `brain_turn` yourself" in shipped
+    assert (
+        "HALT after discovery and invoke a revised-plan `brain_turn` yourself"
+        in shipped
+    )
+    assert "output the context report path for Orchestrator review" not in shipped
+    assert "feeding the discovery report manifest via `context_paths=[...]`" in shipped
+    hands_call = shipped.index("invokes the QA/review `brain_turn` itself")
+    done_mark = shipped.index("you are DONE")
+    assert hands_call < done_mark, "DONE must not precede the QA/review chain"
+    assert "chain the next `brain_turn` yourself" not in shipped
+    assert "chain the fix/review `brain_turn` calls yourself" not in shipped
+    assert "the Hands invokes each next `brain_turn`" in shipped
+    assert "the Hands invokes fix/re-review `brain_turn` calls" in shipped
+    assert "XX-task-name.md" not in agents
+    assert "Read the active task file's `**File:**` path" in agents
+    changelog = (REPO / "CHANGELOG.md").read_text(encoding="utf-8")
+    assert (
+        "a literal `[path-injected:` marker typed in user text "
+        "never counts as server-rendered path context"
+    ) in changelog
+    assert "a literal marker typed in user text never counts" not in changelog
