@@ -25,14 +25,13 @@ to the nearest ancestor of its working directory that holds `tasks/`.
 ### Code Mode policy (v2 `mcp.servers.<name>.codemode`)
 
 Code Mode keeps a server's tool schemas out of the system prompt, but it
-adds one `execute` hop per call. The split follows cost, not seniority:
+adds one `execute` hop per call. Code Mode applies uniformly to all seven servers:
 
 | Servers | `codemode` | Why |
 | --- | --- | --- |
-| `custom_context`, `project_memory`, `lint`, `brain`, `planner`, `blowsh` | `false` (direct tools) | ~43 small tools in total; all are called directly and their schema cost is small |
-| `telegram` (147 tools) | `true` (default) | 147 schemas would flood the system prompt |
+| all seven (`custom_context`, `project_memory`, `lint`, `brain`, `planner`, `blowsh`, `telegram`) | `true` (default) | Manager decision 2026-11-06: every server's tools route through `execute`, keeping all schemas out of the system prompt |
 
-Setting `codemode: false` puts each tool in the native tool list
+Setting `codemode: false` would put each tool in the native tool list
 (`lint_task_file`, `claim_next`, `brain_turn`, …) instead of behind
 `execute`. It is a host-level flag: the singletons do not change, and a
 session restart applies it. Per-tool hiding still belongs to

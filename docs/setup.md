@@ -51,7 +51,7 @@ gh auth login
 
 The project uses five FastMCP Python servers, all running as supervised singletons (one process each, shared across sessions) on loopback HTTP (`MCP_TRANSPORT=streamable-http`, ports 8101–8105; telegram 8106, blowsh 8107 — see `docs/services.md`). `opencode.json` points at them via `type: "remote"` — no stdio entries remain.
 
-**Code Mode:** only `telegram` stays in Code Mode — its 147 tool schemas must not enter the system prompt. Every other server (`custom_context`, `project_memory`, `lint`, `brain`, `planner`, `blowsh`) sets `codemode: false` and is called as native tools. See `docs/services.md` for the rationale table.
+**Code Mode:** every server runs in Code Mode (default `codemode: true`) — all tool schemas stay out of the system prompt and every call routes through `execute`. Manager decision 2026-11-06. See `docs/services.md` for the rationale table.
 
 | Server                                        | Purpose                                                                       | Singleton (port)              |
 | --------------------------------------------- | ----------------------------------------------------------------------------- | ----------------------------- |

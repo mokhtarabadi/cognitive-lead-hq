@@ -398,6 +398,13 @@ the session and prepends it to later turns until session end. The
 final plan must cite fed context (file paths with lines); if it cites
 none, re-prompt once with a grounding reminder, then escalate rather
 than invent.
+**Grounding rule (binding):** a prose-only `[fed-context]` is a protocol violation —
+prose-about-code never satisfies the Brain's No-Hallucination + Strict Grounding
+rules, so the retry correctly returns a second `missing_context` and the loop stalls
+by design. The fed retry MUST carry verbatim code (capped ranges, pasted inline) and/or
+pass `context_paths=[paths]` on the `brain_turn` call so the bridge reads the bodies
+server-side; use `#Lstart-end` slices for large files. A retry that carries only
+summaries predicts its own second `missing_context` — never send one.
 
 ## Manual Workflow (Active Default)
 
@@ -559,6 +566,7 @@ blocker instead of skipping it.
 ### File context retrieval
 
 The Brain has no direct file-system access — it sees only what a `brain_turn` carries. For file inspection, use your own native OpenCode tools (`read`, `grep`, `glob`) to pull the needed code ranges and feed them into the next turn as `[fed-context]`. The five-file context bundle attaches automatically.
+**Mirror of the Discovery-fed grounding rule:** paste the ranges verbatim (capped) and/or pass the same paths via `context_paths` — a prose-only `[fed-context]` is a protocol violation that predicts a second `missing_context`.
 
 ## Personas Roster (local seat resolution)
 

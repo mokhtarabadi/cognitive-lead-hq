@@ -134,6 +134,30 @@ def test_executor_shows_plan_before_asking_for_approval():
     assert "sees only Relay questions" not in text
 
 
+def test_executor_fed_context_requires_verbatim_or_paths():
+    """A discovery-fed retry without bodies starves the Brain by contract.
+
+    Regression: the executor told the Hands to feed discovery back as a
+    prose `[fed-context]` block. Prose-about-code cannot satisfy the
+    Brain's No-Hallucination + Strict Grounding rules, so the retry
+    correctly returns a second `missing_context` and the loop stalls.
+    """
+    text = _read(EXECUTOR)
+    normalized_text = " ".join(text.split())
+    assert "prose-only `[fed-context]` is a protocol violation" in normalized_text
+    assert (
+        "The fed retry MUST carry verbatim code (capped ranges, pasted inline) "
+        "and/or pass `context_paths=[paths]` on the `brain_turn` call"
+    ) in normalized_text
+    assert (
+        "**Mirror of the Discovery-fed grounding rule:** paste the ranges verbatim "
+        "(capped) and/or pass the same paths via `context_paths`"
+    ) in normalized_text
+    assert (
+        "A retry that carries only summaries predicts its own second `missing_context`"
+    ) in normalized_text
+
+
 def test_shipped_prompt_is_plugin_blind():
     """The system prompt carries no plugin knowledge (separation).
 

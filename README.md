@@ -393,7 +393,7 @@ Best if you want this codebase exploration tool available in _every_ terminal di
         "/Users/<YOUR_USER>/.config/opencode/mcp-context-server/.venv/bin/python",
         "/Users/<YOUR_USER>/.config/opencode/mcp-context-server/server.py"
       ],
-      "codemode": false,
+      "codemode": true,
       "enabled": true,
       "timeout": 15000
     }
@@ -409,7 +409,7 @@ Best if you want this codebase exploration tool available in _every_ terminal di
 
 _(Note: Replace `/Users/<YOUR_USER>` with your actual home directory path)._
 
-`codemode: false` exposes the server's tools as native calls instead of routing them through `execute`. The HQ ships this policy for every server except `telegram` (147 tools, stays in Code Mode) — including `blowsh`; see `docs/services.md`.
+`codemode: true` (the default — key absent or explicit) keeps the server's tools behind `execute` instead of exposing them as native calls. The HQ ships Code Mode for every server, including `telegram` (147 tools); see `docs/services.md`.
 
 Full HQ install covering all core MCP servers plus skills plus both agents is documented in LLM.txt sections 4 through 7 and the global-install-upgrade memory workflow not here. The steps above cover only the standalone context server for third party projects.
 

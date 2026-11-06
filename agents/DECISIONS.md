@@ -1,5 +1,14 @@
 # Architectural Decisions: agents
 
+## Discovery-fed retries must ground with bodies, not prose
+
+Date: 2026-11-06
+Status: accepted
+Context: A planning loop stalled with two consecutive `missing_context` answers. The Hands had fed citation-style prose (file paths with lines, no bodies) per the Discovery-fed wording, but prose-about-code cannot satisfy the Brain's No-Hallucination + Strict Grounding rules, so the second request was contractually correct and the loop hit its stop signal. The bridge's `context_paths` reader (server-side bodies, caps, `#L` slices) sat unused on the retry turn.
+Decision: The executor's Discovery-fed planning section now binds the retry to verbatim code (capped ranges pasted inline) and/or `context_paths=[paths]`; a prose-only `[fed-context]` is a protocol violation that predicts its own second `missing_context`. The File context retrieval line mirrors the rule. A prompt-sync regression test fails if the sentences disappear.
+Consequences: Fed retries arrive verifiable, so planning turns ground instead of re-requesting. Retry prompts grow by the quoted ranges; the existing caps and slices bound that cost.
+Rollback: Revert the two paragraphs and the regression test; the stall behavior returns.
+
 ## Implementation Delegation Lane Beside Discovery
 
 Date: 2026-10-28
