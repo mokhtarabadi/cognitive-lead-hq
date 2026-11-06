@@ -47,7 +47,7 @@ def test_shipped_version_is_expected_minor_bump():
     shipped = re.search(
         r"<system_version>(.*?)</system_version>", _read(SHIPPED)
     ).group(1)
-    assert shipped == "9.73.0"
+    assert shipped == "9.74.0"
 
 
 def test_shipped_prompt_documents_context_path_line_ranges():
@@ -357,9 +357,9 @@ def test_closure_answer_verbatim_forwarding_is_pinned():
     )
 
 
-def test_shipped_prompt_version_is_9_73_0():
+def test_shipped_prompt_version_is_9_74_0():
     prompt = _read_shipped_prompt_for_approval_contract()
-    assert "9.73.0" in prompt
+    assert "9.74.0" in prompt
 
 
 def test_assembler_output_matches_shipped(tmp_path):
@@ -540,6 +540,7 @@ def test_manual_handoff_assigns_brain_turn_to_hands():
         "brings the result back",
         "paste the file tree and code context back",
         "pastes the Hands",
+        "where to paste it",
         "hand over to the Code Reviewer",
         "copy-paste relay instructions expected",
     ):
