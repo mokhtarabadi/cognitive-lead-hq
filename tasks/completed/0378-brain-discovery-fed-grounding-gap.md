@@ -1,9 +1,10 @@
 # Task 0378: Brain keeps saying "context ندارم" — discovery-fed grounding gap
 
-**File:** `tasks/qa/0378-brain-discovery-fed-grounding-gap.md`
+**File:** `tasks/completed/0378-brain-discovery-fed-grounding-gap.md`
 **Source:** manager
 **Type:** bug
-**Status:** open
+**Status:** closed
+**Finished:** 2026-11-06T08:18:28Z
 **Submitted:** 2026-11-06T08:09:34Z
 
 ## Goal
@@ -104,6 +105,12 @@ Manager decision: full reversal of the 0361 policy — every MCP server goes to 
 - Code review fix F2: strengthened the prompt-sync regression test to assert the normative MUST clause and mirrored file-context rule, preventing non-binding wording or mirror removal from passing.
 - Rollback: restore the backup over `opencode.json` + revert the doc hunks; restart the session to reload the catalog.
 
+## Autopilot QA/Review trail (ses_e503e3521ffe8bJlwT8TOIfBCP)
+
+- QA round 1: `QA_REJECTED` (F1 task-number provenance in four prompt-facing files) → hotfix applied → re-QA: `QA_PASSED`.
+- Review round 1: `APPROVED_WITH_CHANGES` (F2 weak regression assertions) → test strengthened → final review: technically `APPROVED`, `PO_REVIEW_PENDING`.
+- Manager accept quote: "Approved for closure".
+
 ## Code Review Fix Checklist (F2 — APPROVED_WITH_CHANGES)
 
 - [x] **Step 1:** Strengthened `test_executor_fed_context_requires_verbatim_or_paths` to normalize whitespace and assert the full MUST clause + mirror rule (fixed one mismatch: mirror heading is bold `**...:**` in the executor). Targeted test green.
@@ -119,238 +126,5 @@ Manager decision: full reversal of the 0361 policy — every MCP server goes to 
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
-```diff
-diff --git a/.opencode/memory/workflows/codemode-policy.md b/.opencode/memory/workflows/codemode-policy.md
-index aab2223..3419577 100644
---- a/.opencode/memory/workflows/codemode-policy.md
-+++ b/.opencode/memory/workflows/codemode-policy.md
-@@ -9,7 +9,7 @@ updated_at: '2026-10-29T06:47:37.577501+00:00'
- 
- Per-server flag: `mcp.servers.<name>.codemode` (default true = tools behind `execute`).
- 
--Policy in force: EVERY server runs with `codemode: false` (native tools) except `telegram`. `custom_context` (16), `project_memory` (6), `lint` (4), `brain` (1), `planner` (11), `blowsh` (5) are direct calls — ~43 small tools total, all invoked per task, so the wrapper hop costs more than the schema saves. `telegram` (147 tools) stays in Code Mode: its schemas must not enter the system prompt.
-+Policy in force (2026-11-06): EVERY server runs in Code Mode (`codemode: true`, the default). `custom_context`, `project_memory`, `lint`, `brain`, `planner`, `blowsh` and `telegram` are all `execute` wrappers — no MCP tool schemas enter the system prompt. Cost accepted by explicit Manager order: one `execute` hop per call.
- 
- Apply by editing `~/.config/opencode/opencode.json` after a timestamped backup, then validating with `python3 -c "import json;json.load(open(...))"`. The flag is host-level: the singleton services do not change, and an OpenCode/session restart applies it. Do NOT use this flag to hide individual tools — that is `permission` on the normalized `<server>_<tool>` name.
- 
-diff --git a/CHANGELOG.md b/CHANGELOG.md
-index eccd6d5..cb3671c 100644
---- a/CHANGELOG.md
-+++ b/CHANGELOG.md
-@@ -8,6 +8,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
- 
- ### Fixed
- 
-+- **Service policy text now describes the uniform all-server Code Mode routing.**
-+- **Prompt-sync regression test pins the binding fed-context contract:** assertions now require the mandatory verbatim-code-or-`context_paths` clause and its mirrored retrieval rule.
-+- **Prompt-facing Code Mode docs omit task-number provenance:** the current policy is stated without task IDs; provenance remains in this changelog and the task record.
-+- **All MCP servers to Code Mode (Task 0378 Phase 2, Manager-ordered full reversal of 0361):** the six in-house servers (`custom_context`, `project_memory`, `lint`, `brain`, `planner`, `blowsh`) are back to `codemode: true` in the global `opencode.json` (timestamped backup kept beside it; JSON re-validated; resolved values proven six `True`, telegram untouched). Every MCP call now routes through `execute` and no tool schemas enter the system prompt — the per-call hop cost is accepted by explicit Manager order. Docs updated (`docs/services.md` table, `docs/setup.md`, `README.md` block + sample, `LLM.txt` install block) and the `workflows/codemode-policy` memory shard rewritten.
-+
-+- **Discovery-fed retries must ground with bodies, not prose (Task 0378):** a planning loop stalled on two consecutive `missing_context` answers. The Hands had fed citation-style prose (paths with lines, no bodies) per the Discovery-fed wording; prose-about-code cannot satisfy No-Hallucination + Strict Grounding, so the second request was contractually correct. The executor now binds the retry to verbatim code (capped ranges) and/or `context_paths=[paths]` — prose-only fed-context is a protocol violation — mirrored at the file-context retrieval line. Prompt-sync regression test (red-first verified), live agent copy synced byte-identical, agents ADR + README invariant recorded.
- - **Brain `missing_context` narrowing rule + raised context-paths caps (Task 0375):** a planning loop stalled 3 turns re-requesting files the bridge had already delivered (truncated at the 60 KB/file cap with an explicit note). The contract only said STOP-and-list, giving the model no narrowing strategy. The rule now states: a truncation note means *partially present* — verify visible scope first, never re-request a fully-present file, narrow instead of repeating (smaller path, section, symbols). Caps raised `_CTX_PATHS_PER_FILE` 60k → 150k and `_CTX_PATHS_TOTAL` 200k → 400k (env overrides unchanged); `context_paths` also accepts `#Lstart-end` / `#Lstart-` slices, wired into both the tested helper and the live-turn path through shared parsers. System prompt rebuilt to `9.70.3` via the assembler (byte-identical except the two intended hunks); `test_prompt_sync` 22/22, `test_brain_bridge` 304/304 (incl. the exact-default pin test and 7 range tests). QA round made the contract explicit: the narrowing rule now names the `#Lstart-end` / `#Lstart-` slice forms so the Brain uses them, with a prompt-sync regression test pinning both forms and matching `docs/brain-bridge.md` documentation. QA round 2 classified malformed `#L` fragments on supported paths as explicit `bad range` labels (instead of resolution fall-through) with live-path (`_path_candidates`) regression coverage on both entry points. Bridge documentation distinguishes clamped bounds from empty and malformed ranges.
- - **Brain `context_paths` rejected source files (Task 0372):** `_ALLOWED_READ_SUFFIXES` predated the task-210 injection feature and allowed only docs/reports, so every `.java`/`.js`/`.tsx` came back `[unavailable: unsupported extension]` — byte-proven (29.5k of 87k attached). Suffix set extended to source-text languages; binaries still rejected; traversal/size/budget guards untouched. 294/294 brain-bridge tests green.
- - **Brain follow-ups (Task 0374):** truncation notes verified pre-existing in the allocator (no code change); ledger rows carry per-path attach outcomes (`path`/`status`/`chars`, leak-tested — no file text ever); monthly quota counter with stderr warning past the threshold (best-effort, never blocks a turn); end-to-end `.java` injection proven live (91,991 chars attached, 297/297 green).
-diff --git a/LLM.txt b/LLM.txt
-index b5b9821..da9bf34 100644
---- a/LLM.txt
-+++ b/LLM.txt
-@@ -238,35 +238,35 @@ Write the following JSON (replace `$HOME` with the actual home directory path on
-       "custom_context": {
-         "type": "remote",
-         "url": "http://127.0.0.1:8102/mcp",
--        "codemode": false,
-+        "codemode": true,
-         "disabled": false,
-         "timeout": { "catalog": 15000, "execution": 15000 }
-       },
-       "project_memory": {
-         "type": "remote",
-         "url": "http://127.0.0.1:8103/mcp",
--        "codemode": false,
-+        "codemode": true,
-         "disabled": false,
-         "timeout": { "catalog": 15000, "execution": 15000 }
-       },
-       "lint": {
-         "type": "remote",
-         "url": "http://127.0.0.1:8101/mcp",
--        "codemode": false,
-+        "codemode": true,
-         "disabled": false,
-         "timeout": { "catalog": 15000, "execution": 15000 }
-       },
-       "brain": {
-         "type": "remote",
-         "url": "http://127.0.0.1:8105/mcp",
--        "codemode": false,
-+        "codemode": true,
-         "disabled": false,
-         "timeout": { "catalog": 600000, "execution": 600000 }
-       },
-       "blowsh": {
-         "type": "remote",
-         "url": "http://127.0.0.1:8107/mcp",
--        "codemode": false,
-+        "codemode": true,
-         "disabled": false,
-         "timeout": { "catalog": 120000, "execution": 120000 }
-       },
-@@ -279,7 +279,7 @@ Write the following JSON (replace `$HOME` with the actual home directory path on
-       "planner": {
-         "type": "remote",
-         "url": "http://127.0.0.1:8108/mcp",
--        "codemode": false,
-+        "codemode": true,
-         "disabled": false,
-         "timeout": { "catalog": 15000, "execution": 30000 }
-       }
-diff --git a/README.md b/README.md
-index 348debe..7b11625 100644
---- a/README.md
-+++ b/README.md
-@@ -393,7 +393,7 @@ Best if you want this codebase exploration tool available in _every_ terminal di
-         "/Users/<YOUR_USER>/.config/opencode/mcp-context-server/.venv/bin/python",
-         "/Users/<YOUR_USER>/.config/opencode/mcp-context-server/server.py"
-       ],
--      "codemode": false,
-+      "codemode": true,
-       "enabled": true,
-       "timeout": 15000
-     }
-@@ -409,7 +409,7 @@ Best if you want this codebase exploration tool available in _every_ terminal di
- 
- _(Note: Replace `/Users/<YOUR_USER>` with your actual home directory path)._
- 
--`codemode: false` exposes the server's tools as native calls instead of routing them through `execute`. The HQ ships this policy for every server except `telegram` (147 tools, stays in Code Mode) — including `blowsh`; see `docs/services.md`.
-+`codemode: true` (the default — key absent or explicit) keeps the server's tools behind `execute` instead of exposing them as native calls. The HQ ships Code Mode for every server, including `telegram` (147 tools); see `docs/services.md`.
- 
- Full HQ install covering all core MCP servers plus skills plus both agents is documented in LLM.txt sections 4 through 7 and the global-install-upgrade memory workflow not here. The steps above cover only the standalone context server for third party projects.
- 
-diff --git a/agents/DECISIONS.md b/agents/DECISIONS.md
-index 91b15b8..93bc1be 100644
---- a/agents/DECISIONS.md
-+++ b/agents/DECISIONS.md
-@@ -1,5 +1,14 @@
- # Architectural Decisions: agents
- 
-+## Discovery-fed retries must ground with bodies, not prose
-+
-+Date: 2026-11-06
-+Status: accepted
-+Context: A planning loop stalled with two consecutive `missing_context` answers. The Hands had fed citation-style prose (file paths with lines, no bodies) per the Discovery-fed wording, but prose-about-code cannot satisfy the Brain's No-Hallucination + Strict Grounding rules, so the second request was contractually correct and the loop hit its stop signal. The bridge's `context_paths` reader (server-side bodies, caps, `#L` slices) sat unused on the retry turn.
-+Decision: The executor's Discovery-fed planning section now binds the retry to verbatim code (capped ranges pasted inline) and/or `context_paths=[paths]`; a prose-only `[fed-context]` is a protocol violation that predicts its own second `missing_context`. The File context retrieval line mirrors the rule. A prompt-sync regression test fails if the sentences disappear.
-+Consequences: Fed retries arrive verifiable, so planning turns ground instead of re-requesting. Retry prompts grow by the quoted ranges; the existing caps and slices bound that cost.
-+Rollback: Revert the two paragraphs and the regression test; the stall behavior returns.
-+
- ## Implementation Delegation Lane Beside Discovery
- 
- Date: 2026-10-28
-diff --git a/agents/README.md b/agents/README.md
-index 11b464d..4fbae40 100644
---- a/agents/README.md
-+++ b/agents/README.md
-@@ -15,6 +15,7 @@ Defines the two OpenCode agent personas for the Cognitive Lead HQ: primary execu
- - Persona changes must stay in sync with `system-prompt.md` fragments and `prompts/` sources.
- - Plan approval surface: an approval question is only valid after the full plan body is visible in the same turn, and the question payload repeats it. A bare "Approve the plan?" ask is a protocol bug.
- - Brain results cross into the transcript whole: `status`, `output`, `xml_blocks` and diagnostic/`truncated` fields are never sliced, field-shaped or summarized on return. Size is managed before the call (`compact_context`, leaner prompt, `include_bundle=false`), never after.
-+- Discovery-fed grounding: a retry without verbatim code or `context_paths` predicts its own second `missing_context` — prose-only fed-context is a protocol violation.
- - No runtime code here; changes are prompt-contract changes with system-wide effect.
- 
- ### Free-tier bash gate
-diff --git a/agents/cognitive-executor.md b/agents/cognitive-executor.md
-index 0c1433e..e191468 100644
---- a/agents/cognitive-executor.md
-+++ b/agents/cognitive-executor.md
-@@ -398,6 +398,13 @@ the session and prepends it to later turns until session end. The
- final plan must cite fed context (file paths with lines); if it cites
- none, re-prompt once with a grounding reminder, then escalate rather
- than invent.
-+**Grounding rule (binding):** a prose-only `[fed-context]` is a protocol violation —
-+prose-about-code never satisfies the Brain's No-Hallucination + Strict Grounding
-+rules, so the retry correctly returns a second `missing_context` and the loop stalls
-+by design. The fed retry MUST carry verbatim code (capped ranges, pasted inline) and/or
-+pass `context_paths=[paths]` on the `brain_turn` call so the bridge reads the bodies
-+server-side; use `#Lstart-end` slices for large files. A retry that carries only
-+summaries predicts its own second `missing_context` — never send one.
- 
- ## Manual Workflow (Active Default)
- 
-@@ -559,6 +566,7 @@ blocker instead of skipping it.
- ### File context retrieval
- 
- The Brain has no direct file-system access — it sees only what a `brain_turn` carries. For file inspection, use your own native OpenCode tools (`read`, `grep`, `glob`) to pull the needed code ranges and feed them into the next turn as `[fed-context]`. The five-file context bundle attaches automatically.
-+**Mirror of the Discovery-fed grounding rule:** paste the ranges verbatim (capped) and/or pass the same paths via `context_paths` — a prose-only `[fed-context]` is a protocol violation that predicts a second `missing_context`.
- 
- ## Personas Roster (local seat resolution)
- 
-diff --git a/docs/services.md b/docs/services.md
-index b8bcef5..c5b9df1 100644
---- a/docs/services.md
-+++ b/docs/services.md
-@@ -25,14 +25,13 @@ to the nearest ancestor of its working directory that holds `tasks/`.
- ### Code Mode policy (v2 `mcp.servers.<name>.codemode`)
- 
- Code Mode keeps a server's tool schemas out of the system prompt, but it
--adds one `execute` hop per call. The split follows cost, not seniority:
-+adds one `execute` hop per call. Code Mode applies uniformly to all seven servers:
- 
- | Servers | `codemode` | Why |
- | --- | --- | --- |
--| `custom_context`, `project_memory`, `lint`, `brain`, `planner`, `blowsh` | `false` (direct tools) | ~43 small tools in total; all are called directly and their schema cost is small |
--| `telegram` (147 tools) | `true` (default) | 147 schemas would flood the system prompt |
-+| all seven (`custom_context`, `project_memory`, `lint`, `brain`, `planner`, `blowsh`, `telegram`) | `true` (default) | Manager decision 2026-11-06: every server's tools route through `execute`, keeping all schemas out of the system prompt |
- 
--Setting `codemode: false` puts each tool in the native tool list
-+Setting `codemode: false` would put each tool in the native tool list
- (`lint_task_file`, `claim_next`, `brain_turn`, …) instead of behind
- `execute`. It is a host-level flag: the singletons do not change, and a
- session restart applies it. Per-tool hiding still belongs to
-diff --git a/docs/setup.md b/docs/setup.md
-index db208f6..a68897e 100644
---- a/docs/setup.md
-+++ b/docs/setup.md
-@@ -51,7 +51,7 @@ gh auth login
- 
- The project uses five FastMCP Python servers, all running as supervised singletons (one process each, shared across sessions) on loopback HTTP (`MCP_TRANSPORT=streamable-http`, ports 8101–8105; telegram 8106, blowsh 8107 — see `docs/services.md`). `opencode.json` points at them via `type: "remote"` — no stdio entries remain.
- 
--**Code Mode:** only `telegram` stays in Code Mode — its 147 tool schemas must not enter the system prompt. Every other server (`custom_context`, `project_memory`, `lint`, `brain`, `planner`, `blowsh`) sets `codemode: false` and is called as native tools. See `docs/services.md` for the rationale table.
-+**Code Mode:** every server runs in Code Mode (default `codemode: true`) — all tool schemas stay out of the system prompt and every call routes through `execute`. Manager decision 2026-11-06. See `docs/services.md` for the rationale table.
- 
- | Server                                        | Purpose                                                                       | Singleton (port)              |
- | --------------------------------------------- | ----------------------------------------------------------------------------- | ----------------------------- |
-diff --git a/tests/test_prompt_sync.py b/tests/test_prompt_sync.py
-index 6574b3d..bd1c694 100644
---- a/tests/test_prompt_sync.py
-+++ b/tests/test_prompt_sync.py
-@@ -134,6 +134,30 @@ def test_executor_shows_plan_before_asking_for_approval():
-     assert "sees only Relay questions" not in text
- 
- 
-+def test_executor_fed_context_requires_verbatim_or_paths():
-+    """A discovery-fed retry without bodies starves the Brain by contract.
-+
-+    Regression: the executor told the Hands to feed discovery back as a
-+    prose `[fed-context]` block. Prose-about-code cannot satisfy the
-+    Brain's No-Hallucination + Strict Grounding rules, so the retry
-+    correctly returns a second `missing_context` and the loop stalls.
-+    """
-+    text = _read(EXECUTOR)
-+    normalized_text = " ".join(text.split())
-+    assert "prose-only `[fed-context]` is a protocol violation" in normalized_text
-+    assert (
-+        "The fed retry MUST carry verbatim code (capped ranges, pasted inline) "
-+        "and/or pass `context_paths=[paths]` on the `brain_turn` call"
-+    ) in normalized_text
-+    assert (
-+        "**Mirror of the Discovery-fed grounding rule:** paste the ranges verbatim "
-+        "(capped) and/or pass the same paths via `context_paths`"
-+    ) in normalized_text
-+    assert (
-+        "A retry that carries only summaries predicts its own second `missing_context`"
-+    ) in normalized_text
-+
-+
- def test_shipped_prompt_is_plugin_blind():
-     """The system prompt carries no plugin knowledge (separation).
-```
+**Factual Git Diff:** Stored in Commit Hash: `e2158b71d99ee6853d60898f4664b8ceb44ece5b`
 <!-- END_GIT_DIFF -->
