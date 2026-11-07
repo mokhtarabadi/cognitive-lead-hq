@@ -64,8 +64,11 @@ import os
 import re
 import sys
 import json
+import tempfile
 import threading
+import time
 import unicodedata
+import uuid
 from pathlib import Path
 from typing import Any, Optional
 from urllib.parse import urlsplit
@@ -609,6 +612,241 @@ def _sniff_text_file(resolved: "Path") -> Optional[str]:
     ):
         return None
     return text
+
+
+# Per-turn Brain-output persistence (Task: brain-output-persistence).
+# Every brain_turn writes one JSON artifact holding its extracted
+# xml_blocks plus the full raw output, and the turn result carries the
+# artifact's relative address as ``output_address`` so the Hands can
+# read the tail with native tools when the inline payload is truncated.
+# Directory is per-session scratch under the project's sessions root
+# (regenerable, never source of truth). Retention is enforced at write
+# time: at most BRAIN_OUTPUTS_MAX_FILES artifacts and
+# BRAIN_OUTPUTS_MAX_BYTES total per session, oldest-first by mtime.
+# The just-written file is never pruned by its own write. Temp files
+# (``.tmp-`` prefix) never count toward the caps and are removed on
+# any write failure, so a crash cannot leave a half-written artifact
+# that a later read mistakes for a complete one.
+BRAIN_OUTPUTS_MAX_FILES = 50
+BRAIN_OUTPUTS_MAX_BYTES = 5242880
+
+_BRAIN_OUTPUTS_LOCK = threading.RLock()
+
+
+def _brain_outputs_dir(project_root, session_key):
+    """Resolve (creating) the per-session brain-outputs directory.
+
+    Deliberately narrower than the transcript resolver: ONLY the turn's
+    explicit ``project_root`` is honored — never ambient env vars and
+    never a cwd walk-up. That keeps unit tests (cwd = repo root) and
+    stray environments from ever writing into a real ``tasks/`` tree,
+    and it keeps persistence scoped to the project the turn declared.
+    Raises OSError when no explicit root holding ``tasks/`` is given;
+    the caller degrades to ``output_address = None`` instead of failing
+    the turn.
+    """
+    key = str(session_key) if session_key else "unknown"
+    # Collision-resistant: sanitize for filesystem safety AND append a short
+    # hash of the original key so distinct keys that sanitize identically
+    # (e.g. "ses/a" vs "ses?a") can never alias into one directory.
+    safe_key = "".join(c if (c.isalnum() or c in ("-", "_")) else "_" for c in key)
+    safe_key = safe_key.strip("_") or "unknown"
+    try:
+        digest = hashlib.sha256(key.encode("utf-8")).hexdigest()[:8]
+    except (UnicodeEncodeError, UnicodeDecodeError):
+        raise OSError("brain-output session key is not encodable")
+    safe_key = f"{safe_key}_{digest}"
+    base = None
+    if project_root:
+        try:
+            cand = Path(project_root).expanduser().resolve()
+        except (OSError, RuntimeError):
+            cand = None
+        if cand is not None and (cand / "tasks").is_dir():
+            base = cand / "tasks" / ".sessions"
+    if base is None:
+        raise OSError(
+            "brain-output persistence needs an explicit project_root holding tasks/"
+        )
+    out_dir = base / safe_key / "brain_outputs"
+    # Security: reject if the resolved path escapes project_root (symlink
+    # escape). The resolved out_dir must stay under the resolved root.
+    try:
+        root_resolved = Path(project_root).expanduser().resolve()
+        out_resolved = out_dir.resolve()
+        out_resolved.relative_to(root_resolved)
+    except (OSError, RuntimeError, ValueError):
+        raise OSError("brain-output path escapes project_root (symlink or traversal)")
+    out_dir.mkdir(parents=True, exist_ok=True)
+    return out_dir
+
+
+def _sanitize_response_id(response_id):
+    """Filesystem-safe prefix from a provider response id (or fallback)."""
+    text = str(response_id or "noresp")
+    safe = "".join(c if c.isalnum() else "_" for c in text)
+    return safe[:32] or "noresp"
+
+
+def persist_brain_turn_output(
+    project_root,
+    session_key,
+    task_id,
+    response_id,
+    xml_blocks,
+    full_output,
+    truncated,
+    clock,
+):
+    """Serialize each process-local artifact write and retention pass.
+
+    The lock prevents concurrent bridge turns from pruning against stale
+    directory snapshots. The private helper retains atomic temp-file
+    replacement and the existing result-address contract.
+    """
+    with _BRAIN_OUTPUTS_LOCK:
+        return _persist_brain_turn_output_locked(
+            project_root=project_root,
+            session_key=session_key,
+            task_id=task_id,
+            response_id=response_id,
+            xml_blocks=xml_blocks,
+            full_output=full_output,
+            truncated=truncated,
+            clock=clock,
+        )
+
+
+def _persist_brain_turn_output_locked(
+    project_root,
+    session_key,
+    task_id,
+    response_id,
+    xml_blocks,
+    full_output,
+    truncated,
+    clock,
+):
+    """Write one per-turn artifact atomically and enforce retention.
+
+    Writes JSON via temp file plus ``os.replace`` (readers never see a
+    partial file; ``uuid`` filenames keep concurrent turns collision-free),
+    prunes oldest-first to the file/byte caps without ever deleting the
+    just-written file, and returns the repo-relative POSIX address string
+    stored as ``output_address``. Persistence is best-effort for the turn
+    itself: callers must never let a persistence failure fail the turn —
+    wrap the call so an OSError degrades to ``output_address = None``
+    instead of raising.
+    """
+    out_dir = _brain_outputs_dir(project_root, session_key)
+    for stale_temp in out_dir.glob(".tmp-*.json"):
+        try:
+            stale_temp.unlink()
+        except FileNotFoundError:
+            continue
+    safe = _sanitize_response_id(response_id)
+    filename = safe + "_" + uuid.uuid4().hex + ".json"
+    target = out_dir / filename
+    created = time.strftime("%Y-%m-%dT%H:%M:%SZ", clock())
+    full_text = str(full_output or "")
+    blocks = list(xml_blocks or [])
+    # Byte counts use strict encoding; compute them inside the guard
+    # below so a lone surrogate raises OSError instead of escaping.
+    try:
+        output_byte_count = len(full_text.encode("utf-8"))
+        xml_byte_count = len(json.dumps(blocks).encode("utf-8"))
+    except (TypeError, ValueError):
+        raise OSError("brain-output artifact contains non-encodable text")
+    payload = {
+        "task_id": str(task_id or ""),
+        "session_key": str(session_key or ""),
+        "response_id": str(response_id or ""),
+        "created_at_utc": created,
+        "truncated": bool(truncated),
+        "byte_counts": {
+            "output": output_byte_count,
+            "xml_blocks": xml_byte_count,
+        },
+        "xml_blocks": blocks,
+        "full_output": full_text,
+    }
+    # Address is repo-relative POSIX so the Hands can open it from the
+    # project root with native tools; never an absolute path (no leak
+    # of machine layout into results or transcripts). project_root is
+    # guaranteed truthy here: _brain_outputs_dir above raised otherwise.
+    try:
+        rel = target.relative_to(Path(project_root).expanduser().resolve())
+        payload["address"] = str(rel).replace(os.sep, "/")
+    except (OSError, RuntimeError, ValueError, TypeError):
+        payload["address"] = str(
+            Path("tasks")
+            / ".sessions"
+            / out_dir.parent.name
+            / "brain_outputs"
+            / filename
+        ).replace(os.sep, "/")
+    try:
+        serialized_payload = json.dumps(payload, ensure_ascii=False)
+        serialized_bytes = serialized_payload.encode("utf-8")
+    except (TypeError, ValueError):
+        raise OSError("brain-output artifact contains non-encodable text")
+    if len(serialized_bytes) > BRAIN_OUTPUTS_MAX_BYTES:
+        raise OSError("brain-output artifact exceeds the per-session byte cap")
+
+    fd, tmp_name = tempfile.mkstemp(dir=str(out_dir), prefix=".tmp-", suffix=".json")
+    try:
+        with os.fdopen(fd, "wb") as handle:
+            handle.write(serialized_bytes)
+        os.replace(tmp_name, target)
+    except BaseException:
+        try:
+            os.unlink(tmp_name)
+        except OSError:
+            pass
+        raise
+    try:
+        entries = [
+            p
+            for p in out_dir.iterdir()
+            if p.is_file() and p.suffix == ".json" and not p.name.startswith(".tmp-")
+        ]
+        entries.sort(key=lambda p: p.stat().st_mtime)
+        total = sum(p.stat().st_size for p in entries)
+        while (
+            len(entries) > BRAIN_OUTPUTS_MAX_FILES or total > BRAIN_OUTPUTS_MAX_BYTES
+        ) and len(entries) > 1:
+            # Never remove the just-written file, even if it sorts oldest
+            # by mtime (clock skew, explicit utime in tests). Pick the
+            # oldest *other* entry; if the only candidate is the target
+            # itself, stop rather than delete it or miscount the cap.
+            try:
+                target_resolved = target.resolve()
+            except (OSError, RuntimeError):
+                target_resolved = None
+            candidate = None
+            for entry in entries:
+                if entry == target:
+                    continue
+                if target_resolved is not None:
+                    try:
+                        if entry.resolve() == target_resolved:
+                            continue
+                    except (OSError, RuntimeError):
+                        pass
+                candidate = entry
+                break
+            if candidate is None:
+                # Only the target remains; cannot prune further.
+                break
+            entries.remove(candidate)
+            try:
+                total -= candidate.stat().st_size
+                candidate.unlink()
+            except OSError:
+                break
+    except OSError:
+        pass
+    return payload["address"]
 
 
 # Guardrail for path injection (state-machine hotfix round).
@@ -4508,6 +4746,26 @@ def brain_turn(
         "retry_count": _total_attempts,
         "prompt_cache_split": cache_split,
     }
+    # Per-turn persistence (best-effort by design): the artifact holds
+    # xml_blocks plus the full raw output so a truncated inline payload
+    # can be recovered from ``output_address`` with native tools. A
+    # persistence failure must never fail the turn itself. The clock is
+    # injected (universal datetime rule) rather than read from the
+    # wall clock inside the helper.
+    try:
+        result["output_address"] = persist_brain_turn_output(
+            project_root,
+            history_key,
+            task_id,
+            diag.get("response_id"),
+            xml_blocks,
+            output,
+            diag.get("status") == "incomplete",
+            clock=time.gmtime,
+        )
+    except OSError as exc:
+        print(f"brain-bridge: output persistence skipped ({exc})", file=sys.stderr)
+        result["output_address"] = None
     debug: dict[str, Any] = {"provider": diag}
     if fence_drops:
         debug["fenced_blocks"] = len(fence_drops)

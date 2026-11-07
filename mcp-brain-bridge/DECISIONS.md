@@ -1,5 +1,13 @@
 # Architectural Decisions: mcp-brain-bridge
 
+## [2026-11-07] ADR-013: per-turn Brain-output persistence with address
+
+- **Context:** truncated `brain_turn` payloads left the Hands no way to recover the tail — the inline result was the only copy, so a cut XML block or verdict forced a full re-emit turn.
+- **Decision:** every turn attempts one JSON artifact (`tasks/.sessions/<session>/brain_outputs/<resp>_<uuid>.json`, temp+rename) with metadata, `xml_blocks`, and the full raw output; the result carries the repo-relative `output_address`. Retention (50 files / 5 MB per session, oldest-first, never the just-written file) is enforced at the same write point. If one serialized artifact alone exceeds the byte cap, reject it before temp-file creation; the existing caller degrades the `OSError` to `output_address = None` and keeps the turn successful. Addresses stay repo-relative; `.tmp-` files never count toward caps.
+- **Consequences:** truncated tails are recoverable with native `read`/shell; prompt contract gains the `output_address` fallback sentence. Scratch dir is regenerable, never source of truth.
+- **Follow-up fix (QA hotfix):** artifact writes and retention pruning are serialized with a process-local RLock so concurrent turns prune against fresh snapshots; abandoned `.tmp-*.json` files are removed at the start of each write (under the same lock) since a hard crash bypasses the write-failure cleanup. Pinned by byte-cap, concurrency, and stale-temp regression tests.
+- **Rollback:** revert the helper + call site + fragment/executor sentences + pin tests; rebuild system-prompt.md; delete scratch dirs.
+
 ## [2026-11-06] ADR-012: unlisted-suffix sniffing + no-repeat on unavailable paths
 
 - **Context:** a planning loop re-requested `.env.example#L75-100` three times. The suffix allowlist rejected it (`unsupported extension`, zero chars injected both times — proven in the context ledger), and the No-Hallucination contract had no rule for `[unavailable: ...]` labels, so contract-compliant re-requests looped until the Hands-side stop fired.

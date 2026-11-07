@@ -11,6 +11,7 @@ Brain Bridge MCP daemon: single-tool (`brain_turn`) automation path for planning
 - `preflight.py` — Request validation (project_root must hold `tasks/`, memory binding).
 - `loop_guard.py` — Diff-hash spin guard (same hash 3x stops autopilot fix loop).
 - `session_ledger.py` — Append-only JSONL session event ledger under `tasks/.sessions/`.
+- Per-turn artifacts: each `brain_turn` attempts to write `tasks/.sessions/<session>/brain_outputs/<resp>_<uuid>.json` (`xml_blocks` + full raw output); the result's `output_address` points at it for truncated-tail recovery. An artifact whose serialized JSON exceeds the 5 MB session byte cap is skipped before temp-file creation and yields `output_address = None` while the turn continues. Retention is capped at 50 files / 5 MB per session, oldest-first. Artifact writes and retention pruning are serialized within the bridge process (RLock); abandoned `.tmp-` files are removed before each new write.
 - `pyproject.toml` / `uv.lock` — Runtime deps and lockfile (`mcp[cli]`, stdlib-first helpers).
 - `context-reports/` — Generated context output (do not hand-read; feed via MCP).
 - `context_paths` line slices: `brain_turn(context_paths=[...])` accepts

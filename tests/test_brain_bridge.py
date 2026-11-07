@@ -7,7 +7,10 @@ Responses-API text parser, and env fallbacks. The live LLM path
 """
 
 import os
+import json
 import sys
+import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pytest
@@ -4672,3 +4675,524 @@ def test_record_brain_use_survives_corrupt_file(tmp_path, monkeypatch, capsys):
         {"count": 9, "cap": 10, "warn_at": 5, "warn": True, "model": None}
     )
     assert "monthly Brain usage 9/10" in capsys.readouterr().err
+
+
+def test_brain_output_persisted_every_turn(tmp_path, monkeypatch):
+    """Every turn persists xml_blocks plus the full raw output."""
+    monkeypatch.delenv("BRAIN_SESSIONS_ROOT", raising=False)
+    root = _mk_tasks_root(tmp_path)
+    for truncated in (False, True):
+        addr = bridge.persist_brain_turn_output(
+            str(root),
+            "ses1",
+            "0383",
+            "resp_abc123",
+            ["<hands_implementation_task>do</hands_implementation_task>"],
+            "full-output-body",
+            truncated,
+            clock=time.gmtime,
+        )
+        assert addr and not Path(addr).is_absolute()
+        artifact = root / addr
+        assert artifact.is_file()
+        payload = json.loads(artifact.read_text(encoding="utf-8"))
+        assert payload["xml_blocks"] == [
+            "<hands_implementation_task>do</hands_implementation_task>"
+        ]
+        assert payload["full_output"] == "full-output-body"
+        assert payload["truncated"] is truncated
+        assert payload["task_id"] == "0383"
+        assert payload["response_id"] == "resp_abc123"
+        assert payload["address"] == addr
+        assert set(payload["byte_counts"]) == {"output", "xml_blocks"}
+
+
+def test_brain_output_address_present_and_backward_compat(tmp_path, monkeypatch):
+    """Address is additive metadata; committed schema stays fixed."""
+    monkeypatch.delenv("BRAIN_SESSIONS_ROOT", raising=False)
+    root = _mk_tasks_root(tmp_path)
+    addr = bridge.persist_brain_turn_output(
+        str(root),
+        "ses1",
+        "0383",
+        "resp_xyz",
+        [],
+        "body",
+        False,
+        clock=time.gmtime,
+    )
+    assert isinstance(addr, str) and addr.startswith("tasks/.sessions/ses1_")
+    payload = json.loads((root / addr).read_text(encoding="utf-8"))
+    assert set(payload) == {
+        "task_id",
+        "session_key",
+        "response_id",
+        "created_at_utc",
+        "truncated",
+        "byte_counts",
+        "xml_blocks",
+        "full_output",
+        "address",
+    }
+    assert "unknown" not in addr
+    # No absolute machine layout may leak into the persisted address.
+    assert str(tmp_path) not in addr and str(root) not in addr
+
+
+def test_brain_output_retention_cap_enforced(tmp_path, monkeypatch):
+    """Oldest-first prune keeps newest; temp files never count."""
+    monkeypatch.delenv("BRAIN_SESSIONS_ROOT", raising=False)
+    monkeypatch.setattr(bridge, "BRAIN_OUTPUTS_MAX_FILES", 3)
+    root = _mk_tasks_root(tmp_path)
+    out_dir = root / "tasks" / ".sessions" / "ses1_9cf38be4" / "brain_outputs"
+    addrs = []
+    for i in range(5):
+        addr = bridge.persist_brain_turn_output(
+            str(root),
+            "ses1",
+            "0383",
+            f"resp_{i}",
+            [],
+            f"body-{i}",
+            False,
+            clock=time.gmtime,
+        )
+        addrs.append(addr)
+        (root / addr).write_text(
+            (root / addr).read_text(encoding="utf-8"), encoding="utf-8"
+        )
+        stamp = 1700000000 + i
+        import os as _os
+
+        _os.utime(root / addr, (stamp, stamp))
+    # One stray temp file must neither count nor survive accounting.
+    (out_dir / ".tmp-crash.json").write_text("partial", encoding="utf-8")
+    newest = bridge.persist_brain_turn_output(
+        str(root),
+        "ses1",
+        "0383",
+        "resp_new",
+        [],
+        "body-new",
+        False,
+        clock=time.gmtime,
+    )
+    import os as _os2
+
+    _os2.utime(root / newest, (1800000000, 1800000000))
+    assert not (out_dir / ".tmp-crash.json").exists()
+    kept = sorted(p for p in out_dir.iterdir() if p.is_file() and p.suffix == ".json")
+    real = [p for p in kept if not p.name.startswith(".tmp-")]
+    assert len(real) <= 3
+    assert (root / newest).is_file()
+
+
+def test_brain_output_address_readable_tail(tmp_path, monkeypatch):
+    """The Hands can recover the tail from the address with native reads."""
+    monkeypatch.delenv("BRAIN_SESSIONS_ROOT", raising=False)
+    root = _mk_tasks_root(tmp_path)
+    body = "head\n" + "x" * 5000 + "\nTAIL-MARKER-12345\n"
+    addr = bridge.persist_brain_turn_output(
+        str(root),
+        "ses9",
+        "0383",
+        "resp_tail",
+        ["<hands_implementation_task>tail</hands_implementation_task>"],
+        body,
+        True,
+        clock=time.gmtime,
+    )
+    # Simulate the Hands: open the address from the project root.
+    recovered = (root / addr).read_text(encoding="utf-8")
+    assert "TAIL-MARKER-12345" in recovered
+    payload = json.loads(recovered)
+    assert payload["full_output"].endswith("TAIL-MARKER-12345\n")
+    assert payload["xml_blocks"] == [
+        "<hands_implementation_task>tail</hands_implementation_task>"
+    ]
+
+
+def test_brain_output_uses_injected_clock(tmp_path, monkeypatch):
+    """Timestamp creation goes through the injected clock, not direct time."""
+    monkeypatch.delenv("BRAIN_SESSIONS_ROOT", raising=False)
+    root = _mk_tasks_root(tmp_path)
+    import time as _time
+
+    fixed = _time.struct_time((2025, 1, 2, 3, 4, 5, 0, 0, 0))
+    addr = bridge.persist_brain_turn_output(
+        str(root),
+        "clock",
+        "0383",
+        "resp_clock",
+        [],
+        "b",
+        False,
+        clock=lambda: fixed,
+    )
+    payload = json.loads((root / addr).read_text(encoding="utf-8"))
+    assert payload["created_at_utc"] == "2025-01-02T03:04:05Z"
+
+
+def test_brain_output_unencodable_session_key_rejected(tmp_path, monkeypatch):
+    """A lone surrogate in the session key degrades to OSError, not a crash."""
+    monkeypatch.delenv("BRAIN_SESSIONS_ROOT", raising=False)
+    root = _mk_tasks_root(tmp_path)
+    with pytest.raises(OSError):
+        bridge.persist_brain_turn_output(
+            str(root),
+            "ses\udcff",
+            "0383",
+            "resp_uni",
+            [],
+            "b",
+            False,
+            clock=time.gmtime,
+        )
+
+
+def test_brain_output_symlink_loop_is_normalized_to_oserror(tmp_path, monkeypatch):
+    """Path.resolve loop errors enter the best-effort OSError path."""
+    monkeypatch.delenv("BRAIN_SESSIONS_ROOT", raising=False)
+    root = _mk_tasks_root(tmp_path)
+    original_resolve = Path.resolve
+
+    def resolve_with_loop(path, *args, **kwargs):
+        if path.name == "brain_outputs":
+            raise RuntimeError("Symlink loop")
+        return original_resolve(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "resolve", resolve_with_loop)
+
+    with pytest.raises(OSError, match="brain-output path escapes project_root"):
+        bridge.persist_brain_turn_output(
+            str(root),
+            "symlink-loop",
+            "0383",
+            "response-loop",
+            [],
+            "body",
+            False,
+            clock=time.gmtime,
+        )
+
+
+def test_brain_output_unicode_surrogate_rejected(tmp_path, monkeypatch):
+    """A lone surrogate raises OSError instead of escaping persistence."""
+    monkeypatch.delenv("BRAIN_SESSIONS_ROOT", raising=False)
+    root = _mk_tasks_root(tmp_path)
+    bad = "body with lone surrogate \udcff"
+    with pytest.raises(OSError):
+        bridge.persist_brain_turn_output(
+            str(root),
+            "uni",
+            "0383",
+            "resp_uni",
+            [],
+            bad,
+            False,
+            clock=time.gmtime,
+        )
+
+
+def test_brain_output_symlink_escape_rejected(tmp_path, monkeypatch):
+    """A symlinked sessions path that escapes project_root is rejected."""
+    monkeypatch.delenv("BRAIN_SESSIONS_ROOT", raising=False)
+    root = _mk_tasks_root(tmp_path)
+    outside = tmp_path.parent / "outside-escape"
+    outside.mkdir(exist_ok=True)
+    # Symlink tasks/.sessions -> outside directory.
+    sessions = root / "tasks" / ".sessions"
+    if sessions.exists():
+        import shutil
+
+        shutil.rmtree(sessions)
+    sessions.symlink_to(outside, target_is_directory=True)
+
+    with pytest.raises(OSError):
+        bridge.persist_brain_turn_output(
+            str(root), "escape", "0383", "r", [], "b", False, clock=time.gmtime
+        )
+    # Nothing should have been written outside.
+    assert list(outside.iterdir()) == []
+    """No ambient/cwd fallback: rootless turns persist nothing, loudly."""
+    monkeypatch.delenv("BRAIN_SESSIONS_ROOT", raising=False)
+    with pytest.raises(OSError):
+        bridge.persist_brain_turn_output(
+            None, "ses1", "0383", "r", [], "b", False, clock=time.gmtime
+        )
+    with pytest.raises(OSError):
+        bridge.persist_brain_turn_output(
+            str(tmp_path),
+            "ses1",
+            "0383",
+            "r",
+            [],
+            "b",
+            False,
+            clock=time.gmtime,
+        )
+
+
+def test_brain_output_retention_byte_cap_enforced(tmp_path, monkeypatch):
+    """Prune older complete artifacts until the per-session byte cap is met."""
+    monkeypatch.delenv("BRAIN_SESSIONS_ROOT", raising=False)
+    monkeypatch.setattr(bridge, "BRAIN_OUTPUTS_MAX_FILES", 50)
+    monkeypatch.setattr(bridge, "BRAIN_OUTPUTS_MAX_BYTES", 2048)
+    root = _mk_tasks_root(tmp_path)
+    latest = None
+
+    for index in range(8):
+        latest = bridge.persist_brain_turn_output(
+            str(root),
+            "byte-cap",
+            "0383",
+            f"response-{index}",
+            [],
+            "x" * 700,
+            False,
+            clock=time.gmtime,
+        )
+
+    out_dir = root / "tasks" / ".sessions" / "byte-cap_52977f22" / "brain_outputs"
+    artifacts = [
+        path
+        for path in out_dir.iterdir()
+        if path.is_file()
+        and path.suffix == ".json"
+        and not path.name.startswith(".tmp-")
+    ]
+    assert latest is not None
+    assert (root / latest).is_file()
+    assert sum(path.stat().st_size for path in artifacts) <= 2048
+
+
+def test_brain_output_retention_preserves_newest_when_it_sorts_first(
+    tmp_path, monkeypatch
+):
+    """The just-written file survives even when it sorts first by mtime."""
+    monkeypatch.delenv("BRAIN_SESSIONS_ROOT", raising=False)
+    monkeypatch.setattr(bridge, "BRAIN_OUTPUTS_MAX_FILES", 3)
+    root = _mk_tasks_root(tmp_path)
+    out_dir = root / "tasks" / ".sessions" / "sort-first_3f94209f" / "brain_outputs"
+
+    addresses = []
+    # Write the first 4 artifacts with LATE mtimes so they sort AFTER the
+    # next write. The next (5th) write receives the default "now" mtime
+    # which is EARLIER than the existing LATE stamps, so it sorts FIRST
+    # in the retention loop — the exact edge case that broke the previous
+    # implementation (pop(0) then continue).
+    for index in range(4):
+        addr = bridge.persist_brain_turn_output(
+            str(root),
+            "sort-first",
+            "0383",
+            f"response-{index}",
+            [],
+            "b",
+            False,
+            clock=time.gmtime,
+        )
+        addresses.append(addr)
+        import os as _os
+
+        # LATE mtime: far in the future so the 5th artifact (mtime=now,
+        # earlier) sorts first during pruning.
+        _os.utime(root / addr, (9_999_999_999, 9_999_999_999))
+
+    # Now write the 5th artifact. Its default mtime is "now" which is
+    # EARLIER than the existing LATE stamps, so it sorts first.
+    addr = bridge.persist_brain_turn_output(
+        str(root),
+        "sort-first",
+        "0383",
+        "response-4",
+        [],
+        "b",
+        False,
+        clock=time.gmtime,
+    )
+    addresses.append(addr)
+
+    kept = [
+        p
+        for p in out_dir.iterdir()
+        if p.is_file() and p.suffix == ".json" and not p.name.startswith(".tmp-")
+    ]
+    assert len(kept) <= 3
+    # The newest (5th, last-written) artifact must survive even though it
+    # now has the earliest mtime and sorts first in the prune loop.
+    assert (root / addresses[-1]).is_file()
+
+
+def test_brain_output_retention_is_concurrency_safe(tmp_path, monkeypatch):
+    """Concurrent turns leave complete JSON artifacts within the file cap."""
+    monkeypatch.delenv("BRAIN_SESSIONS_ROOT", raising=False)
+    monkeypatch.setattr(bridge, "BRAIN_OUTPUTS_MAX_FILES", 3)
+    root = _mk_tasks_root(tmp_path)
+
+    def write_output(index):
+        return bridge.persist_brain_turn_output(
+            str(root),
+            "concurrent",
+            "0383",
+            f"response-{index}",
+            [f"<result>{index}</result>"],
+            f"body-{index}",
+            False,
+            clock=time.gmtime,
+        )
+
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        list(executor.map(write_output, range(40)))
+
+    out_dir = root / "tasks" / ".sessions" / "concurrent_a35178ec" / "brain_outputs"
+    artifacts = [
+        path
+        for path in out_dir.iterdir()
+        if path.is_file()
+        and path.suffix == ".json"
+        and not path.name.startswith(".tmp-")
+    ]
+    assert len(artifacts) <= 3
+    for artifact in artifacts:
+        payload = json.loads(artifact.read_text(encoding="utf-8"))
+        assert payload["full_output"].startswith("body-")
+        assert payload["xml_blocks"]
+
+
+def test_brain_output_oversized_artifact_is_rejected_before_temp_creation(
+    tmp_path, monkeypatch
+):
+    """An artifact larger than the session byte cap is never written."""
+    monkeypatch.delenv("BRAIN_SESSIONS_ROOT", raising=False)
+    monkeypatch.setattr(bridge, "BRAIN_OUTPUTS_MAX_BYTES", 512)
+    root = _mk_tasks_root(tmp_path)
+
+    with pytest.raises(OSError, match="exceeds the per-session byte cap"):
+        bridge.persist_brain_turn_output(
+            str(root),
+            "oversized",
+            "0383",
+            "response-too-large",
+            [],
+            "x" * 4096,
+            False,
+            clock=time.gmtime,
+        )
+
+    out_dir = root / "tasks" / ".sessions" / "oversized_9fff661f" / "brain_outputs"
+    assert out_dir.is_dir()
+    assert list(out_dir.iterdir()) == []
+
+
+def test_brain_output_retention_symlink_loop_degrades(tmp_path, monkeypatch):
+    """A resolve() loop during pruning degrades; the turn still persists."""
+    monkeypatch.delenv("BRAIN_SESSIONS_ROOT", raising=False)
+    monkeypatch.setattr(bridge, "BRAIN_OUTPUTS_MAX_FILES", 2)
+    root = _mk_tasks_root(tmp_path)
+    for rid in ("resp_loop_a", "resp_loop_b"):
+        bridge.persist_brain_turn_output(
+            str(root),
+            "ses1",
+            "0383",
+            rid,
+            [],
+            f"body-{rid}",
+            False,
+            clock=time.gmtime,
+        )
+    real_resolve = Path.resolve
+
+    def looping_resolve(self, *args, **kwargs):
+        if self.name.startswith("resp_loop"):
+            raise RuntimeError("Symlink loop")
+        return real_resolve(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "resolve", looping_resolve)
+    addr = bridge.persist_brain_turn_output(
+        str(root),
+        "ses1",
+        "0383",
+        "resp_ok_c",
+        [],
+        "body-ok",
+        False,
+        clock=time.gmtime,
+    )
+    assert addr and (root / addr).is_file()
+    out_dir = root / "tasks" / ".sessions" / "ses1_9cf38be4" / "brain_outputs"
+    kept = [
+        p
+        for p in out_dir.iterdir()
+        if p.is_file() and p.suffix == ".json" and not p.name.startswith(".tmp-")
+    ]
+    assert len(kept) <= 2
+
+
+def test_brain_output_retention_target_resolve_failure_prunes(tmp_path, monkeypatch):
+    """Target resolve failure still prunes; newest survives by identity."""
+    monkeypatch.delenv("BRAIN_SESSIONS_ROOT", raising=False)
+    monkeypatch.setattr(bridge, "BRAIN_OUTPUTS_MAX_FILES", 2)
+    root = _mk_tasks_root(tmp_path)
+    for rid in ("resp_old_a", "resp_old_b"):
+        bridge.persist_brain_turn_output(
+            str(root),
+            "ses1",
+            "0383",
+            rid,
+            [],
+            f"body-{rid}",
+            False,
+            clock=time.gmtime,
+        )
+    real_resolve = Path.resolve
+
+    def selective_resolve(self, *args, **kwargs):
+        if self.name.startswith("resp_new"):
+            raise RuntimeError("target resolve loop")
+        return real_resolve(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "resolve", selective_resolve)
+    addr = bridge.persist_brain_turn_output(
+        str(root),
+        "ses1",
+        "0383",
+        "resp_new_c",
+        [],
+        "body-new",
+        False,
+        clock=time.gmtime,
+    )
+    assert addr and (root / addr).is_file()
+    out_dir = root / "tasks" / ".sessions" / "ses1_9cf38be4" / "brain_outputs"
+    kept = [
+        p
+        for p in out_dir.iterdir()
+        if p.is_file() and p.suffix == ".json" and not p.name.startswith(".tmp-")
+    ]
+    assert len(kept) <= 2
+    assert (root / addr).is_file()
+
+
+def test_brain_turn_output_address_propagated_and_degraded(tmp_path, monkeypatch):
+    """Call-site: address present on success, None on persistence failure."""
+    monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
+    _mk_sys_prompt(tmp_path, monkeypatch)
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    monkeypatch.delenv("BRAIN_TEMPERATURE", raising=False)
+    root = _mk_tasks_root(tmp_path)
+    _mk_bridge_client(monkeypatch, [_FakeResp(200, "fine", _ok_payload())])
+    call = bridge.brain_turn
+    target = call.fn if hasattr(call, "fn") else call
+    result = target("q", task_id="218", include_bundle=False, project_root=str(root))
+    assert result["output_address"] is not None
+    assert (root / result["output_address"]).is_file()
+
+    def _boom(*args, **kwargs):
+        raise OSError("disk gone")
+
+    monkeypatch.setattr(bridge, "persist_brain_turn_output", _boom)
+    _mk_bridge_client(monkeypatch, [_FakeResp(200, "fine", _ok_payload())])
+    degraded = target("q", task_id="218", include_bundle=False, project_root=str(root))
+    assert degraded["output_address"] is None
+    assert degraded["status"] == "REPORT"

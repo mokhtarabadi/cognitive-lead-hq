@@ -26,8 +26,8 @@ def _read(path):
     return path.read_text(encoding="utf-8")
 
 
-def test_rtk_mandate_in_shipped_prompt():
-    text = _read(SHIPPED)
+def test_rtk_mandate_in_executor():
+    text = _read(EXECUTOR)
     assert "CRITICAL RULE 3b (Token trimming)" in text
     assert "rtk test" in text
     assert "never collapse failing output" in text
@@ -47,7 +47,7 @@ def test_shipped_version_is_expected_minor_bump():
     shipped = re.search(
         r"<system_version>(.*?)</system_version>", _read(SHIPPED)
     ).group(1)
-    assert shipped == "9.74.0"
+    assert shipped == "9.75.0"
 
 
 def test_shipped_prompt_documents_context_path_line_ranges():
@@ -340,7 +340,19 @@ def test_executor_review_relay_accepts_closure_answer_envelope():
     )
 
 
-def test_closure_answer_verbatim_forwarding_is_pinned():
+def test_executor_contains_full_dto_mandate():
+    """The full No-Manual-DTO mandate lives in the executor, not the prompt."""
+    executor = _read(EXECUTOR)
+    assert "No-Manual-DTO Mandate (full rule text, owned by Hands)" in executor
+    assert "Hand-written duplicates create silent type drift" in executor
+    assert "If NO source-of-truth contract exists" in executor
+    assert "Type Drift Sentinel" in executor
+    conventions = (REPO / "docs" / "conventions.md").read_text(encoding="utf-8")
+    assert "agents/cognitive-executor.md" in conventions
+    assert (
+        "system-prompt.md"
+        not in conventions.split("No-Manual-DTO", 1)[1].split("##", 1)[0]
+    )
     executor = (REPO / "agents" / "cognitive-executor.md").read_text(encoding="utf-8")
 
     assert (
@@ -357,9 +369,9 @@ def test_closure_answer_verbatim_forwarding_is_pinned():
     )
 
 
-def test_shipped_prompt_version_is_9_74_0():
+def test_shipped_prompt_version_is_9_75_0():
     prompt = _read_shipped_prompt_for_approval_contract()
-    assert "9.74.0" in prompt
+    assert "9.75.0" in prompt
 
 
 def test_assembler_output_matches_shipped(tmp_path):
@@ -372,6 +384,74 @@ def test_assembler_output_matches_shipped(tmp_path):
     )
     assert proc.returncode == 0, proc.stderr[-2000:]
     assert out.read_text(encoding="utf-8") == _read(SHIPPED)
+
+
+def test_executor_manual_implementation_review_chain_is_explicit():
+    """Manual implementation handoffs must explicitly chain QA/review."""
+    executor = _read(EXECUTOR)
+    manual = executor.split("## Manual Workflow (Active Default)", 1)[1].split(
+        "## Code Mode Tool Calling Protocol", 1
+    )[0]
+
+    assert "Mandatory manual review chain" in manual
+    assert "same `task_id` and `session_id`" in manual
+    assert "`include_diff=True`" in manual
+    assert "logic, backend, or state changes" in manual
+    assert "`[QA Engineer]`" in manual
+    assert "documentation, CSS, or trivial changes" in manual
+    assert "`[Code Reviewer]`" in manual
+    assert "After `QA_PASSED`" in manual
+    assert "Do not claim QA/review was chained" in manual
+
+
+def test_executor_owns_shell_precommit_docs_syntax_discipline():
+    """Hands-only shell/pre-commit/docs/syntax rules live in the executor."""
+    executor = _read(EXECUTOR)
+    assert "Shell, Pre-commit, Documentation & Syntax Discipline" in executor
+    assert "non-interactive only" in executor
+    assert "registry authentication" in executor
+    assert "token scope validation" in executor
+    assert "network access" in executor
+    assert "maximum docstrings" in executor
+    assert "inline comments on non-obvious logic" in executor
+    assert "Verify types and syntax with the language/type-check tooling" in executor
+    assert "Terminal output over 2000 lines or 50KB is truncated" in executor
+    assert "pipe through grep or tail" in executor
+    assert "maximum of 3 repair attempts" in executor
+    assert "detailing the exact errors for the Manager" in executor
+
+
+def test_executor_rule_validation_and_git_restriction():
+    """Rule validation covers skill files; other Git cmds need listing."""
+    executor = _read(EXECUTOR)
+    assert (
+        "cross-check these instructions against AGENTS.md, DESIGN.md, and loaded SKILL files"
+        in executor
+    )
+    assert "run no bash commands before validation passes" in executor
+    assert (
+        "You may ONLY run other Git commands if they are explicitly listed" in executor
+    )
+    assert "never run destructive Git operations" in executor
+
+
+def test_executor_frontmatter_denies_checkout():
+    """Permission layer denies git checkout*, matching the ZAC claim."""
+    executor = _read(EXECUTOR)
+    assert '"git checkout*": "deny"' in executor
+
+
+def test_executor_verification_gate_and_documentation_rule():
+    """CRITICAL GATE FUNCTION and full documentation rule live in executor."""
+    executor = _read(EXECUTOR)
+    assert "CRITICAL GATE FUNCTION" in executor
+    assert "verification-before-completion" in executor
+    assert "architectural notes" in executor
+    assert "what you changed, and why" in executor
+    assert "MUST be written in English" in executor
+    assert "Check off any local TODOs" in executor
+    assert "NEVER write task numbers into prompt-facing Markdown" in executor
+    assert "Living Folder Docs Sync" in executor
 
 
 def test_executor_names_rtk_default_runner():
