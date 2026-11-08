@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [9.77.0] - 2026-11-08
+
+
 ### Changed
 
 - Comprehensive repository audit (Task 0385): purged contradictions, phantom references, and cruft across 5 domains.
