@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- Decoupled True Manual Mode (External Brain with Manager as human courier) from Automatic Mode (headless MCP Brain Bridge).
+- Updated `prompts/fragments/02-role.md`, `06-personas.md`, `09-hands_protocols.md`, and `19-initialization.md` with explicit dual-mode branching.
+- Restored fenced prompt emission in `cognitive-executor.md` and `AGENTS.md` for manual courier handoffs.
+- System prompt 9.75.0 → 9.76.0 via the assembler.
+
+
 ### Fixed
 
 - Fix closure approval handling for question-tool answer envelopes and preserve approval answers verbatim.

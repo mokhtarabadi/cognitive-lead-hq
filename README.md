@@ -81,7 +81,11 @@ The AI will process your inline feedback, generate a revised plan, and wait for 
 
 ## ⚡ Manual Mode Workflow (Pure-MCP Human-in-the-Loop) — ACTIVE / DEFAULT
 
-> **Brain Bridge active:** QA/review run through one MCP (`brain_turn`) — no manual ferrying, no per-persona commands. This manual cycle remains available; autopilot mode runs it end-to-end.
+> **Two distinct topologies:**
+> - **True Manual Mode (External Brain):** The Brain runs in an external chat window (Claude Web, ChatGPT, etc.) with NO access to the local filesystem. The Manager acts as the human courier: the Hands emits fenced prompts and task paths; the Manager copies them to the external Brain; the Brain emits fenced XML blocks; the Manager copies them to the Hands. No `mcp-brain-bridge` communication.
+> - **Automatic / Autopilot Mode (MCP Brain Bridge):** OpenCode runs with `mcp-brain-bridge` active. The Hands calls `brain_turn` directly. The Manager supervises and approves gates, never ferrying task text. 100% headless MCP cycle.
+
+> **Brain Bridge active (automatic mode):** QA/review run through one MCP (`brain_turn`) — no manual ferrying, no per-persona commands. This manual cycle remains available; autopilot mode runs it end-to-end.
 
 This is the canonical pure-MCP cycle:
 
@@ -99,7 +103,9 @@ All transitions use pure FastMCP tools (`custom_context_qa_transition`, `bundle_
 There is no switch in code — the switch is words, and enforcement is
 prompt-level only (no code lock; the lock is recorded in the task file):
 
-- **Manual (default).** The Hands still calls the Brain itself, but questions and approvals come to you. You never ferry XML or task text between them.
+- **Manual (default).** Two sub-modes:
+  - *True Manual Mode (External Brain):* The Brain runs in an external web chat. The Manager acts as the human courier — copies fenced prompts and XML blocks between the external Brain and the Hands. The Hands emits fenced handoff blocks for the Manager to ferry.
+  - *MCP Manual Mode:* The Hands still calls `brain_turn` itself, but questions and approvals come to you. You never ferry XML or task text between them.
 - **Autopilot (locked).** Say "on autopilot do X". The Hands announces the lock in one line and runs end-to-end (implement, Brain-QA, fix, Brain-review, stage, move to QA) with zero pauses — stopping only for hard blockers. It never auto-commits and never closes tasks; closure always needs your explicit approval word.
 - **Switch back.** Say "manual mode" or "back to manual". The lock breaks at once.
 - **How you always know.** The Hands confirms every switch in one line ("Autopilot locked for …" / "Back to manual.") and records the lock in the task file.

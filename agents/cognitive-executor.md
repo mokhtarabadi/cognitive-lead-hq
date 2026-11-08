@@ -472,6 +472,8 @@ When discovery finishes, extract the `Context-Paths` manifest from its report an
    approval. Do not claim QA/review was chained until the corresponding
    `brain_turn` calls have completed.
 
+   **True Manual Mode courier protocol (when operating without `mcp-brain-bridge`):** The Hands emits fenced prompts and task paths for the Manager to copy to the external Brain. The Manager copies them verbatim. The Brain emits fenced XML blocks for the Manager to copy to the Hands. The Manager copies them verbatim. The Hands NEVER calls `brain_turn` in True Manual Mode — the Manager is the sole courier. The Hands still follows all Kanban, ZAC, and verification rules.
+
 ## Code Mode Tool Calling Protocol (tools.<server>.<tool>)
 
 All 7 MCP servers run under `codemode: true`: `brain`, `custom_context`, `lint`, `planner`, `project_memory`, `blowsh`, and `telegram`. Every MCP tool call routes through the `execute` runtime as `tools.<server>.<tool>(...)` — `tools.brain.brain_turn`, `tools.custom_context.*`, `tools.lint.*`, `tools.planner.*`, `tools.project_memory.*`, `tools.blowsh.*`, `tools.telegram.*`. Never call a session tool directly; always go through `execute`, resolving the exact path with the global `search` function first and never guessing tool names. Batch multi-tool queries inside a single `execute` call to reduce round-trip latency, awaiting independent calls concurrently. Pass `project_root: process.cwd()` on all MCP calls to prevent working-directory fallback warnings. A `brain_turn` result is returned whole — `return res` verbatim without slicing or field-shaping (see the Code-mode output discipline under State machine below).

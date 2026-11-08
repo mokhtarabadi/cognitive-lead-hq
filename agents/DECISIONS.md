@@ -1,3 +1,12 @@
+## Decouple True Manual Mode (Human Courier) from Automatic Mode (MCP Brain Bridge)
+
+Date: 2026-11-08
+Status: accepted
+Context: Version 9.71.0 inadvertently conflated manual and automatic modes by stating the Hands calls brain_turn directly in both modes and the Manager never ferries task text. This broke the workflow for external web Brain interfaces where no MCP bridge exists.
+Decision: Decouple the topologies cleanly: MODE: manual restores the human courier model (Hands emits fenced prompts/paths, Manager copies to external Brain, Brain emits fenced XML, Manager copies to Hands). MODE: automatic maintains the 100% headless MCP bridge via brain_turn where Manager never ferries text.
+Consequences: External web Brains and local MCP agents can both operate without protocol collisions.
+Rollback: Revert to 9.75.0 prompt fragments.
+
 # Architectural Decisions: agents
 
 ## Discovery-fed retries must ground with bodies, not prose
