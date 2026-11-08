@@ -116,7 +116,7 @@ grep -rhn "^# Task [0-9][0-9]*:" tasks/ | sort | uniq -d
 # Duplicate-ID check (active Kanban dirs only — archive never blocks)
 find tasks/backlog tasks/in-progress tasks/qa tasks/completed -type f -name "*.md" -exec basename {} \; | grep -Eo '^[0-9]+' | sort | uniq -d
 # Collision check
-ls tasks/backlog/${NEXT_ID}-*.md 2>/dev/null
+ls tasks/backlog/${NEXT_ID}-*.md
 ```
 
 If any check returns output, HALT and report the collision. Do NOT overwrite files. Archive is a historical record and MUST NOT be included in the blocking duplicate-ID check. If archive duplicates are discovered separately, report them as a warning only, never HALT task creation. Then confirm the generated task file includes the same `## Definition of Done` block as `task-generator` (Build/Test/Lint exit 0, `lint_task_file` passes, `CHANGELOG.md` via Parse-Then-Append, `verification-before-completion` evidence).
@@ -129,7 +129,7 @@ Run this bash command (searches across all Kanban subdirectories):
 
 ```bash
 NEXT_ID=$(find tasks/ -type f -name "*.md" -exec basename {} \; | grep -Eo '^[0-9]+' | sort -n | tail -1 | awk '{print $1+1}')
-if [ -z "$NEXT_ID" ] || [ "$NEXT_ID" -eq 0 ] 2>/dev/null; then NEXT_ID="01"; fi
+if [ -z "$NEXT_ID" ] || [ "$NEXT_ID" -eq 0 ]; then NEXT_ID="01"; fi
 printf "%02d\n" $NEXT_ID
 ```
 

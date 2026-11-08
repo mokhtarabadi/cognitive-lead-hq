@@ -47,7 +47,7 @@ def test_shipped_version_is_expected_minor_bump():
     shipped = re.search(
         r"<system_version>(.*?)</system_version>", _read(SHIPPED)
     ).group(1)
-    assert shipped == "9.76.0"
+    assert shipped == "9.77.0"
 
 
 def test_shipped_prompt_documents_context_path_line_ranges():
@@ -369,9 +369,9 @@ def test_executor_contains_full_dto_mandate():
     )
 
 
-def test_shipped_prompt_version_is_9_76_0():
+def test_shipped_prompt_version_is_9_77_0():
     prompt = _read_shipped_prompt_for_approval_contract()
-    assert "9.76.0" in prompt
+    assert "9.77.0" in prompt
 
 
 def test_assembler_output_matches_shipped(tmp_path):
@@ -677,3 +677,34 @@ def test_dual_mode_topology_separation():
         assert "in both manual and automatic modes" not in content, (
             f"Contradictory phrase found in {path.name}"
         )
+
+
+def test_capability_exact_grants_memory_tools():
+    """Memory tools are in AVAILABLE_EXACT (capability.py)."""
+    import re
+
+    cap = (REPO / "mcp-brain-bridge" / "capability.py").read_text(encoding="utf-8")
+    for tool in (
+        "search_memory",
+        "read_memory",
+        "store_memory",
+        "list_namespaces",
+        "rebuild_memory_index",
+        "delete_memory",
+        "execute",
+    ):
+        assert f'"{tool}"' in cap, f"{tool} missing from AVAILABLE_EXACT"
+
+
+def test_skill_templates_no_dsp_violations():
+    """No 2>/dev/null on data/inspection commands in skill templates."""
+    import re
+
+    violations = []
+    for path in (REPO / "skill-templates").rglob("*.md"):
+        if path.name == "SKILL.md" and "audit-agents" in str(path):
+            continue
+        for i, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+            if "2>/dev/null" in line:
+                violations.append(f"{path.relative_to(REPO)}:{i}")
+    assert not violations, f"DSP violations found: {violations}"

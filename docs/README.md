@@ -18,7 +18,7 @@ Human-readable spec hub for conventions, architecture-adjacent guides, service t
 - `telegram-message-formatting.md` — Message formatting contract for the Telegram MCP (parse mode, length limit, ZWNJ, topic targeting).
 - `living-folder-docs-roadmap.md` — Rollout roadmap for Living Folder Docs.
 - `workflow-upgrade-v8.4.5.md` — Workflow upgrade notes.
-- `history/` — Per-milestone summaries (milestone-1 through milestone-22).
+- `history/` — Per-milestone summaries (milestone-1 through milestone-23).
 
 ## Key Risks & Invariants
 

@@ -25,7 +25,7 @@ The following Agent Skills are available. You MUST intelligently instruct the Ha
 - **verification-before-completion**: Mandatory rule before claiming any task is complete, fixed, or passing.
 - **github**: GitHub CLI (gh) workflow for pull request triage, issue management, CI/CD run analysis, and API queries.
 - **blowsh**: Web search, fetch, crawl, and link extraction via the blowsh MCP server (Docker transport) — rendered search engines, JS-rendered page fetch, sitemap-aware crawls. Use for all live-web research instead of raw curl.
-- **opencode-init**: Analyze a project (or ask the user) and generate a comprehensive, correct V1 opencode.json for it. Validates with scripts/validate-opencode.py before writing; never touches global config.
+- **opencode-init**: Analyze a project (or ask the user) and generate a comprehensive, correct opencode.json for it. Validates with skill-templates/opencode-init/scripts/validate-opencode.py before writing; never touches global config. Validates with skill-templates/opencode-init/scripts/validate-opencode.py before writing; never touches global config.
 
 **Stack-Specific Blueprints (Load if matching the project):**
 
@@ -39,8 +39,8 @@ The following Agent Skills are available. You MUST intelligently instruct the Ha
 - **node-hexagonal-api**: Hexagonal Architecture (Ports and Adapters) for TypeScript Node.js backends — strict layer boundaries, interface ports, and swappable adapters. — Strict Tooling Gate: format → lint → typecheck → static analysis → security → test → build (see skill for exact commands).
 - **python-fastapi**: AI-Optimized FastAPI architecture with strict Pydantic V2 schemas and modular routing. — Strict Tooling Gate: format → lint → typecheck → static analysis → security → test → build (see skill for exact commands).
 - **react-native-expo**: Expo Managed Workflow, Expo Router, NativeWind, and Strict TypeScript for zero-hallucination cross-platform apps. — Strict Tooling Gate: format → lint → typecheck → static analysis → security → test → build (see skill for exact commands).
-- **react-vite**: React 18+ SPA architecture, hooks, and Vite configuration — Strict Tooling Gate: format → lint → typecheck → static analysis → security → test → build (see skill for exact commands).
+- **react-vite**: React 19+ SPA architecture, hooks, and Vite configuration — Strict Tooling Gate: format → lint → typecheck → static analysis → security → test → build (see skill for exact commands). — Strict Tooling Gate: format → lint → typecheck → static analysis → security → test → build (see skill for exact commands).
 - **spring-boot**: DDD, hexagonal style, and naming conventions for Spring Boot — Strict Tooling Gate: format → lint → typecheck → static analysis → security → test → build (see skill for exact commands).
-- **vue-nuxt**: Vue 3 Composition API, Nuxt 3 routing, and state management — Strict Tooling Gate: format → lint → typecheck → static analysis → security → test → build (see skill for exact commands).
+- **vue-nuxt**: Vue 3.5+ Composition API, Nuxt 4 routing, and state management — Strict Tooling Gate: format → lint → typecheck → static analysis → security → test → build (see skill for exact commands). — Strict Tooling Gate: format → lint → typecheck → static analysis → security → test → build (see skill for exact commands).
   **Binding Fallback Rule:** If no stack skill exactly matches, load the closest skill for discipline only and record an explicit skip with root plus marker scan list plus matched skills list plus reason phrase. Never invent a new skill inline and never claim coverage not present.
   </agent_skills_registry>

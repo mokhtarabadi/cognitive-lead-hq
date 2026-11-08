@@ -298,7 +298,7 @@ swiftlint analyze --strict --compiler-log-path xcodebuild.log
 xcodebuild -project App.xcodeproj -scheme App -configuration Debug analyze
 
 # 6. API-breakage gate (library/package targets only)
-BASELINE=$(git describe --tags --abbrev=0 2>/dev/null || true)
+BASELINE=$(git describe --tags --abbrev=0 || true)
 if [ -z "$BASELINE" ]; then echo "SKIP: no git tags — cannot diff public API (tag a baseline release to enable this gate)"; else swift package diagnose-api-breaking-changes "$BASELINE"; fi
 
 # 7. Dependency hygiene — declared vs imported (advisory until it stabilizes)

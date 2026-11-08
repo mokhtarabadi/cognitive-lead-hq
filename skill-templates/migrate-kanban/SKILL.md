@@ -41,9 +41,9 @@ find tasks/ -maxdepth 1 -type f -name "*.md" | sort
 for f in tasks/*.md; do
   [ -e "$f" ] || continue
   [ "$f" = "tasks/README.md" ] && continue
-  if grep -qi "Status: open" "$f" 2>/dev/null; then
+  if grep -qi "Status: open" "$f"; then
     git mv "$f" tasks/backlog/
-  elif grep -qi "Status: closed" "$f" 2>/dev/null; then
+  elif grep -qi "Status: closed" "$f"; then
     git mv "$f" tasks/completed/
   else
     git mv "$f" tasks/backlog/

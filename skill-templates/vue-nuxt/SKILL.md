@@ -11,7 +11,7 @@ description: Vue 3 Composition API, Nuxt 4 routing, and state management
 2. **Auto-Imports:** Rely entirely on Nuxt's auto-imports. Explicitly importing Vue refs or components wastes tokens and causes syntax hallucinations.
 3. **TypeScript Mandate:** Always use `lang="ts"`. Strongly typed props and Pinia state are required.
 
-## Modern Nuxt 3 App Architecture
+## Modern Nuxt 4 App Architecture (Vue 3.5+)
 
 Scaffold Nuxt 3 applications using these guidelines:
 

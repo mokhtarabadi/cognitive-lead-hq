@@ -14,7 +14,7 @@ Prevents the `tasks/completed/` directory from accumulating hundreds of task fil
 1. **Scan completed tasks** for the current milestone:
 
 ```bash
-ls tasks/completed/*.md 2>/dev/null
+ls tasks/completed/*.md
 ```
 
 2. **Read each file** and extract:

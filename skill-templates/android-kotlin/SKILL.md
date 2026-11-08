@@ -492,7 +492,7 @@ sqldelight {
 2. `./gradlew detekt` — static analysis, `allWarningsAsErrors`, `maxIssues: 0`
 3. `./gradlew :app:lintDebug :app:lintRelease` — Android/Compose lint, warnings-as-errors
 4. `./gradlew :app:compileDebugKotlin :app:compileReleaseKotlin` — Kotlin strictness (`allWarningsAsErrors`, `-Xjsr305=strict`)
-5. `if grep -rq "sqldelight" --include="*.kts" . || ls app/src/main/sqldelight app/src/commonMain/sqldelight 2>/dev/null | grep -q "\.sq"; then ./gradlew verifySqlDelightMigration; else echo "SKIP verifySqlDelightMigration | no sqldelight block and no .sq/.sqm files | SQLDelight gate not applicable | exit 0 for this step only"; fi` — SQL schema/query + migration compile-time verification
+5. `if grep -rq "sqldelight" --include="*.kts" . || ls app/src/main/sqldelight app/src/commonMain/sqldelight | grep -q "\.sq"; then ./gradlew verifySqlDelightMigration; else echo "SKIP verifySqlDelightMigration | no sqldelight block and no .sq/.sqm files | SQLDelight gate not applicable | exit 0 for this step only"; fi` — SQL schema/query + migration compile-time verification
 6. `./gradlew testDebugUnitTest` — JUnit/JUnit5 + Robolectric unit tests
 7. `./gradlew :app:connectedDebugAndroidTest` — Compose UI instrumented tests (requires emulator/device; run as a separate stage)
 8. `./gradlew koverVerify` — coverage must satisfy the min-bound rule

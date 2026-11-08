@@ -1,3 +1,5 @@
+> **Archival Notice:** This document is a frozen historical summary from Milestone 16.
+
 # Milestone 16 Summary
 
 **Date:** 2026-09-04

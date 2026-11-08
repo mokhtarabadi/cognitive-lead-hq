@@ -454,9 +454,9 @@ func newRedis(t *testing.T) *redis.Client {
 4. `test -z "$(gci diff --section standard --section default --section 'Prefix(<MODULE_PATH>)' ./...)"`
 5. `buf format --exit-code`
 6. `buf lint`
-7. `git fetch --unshallow origin main 2>/dev/null || git fetch --depth 0 origin main 2>/dev/null || true; buf breaking --against '.git#branch=main'`  # requires full history; CI must clone with --fetch-depth 0 or full history — the .git#branch shorthand fails on shallow clones without this fetch
+7. `git fetch --unshallow origin main || git fetch --depth 0 origin main || true; buf breaking --against '.git#branch=main'`  # requires full history; CI must clone with --fetch-depth 0 or full history — the .git#branch shorthand fails on shallow clones without this fetch
 8. `buf generate --clean && git --no-pager diff --exit-code -- gen/`   # generated-code drift gate
-9. `test -x ./custom-gcl && [ \"$(sha256sum .custom-gcl.yml | cut -d' ' -f1)\" = \"$(cat .custom-gcl.sha 2>/dev/null || echo)\" ] || (golangci-lint custom && sha256sum .custom-gcl.yml | cut -d' ' -f1 > .custom-gcl.sha)`  # bootstrap: build NilAway binary per .custom-gcl.yml (expected ./custom-gcl), cache by file hash before lint
+9. `test -x ./custom-gcl && [ \"$(sha256sum .custom-gcl.yml | cut -d' ' -f1)\" = \"$(cat .custom-gcl.sha || echo)\" ] || (golangci-lint custom && sha256sum .custom-gcl.yml | cut -d' ' -f1 > .custom-gcl.sha)`  # bootstrap: build NilAway binary per .custom-gcl.yml (expected ./custom-gcl), cache by file hash before lint
    `./custom-gcl run ./...`       # golangci-lint + NilAway, warnings are errors
 10. `go-arch-lint check --project-path . --arch-file .go-arch-lint.yml`
 11. `go build ./...`

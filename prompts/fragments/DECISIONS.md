@@ -1,3 +1,12 @@
+## Comprehensive Repository Audit: Purge Contradictions, Phantoms, and Cruft
+
+Date: 2026-11-08
+Status: accepted
+Context: Over months of active evolution across 23 milestones, the repository accumulated historical drift, obsolete references, and redundant clauses across documentation and codebases.
+Decision: Systematic audit across 5 domains (Prompts, Agents, Specifications, Skill Templates, FastMCP Servers). Fixed 25 findings: created missing docs (architecture.md, data_model.md), registered memory/web tools in capability.py, purged DSP violations, fixed broken citations, harmonized version references, updated permissions.
+Consequences: Zero phantom references, all citations resolvable, system prompt reassembled cleanly at 9.77.0.
+Rollback: Revert individual file changes per ADR.
+
 ## Decouple True Manual Mode (Human Courier) from Automatic Mode (MCP Brain Bridge)
 
 Date: 2026-11-08

@@ -196,7 +196,6 @@ cp .env.example .env
 │   ├── conventions.md                  # Syntax rules and automation conventions
 │   ├── setup.md                        # Platform tool setup and installation guide
 │   ├── history/                        # Milestone compaction summaries
-│   └── opencode/                       # OpenCode documentation mirror
 ├── mcp-context-server/
 │   └── server.py                       # FastMCP server for .gitignore-aware file reading & tree
 ├── mcp-lint-server/

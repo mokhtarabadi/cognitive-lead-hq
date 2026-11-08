@@ -18,7 +18,7 @@ This repository is the Headquarters for the Cognitive Lead AI multi-agent system
 
 ## Setup & Dev Commands
 
-- Run custom context MCP: `uv run mcp-context-server/server.py`
+- Run custom context MCP: `mcp-context-server/.venv/bin/python mcp-context-server/server.py`
 - Format Markdown: `npx prettier --write "**/*.md"`
 
 ## Actionable Guardrails (Do's & Don'ts)

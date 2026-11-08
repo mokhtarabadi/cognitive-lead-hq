@@ -438,8 +438,8 @@ discovery via subagents (never write code), then call `brain_turn`
 again under the same `task_id` with the fed context marked by a
 `[fed-context]` block. Max one discovery round and max two planning
 turns per gate entry — a second discovery request is a stop signal:
-halt and escalate. Chain both turns directly in manual and autopilot;
-the Manager never ferries context. The bridge pins the fed block to
+halt and escalate.
+In automatic mode, chain both turns directly via brain_turn; in manual mode, the Hands emits the fenced Context Manifest for the Manager to ferry to the external Brain. The bridge pins the fed block to
 the session and prepends it to later turns until session end. The
 final plan must cite fed context (file paths with lines); if it cites
 none, re-prompt once with a grounding reminder, then escalate rather
@@ -587,9 +587,9 @@ There is no switch in code — the switch is WORDS, and the lock is public.
 Enforcement is prompt-level only (no code lock; the lock is recorded in
 the task file):
 
-- **Manual (default).** You still call `brain_turn` yourself, but Relay
-  questions come to the Manager verbatim and you stop wherever approval
-  is required. The Manager never ferries XML or task text.
+- **Manual (default).** Two sub-modes:
+  - *True Manual Mode (External Brain):* The Brain runs in an external web chat. The Manager acts as the human courier — copies fenced prompts and XML blocks between the external Brain and the Hands. The Hands emits fenced handoff blocks for the Manager to ferry.
+  - *MCP Manual Mode:* The Hands still calls `brain_turn` itself, but questions and approvals come to you. You never ferry XML or task text between them.
 - **Autopilot (locked).** The Manager says "on autopilot do X" (or names
   the task plus autopilot). From that word on, the mode is LOCKED:
   announce the lock in one line, follow it to the end, and never ask

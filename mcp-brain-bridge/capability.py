@@ -74,6 +74,15 @@ AVAILABLE_EXACT = frozenset(
         "grep",
         "glob",
         "question",
+        "search_memory",
+        "read_memory",
+        "store_memory",
+        "list_namespaces",
+        "rebuild_memory_index",
+        "delete_memory",
+        "execute",
+        "webfetch",
+        "websearch",
     }
 )
 
