@@ -30,7 +30,7 @@
 | workflows | codemode-policy | # Code Mode policy (OpenCode v2, 2026-10-29) |  |
 | workflows | free-model-context-window-workflow | # Free-model context-window workflow (verified 2026-10-21) |  |
 | workflows | global-install-upgrade | # Global Install Upgrade Workflow (OpenCode) |  |
-| workflows | global-sync-2026-11-08 | Global sync completed 2026-11-08: copied cognitive-executor.md + system-prompt.md (9.76.0) to ~/.config/opencode. All... |  |
+| workflows | global-sync-2026-11-08 | Global sync completed 2026-11-08: copied cognitive-executor.md + system-prompt.md (9.77.0) to ~/.config/opencode. All... |  |
 | workflows | manual-qa-review-cycle | # Manual QA + Review Cycle (Hands role-plays both) |  |
 | workflows | no_task_for_global_upgrade | Global install upgrades run WITHOUT a task file: Manager order 2026-09-14 — delete any upgrade task file, execute wor... |  |
 | workflows | rtk_first_verification | RTK-first verification rule (Manager order 2026-09-17, structurally wired): every test-suite verification run begins ... |  |
