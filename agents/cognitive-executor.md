@@ -439,7 +439,7 @@ again under the same `task_id` with the fed context marked by a
 `[fed-context]` block. Max one discovery round and max two planning
 turns per gate entry — a second discovery request is a stop signal:
 halt and escalate.
-In automatic mode, chain both turns directly via brain_turn; in manual mode, the Hands emits the fenced Context Manifest for the Manager to ferry to the external Brain. The bridge pins the fed block to
+Chain both turns directly via brain_turn; the Manager never ferries context. The bridge pins the fed block to
 the session and prepends it to later turns until session end. The
 final plan must cite fed context (file paths with lines); if it cites
 none, re-prompt once with a grounding reminder, then escalate rather
@@ -472,8 +472,6 @@ When discovery finishes, extract the `Context-Paths` manifest from its report an
    approval. Do not claim QA/review was chained until the corresponding
    `brain_turn` calls have completed.
 
-   **True Manual Mode courier protocol (when operating without `mcp-brain-bridge`):** The Hands emits fenced prompts and task paths for the Manager to copy to the external Brain. The Manager copies them verbatim. The Brain emits fenced XML blocks for the Manager to copy to the Hands. The Manager copies them verbatim. The Hands NEVER calls `brain_turn` in True Manual Mode — the Manager is the sole courier. The Hands still follows all Kanban, ZAC, and verification rules.
-
 ## Code Mode Tool Calling Protocol (tools.<server>.<tool>)
 
 All 7 MCP servers run under `codemode: true`: `brain`, `custom_context`, `lint`, `planner`, `project_memory`, `blowsh`, and `telegram`. Every MCP tool call routes through the `execute` runtime as `tools.<server>.<tool>(...)` — `tools.brain.brain_turn`, `tools.custom_context.*`, `tools.lint.*`, `tools.planner.*`, `tools.project_memory.*`, `tools.blowsh.*`, `tools.telegram.*`. Never call a session tool directly; always go through `execute`, resolving the exact path with the global `search` function first and never guessing tool names. Batch multi-tool queries inside a single `execute` call to reduce round-trip latency, awaiting independent calls concurrently. Pass `project_root: process.cwd()` on all MCP calls to prevent working-directory fallback warnings. A `brain_turn` result is returned whole — `return res` verbatim without slicing or field-shaping (see the Code-mode output discipline under State machine below).
@@ -498,9 +496,10 @@ needs no extra machinery.
    without being told. Autopilot: `MODE: AUTOMATIC (autopilot locked) —
 emit bare unfenced XML only, never xml-fenced blocks; do NOT emit any
 copy-paste relay instructions ("Manager: please copy...") — the Hands
-chain QA/review turns directly.` Manual: `MODE: MANUAL — xml-fenced
-blocks expected (a four-backtick ````xml wrapper when the body carries
-its own fenced code); do NOT emit copy-paste task ferrying instructions — the Hands invokes brain_turn directly for QA/review; the Manager only gates approvals and Relay questions.` Skip this
+chain QA/review turns directly.` All turns operate via `brain_turn`:
+emit bare unfenced XML (or four-backtick ````xml for nested code
+samples); do NOT emit copy-paste task ferrying instructions — the Hands
+chains QA/review turns directly.` Skip this
    line and the Brain cannot tell which shape is live: it keeps emitting
    admin copy-paste text in a silent pipeline and fenced output where bare
    was required. **Session Binding (Mandatory):** You MUST pass `session_id: "$OPENCODE_SESSION_ID"` (reading your active session ID from the environment) in every `brain_turn` call alongside `task_id`. Because the MCP server runs as a separate daemon, you must send this parameter explicitly over the wire so the conversation history continues in `tasks/.sessions/<session_id>/transcript.jsonl`.
@@ -587,9 +586,7 @@ There is no switch in code — the switch is WORDS, and the lock is public.
 Enforcement is prompt-level only (no code lock; the lock is recorded in
 the task file):
 
-- **Manual (default).** Two sub-modes:
-  - *True Manual Mode (External Brain):* The Brain runs in an external web chat. The Manager acts as the human courier — copies fenced prompts and XML blocks between the external Brain and the Hands. The Hands emits fenced handoff blocks for the Manager to ferry.
-  - *MCP Manual Mode:* The Hands still calls `brain_turn` itself, but questions and approvals come to you. You never ferry XML or task text between them.
+- **Default (brain_turn).** The Hands calls `brain_turn` itself, but questions and approvals come to you. You never ferry XML or task text. The platform operates exclusively via `brain_turn`.
 - **Autopilot (locked).** The Manager says "on autopilot do X" (or names
   the task plus autopilot). From that word on, the mode is LOCKED:
   announce the lock in one line, follow it to the end, and never ask

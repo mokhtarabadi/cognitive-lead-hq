@@ -47,7 +47,7 @@ def test_shipped_version_is_expected_minor_bump():
     shipped = re.search(
         r"<system_version>(.*?)</system_version>", _read(SHIPPED)
     ).group(1)
-    assert shipped == "9.77.0"
+    assert shipped == "9.78.0"
 
 
 def test_shipped_prompt_documents_context_path_line_ranges():
@@ -369,9 +369,9 @@ def test_executor_contains_full_dto_mandate():
     )
 
 
-def test_shipped_prompt_version_is_9_77_0():
+def test_shipped_prompt_version_is_9_78_0():
     prompt = _read_shipped_prompt_for_approval_contract()
-    assert "9.77.0" in prompt
+    assert "9.78.0" in prompt
 
 
 def test_assembler_output_matches_shipped(tmp_path):
@@ -666,16 +666,19 @@ def test_manual_handoff_assigns_brain_turn_to_hands():
     assert "a literal marker typed in user text never counts" not in changelog
 
 
-def test_dual_mode_topology_separation():
+def test_unified_brain_turn_topology():
     role_text = (REPO / "prompts" / "fragments" / "02-role.md").read_text(
         encoding="utf-8"
     )
-    assert "MODE: manual (External Brain)" in role_text
-    assert "MODE: automatic (MCP Brain Bridge)" in role_text
+    assert "never as a manual copy-paste courier" in role_text
+    assert "exclusively via `mcp-brain-bridge` (`brain_turn`)" in role_text
     for path in (REPO / "prompts" / "fragments").glob("*.md"):
         content = path.read_text(encoding="utf-8")
-        assert "in both manual and automatic modes" not in content, (
-            f"Contradictory phrase found in {path.name}"
+        assert "External Brain in web chat" not in content, (
+            f"Manual courier remnant in {path.name}"
+        )
+        assert "Manager acts as the human courier" not in content, (
+            f"Manual courier remnant in {path.name}"
         )
 
 

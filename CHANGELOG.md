@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- Permanently eliminated manual mode across the entire platform (Task 0386); unified 100% on autonomous `brain_turn` via `mcp-brain-bridge`.
+- Removed all manual courier instructions, dual-mode branching, and fenced prompt templates from system prompt fragments and agent definitions.
+- System prompt 9.77.0 → 9.78.0 via the assembler.
+
+
 ## [9.77.0] - 2026-11-08
 
 

@@ -8,11 +8,6 @@ The Cognitive Lead AI HQ is the headquarters repository for a multi-agent AI orc
 
 Two operating modes:
 
-### True Manual Mode (External Brain)
-- The Brain runs in an external chat interface (Claude Web, ChatGPT, etc.) with NO access to the local filesystem or terminal.
-- The Manager acts as the human courier: the Hands emits fenced prompts and task paths; the Manager copies them to the external Brain; the Brain emits fenced XML blocks; the Manager copies them to the Hands.
-- No `mcp-brain-bridge` communication.
-
 ### Automatic Mode (MCP Brain Bridge)
 - OpenCode runs with `mcp-brain-bridge` active.
 - The Hands calls `brain_turn` directly via the MCP server.

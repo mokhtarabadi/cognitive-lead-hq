@@ -1,3 +1,12 @@
+## Unify Architecture to 100% Brain Turn and Permanently Eliminate Manual Mode
+
+Date: 2026-11-08
+Status: accepted
+Context: Maintaining dual modes (manual courier copy-pasting vs autonomous brain_turn) introduced prompt bloat, mode confusion, and human friction.
+Decision: Permanently eliminate manual mode across all prompts, agents, protocols, and documentation. The platform operates 100% autonomously via `mcp-brain-bridge` (`brain_turn`). The Manager is strictly executive supervisor, never a courier.
+Consequences: Zero copy-paste prompt templates survive; all turns chain directly through brain_turn.
+Rollback: Revert to 9.77.0 prompt fragments.
+
 ## Comprehensive Repository Audit: Purge Contradictions, Phantoms, and Cruft
 
 Date: 2026-11-08

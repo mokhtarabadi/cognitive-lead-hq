@@ -19,12 +19,7 @@
 </execution_phase>
 
   <summary_phase>
-    HANDS INSTRUCTION: Once the report is generated, STOP. Do not implement anything. Output the discovery findings along with the machine-readable manifest from the report, preserving its exact structure: `### Context Manifest`, then `Context-Paths:`, then one `- path/to/file.ext#Lstart-end` entry per path.
-    - In `MODE: manual` (External Brain): Output the discovery findings and manifest, then emit a fenced markdown block for the Manager to copy into the external Brain to start blueprint planning:
-      ```markdown
-      A context report is provided in the Context Report section below. Please review it in full before generating any task or blueprint — it contains the authoritative project context gathered by the Hands.
-      ```
-    - In `MODE: automatic` (MCP Brain Bridge): Feed these paths directly via `brain_turn(context_paths=[...])` under the active session thread; the Manager never ferries context.
+    HANDS INSTRUCTION: Once the report is generated, STOP. Do not implement anything. Output the discovery findings along with the machine-readable manifest from the report, preserving its exact structure: `### Context Manifest`, then `Context-Paths:`, then one `- path/to/file.ext#Lstart-end` entry per path. Feed these paths directly via `brain_turn(context_paths=[...])` under the active session thread; the Manager never ferries context.
 </summary_phase>
 </hands_discovery_task>
 ```
@@ -72,20 +67,14 @@
 
   <summary_phase>
     HANDS INSTRUCTION: Follow the finalization sequence in `cognitive-executor` agent.
-    - In `MODE: manual` (External Brain):
-      a. After staging, diff injection, and moving to `tasks/qa/`, emit the active task path and the required next-step prompt in a fenced code block for the Manager to copy to the external Brain:
-         ```markdown
-         [QA Engineer], please perform adversarial testing.
-         Task File: tasks/qa/<task-file>.md
-         ```
-         (or `[Code Reviewer], please perform the final review.` for docs/CSS/trivial changes).
-      b. Inform the Manager: "Task implemented, Git diff injected, moved to `tasks/qa/`. Manager, please copy the fenced prompt above into the external Brain."
-    - In `MODE: automatic` (MCP Brain Bridge):
-      1. The Hands invokes the QA/review `brain_turn` directly under the active session thread — `[QA Engineer], please perform adversarial testing.` for logic, backend, or state changes, `[Code Reviewer], please perform the final review.` for documentation, CSS, or trivial changes. The Manager only gates approvals and Relay questions, never ferries task text.
-      2. The Hands invokes the QA/review `brain_turn` itself under the active session thread — `[QA Engineer], please perform adversarial testing.` for logic, backend, or state changes, `[Code Reviewer], please perform the final review.` for documentation, CSS, or trivial changes. The Manager only gates approvals and Relay questions, never ferries task text.
-      3. Output EXACTLY this message to the Manager:
-         "Task implemented, reasoning logged, Git diff injected, and QA/review chained via `brain_turn`."
-      4. After the QA/review `brain_turn` is invoked and the exact completion message is output, you are DONE.
+    1. Review every `## Acceptance Criteria` and `## Definition of Done` checkbox in the active task file against the `## Verification Evidence` you just recorded. Check `- [x]` any item that is genuinely satisfied by that evidence NOW, in this summary phase — do NOT defer box-checking to a separate closure task. If any item is not yet satisfied, do not check it, and do not proceed to lint/staging until you resolve why.
+    2. Stage modified files and inject git diff via `custom_context_stage_and_inject_diff`.
+    3. Execute the atomic QA transition: move task file to `tasks/qa/` via `custom_context_qa_transition`.
+    4. The Hands invokes the QA/review `brain_turn` directly under the active session thread — `[QA Engineer], please perform adversarial testing.` for logic, backend, or state changes, `[Code Reviewer], please perform the final review.` for documentation, CSS, or trivial changes. The Manager only gates approvals and Relay questions, never ferries task text.
+    5. The Hands invokes the QA/review `brain_turn` itself under the active session thread — `[QA Engineer], please perform adversarial testing.` for logic, backend, or state changes, `[Code Reviewer], please perform the final review.` for documentation, CSS, or trivial changes. The Manager only gates approvals and Relay questions, never ferries task text.
+    6. Output EXACTLY this message to the Manager:
+       "Task implemented, reasoning logged, Git diff injected, and QA/review chained via `brain_turn`."
+    7. After the QA/review `brain_turn` is invoked and the exact completion message is output, you are DONE.
   </summary_phase>
 </hands_implementation_task>
 ```
@@ -123,13 +112,7 @@
        - `task_file_path`: "tasks/in-progress/<task-name>.md"
        - `modified_files`: [<modified_file_1>, <modified_file_2>, ...]
        This atomically moves the task file to `tasks/qa/`, updates the `**File:**` header, stages your modified code, and injects the git diff in one operation.
-    - In `MODE: manual` (External Brain): After staging, diff injection, and moving to `tasks/qa/`, emit the active task path and the required next-step prompt in a fenced code block for the Manager to copy to the external Brain:
-      ```markdown
-      [QA Engineer], please perform adversarial testing.
-      Task File: tasks/qa/<task-file>.md
-      ```
-      (or `[Code Reviewer], please perform the final review.` for docs/CSS/trivial changes).
-    - In `MODE: automatic` (MCP Brain Bridge): The Hands invokes QA/review `brain_turn` directly and outputs the standard combined handoff message (see above).
+     4. The Hands invokes the QA/review `brain_turn` directly under the active session thread — `[QA Engineer], please perform adversarial testing.` for logic, backend, or state changes, `[Code Reviewer], please perform the final review.` for documentation, CSS, or trivial changes. The Manager only gates approvals and Relay questions, never ferries task text.
      5. Then output exactly:
        "Combined task complete: discovery verified, implementation applied, Git diff injected, and QA/review chained via `brain_turn`."
      6. After the QA/review `brain_turn` is invoked and the exact completion message is output, you are DONE.
