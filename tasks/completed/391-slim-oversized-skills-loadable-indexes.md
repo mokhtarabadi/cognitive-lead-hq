@@ -1,10 +1,11 @@
 # Task 391: Split oversized skills into loadable indexes
 
-**File:** `tasks/qa/391-slim-oversized-skills-loadable-indexes.md`
+**File:** `tasks/completed/391-slim-oversized-skills-loadable-indexes.md`
 **Source:** manager
 **Type:** improvement
-**Status:** open
+**Status:** closed
 **Submitted:** 2026-11-09T07:42:52Z
+**Finished:** 2026-11-09T08:42:18Z
 **Estimate:** 2h
 **Milestone:** M01
 
@@ -96,7 +97,7 @@ index 8d2da67..ea3ffdb 100644
  
  ## [9.77.0] - 2026-11-08
 diff --git a/LLM.txt b/LLM.txt
-index 8fc3765..4964c12 100644
+index 8fc3765..7ce8dfb 100644
 --- a/LLM.txt
 +++ b/LLM.txt
 @@ -191,21 +191,13 @@ cp -r /tmp/cognitive-lead-hq/skill-templates/* ~/.config/opencode/skills/
@@ -125,7 +126,20 @@ index 8fc3765..4964c12 100644
  
  ---
  
-@@ -635,7 +627,7 @@ After completing all steps, verify:
+@@ -479,10 +471,9 @@ Then create the recommended smart-compact global config at `~/.config/opencode/s
+   "enabled": true,
+   "pruning": {
+     "maxChars": 1024, "maxWords": 128, "taskMaxChars": 4096, "taskMaxWords": 512,
+-    "protectedTools": ["question"], "alwaysPruneTools": ["read"],
++    "protectedTools": ["question", "skill"], "alwaysPruneTools": ["read"],
+     "discardTools": {
+-      "todowrite": "Successfully updated todos.",
+-      "skill": "Skill contents omitted after compaction; recall the skill if needed."
++      "todowrite": "Successfully updated todos."
+     },
+     "preserveRecentTurns": 2, "truncateToolsChars": 1024, "useTokens": true
+   },
+@@ -635,7 +626,7 @@ After completing all steps, verify:
  - [ ] `~/.config/opencode/mcp-brain-bridge/server.py` exists and is executable (plus its sibling modules `capability.py`, `preflight.py`, `loop_guard.py`, `session_ledger.py`)
  - [ ] `~/.config/opencode/mcp-common/src/mcp_common/env.py` exists
  - [ ] `~/.config/opencode/zen-proxy/proxy.py` exists and is executable, `~/.config/opencode/zen-proxy/.venv/bin/python` exists (built with `uv venv`), and `systemctl --user is-active zen-proxy` returns `active` on `127.0.0.1:8081` (`curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8081/health` → 200); the unit reads `~/.config/opencode/.env` and needs no API key of its own
@@ -148,6 +162,143 @@ index b61aac0..d94b912 100644
 +3. ~~Dedicated `testing-strategy` Skill~~ — DONE (Task 224 META): `skill-templates/testing-verification/SKILL.md` enforces TDD order + diff-coverage + error-path gates.
  4. ~~Database Migration Management~~ — DONE (Task 224 META): `skill-templates/database-migration/SKILL.md` bans direct DDL, forces Alembic/Prisma/Flyway.
  5. ~~Hexagonal Architecture Expansion~~ — DONE (Task 224 META): Hexagonal section in `skill-templates/python-fastapi/SKILL.md` + new `skill-templates/node-hexagonal-api/SKILL.md`; `stacks/node-ts.yaml` updated.
+diff --git a/agents/cognitive-discovery.md b/agents/cognitive-discovery.md
+index d7a3793..9825b5a 100644
+--- a/agents/cognitive-discovery.md
++++ b/agents/cognitive-discovery.md
+@@ -6,6 +6,7 @@ permission:
+   bash: deny
+   read: allow
+   execute: allow
++  skill: allow
+   custom_context_*: allow
+   external_directory:
+     "*": "ask"
+diff --git a/agents/cognitive-executor.md b/agents/cognitive-executor.md
+index 921ed07..dea9ee0 100644
+--- a/agents/cognitive-executor.md
++++ b/agents/cognitive-executor.md
+@@ -135,6 +135,7 @@ To preserve your primary context window for implementation logic, you MUST deleg
+ 2. **Combined Tasks (`<hands_combined_task>`):** For the `<discovery_phase>`, delegate to `cognitive-discovery`. Wait for its context report before proceeding to the `<conditional_implementation_phase>`.
+ 3. **Implementation Tasks (`<hands_implementation_task>`):** If you need to understand a complex, unfamiliar module before editing, delegate a quick scan to `cognitive-discovery` to fetch just the signatures or relevant blocks.
+ 4. **Parallel Execution Mandate:** For multi-directory mapping and independent file reads, you MUST spawn parallel subagents (up to 4 concurrent agents) to maximize throughput. Serial execution of independent discovery work is a performance violation.
++5. **Subagents have no `skill` tool.** Verified 2026-11-09: a spawned subagent reports no `skill` tool in its toolset. Never delegate a step as "load skill X and follow it". Instead resolve the skill yourself, then hand the subagent the absolute file path (the skill's base directory plus the relative `templates/...` path named by its index) or the exact instruction text. A delegated agent that must guess a skill path will stall or search blindly.
+ 
+ ## Subagent Delegation for Implementation
+ 
+diff --git a/docs/compaction.md b/docs/compaction.md
+index 02e63a5..7084249 100644
+--- a/docs/compaction.md
++++ b/docs/compaction.md
+@@ -116,10 +116,9 @@ The platform runs `warnRatio 0.5` / `emergencyRatio 0.8` because a 1M-token wind
+   "enabled": true,
+   "pruning": {
+     "maxChars": 1024, "maxWords": 128, "taskMaxChars": 4096, "taskMaxWords": 512,
+-    "protectedTools": ["question"], "alwaysPruneTools": ["read"],
++    "protectedTools": ["question", "skill"], "alwaysPruneTools": ["read"],
+     "discardTools": {
+-      "todowrite": "Successfully updated todos.",
+-      "skill": "Skill contents omitted after compaction; recall the skill if needed."
++      "todowrite": "Successfully updated todos."
+     },
+     "preserveRecentTurns": 2, "truncateToolsChars": 1024, "useTokens": true
+   },
+diff --git a/mcp-lint-server/server.py b/mcp-lint-server/server.py
+index 270ac81..a866689 100755
+--- a/mcp-lint-server/server.py
++++ b/mcp-lint-server/server.py
+@@ -668,21 +668,28 @@ def _check_bundle_meta_structure(content: str, file_path: str) -> list[str]:
+     else skips with pass. A detected META file must carry a non-empty
+     `## Supersedes` section naming source tasks and a non-empty
+     `## Bundled Checklist` section carrying verbatim acceptance lines.
++
++    Detection and body inspection are scoped to the PRE-DIFF portion of the
++    file: the injected `## Factual Git Diff` block quotes other files
++    verbatim (a diff of the bundle skill itself contains `**Meta:** true` and
++    `## Bundled Checklist`), which would otherwise mark every task that
++    touches those files as a META and demand sections it never needs.
+     """
+     issues: list[str] = []
++    body_source = content.split("<!-- BEGIN_GIT_DIFF -->", 1)[0]
+     title_meta = bool(
+-        re.search(r"^# Task \d+:.*\bMETA\b", content, re.MULTILINE | re.IGNORECASE)
++        re.search(r"^# Task \d+:.*\bMETA\b", body_source, re.MULTILINE | re.IGNORECASE)
+     )
+     is_meta = (
+         title_meta
+-        or "**Meta:** true" in content
+-        or "## Supersedes" in content
+-        or "## Bundled Checklist" in content
++        or "**Meta:** true" in body_source
++        or "## Supersedes" in body_source
++        or "## Bundled Checklist" in body_source
+     )
+     if not is_meta:
+         return issues
+     for section in ("## Supersedes", "## Bundled Checklist"):
+-        idx = content.find(section)
++        idx = body_source.find(section)
+         if idx == -1:
+             issues.append(
+                 f"Bundle META: missing required `{section}` section "
+@@ -690,7 +697,7 @@ def _check_bundle_meta_structure(content: str, file_path: str) -> list[str]:
+                 f"all-or-nothing checklist)."
+             )
+             continue
+-        rest = content[idx + len(section) :]
++        rest = body_source[idx + len(section) :]
+         next_heading = re.search(r"\n## ", rest)
+         body = rest[: next_heading.start()] if next_heading else rest
+         if not body.strip():
+diff --git a/mcp-lint-server/tests/test_deleted_skill_refs.py b/mcp-lint-server/tests/test_deleted_skill_refs.py
+index 7d840d2..8b5c626 100644
+--- a/mcp-lint-server/tests/test_deleted_skill_refs.py
++++ b/mcp-lint-server/tests/test_deleted_skill_refs.py
+@@ -1,11 +1,11 @@
+-"""Regression coverage for deleted-skill references in live instructions."""
++"""Regression coverage for deleted-skill references and META detection scope."""
+ 
+ import sys
+ from pathlib import Path
+ 
+ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+ 
+-from server import _check_deleted_skill_refs
++from server import _check_bundle_meta_structure, _check_deleted_skill_refs
+ 
+ 
+ def test_deleted_skill_reference_is_reported_on_line_mentioning_readme() -> None:
+@@ -48,3 +48,30 @@ def test_archive_path_excluded_for_deleted_skill(tmp_path) -> None:
+ 
+     archive_result = lint_markdown(str(archived), project_root=str(tmp_path))
+     assert "Deleted skill reference" not in archive_result
++
++
++def test_meta_markers_inside_injected_diff_do_not_make_a_task_meta() -> None:
++    """A diff quoting the bundle skill must not turn an ordinary task into META."""
++    content = (
++        "# Task 391: Split oversized skills\n\n"
++        "**File:** `tasks/qa/391-x.md`\n\n"
++        "## Goal\n\nNothing to bundle.\n\n"
++        "## Factual Git Diff\n\n"
++        "<!-- BEGIN_GIT_DIFF -->\n"
++        "+**Meta:** true\n"
++        "+## Bundled Checklist\n"
++        "+## Supersedes\n"
++    )
++
++    assert _check_bundle_meta_structure(content, "tasks/qa/391-x.md") == []
++
++
++def test_real_meta_missing_sections_is_still_reported() -> None:
++    """A genuine META outside the diff region still fails the structure check."""
++    content = (
++        "# Task 392: Bundle three tasks\n\n**Meta:** true\n\n## Goal\n\nBundle work.\n"
++    )
++
++    issues = _check_bundle_meta_structure(content, "tasks/qa/392-x.md")
++    assert any("## Supersedes" in i for i in issues)
++    assert any("## Bundled Checklist" in i for i in issues)
 diff --git a/prompts/fragments/01-system_version.md b/prompts/fragments/01-system_version.md
 index a0d4a2a..17b5dd4 100644
 --- a/prompts/fragments/01-system_version.md
