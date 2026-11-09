@@ -47,7 +47,7 @@ def test_shipped_version_is_expected_minor_bump():
     shipped = re.search(
         r"<system_version>(.*?)</system_version>", _read(SHIPPED)
     ).group(1)
-    assert shipped == "9.87.0"
+    assert shipped == "9.88.0"
 
 
 def test_shipped_prompt_documents_context_path_line_ranges():
@@ -372,7 +372,7 @@ def test_executor_contains_full_dto_mandate():
 
 def test_shipped_prompt_version_is_9_78_0():
     prompt = _read_shipped_prompt_for_approval_contract()
-    assert "9.87.0" in prompt
+    assert "9.88.0" in prompt
 
 
 def test_assembler_output_matches_shipped(tmp_path):
@@ -492,6 +492,10 @@ def test_executor_evidence_records_rtk_command():
 
 def test_task_generator_template_prescribes_rtk():
     text = _read(TASKGEN_SKILL)
+    tpl_dir = TASKGEN_SKILL.parent / "templates"
+    if tpl_dir.is_dir():
+        for f in sorted(tpl_dir.glob("*.md")):
+            text += "\n" + f.read_text(encoding="utf-8")
     assert "rtk test [exact command]" in text
 
 
@@ -706,7 +710,7 @@ def test_skill_templates_no_dsp_violations():
 
     violations = []
     for path in (REPO / "skill-templates").rglob("*.md"):
-        if path.name == "SKILL.md" and "governance" in str(path):
+        if "governance" in str(path):
             continue
         for i, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
             if "2>/dev/null" in line:

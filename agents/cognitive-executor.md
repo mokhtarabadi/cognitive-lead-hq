@@ -135,6 +135,7 @@ To preserve your primary context window for implementation logic, you MUST deleg
 2. **Combined Tasks (`<hands_combined_task>`):** For the `<discovery_phase>`, delegate to `cognitive-discovery`. Wait for its context report before proceeding to the `<conditional_implementation_phase>`.
 3. **Implementation Tasks (`<hands_implementation_task>`):** If you need to understand a complex, unfamiliar module before editing, delegate a quick scan to `cognitive-discovery` to fetch just the signatures or relevant blocks.
 4. **Parallel Execution Mandate:** For multi-directory mapping and independent file reads, you MUST spawn parallel subagents (up to 4 concurrent agents) to maximize throughput. Serial execution of independent discovery work is a performance violation.
+5. **Subagents have no `skill` tool.** Verified 2026-11-09: a spawned subagent reports no `skill` tool in its toolset. Never delegate a step as "load skill X and follow it". Instead resolve the skill yourself, then hand the subagent the absolute file path (the skill's base directory plus the relative `templates/...` path named by its index) or the exact instruction text. A delegated agent that must guess a skill path will stall or search blindly.
 
 ## Subagent Delegation for Implementation
 

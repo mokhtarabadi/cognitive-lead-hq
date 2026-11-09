@@ -507,7 +507,7 @@ See `.opencode/skills/sop-maintenance/SKILL.md` for the rules that AI agents mus
 ## Future Architectural Roadmap
 
 1. **Automated Pull Request Integration:** Upgrade the final Code Reviewer step to automatically branch, commit, and open a PR via GitHub CLI (`gh pr create`) instead of committing locally to `main`.
-2. **Epic and Milestone Tracking:** Create an `epics/` directory and update the `task-generator` skill to link individual tasks to parent epics for better macro-level project tracking.
-3. ~~Dedicated `testing-strategy` Skill~~ — DONE (Task 224 META): `skill-templates/testing-strategy/SKILL.md` enforces TDD order + diff-coverage + error-path gates.
+2. **Epic and Milestone Tracking:** Create an `epics/` directory and update the `kanban-lifecycle` skill to link individual tasks to parent epics for better macro-level project tracking.
+3. ~~Dedicated `testing-strategy` Skill~~ — DONE (Task 224 META): `skill-templates/testing-verification/SKILL.md` enforces TDD order + diff-coverage + error-path gates.
 4. ~~Database Migration Management~~ — DONE (Task 224 META): `skill-templates/database-migration/SKILL.md` bans direct DDL, forces Alembic/Prisma/Flyway.
 5. ~~Hexagonal Architecture Expansion~~ — DONE (Task 224 META): Hexagonal section in `skill-templates/python-fastapi/SKILL.md` + new `skill-templates/node-hexagonal-api/SKILL.md`; `stacks/node-ts.yaml` updated.

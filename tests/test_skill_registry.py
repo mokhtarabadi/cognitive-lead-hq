@@ -35,7 +35,13 @@ def test_every_registry_skill_has_matching_template():
 
 
 def _template_text(name: str) -> str:
-    return (ROOT / "skill-templates" / name / "SKILL.md").read_text(encoding="utf-8")
+    direction = ROOT / "skill-templates" / name
+    parts = [(direction / "SKILL.md").read_text(encoding="utf-8")]
+    tpl_dir = direction / "templates"
+    if tpl_dir.is_dir():
+        for f in sorted(tpl_dir.glob("*.md")):
+            parts.append(f.read_text(encoding="utf-8"))
+    return "\n".join(parts)
 
 
 def test_testing_strategy_skill_contract():
@@ -82,7 +88,7 @@ def test_hexagonal_expansion_contract():
 
 
 def test_opencode_init_skill_contract():
-    text = _template_text("opencode-init")
+    text = _template_text("governance")
     for required in (
         "validate-opencode.py",
         "flat map",
@@ -95,8 +101,15 @@ def test_opencode_init_skill_contract():
     ):
         assert required in text, f"contract term missing: {required}"
     reg = REGISTRY.read_text(encoding="utf-8")
-    assert "opencode-init" in reg
-    refs = ROOT / "skill-templates" / "opencode-init" / "references"
+    assert "governance" in reg
+    refs = (
+        ROOT
+        / "skill-templates"
+        / "governance"
+        / "templates"
+        / "opencode-init"
+        / "references"
+    )
     assert (refs / "runtime-matrix.md").is_file()
     assert (refs / "examples" / "golden-opencode.json").is_file()
 
@@ -106,11 +119,19 @@ def test_validate_opencode_script():
     import subprocess
 
     script = (
-        ROOT / "skill-templates" / "opencode-init" / "scripts" / "validate-opencode.py"
+        ROOT
+        / "skill-templates"
+        / "governance"
+        / "templates"
+        / "opencode-init"
+        / "scripts"
+        / "validate-opencode.py"
     )
     golden = (
         ROOT
         / "skill-templates"
+        / "governance"
+        / "templates"
         / "opencode-init"
         / "references"
         / "examples"
@@ -154,7 +175,13 @@ def _run_validator(cfg=None, raw=None):
     import subprocess
 
     script = (
-        ROOT / "skill-templates" / "opencode-init" / "scripts" / "validate-opencode.py"
+        ROOT
+        / "skill-templates"
+        / "governance"
+        / "templates"
+        / "opencode-init"
+        / "scripts"
+        / "validate-opencode.py"
     )
     p = ROOT / ".tmp-validate-check.json"
     p.write_text(raw if raw is not None else json.dumps(cfg), encoding="utf-8")
@@ -176,6 +203,8 @@ def _fresh_golden():
     golden = (
         ROOT
         / "skill-templates"
+        / "governance"
+        / "templates"
         / "opencode-init"
         / "references"
         / "examples"
@@ -322,7 +351,13 @@ def test_validate_malformed_inputs_fail_closed():
     import subprocess
 
     script = (
-        ROOT / "skill-templates" / "opencode-init" / "scripts" / "validate-opencode.py"
+        ROOT
+        / "skill-templates"
+        / "governance"
+        / "templates"
+        / "opencode-init"
+        / "scripts"
+        / "validate-opencode.py"
     )
     r = subprocess.run(
         ["python3", str(script), str(ROOT / ".tmp-does-not-exist.json")],
@@ -425,9 +460,7 @@ def test_doc_coauthoring_skill_is_runtime_neutral():
 
 
 def test_audit_template_requires_project_skills_table():
-    text = (ROOT / "skill-templates" / "governance" / "SKILL.md").read_text(
-        encoding="utf-8"
-    )
+    text = _template_text("governance")
     assert "Project Skills Table" in text
     assert "stale row" in text
 

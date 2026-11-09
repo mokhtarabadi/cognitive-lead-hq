@@ -191,21 +191,13 @@ cp -r /tmp/cognitive-lead-hq/skill-templates/* ~/.config/opencode/skills/
 rm -f ~/.config/opencode/skills/DECISIONS.md ~/.config/opencode/skills/README.md
 ```
 
-After this, the skills will be available via `/help` from any directory. `skill-templates/` contains **25 skills** (`kanban-lifecycle`, `telegram-suite`, `testing-verification`, and 22 more). `DECISIONS.md` and `README.md` stay in the repo only — they are not skills and must never be copied globally, or OpenChamber counts them as fake skills.
+After this, the skills will be available via `/help` from any directory. `skill-templates/` contains **24 skills** (`kanban-lifecycle`, `telegram-suite`, `testing-verification`, and 21 more). `DECISIONS.md` and `README.md` stay in the repo only — they are not skills and must never be copied globally, or OpenChamber counts them as fake skills.
 
-### 6.1. (Optional) Bundle CLI Script — Only If You Want `uv run scripts/bundle-tasks.py`
+### 6.1. Bundle CLI Script — Not Shipped
 
-The `bundle_tasks` MCP tool (`mcp-context-server/server.py`) is **self-contained** — it bundles without needing the script, so other projects that only have the MCP server can bundle via the Hands (`bundle_tasks` MCP call) with no extra files.
+`scripts/bundle-tasks.py` no longer exists in this repository: the `bundle_tasks` MCP tool (`mcp-context-server/server.py`) is **fully self-contained** and is the only bundling path. Invoke it through the Hands (`bundle_tasks(task_ids=[...], title="...", dry_run?, force?)`); there is no `uv run` CLI to copy.
 
-If you also want the Manager CLI (`uv run scripts/bundle-tasks.py <id> ... --title "<title>" [--dry-run]`), copy the script to your project's `scripts/`:
-
-```bash
-mkdir -p scripts
-cp /tmp/cognitive-lead-hq/scripts/bundle-tasks.py scripts/bundle-tasks.py
-chmod +x scripts/bundle-tasks.py
-```
-
-> **Is the script redundant?** No — CLI is for the Manager, MCP is for the Hands. For cross-project reuse, MCP is sufficient. Keep both if you want `uv run` one-offs and AI-driven bundling.
+> Cross-project reuse needs only the MCP server — no extra files.
 
 ---
 
@@ -479,10 +471,9 @@ Then create the recommended smart-compact global config at `~/.config/opencode/s
   "enabled": true,
   "pruning": {
     "maxChars": 1024, "maxWords": 128, "taskMaxChars": 4096, "taskMaxWords": 512,
-    "protectedTools": ["question"], "alwaysPruneTools": ["read"],
+    "protectedTools": ["question", "skill"], "alwaysPruneTools": ["read"],
     "discardTools": {
-      "todowrite": "Successfully updated todos.",
-      "skill": "Skill contents omitted after compaction; recall the skill if needed."
+      "todowrite": "Successfully updated todos."
     },
     "preserveRecentTurns": 2, "truncateToolsChars": 1024, "useTokens": true
   },
@@ -635,7 +626,7 @@ After completing all steps, verify:
 - [ ] `~/.config/opencode/mcp-brain-bridge/server.py` exists and is executable (plus its sibling modules `capability.py`, `preflight.py`, `loop_guard.py`, `session_ledger.py`)
 - [ ] `~/.config/opencode/mcp-common/src/mcp_common/env.py` exists
 - [ ] `~/.config/opencode/zen-proxy/proxy.py` exists and is executable, `~/.config/opencode/zen-proxy/.venv/bin/python` exists (built with `uv venv`), and `systemctl --user is-active zen-proxy` returns `active` on `127.0.0.1:8081` (`curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8081/health` → 200); the unit reads `~/.config/opencode/.env` and needs no API key of its own
-- [ ] Skills are installed under `~/.config/opencode/skills/` (at least one subfolder exists) — should include `bundle-tasks` (36 skills total)
+- [ ] Skills are installed under `~/.config/opencode/skills/` (at least one subfolder exists) — should include `kanban-lifecycle` (24 skills total)
 - [ ] `~/.config/opencode/agents/cognitive-executor.md` exists
 - [ ] `~/.config/opencode/agents/cognitive-discovery.md` exists
 - [ ] `~/.config/opencode/opencode.json` exists with **absolute paths** (not `~` or relative paths) and 7 `mcp` entries (`custom_context`, `project_memory`, `lint`, `brain`, `blowsh`, `telegram`, `planner`) + `blowsh_*`/`telegram_*`/`brain_turn` permissions, no former browser entry

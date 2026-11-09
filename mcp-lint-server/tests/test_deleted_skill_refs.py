@@ -1,11 +1,11 @@
-"""Regression coverage for deleted-skill references in live instructions."""
+"""Regression coverage for deleted-skill references and META detection scope."""
 
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from server import _check_deleted_skill_refs
+from server import _check_bundle_meta_structure, _check_deleted_skill_refs
 
 
 def test_deleted_skill_reference_is_reported_on_line_mentioning_readme() -> None:
@@ -48,3 +48,30 @@ def test_archive_path_excluded_for_deleted_skill(tmp_path) -> None:
 
     archive_result = lint_markdown(str(archived), project_root=str(tmp_path))
     assert "Deleted skill reference" not in archive_result
+
+
+def test_meta_markers_inside_injected_diff_do_not_make_a_task_meta() -> None:
+    """A diff quoting the bundle skill must not turn an ordinary task into META."""
+    content = (
+        "# Task 391: Split oversized skills\n\n"
+        "**File:** `tasks/qa/391-x.md`\n\n"
+        "## Goal\n\nNothing to bundle.\n\n"
+        "## Factual Git Diff\n\n"
+        "<!-- BEGIN_GIT_DIFF -->\n"
+        "+**Meta:** true\n"
+        "+## Bundled Checklist\n"
+        "+## Supersedes\n"
+    )
+
+    assert _check_bundle_meta_structure(content, "tasks/qa/391-x.md") == []
+
+
+def test_real_meta_missing_sections_is_still_reported() -> None:
+    """A genuine META outside the diff region still fails the structure check."""
+    content = (
+        "# Task 392: Bundle three tasks\n\n**Meta:** true\n\n## Goal\n\nBundle work.\n"
+    )
+
+    issues = _check_bundle_meta_structure(content, "tasks/qa/392-x.md")
+    assert any("## Supersedes" in i for i in issues)
+    assert any("## Bundled Checklist" in i for i in issues)

@@ -668,21 +668,28 @@ def _check_bundle_meta_structure(content: str, file_path: str) -> list[str]:
     else skips with pass. A detected META file must carry a non-empty
     `## Supersedes` section naming source tasks and a non-empty
     `## Bundled Checklist` section carrying verbatim acceptance lines.
+
+    Detection and body inspection are scoped to the PRE-DIFF portion of the
+    file: the injected `## Factual Git Diff` block quotes other files
+    verbatim (a diff of the bundle skill itself contains `**Meta:** true` and
+    `## Bundled Checklist`), which would otherwise mark every task that
+    touches those files as a META and demand sections it never needs.
     """
     issues: list[str] = []
+    body_source = content.split("<!-- BEGIN_GIT_DIFF -->", 1)[0]
     title_meta = bool(
-        re.search(r"^# Task \d+:.*\bMETA\b", content, re.MULTILINE | re.IGNORECASE)
+        re.search(r"^# Task \d+:.*\bMETA\b", body_source, re.MULTILINE | re.IGNORECASE)
     )
     is_meta = (
         title_meta
-        or "**Meta:** true" in content
-        or "## Supersedes" in content
-        or "## Bundled Checklist" in content
+        or "**Meta:** true" in body_source
+        or "## Supersedes" in body_source
+        or "## Bundled Checklist" in body_source
     )
     if not is_meta:
         return issues
     for section in ("## Supersedes", "## Bundled Checklist"):
-        idx = content.find(section)
+        idx = body_source.find(section)
         if idx == -1:
             issues.append(
                 f"Bundle META: missing required `{section}` section "
@@ -690,7 +697,7 @@ def _check_bundle_meta_structure(content: str, file_path: str) -> list[str]:
                 f"all-or-nothing checklist)."
             )
             continue
-        rest = content[idx + len(section) :]
+        rest = body_source[idx + len(section) :]
         next_heading = re.search(r"\n## ", rest)
         body = rest[: next_heading.start()] if next_heading else rest
         if not body.strip():

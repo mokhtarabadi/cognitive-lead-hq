@@ -6,6 +6,7 @@ permission:
   bash: deny
   read: allow
   execute: allow
+  skill: allow
   custom_context_*: allow
   external_directory:
     "*": "ask"

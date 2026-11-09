@@ -116,10 +116,9 @@ The platform runs `warnRatio 0.5` / `emergencyRatio 0.8` because a 1M-token wind
   "enabled": true,
   "pruning": {
     "maxChars": 1024, "maxWords": 128, "taskMaxChars": 4096, "taskMaxWords": 512,
-    "protectedTools": ["question"], "alwaysPruneTools": ["read"],
+    "protectedTools": ["question", "skill"], "alwaysPruneTools": ["read"],
     "discardTools": {
-      "todowrite": "Successfully updated todos.",
-      "skill": "Skill contents omitted after compaction; recall the skill if needed."
+      "todowrite": "Successfully updated todos."
     },
     "preserveRecentTurns": 2, "truncateToolsChars": 1024, "useTokens": true
   },
