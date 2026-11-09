@@ -40,21 +40,30 @@ Both `GET /models` and `POST` are gated by the mount allowlist. A model
 posted to the wrong mount returns `404 ModelNotServedHere` naming the correct
 mount, or `no known route` when no mount serves it.
 
-## Verified allowlists (2026-10-22)
+## Verified allowlists (2026-11-08)
 
-- `/go/resp` — 13: `muse-spark-1.2/1.3-contributor`, `gpt-5.6-luna`,
-  `gpt-6-luna`, `grok-4.6`, `grok-4.7`, `glm-5.3`, `glm-5.3-flash`,
-  `kimi-k3`, `qwen3.8-max`, `mimo-v2.6-pro`, `deepseek-v4-pro`,
-  `deepseek-v4.1-flash`.
-  Every Go chat model probed on 2026-10-21 also answered on `/responses`;
-  the earlier "only six Responses models" reading came from the docs table,
-  not from the gateway.
-- `/go/chat` — the Go chat set. The served count tracks upstream and drifts
-  (36 upstream ids, 23 allowlisted present at the last check); re-probe
-  before trusting a number.
+- `/go/resp` — 29: `muse-spark-1.2-contributor`, `muse-spark-1.3-contributor`, `gpt-5.6-luna`,
+  `gpt-6-luna`, `grok-4.7`, `glm-5.2`, `glm-5.3`, `glm-5.3-flash`,
+  `kimi-k2.7-code`, `kimi-k3`, `kimi-k3.1-pro`, `qwen3.7-plus`,
+  `qwen3.8-flash`, `qwen3.8-max`, `mimo-v2.6-flash`, `mimo-v2.6-pro`,
+  `beam-free`, `deepseek-v4-pro`, `deepseek-v4.1-flash`, `gemini-4-argon`,
+  `minimax-m3`, `minimax-m3.1-flash`, `step-5-preview`, `longcat-2.0`,
+  `hy3`, `hy4`, `hy4-preview`, `iceman-contributor-free`,
+  `crouton-alpha-free`. (`muse-spark-1.2/1.3-contributor` counts as 2 ids; total 29.)
+  Every Go model listed above also answered on `/go/resp/responses`
+  (verified against live upstream 2026-11-08); the three-tuple test
+  `crouton-alpha-free` on `/go/resp` and `/go/chat` both returned 200 while
+  the same id on `/zen/v1` returned 429 `FreeUsageLimitError` (free quota
+  exhausted for this account). **Do not move `crouton-alpha-free` back to
+  only the Zen mount** — it is a Go model id; placing it only on Zen makes it
+  unreachable and the wrong-mount hint points the wrong way.
+- `/go/chat` — the Go chat set (24 ids). The served count tracks upstream;
+  re-probe before trusting a number.
 - `/zen/chat`, `/zen/resp` — free models only. Free-tier generation is
   blocked server-side for non-OpenCode callers (see the A3 gate finding in
-  the `code-server` history); the mount exists for list parity.
+  the `code-server` history); the mount exists for list parity. The same
+  `crouton-alpha-free` id exists on Zen too, but there it is the *free*
+  instance and shares the exhausted free quota — prefer `/go/resp`.
 
 ## Configuration
 

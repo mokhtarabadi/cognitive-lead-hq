@@ -25,6 +25,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Aligned T0 approval gates and non-English validation order in docs/conventions.md with the full workflow and prompt-refactor Step 0.
 - Closed project-memory gaps: fixed namespace list (`architecture`, `opencode_config`, `project`, `quirks`, `release`, `telegram-sync`, `workflows` — no invented namespaces without approval), frontmatter template (`tags:` + one-line summary for the index), banned task-progress saves, and index-first retrieval with Manager re-ask on architectural ambiguity.
 - Fixed lint-server gaps: `_check_task_file_structure` now uses exact-line heading counts (no substring false-pass for `## Goal`); added deleted-skill guard so live `agents/` + `prompts/` text fails on any of the 12 pre-meta skill names (the guard scans root-relative `agents/` and `prompts/fragments/` paths, excludes `DECISIONS.md` files within those paths, and does not exempt provenance or attribution lines); unactionable-verb regex now checks `kanban-lifecycle`.
+- Persisted the Go `crouton-alpha-free` verdict (ADR-004): `docs/zen-proxy.md` now lists the verified 29-model `/go/resp` set (2026-11-08), `zen-proxy/DECISIONS.md` records the Go verdict with rollback, and the global install is byte-identical with the proxy active.
 
 
 ## [9.77.0] - 2026-11-08

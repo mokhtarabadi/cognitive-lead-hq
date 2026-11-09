@@ -56,3 +56,10 @@
   model tested also answers on `/responses`.
 - **Rollback:** Remove the POST gate; `GET /models` filtering alone remains
   as before.
+
+## [2026-11-08] ADR-004: `crouton-alpha-free` is a Go model — keep it on the Go mount
+
+- **Context:** For days, free-tier errors (`FreeUsageLimitError`) were happening on every Zen mount. A full matrix of UA (`Chrome` vs `opencode/…`), session (zero UUID vs real session vs fresh), and endpoint (Chat vs Responses) showed: **all Zen mounts fail, all Go mounts succeed** with the identical `oc_sk_` key. The live `opencode-go` session (pid env `OPENCODE_SESSION_ID`) was using `crouton-alpha-free` through `/zen/go/v1` and working. The proxy's allowlists were stale (13 vs 30 upstream Go models) and `crouton-alpha-free` was listed only on the Zen side.
+- **Decision:** Refresh `GO_CHAT`/`GO_RESP` to the 2026-11-08 upstream (30 ids, minus the messages-only `claude-*`/`gemini-*` family, which are not OpenAI-API compatible). Exception: `gemini-4-argon` stays allowlisted as the OpenAI-compatible member of the gemini family; other `gemini-*` and `claude-*` remain excluded. Group `crouton-alpha-free` and `iceman-contributor-free` on `/go/resp` and `/go/chat`, keeping them on the Zen mounts for list parity. `MODEL_WINDOWS` keeps the per-model overrides; unknown windows default to 1M.
+- **Consequences:** The Brain (which goes through `/go/resp`) can now address the model the user is actually running in the UI; `ModelNotServedHere` points callers to the right mount. Zen's free mount keeps its free quota (still exhausted for this account), which is now an explicit known gap.
+- **Rollback:** Restore the previous `GO_CHAT`/`GO_RESP` blocks in `zen-proxy/proxy.py` from git history, copy to `~/.config/opencode/zen-proxy/`, `systemctl --user restart zen-proxy`.
