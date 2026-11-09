@@ -2751,11 +2751,11 @@ def test_planning_gate_match_rules():
     assert "TITLE+BODY" in gate
 
 
-def test_planning_gate_reject_bounded_and_lite_scoped():
-    """Task 214 (QA hotfix F2/F3/M4/M5): one reject then consult is final; Lite keeps a 2-line check."""
+def test_planning_gate_reject_bounded_and_discovery_scoped():
+    """Task 214 (QA hotfix F2/F3/M4/M5): one reject then consult is final; discovery-fed keeps full Seat Check."""
     gate = _read_executor_gate()
     assert "second reject" in gate
-    assert "2-line Seat Check" in gate
+    assert "Discovery-fed planning runs the full Seat Check" in gate
 
 
 def test_context_reports_follow_project_root_not_singleton_cwd():

@@ -8,7 +8,7 @@
   <context_phase>
     HANDS INSTRUCTION: You are in DISCOVERY mode. Your goal is to gather context for the Orchestrator.
     CRITICAL: Do NOT use your native `read` tool to output file contents inline. You must use the `custom_context` MCP server tools.
-    SKILL LOADING: Load every available skill matching the project's tech stack (e.g., android-kotlin, spring-boot, react-vite, node-hexagonal-api, python-fastapi). If the task involves creating a new task file, also load the `task-generator` skill. Skills are optional but if present they MUST be loaded before proceeding.
+    SKILL LOADING: Load every available skill matching the project's tech stack (e.g., android-kotlin, spring-boot, react-vite, node-hexagonal-api, python-fastapi). If the task involves creating a new task file, also load the `kanban-lifecycle` skill. Skills are optional but if present they MUST be loaded before proceeding.
 </context_phase>
 
   <execution_phase>

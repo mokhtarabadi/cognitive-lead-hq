@@ -1,24 +1,18 @@
-# Language Policy: English Inside, Requested Language Outside
+# Language Policy: English Always
 
 ## Core Rule
 
-Non-English input is translated to technical English first. Execution runs on the English version only. Voice-to-text normalization stays first before translation.
+Non-English input is corrected and translated to technical English first. Execution runs on the English version only. Voice-to-text normalization stays first before translation.
 
-Internal reasoning, task files, evidence, logs, and ALL Brain communication stay English with no exceptions. Only the Manager-facing handoff may use the requested language.
+Thinking, reasoning, task files, evidence, logs, and ALL Brain communication stay English with no exceptions. The Manager-facing handoff is also English always, in simple English but technical, regardless of the input language.
 
-## Translation Gate by Complexity
+## Translation Gate for Non-English Input
 
-Complex or multi-intent non-English input uses Brain-internal structured expansion to produce constrained technical English, and only Hands loads the prompt-refactor skill via the skill tool.
-
-Short clear non-English input uses lightweight inline translation to technical English.
-
-No blanket skill call per message. Gate by complexity every time.
+Every non-English Manager input follows the same full prompt-refactor workflow. Before processing the input, the Hands loads `prompt-refactor` and runs its two-pass workflow: validate, correct and log typos, translate to technical English, expand with `[INFERRED]` where needed, structure the request, and Deliver. The Brain has no skill tool: it performs raw-input validation and typo correction first, then translates before intent expansion, planning, or task generation. Inline translation alone is not permitted, including for short clear inputs. English input uses the grammar/style correction pass and the applicable implementation workflow.
 
 ## Detection
 
-Detect output language per message, never pin to a session default. When no explicit request is detected in that message, fall back to English.
-
-Mixed input executes in English and answers in the requested language for that message.
+Detect and translate every input to English. No requested language is ever used for output. Mixed input executes in English and answers in English.
 
 ## Inside English
 
@@ -28,11 +22,11 @@ A non-English quote inside a task file is verbatim evidence only, never the answ
 
 ## Technical Terms Stay English (Technical-Terms rule)
 
-Inside non-English handoffs, technical terms stay in English with no transliteration into the requested language. Keep in English: file paths such as `tasks/qa/example.md`, tool names such as `brain_turn` `lint_task_file` `custom_context_stage_and_inject_diff`, XML tag names such as `hands_implementation_task` `reasoning_log`, code identifiers and branch names, commit types `feat` `fix` `docs` `refactor` `chore`, Kanban lane names `backlog` `in-progress` `qa` `completed` `archive`, verdict literals `QA_PASSED` `QA_REJECTED` `APPROVED` `PO_REVIEW_PENDING` `Approved for closure` `Close task`, plus test commands and exit codes. Match approval phrases as English literals only. Write non-English sentence structure around the terms and leave each term intact in backticks.
+All technical terms stay in English with no transliteration. Keep in English: file paths such as `tasks/qa/example.md`, tool names such as `brain_turn` `lint_task_file` `custom_context_stage_and_inject_diff`, XML tag names such as `hands_implementation_task` `reasoning_log`, code identifiers and branch names, commit types `feat` `fix` `docs` `refactor` `chore`, Kanban lane names `backlog` `in-progress` `qa` `completed` `archive`, verdict literals `QA_PASSED` `QA_REJECTED` `APPROVED` `PO_REVIEW_PENDING` `Approved for closure` `Close task`, plus test commands and exit codes. Match approval phrases as English literals only. Explain specialist terms in plain English the first time they appear.
 
-## Outside Requested Language
+## Manager-Facing Output (English always)
 
-The final Manager-facing handoff follows the per-message requested language. For mixed-language input, answer in the requested language of that message; when the request itself is mixed with no dominant language, default the reply to English. Keep it short, plain, and skimmable under the Manager-Facing Output Style. Think and reason in English, render the handoff in the requested language.
+The final Manager-facing handoff is simple English but technical. Use short sentences, common words, and precise technical terms. Keep it short, plain, and skimmable under the Manager-Facing Output Style. Think, reason, and reply in English always, regardless of the input language.
 
 ## Approval Literals Guard
 
@@ -42,5 +36,5 @@ Plan gate accepts `approved` in any case through the question tool path. For clo
 
 ## Execution Binding
 
-Translate first, then validate intent, expand requirements, check brainstorming, check clarification, check Lite Mode, and generate implementation tasks from the English version. Clarification questions use the per-message requested language. Implementation XML, tests, and evidence stay English.
+Run Step 0 input validation and typo correction first. For non-English input, translate to technical English next, then expand requirements, check brainstorming and clarification, and generate implementation tasks. The Hands runs the full prompt-refactor workflow for every non-English input. Clarification questions use simple English. Implementation XML, tests, and evidence stay English.
 After Deliver, execute the formatted prompt as live instruction under existing plan approval, Zero-Autonomous-Commit, QA, and closure gates.

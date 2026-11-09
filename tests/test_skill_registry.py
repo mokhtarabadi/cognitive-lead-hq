@@ -39,7 +39,7 @@ def _template_text(name: str) -> str:
 
 
 def test_testing_strategy_skill_contract():
-    text = _template_text("testing-strategy")
+    text = _template_text("testing-verification")
     for required in (
         "RED",
         "GREEN",
@@ -47,7 +47,7 @@ def test_testing_strategy_skill_contract():
         "Diff coverage",
         "Error paths",
         "Test-Placement Map",
-        "Lite-Mode Exemption",
+        "Trivial-Change Exemption",
     ):
         assert required in text, f"contract term missing: {required}"
 
@@ -356,7 +356,7 @@ def test_validate_opencode_positives():
 
 
 def test_telegram_message_format_skill_contract():
-    text = _template_text("telegram-message-format")
+    text = _template_text("telegram-suite")
     for required in (
         'parse_mode: "HTML"',
         "&amp;",
@@ -370,16 +370,16 @@ def test_telegram_message_format_skill_contract():
     ):
         assert required in text, f"contract term missing: {required}"
     reg = REGISTRY.read_text(encoding="utf-8")
-    assert "telegram-message-format" in reg
+    assert "telegram-suite" in reg
 
 
 def test_telegram_skills_obey_the_format_contract():
-    for name in ("telegram-issue-sync", "telegram-message-export"):
-        assert "telegram-message-format" in _template_text(name), name
-    issue_sync = _template_text("telegram-issue-sync")
-    assert 'parse_mode: "HTML"' in issue_sync
-    assert "3800" in issue_sync
-    assert "U+200C" in issue_sync
+    suite = _template_text("telegram-suite")
+    assert 'parse_mode: "HTML"' in suite
+    assert "3800" in suite
+    assert "U+200C" in suite
+    assert "telegram_get_history" in suite
+    assert "RAW_TEXT" in suite
 
 
 def test_telegram_formatting_contract_doc_exists():
@@ -425,7 +425,7 @@ def test_doc_coauthoring_skill_is_runtime_neutral():
 
 
 def test_audit_template_requires_project_skills_table():
-    text = (ROOT / "skill-templates" / "audit-agents" / "SKILL.md").read_text(
+    text = (ROOT / "skill-templates" / "governance" / "SKILL.md").read_text(
         encoding="utf-8"
     )
     assert "Project Skills Table" in text

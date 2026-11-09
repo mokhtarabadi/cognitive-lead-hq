@@ -39,21 +39,11 @@ gh issue view 123 --repo owner/repo --comments
 
 ### Create an Issue (MANDATORY `--body-file`)
 
-**CRITICAL:** Always use `--body-file` with a temp Markdown file — NEVER inline `--body "..."`. Inline bodies are fragile (shell escaping, truncation, Markdown corruption). See `docs/conventions.md` for the full rationale.
+**CRITICAL:** Always use `--body-file` with a temp Markdown file inside the workspace — NEVER inline `--body "..."`. Inline bodies are fragile (shell escaping, truncation, Markdown corruption). See `docs/conventions.md` for the full rationale.
 
-```bash
-cat > /tmp/gh-issue-body.md << 'EOF'
-## Title
-Full Markdown content here — safe from shell escaping.
-EOF
-
-gh issue create \
-  --title "Issue Title" \
-  --body-file /tmp/gh-issue-body.md \
-  --label "bug"
-
-rm -f /tmp/gh-issue-body.md
-```
+1. Create a unique temporary Markdown body file inside the current project workspace using a native file-write tool.
+2. Pass that file's concrete workspace-relative path to `gh issue create --body-file`; never pass the body through inline `--body`.
+3. After recording the command result, delete only that exact temporary file using a native file-management tool.
 
 ## Pull Request Review & Status
 

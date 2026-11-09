@@ -11,7 +11,7 @@ The Living Folder Docs system ensures that architectural knowledge, design ratio
    - Behavior: When `read_source_files` or `extract_signatures` processes files in a component directory, it automatically resolves and attaches sibling `README.md` and `DECISIONS.md` files so the Brain always inspects existing architectural context.
 
 2. **Gate 2: Write Gate (Agent Constraints & Task Templates):**
-   - Locations: `prompts/fragments/13-constraints.md`, `prompts/fragments/09-hands_protocols.md`, `skill-templates/task-generator/`
+   - Locations: `prompts/fragments/13-constraints.md`, `prompts/fragments/09-hands_protocols.md`, `skill-templates/kanban-lifecycle/`
    - Behavior: When modifying code within a slice, the agent is mandated to inspect and update sibling docs. Implementing without updating relevant ADRs triggers a rule violation warning.
 
 3. **Gate 3: Lint Gate (Static Verification):**
@@ -87,5 +87,5 @@ export class TodoService {
 
 - **Phase 1 (Conventions & System Prompts):** Update `docs/conventions.md`, prompt fragments `13-constraints.md` and `09-hands_protocols.md`, assemble `system-prompt.md`, and mirror in `agents/cognitive-executor.md`.
 - **Phase 2 (MCP Context & Lint Tooling):** Add sibling doc auto-attachment in `mcp-context-server/server.py` and structural validation in `mcp-lint-server/server.py`.
-- **Phase 3 (Task Templates & Skills):** Update `task-generator` template to mandate folder-docs checklist items.
+- **Phase 3 (Task Templates & Skills):** Update `kanban-lifecycle` template to mandate folder-docs checklist items.
 - **Phase 4 (Persona Gates & ADR Memory Integration):** Wire QA/Reviewer adversarial gates and test the full cycle on a sample slice.

@@ -13,9 +13,24 @@ This skill provides persistent, long-term memory for the project. It prevents th
 
 Whenever the Manager explicitly states a rule, preference, or architectural constraint (e.g., "For this project, always use flag X" or "Never use Prisma push"), you MUST proactively save this context.
 
-1. Choose a logical `namespace` (e.g., `testing`, `database`, `deployment`, `quirks`).
+**What to save:** standing rules, architectural constraints, reusable quirks, test commands, Manager preferences.
+**What to NEVER save:** task progress, transient bug states, code snippets, or single-task details — those belong in the task file, not memory.
+
+1. Choose a `namespace` from this closed list only: `architecture`, `opencode_config`, `project`, `quirks`, `release`, `telegram-sync`, `workflows`. (`testing`/`database` memories go under `project` unless the Manager approves a new namespace.) Do not invent a new namespace without Manager approval.
 2. Choose a concise, snake_case `key` (e.g., `prisma_migration_rule`).
-3. Call the `store_memory` MCP tool with the content. Ensure `overwrite=True` if updating an existing rule.
+3. Write the memory with frontmatter so the index stays useful:
+
+   ```markdown
+   ---
+   tags: [tag1, tag2]
+   ---
+   # One-line summary (becomes the index Summary, clamp to 120 chars)
+
+   Rule or constraint in full, with reason and scope.
+   ```
+
+   Tags are optional but recommended. The first non-empty line after frontmatter becomes the index `Summary`.
+4. Call the `store_memory` MCP tool with the content. Ensure `overwrite=True` if updating an existing rule.
 
 ## When to DELETE Memory (Trigger)
 
@@ -50,6 +65,7 @@ The index is derived state: it will be recreated automatically; do not commit it
 
 At the start of EVERY new implementation task (during the Context Phase):
 
-1. Identify the domain of the task (e.g., are we modifying Docker? Writing Jest tests? Editing Auth?).
-2. Call `search_memory` using keywords related to that domain, OR call `list_namespaces` and then `read_memory` for specific keys.
-3. Inject these retrieved constraints into your reasoning log to ensure you do not violate established project rules.
+1. Read `.opencode/memory/index.md` first (if present) for the compact overview.
+2. Identify the domain of the task (e.g., are we modifying Docker? Writing Jest tests? Editing Auth?).
+3. Select relevant rows from the index and fetch via `read_memory(namespace, key)`; use `search_memory` only for unknown keys, and `list_namespaces` only as fallback if the index is missing (then trigger `rebuild_memory_index` if needed).
+4. Inject these retrieved constraints into your reasoning log to ensure you do not violate established project rules. On architectural ambiguities from memory, re-ask the Manager directly — never guess.

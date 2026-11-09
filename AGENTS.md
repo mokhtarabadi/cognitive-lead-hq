@@ -34,8 +34,8 @@ This repository is the Headquarters for the Cognitive Lead AI multi-agent system
 - **Do** run all MCP servers under the Universal Code Mode Policy (`codemode: true` default): route every MCP tool call through the `execute` runtime as `tools.<server>.<tool>`.
 - **Don't** create monolithic state files like `TODO.md` or `STATE.md`.
   -> **Do** use the decentralized `tasks/` directory with individual task files as the single source of truth.
-- **Don't** make UI/UX changes without consulting `DESIGN.md`.
-  -> **Do** enforce the color palette, typography, spacing, and component styling defined in `DESIGN.md`.
+- **Don't** make UI/UX changes without reading `DESIGN.md` first.
+  -> **Do** follow `DESIGN.md` tokens always — colors, typography, spacing, and component styling come only from `DESIGN.md`. Never hard-code values. If `DESIGN.md` is missing, STOP for UI work and request it — do not proceed from memory (the Absent-File skip applies to non-UI tasks only).
 - **Don't** execute `git add`, `git commit`, `git checkout`, or `git push` autonomously or try to guess when to stage code — these commands are STRICTLY FORBIDDEN.
   -> **Do** execute Git commands ONLY when explicitly instructed by an Orchestrator task block. Otherwise, rely on the `custom_context_stage_and_inject_diff` MCP tool.
   -> **Exception:** the ONLY permitted autonomous Git operation is `git mv` for moving task files between Kanban directories (`backlog`, `in-progress`, `qa`, `completed`, `archive`).
@@ -53,8 +53,8 @@ This repository is the Headquarters for the Cognitive Lead AI multi-agent system
   -> **Do** ALWAYS process through the Input Validation Pipeline first: Validate → Translate → Enrich → Refactor → Execute. If the input is unclear, HALT and request clarification. NEVER proceed to task generation with unvalidated input. (Note: If you receive a standard XML task block, skip this and execute normally).
 - **Don't** attempt to resolve cross-disciplinary ambiguity within a single persona.
   -> **Do** trigger the Multi-Agent Brainstorming Loop if the Manager explicitly requests brainstorming or a task exhibits cross-disciplinary ambiguity. Interpret the `<brainstorming_session>` results in backlog tasks as non-functional guidelines that govern execution.
-- **Don't** apply the full 9-step production line for trivial, single-file changes.
-  -> **Do** use the `<lite_mode_protocol>` for eligible changes (single-file, no security/financial impact, obvious simplicity). Escalate to Full Mode if implementation reveals hidden complexity. See `<lite_mode_protocol>` in the system prompt.
+- **Don't** skip the execution workflow for trivial, single-file changes.
+  -> **Do** traverse the full workflow for every task; keep scope minimal for trivial changes.
 - **Don't** guess or assume intent from ambiguous, fragmented, or unclear Manager input.
   -> **Do** HALT immediately, output a clarification request in simple English, and ask targeted questions to confirm the exact intent before proceeding. (Clarification Halt — V9.1.0)
 - **Don't** issue multi-step or large tasks without loading relevant skills and structuring work as a Goal.
@@ -88,15 +88,15 @@ You MUST strictly adhere to these exact paths. Do not create duplicates elsewher
 - **Conventions:** `docs/conventions.md` (syntax, datetime, SOLID, financial, DSP)
 - **Agent Skills:** `.opencode/skills/<skill-name>/SKILL.md` (Local workspace)
 - **Active Tasks:** `tasks/backlog/<task-number>-<name>.md` (backlog), `tasks/in-progress/`, `tasks/qa/`, `tasks/completed/`, `tasks/archive/`
-- **Bundle Tool:** `bundle_tasks` MCP tool (`mcp-context-server/server.py`) — deterministic meta-task bundler for `task-generator`
+- **Bundle Tool:** `bundle_tasks` MCP tool (`mcp-context-server/server.py`) — deterministic meta-task bundler for `kanban-lifecycle`
 
-## 🛑 HQ-ONLY RULES (cognitive-lead-hq — Local, NOT part of global audit-agents)
+## 🛑 HQ-ONLY RULES (cognitive-lead-hq — Local, NOT part of global governance)
 
-These extensions apply ONLY inside this Headquarters repository. They are intentionally NOT enforced by the global `skill-templates/audit-agents` skill (which is project-agnostic) and MUST NOT be audited or scaffolded in third-party projects.
+These extensions apply ONLY inside this Headquarters repository. They are intentionally NOT enforced by the global `skill-templates/governance` skill (which is project-agnostic) and MUST NOT be audited or scaffolded in third-party projects.
 
 - **AC/DoD Box-Checking at Implementation Time**: `prompts/fragments/09-hands_protocols.md` MUST instruct the Hands to check AC/DoD boxes (`- [x]`) during the implementation `<summary_phase>`, not defer to a closure task. The global audit skill never creates or audits this file — it is HQ-only.
-- **HQ Prompt Fragment System**: The `prompts/fragments/*` directory (including `09-hands_protocols.md`), `agents/cognitive-executor.md`, `skill-templates/*`, and `09-hands_*.md` are HQ-only scaffolding. They MUST NOT be created, audited, or referenced when the audit-agents skill runs outside this repository. Inside HQ they are the source of truth for Hands protocols; outside HQ they are `OPTIONAL — HQ-ONLY, SKIPPED`.
-- **Enforcement Location**: These rules live ONLY in this `AGENTS.md`. Do NOT add them to `skill-templates/audit-agents/SKILL.md` — that template must remain fully project-agnostic.
+- **HQ Prompt Fragment System**: The `prompts/fragments/*` directory (including `09-hands_protocols.md`), `agents/cognitive-executor.md`, `skill-templates/*`, and `09-hands_*.md` are HQ-only scaffolding. They MUST NOT be created, audited, or referenced when the governance skill runs outside this repository. Inside HQ they are the source of truth for Hands protocols; outside HQ they are `OPTIONAL — HQ-ONLY, SKIPPED`.
+- **Enforcement Location**: These rules live ONLY in this `AGENTS.md`. Do NOT add them to `skill-templates/governance/SKILL.md` — that template must remain fully project-agnostic.
 
 ## 🛑 META-TASK BUNDLE LIFECYCLE
 
@@ -118,8 +118,8 @@ A meta-task bundles 2–6 small related tasks into one META for unified executio
 
 You MUST follow these skill loading rules in every session:
 
-- **Task-Generator Skill:** Before creating any new task file, you MUST load the `task-generator` skill using the `skill` tool to ensure the correct template format with `<!-- BEGIN_GIT_DIFF -->` / `<!-- END_GIT_DIFF -->` markers.
-- **Project Skills:** Before implementing any task, you MUST load every available skill matching the project's tech stack (e.g., `android-kotlin`, `spring-boot`, `react-vite`, `nodejs-express`, `python-fastapi`). If a relevant skill exists, it MUST be loaded — this enforces framework-specific conventions and architectural rules.
+- **Kanban Lifecycle Skill:** Before creating any new task file, you MUST load the `kanban-lifecycle` skill using the `skill` tool to ensure the correct template format with `<!-- BEGIN_GIT_DIFF -->` / `<!-- END_GIT_DIFF -->` markers.
+- **Project Skills:** Before implementing any task, you MUST load every available skill matching the project's tech stack (e.g., `android-kotlin`, `spring-boot`, `react-vite`, `node-hexagonal-api`, `python-fastapi`). If a relevant skill exists, it MUST be loaded — this enforces framework-specific conventions and architectural rules.
 
 ## 🛑 PROJECT SKILLS (Local, Audited)
 

@@ -17,29 +17,20 @@ Inline `--body "..."` in `gh issue create` is fragile:
 | Markdown corruption | Newlines, `#`, `---` can break shell parsing          |
 | No preview          | You can't verify what will actually be sent           |
 
-Using `--body-file /tmp/gh-issue-body.md` guarantees precise, verbatim delivery of the full Markdown content.
+Using a body file guarantees precise, verbatim delivery of the full Markdown content. Keep it inside the project workspace.
 
 ### Standard Pattern
 
-```bash
-cat > /tmp/gh-issue-body.md << 'EOF'
-## Title
-Full Markdown content here — safe from shell escaping.
-EOF
-
-gh issue create \
-  --title "Issue Title" \
-  --body-file /tmp/gh-issue-body.md \
-  --label "some-label"
-
-rm -f /tmp/gh-issue-body.md
-```
+1. Create a unique temporary Markdown body file inside the current project workspace using a native file-write tool.
+2. Pass that file's concrete workspace-relative path to `gh issue create --body-file`; never pass the body through inline `--body`.
+3. After recording the command result, delete only that exact temporary file using a native file-management tool.
 
 ### Rules
 
-- Use single-quoted `'EOF'` delimiter to prevent shell variable expansion.
-- Always include `rm -f /tmp/gh-issue-body.md` cleanup after the `gh` command.
-- This applies to all files: SKILL.md templates, task files, and scripts.
+- Keep the body file inside the current project workspace.
+- Never create or modify it with shell redirection, Python, or another script.
+- Always use `--body-file`, never inline `--body`.
+- Remove only the known temporary body file after the command has been handled.
 
 ### Canonical Reference
 
@@ -96,29 +87,11 @@ When writing or reviewing bash scripts, cron jobs, or container orchestration co
 3. **No Post-Redirect Status Checks:** Never use `command > file; if [ $? -eq 0 ]` — the shell creates the file before running the command, masking failures.
 4. **Sidecar Isolation for Hostless Backups:** Never rely on host file staging for Docker volume backups. Always use ephemeral containers (`docker run --rm -v volume:/data:ro alpine tar...`) with read-only mounts.
 
-## Lite Mode Protocol
-
-Process is scaled to risk. Not every task requires the full 9-step production line.
-
-### Eligibility (All Three Must Be True)
-
-1. **No high-risk surface:** No auth/authn/authz, secrets, security-surface, financial ledger or calculation, data-privacy or CLP, PII deletion, migrations, deploys, publishes, pushes, or irreversible deletes.
-2. **Gate-decided entry:** Relevant tests green plus lint clean plus targeted risk greps clean (grep for auth, secret, migration, ledger, money, PII shows no hit in the diff).
-3. **Reversible via git:** Clear rollback path exists. Any file count allowed while risk is low and gates pass.
-
-### Workflow
-
-Bypasses Steps 1–4 of `<execution_workflow>` (Discovery, Brainstorming, Blueprint, Approval Gate). Goes directly to Implementation. Standard QA + Code Review still applies but can be expedited for trivial changes.
-
-### Escalation
-
-Escalate to Full Mode when any trigger fires: high-risk surface discovered, any gate fails twice, cross-module coupling beyond trivial, destructive or irreversible action required, Manager uncertain about scope. On trigger the Hands MUST HALT and output: "Escalating from Lite Mode to Full Mode: [reason]." The full workflow restarts at Step 1.
-
-### Risk Tiers (Autopilot-Ready Contract)
+## Risk Tiers (Autopilot-Ready Contract)
 
 Every task runs at one tier. The tier sets how many human pauses apply.
 
-- **T0 trivial:** meets all Lite eligibility above (no high-risk surface, gates green, reversible). Lite fast path applies. No human pauses except QA and review verdicts.
+- **T0 trivial:** no high-risk surface (no auth/authn/authz, secrets, security-surface, financial ledger or calculation, data-privacy or CLP, PII deletion, migrations, deploys, publishes, pushes, or irreversible deletes), gates green (relevant tests green plus lint clean plus risk greps clean), reversible via git. Minimal scope applies only to implementation. The full workflow and all approval gates remain mandatory, including plan approval, QA, Code Review, and PO closure approval.
 - **T1 standard:** multi-file changes or new behavior. Full supervised autopilot applies with a plan-approval pause plus Relay questions.
 - **T2 destructive or irreversible:** migrations, deletes, publishes, pushes, or secret handling. Each action needs explicit Manager approval. Autopilot MUST halt and never self-approve.
 
@@ -134,7 +107,7 @@ When the Software Architect or Senior Programmer issues a multi-step or large ta
 2. **Structure the work as a Goal unit** with explicit verification gates (tests, lints, compilation checks) for each phase.
 3. **List exactly WHICH skills the Hands must load**, and explain HOW and WHY to use them in the task template.
 
-Single-file trivial changes (Lite Mode) do not require Goal treatment. The Goal treatment is mandatory for any task touching 2+ files, any new feature, or any architectural change.
+Trivial single-file changes do not require Goal treatment. The Goal treatment is mandatory for any task touching 2+ files, any new feature, or any architectural change.
 
 ### Parallel Agent Execution Mandate
 
@@ -162,7 +135,7 @@ All Manager input — English, non-English, or mixed — MUST pass through the I
 If any validation step FAILS — particularly the clarity check — the Orchestrator and Hands MUST:
 
 1. **HALT immediately.** Do NOT guess, assume, or fabricate intent from ambiguous input.
-2. **Output a clarification request** in the per-message requested language, no matter which language the input used.
+2. **Output a clarification request** in simple English, no matter which language the input used.
 3. **Ask targeted questions** to confirm the exact intent before proceeding.
 4. **Only resume** after the Manager provides an unambiguous response.
 
@@ -170,7 +143,7 @@ Guessing intent from ambiguous, fragmented, or unclear input is strictly forbidd
 
 ### Non-English Translation
 
-All non-English input MUST first be translated into technical English before any prompt refactoring, task generation, or execution planning proceeds. No execution may occur on non-English input until the translation step is complete.
+All non-English input MUST first pass raw-input validation and typo correction. Translate it to technical English before intent expansion, restructuring, execution planning, task generation, or any prompt-refactoring operation beyond Step 0. Step 0 raw-input validation and typo correction are the only prompt-refactor operations permitted before translation. No execution may occur before the translation step is complete.
 
 ## MCP Environment Loading & Blank-Means-Unset Convention
 

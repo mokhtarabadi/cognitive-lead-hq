@@ -41,10 +41,10 @@ Why a stack-free explicit-tag-list approach is used for parsing:
     (<workflow>, <personas>, <output_schema>, <brainstorming_session>, etc.)
     and the <personas> tag name recurs at column 0 both as a top-level tag and
     nested inside brainstorming_protocol. Instead this script uses the
-    EXPLICITLY ordered list of 20 expected top-level tag names and, for each,
+    EXPLICITLY ordered list of 19 expected top-level tag names and, for each,
     finds the first column-0 opening line <tag> and the first closing line
     </tag> (at any indentation, since some nested closers are indented) after
-    the previous block. This     deterministically isolates the 20 top-level blocks
+    the previous block. This     deterministically isolates the 19 top-level blocks
     without a full XML parser, and verifies their order matches the contract.
 """
 
@@ -59,9 +59,9 @@ from typing import List, Tuple
 # Configuration
 # ---------------------------------------------------------------------------
 
-# The 21 top-level XML tags in system-prompt.md, in document order.
+# The 19 top-level XML tags in system-prompt.md, in document order.
 # This explicit ordered list is the authoritative contract for the split: the
-# script verifies that these (and only these) 21 tags appear at the top level,
+# script verifies that these (and only these) 19 tags appear at the top level,
 # in this exact order. Nested tags (e.g. <phase>/<workflow>/<personas> inside
 # <brainstorming_protocol>) are part of their parent block's content and are
 # NOT split out separately. Text after the last tag (the Markdown language
@@ -77,7 +77,6 @@ TOP_LEVEL_TAGS: List[str] = [
     "agent_skills_registry",
     "agentic_reasoning",
     "hands_protocols",
-    "lite_mode_protocol",
     "execution_workflow",
     "brainstorming_protocol",
     "constraints",
@@ -88,7 +87,6 @@ TOP_LEVEL_TAGS: List[str] = [
     "initialization",
     "communication_examples",
     "self_improvement_protocol",
-    "night_mode",
 ]
 
 # Regex patterns for locating top-level tag boundaries.
@@ -121,7 +119,7 @@ def _halt(msg: str) -> None:
 def _find_block_ranges(lines: List[str]) -> List[Tuple[str, int, int]]:
     """Locate the (tag_name, start_index, end_index) for each top-level tag.
 
-    Uses the explicit TOP_LEVEL_TAGS list in document order (20 tags). For each tag it
+    Uses the explicit TOP_LEVEL_TAGS list in document order (19 tags). For each tag it
     finds the first column-0 opening line `<tag>` after the previous tag's
     closing line, then the first closing line `</tag>` (at any indentation)
     after that opening. This correctly handles tags whose closing lines are
@@ -324,7 +322,7 @@ def split_system_prompt(
     ranges = _find_block_ranges(lines)
     if len(ranges) != len(TOP_LEVEL_TAGS):
         _halt(
-            f"Expected {len(TOP_LEVEL_TAGS)} top-level blocks, found {len(ranges)}."  # 20 tags
+            f"Expected {len(TOP_LEVEL_TAGS)} top-level blocks, found {len(ranges)}."  # 19 tags
         )
 
     # --- 2. Extract block text for each tag ---
@@ -335,7 +333,7 @@ def split_system_prompt(
     Path(manifest_path).parent.mkdir(parents=True, exist_ok=True)
 
     # Reuse filenames already listed in an existing manifest, matched by the
-    # part after the numeric prefix ("23-night_mode.md" -> "night_mode"), so a
+    # part after the numeric prefix ("24-language_policy.md" -> "language_policy"), so a
     # rebuild does not renumber and rename every fragment on disk.
     existing_names: dict[str, str] = {}
     manifest_file = Path(manifest_path)

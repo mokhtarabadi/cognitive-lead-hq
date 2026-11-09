@@ -117,7 +117,7 @@ Test-generated task file.
 ## Definition of Done
 
 - [ ] `lint_task_file` passes
-- [ ] `verification-before-completion` applied and evidence recorded
+- [ ] `testing-verification` applied and evidence recorded
 
 ## Risk & Rollback
 

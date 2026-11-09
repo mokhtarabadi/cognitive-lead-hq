@@ -3,7 +3,7 @@
 > **Audience:** the Telegram MCP server maintainers, and every agent that sends a message through the Telegram MCP.
 > **Purpose:** every rule below was proven empirically against the live server on 2026-10-21 by sending probe messages and reading them back. Nothing here is inferred from documentation.
 > **Status:** the two safe patterns at the end work today on the current server; the "known defects" section is what we believe should be fixed upstream.
-> **Operational twin:** [`skill-templates/telegram-message-format/SKILL.md`](../skill-templates/telegram-message-format/SKILL.md) — the agent-facing rulebook distilled from this document. Load it before any Telegram send.
+> **Operational twin:** [`skill-templates/telegram-suite/SKILL.md`](../skill-templates/telegram-suite/SKILL.md) (Part 1) — the agent-facing rulebook distilled from this document. Load it before any Telegram send.
 
 ---
 
@@ -283,7 +283,7 @@ await delete_message({chat_id, message_id, account});
 
 ## 10. Authoring rules for agents (binding)
 
-These are the rules an agent must follow when it authors a Telegram message. They restate the findings above in the form of an action list, and they are the source of the [`telegram-message-format` skill](../skill-templates/telegram-message-format/SKILL.md).
+These are the rules an agent must follow when it authors a Telegram message. They restate the findings above in the form of an action list, and they are the source of the [`telegram-suite` skill (Part 1)](../skill-templates/telegram-suite/SKILL.md).
 
 | # | Rule                                                                        | Why                                                                        |
 | - | --------------------------------------------------------------------------- | -------------------------------------------------------------------------- |

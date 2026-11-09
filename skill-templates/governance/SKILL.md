@@ -1,7 +1,15 @@
 ---
-name: audit-agents
-description: Enforces decentralized task management, UI/UX design strictness, and global state constraints within AGENTS.md.
+name: governance
+description: Agent protocol auditing plus living folder docs scaffolding — AGENTS.md governance and README/DECISIONS baselines in one meta skill.
 ---
+
+# Governance Meta Skill
+
+Meta skill combining **audit-agents** (project-agnostic Agent Protocol Auditor) and **init-folder-docs** (Living Folder Docs Initializer). Load one skill for governance work: either audit/patch an existing `AGENTS.md`, or scaffold missing slice docs. Sections are verbatim from the source skills.
+
+---
+
+## Part 1: Agent Protocol Auditor — Project-Agnostic (from `audit-agents`)
 
 # Skill: Agent Protocol Auditor (Project-Agnostic)
 
@@ -23,9 +31,9 @@ The `AGENTS.md` file MUST explicitly contain the following operational constrain
 - **Decentralized Task Management**: Agents MUST strictly use decentralized, individual task files in the Kanban directories (`tasks/backlog`, `tasks/in-progress`, `tasks/qa`, `tasks/completed`, `tasks/archive`) as their single source of truth.
 - **No Monolithic State**: Agents are strictly forbidden from creating `TODO.md` or `STATE.md`.
 - **Zero-Autonomous-Commit**: Agents MUST be strictly forbidden from executing Git commands autonomously; they may only run Git commands when explicitly instructed by the Orchestrator. **Exception:** `git mv` is permitted for moving task files between Kanban directories (`backlog`, `in-progress`, `qa`, `completed`, `archive`).
-- **Mandatory End-Of-Task Sequence**: MUST explicitly mandate a 5-step completion process: 1) Update CHANGELOG.md. 2) Write manual reasoning in the task file. 3) Call the `custom_context_stage_and_inject_diff` MCP tool, then `git mv` the task to `tasks/qa/` (NO COMMITS ALLOWED). 4) Synchronize the task file's `**File:**` metadata to the new path and re-run lint + stage at the new path. 5) Notify the Manager. When the project uses session-keyed conversation threads, the sequence MUST note that closing a task file does not close the session thread.
+- **Mandatory End-Of-Task Sequence**: MUST explicitly mandate a completion process: 1) Update CHANGELOG.md. 2) Write manual reasoning in the active task file. 3) Call `custom_context_qa_transition` once with the active task path and explicit `modified_files`; it atomically moves the task to `tasks/qa/`, synchronizes the header, stages the changes, and injects the diff. Do not perform a separate task move, header edit, or re-stage. 4) Notify the Manager that QA/review will be chained directly through `brain_turn`; never ask the Manager to copy or relay task contents. Do not commit or close without explicit Manager approval.
 - **UI/UX Enforcement**: Any UI/UX changes MUST enforce the guidelines defined in the project's `DESIGN.md`.
-- **Task-Generator Skill Loading**: `AGENTS.md` MUST explicitly instruct the Hands to load the `task-generator` skill before creating new task files.
+- **Task-Generator Skill Loading**: `AGENTS.md` MUST explicitly instruct the Hands to load the `kanban-lifecycle` skill before creating new task files.
 - **Project Skill Loading**: `AGENTS.md` MUST explicitly instruct the Hands to load every available skill matching the project's tech stack before task implementation.
 - **Project Skills Table (local skills)**: On every audit, scan the project's local skill directories (`.opencode/skills/*/SKILL.md` or equivalent) and (re)build a **Project Skills** table in that project's `AGENTS.md` — one row per local skill: name, trigger (when to load), one-line duty, same column shape as the global Skill Auto-Loading Matrix. Two hard fails: audit without the Project Skills table fails, and a stale row (deleted skill still listed) fails the audit.
 - **Complex Debugging**: Agents MUST be instructed not to guess blindly on complex bugs, but instead utilize the `debug-instrumentation` skill.
@@ -38,8 +46,8 @@ The `AGENTS.md` file MUST explicitly contain the following operational constrain
 - **Buffer Isolation**: The shared validation phase MUST include a buffer-flush directive requiring Hands to treat every task as contextually independent, preventing cross-task context leakage. When the project uses session-keyed conversation threads, the rules MUST note that flushing covers working execution assumptions only — the conversation thread persists across tasks under the active session ID until sprint completion.
 - **Defensive Shell Protocol (DSP)**: `AGENTS.md` MUST include a guardrail forbidding bash scripts without `set -euo pipefail` and banning `2>/dev/null` on data commands. `docs/conventions.md` MUST contain a `## Defensive Shell Protocol (DSP)` section.
 - **Universal Financial Ledger Standard**: `AGENTS.md` MUST include a guardrail requiring snapshot-on-write for financial mutations and `$ifNull` precedence for monetary aggregations. `docs/conventions.md` MUST contain a `## Universal Financial Ledger Standard` section.
-- **Lite Mode Protocol**: `AGENTS.md` MUST document the `<lite_mode_protocol>` — when eligible (single-file, no security/financial impact, obvious simplicity), the full 9-step production line can be bypassed with a `[LITE]` justification in the task's `## Execution Log & Reasoning` section. Escalation to Full Mode is mandatory if hidden complexity is discovered.
 - **Deprecated-Section Purge Rule**: Scans `AGENTS.md` and all task files across `tasks/` (excluding archive and completed history) for deprecated sections: `## Manager Decisions`, `## Admin Decision`, `Manager Decision`, `Admin Decision`. When detected, the auditor MUST purge the entire deprecated section from the target file, document the purge in the audit findings/changelog, and MUST NOT flag their absence as a missing requirement or recreate them.
+- **Lite Mode Removal (Deprecated Bypass)**: Lite Mode (`<lite_mode_protocol>`, `Lite Mode`, `lite_mode`, `[LITE]`, `Lite-eligible`) is a deprecated bypass and MUST NOT exist in `AGENTS.md`, `docs/conventions.md`, `README.md`, `agents/*.md`, `prompts/**`, or generated prompt artifacts. Every task MUST traverse the full execution workflow with no bypass, escalation, or justification carve-out. When detected, the auditor MUST purge the Lite Mode section/paragraphs entirely (removing bypass clauses so the workflow is unconditional), verify no `<lite_mode_protocol>` fragment or manifest entry remains, and document the purge in the audit findings/changelog. The auditor MUST NOT flag its absence as a missing requirement. Historical traces in `tasks/archive/`, `tasks/completed/`, `docs/history/`, and `CHANGELOG.md` history are provenance only and MUST NOT be rewritten.
 - **Runtime-State gitignore**: If the project writes per-project runtime state (plugin state, worktree checkouts, session/state JSON), `.gitignore` MUST cover those paths while MUST NOT ignore deliberate config checked in on purpose. Audit `.gitignore` read-only first; patch only paths for state actually detected in the project — never speculative entries. Deliberate agent config (`[PROJECT_ROOT]/.opencode/smart-compact.jsonc`) is NOT runtime state and MUST NOT be gitignored. The same rule covers Brain session history: when the audited project carries `tasks/.sessions/` transcript dirs (brain-bridge per-project sessions), `.gitignore` MUST include the `tasks/.sessions/` path — check `.gitignore` first and add the line only if missing (never duplicate), and only after confirming the dir exists in that project.
 - **Goal Plugin Runtime State**: Goal plugin file state (`[PROJECT_ROOT]/.opencode/goals/` per-session state plus evidence sidecars, the legacy `[PROJECT_ROOT]/.opencode/goal-state.json` and `[PROJECT_ROOT]/.opencode/goal-evidence.json` read fallbacks, `[PROJECT_ROOT]/STOP_GOAL`, `[PROJECT_ROOT]/.opencode/STOP_GOAL`) is runtime state only and MUST be gitignored. It is external scratch and never replaces decentralized task truth.
 
@@ -333,6 +341,8 @@ Use this when a project has no `AGENTS.md` yet (new project onboarding).
   -> **Do** trigger the Multi-Agent Brainstorming Loop if the Manager explicitly requests brainstorming or a task exhibits cross-disciplinary ambiguity. Interpret the `<brainstorming_session>` results in backlog tasks as non-functional guidelines that govern execution.
 - **Don't** silently alter slice architecture or domain invariants without updating the sibling README.md and appending a dated ADR to DECISIONS.md.
   -> **Do** inspect sibling README.md and DECISIONS.md before modifying code, and keep them in sync with implementation changes.
+- **Don't** skip the execution workflow for trivial, single-file changes.
+  -> **Do** traverse the full workflow for every task; keep scope minimal for trivial changes.
 
 ## Documentation Sync Rules
 
@@ -361,7 +371,7 @@ You MUST strictly adhere to these exact paths. Do not create duplicates elsewher
 
 You MUST follow these skill loading rules in every session:
 
-- **Task-Generator Skill:** Before creating any new task file, you MUST load the `task-generator` skill using the `skill` tool to ensure the correct template format with `<!-- BEGIN_GIT_DIFF -->` / `<!-- END_GIT_DIFF -->` markers.
+- **Task-Generator Skill:** Before creating any new task file, you MUST load the `kanban-lifecycle` skill using the `skill` tool to ensure the correct template format with `<!-- BEGIN_GIT_DIFF -->` / `<!-- END_GIT_DIFF -->` markers.
 - **Project Skills:** Before implementing any task, you MUST load every available skill matching the project's tech stack (e.g., `android-kotlin`, `spring-boot`, `react-vite`). If a relevant skill exists, it MUST be loaded — this enforces framework-specific conventions and architectural rules.
 
 ## 🛑 CONTEXT BOOTSTRAPPING
@@ -370,13 +380,13 @@ At the start of every task, you MUST call `search_memory` or `list_namespaces` t
 
 ## 🛑 MANDATORY END-OF-TASK SEQUENCE
 
-When finishing a task, you MUST execute these exact steps in order:
+When finishing an implementation task, execute these steps in order:
 
-1. **Update Changelog:** You MUST insert a formal entry into CHANGELOG.md logging your modifications.
-2. **Write your Summary:** Manually write your architectural reasoning, local TODO checks, and execution notes into the active `tasks/XX-task.md` file under "Execution Log & Reasoning".
-3. **Call MCP Tool & QA Transition:** Call the `custom_context_stage_and_inject_diff` MCP tool. After injection, you MUST move the task file to `tasks/qa/` via `git mv` before notifying the Manager (implementation tasks only — discovery tasks stay in place). DO NOT execute any `git commit` commands. Closure to `tasks/completed/` happens ONLY after the Manager explicitly says "Approved for closure" or "Close task".
-4. **Kanban Metadata Synchronization (mandatory after ANY authorized `git mv`):** After the move, update the task file's `**File:**` metadata header to the new path. If the move happened AFTER staging, re-run `lint_task_file` and call `custom_context_stage_and_inject_diff` AGAIN with the NEW task path and the full `modified_files` array before notifying the Manager — the re-stage keeps the injected diff and staging state in sync with the final path. Never notify the Manager with a stale `**File:**` header.
-5. **Notify Manager:** Output exactly: "Task ready. Manager, please copy the contents of `tasks/XX-task.md` and send it back to the Orchestrator Brain for review."
+1. Update `CHANGELOG.md` with the task's changes.
+2. Record reasoning and verification evidence in the active task file.
+3. Call `custom_context_qa_transition` once with the active task path and explicit `modified_files`. This tool atomically moves the task to `tasks/qa/`, synchronizes its `**File:**` header, stages modified files, and injects the diff. Do not move the task separately or manually edit its header.
+4. Notify the Manager that the task is in QA and the Hands will chain QA/review through `brain_turn`. Never ask the Manager to copy, paste, or relay task contents.
+5. Do not commit or close the task until the Manager gives the explicit closure approval phrase. Discovery tasks remain in their current lane.
 ```
 
 ---
@@ -402,9 +412,9 @@ Additionally, the `docs/conventions.md` file MUST exist and contain:
 - **Decentralized Task Management**: Agents MUST strictly use decentralized, individual task files in the `tasks/` directory as their single source of truth.
 - **No Monolithic State**: Agents are strictly forbidden from creating `TODO.md` or `STATE.md`.
 - **Zero-Autonomous-Commit**: Agents MUST be strictly forbidden from executing Git commands autonomously; they may only run Git commands when explicitly instructed by the Orchestrator. **Exception:** `git mv` is permitted for moving task files between Kanban directories (`backlog`, `in-progress`, `qa`, `completed`, `archive`).
-- **Mandatory End-Of-Task Sequence**: MUST explicitly mandate a 5-step completion process: 1) Update CHANGELOG.md. 2) Write manual reasoning in the task file. 3) Call the `custom_context_stage_and_inject_diff` MCP tool, then `git mv` the task to `tasks/qa/` (NO COMMITS ALLOWED). 4) Synchronize the task file's `**File:**` metadata to the new path and re-run lint + stage at the new path. 5) Notify the Manager. When the project uses session-keyed conversation threads, the sequence MUST note that closing a task file does not close the session thread.
+- **Mandatory End-Of-Task Sequence**: MUST explicitly mandate a completion process: 1) Update CHANGELOG.md. 2) Write manual reasoning in the active task file. 3) Call `custom_context_qa_transition` once with the active task path and explicit `modified_files`; it atomically moves the task to `tasks/qa/`, synchronizes the header, stages the changes, and injects the diff. Do not perform a separate task move, header edit, or re-stage. 4) Notify the Manager that QA/review will be chained directly through `brain_turn`; never ask the Manager to copy or relay task contents. Do not commit or close without explicit Manager approval.
 - **UI/UX Enforcement**: Any UI/UX changes MUST enforce the guidelines defined in the project's `DESIGN.md`.
-- **Task-Generator Skill Loading**: `AGENTS.md` MUST explicitly instruct the Hands to load the `task-generator` skill before creating new task files.
+- **Task-Generator Skill Loading**: `AGENTS.md` MUST explicitly instruct the Hands to load the `kanban-lifecycle` skill before creating new task files.
 - **Project Skill Loading**: `AGENTS.md` MUST explicitly instruct the Hands to load every available skill matching the project's tech stack before task implementation.
 - **Project Skills Table (local skills)**: On every audit, scan the project's local skill directories (`.opencode/skills/*/SKILL.md` or equivalent) and (re)build a **Project Skills** table in that project's `AGENTS.md` — one row per local skill: name, trigger (when to load), one-line duty, same column shape as the global Skill Auto-Loading Matrix. Two hard fails: audit without the Project Skills table fails, and a stale row (deleted skill still listed) fails the audit.
 - **Complex Debugging**: Agents MUST be instructed not to guess blindly on complex bugs, but instead utilize the `debug-instrumentation` skill.
@@ -419,9 +429,9 @@ Additionally, the `docs/conventions.md` file MUST exist and contain:
 - **Defensive Shell Protocol (DSP)**: `AGENTS.md` MUST include a guardrail forbidding bash scripts without `set -euo pipefail` and banning `2>/dev/null` on data commands. `docs/conventions.md` MUST contain a `## Defensive Shell Protocol (DSP)` section.
 - **Universal Financial Ledger Standard**: `AGENTS.md` MUST include a guardrail requiring snapshot-on-write for financial mutations and `$ifNull` precedence for monetary aggregations. `docs/conventions.md` MUST contain a `## Universal Financial Ledger Standard` section.
 - **Task-Number Reference Discipline**: `AGENTS.md` MUST include a guardrail restricting task-number references to code comments, CHANGELOG entries, task files, history archives, and HTML comments — never in visible prompt prose, headings, or skill instructions. `docs/conventions.md` MUST contain a `## Task-Number Reference Discipline` section.
-- **Lite Mode Protocol**: `AGENTS.md` MUST document the `<lite_mode_protocol>` — when eligible (single-file, no security/financial impact, obvious simplicity), the full 9-step production line can be bypassed with a `[LITE]` justification in the task's `## Execution Log & Reasoning` section. Escalation to Full Mode is mandatory if hidden complexity is discovered.
 - **Deprecated-Section Purge Rule**: Scans `AGENTS.md` and all task files across `tasks/` (excluding archive and completed history) for deprecated sections: `## Manager Decisions`, `## Admin Decision`, `Manager Decision`, `Admin Decision`. When detected, the auditor MUST purge the entire deprecated section from the target file, document the purge in the audit findings/changelog, and MUST NOT flag their absence as a missing requirement or recreate them.
-- **Runtime-State gitignore**: If the project writes per-project runtime state (plugin state, worktree checkouts, session/state JSON), `.gitignore` MUST cover those paths while MUST NOT ignore deliberate config checked in on purpose. Audit `.gitignore` read-only first; patch only paths for state actually detected in the project — never speculative entries. The same rule covers Brain session history: when the audited project carries `tasks/.sessions/` transcript dirs (brain-bridge per-project sessions), `.gitignore` MUST include the `tasks/.sessions/` path — check `.gitignore` first and add the line only if missing (never duplicate), and only after confirming the dir exists in that project.
+- **Lite Mode Removal (Deprecated Bypass)**: Lite Mode (`<lite_mode_protocol>`, `Lite Mode`, `lite_mode`, `[LITE]`, `Lite-eligible`) is a deprecated bypass and MUST NOT exist in `AGENTS.md`, `docs/conventions.md`, `README.md`, `agents/*.md`, `prompts/**`, or generated prompt artifacts. Every task MUST traverse the full execution workflow with no bypass, escalation, or justification carve-out. When detected, the auditor MUST purge the Lite Mode section/paragraphs entirely (removing bypass clauses so the workflow is unconditional), verify no `<lite_mode_protocol>` fragment or manifest entry remains, and document the purge in the audit findings/changelog. The auditor MUST NOT flag its absence as a missing requirement. Historical traces in `tasks/archive/`, `tasks/completed/`, `docs/history/`, and `CHANGELOG.md` history are provenance only and MUST NOT be rewritten.
+- **Runtime-State gitignore**: If the project writes per-project runtime state (plugin state, worktree checkouts, session/state JSON), `.gitignore` MUST cover those paths while MUST NOT ignore deliberate config checked in on purpose. Audit `.gitignore` read-only first; patch only paths for state actually detected in the project — never speculative entries. Deliberate agent config (`[PROJECT_ROOT]/.opencode/smart-compact.jsonc`) is NOT runtime state and MUST NOT be gitignored. The same rule covers Brain session history: when the audited project carries `tasks/.sessions/` transcript dirs (brain-bridge per-project sessions), `.gitignore` MUST include the `tasks/.sessions/` path — check `.gitignore` first and add the line only if missing (never duplicate), and only after confirming the dir exists in that project.
 - **Living Folder Docs Standard**: docs/conventions.md MUST contain a ## Living Folder Docs Standard section, and AGENTS.md must mandate sibling doc inspection before component edits.
 
 ### Resolution Protocol
@@ -434,6 +444,7 @@ Additionally, the `docs/conventions.md` file MUST exist and contain:
 ### Deprecated Sections Resolution
 
 - **Deprecated Sections Purge**: If any file contains deprecated sections (`## Manager Decisions`, `## Admin Decision`, `Manager Decision`, `Admin Decision`), strip those sections cleanly. Do NOT add them back. Record the removal in the audit report under a dedicated "Deprecated Sections Purged" note.
+- **Lite Mode Purge**: If any live file (excluding `tasks/archive/`, `tasks/completed/`, `docs/history/`, `CHANGELOG.md` history, and `prompts/archive/`) contains Lite Mode markers (`<lite_mode_protocol>`, `Lite Mode`, `lite_mode`, `[LITE]`, `Lite-eligible`, `Escalating from Lite Mode`), strip the Lite Mode block and every bypass/escalation/justification sentence, keep the full execution workflow unconditional, and record under "Deprecated Sections Purged". Do NOT add them back.
 
 ### Summary Phase
 
@@ -446,3 +457,51 @@ Upon completion, output a strict, formatted summary for the Manager:
 **conventions.md Status:** [COMPLIANT | MISSING | INCOMPLETE]
 **conventions.md Actions:** [Description of the patch applied, or "Already compliant"]
 **Actions Taken:** [Description of the patches applied, or "Both files already compliant"]
+
+---
+
+## Part 2: Living Folder Docs Initializer (from `init-folder-docs`)
+
+# Skill: Living Folder Docs Initializer
+
+Use this skill to onboard existing projects to the Living Folder Docs standard by discovering component directories and scaffolding baseline documentation and code pointers.
+
+## Scope Confinement
+
+- Confine all file scans and generation strictly to `[PROJECT_ROOT]`.
+- Never touch vendor or build directories (`node_modules/`, `.git/`, `dist/`, `build/`, `.venv/`, `vendor/`, `target/`).
+
+## Workflow
+
+1. **Slice Discovery:**
+   - Search the repository for distinct vertical slices, modules, or domain component directories (e.g., `src/features/*`, `apps/*/src/modules/*`, `services/*`, `backend/src/*`).
+   - List all discovered directory paths.
+
+2. **Scaffold Missing Slice Docs:**
+   For each discovered directory `[DIR]`:
+   - **README.md:** If `[DIR]/README.md` does not exist, create it with:
+     - `# Slice: [DIR_NAME]`
+     - `## Duties` (Derived from contained file names and directory role)
+     - `## Files` (List of contained source files with brief 1-line description)
+     - `## Key Risks & Invariants` (Baseline invariants and known edge cases)
+   - **DECISIONS.md:** If `[DIR]/DECISIONS.md` does not exist, create it with:
+     - `# Architectural Decisions: [DIR_NAME]`
+     - `## [YYYY-MM-DD] ADR-001: Initial Slice Baseline`
+     - `- **Context:** Baseline documentation initialized via governance.`
+     - `- **Decision:** Adopting Living Folder Docs standard for this component.`
+     - `- **Consequences:** All future structural or contract changes must be recorded here.`
+     - `- **Rollback:** N/A (baseline adoption).`
+
+3. **Inject Code Pointers:**
+   - In primary source files within `[DIR]` (e.g. main service, controller, model, or entry file), inspect the first 5 lines.
+   - If no sibling docs comment exists, inject the top-line comment pointer:
+     - JS/TS: `// Sibling Docs: [DIR]/README.md | Decisions: [DIR]/DECISIONS.md`
+     - Python/Shell: `# Sibling Docs: [DIR]/README.md | Decisions: [DIR]/DECISIONS.md`
+
+4. **Verification & Summary:**
+   - Run `git status` (read-only) to review generated files.
+   - Output a concise summary listing:
+     - Discovered Slices: count and paths
+     - Created `README.md` files
+     - Created `DECISIONS.md` files
+     - Injected code pointers count

@@ -19,7 +19,7 @@ EXECUTOR = REPO / "agents" / "cognitive-executor.md"
 DISCOVERY = REPO / "agents" / "cognitive-discovery.md"
 FRAGMENT_09 = REPO / "prompts" / "fragments" / "09-hands_protocols.md"
 ROOT_AGENTS = REPO / "AGENTS.md"
-TASKGEN_SKILL = REPO / "skill-templates" / "task-generator" / "SKILL.md"
+TASKGEN_SKILL = REPO / "skill-templates" / "kanban-lifecycle" / "SKILL.md"
 
 
 def _read(path):
@@ -47,7 +47,7 @@ def test_shipped_version_is_expected_minor_bump():
     shipped = re.search(
         r"<system_version>(.*?)</system_version>", _read(SHIPPED)
     ).group(1)
-    assert shipped == "9.78.0"
+    assert shipped == "9.87.0"
 
 
 def test_shipped_prompt_documents_context_path_line_ranges():
@@ -215,7 +215,8 @@ def test_no_manager_language_rule_in_shipped_prompt():
     text = _read(SHIPPED)
     assert "in the Manager's language" not in text
     assert "Manager's own language or English" not in text
-    assert "clarification request in the per-message requested language" in text
+    assert "per-message requested language" not in text
+    assert "clarification request in simple English" in text
 
 
 def test_approval_literals_match_english_only():
@@ -371,7 +372,7 @@ def test_executor_contains_full_dto_mandate():
 
 def test_shipped_prompt_version_is_9_78_0():
     prompt = _read_shipped_prompt_for_approval_contract()
-    assert "9.78.0" in prompt
+    assert "9.87.0" in prompt
 
 
 def test_assembler_output_matches_shipped(tmp_path):
@@ -445,7 +446,7 @@ def test_executor_verification_gate_and_documentation_rule():
     """CRITICAL GATE FUNCTION and full documentation rule live in executor."""
     executor = _read(EXECUTOR)
     assert "CRITICAL GATE FUNCTION" in executor
-    assert "verification-before-completion" in executor
+    assert "testing-verification" in executor
     assert "architectural notes" in executor
     assert "what you changed, and why" in executor
     assert "MUST be written in English" in executor
@@ -705,7 +706,7 @@ def test_skill_templates_no_dsp_violations():
 
     violations = []
     for path in (REPO / "skill-templates").rglob("*.md"):
-        if path.name == "SKILL.md" and "audit-agents" in str(path):
+        if path.name == "SKILL.md" and "governance" in str(path):
             continue
         for i, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
             if "2>/dev/null" in line:

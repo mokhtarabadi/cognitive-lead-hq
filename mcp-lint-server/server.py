@@ -331,7 +331,7 @@ def _check_task_file_structure(
         "## Risk & Rollback",
     ]
     for section in required_sections:
-        if section not in pre_diff:
+        if _count_heading(pre_diff, section) == 0:
             issues.append(f"Missing required section: `{section}`")
 
     if is_analysis:
@@ -472,8 +472,46 @@ def _check_report_evidence_body(pre_diff: str) -> list[str]:
 # boundary. Hands-owned paths (agents/, skill-templates/, executor matrix
 # lines) are exempt by scope — the check only runs on prompts/fragments/.
 _UNACTIONABLE_SKILL_VERBS = re.compile(
-    r"(prompt-refactor|blowsh)[`\s]+skill|task-generator(?:\s+skill)?"
+    r"(prompt-refactor|blowsh)[`\s]+skill|kanban-lifecycle(?:\s+skill)?"
 )
+
+_DELETED_SKILL_NAMES = (
+    "task-generator",
+    "task-lint",
+    "bundle-tasks",
+    "archive-tasks",
+    "migrate-kanban",
+    "telegram-issue-sync",
+    "telegram-message-export",
+    "telegram-message-format",
+    "testing-strategy",
+    "verification-before-completion",
+    "audit-agents",
+    "init-folder-docs",
+)
+
+
+def _check_deleted_skill_refs(content: str, file_path: str) -> list[str]:
+    """Flag live references to deleted pre-meta skill names.
+
+    History files are outside the live agents/ and prompts/ scan scope.
+    Mentioning a history file on a live instruction line does not exempt
+    deleted-skill references on that line.
+    """
+    p = Path(file_path)
+    if p.name == "DECISIONS.md":
+        return []
+    issues: list[str] = []
+    for i, line in enumerate(content.splitlines(), 1):
+        for name in _DELETED_SKILL_NAMES:
+            if name in line:
+                issues.append(
+                    f"Deleted skill reference (line {i}): `{name}` was merged "
+                    f"into a meta skill and must not reappear in live instructions. "
+                    f"Use the meta skill name instead."
+                )
+                break
+    return issues
 
 
 def _is_brain_owned_fragment(file_path: str) -> bool:
@@ -771,6 +809,18 @@ def lint_markdown(file_path: str, project_root: str | None = None) -> str:
     # scope inside the check (registry + matrix + agents + skill-templates).
     if _is_brain_owned_fragment(str(path)):
         issues += _check_unactionable_skill_verbs(content, file_path)
+
+    # Deleted-skill guard: live agents/ and prompts/fragments/ text must not name
+    # pre-meta skills. History (DECISIONS.md, archive, docs) is out of scope.
+    try:
+        rel_parts = path.resolve().relative_to(workspace_root.resolve()).parts
+    except ValueError:
+        rel_parts = ()
+    is_live = (
+        rel_parts[:1] == ("agents",) or rel_parts[:2] == ("prompts", "fragments")
+    ) and path.name != "DECISIONS.md"
+    if is_live:
+        issues += _check_deleted_skill_refs(content, file_path)
 
     if not issues:
         return f"✅ {file_path} passed Markdown linting."

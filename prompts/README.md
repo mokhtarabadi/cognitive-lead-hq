@@ -10,7 +10,7 @@
 prompts/
 ├── README.md                   # This file — the authoring workflow guide
 ├── manifest.txt                # Ordered list of fragment filenames (assembly order)
-├── fragments/                  # One file per top-level XML tag in system-prompt.md (22 files; compaction lives in archive/, not in the prompt)
+├── fragments/                  # One file per top-level XML tag in system-prompt.md (20 files; compaction lives in archive/, not in the prompt)
 │   ├── 01-system_version.md
 │   ├── 02-role.md
 │   ├── 03-system_context.md
@@ -20,7 +20,6 @@ prompts/
 │   ├── 07-agent_skills_registry.md
 │   ├── 08-agentic_reasoning.md
 │   ├── 09-hands_protocols.md     # Contains <!--INCLUDE:--> markers
-│   ├── 10-lite_mode_protocol.md
 │   ├── 11-execution_workflow.md
 │   ├── 12-brainstorming_protocol.md
 │   ├── 13-constraints.md
@@ -31,7 +30,6 @@ prompts/
 │   ├── 19-initialization.md
 │   ├── 20-communication_examples.md
 │   ├── 21-self_improvement_protocol.md
-│   ├── 23-night_mode.md
 │   └── 24-language_policy.md
 ├── archive/                    # Retired fragments (17-decision_logging_mandate.md, 22-compaction_protocol.md) — history only, never assembled
 └── shared/                     # Shared partials referenced by include markers

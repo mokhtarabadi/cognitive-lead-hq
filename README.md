@@ -45,7 +45,7 @@ This system relies on a strict separation of concerns:
 4. The AI will generate an implementation task instructing OpenCode to:
    - Copy the relevant stack `SKILL.md` template from your global skills directory.
    - Create `opencode.json` with the required schema.
-   - Set up the `tasks/` directory and use the `task-generator` skill to create your first `01-initial-setup.md` task.
+   - Set up the `tasks/` directory and use the `kanban-lifecycle` skill to create your first `01-initial-setup.md` task.
 
 ### Scenario B: Phase 0 for an Existing Project (Never used this workflow)
 
@@ -64,7 +64,7 @@ If you have an older project using global `STATE.md` and `TODO.md` files:
 2. Create a `tasks/` directory.
 3. In the Orchestrator, paste the **new V5 `system-prompt.md`**.
 4. Tell the AI: _"Migrate this project from V4 to V5. Generate a task to update `AGENTS.md` and move existing roadmap items into `tasks/01-v5-migration.md`."_
-5. Ensure the `task-generator` and `audit-agents` skills are imported into `.opencode/skills/` (or installed globally).
+5. Ensure the `kanban-lifecycle` and `governance` skills are imported into `.opencode/skills/` (or installed globally).
 
 ### Inline Markdown Reviews & Strict Approval
 
@@ -109,7 +109,6 @@ prompt-level only (no code lock; the lock is recorded in the task file):
 The `system-prompt.md` is restructured in V9.1.0 with a clear separation of concerns:
 
 - **No coaching profile embedded in the system prompt.** The Manager's identity, background, and coaching preferences are NOT part of the system prompt — they belong in project-specific `AGENTS.md` files or Manager-authored config.
-- **Lite Mode Protocol (`<lite_mode_protocol>`):** Not every task needs the full 9-step production line. Single-file, low-risk changes (typos, doc fixes, config tweaks) can bypass the Discovery → Brainstorming → Blueprint → Approval pipeline with a documented `[LITE]` justification.
 - **Context Restoration Protocols:** Session checkpoints and restoration protocols for seamless state preservation across context windows without information loss.
 - **Technical Capacity Gatekeeping:** The Sprint Strategist persona evaluates backlog candidates against estimated complexity, dependency chains, and MoSCoW prioritization — not coaching-style recommendations.
 
@@ -226,9 +225,9 @@ cp .env.example .env
 │
 │   **General & Workflow:**
 │
-│   ├── archive-tasks/                  # Milestone compaction skill
+│   ├── kanban-lifecycle/              # Unified Kanban — generate, lint, bundle, archive, migrate
 │   │   └── SKILL.md
-│   ├── audit-agents/                   # AGENTS.md generation & ZAC audits
+│   ├── governance/                     # AGENTS.md audits + living-folder scaffolding
 │   │   └── SKILL.md
 │   ├── code-search/                    # MCP-based codebase discovery
 │   │   └── SKILL.md
@@ -240,23 +239,13 @@ cp .env.example .env
 │   │   └── SKILL.md
 │   ├── github/                          # GitHub CLI (gh) workflow — PR triage, issues, CI/CD, API
 │   │   └── SKILL.md
-│   ├── migrate-kanban/                 # Flat-to-Kanban migration skill
-│   │   └── SKILL.md
 │   ├── project-memory/                 # Persistent project memory bank
 │   │   └── SKILL.md
 │   ├── prompt-refactor/                # Refactors raw prompts into elite XML specs
 │   │   └── SKILL.md
-│   ├── bundle-tasks/                   # Meta-task bundling — 2–6 tasks → one META (CLI + MCP)
+│   ├── telegram-suite/                 # Unified Telegram — format, export, issue sync
 │   │   └── SKILL.md
-│   ├── task-generator/                 # Generates tasks in tasks/backlog/
-│   │   └── SKILL.md
-│   ├── telegram-issue-sync/            # Telegram topics → tasks/GitHub sync
-│   │   └── SKILL.md
-│   ├── telegram-message-export/        # Export Telegram messages to ZIP
-│   │   └── SKILL.md
-│   ├── telegram-message-format/        # Outgoing Telegram message formatting rules
-│   │   └── SKILL.md
-│   ├── verification-before-completion/ # Mandatory verification gate
+│   ├── testing-verification/           # TDD gates + fresh verification evidence
 │   │   └── SKILL.md
 │   ├── versioning-and-release/         # SemVer, Changelog, Commit standards
 │   │   └── SKILL.md
@@ -266,12 +255,6 @@ cp .env.example .env
 │   ├── android-kotlin/                 # 100% Jetpack Compose + MVI + Hilt
 │   │   └── SKILL.md
 │   ├── flask-python/                   # Application Factory + SQLAlchemy
-│   │   └── SKILL.md
-│   ├── go-gin/                         # Idiomatic Go + Clean Architecture
-│   │   └── SKILL.md
-│   ├── go-hexagonal-grpc/              # Ports & Adapters + gRPC + Uber Fx
-│   │   └── SKILL.md
-│   ├── ios-swiftui/                    # SwiftUI + MVVM
 │   │   └── SKILL.md
 │   ├── nestjs-prisma-vertical/         # NestJS + Prisma + Vertical Slices
 │   │   └── SKILL.md
@@ -298,19 +281,17 @@ cp .env.example .env
 
 | Skill Name                | Purpose                                                                                                                                                                                                                         |
 | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `audit-agents`            | Enforces Zero-Autonomous-Commit (ZAC) workflows and generates/audits `AGENTS.md` for new and existing projects.                                                                                                                 |
+| `kanban-lifecycle`      | Unified Kanban lifecycle — task generation, lint validation, META bundling, completion archiving, and flat-to-V6 migration.                                                                                                        |
+| `governance`            | Agent protocol auditing plus living folder docs scaffolding — `AGENTS.md` governance and README/DECISIONS baselines.                                                                                                              |
 | `code-search`             | Mandatory for discovery. Uses MCP tools (`get_directory_tree`, `read_source_files`, `extract_signatures`) to explore the codebase without token bloat.                                                                          |
 | `debug-instrumentation`   | Diagnoses complex runtime bugs, deadlocks, race conditions, and silent failures via strategic temporary logging and tracing.                                                                                                    |
 | `design-md`               | Extracts a comprehensive design system (`DESIGN.md`) directly from frontend source code — React, Vue, Svelte, Angular, plain HTML/CSS, or any web framework.                                                                    |
 | `doc-coauthoring`         | Guides users through a structured 3-stage workflow (Context Gathering, Refinement & Structure, Reader Testing) for co-authoring documentation with AI.                                                                          |
 | `github`                  | GitHub CLI (gh) workflow for pull request triage, issue management, CI/CD run analysis, and API queries.                                                                                                                        |
 | `prompt-refactor`         | Meta-cognitive skill that refactors basic human prompts into elite, highly constrained, XML-tagged instructions optimized for AI agent reasoning.                                                                               |
-| `bundle-tasks`            | Deterministic meta-task bundling — bundles 2–6 small related tasks into one META for unified execution with verbatim preservation and auto-archive. Pure-MCP tool `bundle_tasks` — see `skill-templates/bundle-tasks/SKILL.md`. |
+| `telegram-suite`          | Unified Telegram skills — HTML message formatting, contextual export to ZIP, and issue sync to tasks/GitHub.                                                                                                                     |
+| `testing-verification`    | TDD test ordering with coverage gates plus mandatory fresh verification evidence before any completion claim.                                                                                                                  |
 | `blowsh`                  | Live-web research via the blowsh MCP server (Docker): `search_web`, `fetch_web`, `fetch_web_batch`, `crawl_web`, `extract_links` — rendered engines, JS rendering, sitemap-aware crawls. See `skill-templates/blowsh/SKILL.md`. |
-| `task-generator`          | Automatically generates decentralized task files based on Manager instructions, with correct `<!-- BEGIN_GIT_DIFF -->` / `<!-- END_GIT_DIFF -->` markers.                                                                       |
-| `telegram-issue-sync`     | Syncs Telegram supergroup topics into local task files and GitHub issues, using embedded Python scripts for deterministic JSON state management.                                                                                |
-| `telegram-message-export` | Intelligently exports a range of Telegram messages (text, media, voice notes) into a numbered folder, capturing reply hierarchies, and packing them into a ZIP archive.                                                         |
-| `telegram-message-format` | Formats every outgoing Telegram MCP message — HTML parse mode, escaping, length splitting, forum-topic targeting, Persian text without ZWNJ. Contract evidence in `docs/telegram-message-formatting.md`.                                    |
 | `versioning-and-release`  | Standardizes Semantic Versioning (SemVer), Keep a Changelog formats, Conventional Commits, and Safe Push Protocols across all repositories.                                                                                     |
 
 ### Stack-Specific Blueprints
@@ -319,9 +300,6 @@ cp .env.example .env
 | ---------------------- | ---------------------------------------------------------------------------------------------------------- |
 | Android Kotlin         | **100% Jetpack Compose — XML Strictly Banned.** MVI (UDF), Hilt, SQLDelight/Room.                          |
 | Flask Python           | Application Factory, Blueprints, SQLAlchemy, and config separation for modular Flask applications.         |
-| Go Gin                 | Idiomatic Go, Clean Architecture layers, and Gin routing best practices for RESTful services.              |
-| Go Hexagonal gRPC      | Hexagonal Architecture (Ports and Adapters), gRPC, Uber Fx compile-time DI, Redis caching, and PostgreSQL. |
-| iOS SwiftUI            | SwiftUI, MVVM, and modern iOS app architecture with declarative UI patterns.                               |
 | NestJS Prisma Vertical | NestJS, Prisma ORM, Vertical Slice Architecture, strict TypeScript, and class-validator DTOs.              |
 | Next.js                | App Router, Server/Client Component separation, Server Actions, and Tailwind CSS design tokens.            |
 | Python FastAPI         | Pydantic schemas, dependency injection, async routing, and layered service architecture.                   |
@@ -428,14 +406,14 @@ Full HQ install covering all core MCP servers plus skills plus both agents is do
 - `create_tree_report` — Saves a persistent `.gitignore`-aware directory tree of any path (default: the entire project) as `context-reports/tree_report_<timestamp>_<uuid>.md`, mirroring the context report convention. Trigger phrase: "create a tree of the project".
 - `read_source_files` — Reads multiple source files or directories and saves their contents into a local Markdown report inside the `context-reports/` directory, returning the file path to prevent context bloat.
 - `extract_signatures` — Extracts structural signatures (classes, functions, methods) via tree-sitter (fallback to regex) and saves to `context-reports/signatures_report_<timestamp>_<uuid>.md`.
-- `bundle_tasks` — **Meta-task bundler (pure-MCP).** Bundles 2–6 small related tasks into one META for unified execution (`tasks/backlog/<NEXT_ID>-<slug>.md` + `**Supersedes:** [ids]` + verbatim appendices, `git mv` to `tasks/archive/` with `superseded` patch) via pure FastMCP tool `bundle_tasks(task_ids, title, dry_run, force)`. No `uv run scripts/...` CLI required — use `custom_context` MCP. Guardrails: cap 6, LOC >400 warning, missing-ID and collision checks. See `skill-templates/bundle-tasks/SKILL.md` and `AGENTS.md` `## 🛑 META-TASK BUNDLE LIFECYCLE`.
+- `bundle_tasks` — **Meta-task bundler (pure-MCP).** Bundles 2–6 small related tasks into one META for unified execution (`tasks/backlog/<NEXT_ID>-<slug>.md` + `**Supersedes:** [ids]` + verbatim appendices, `git mv` to `tasks/archive/` with `superseded` patch) via pure FastMCP tool `bundle_tasks(task_ids, title, dry_run, force)`. No `uv run scripts/...` CLI required — use `custom_context` MCP. Guardrails: cap 6, LOC >400 warning, missing-ID and collision checks. See `skill-templates/kanban-lifecycle/SKILL.md` and `AGENTS.md` `## 🛑 META-TASK BUNDLE LIFECYCLE`.
 - `custom_context_qa_transition` — Transitions a task from `tasks/in-progress/` → `tasks/qa/` via pure MCP (stages modified files and injects factual diff). Replaces the legacy qa-transition script.
 - `custom_context_commit_and_clean_task` — Atomically commits staged changes and cleans the task file (replaces raw diff with hash reference) via pure MCP. Replaces manual `git commit`.
 
 **Optional — auto-installed via `LLM.txt` Step 7.6:**
 
 - `blowsh` (Docker `ghcr.io/mokhtarabadi/blowsh-mcp:latest`, 5 tools) — **JS-capable browsing (retired browser MCP replacement).** `fetch_web` (plain/html/markdown/pdf + selector/max_chars/wait_ms + focus/toc/must_contain/archive/stitch probes), `search_web` (DuckDuckGo+Bing+Brave+Mojeek consensus, intent verticals), `extract_links`, `fetch_web_batch` (10 URLs), `crawl_web` (sitemap-aware multi-page docs/API refs/wikis with focus/depth/char budgets). SSRF guard, TTL cache. Timeout 120s. See https://github.com/mokhtarabadi/blowsh-mcp, `skill-templates/blowsh/SKILL.md`, and `docs/telegram-setup.md` (setup maps to same global install).
-- `telegram` (Telethon, 80+ tools, `$HOME/.config/opencode/mcp-telegram-server/.venv/bin/python` + absolute `main.py` path in opencode config dir) — Accounts (`list_accounts`, multi-account `account` param), chats/groups, messages (`send_message`/`reply_to_message` with `account="personal"`/`"work"`), contacts/aliases, media (`send_file`/`download_media`), events (`wait_for_settled_message`, `enable_incoming_feed`). File roots required for media tools (`/tmp/telegram-mcp` + `$HOME/.config/opencode/mcp-telegram-server/downloads`). Used by `skill-templates/telegram-issue-sync/SKILL.md` (supergroup → tasks), `telegram-message-export/SKILL.md` (range → ZIP), and `telegram-message-format/SKILL.md` (HTML parse mode, escaping, length, topic targeting — contract in `docs/telegram-message-formatting.md`) — see `docs/telegram-setup.md` §6 for the full skill→tool→config table. Single vs work/personal setup documented there plus `LLM.txt` 7.6 (absolute paths, installed in `~/.config/opencode/`).
+- `telegram` (Telethon, 80+ tools, `$HOME/.config/opencode/mcp-telegram-server/.venv/bin/python` + absolute `main.py` path in opencode config dir) — Accounts (`list_accounts`, multi-account `account` param), chats/groups, messages (`send_message`/`reply_to_message` with `account="personal"`/`"work"`), contacts/aliases, media (`send_file`/`download_media`), events (`wait_for_settled_message`, `enable_incoming_feed`). File roots required for media tools (`/tmp/telegram-mcp` + `$HOME/.config/opencode/mcp-telegram-server/downloads`). Used by `skill-templates/telegram-suite/SKILL.md` (Parts 1–3: HTML formatting, range → ZIP export, supergroup → tasks sync — contract in `docs/telegram-message-formatting.md`) — see `docs/telegram-setup.md` §6 for the full skill→tool→config table. Single vs work/personal setup documented there plus `LLM.txt` 7.6 (absolute paths, installed in `~/.config/opencode/`).
 
 ### Meta-Task Bundling — Pure MCP (No CLI Required)
 
@@ -500,7 +478,6 @@ Three plugins: **`smart-compact`** (`@mokhtarabadi/opencode-smart-compact`) — 
 ## Key V9 Changes
 
 - **Separation of Concerns — Coaching Profile Removed:** The `<manager_profile>`, `<operating_principles>`, `<delegation_strategy>`, `<challenge_policy>`, and `<leadership_and_language_protocol>` fragments have been removed from the system prompt. The Manager's identity, background, and coaching preferences now belong in project-specific `AGENTS.md` files, not in the operational system prompt.
-- **Lite Mode Protocol (`<lite_mode_protocol>`):** New fragment enabling process scaling to risk. Single-file, low-risk changes (typos, doc fixes, config tweaks) can bypass the full 9-step production line with a documented `[LITE]` justification. Escalation to Full Mode is mandatory if hidden complexity is discovered.
 - **Sprint Strategist Refactored:** The Sprint Strategist persona has been refactored from a coaching-style gatekeeper to a technical capacity assessor using MoSCoW prioritization, estimated complexity (S/M/L/XL), dependency chain analysis, and WIP limits.
 - **Restructured to 19 Fragments:** The system prompt has been restructured from 22 fragments to 19 clean fragments, each representing a single concern. The fragment numbering has been re-sequenced to reflect the new architecture.
 

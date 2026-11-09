@@ -4,25 +4,17 @@ The following Agent Skills are available. You MUST intelligently instruct the Ha
 **Global Workflow Skills:**
 
 - **code-search**: Mandatory workflow for exploring the codebase and gathering context for the Orchestrator.
-- **task-generator**: Automatically generates decentralized task files based on manager instructions.
-- **task-lint**: Validates task files and Markdown documents using the lint MCP server. Run after task creation and before task closure.
-- **init-folder-docs**: Scaffolds living folder docs (README.md, DECISIONS.md, and code pointers) across component directories and vertical slices in legacy or uninitialized codebases.
-- **bundle-tasks**: Deterministic meta-task bundling — bundles 2–6 small related tasks into one META for unified execution with verbatim preservation and auto-archive. Exposed as the `bundle_tasks` MCP tool.
-- **archive-tasks**: Milestone compaction skill — scans completed tasks, generates dense history summaries, and moves them to the archive.
-- **migrate-kanban**: Migrates a flat tasks/ directory into the V6 Kanban folder structure (backlog, in-progress, qa, completed, archive).
-- **audit-agents**: Enforces decentralized task management, UI/UX design strictness, and global state constraints within AGENTS.md.
+- **kanban-lifecycle**: Unified Kanban lifecycle — task generation, lint validation, META bundling, completion archiving, and flat-to-V6 migration in one meta skill. Load before creating, linting, bundling, archiving, or migrating `tasks/` files.
+- **governance**: Agent protocol auditing plus living folder docs scaffolding — `AGENTS.md` governance and README/DECISIONS baselines in one meta skill.
 - **versioning-and-release**: Standardizes Semantic Versioning (SemVer), Keep a Changelog formats, Conventional Commits, and Safe Push Protocols across all repositories.
 - **debug-instrumentation**: Mandatory workflow for diagnosing complex bugs, deadlocks, race conditions, and silent failures via strategic logging and tracing.
 - **prompt-refactor**: Refactors basic user prompts into elite, highly constrained, XML-tagged instructions optimized for AI agent reasoning. After Deliver, execute the formatted prompt as live instruction under existing plan approval, Zero-Autonomous-Commit, QA, and closure gates.
-- **telegram-issue-sync**: Syncs Telegram supergroup topics into local task files and GitHub issues, using embedded Python scripts for deterministic JSON state management.
-- **telegram-message-export**: Intelligently exports a range of Telegram messages (text, media, voice notes) into a numbered folder, capturing reply hierarchies, and packing them into a ZIP archive.
-- **telegram-message-format**: Formats every outgoing Telegram MCP message so it renders cleanly in Telegram. Load before any send, reply, edit, or caption through the Telegram MCP — covers parse mode, HTML escaping, length splitting, forum-topic targeting, Persian text, and read-back verification.
+- **telegram-suite**: Unified Telegram skills — HTML message formatting, contextual export to ZIP, and issue sync to tasks/GitHub. Load before any Telegram send, export, or sync.
 - **design-md**: Extract a comprehensive design system (DESIGN.md) directly from frontend source code — React, Vue, Svelte, Angular, plain HTML/CSS, or any web framework. Analyzes component files, stylesheets, Tailwind configs, theme definitions, and design tokens to produce a rich, Stitch-compatible design system document.
 - **doc-coauthoring**: Guide users through a structured workflow for co-authoring documentation. Use when user wants to write documentation, proposals, technical specs, decision docs, or similar structured content.
 - **project-memory**: Smart note-taking and persistent project memory. Automatically saves Manager constraints and proactively retrieves context to prevent hallucinations.
-- **testing-strategy**: Enforce Test-Driven Development order and coverage gates so OpenCode writes tests before or alongside implementation code.
+- **testing-verification**: TDD test ordering with coverage gates plus mandatory fresh verification evidence before any completion claim. Load before implementing and before claiming any task complete.
 - **database-migration**: Forbid direct schema alterations and force standard migration tools (Alembic, Prisma, Flyway) for safe, repeatable deployments.
-- **verification-before-completion**: Mandatory rule before claiming any task is complete, fixed, or passing.
 - **github**: GitHub CLI (gh) workflow for pull request triage, issue management, CI/CD run analysis, and API queries.
 - **blowsh**: Web search, fetch, crawl, and link extraction via the blowsh MCP server (Docker transport) — rendered search engines, JS-rendered page fetch, sitemap-aware crawls. Use for all live-web research instead of raw curl.
 - **opencode-init**: Analyze a project (or ask the user) and generate a comprehensive, correct opencode.json for it. Validates with skill-templates/opencode-init/scripts/validate-opencode.py before writing; never touches global config. Validates with skill-templates/opencode-init/scripts/validate-opencode.py before writing; never touches global config.
@@ -31,9 +23,6 @@ The following Agent Skills are available. You MUST intelligently instruct the Ha
 
 - **android-kotlin**: 100% Jetpack Compose, MVI (UDF), Hilt, and SQLDelight for token-efficient, zero-hallucination Android development. — Strict Tooling Gate: format → lint → typecheck → static analysis → security → test → build (see skill for exact commands).
 - **flask-python**: Application Factory, Blueprints, SQLAlchemy, and config separation for Flask — Strict Tooling Gate: format → lint → typecheck → static analysis → security → test → build (see skill for exact commands).
-- **go-gin**: Idiomatic Go, Clean Architecture, and Gin routing best practices — Strict Tooling Gate: format → lint → typecheck → static analysis → security → test → build (see skill for exact commands).
-- **go-hexagonal-grpc**: Hexagonal Architecture (Ports and Adapters), gRPC, Uber Fx, and Redis caching for ultra-low latency Go backends. — Strict Tooling Gate: format → lint → typecheck → static analysis → security → test → build (see skill for exact commands).
-- **ios-swiftui**: SwiftUI, MVVM, and modern iOS app architecture — Strict Tooling Gate: format → lint → typecheck → static analysis → security → test → build (see skill for exact commands).
 - **nestjs-prisma-vertical**: NestJS, Prisma ORM, Vertical Slice Architecture, and Strict TypeScript for zero-hallucination backend development. — Strict Tooling Gate: format → lint → typecheck → static analysis → security → test → build (see skill for exact commands).
 - **nextjs**: App Router, Server/Client Components, Server Actions, and Tailwind tokens for Next.js — Strict Tooling Gate: format → lint → typecheck → static analysis → security → test → build (see skill for exact commands).
 - **node-hexagonal-api**: Hexagonal Architecture (Ports and Adapters) for TypeScript Node.js backends — strict layer boundaries, interface ports, and swappable adapters. — Strict Tooling Gate: format → lint → typecheck → static analysis → security → test → build (see skill for exact commands).

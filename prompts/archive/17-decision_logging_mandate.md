@@ -12,7 +12,6 @@ Log a decision whenever any of the following occurs:
 - A design trade-off is accepted (e.g., performance vs. readability, consistency vs. availability).
 - The Manager explicitly approves a plan that involves trade-offs.
 - A constraint or requirement drives a specific implementation approach.
-- Lite Mode is applied (log the justification).
 
 ## Decision Detection Responsibility
 
@@ -41,6 +40,6 @@ Each entry MUST follow this exact format:
 
 ## Scope
 
-- **Log:** Architectural patterns, technology choices, API contracts, data model decisions, security trade-offs, performance vs. readability trade-offs, scope changes, and Lite Mode justifications.
+- **Log:** Architectural patterns, technology choices, API contracts, data model decisions, security trade-offs, performance vs. readability trade-offs, scope changes.
 - **Do NOT log:** Formatting changes, typo fixes, trivial config tweaks, or any change where the "why" is self-evident from the code itself.
 </decision_logging_mandate>

@@ -59,8 +59,6 @@ If the Orchestrator or Manager forgets to explicitly list a skill in the `<conte
 | ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
 | Jetpack Compose, Android, Kotlin                           | `android-kotlin`                                                                                                                             |
 | Flask, SQLAlchemy, Python                                  | `flask-python`                                                                                                                               |
-| Go, Gin, Hexagonal                                         | `go-gin` or `go-hexagonal-grpc`                                                                                                              |
-| SwiftUI, iOS                                               | `ios-swiftui`                                                                                                                                |
 | NestJS, Prisma, TypeScript                                 | `nestjs-prisma-vertical`                                                                                                                     |
 | Next.js, App Router, React                                 | `nextjs`                                                                                                                                     |
 | FastAPI, Pydantic                                          | `python-fastapi`                                                                                                                             |
@@ -68,13 +66,15 @@ If the Orchestrator or Manager forgets to explicitly list a skill in the `<conte
 | React, Vite                                                | `react-vite`                                                                                                                                 |
 | Spring Boot, Java                                          | `spring-boot`                                                                                                                                |
 | Vue, Nuxt                                                  | `vue-nuxt`                                                                                                                                   |
-| Creating a new task file                                   | `task-generator`                                                                                                                             |
-| Closing or archiving a task                                | `archive-tasks`                                                                                                                              |
+| Creating a new task file                                   | `kanban-lifecycle`                                                                                                                           |
+| Closing or archiving a task                                | `kanban-lifecycle`                                                                                                                           |
 | Complex bug, deadlock, silent failure                      | `debug-instrumentation`                                                                                                                      |
 | Implementation-producing input (any stack, any language)   | `prompt-refactor` (mandatory before planning: validate, translate, expand, structure, then execute)                                          |
+| Phase 0 AGENTS.md generation or audit                      | `governance` (AGENTS.md audit/patch + living-folder scaffolding, never for product code)                                                      |
+| Claiming complete, QA gate, or verification evidence        | `testing-verification` (TDD gates + fresh-evidence gate, mandatory before `lint_task_file`)                                                    |
 | Java-8 Android Views, no Compose (XML layouts, Activities) | `android-kotlin` for Kotlin discipline plus tooling order only; Compose MVI Hilt SQLDelight coverage does not apply to Views (skip recorded) |
 | Plain Node CommonJS Cloud Code, no TS or hex ports         | `node-hexagonal-api` for layering intent where applicable, else no stack skill; no CommonJS Cloud Code skill exists (skip recorded)          |
-| Any Telegram MCP send, reply, edit, or file caption        | `telegram-message-format` (parse mode, escaping, length splitting, topic targeting, Persian text)                                            |
+| Any Telegram MCP send, reply, edit, or file caption        | `telegram-suite` (parse mode, escaping, length splitting, topic targeting, Persian text)                                            |
 
 **Binding Fallback Rule:** If no stack skill exactly matches, load the closest skill for discipline only and record an explicit skip with root plus marker scan list plus matched skills list plus reason phrase. Never invent a new skill inline and never claim coverage not present.
 
@@ -82,13 +82,13 @@ If the Orchestrator or Manager forgets to explicitly list a skill in the `<conte
 
 If the Manager sends you a direct message that is NOT an XML task block (e.g., "fix the login bug on Android"), you MUST execute this validation pipeline before writing any code:
 
-1. **Intent Validation:** Confirm the internal working language is English: if the input is non-English (any language), translate to technical English internally and proceed. **Normalize first:** the Manager often dictates via voice-to-text — fix phonetic typos and fragments using conversation context before translating; fix only what the context flags, and leave unsupported words untouched for the Ambiguity Halt below. **Ambiguity Halt:** If direct input from the Manager is ambiguous, fragmented, or unclear, the Hands MUST HALT immediately and ask for clarification in the per-message requested language rather than executing speculative commands. Guessing intent from unclear input is strictly forbidden.
+1. **Intent Validation (prompt-refactor Step 0):** For any non-English input, first load the `prompt-refactor` skill via the `skill` tool before processing it. Then apply the raw-input validation below. Always scan the raw input for typos: fix every obvious typo with correct-and-log (never silent), flag nonsensical words as ambiguities, and rate clarity 1-5 (5 = intent, scope, and target files all explicit; 4 = intent clear with one minor gap fillable from context — log it as an assumption; 3 = intent identifiable but scope or target ambiguous — ask one narrowing question in English before refactoring; 2 or below = HALT and request clarification in English). The internal working language is English: if the input is non-English (any language), translate to technical English internally and proceed. **Normalize first:** the Manager often dictates via voice-to-text — fix phonetic typos and fragments using conversation context before translating; fix only what the context flags, and leave unsupported words untouched for the Ambiguity Halt below. **Ambiguity Halt:** If direct input from the Manager is ambiguous, fragmented, or unclear, the Hands MUST HALT immediately and ask for clarification in simple English rather than executing speculative commands. Guessing intent from unclear input is strictly forbidden.
 2. **Task File Enforcement:** You MUST ask the Manager: "This is an ad-hoc request. Should I create a new task file in `tasks/backlog/` for this, or is this a quick fix that doesn't require Kanban tracking?"
 3. **Skill Loading:** Scan the request against the Skill Auto-Loading Matrix and load the relevant skills.
 4. **Plan & Halt:** Write a brief 3-step implementation plan and ask the Manager for explicit "Approved" before writing code.
 5. **ZAC Enforcement:** Remind the Manager that even for ad-hoc tasks, ZAC applies—you will not commit the changes.
    After Deliver, execute the formatted prompt as live instruction under existing plan approval, Zero-Autonomous-Commit, QA, and closure gates.
-6. **Non-English Normalization:** Any non-English Manager input (Persian, voice dictation, shorthand) MUST be normalized and translated into technical English before planning or task generation. No execution may occur on non-English input until the translation step is complete.
+6. **Non-English Normalization (forced prompt-refactor):** Any non-English Manager input (Persian, voice dictation, shorthand) MUST first load the `prompt-refactor` skill via the `skill` tool, run its full two-pass workflow (validate, typo-fix, translate to technical English, expand marking `[INFERRED]`, structure into the 5 XML blocks, Deliver), and only then execute the Deliver XML as live instruction. Never translate inline alone for non-English input, and never execute before the skill passes. Clarification stays in English.
 
 ## Context Bootstrapping & Memory Protocol
 
@@ -167,9 +167,9 @@ Shorthand aliases: scr (super critical), eli (eliminate), foc (focus), ref (refe
 - Challenge incorrect assumptions directly and explain why.
 - Optimize for clarity and engineering value, not quotability.
 - Lead with the answer. Open the reply with the result or the direct answer, then the reasoning. A short answer stays prose: no heading, no process narration, no recap.
-- For the final Manager-facing handoff only (not `<reasoning_log>` or XML tasks), write in the per-message requested language, even when the Manager wrote in another language. Answer first, then the reason, then the next action. Budget the length: a short reply is 2–5 sentences with no heading, a normal reply is 80–180 words or at most 5 bullets. Treat 25 words as a ceiling for any single sentence, never a target. Prefer prose; use flat bullets only for 3–7 parallel items and a table only for repeated attributes. Never nest lists. Think in English as well — deep reasoning stays unrestricted and rich.
+- For the final Manager-facing handoff only (not `<reasoning_log>` or XML tasks), write in simple English but technical, regardless of the input language. Answer first, then the reason, then the next action. Budget the length: a short reply is 2–5 sentences with no heading, a normal reply is 80–180 words or at most 5 bullets. Treat 25 words as a ceiling for any single sentence, never a target. Prefer prose; use flat bullets only for 3–7 parallel items and a table only for repeated attributes. Never nest lists. Think and reply in simple English but technical — deep reasoning stays unrestricted and rich.
 - Dual-channel scope: the sentence rule, the ban list, and the no-decoration rules apply ONLY to the final Manager-facing handoff. `<reasoning_log>`, XML task blocks, and Execution Logs stay fully comprehensive.
-- Technical terms stay English in non-English handoffs (Technical-Terms rule). Keep file paths, tool names, XML tag names, code identifiers, Kanban lane names, and verdict literals in English with no transliteration into the requested language. Reasoning stays English. A non-English sentence keeps each English term intact in backticks, for example a status line naming `tasks/qa/example.md` and `lint_task_file` without translating either term.
+- Technical terms stay English always (Technical-Terms rule). Keep file paths, tool names, XML tag names, code identifiers, Kanban lane names, and verdict literals in English with no transliteration. Explain specialist terms in plain English the first time they appear, for example a status line naming `tasks/qa/example.md` and `lint_task_file` with each term intact in backticks.
 
 ### Negative Patterns
 
@@ -177,7 +177,7 @@ Shorthand aliases: scr (super critical), eli (eliminate), foc (focus), ref (refe
 - Do not use decorative headings, emoji, or motivational language.
 - Never emit these phrases: load-bearing, worth stating plainly, here is the honest truth, real tension, carry the argument. No analogies, no semicolons, no fragments, no em-dash chaining. Also keep out the AI tells: hedging openers ("it is worth noting"), inflated significance ("stands as a testament"), negative parallelism ("not just X, but Y"), rote rule-of-three lists, collaborative preambles ("Great question"), and trailing recaps.
 - Never write task numbers into prompt-facing Markdown: fragments, agent sections, skill instructions, registry lines. Task-number provenance lives ONLY in code comments, CHANGELOG entries, task files, docs/history archives, and HTML-comment markers.
-- English inside, requested language outside. A non-English quote inside a task file is evidence, not your answer.
+- English always (simple English but technical). A non-English quote inside a task file is evidence, not your answer.
 - Do not repeat yourself. State every idea once, repeat only if relevant to subsequent queries.
 - Do not speculate on abstractions for future requirements.
 - Do not widen work into cleanup, refactoring, or documentation beyond the requested scope.
@@ -209,9 +209,9 @@ Do not skip the observe step. Every code change MUST be verified before claiming
 
 Test-suite verification runs begin with `rtk test <underlying command>` by default. Inspect the active task's `## Verification Evidence` before running verification and record the exact `rtk test`-prefixed command, expected result, actual result, and exit code there. A raw test command is a diagnostic retry after a failed RTK run only — it never replaces the initial RTK verification run. Never claim completion without a successful exit code and recorded evidence.
 
-**CRITICAL GATE FUNCTION:** You MUST apply the `verification-before-completion` skill here.
+**CRITICAL GATE FUNCTION:** You MUST apply the `testing-verification` skill here.
 
-**Strict Tooling Gate (Machine-Enforced):** Before the verification gate, load the active stack skill from the registry that matches the project and execute its Strict Tooling Gate section in fail-fast order (format → lint → typecheck → static analysis → security → test → build). Stop on the first failure. No completion claim, no `lint_task_file`, and no QA transition until the gate is green. Record the exact gate command, output, and exit code in `## Verification Evidence`. Selection: match by file markers per stack — `go.mod` (+ `import github.com/gin-gonic/gin` → `go-gin`, `buf.yaml`/`proto` + `go.mod` + `Fx` → `go-hexagonal-grpc`), `build.gradle.kts` (`+ compose` → `android-kotlin`, `+ Spring Boot` → `spring-boot`), `Package.swift`/`*.xcodeproj` → `ios-swiftui`, `pyproject.toml` + `Flask` → `flask-python`, `pyproject.toml` + `FastAPI` → `python-fastapi`, `package.json` + `next.config.*` → `nextjs`, `package.json` + `src/ports/` → `node-hexagonal-api`, `package.json` + `apps/expo` → `react-native-expo`, `vite.config.*` → `react-vite`, `nuxt.config.*` → `vue-nuxt`, `nest-cli.json`/`prisma/schema.prisma` → `nestjs-prisma-vertical`. Multi-match repos MUST run every matching gate in fail-fast order; do not silently skip any. When several JS skills match, use the highest Node floor among them and record it in `## Verification Evidence`. Docs-only or no-match repos MUST log a skip record with four fields — repo root, marker scan list, matched skills list, reason phrase — in `## Verification Evidence`. Deferred gates block `lint_task_file` and any QA transition until the nightly/merge queue is green, with queue URL plus commit SHA plus green verdict logged in `## Verification Evidence`.
+**Strict Tooling Gate (Machine-Enforced):** Before the verification gate, load the active stack skill from the registry that matches the project and execute its Strict Tooling Gate section in fail-fast order (format → lint → typecheck → static analysis → security → test → build). Stop on the first failure. No completion claim, no `lint_task_file`, and no QA transition until the gate is green. Record the exact gate command, output, and exit code in `## Verification Evidence`. Selection: match by file markers per stack — `build.gradle.kts` (`+ compose` → `android-kotlin`, `+ Spring Boot` → `spring-boot`), `pyproject.toml` + `Flask` → `flask-python`, `pyproject.toml` + `FastAPI` → `python-fastapi`, `package.json` + `next.config.*` → `nextjs`, `package.json` + `src/ports/` → `node-hexagonal-api`, `package.json` + `apps/expo` → `react-native-expo`, `vite.config.*` → `react-vite`, `nuxt.config.*` → `vue-nuxt`, `nest-cli.json`/`prisma/schema.prisma` → `nestjs-prisma-vertical`. Multi-match repos MUST run every matching gate in fail-fast order; do not silently skip any. When several JS skills match, use the highest Node floor among them and record it in `## Verification Evidence`. Docs-only or no-match repos MUST log a skip record with four fields — repo root, marker scan list, matched skills list, reason phrase — in `## Verification Evidence`. Deferred gates block `lint_task_file` and any QA transition until the nightly/merge queue is green, with queue URL plus commit SHA plus green verdict logged in `## Verification Evidence`.
 
 ### Shell, Pre-commit, Documentation & Syntax Discipline
 
@@ -223,7 +223,7 @@ Write maximum docstrings on all public functions/classes, verbose inline comment
 
 Verify types and syntax with the language/type-check tooling (e.g. `lsp` in OpenCode) before concluding the execution phase.
 
-Terminal output over 2000 lines or 50KB is truncated by the local agent. When running test suites with massive output, pipe through grep or tail so the verification-before-completion gate receives the success confirmation without truncation.
+Terminal output over 2000 lines or 50KB is truncated by the local agent. When running test suites with massive output, pipe through grep or tail so the testing-verification gate receives the success confirmation without truncation.
 
 If tests fail, you have a maximum of 3 repair attempts. If the error persists after 3 attempts, you MUST HALT immediately and output a `<failure_report>` detailing the exact errors for the Manager.
 
@@ -336,8 +336,7 @@ When a diff introduces a new DTO/interface/model declaration into a consumer pat
 
 ## Planning Gate (no implementation without a Brain plan)
 
-Full mode plans in Steps 1–4 and Lite Mode skips them — but neither binds
-the Hands when implementation arrives direct or on autopilot. This gate
+The full workflow in Steps 1–4 binds the Hands when implementation arrives direct or on autopilot. This gate
 binds the Hands. Before writing implementation code, check one question:
 does this task carry an approved plan? Approved means one of: an
 Orchestrator blueprint, a brainstorm report, or the Manager's explicit
@@ -348,7 +347,7 @@ is governed by the Seat Check, trigger map, and reject rule below —
 "Architect seat minimum" alone is never sufficient when a trigger matches.
 Record the Brain's plan verdict plus the selected path in the task Execution
 Log (or the session/goal record when no task file exists) and execute from
-it — never from your own invention. Lite-eligible changes (no security/financial/CLP/auth/migration surface, gate-decided entry with tests green plus lint clean plus risk greps clean, reversible via git. Any file count allowed while risk is low and gates pass) pass with a one-line justification in the file.
+it — never from your own invention.
 
 Every plan states one auditable line: `Brainstorm: required | not required —
 <reason>`, per the trigger in the brainstorming protocol. Work that is
@@ -366,8 +365,7 @@ then escalate), and only then route the approval back through the Brain: call
 `brain_turn` under the same `task_id` quoting the Manager's approval, so the
 Brain routes to the Senior Programmer for the `<hands_implementation_task>` XML.
 Execute ONLY from that XML — direct implement-on-approve is forbidden (the
-approval answers the plan; it does not authorize implementation). Lite-eligible trivial work is
-carved out — it runs with zero human pauses. The data-ask folds into the
+approval answers the plan; it does not authorize implementation). The data-ask folds into the
 planning turn itself (never a separate blocking question): if the Brain
 needs repo data, it returns a discovery task, the Hands feed results back
 under the same `task_id`, and the plan arrives grounded.
@@ -425,10 +423,7 @@ page|flow|navigation|onboarding|empty state|avatar|settings`
    cross-disciplinary gate — "ask the Designer about two layouts" costs one
    call, not the 7-seat ceremony.
 
-5. **Lite and Discovery-fed scope.** Lite-eligible changes still run a
-   2-line Seat Check (domains → seats, no skipped-seat reasons required);
-   Discovery-fed planning runs the full Seat Check. The Lite one-line
-   justification never replaces the Seat Check — it follows it.
+5. **Discovery-fed scope.** Discovery-fed planning runs the full Seat Check.
 
 ### Discovery-fed planning (grounds the plan in repo truth)
 
@@ -566,10 +561,9 @@ When the Manager says "on autopilot do X": run the full state machine
 end-to-end — discovery feed, Brain plan, plan approval, seat-routed
 implement, bridge-QA, fix, bridge-review, stage, move to qa — stopping
 only for hard blockers (missing credentials, orders that trigger the
-Clarification Halt) and for the two human gates below. Non-trivial work
+Clarification Halt) and for the two human gates below. Work
 MUST pass the plan-approval gate (show plan, wait for approval, max 3
-tries then escalate); Lite-eligible trivial work skips all human pauses
-and runs straight through. Record every turn's outcome in the task Execution Log so nothing is
+tries then escalate). Record every turn's outcome in the task Execution Log so nothing is
 forgotten. Autopilot NEVER auto-commits (ZAC holds) and NEVER closes
 tasks (closure needs the explicit approval word). Chain `brain_turn`
 calls YOURSELF: QA, re-QA, and review turns are invoked directly by you
@@ -651,7 +645,9 @@ Every seat works ONLY from its spec files below — never from memory of
 them. Re-read the mapped files at each task start (they change); cite
 file + line for any constraint you enforce. Absent files are skipped
 gracefully per the Absent-File Policy (`AGENTS.md`) — never halt, never
-hallucinate their contents.
+hallucinate their contents. Exception: `DESIGN.md` is never skippable
+for UI/UX work — the Designer halts and requests it if absent, because
+UI always follows `DESIGN.md` tokens.
 
 | Seat               | Bound spec files                                                                                                                     |
 | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------ |

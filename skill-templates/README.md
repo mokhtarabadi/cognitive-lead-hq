@@ -2,11 +2,11 @@
 
 ## Duties
 
-Project-agnostic skill template catalog: source of truth copied into `.opencode/skills/` workspaces and third-party projects. Covers stacks (Android, Spring, Next.js, FastAPI, etc.), workflows (task-generator, archive-tasks, bundle-tasks, testing-strategy), and platform bridges (Telegram, GitHub, Blowsh).
+Project-agnostic skill template catalog: source of truth copied into `.opencode/skills/` workspaces and third-party projects. Covers stacks (Android, Spring, Next.js, FastAPI, etc.), workflows (kanban-lifecycle, testing-verification, prompt-refactor), and platform bridges (Telegram, GitHub, Blowsh).
 
 ## Files
 
-- `*/SKILL.md` — One directory per skill (36 templates: `android-kotlin`, `audit-agents`, `bundle-tasks`, `task-generator`, `prompt-refactor`, `verification-before-completion`, `init-folder-docs`, `telegram-message-format`, and others).
+- `*/SKILL.md` — One directory per skill (25 templates: `android-kotlin`, `governance`, `kanban-lifecycle`, `prompt-refactor`, `testing-verification`, `telegram-suite`, and others).
 - `opencode-init/references/` and `opencode-init/scripts/` — Init scaffolding references and helpers.
 
 ## Key Risks & Invariants

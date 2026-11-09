@@ -41,7 +41,7 @@ app/
 
 ## Hexagonal Architecture (Ports & Adapters)
 
-Ported from the Go blueprint (`go-hexagonal-grpc`). Same rules, Python idioms:
+Ported from the Go hexagonal blueprint. Same rules, Python idioms:
 
 **Zero-Framework Core:** `core/` (entities + ports + use cases) imports NOTHING from FastAPI, SQLAlchemy, or Pydantic. Domain entities are plain dataclasses. Violation fails review.
 **Ports as Protocols:** define inbound/outbound ports as `typing.Protocol` classes in `core/ports/` (`UserRepository`, `Clock`). Use cases implement inbound ports; adapters implement outbound ports.

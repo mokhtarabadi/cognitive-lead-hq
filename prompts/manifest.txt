@@ -7,7 +7,6 @@
 07-agent_skills_registry.md
 08-agentic_reasoning.md
 09-hands_protocols.md
-10-lite_mode_protocol.md
 11-execution_workflow.md
 12-brainstorming_protocol.md
 13-constraints.md
@@ -18,5 +17,4 @@
 19-initialization.md
 20-communication_examples.md
 21-self_improvement_protocol.md
-23-night_mode.md
 24-language_policy.md
