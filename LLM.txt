@@ -188,9 +188,10 @@ Copy all reusable skills from `skill-templates/` into the global OpenCode skills
 
 ```bash
 cp -r /tmp/cognitive-lead-hq/skill-templates/* ~/.config/opencode/skills/
+rm -f ~/.config/opencode/skills/DECISIONS.md ~/.config/opencode/skills/README.md
 ```
 
-After this, the skills will be available via `/help` from any directory. `skill-templates/` contains **36 skills** (`bundle-tasks`, `github`, `telegram-message-format`, and 33 more).
+After this, the skills will be available via `/help` from any directory. `skill-templates/` contains **25 skills** (`kanban-lifecycle`, `telegram-suite`, `testing-verification`, and 22 more). `DECISIONS.md` and `README.md` stay in the repo only — they are not skills and must never be copied globally, or OpenChamber counts them as fake skills.
 
 ### 6.1. (Optional) Bundle CLI Script — Only If You Want `uv run scripts/bundle-tasks.py`
 
