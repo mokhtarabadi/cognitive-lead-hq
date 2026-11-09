@@ -1,11 +1,12 @@
 # Task 0384: Decouple True Manual Mode (Human Courier) from Automatic Mode (MCP Brain Bridge)
 
-**File:** `tasks/qa/0384-decouple-manual-and-automatic-modes.md`
+**File:** `tasks/completed/0384-decouple-manual-and-automatic-modes.md`
 **Source:** manager
 **Type:** feature
-**Status:** qa
+**Status:** closed
 **Finished:** 2026-11-08T07:05:25Z
 **Submitted:** 2026-11-08T06:17:35Z
+**Stored in Commit Hash:** (pending)
 
 ## Goal
 
@@ -75,12 +76,12 @@ The following files contain conflated definitions and require targeted refactori
 
 ## Local TODOs
 
-- [ ] Refactor `prompts/fragments/02-role.md` and `prompts/fragments/19-initialization.md` to define `MODE: manual` as external Brain with Manager courier, and `MODE: automatic` as autonomous MCP bridge execution.
-- [ ] Refactor `prompts/fragments/06-personas.md` (Senior Programmer, QA Engineer, Code Reviewer) so that in `manual` mode, the Brain instructs Hands to emit fenced handoff blocks for the Manager, while in `automatic` mode, Hands invokes `brain_turn` directly.
-- [ ] Refactor `prompts/fragments/09-hands_protocols.md` summary phases across discovery, implementation, and combined task templates to provide explicit, clean branching for manual vs automatic execution.
-- [ ] Refactor `agents/cognitive-executor.md` and `AGENTS.md` to restore the manual courier handoff protocol while preserving zero-ferrying in automatic/autopilot mode.
-- [ ] Update synchronization tests in `tests/test_prompt_sync.py` to lock both modes against regressions.
-- [ ] Append ADR in `agents/DECISIONS.md` and `prompts/fragments/DECISIONS.md`, bump version in `01-system_version.md`, and run `python scripts/prompt-build/assemble_system_prompt.py`.
+- [x] Refactor `prompts/fragments/02-role.md` and `prompts/fragments/19-initialization.md` to define `MODE: manual` as external Brain with Manager courier, and `MODE: automatic` as autonomous MCP bridge execution.
+- [x] Refactor `prompts/fragments/06-personas.md` (Senior Programmer, QA Engineer, Code Reviewer) so that in `manual` mode, the Brain instructs Hands to emit fenced handoff blocks for the Manager, while in `automatic` mode, Hands invokes `brain_turn` directly.
+- [x] Refactor `prompts/fragments/09-hands_protocols.md` summary phases across discovery, implementation, and combined task templates to provide explicit, clean branching for manual vs automatic execution.
+- [x] Refactor `agents/cognitive-executor.md` and `AGENTS.md` to restore the manual courier handoff protocol while preserving zero-ferrying in automatic/autopilot mode.
+- [x] Update synchronization tests in `tests/test_prompt_sync.py` to lock both modes against regressions.
+- [x] Append ADR in `agents/DECISIONS.md` and `prompts/fragments/DECISIONS.md`, bump version in `01-system_version.md`, and run `python scripts/prompt-build/assemble_system_prompt.py`.
 
 ## Acceptance Criteria
 

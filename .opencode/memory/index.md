@@ -16,7 +16,6 @@
 | project | absent-file-policy | Absent-File Policy: If a referenced core file does not exist (e.g., DESIGN.md, docs/architecture.md, docs/data_model.... |  |
 | project | fragment-edit-regenerate-workflow | # Fragment-Edit → Regenerate Workflow (Task 129, 2026-08-30) |  |
 | project | free-tier-bash-gate | # Free-tier bash gate (upstream OpenCode behavior, recorded 2026-10-17) |  |
-| project | mcp_tool_audit_2026_09_18 | # MCP tool audit (2026-09-18) — HISTORICAL SNAPSHOT |  |
 | project | repo-details | # Repository Details |  |
 | project | system-prompt-build-process | system-prompt.md is a GENERATED build artifact, NOT a hand-edited source file. |  |
 | quirks | code_search_skill_sync_pattern | **Pattern (2026-08-21, updated 2026-08-27):** The `code-search` skill has two copies that must stay in sync: `skill-t... |  |
@@ -30,8 +29,6 @@
 | workflows | codemode-policy | # Code Mode policy (OpenCode v2, 2026-10-29) |  |
 | workflows | free-model-context-window-workflow | # Free-model context-window workflow (verified 2026-10-21) |  |
 | workflows | global-install-upgrade | # Global Install Upgrade Workflow (OpenCode) |  |
-| workflows | global-sync-2026-11-08 | Global sync completed 2026-11-08: copied cognitive-executor.md + system-prompt.md (9.77.0) to ~/.config/opencode. All... |  |
-| workflows | manual-qa-review-cycle | # Manual QA + Review Cycle (Hands role-plays both) |  |
 | workflows | no_task_for_global_upgrade | Global install upgrades run WITHOUT a task file: Manager order 2026-09-14 — delete any upgrade task file, execute wor... |  |
 | workflows | rtk_first_verification | RTK-first verification rule (Manager order 2026-09-17, structurally wired): every test-suite verification run begins ... |  |
 | workflows | telegram-file-delivery | # Sending Task Files to Telegram — MANAGER PREFERENCE (updated 2026-08-10, overrides previous version) |  |
