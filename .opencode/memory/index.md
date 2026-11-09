@@ -22,6 +22,7 @@
 | quirks | code_search_skill_sync_pattern | **Pattern (2026-08-21, updated 2026-08-27):** The `code-search` skill has two copies that must stay in sync: `skill-t... |  |
 | quirks | extract_signatures_file_write_fix | **Bug Fixed (2026-08-21):** `extract_signatures` MCP tool in `mcp-context-server/server.py` was returning signature s... |  |
 | quirks | full_output_verification_rule | Never trust truncated command output. Head tail cuts hide status lines and cause false alarms. Always re-run with ful... |  |
+| quirks | skill-tool-output-discarded-by-smart-compact | # Skill output must never be discarded or pruned | skills, smart-compact, opencode |
 | release | release-workflow | Release workflow for cognitive-lead-hq. |  |
 | telegram-sync | message-formatting-contract | # Telegram Message Formatting Contract (Manager rule, 2026-10-21) |  |
 | telegram-sync | topic-scoped-sync-workflow | # Telegram Sync Workflow Constraints (Cognitive Lead HQ) |  |
