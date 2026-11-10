@@ -4,6 +4,7 @@
 **Source:** manager
 **Type:** bug
 **Status:** closed
+**Finished:** 2026-11-10T12:42:03Z
 **Submitted:** 2026-11-10T12:36:24Z
 
 ## Goal
@@ -174,81 +175,5 @@ settled it. Do not "fix" a test merely to make it green while its policy is stil
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
-```diff
-diff --git a/CHANGELOG.md b/CHANGELOG.md
-index 33c7225..293b236 100644
---- a/CHANGELOG.md
-+++ b/CHANGELOG.md
-@@ -31,6 +31,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
- - Merged `opencode-init` into `governance` as Part 3 of `templates/init.md` (project-only `opencode.json` generation); removed the standalone skill; governance index + registry updated, LLM.txt + checklist now 24 skills; system prompt 9.87.0 → 9.88.0 via the assembler (95047 chars / 95434 bytes).
- - Split the three oversized skills into loadable indexes: `governance` 43,572 → 2,114 bytes with `templates/audit.md` + `templates/init.md`, `kanban-lifecycle` 27,717 → 1,991 across five part files, `telegram-suite` 30,013 → 1,947 across three. The old sizes returned an empty `Load Skill` result. Repo-wide audit closed the drift they left: `skill-templates/README.md` count and `opencode-init` path, `README.md` roadmap naming `task-generator`/`testing-strategy`, and the `LLM.txt` §6.1 `bundle-tasks.py` CLI that does not ship. Tests now read `SKILL.md` plus `templates/*.md` so the same contract terms stay asserted.
- 
-+### Fixed
-+
-+- **Harness suite green again (task 394):** repaired three stale assertions left behind by earlier consolidations. F1 (`tests/test_mcp_servers.py`) now derives its target inventory from `skill-templates/*/SKILL.md` on disk plus `agents/cognitive-executor.md` instead of a hardcoded `>= 31` floor, keeping both `OpenCode Execution Log` bans. F2/F3 (`tests/test_input_validation_pipeline.py`) assert the documented always-English policy — "clarification request in simple English" in fragment 05, "in simple English, no matter which language the input used" in `docs/conventions.md`, and "regardless of the input language" plus "simple English but technical" in `agents/cognitive-executor.md` — with negative asserts against the retired per-message requested-language phrases. Test-only; no production prompt or doc changed.
- 
- ## [9.77.0] - 2026-11-08
- 
-diff --git a/tests/test_input_validation_pipeline.py b/tests/test_input_validation_pipeline.py
-index 2392e0c..82d601a 100644
---- a/tests/test_input_validation_pipeline.py
-+++ b/tests/test_input_validation_pipeline.py
-@@ -29,10 +29,16 @@ def test_no_manager_language_rule_in_fragments():
- 
- 
- def test_clarification_uses_requested_language():
-+    # Historical name retained for traceability; the documented policy is
-+    # always-English (option 1: update-tests). Evidence: fragment 05 lines 10
-+    # and 22, docs/conventions.md line 138, and the passing shipped-prompt gate
-+    # in test_prompt_sync.py.
-     text_05 = _read(FRAGMENT_05)
--    assert "clarification request in the per-message requested language" in text_05
-+    assert "clarification request in simple English" in text_05
-+    assert "per-message requested language" not in text_05
-     text_conv = _read(CONVENTIONS)
--    assert "per-message requested language" in text_conv
-+    assert "in simple English, no matter which language the input used" in text_conv
-+    assert "per-message requested language" not in text_conv
- 
- 
- def test_validation_runs_before_topic_shift():
-@@ -61,6 +67,10 @@ def test_prompt_refactor_in_executor_matrix():
- 
- 
- def test_executor_handoff_uses_requested_language():
-+    # Historical name retained; the executor documents the always-English
-+    # handoff (option 1: update-tests), see the executor handoff rule and
-+    # prompts/fragments/24-language_policy.md.
-     text = _read(EXECUTOR)
--    assert "English inside, requested language outside" in text
--    assert "Never answer the Manager in another language" not in text
-+    assert "regardless of the input language" in text
-+    assert "simple English but technical" in text
-+    assert "English inside, requested language outside" not in text
-diff --git a/tests/test_mcp_servers.py b/tests/test_mcp_servers.py
-index b24d691..2e27845 100644
---- a/tests/test_mcp_servers.py
-+++ b/tests/test_mcp_servers.py
-@@ -1230,10 +1230,16 @@ def test_workflow_skills_have_no_opencode_execution_log():
-     entries — those are immutable historical records by design.
-     """
-     repo_root = Path(__file__).parent.parent
--    target_files = list((repo_root / "skill-templates").glob("*/SKILL.md"))
--    target_files.append(repo_root / "agents" / "cognitive-executor.md")
--    assert len(target_files) >= 31, (
--        f"Expected the 31 skill templates + executor agent (30 skills after "
-+    skill_dir = repo_root / "skill-templates"
-+    skill_files = sorted(skill_dir.glob("*/SKILL.md"))
-+    executor_file = repo_root / "agents" / "cognitive-executor.md"
-+    assert skill_dir.is_dir(), f"skill-templates dir missing: {skill_dir}"
-+    assert skill_files, f"No skill templates found under {skill_dir}"
-+    assert executor_file.is_file(), f"executor agent missing: {executor_file}"
-+    target_files = [*skill_files, executor_file]
-+    assert len(target_files) == len(skill_files) + 1, (
-+        f"target inventory must equal templates on disk plus executor: "
-+        f"{len(target_files)} vs {len(skill_files)}+1"
-     )
-     for skill_file in target_files:
-         content = skill_file.read_text(encoding="utf-8")
-```
+**Factual Git Diff:** Stored in Commit Hash: `5ecd6f125757781d84d8dfb50c0a640581fbcd54`
 <!-- END_GIT_DIFF -->
