@@ -1,8 +1,24 @@
 {
-  // Project settings for @mokhtarabadi/opencode-smart-compact,
-  // validated against v0.2.1 (git main). Project settings override
-  // the global defaults; only override what is needed.
+  // Project settings for @mokhtarabadi/opencode-smart-compact.
+  // Project settings override the global defaults; only override what is needed.
   // NOTE: deliberate agent-managed config — the audit-agents skill
   // must ignore this file (never flag, patch, delete, or gitignore it).
-  "enabled": true
+  "enabled": true,
+
+  // Working budget for HQ sessions. Needs plugin 0.3.0 or newer: older builds
+  // log "Unknown config key: awareness.warnAtTokens" and ignore these keys.
+  // WHY a cap: contextWindowTokens is a hard ceiling on the denominator, so the
+  // plugin measures against min(registry limit, configured). The model window is
+  // 1M tokens, and 50% of that is 500k — a fill this harness never reaches while
+  // the work is still healthy, which makes ratio-only reminders useless. 200k is
+  // roughly one long audit session's working set, so fill is reported against the
+  // budget the work actually needs rather than the ceiling the window allows.
+  // WHY absolute thresholds: warnAtTokens / emergencyAtTokens fire on token
+  // counts, so the reminder arrives at 120k and the hard nudge at 160k no matter
+  // how large the model window is (0 disables either one).
+  "awareness": {
+    "contextWindowTokens": 200000,
+    "warnAtTokens": 120000,
+    "emergencyAtTokens": 160000
+  }
 }

@@ -19,8 +19,16 @@ surface is ``opencode.json`` ``permission`` — families
 ``telegram_*``, plus ``brain_turn``, the
 context tools (``get_directory_tree``, ``read_source_files``,
 ``bundle_tasks``), and the native core (``task``, ``skill``,
-``todowrite``, ``read``, ``edit``, ``write``, ``bash``, ``grep``,
-``glob``, ``question``).
+``todowrite``, ``todoread``, ``read``, ``edit``, ``write``, ``bash``, ``grep``,
+``glob``, ``question``), plus the plugin tools the executor's own protocol
+names: smart-compact (``compact_context``, ``compact_stats``,
+``read_omitted_content``) and the goal plugin (``goal_set``,
+``goal_block``, ``goal_evidence``, ``goal_complete``, ``goal_resume``).
+
+Those plugin tools were missing until 2026-11-10, which made the manifest
+report a tool the agent is told to call as ``UNAVAILABLE_OPTIONAL`` — the
+quietest way to teach an agent to skip it. ``todoread`` was the same
+oversight against its ``todowrite`` pair.
 
 ``question`` was previously listed in ``KNOWN_UNAVAILABLE``. The cause
 was not a missing tool: OpenCode ships ``question`` as a built-in, but
@@ -67,6 +75,15 @@ AVAILABLE_EXACT = frozenset(
         "task",
         "skill",
         "todowrite",
+        "todoread",
+        "compact_context",
+        "compact_stats",
+        "read_omitted_content",
+        "goal_set",
+        "goal_block",
+        "goal_evidence",
+        "goal_complete",
+        "goal_resume",
         "read",
         "edit",
         "write",

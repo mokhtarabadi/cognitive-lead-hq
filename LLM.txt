@@ -499,10 +499,12 @@ Then create the recommended smart-compact global config at `~/.config/opencode/s
     "purgeErrors": { "enabled": true, "turns": 4, "protectedTools": ["question"] },
     "stripReasoning": { "enabled": true, "thresholdChars": 500 }
   },
-  "tokens": { "enabled": true, "emergencyBudgetTokens": 50000 },
-  "awareness": { "enabled": true, "warnRatio": 0.5, "emergencyRatio": 0.8, "rearmStep": 0.05, "autoTrimRatio": 0.5 }
+  "tokens": { "enabled": true, "emergencyBudgetTokens": 0, "emergencyBudgetRatio": 0.6 },
+  "awareness": { "enabled": true, "warnRatio": 0.5, "emergencyRatio": 0.8, "rearmStep": 0.05, "autoTrimRatio": 0.55, "contextWindowTokens": 1000000, "warnAtTokens": 0, "emergencyAtTokens": 0 }
 }
 ```
+
+> **The window is a denominator, not a budget.** `awareness.contextWindowTokens` is now a hard cap: the plugin measures against `min(registry limit, configured)`, and `warnAtTokens` / `emergencyAtTokens` decide when the reminder fires (`0` disables either). This global file names the real window and leaves the absolute pair disabled so no machine-wide budget is imposed; a project that wants a tighter working budget pins its own cap and thresholds in `.opencode/smart-compact.jsonc` — this repo uses 200k / 120k / 160k because 50% of a 1M-token window (500k) is a fill a session never reaches while the work is still healthy. Requires smart-compact 0.3.0 or newer; older builds log `Unknown config key` and ignore the pair.
 
 > **Do not add `skill` to `discardTools`.** Older recommended configs put a `"skill": "Skill contents omitted after compaction..."` entry there, which replaced every skill body with that notice — agents then fell back to filesystem search and `Load Skill` looked broken. `skill` must stay in `protectedTools` and out of `discardTools` (fixed in smart-compact 0.2.2).
 

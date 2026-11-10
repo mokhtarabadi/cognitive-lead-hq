@@ -1,6 +1,6 @@
 # Context Compaction
 
-The platform keeps long sessions productive with two layers: OpenCode's native auto-compaction as the safety net, and our own **Smart Compact** plugin as the high-fidelity manual layer. Durable working state lives in the task file and project memory, so any compaction stays recoverable.
+The platform keeps long sessions productive with three layers: OpenCode's native auto-compaction as the safety net, our own **Smart Compact** plugin as the high-fidelity manual layer, and that same plugin's awareness as the automatic layer that acts without an agent call. Durable working state lives in the task file and project memory, so any compaction stays recoverable.
 
 ## Layer 1 — Native OpenCode compaction (automatic)
 
@@ -60,17 +60,6 @@ This writes the package (or path) into `plugins` in the global config; OpenCode 
 
 Compaction is scheduled by the command and applied on the next model request; summaries are generated at command time with the session's own model.
 
-### Automatic at pressure (agent needs no action)
-
-Two things happen without anyone asking:
-
-| Layer | Trigger | Effect | Lossy? |
-| --- | --- | --- | --- |
-| Tool-output trim (`awareness.autoTrimRatio`) | Fill crosses the ratio (platform: `0.5`) | Queues a `trim` for the next request, reusing the manual trim pass. Once per sustained pressure period, not once per request | No — originals stay cached under a Content ID |
-| Advisory reminder (`awareness.warnRatio`) | Fill crosses the ratio (platform: `0.5`, emergency `0.8`) | One system part telling the agent how full the window is and what to call | No |
-
-Summarization is not automatic on purpose: replacing turns with summaries needs the agent's own judgement about which detail still matters. The plugin never overwrites a pending compaction with a weaker trim.
-
 ### Agent-callable tools
 
 The agent compresses the session itself with the `compact_context` tool (never the `/magic-*` slash commands), which runs the same logic as `/magic-compact` (shared `src/actions.ts` in the plugin, so the paths cannot drift). Effect is async (stored now, prunes next request) — do not re-call to verify. In autopilot never ask the Manager to run slash commands:
@@ -96,7 +85,7 @@ The `compact_stats` tool reports what the compaction actually reclaimed: `pruned
 - `read` output is always pruned (reloadable).
 - `task` output uses a higher bar (default 4096 chars / 512 words).
 - `question` output is never pruned (it captures an explicit user decision).
-- `todowrite` and `skill` output is replaced with a short notice and not cached (redundant or reloadable).
+- `todowrite` output is replaced with a short notice and not cached (redundant). `skill` output is neither discarded nor pruned: a truncated skill body looks exactly like a broken `Load Skill`.
 - Pending and errored calls are never pruned.
 
 ### Automatic strategies
@@ -108,7 +97,7 @@ The `compact_stats` tool reports what the compaction actually reclaimed: `pruned
 
 JSONC, project over global: `.opencode/smart-compact.jsonc` over `~/.config/opencode/smart-compact.jsonc` over built-in defaults. On a fresh machine create the global file with this recommended content right after `opencode plugin add` (same snippet lives in `LLM.txt` §7.7, so an installer LLM writes it verbatim):
 
-The platform runs `warnRatio 0.5` / `emergencyRatio 0.8` because a 1M-token window at the shipped `0.7` would only warn at ~734K tokens. `autoTrimRatio 0.5` is the one automatic action and it is lossless: it queues a tool-output-only trim for the next request, summarizes nothing, and leaves every pruned original in the cache. A per-session latch means one sustained pressure period trims once; it re-arms only after the fill grows by `rearmStep` or drops below the line and rises again, so a long session above the threshold does not queue a trim on every request.
+The platform runs `warnRatio 0.5` / `emergencyRatio 0.8` for window-relative firing; on a 1M-token window those lines sit at 500k and 800k, which is why the absolute `warnAtTokens` / `emergencyAtTokens` pair carries the reminder in practice. `autoTrimRatio 0.5` is the one automatic action and it is lossless: it queues a tool-output-only trim for the next request, summarizes nothing, and leaves every pruned original in the cache. A per-session latch means one sustained pressure period trims once; it re-arms only after the fill grows by `rearmStep` or drops below the line and rises again, so a long session above the threshold does not queue a trim on every request.
 
 ```jsonc
 // Recommended global config for smart-compact.
@@ -128,25 +117,41 @@ The platform runs `warnRatio 0.5` / `emergencyRatio 0.8` because a 1M-token wind
     "stripReasoning": { "enabled": true, "thresholdChars": 500 }
   },
   "tokens": { "enabled": true, "emergencyBudgetTokens": 0, "emergencyBudgetRatio": 0.6 },
-  "awareness": { "enabled": true, "warnRatio": 0.5, "emergencyRatio": 0.8, "rearmStep": 0.05, "autoTrimRatio": 0.55, "contextWindowTokens": 1000000 }
+  "awareness": { "enabled": true, "warnRatio": 0.5, "emergencyRatio": 0.8, "rearmStep": 0.05, "autoTrimRatio": 0.55, "contextWindowTokens": 1000000, "warnAtTokens": 0, "emergencyAtTokens": 0 }
 }
 ```
 
-Three rules govern the numbers in that block.
+Four rules govern the numbers in that block.
 
 - **The emergency budget follows the window.** A positive `emergencyBudgetTokens` pins an exact number and behaves exactly as before. `0` means *derive*: the budget becomes `emergencyBudgetRatio` (default `0.6`) of the resolved context window, so a large-window model no longer warns from the first few turns. To switch the warning off, set `emergencyBudgetRatio` to `0` — **not** `emergencyBudgetTokens`, because zero there now means derive. An unknown window keeps the warning silent rather than firing against a guessed denominator.
-- **Awareness needs a denominator.** When the model registry entry carries no `limit.context`, set `awareness.contextWindowTokens` to the window size and the reminder states that the figure is configured rather than measured. With neither a registry limit nor a fallback, the advisory (and the lossless auto-trim that depends on the same ratio) stays inert — which is why the sample above carries an explicit `1000000` rather than the neutral `0`, and why a copied config with `0` here silently reproduces a plugin that never speaks.
+- **Awareness needs a denominator, and that number is a cap.** When the model registry entry carries no `limit.context`, set `awareness.contextWindowTokens` to the window size and the reminder states that the figure is configured rather than measured. With neither a registry limit nor a fallback, the advisory (and the lossless auto-trim that depends on the same ratio) stays inert — which is why the sample above carries an explicit `1000000` rather than the neutral `0`, and why a copied config with `0` here silently reproduces a plugin that never speaks. The same key is a hard ceiling: the plugin takes `min(registry limit, configured)`, so a project can lower the denominator below the model's real window and get a working budget instead of a percentage nobody ever reaches.
+- **Set the absolute pair where work degrades, not where the window ends.** `warnAtTokens` / `emergencyAtTokens` fire on token counts (`0` disables either). The global file leaves them at `0` so no machine-wide budget is imposed; a project that wants one pins it in its own `.opencode/smart-compact.jsonc` — this repo uses 200k / 120k / 160k on a 1M-token model.
 - **Auto-trim is armed by default.** `autoTrimRatio` defaults to `0.55`, so bulky completed tool results become notices without any manual call, one trim per sustained pressure period. Pruning is lossless — the original stays cached — so this is safe to leave on.
 
 ### Retrieving pruned content
 
 Each omission notice carries a Content ID (e.g. `omitted-0001`). Prefer a cheap fresh run of the source tool; the agent calls `read_omitted_content` with that ID ONLY when the output cannot be reproduced cheaply, never speculatively — the lookup is scoped to the calling session, a single response is capped at 20 000 characters (a longer original returns a truncation notice rather than megabytes of text), and an original dropped by the store cap fails closed with a missing-original notice instead of returning stale content. On a cache miss, re-run the source tool once.
 
+## Layer 3 — Awareness and automatic relief (no agent call)
+
+The plugin watches fill by itself and can take two actions. Neither one summarizes a turn, touches a user message, or aborts a step.
+
+Fill is measured against a **working budget**, not against the model ceiling. `awareness.contextWindowTokens` is a hard cap on the denominator — the plugin measures against `min(registry limit, configured)` — so a 1M-token model is still reported against the budget in which the work actually happens. That is the point: a ratio threshold on a 1M window is unreachable in practice. The shipped `warnRatio` 0.5 first speaks at 500k tokens, and a session's useful detail is long gone by then. This repo pins a 200k budget on a 1M window in `.opencode/smart-compact.jsonc` (warn at 120k, emergency at 160k).
+
+| Action | Trigger | Effect | Lossy? |
+| --- | --- | --- | --- |
+| Advisory reminder | Fill crosses `awareness.warnAtTokens` (repo: 120k tokens) or `emergencyAtTokens` (160k); the ratio pair (`warnRatio` / `emergencyRatio`) stays as the window-relative path | One system part telling the agent how full the window is and what to call | No |
+| Tool-output trim (`awareness.autoTrimRatio`) | Fill crosses the ratio (platform: `0.5`) | Queues a `trim` for the next request, reusing the manual trim pass. Once per sustained pressure period, not once per request | No — originals stay cached under a Content ID |
+
+`0` disables either absolute threshold, and an unknown window keeps the reminder silent rather than firing against a guessed denominator. The plugin logs one console line each time it fires a reminder and each time it queues a trim, so a silent log means nothing fired — never assume the mechanism is broken, and check the fill the `compact_stats` line reports.
+
+Summarization is not automatic on purpose: replacing turns with summaries needs the agent's own judgement about which detail still matters. The plugin never overwrites a pending compaction with a weaker trim, and the agent still compacts at the task boundary — see the task-boundary rule above.
+
 Task file is the sole reconcile target. Smart Compact via `compact_context` is the sole pruning writer; native auto-compact is a lossy safety net only and is never relied on for state. After any compaction resume from the task file and re-apply pruning through the sole writer.
 
 ## Integration in this platform
 
-- **System prompt:** the `<compaction_protocol>` fragment (generated into `system-prompt.md`) states the two layers and the survival contract.
+- **System prompt:** none — the prompt is plugin-blind on purpose (the retired `<compaction_protocol>` fragment sits in `prompts/archive/` and is never assembled), so the survival contract below and `agents/cognitive-executor.md` carry the whole rule set.
 - **Agent:** `agents/cognitive-executor.md` carries the operational steps: the agent calls `compact_context` itself under pressure (slash commands are Manager-only) and recommends `/magic-compact` only when a tool call is unavailable in manual mode.
 - **Config:** global `opencode.json` holds `plugins` + `compaction`; the repo `opencode.json` stays config-free of both.
 - **Global plugins:** Global plugins live in user config at tilde config opencode opencode dot json as github mokhtarabadi opencode-smart-compact plus github mokhtarabadi opencode-goal-plugin. Repo opencode dot json has no plugins key by intent. HQ task file stays truth. Use the goal plugin for long objectives (`/goal` set, status, block, complete with evidence, clear); its idle loop never fires past an approval gate.
