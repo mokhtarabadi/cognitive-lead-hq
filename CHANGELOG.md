@@ -31,6 +31,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Merged `opencode-init` into `governance` as Part 3 of `templates/init.md` (project-only `opencode.json` generation); removed the standalone skill; governance index + registry updated, LLM.txt + checklist now 24 skills; system prompt 9.87.0 → 9.88.0 via the assembler (95047 chars / 95434 bytes).
 - Split the three oversized skills into loadable indexes: `governance` 43,572 → 2,114 bytes with `templates/audit.md` + `templates/init.md`, `kanban-lifecycle` 27,717 → 1,991 across five part files, `telegram-suite` 30,013 → 1,947 across three. The old sizes returned an empty `Load Skill` result. Repo-wide audit closed the drift they left: `skill-templates/README.md` count and `opencode-init` path, `README.md` roadmap naming `task-generator`/`testing-strategy`, and the `LLM.txt` §6.1 `bundle-tasks.py` CLI that does not ship. Tests now read `SKILL.md` plus `templates/*.md` so the same contract terms stay asserted.
 
+### Fixed
+
+- **Harness suite green again (task 394):** repaired three stale assertions left behind by earlier consolidations. F1 (`tests/test_mcp_servers.py`) now derives its target inventory from `skill-templates/*/SKILL.md` on disk plus `agents/cognitive-executor.md` instead of a hardcoded `>= 31` floor, keeping both `OpenCode Execution Log` bans. F2/F3 (`tests/test_input_validation_pipeline.py`) assert the documented always-English policy — "clarification request in simple English" in fragment 05, "in simple English, no matter which language the input used" in `docs/conventions.md`, and "regardless of the input language" plus "simple English but technical" in `agents/cognitive-executor.md` — with negative asserts against the retired per-message requested-language phrases. Test-only; no production prompt or doc changed.
 
 ## [9.77.0] - 2026-11-08
 

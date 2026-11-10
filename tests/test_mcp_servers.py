@@ -1230,10 +1230,16 @@ def test_workflow_skills_have_no_opencode_execution_log():
     entries — those are immutable historical records by design.
     """
     repo_root = Path(__file__).parent.parent
-    target_files = list((repo_root / "skill-templates").glob("*/SKILL.md"))
-    target_files.append(repo_root / "agents" / "cognitive-executor.md")
-    assert len(target_files) >= 31, (
-        f"Expected the 31 skill templates + executor agent (30 skills after "
+    skill_dir = repo_root / "skill-templates"
+    skill_files = sorted(skill_dir.glob("*/SKILL.md"))
+    executor_file = repo_root / "agents" / "cognitive-executor.md"
+    assert skill_dir.is_dir(), f"skill-templates dir missing: {skill_dir}"
+    assert skill_files, f"No skill templates found under {skill_dir}"
+    assert executor_file.is_file(), f"executor agent missing: {executor_file}"
+    target_files = [*skill_files, executor_file]
+    assert len(target_files) == len(skill_files) + 1, (
+        f"target inventory must equal templates on disk plus executor: "
+        f"{len(target_files)} vs {len(skill_files)}+1"
     )
     for skill_file in target_files:
         content = skill_file.read_text(encoding="utf-8")
