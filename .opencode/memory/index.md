@@ -12,6 +12,7 @@
 | opencode_config | global-skills-copy-excludes-docs | # Global skills copy must exclude DECISIONS.md and README.md | skills, opencode |
 | opencode_config | opencode_openchamber_versions_2026_11_02 | # OpenCode / OpenChamber versions — verified 2026-11-02 |  |
 | opencode_config | plugin_policy_magic_compact_2026_10_02 | # OpenCode plugin policy — Smart Compact (updated 2026-10-24) |  |
+| opencode_config | skill-sources-multiple-roots | # Skills load from several roots, not just ~/.config/opencode/skills | skills, opencode, openchamber |
 | opencode_config | smart_compact_verified_2026_10_13 | # Smart Compact v0.2.1 verified live (2026-10-13, post-restart smoke test) |  |
 | opencode_config | v2_server_password_sync_2026_09_26 | # V2 server auth — managed mode only (updated 2026-10-01) |  |
 | project | absent-file-policy | Absent-File Policy: If a referenced core file does not exist (e.g., DESIGN.md, docs/architecture.md, docs/data_model.... |  |

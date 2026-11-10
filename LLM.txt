@@ -157,7 +157,7 @@ cp /tmp/cognitive-lead-hq/docs/opencode-shell-strategy.md ~/.config/opencode/ope
 # 1. Create the repo .env from the template and fill the keys:
 #      cp /tmp/cognitive-lead-hq/.env.example /tmp/cognitive-lead-hq/.env
 #      # edit: BRAIN_API_BASE, BRAIN_API_KEY, (optional) BRAIN_MODEL,
-#      #       DECISION_* , TELEGRAM_*
+#      #       TELEGRAM_*
 #    The MCP servers self-load .env at import in this order (first match wins):
 #      <server-dir>/.env  ->  <server-dir>/../.env  ->  <cwd>/.env
 #    - repo runs use /tmp/cognitive-lead-hq/.env (= <server-dir>/../.env)
@@ -192,6 +192,23 @@ rm -f ~/.config/opencode/skills/DECISIONS.md ~/.config/opencode/skills/README.md
 ```
 
 After this, the skills will be available via `/help` from any directory. `skill-templates/` contains **24 skills** (`kanban-lifecycle`, `telegram-suite`, `testing-verification`, and 21 more). `DECISIONS.md` and `README.md` stay in the repo only — they are not skills and must never be copied globally, or OpenChamber counts them as fake skills.
+
+> **Multiple skill roots — sync them all.** OpenCode V2 and OpenChamber merge skills from several sources, so cleaning one root leaves the others stale and the app keeps listing removed skills. After any skill change, sync every root that exists on the machine and verify the counts match:
+
+```bash
+for d in ~/.config/opencode/skills ~/.agents/skills; do
+  [ -d "$d" ] || continue
+  for s in "$d"/*/; do
+    n=$(basename "$s")
+    [ -d "/tmp/cognitive-lead-hq/skill-templates/$n" ] || rm -rf "$s"
+  done
+  cp -r /tmp/cognitive-lead-hq/skill-templates/* "$d"/
+  rm -f "$d"/DECISIONS.md "$d"/README.md
+  echo "$d: $(ls -1d "$d"/*/ | wc -l)"
+done
+```
+
+Project roots (`<project>/.opencode/skills`) override the global copies and must be cleaned in the project itself. `~/.config/openchamber/run/instances/<id>/skills` holds only `openchamber-extensions` — leave it alone.
 
 ### 6.1. Bundle CLI Script — Not Shipped
 
@@ -330,7 +347,7 @@ The `cli.json` `plugins` entry enables the todolist TUI sidebar strip.
 
 **Important:** Replace `$HOME` with the actual absolute path resolved in Step 3 (e.g., `/home/alice` or `/Users/alice`). This is critical — MCP servers will NOT work with relative paths or `~` in the global config because OpenCode may be invoked from any working directory.
 
-**Launch form + credentials:** no session spawns servers anymore — the 8 singletons run as supervised services on `127.0.0.1:8101-8108` (started in Step 7.5, full map in `docs/services.md`), and the config above only points at them via `type: "remote"`. The old per-session stdio storm (and its `mcp connect failed: Request timed out` failures, ~200/day before the 2026-09-29 singleton fix) is gone by construction. The brain/decision timeouts stay 600000ms (10 min) — LLM turns need it. Credentials (`BRAIN_*`, `DECISION_*`, `TELEGRAM_*`) are **not** in the OpenCode config: each server self-loads `.env` at import, in order `<server-dir>/.env` → `<server-dir>/../.env` → `<cwd>/.env`, never overriding real process env. For the global install that effective file is **`~/.config/opencode/.env`** (seeded in Step 5, `chmod 600`); for servers run straight from the repo it is the repo-root `.env`. The systemd/launchd/Windows units therefore need **no** `EnvironmentFile=` for these keys. Telegram prerequisites (clone + `uv sync` + `.env` + allowed-root dirs) are still installed per §7.6 — only the launch moved into the `mcp-telegram` service.
+**Launch form + credentials:** no session spawns servers anymore — the 7 MCP singletons plus the `zen-proxy` gateway sidecar run as supervised services on `127.0.0.1:8101-8108` and `:8081` (started in Step 7.5, full map in `docs/services.md`), and the config above only points at them via `type: "remote"`. The old per-session stdio storm (and its `mcp connect failed: Request timed out` failures, ~200/day before the 2026-09-29 singleton fix) is gone by construction. The brain timeout stays 600000ms (10 min) — LLM turns need it. Credentials (`BRAIN_*`, `TELEGRAM_*`) are **not** in the OpenCode config: each server self-loads `.env` at import, in order `<server-dir>/.env` → `<server-dir>/../.env` → `<cwd>/.env`, never overriding real process env. For the global install that effective file is **`~/.config/opencode/.env`** (seeded in Step 5, `chmod 600`); for servers run straight from the repo it is the repo-root `.env`. The systemd/launchd/Windows units therefore need **no** `EnvironmentFile=` for these keys. Telegram prerequisites (clone + `uv sync` + `.env` + allowed-root dirs) are still installed per §7.6 — only the launch moved into the `mcp-telegram` service.
 
 **QA/review run through the bridge:** the Hands calls `brain_turn` with the instruction + task file (see the Bridge section in `agents/cognitive-executor.md`); history continues under the active session thread (ambient `OPENCODE_SESSION_ID` auto-detection). No per-persona commands or learning stores.
 
@@ -487,6 +504,8 @@ Then create the recommended smart-compact global config at `~/.config/opencode/s
 }
 ```
 
+> **Do not add `skill` to `discardTools`.** Older recommended configs put a `"skill": "Skill contents omitted after compaction..."` entry there, which replaced every skill body with that notice — agents then fell back to filesystem search and `Load Skill` looked broken. `skill` must stay in `protectedTools` and out of `discardTools` (fixed in smart-compact 0.2.2).
+
 Enable the todolist sidebar strip via `~/.config/opencode/cli.json`:
 
 ```json
@@ -626,7 +645,7 @@ After completing all steps, verify:
 - [ ] `~/.config/opencode/mcp-brain-bridge/server.py` exists and is executable (plus its sibling modules `capability.py`, `preflight.py`, `loop_guard.py`, `session_ledger.py`)
 - [ ] `~/.config/opencode/mcp-common/src/mcp_common/env.py` exists
 - [ ] `~/.config/opencode/zen-proxy/proxy.py` exists and is executable, `~/.config/opencode/zen-proxy/.venv/bin/python` exists (built with `uv venv`), and `systemctl --user is-active zen-proxy` returns `active` on `127.0.0.1:8081` (`curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8081/health` → 200); the unit reads `~/.config/opencode/.env` and needs no API key of its own
-- [ ] Skills are installed under `~/.config/opencode/skills/` (at least one subfolder exists) — should include `kanban-lifecycle` (24 skills total)
+- [ ] Skills are installed under `~/.config/opencode/skills/` (at least one subfolder exists) — should include `kanban-lifecycle` (24 skills total); when `~/.agents/skills` exists, it holds the same 24 and no retired names (`task-generator`, `audit-agents`, `bundle-tasks`, …)
 - [ ] `~/.config/opencode/agents/cognitive-executor.md` exists
 - [ ] `~/.config/opencode/agents/cognitive-discovery.md` exists
 - [ ] `~/.config/opencode/opencode.json` exists with **absolute paths** (not `~` or relative paths) and 7 `mcp` entries (`custom_context`, `project_memory`, `lint`, `brain`, `blowsh`, `telegram`, `planner`) + `blowsh_*`/`telegram_*`/`brain_turn` permissions, no former browser entry
