@@ -454,7 +454,7 @@ To make the `code-search` skill (or any other reusable skill) available in _ever
    ```
    Under the available skills list, you will see `code-search` listed. You can now use it in any project by asking:
    ```plaintext
-   @explore find the main router using the code-search skill
+   Use the subagent tool with agent explore to find the main router using the code-search skill
    ```
 
 ---

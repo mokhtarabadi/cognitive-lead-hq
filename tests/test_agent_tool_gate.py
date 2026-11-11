@@ -11,7 +11,7 @@ Upstream evidence:
   Bash presence is necessary but not sufficient for restricted shapes. Docs note only, not a code fix.
 
 Exemption:
-- cognitive-discovery is a read-only subagent that denies edit plus bash by design; it is asserted as deny with reason.
+- cognitive-discovery is a read-only subagent that denies edit plus the shell action by design; it is asserted as deny with reason.
 """
 
 from pathlib import Path
@@ -40,31 +40,65 @@ def _extract_frontmatter(markdown_text: str) -> str:
     return ""
 
 
-def _permission_allows_bash(frontmatter: str) -> bool:
-    """Return True when permission block allows bash. Args: frontmatter extracted frontmatter text. Returns: True for allow, False for missing or deny."""
-    low = frontmatter.lower()
-    # Bash must be mentioned at all.
-    if "bash" not in low:
-        return False
-    # Explicit deny patterns fail closed.
-    if re.search(r"bash\s*:\s*deny", low):
-        return False
-    if re.search(r"bash.*deny\s*-\s*all", low):
-        return False
-    # Direct allow patterns pass.
-    if re.search(r"bash\s*:\s*allow", low):
-        return True
-    if re.search(r'"bash"\s*:\s*"allow', low):
-        return True
-    # Nested shape with bash key plus allow token in permission scope passes.
-    perm = low.split("permission", 1)[-1] if "permission" in low else low
-    return "allow" in perm
+def _parse_rules(frontmatter: str) -> list:
+    """Parse a V2 `permissions` array into ordered rule dicts.
+
+    Args: frontmatter extracted frontmatter text.
+    Returns: list of {action, resource, effect} dicts in declaration order.
+    """
+    rules = []
+    current = {}
+    in_permissions = False
+    for raw in frontmatter.splitlines():
+        line = raw.strip()
+        if line.startswith("permissions:"):
+            in_permissions = True
+            continue
+        if not in_permissions:
+            continue
+        if line.startswith("- "):
+            if current:
+                rules.append(current)
+            current = {}
+            line = line[2:].strip()
+        match = re.match(r"(action|resource|effect):\s*(.+)$", line)
+        if match:
+            current[match.group(1)] = match.group(2).strip().strip('"').strip("'")
+    if current:
+        rules.append(current)
+    return rules
+
+
+def _effective_effect(frontmatter: str, action: str, resource: str = "*"):
+    """Return the effective effect for an action after last-match resolution.
+
+    OpenCode evaluates permission rules in order and the last match wins, so
+    this mirrors that instead of scanning for the first allow or deny.
+
+    Args: frontmatter extracted text; action permission action; resource
+    concrete resource, defaulting to the wildcard.
+    Returns: "allow", "deny", "ask", or None when no rule matches.
+    """
+    effect = None
+    for rule in _parse_rules(frontmatter):
+        rule_action = rule.get("action", "")
+        rule_resource = rule.get("resource", "")
+        if rule_action not in ("*", action):
+            continue
+        if rule_resource not in ("*", resource):
+            continue
+        effect = rule.get("effect")
+    return effect
+
+
+def _permission_allows_shell(frontmatter: str) -> bool:
+    """True when the shell action resolves to allow under V2 last-match rules."""
+    return _effective_effect(frontmatter, "shell") == "allow"
 
 
 def _permission_denies(frontmatter: str, tool: str) -> bool:
-    """Return True when permission block denies the named tool. Args: frontmatter extracted text; tool tool name. Returns: True for deny."""
-    low = frontmatter.lower()
-    return bool(re.search(rf"{re.escape(tool)}\s*:\s*deny", low))
+    """True when the named action resolves to deny under V2 last-match rules."""
+    return _effective_effect(frontmatter, tool) == "deny"
 
 
 def _agent_files():
@@ -76,7 +110,7 @@ def _agent_files():
 
 
 def test_free_tier_agents_keep_bash():
-    """Free-tier-intended agents must allow bash; discovery exempt is skipped here."""
+    """Free-tier-intended agents must expose the shell tool; discovery exempt is skipped here."""
     # Collect failures for one clear assertion message.
     missing = []
     # Iterate every agent file to prevent silent additions without the gate.
@@ -85,18 +119,20 @@ def test_free_tier_agents_keep_bash():
             continue
         text = _read_text(agent_path)
         front = _extract_frontmatter(text)
-        if not _permission_allows_bash(front):
+        if not _permission_allows_shell(front):
             missing.append(agent_path.name)
-    assert not missing, f"free-tier-intended agents must allow bash, missing: {missing}"
+    assert not missing, (
+        f"free-tier-intended agents must allow shell, missing: {missing}"
+    )
 
 
 def test_read_only_agent_stays_deny():
-    """Read-only subagent must stay deny for edit plus bash by design."""
+    """Read-only subagent must stay deny for edit plus shell by design."""
     target = AGENTS_DIR / "cognitive-discovery.md"
     assert target.exists(), "read-only discovery agent file must exist"
     text = _read_text(target)
     front = _extract_frontmatter(text)
     # Discovery denies edit by design as read-only.
     assert _permission_denies(front, "edit"), "discovery must deny edit"
-    # Discovery denies bash by design as read-only.
-    assert _permission_denies(front, "bash"), "discovery must deny bash"
+    # Discovery denies the shell action by design as read-only.
+    assert _permission_denies(front, "shell"), "discovery must deny shell"

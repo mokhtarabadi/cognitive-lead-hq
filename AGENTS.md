@@ -60,7 +60,7 @@ This repository is the Headquarters for the Cognitive Lead AI multi-agent system
 - **Don't** issue multi-step or large tasks without loading relevant skills and structuring work as a Goal.
   -> **Do** instruct the Hands to load all relevant skills from `<agent_skills_registry>` and treat multi-phase implementations as Goal units with explicit verification gates. (Goal-Oriented Tasks — V9.1.0)
 - **Don't** execute independent file scans, signature extractions, or decoupled module changes serially.
-  -> **Do** spawn parallel subagents (up to 4 concurrent agents, e.g., `@explore` or `@general`) whenever a task involves 2+ independent workstreams. (Parallel Agent Execution — V9.1.0)
+  -> **Do** spawn parallel subagents (up to 4 concurrent agents) via the `subagent` tool with `agent` set to `explore`, `general`, or `cognitive-discovery` whenever a task involves 2+ independent workstreams. (Parallel Agent Execution — V9.1.0)
 - **Don't** reference task numbers in Markdown prose (prompts, skills, docs, headings).
   -> **Do** reference task numbers ONLY in code comments, `CHANGELOG.md`, task files, history archives, and HTML comments. See Task-Number Reference Discipline in `docs/conventions.md`.
 - **Don't** silently alter slice architecture or domain invariants.

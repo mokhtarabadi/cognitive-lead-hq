@@ -115,7 +115,7 @@ Strictest verified toolchain for this stack. Load this skill whenever the projec
 ### Strict Baseline
 
 > **Substitute `<SERVICE_NAME>`** — replace every `<SERVICE_NAME>` in this file with your actual package name.
-> Example: `myapp` → run `sed -i 's/<SERVICE_NAME>/myapp/g'` after copying the template.
+> Example: `myapp` → after copying the template, replace every `<SERVICE_NAME>` placeholder with `myapp` using the native `edit` tool with `replaceAll`, never a scripted substitution.
 > Keep the placeholder in the shared skill; never commit a concrete service name.
 > **Placeholder guard:** CI must fail if any `<SERVICE_NAME>` remains (`grep -r "<SERVICE_NAME>" --include="*.toml" --include="*.py" && echo "FAIL: unsubstituted <SERVICE_NAME>" && exit 1`) — this blocks the template from passing the gate without substitution.
 
@@ -407,7 +407,7 @@ uv run python -c "import json,pathlib;from <SERVICE_NAME> import create_app;a=cr
 
 ### Mandatory Gate Order
 
-0. `! grep -r "<SERVICE_NAME>" --include="*.toml" --include="*.py" .` — placeholder guard: fail if any `<SERVICE_NAME>` remains unsubstituted (substitute first via `sed -i 's/<SERVICE_NAME>/myapp/g'`).
+0. `! grep -r "<SERVICE_NAME>" --include="*.toml" --include="*.py" .` — placeholder guard: fail if any `<SERVICE_NAME>` remains unsubstituted (substitute first with the native `edit` tool and `replaceAll` on the placeholder).
 1. `uv lock --check`
 2. `uv sync --locked`
 3. `uv run ruff format --check .`

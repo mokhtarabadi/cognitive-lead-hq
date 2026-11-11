@@ -167,6 +167,25 @@ Task numbers are provenance for humans, not reasoning material for the model. A 
 
 File edits use ONLY native file-editing tools (edit for replacements, file-write tools for new files). Using python, shell, heredoc, `sed -i`, or any script to create or modify files is strictly forbidden — scripted edits fail silently (replace-all on non-unique anchors, quoting and encoding mangling) while native tools fail loudly on a non-unique anchor. Shell stays read-only for file content (e.g. grep, cat, diff, ls, git status). Verify every edit with grep/diff.
 
+### Agent Permission Schema V1 to V2
+
+Agent frontmatter uses the canonical V2 `permissions` array of
+`{action, resource, effect}` rules. OpenCode rules are evaluated in order
+and the **last match wins**, so a catch-all grant or deny goes first and
+the refinements follow it.
+
+The V1 shapes are deprecated and must not be used in new or edited agent
+files: `permission` (singular map), `tools`, `temperature`, `top_p`,
+`prompt`, `disable`, `maxSteps`, and action-scoped `bash` entries. The V2
+shell action is named `shell`. `doom_loop` and `lsp` are not V2 actions.
+See <https://opencode.ai/docs/agents> and
+<https://opencode.ai/docs/permissions>.
+
+`agents/cognitive-executor.md` keeps `steps: 512` and grants a catch-all
+allow refined by the ZAC shell denies. `agents/cognitive-discovery.md`
+denies everything first, then allows the read-only surface, and closes
+with explicit `edit` and `shell` denies.
+
 ## Living Folder Docs Standard
 
 All vertical slices and component directories across projects in this ecosystem MUST maintain colocated documentation and decision records:

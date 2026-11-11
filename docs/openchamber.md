@@ -269,3 +269,30 @@ so configure-then-purge loops forever; remove the stub first.
 - [ ] `browser.snapshot` lists the tab; `browser.capture` writes
       `.openchamber/screenshots/*.png`.
 - [ ] Server Browser panel shows the same page the agent opened.
+
+## 11. Session Tool Catalog (verified 2026-11-11)
+
+The agent tool surface in an OpenChamber 2 session is not the same as the
+upstream documentation set. This section records what a session actually
+exposes, so instructions never name a tool the agent cannot call.
+
+**Exposed in this session:**
+
+| Tool | Purpose |
+| ---- | ------- |
+| `openchamber_render` | Draw an HTML page or a `ui` form inline in the chat; `awaitAnswer` collects a choice |
+| `openchamber_secret` | Request a secret on a private card and return only its file path |
+| `openchamber_notify` | Send a notification outside the chat |
+| `openchamber_web` | OpenChamber's browser panel: open a page, snapshot it, click and type |
+
+**Exposed `opencode` namespace:** `models`, `worktree_create`,
+`worktree_list`, `worktree_remove`, `session_move`, `session_rename`,
+`read_mcp_resource`, `list_mcp_resources`.
+
+**Not exposed in this session:** the `openchamber` control tool and
+`openchamber_schedule`, both documented upstream at
+<https://docs.openchamber.dev/agent-control-tool/> and enabled only when
+OpenChamber runs its own local OpenCode server.
+
+Rule: instruction artifacts name only exposed tools. The file writers are
+`edit` and `write`; the shell tool is `shell`.

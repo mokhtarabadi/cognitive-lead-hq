@@ -22,7 +22,7 @@ Locate the areas of the codebase relevant to the bug. Look for:
 
 ### 2. Inject Strategic Logs (Instrumentation)
 
-Use the `apply_patch` tool to inject temporary, highly visible logging statements into the code.
+Use the `edit` tool to inject temporary, highly visible logging statements into the code.
 
 - Log _before_ and _after_ acquiring a lock or starting a transaction.
 - Log the current thread ID, process ID, or unique request ID.
@@ -31,7 +31,7 @@ Use the `apply_patch` tool to inject temporary, highly visible logging statement
 
 ### 3. Execution & Capture
 
-Run the application, test suite, or specific reproduction script using your `bash` tool.
+Run the application, test suite, or specific reproduction script using your `shell` tool.
 
 - Ensure you capture `stdout` and `stderr`.
 - If testing for a deadlock, set a strict timeout on your bash command (e.g., `timeout 10s npm test`) so the agent loop does not hang indefinitely.
@@ -46,5 +46,5 @@ Read the captured log output. Look for:
 
 ### 5. Implement Fix & Clean Up
 
-- Once the root cause is identified from the logs, use `apply_patch` to fix the actual bug.
+- Once the root cause is identified from the logs, use `edit` to fix the actual bug.
 - **CRITICAL:** You MUST remove all temporary `[DEBUG-TRACE]` logs you injected before finishing the task. Never commit temporary instrumentation to the codebase.

@@ -427,7 +427,7 @@ Additionally, the `docs/conventions.md` file MUST exist and contain:
 
 1. **Evaluation**: Compare the active `AGENTS.md` text against the Target Audit Criteria. Also check if `docs/conventions.md` exists and contains both the DateTime Standard and SOLID Guidelines.
    - **Absent-File Policy (Mandatory)**: For `DESIGN.md`, `docs/architecture.md`, and `docs/data_model.md` — if any of these files do NOT exist in `[PROJECT_ROOT]`, audit them as `OPTIONAL — SKIPPED GRACEFULLY` with an explicit note. DO NOT flag as fatal errors, non-compliance violations, or missing-file failures. DO NOT hallucinate or scaffold them.
-2. **Patching**: If any constraints are missing, ambiguous, or incorrect in `AGENTS.md`, use the `apply_patch` tool to inject the exact missing rules. If `docs/conventions.md` is missing or incomplete, generate or patch it using the conventions template from Mode 1.
+2. **Patching**: If any constraints are missing, ambiguous, or incorrect in `AGENTS.md`, use the `edit` tool to inject the exact missing rules. If `docs/conventions.md` is missing or incomplete, generate or patch it using the conventions template from Mode 1.
 3. **Halt on Success**: If both files already comply 100%, DO NOT execute any write operations.
 
 ### Deprecated Sections Resolution

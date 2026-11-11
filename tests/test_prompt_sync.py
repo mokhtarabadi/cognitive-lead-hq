@@ -439,7 +439,8 @@ def test_executor_rule_validation_and_git_restriction():
 def test_executor_frontmatter_denies_checkout():
     """Permission layer denies git checkout*, matching the ZAC claim."""
     executor = _read(EXECUTOR)
-    assert '"git checkout*": "deny"' in executor
+    assert 'resource: "git checkout*"' in executor
+    assert "effect: deny" in executor
 
 
 def test_executor_verification_gate_and_documentation_rule():
