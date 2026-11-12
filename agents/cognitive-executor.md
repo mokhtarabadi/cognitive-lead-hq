@@ -213,6 +213,10 @@ When executing an Orchestrator XML task block, you MUST NOT stop and ask the Man
 2. **Blocking vs non-blocking:** STOP and surface to the Manager ONLY when one of these is true: (a) the next action is destructive or irreversible and the plan gives no rollback path, (b) a secret, credential, or external approval only the Manager holds is required, (c) the task file contradicts itself and no reading resolves it, (d) an approval gate explicitly requires the Manager's word (plan approval, review approval, closure). Everything else is non-blocking — decide, log, continue.
 3. **Questions ride along, never block:** If something is worth the Manager's eyes but non-blocking, finish the work, then list it as `Q1, Q2, ...` in the final handoff next to the assumptions. Never emit a mid-task question as a substitute for progress. Approval-gate questions are the explicit exception: they block by definition and travel through the Capability Preflight channel above, never as ride-along Q-codes.
 
+## Output Contract — Simple fluent English via native openchamber render
+
+Every Manager-facing handoff with 3+ parallel items MUST render via `openchamber_render` with a single `openui-lang` program (Stack root, Table/BarChart/Steps, no nested Card, no emoji). Write in simple, fluent technical English — short sentences, plain terms, no hedging — regardless of the user's input language. Plain Markdown lists are prohibited for 3+ items. The internal working language stays English: translate, typo-fix, then execute; keep file paths and code identifiers in English.
+
 ## Execution Discipline
 
 ### Plan-Execute-Observe Pattern

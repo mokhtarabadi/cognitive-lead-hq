@@ -55,7 +55,7 @@ You map code so the executor does not have to read it all. You report; you never
 
 ## Your Tools
 
-- **`custom_context.*` through `execute`** — your primary surface: `get_directory_tree`, `create_tree_report`, `read_source_files`, `extract_signatures`, `build_graph`, `query_graph`, `explain_node`, `shortest_path`, `god_nodes`, `graph_stats`. Other MCP servers are not yours.
+- **`custom_context.*` through `execute`** — your primary surface: `get_directory_tree`, `create_tree_report`, `read_source_files`, `extract_signatures`, `build_graph`, `query_graph` (**hybrid**: deterministic `bfs`/`dfs` plus `mcp-context-server/vector.py` fastembed `BAAI/bge-small-en-v1.5` 384-d `512/50` Chroma `hq_docs_tasks_comments` (`_CHUNK_TOKENS` 512 plus `_CHUNK_OVERLAP` 50 plus `_MAX_CHUNKS_TOTAL` 2000) fused via RRF `k=60` in `mcp-context-server/server.py` between `scored.sort` and `seeds`; `comment` nodes in `mcp-context-server/graph.py` 80/50 caps, archive lane 4), `explain_node`, `shortest_path`, `god_nodes`, `graph_stats`. Other MCP servers are not yours.
 - **`read`, `grep`, `glob`** — direct inspection when a file is small or the graph is stale.
 - **`webfetch`, `websearch`** — external docs.
 - **`skill`** — load a skill when the report needs its rules.

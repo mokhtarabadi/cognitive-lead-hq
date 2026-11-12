@@ -17,32 +17,21 @@ The same tools are reachable two ways; use whichever surface the session exposes
 - **Code Mode (`execute`)** — MCP servers are namespaced: `tools.custom_context.query_graph({ question, project_root })`. Inside the script call `search("graph")` (synchronous) to get exact tool paths and signatures before calling; never guess a path. `execute` has no filesystem, no imports, and no timers — every read goes through a tool.
 - If a namespace is absent, the server is either `codemode: false` (use direct tools) or down (fall back to native `grep`/`glob`/`read` and say so in the report).
 
-## Discovery Workflow
+## Discovery Workflow (hybrid graph-vector, comment-aware, archive-aware)
 
 0. **Memory before map.** Load the `project-memory` skill and check `.opencode/memory/index.md`, then `search_memory` for the domain. Standing constraints decide which files matter.
 
-1. **Map the structure.** Call `custom_context_get_directory_tree` on the target (`.` for the repo). It defaults to depth 3 and 2000 entries; pass `max_depth`/`max_entries` when the area is deeper. Call `custom_context_create_tree_report` only when the Manager asks for a saved tree.
+1. **Archive-aware graph build.** Build once per session with `custom_context_build_graph` (caps 600 files / 600 docs / 12000 nodes; task docs are lane-ordered so archive never hides active work). Rebuild when the coverage line says `truncated` or `STALE`; include `tasks/archive` explicitly when the question is about history. Archive is lane 4, not invisible.
 
-2. **Graph first.** For any question that names behaviour, a symbol, or "what connects to what", build once per session with `custom_context_build_graph` and then query it. Rebuild when the coverage line says `truncated` or `STALE`, and build a scoped graph for a slice (`target_path` + `include`/`exclude`):
-   - `custom_context_query_graph` — natural words ("plan approval question tool", "staged diff injection"). Pick the mode: `bfs` (2-hop fan-out) for "what connects to X"; `dfs` (depth-6 chains) for "how does X reach Y". Pass `graph_path` to pin a specific built graph; otherwise the latest `context-reports/graph_*.json` is used.
-   - `custom_context_explain_node` — one exact symbol, file, section, or any ID the graph printed (`sym:path#name`, `sec:path#slug`).
-   - `custom_context_shortest_path` — how two concepts connect (`undirected=True` when direction is unknown).
-   - `custom_context_god_nodes` — the hubs everything flows through.
-   - `custom_context_graph_stats` — coverage and freshness before you trust a miss.
+2. **Map the structure.** `custom_context_get_directory_tree` on the target (`.` for repo, depth 3 / 2000 entries; pass `max_depth`/`max_entries` for deeper). `custom_context_create_tree_report` only when Manager asks for a saved tree.
 
-3. **Read the coverage line.** Every graph answer now prints one, e.g. `Coverage: 512/587 files, 480/521 docs; ... complete` or `truncated: docs — absence here is not proof of absence`. If it says truncated or `STALE`, rebuild (optionally `include=[...]`) before concluding a symbol does not exist.
+3. **Graph-vector hybrid.** Deterministic `custom_context_query_graph` (`bfs` 2-hop for "what connects to X", `dfs` 6-chain for "how X reaches Y"; `graph_path` to pin a build) + tiny `mcp-context-server/vector.py` fastembed `BAAI/bge-small-en-v1.5` 384-d 512/50 Chroma `hq_docs_tasks_comments` (`_CHUNK_TOKENS` 512 plus `_CHUNK_OVERLAP` 50 plus `_MAX_CHUNKS_TOTAL` 2000) fused via RRF k=60 between `scored.sort` and `seeds` in `mcp-context-server/server.py` (`_VEC_MODEL` cached, 30 cap). Comment nodes in `mcp-context-server/graph.py` (`comment` kind, 80/50 caps, extension-gated) are graph nodes, not dropped text. Other graph tools: `explain_node` (ID or label), `shortest_path`, `god_nodes`, `graph_stats`.
 
-4. **Verify every hit.** `explain_node` gives `source_file` + `source_location`; quote that file:line in your report. Read at most the 2–3 files the graph actually pointed at.
+4. **Verify every hit.** `explain_node` → `file:line`; quote it. Read at most the 2–3 files the graph pointed at.
 
-5. **Extract signatures only for structural breadth.** `custom_context_extract_signatures` accepts a file **or a directory** and returns the signature text **inline** (plus a saved report path). Use it when you need the shape of a module or folder; do not read the report it writes.
+5. **Extract signatures only for structural breadth.** `custom_context_extract_signatures` on a file or directory (inline, cap 12000, plus report path).
 
-6. **Full reads last.** `custom_context_read_source_files` compiles narrowed files into a report and returns its path. Use it only after steps 2–5 have narrowed the set. Native `read` is bounded (2000 lines / 50 KiB per page), so page large files with `offset`/`limit`.
-
-7. **Halt and hand over.**
-   - **Automatic mode (autopilot):** call `brain_turn` under the active `task_id` with `context_paths: [<report path>]` so the Brain reads the report directly. Never ask the Manager to ferry a file, and never paste the report body.
-   - **Manual mode:** output exactly:
-     > "✅ Discovery complete. I have compiled the context report here: `[INSERT_FILE_PATH]`.
-     > **Manager:** Please upload this file to the Orchestrator for review."
+6. **Halt and hand over.** Autopilot: `brain_turn(context_paths:[<report path>])`. Manual: Manager hand-off. Full reads via `custom_context_read_source_files` only after steps 2–5; native `read` bounded 2000 lines / 50 KiB, page with `offset`/`limit`.
 
 ## Parallel Discovery
 

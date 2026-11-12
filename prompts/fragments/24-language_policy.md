@@ -19,6 +19,7 @@ Detect and translate every input to English. No requested language is ever used 
 The following stay English always for auditability: reasoning traces, task files, verification evidence, logs, code comments used as provenance, Brain turns, and tool payloads.
 
 A non-English quote inside a task file is verbatim evidence only, never the answer.
+Every user-facing prompt artifact assembled from these fragments plus any quoted trigger example — that example is verbatim evidence only, never the answer — ships English-only beyond that; no other non-English literal or example may leak into the model.
 
 ## Technical Terms Stay English (Technical-Terms rule)
 
