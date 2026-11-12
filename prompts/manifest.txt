@@ -3,7 +3,7 @@
 03-system_context.md
 04-ai_objective.md
 05-user_input_processing.md
-06-personas.md
+06-personas-catalog.md
 07-agent_skills_registry.md
 08-agentic_reasoning.md
 09-hands_protocols.md

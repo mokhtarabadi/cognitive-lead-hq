@@ -1,0 +1,7 @@
+software-architect.md
+ui-ux-designer.md
+senior-programmer.md
+project-planner.md
+sprint-strategist.md
+qa-engineer.md
+code-reviewer.md

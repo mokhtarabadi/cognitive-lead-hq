@@ -96,3 +96,10 @@
 - **Consequences:** sufficiency warnings fire only on truly ungrounded plan turns; a spoofed marker cannot suppress them. No status, payload, or cap behavior changes (stderr diagnostic only).
 - **Follow-up fix (QA round):** the first cut scanned the combined prompt for `[path-injected:`, which user text could spoof; replaced with the caller-passed flag. Pinned by spoof-vs-rendered behavioral tests.
 - **Rollback:** restore the fed-only combined prompt and drop the flag; the false positive returns.
+
+## [2026-11-12] ADR-012: The bridge resolves the stage prompt from the shared manifest
+
+- **Context:** every `brain_turn` shipped the full Brain prompt with all seven personas, so a QA turn carried the Sprint Strategist rules and a review turn carried the QA rules. The routing table has to live somewhere, and the assembler and the bridge both need it.
+- **Decision:** `prompts/stage-manifest.json` is the single routing table, read by both the assembler and the bridge. `resolve_stage_prompt_path(stage)` is pure and side-effect free. `load_system_prompt` resolves explicit path → stage artifact → `BRAIN_SYSTEM_PROMPT` → full prompt. A known stage whose artifact is missing falls back to the full prompt with one stderr note and never returns an empty prompt. An unknown stage string stays a loud `PreflightError` from the preflight gate, because a silently downgraded typo runs unscoped instead of failing visible.
+- **Consequences:** the manifest has one owner, so a stage cannot be declared in one place and resolved differently in the other. A partially installed global install degrades to today's behavior instead of failing. Measured: the QA prompt is 80140 bytes against a 95428-byte full prompt, and the QA artifact contains the QA Engineer block once and none of the other six seats.
+- **Rollback:** drop the `stage` parameter from `load_system_prompt`, remove `brainstorm` from `preflight.ALLOWED_STAGES`, and delete the stage block from the manifest; the bridge then serves the full prompt for every turn.

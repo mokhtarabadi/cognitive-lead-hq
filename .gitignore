@@ -39,6 +39,9 @@ node_modules/
 # Custom Context MCP reports
 context-reports/
 
+# Generated stage-scoped prompt artifacts (rebuildable via the assembler)
+build/
+
 # Telegram Downloads
 downloads/
 

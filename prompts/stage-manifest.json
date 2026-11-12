@@ -1,0 +1,134 @@
+{
+  "schema_version": 1,
+  "description": "Stage-to-persona routing table for the Brain prompt pipeline. Single source of truth for the assembler (scripts/prompt-build/assemble_system_prompt.py) and the bridge (mcp-brain-bridge/server.py). The full prompt stays the committed fallback for a missing or unknown stage.",
+  "common_fragments": [
+    "01-system_version.md",
+    "02-role.md",
+    "03-system_context.md",
+    "04-ai_objective.md",
+    "05-user_input_processing.md",
+    "06-personas-catalog.md",
+    "07-agent_skills_registry.md",
+    "08-agentic_reasoning.md",
+    "09-hands_protocols.md",
+    "11-execution_workflow.md",
+    "12-brainstorming_protocol.md",
+    "13-constraints.md",
+    "14-solid_programming_mandate.md",
+    "15-universal_datetime_rules.md",
+    "16-immutable_financial_ledger_mandate.md",
+    "18-no_manual_dto_mandate.md",
+    "19-initialization.md",
+    "20-communication_examples.md",
+    "21-self_improvement_protocol.md",
+    "24-language_policy.md"
+  ],
+  "personas_dir": "prompts/fragments/personas",
+  "catalog": "06-personas-catalog.md",
+  "personas_manifest": "prompts/fragments/personas/manifest.txt",
+  "personas": {
+    "software-architect": {
+      "name": "Software Architect",
+      "file": "software-architect.md"
+    },
+    "ui-ux-designer": {
+      "name": "UI/UX Designer",
+      "file": "ui-ux-designer.md"
+    },
+    "senior-programmer": {
+      "name": "Senior Programmer",
+      "file": "senior-programmer.md"
+    },
+    "project-planner": {
+      "name": "Project Planner",
+      "file": "project-planner.md"
+    },
+    "sprint-strategist": {
+      "name": "Sprint Strategist",
+      "file": "sprint-strategist.md"
+    },
+    "qa-engineer": {
+      "name": "QA Engineer",
+      "file": "qa-engineer.md"
+    },
+    "code-reviewer": {
+      "name": "Code Reviewer",
+      "file": "code-reviewer.md"
+    }
+  },
+  "personas_order": [
+    "software-architect",
+    "ui-ux-designer",
+    "senior-programmer",
+    "project-planner",
+    "sprint-strategist",
+    "qa-engineer",
+    "code-reviewer"
+  ],
+  "stages": {
+    "plan": {
+      "personas": [
+        "software-architect",
+        "ui-ux-designer",
+        "senior-programmer",
+        "project-planner",
+        "sprint-strategist"
+      ],
+      "artifact": "system-prompt.plan.md",
+      "artifact_dir": "build/stage-prompts"
+    },
+    "implement": {
+      "personas": [
+        "senior-programmer"
+      ],
+      "artifact": "system-prompt.implement.md",
+      "artifact_dir": "build/stage-prompts"
+    },
+    "qa": {
+      "personas": [
+        "qa-engineer"
+      ],
+      "artifact": "system-prompt.qa.md",
+      "artifact_dir": "build/stage-prompts"
+    },
+    "review": {
+      "personas": [
+        "code-reviewer"
+      ],
+      "artifact": "system-prompt.review.md",
+      "artifact_dir": "build/stage-prompts"
+    },
+    "closure": {
+      "personas": [
+        "senior-programmer"
+      ],
+      "artifact": "system-prompt.closure.md",
+      "artifact_dir": "build/stage-prompts"
+    },
+    "brainstorm": {
+      "personas": [
+        "software-architect",
+        "ui-ux-designer",
+        "senior-programmer",
+        "project-planner",
+        "sprint-strategist",
+        "qa-engineer",
+        "code-reviewer"
+      ],
+      "artifact": "system-prompt.brainstorm.md",
+      "artifact_dir": "build/stage-prompts"
+    }
+  },
+  "artifacts": {
+    "dir": "build/stage-prompts",
+    "pattern": "system-prompt.{stage}.md",
+    "full": "system-prompt.md",
+    "full_dir": ".",
+    "global_install_dir": "~/.config/opencode"
+  },
+  "fallback": {
+    "artifact": "system-prompt.md",
+    "artifact_dir": ".",
+    "note": "A missing or unknown stage resolves to the full prompt (all personas). A stage artifact that is absent on disk also falls back to the full prompt; a stage never resolves to an empty prompt."
+  }
+}

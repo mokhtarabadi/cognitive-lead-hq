@@ -69,7 +69,7 @@ import threading
 import time
 import unicodedata
 import uuid
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any, Optional
 from urllib.parse import urlsplit
 
@@ -129,6 +129,7 @@ except ImportError:
 # names failing raises ImportError loudly instead of running unguarded.
 try:
     from mcp_brain_bridge.preflight import (  # type: ignore[import-not-found]
+        ALLOWED_STAGES as _ALLOWED_STAGES,
         PreflightError,
         require_bare_task_id,
         resolve_project_root as _resolve_project_root,
@@ -136,6 +137,7 @@ try:
     )
 except ImportError:
     from preflight import (  # type: ignore[import-not-found]
+        ALLOWED_STAGES as _ALLOWED_STAGES,
         PreflightError,
         require_bare_task_id,
         resolve_project_root as _resolve_project_root,
@@ -1348,12 +1350,24 @@ def _build_context_bundle(root: Optional[str] = None) -> str:
 _PROMPT_SUFFIX = ".md"
 
 
+def _bridge_root() -> Path:
+    """Root that holds this bridge install (the repo root in a checkout).
+
+    ``server.py`` lives at ``<root>/mcp-brain-bridge/server.py``, so the root
+    is the parent's parent. In the global install that root is
+    ``~/.config/opencode`` — the home that also carries the deployed prompt
+    artifacts. One definition, so the prompt-home rules and the stage
+    routing can never disagree about where "the repo" is.
+    """
+    return Path(__file__).resolve().parent.parent
+
+
 def _check_prompt_path(path: Path) -> Path:
     """Resolve an override path and reject anything outside the two
     legitimate prompt homes or without a .md suffix."""
     resolved = path.expanduser().resolve()  # realpath: kills symlink escape
     roots = [
-        Path(__file__).resolve().parent.parent,
+        _bridge_root(),
         Path.home() / ".config" / "opencode",
     ]
     if resolved.suffix.lower() != _PROMPT_SUFFIX or not any(
@@ -1363,20 +1377,305 @@ def _check_prompt_path(path: Path) -> Path:
     return resolved
 
 
-def load_system_prompt(explicit_path: Optional[str] = None) -> str:
-    """Read the system prompt text. Order: explicit arg, BRAIN_SYSTEM_PROMPT
-    env, global install copy. Raises FileNotFoundError when missing.
-    Overrides are constrained to the two legitimate prompt homes
-    (repo root, ~/.config/opencode) with a .md suffix."""
+# ---------------------------------------------------------------------------
+# Stage-aware prompt routing (Task 396)
+# ---------------------------------------------------------------------------
+# The Brain used to ship the FULL system prompt (all seven personas) on
+# every turn. The stage artifacts split it into a shared COMMON core plus
+# ONE persona slice per stage, so a QA turn carries the QA persona alone
+# and a planning turn carries the five planning seats.
+#
+# The routing table is NOT hard-coded here: the stage manifest
+# (``prompts/stage-manifest.json``) is the single source of truth for both
+# the assembler and this bridge, and this module only READS it.
+#
+# Degradation is one-directional: a known stage whose artifact is missing
+# falls back to the full prompt. The Brain never sees an empty prompt
+# because of a routing miss, and a routing miss never raises.
+
+#: Repo-relative location of the stage routing table.
+_STAGE_MANIFEST_RELPATH = Path("prompts") / "stage-manifest.json"
+
+#: Artifact directory used when the manifest declares none.
+_DEFAULT_STAGE_ARTIFACT_DIR = "build/stage-prompts"
+
+#: Per-stage artifact filename template used when the manifest declares none.
+_STAGE_ARTIFACT_FILENAME_TEMPLATE = "system-prompt.{stage}.md"
+
+#: Manifest keys that may hold the artifact directory.
+_ARTIFACT_DIR_KEYS = (
+    "dir",
+    "artifact_dir",
+    "output_dir",
+    "directory",
+    "path",
+    "stage_dir",
+)
+
+#: Manifest keys that may hold the per-stage artifact filename.
+_ARTIFACT_NAME_KEYS = (
+    "artifact",
+    "artifact_file",
+    "artifact_path",
+    "filename",
+    "file",
+    "output",
+)
+
+
+def _load_stage_manifest() -> Optional[dict]:
+    """Read the stage routing table (``prompts/stage-manifest.json``).
+
+    Returns the parsed manifest, or None when it is absent, unreadable,
+    malformed, or not a JSON object. A missing manifest must never break a
+    turn: the caller degrades to the full prompt instead.
+
+    Every degraded path reports itself on stderr. A silent degradation is
+    indistinguishable from "this stage simply has no artifact", which would
+    hide a corrupt routing table behind a working-looking turn.
+    """
+    path = _bridge_root() / _STAGE_MANIFEST_RELPATH
+    try:
+        raw = path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        return None
+    except (OSError, UnicodeDecodeError) as exc:
+        print(
+            f"[brain-bridge] stage manifest {path} is unreadable ({exc}); "
+            "serving the full prompt.",
+            file=sys.stderr,
+        )
+        return None
+    try:
+        data = json.loads(raw)
+    except ValueError as exc:
+        print(
+            f"[brain-bridge] stage manifest {path} is not valid JSON ({exc}); "
+            "serving the full prompt.",
+            file=sys.stderr,
+        )
+        return None
+    if not isinstance(data, dict):
+        print(
+            f"[brain-bridge] stage manifest {path} is not a JSON object; "
+            "serving the full prompt.",
+            file=sys.stderr,
+        )
+        return None
+    return data
+
+
+def _manifest_stages(manifest: Optional[dict]) -> dict:
+    """Return the manifest's stage map (empty when it declares none).
+
+    The canonical key is ``stages``. A manifest that names the map
+    differently is still honoured when every entry looks like a stage
+    declaration (it carries personas and/or an artifact name) — the bridge
+    must not fall back to a hard-coded table just because the manifest
+    picked another key.
+    """
+    if not isinstance(manifest, dict):
+        return {}
+    stages = manifest.get("stages")
+    if isinstance(stages, dict):
+        return stages
+    for key, value in manifest.items():
+        if key in ("artifacts", "personas", "common_fragments", "catalog"):
+            continue
+        if not isinstance(value, dict) or not value:
+            continue
+        if all(
+            isinstance(entry, dict) and ("personas" in entry or "artifact" in entry)
+            for entry in value.values()
+        ):
+            return value
+    return {}
+
+
+def _known_stages(manifest: Optional[dict]) -> tuple[str, ...]:
+    """Stages this bridge can route, sorted.
+
+    The manifest owns the ROUTING (which artifact serves which stage); the
+    preflight gate owns the ADMISSION (which stage a caller may request).
+    The union keeps the two from drifting: every stage the gate admits has
+    a resolvable artifact path, even before the manifest is generated.
+    """
+    stages = set(_manifest_stages(manifest))
+    stages.update(_ALLOWED_STAGES)
+    return tuple(sorted(stages))
+
+
+def _manifest_artifact_dir(manifest: Optional[dict]) -> str:
+    """Repo-relative directory that holds the generated stage artifacts."""
+    if isinstance(manifest, dict):
+        artifacts = manifest.get("artifacts")
+        if isinstance(artifacts, str) and artifacts.strip():
+            return artifacts.strip()
+        if isinstance(artifacts, dict):
+            for key in _ARTIFACT_DIR_KEYS:
+                value = artifacts.get(key)
+                if isinstance(value, str) and value.strip():
+                    return value.strip()
+        # A per-stage declaration is the fallback when the top-level
+        # artifacts block names no directory.
+        for entry in _manifest_stages(manifest).values():
+            if isinstance(entry, dict):
+                for key in _ARTIFACT_DIR_KEYS:
+                    value = entry.get(key)
+                    if isinstance(value, str) and value.strip():
+                        return value.strip()
+    return _DEFAULT_STAGE_ARTIFACT_DIR
+
+
+def _manifest_artifact_name(manifest: Optional[dict], stage: str) -> Optional[str]:
+    """Artifact path (or filename) the manifest declares for a stage."""
+    entry = _manifest_stages(manifest).get(stage)
+    if isinstance(entry, str) and entry.strip():
+        return entry.strip()
+    if isinstance(entry, dict):
+        for key in _ARTIFACT_NAME_KEYS:
+            value = entry.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+    return None
+
+
+def _stage_artifact_relpath(manifest: Optional[dict], stage: str) -> str:
+    """Repo-relative path of the artifact that serves ``stage``.
+
+    The manifest may declare the artifact with its own directory
+    (``build/stage-prompts/system-prompt.qa.md``) or with a bare filename
+    (the directory then comes from the manifest's artifacts block). An
+    absolute or escaping declaration is ignored: the artifact must stay
+    inside the bridge root.
+    """
+    default = str(
+        PurePosixPath(_manifest_artifact_dir(manifest))
+        / _STAGE_ARTIFACT_FILENAME_TEMPLATE.format(stage=stage)
+    )
+    declared = _manifest_artifact_name(manifest, stage)
+    if not declared:
+        return default
+    candidate = PurePosixPath(declared.replace("\\", "/"))
+    if candidate.is_absolute() or ".." in candidate.parts:
+        return default
+    if len(candidate.parts) > 1:
+        return str(candidate)
+    return str(PurePosixPath(_manifest_artifact_dir(manifest)) / candidate)
+
+
+def resolve_stage_prompt_path(stage: Optional[str]) -> Optional[Path]:
+    """Resolve the prompt artifact that serves ``stage``.
+
+    PURE and side-effect free: it reads the stage manifest (the single
+    routing table shared with the assembler) and returns the path of the
+    artifact carrying this stage's persona slice. Returns None for an
+    unknown stage, an empty stage, or None — the caller then falls back to
+    the full prompt.
+
+    The returned path is not guaranteed to exist: a known stage whose
+    artifact was never generated resolves here and falls back at load time.
+    """
+    if not isinstance(stage, str):
+        return None
+    name = stage.strip()
+    if not name:
+        return None
+    manifest = _load_stage_manifest()
+    if name not in _known_stages(manifest):
+        return None
+    root = _bridge_root()
+    try:
+        candidate = (root / _stage_artifact_relpath(manifest, name)).resolve()
+        resolved_root = root.resolve()
+    except OSError:
+        return None
+    # Containment: the artifact must stay inside the bridge root, so a
+    # tampered manifest cannot point the loader at an arbitrary file.
+    if candidate != resolved_root and resolved_root not in candidate.parents:
+        return None
+    return candidate
+
+
+def _stage_prompt_candidates(stage: Optional[str]) -> list[Path]:
+    """Ordered candidate paths for the artifact that serves ``stage``.
+
+    Two homes hold the artifact: the bridge root (the generated
+    ``build/stage-prompts/`` output the manifest points at) and the global
+    install (``~/.config/opencode/<artifact>``), where the deployed bridge
+    runs. The first candidate that exists wins.
+
+    An unknown stage yields an empty list, and a candidate the prompt-home
+    rules reject is skipped with a stderr note instead of raising: a
+    routing miss must never turn a turn into an error.
+    """
+    resolved = resolve_stage_prompt_path(stage)
+    if resolved is None:
+        return []
+    out: list[Path] = []
+    for candidate in (resolved, Path.home() / ".config" / "opencode" / resolved.name):
+        try:
+            checked = _check_prompt_path(candidate)
+        except ValueError as exc:
+            print(
+                f"brain-bridge: stage artifact rejected ({exc})",
+                file=sys.stderr,
+            )
+            continue
+        if checked not in out:
+            out.append(checked)
+    return out
+
+
+def load_system_prompt(
+    explicit_path: Optional[str] = None, stage: Optional[str] = None
+) -> str:
+    """Read the system prompt text.
+
+    Resolution order:
+      1. an explicit ``system_prompt_path`` override (highest priority);
+      2. the STAGE artifact for a known stage, when it exists on disk
+         (bridge-root artifact first, then the global install copy);
+      3. the ``BRAIN_SYSTEM_PROMPT`` env override;
+      4. the full committed prompt from the global install dir.
+
+    A known stage whose artifact is missing degrades to the full prompt —
+    never to an empty prompt, and never to an exception. Overrides are
+    constrained to the two legitimate prompt homes (bridge root,
+    ~/.config/opencode) with a .md suffix.
+    """
     candidates: list[Path] = []
     if explicit_path:
         candidates.append(_check_prompt_path(Path(explicit_path)))
+    stage_candidates = _stage_prompt_candidates(stage)
+    candidates.extend(stage_candidates)
     env_path = os.environ.get("BRAIN_SYSTEM_PROMPT", "").strip()
     if env_path:
         candidates.append(_check_prompt_path(Path(env_path)))
     candidates.append(Path.home() / ".config" / "opencode" / "system-prompt.md")
     for path in candidates:
         if path.is_file():
+            # A known stage whose artifact never made it to disk fell back
+            # to a lower-priority candidate. The note says so, because a
+            # silent scope loss looks exactly like a routing bug to
+            # whoever measures the per-stage token cost.
+            if stage_candidates and path not in stage_candidates:
+                print(
+                    f"brain-bridge: no stage artifact for {stage!r}; "
+                    "served the full system prompt",
+                    file=sys.stderr,
+                )
+            # An UNKNOWN stage also degrades to the full prompt, but it
+            # carries no warning at all today. The preflight gate rejects
+            # an unknown stage before this point, so reaching here means an
+            # internal caller bypassed the gate. Say so rather than let the
+            # scope loss pass unnoticed.
+            if stage and not stage_candidates:
+                print(
+                    f"brain-bridge: unknown stage {stage!r}; "
+                    "served the full system prompt",
+                    file=sys.stderr,
+                )
             return path.read_text(encoding="utf-8")
     raise FileNotFoundError(
         "No system prompt found; checked: " + ", ".join(str(p) for p in candidates)
@@ -4004,8 +4303,12 @@ def brain_turn(
             task-keyed transcript for backward compatibility. Omit both
             (and unset the env var) for one-off turns with no memory.
         stage: Optional turn stage, one of plan / implement / qa /
-            review / closure. Unknown stages are rejected so a typo can
-            never run as an unscoped turn.
+            review / closure / brainstorm. Unknown stages are rejected so
+            a typo can never run as an unscoped turn. The stage also
+            selects the prompt artifact: a known stage loads its
+            stage-scoped system prompt (the shared COMMON core plus that
+            stage's persona slice) when the artifact exists, and falls
+            back to the full prompt otherwise.
         kanban_path: Optional task-file path under
             ``<project_root>/tasks/`` (e.g. "tasks/qa/257-x.md").
             Paths escaping the tasks/ lanes are rejected.
@@ -4136,7 +4439,11 @@ def brain_turn(
         project_root=project_root,
     )
 
-    system_prompt = load_system_prompt(system_prompt_path)
+    # Stage-aware prompt routing: the validated stage selects the prompt
+    # artifact (the shared COMMON core plus that stage's persona slice).
+    # A known stage whose artifact is missing falls back to the full
+    # prompt inside the loader — never to an empty prompt.
+    system_prompt = load_system_prompt(system_prompt_path, stage=_pre.stage)
     effective_prompt = user_prompt
     # Segment captures for the prompt-cache split descriptor (Task 247):
     # static pieces are hashed for stability, dynamic pieces per turn.

@@ -84,3 +84,10 @@ Decision: In automatic mode, the Hands invokes the next QA, re-QA, or review `br
 Consequences: Both review personas assign the next call to the actor that can execute it. Regression assertions pin the Hands-owned wording.
 Rollback: Restore the Brain-owned automatic-mode overrides and remove the corresponding assertions.
 
+## [2026-11-12] ADR-009: The Brain Prompt Carries Only the Personas of the Current Stage
+
+- **Context:** Every `brain_turn` shipped all seven persona blocks, so a QA turn read the Sprint Strategist rules and a review turn read the QA rules. Measured on 2026-11-12, a connectivity ping consumed 20278 input tokens before the question was even seen, and the persona definitions competed for attention with the seat actually doing the work.
+- **Decision:** Split the persona block into an always-shipping catalog (`06-personas-catalog.md`, holding the `<personas>` wrapper and the `<auto_load>` rules) and one verbatim slice per seat (`personas/<slug>.md`). Route by stage through `prompts/stage-manifest.json`, which is the single table read by both the assembler and the bridge. `plan` carries the five planning seats, `implement` and `closure` the Senior Programmer, `qa` the QA Engineer, `review` the Code Reviewer, `brainstorm` all seven, and an absent or unknown stage the full prompt. A known stage whose artifact is missing falls back to the full prompt, never to an empty prompt.
+- **Consequences:** The QA prompt is 17% smaller, implement and review 16%, plan 7%, and brainstorm unchanged because it already carried every seat. The split is byte-identical for the full prompt: the assembler re-splices the slices and reproduces the committed artifact exactly. The `<panel>` sentence in `12-brainstorming_protocol.md` no longer says "seven personas" because the roster is now stage-scoped. Version bumped with artifact regen.
+- **Rollback:** Restore `06-personas.md` from git, delete `prompts/fragments/personas/` and `prompts/stage-manifest.json`, drop the `stage` parameter from `load_system_prompt`, and re-run the assembler.
+

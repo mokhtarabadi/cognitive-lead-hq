@@ -46,14 +46,27 @@ Why a stack-free explicit-tag-list approach is used for parsing:
     </tag> (at any indentation, since some nested closers are indented) after
     the previous block. This     deterministically isolates the 19 top-level blocks
     without a full XML parser, and verifies their order matches the contract.
+
+Personas layout (stage-aware prompt routing):
+    The <personas> block is special: the roster is stage-dependent, so the
+    block is decomposed on split. The always-shipping part (the <personas>
+    wrapper plus the <auto_load> block) is written to
+    prompts/fragments/06-personas-catalog.md, and every <persona> block is
+    written verbatim to prompts/fragments/personas/<slug>.md. The slice order
+    is written to prompts/fragments/personas/manifest.txt, because the
+    committed prompt ships the personas in a fixed narrative order (not
+    alphabetical). The assembler splices the slices back into the catalog, so
+    assemble(split(monolith)) stays byte-identical to the monolith.
 """
 
 from __future__ import annotations
 
+import argparse
+import json
 import re
 import sys
 from pathlib import Path
-from typing import List, Tuple
+from typing import List, Optional, Sequence, Tuple
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -89,6 +102,19 @@ TOP_LEVEL_TAGS: List[str] = [
     "self_improvement_protocol",
 ]
 
+# The top-level tag whose block is decomposed into a catalog plus slices.
+PERSONAS_TAG = "personas"
+
+# Fragment filename of the always-shipping personas catalog. The persona
+# blocks themselves live in the personas slice directory.
+PERSONAS_CATALOG_FILENAME = "06-personas-catalog.md"
+
+# Directory (relative to the fragments dir) holding the persona slice files.
+PERSONAS_DIR_NAME = "personas"
+
+# Ordered index of the persona slice files inside the personas directory.
+PERSONAS_MANIFEST_NAME = "manifest.txt"
+
 # Regex patterns for locating top-level tag boundaries.
 # Opening tag at column 0 (no leading whitespace), no attributes, no content:
 #   e.g. "<role>", "<hands_protocols>".
@@ -99,6 +125,12 @@ _CLOSE_RE = re.compile(r"^\s*</([a-zA-Z_][a-zA-Z0-9_]*)>$")
 # Self-contained single-line tag at column 0:
 #   e.g. "<system_version>8.4.5</system_version>", "<phase>...</phase>".
 _SELF_RE = re.compile(r"^<([a-zA-Z_][a-zA-Z0-9_]*)>.*</\1>$")
+# A persona block opener: two-space indent plus the seat name in the attribute.
+#   e.g. '  <persona name="Software Architect">'.
+_PERSONA_OPEN_RE = re.compile(r'^  <persona name="([^"]+)">$')
+# A persona block closer: column 0, matching the opener's indentation contract.
+#   e.g. "</persona>".
+_PERSONA_CLOSE_RE = re.compile(r"^</persona>$")
 
 
 # ---------------------------------------------------------------------------
@@ -267,6 +299,114 @@ def _extract_and_verify_validation_phases(
 
 
 # ---------------------------------------------------------------------------
+# Personas decomposition (stage-aware prompt routing)
+# ---------------------------------------------------------------------------
+
+
+def _slugify_persona(name: str) -> str:
+    """Turn a persona seat name into its slice-file slug.
+
+    The slug is the routing key used by the stage manifest, so it must be
+    derived deterministically from the seat name:
+
+        "Software Architect" -> "software-architect"
+        "UI/UX Designer"     -> "ui-ux-designer"
+        "QA Engineer"        -> "qa-engineer"
+
+    Args:
+        name: The persona seat name (the ``name`` attribute).
+
+    Returns:
+        The lowercase kebab-case slug.
+    """
+    slug = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
+    if not slug:
+        _halt(f"Cannot derive a slice slug from the persona name {name!r}.")
+    return slug
+
+
+def _split_personas_block(block_text: str) -> Tuple[List[Tuple[str, List[str]]], str]:
+    """Split a <personas> block into its persona blocks and the catalog.
+
+    The block looks like this in the monolith::
+
+        <personas>
+          <persona name="Software Architect">
+            ...
+        </persona>
+
+          <persona name="UI/UX Designer">
+            ...
+        </persona>
+
+        <auto_load>
+        ...
+        </auto_load>
+        </personas>
+
+    It is decomposed into:
+      - the persona blocks, VERBATIM (their lines are never reformatted), and
+      - the catalog text: the <personas> wrapper plus the <auto_load> block
+        plus the closing tag — the part that always ships.
+
+    The blank lines that separate the persona blocks belong to the roster
+    spacing, not to the catalog: the assembler re-creates them when it
+    splices the slices back in, so the catalog starts directly with the
+    <auto_load> block.
+
+    Args:
+        block_text: The verbatim <personas> block text.
+
+    Returns:
+        A tuple of (persona blocks, catalog text) where each persona block is
+        a (seat name, block lines) pair.
+
+    Raises:
+        SystemExit: via _halt() when the block does not match the expected
+            <personas> ... </personas> shape.
+    """
+    lines = block_text.split("\n")
+    if not lines or lines[0] != "<personas>" or lines[-1] != "</personas>":
+        _halt(
+            "The <personas> block must start with '<personas>' and end with "
+            "'</personas>'."
+        )
+
+    blocks: List[Tuple[str, List[str]]] = []
+    tail: List[str] = []
+    index = 1
+    while index < len(lines) - 1:
+        line = lines[index]
+        opener = _PERSONA_OPEN_RE.match(line)
+        if opener is None:
+            # Not a persona block: this line belongs to the always-shipping
+            # tail (the <auto_load> block).
+            tail.append(line)
+            index += 1
+            continue
+
+        # Collect the persona block up to its closing tag.
+        end = index + 1
+        while end < len(lines) - 1 and not _PERSONA_CLOSE_RE.match(lines[end]):
+            end += 1
+        if end >= len(lines) - 1:
+            _halt(f"The <persona> block for {opener.group(1)!r} has no closing tag.")
+        blocks.append((opener.group(1), lines[index : end + 1]))
+        index = end + 1
+
+        # Skip the blank separator lines that follow a persona block: the
+        # assembler re-creates the roster spacing when it splices the slices.
+        while index < len(lines) - 1 and not lines[index].strip():
+            index += 1
+
+    if not blocks:
+        _halt("The <personas> block carries no <persona> block.")
+
+    catalog = "<personas>\n" + "\n".join(tail) + "\n</personas>"
+    return blocks, catalog
+
+
+# ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
 
@@ -291,11 +431,56 @@ def _slugify_heading(line: str) -> str:
     return "_".join(words) or "tail"
 
 
+def _verify_persona_routing(
+    slice_filenames: Sequence[str], stage_manifest_path: Optional[str]
+) -> None:
+    """Check the split persona slices against the stage routing manifest.
+
+    The routing manifest names the persona slice files per stage. A renamed
+    seat (or a slice added/removed without touching the manifest) must fail
+    loudly here: a silent drift would make the stage artifacts ship a roster
+    the routing table does not know about.
+
+    Args:
+        slice_filenames: The slice filenames written by the split.
+        stage_manifest_path: Path to the routing manifest, or None.
+
+    Raises:
+        SystemExit: via _halt() when the two sides disagree.
+    """
+    if not stage_manifest_path:
+        return
+    path = Path(stage_manifest_path)
+    if not path.is_file():
+        return
+
+    data = json.loads(path.read_text(encoding="utf-8"))
+    declared = data.get("personas") or {}
+    declared_files = {
+        meta.get("file") for meta in declared.values() if isinstance(meta, dict)
+    }
+    declared_files.discard(None)
+
+    missing = [name for name in slice_filenames if name not in declared_files]
+    if missing:
+        _halt(
+            f"Persona slice file(s) {missing} are not declared in the stage "
+            f"routing manifest {path}."
+        )
+    extra = sorted(name for name in declared_files if name not in slice_filenames)
+    if extra:
+        _halt(
+            f"Persona slice file(s) {extra} are declared in the stage routing "
+            f"manifest {path} but are missing from the <personas> block."
+        )
+
+
 def split_system_prompt(
     source_path: str = "system-prompt.md",
     fragments_dir: str = "prompts/fragments",
     shared_dir: str = "prompts/shared",
     manifest_path: str = "prompts/manifest.txt",
+    stage_manifest_path: Optional[str] = None,
 ) -> List[str]:
     """Split system-prompt.md into per-tag fragment files.
 
@@ -304,11 +489,22 @@ def split_system_prompt(
     <validation_phase> block into a shared partial with include markers, and
     writes a manifest listing the fragment filenames in assembly order.
 
+    The <personas> block is decomposed: the always-shipping catalog (the
+    <personas> wrapper plus the <auto_load> block) becomes
+    06-personas-catalog.md, and every <persona> block becomes a verbatim
+    slice in prompts/fragments/personas/<slug>.md, listed in order in
+    prompts/fragments/personas/manifest.txt. The assembler splices the
+    slices back in, so assemble(split(monolith)) stays byte-identical.
+
     Args:
         source_path: Path to the source system-prompt.md.
         fragments_dir: Output directory for per-tag fragments.
         shared_dir: Output directory for shared partials.
         manifest_path: Output path for the assembly-order manifest.
+        stage_manifest_path: Optional path to the stage routing manifest.
+            When present, the persona seat names found in the monolith are
+            checked against the declared personas, so a renamed seat fails
+            loudly instead of drifting from the routing table.
 
     Returns:
         A list of fragment filenames in assembly order (also written to the
@@ -331,6 +527,14 @@ def split_system_prompt(
     frag_dir.mkdir(parents=True, exist_ok=True)
     Path(shared_dir).mkdir(parents=True, exist_ok=True)
     Path(manifest_path).parent.mkdir(parents=True, exist_ok=True)
+    personas_dir = frag_dir / PERSONAS_DIR_NAME
+
+    # The routing manifest is optional: when it sits next to the fragments it
+    # is used to verify the split persona roster against the declared
+    # personas. An explicit override always wins.
+    if stage_manifest_path is None:
+        candidate = frag_dir.parent / "stage-manifest.json"
+        stage_manifest_path = str(candidate) if candidate.is_file() else None
 
     # Reuse filenames already listed in an existing manifest, matched by the
     # part after the numeric prefix ("24-language_policy.md" -> "language_policy"), so a
@@ -364,6 +568,29 @@ def split_system_prompt(
             shared_path = Path(shared_dir) / "validation-phase.md"
             shared_path.write_text(shared_content, encoding="utf-8")
 
+        # --- personas special case: catalog + per-persona slices ---
+        slice_filenames: List[str] = []
+        if tag == PERSONAS_TAG:
+            persona_blocks, block_text = _split_personas_block(block_text)
+            personas_dir.mkdir(parents=True, exist_ok=True)
+            for seat, block_lines in persona_blocks:
+                slug = _slugify_persona(seat)
+                slice_name = f"{slug}.md"
+                # Verbatim block text, no trailing newline: the assembler
+                # strips trailing newlines when it splices the slices in.
+                (personas_dir / slice_name).write_text(
+                    "\n".join(block_lines), encoding="utf-8"
+                )
+                slice_filenames.append(slice_name)
+            # The slice order is part of the contract: the committed prompt
+            # ships the personas in a fixed narrative order, so the order is
+            # written to its own index file instead of being left to the
+            # filesystem listing order.
+            (personas_dir / PERSONAS_MANIFEST_NAME).write_text(
+                "\n".join(slice_filenames) + "\n", encoding="utf-8"
+            )
+            _verify_persona_routing(slice_filenames, stage_manifest_path)
+
         # --- Write the fragment file (verbatim block text, no trailing newline) ---
         # No trailing newline: the assembler joins fragments with '\n\n' and
         # appends the file's single trailing '\n', reproducing byte-identical
@@ -374,7 +601,12 @@ def split_system_prompt(
         # '\n' so the assembler's single '\n' produces the correct '\n\n'
         # termination.
         seq_str = str(seq).zfill(2)
-        filename = existing_names.get(tag) or f"{seq_str}-{tag}.md"
+        if tag == PERSONAS_TAG:
+            # The personas block always splits into the catalog fragment, so
+            # the name never depends on the tag or the sequence number.
+            filename = PERSONAS_CATALOG_FILENAME
+        else:
+            filename = existing_names.get(tag) or f"{seq_str}-{tag}.md"
         write_text = block_text
         if seq == len(ranges) and not has_tail and content.endswith("\n\n"):
             write_text = block_text + "\n"
@@ -406,13 +638,61 @@ def split_system_prompt(
 
 
 def main() -> None:
-    """Command-line entry point: split the default system-prompt.md."""
-    fragments = split_system_prompt()
+    """Command-line entry point: split the default system-prompt.md.
+
+    Usage:
+      python3 split_system_prompt.py
+      python3 split_system_prompt.py --source /tmp/pristine.md \
+          --fragments-dir /tmp/fragments --shared-dir /tmp/shared \
+          --manifest /tmp/manifest.txt
+    """
+    parser = argparse.ArgumentParser(
+        description="Split system-prompt.md into per-tag fragments.",
+    )
+    parser.add_argument(
+        "--source",
+        default="system-prompt.md",
+        help="Source monolith to split (default: system-prompt.md).",
+    )
+    parser.add_argument(
+        "--fragments-dir",
+        default="prompts/fragments",
+        help="Output directory for per-tag fragments (default: prompts/fragments).",
+    )
+    parser.add_argument(
+        "--shared-dir",
+        default="prompts/shared",
+        help="Output directory for shared partials (default: prompts/shared).",
+    )
+    parser.add_argument(
+        "--manifest",
+        default="prompts/manifest.txt",
+        help="Output path for the assembly-order manifest (default: "
+        "prompts/manifest.txt).",
+    )
+    parser.add_argument(
+        "--stage-manifest",
+        default=None,
+        help="Path to the stage routing manifest used to verify the persona "
+        "roster (default: prompts/stage-manifest.json when present).",
+    )
+    args = parser.parse_args()
+
+    fragments = split_system_prompt(
+        source_path=args.source,
+        fragments_dir=args.fragments_dir,
+        shared_dir=args.shared_dir,
+        manifest_path=args.manifest,
+        stage_manifest_path=args.stage_manifest,
+    )
     print(f"Split system-prompt.md into {len(fragments)} fragments:")
     for f in fragments:
-        print(f"  prompts/fragments/{f}")
-    print("  prompts/shared/validation-phase.md")
-    print("  prompts/manifest.txt")
+        print(f"  {Path(args.fragments_dir) / f}")
+    personas_dir = Path(args.fragments_dir) / PERSONAS_DIR_NAME
+    for slice_name in sorted(p.name for p in personas_dir.glob("*.md")):
+        print(f"  {personas_dir / slice_name}")
+    print(f"  {Path(args.shared_dir) / 'validation-phase.md'}")
+    print(f"  {args.manifest}")
 
 
 if __name__ == "__main__":

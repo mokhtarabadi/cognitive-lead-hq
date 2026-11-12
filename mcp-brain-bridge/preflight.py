@@ -21,7 +21,10 @@ from typing import Mapping, Optional
 
 #: Stages the Hands may declare for a turn. Unknown stages are rejected
 #: so a typo (``qa_``) can never silently run as an unscoped turn.
-ALLOWED_STAGES = ("plan", "implement", "qa", "review", "closure")
+#: ``brainstorm`` joins the set for the multi-agent consult turn; it
+#: carries no approval-sensitive tool requirement (see capability), so
+#: admitting it here changes routing only — never the gate.
+ALLOWED_STAGES = ("plan", "implement", "qa", "review", "closure", "brainstorm")
 
 #: Bare task numbers only (digits), mirroring
 #: ``server._TASK_NUMBER_RE`` — suffixed variants fork history.
