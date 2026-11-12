@@ -30,6 +30,19 @@ from typing import Optional
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+_VEC_MODEL = None
+
+
+def _get_vec_model():
+    """Lazily create and cache TextEmbedding BAAI/bge-small-en-v1.5 once."""
+    global _VEC_MODEL
+    if _VEC_MODEL is None:
+        from fastembed import TextEmbedding as _FEMB  # type: ignore
+
+        _VEC_MODEL = _FEMB("BAAI/bge-small-en-v1.5")
+    return _VEC_MODEL
+
+
 from mcp.server.fastmcp import FastMCP
 
 from fsutil import (
@@ -342,6 +355,60 @@ def query_graph(
             score += 50
         scored.append((score, n))
     scored.sort(key=lambda x: (-x[0], x[1]["id"]))
+    # Hybrid vector re-rank (lean): fastembed CPU ONNX, no torch. Falls back to lexical only when deps missing.
+    try:
+        _vec_model = _get_vec_model()
+        _q_emb = list(_vec_model.embed([question]))[0]
+        import math as _math
+
+        def _cos(a, b):
+            dot = sum(x * y for x, y in zip(a, b))
+            na = _math.sqrt(sum(x * x for x in a))
+            nb = _math.sqrt(sum(y * y for y in b))
+            return dot / (na * nb) if na and nb else 0.0
+
+        vec_scored: list[tuple[float, dict]] = []
+        # Rank top 30 lexical candidates + sample when lexical empty (cap = 30, not 200)
+        cand_nodes = (
+            [n for _, n in scored[:30]] if scored else data.get("nodes", [])[:30]
+        )
+        if cand_nodes:
+            cand_texts = [
+                f"{n.get('label', '')} {n.get('source_file', '')}" for n in cand_nodes
+            ]
+            cand_embs = list(_vec_model.embed(cand_texts))
+            for n, emb in zip(cand_nodes, cand_embs):
+                s = _cos(_q_emb, emb)
+                if s > 0.0:
+                    vec_scored.append((s, n))
+            vec_scored.sort(key=lambda x: -x[0])
+            vec_top = [(n["id"], s) for s, n in vec_scored[:8]]
+            lex_top = [(n["id"], float(sc)) for sc, n in scored[:8]]
+            if vec_top:
+                try:
+                    from vector import rrf_fuse as _rrf  # type: ignore
+                except ImportError:
+                    from .vector import rrf_fuse as _rrf  # type: ignore
+
+                fused_ids = _rrf(lex_top, vec_top, k=60)
+                id2scored = {n["id"]: (sc, n) for sc, n in scored}
+                id2vec = {n["id"]: n for _, n in vec_scored}
+                fused_scored: list[tuple[float, dict]] = []
+                for fid in fused_ids:
+                    if fid in id2scored:
+                        fused_scored.append(id2scored[fid])
+                    elif fid in id2vec:
+                        # vector-only hit, give it lexical score 0 but keep node
+                        fused_scored.append((0, id2vec[fid]))
+                # keep lexical order for any remaining not in fuse
+                if fused_scored:
+                    scored = fused_scored + [
+                        x
+                        for x in scored
+                        if x[1]["id"] not in {fid for fid in fused_ids}
+                    ]
+    except Exception as e:
+        print(f"hybrid vector re-rank unavailable: {e}", file=sys.stderr)
     seeds = [n for _, n in scored[:3]]
     if not seeds:
         hints = _suggest_vocab_tokens(_graph_vocab(data), toks)

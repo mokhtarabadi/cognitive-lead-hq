@@ -30,6 +30,9 @@ GRAPH_DOC_LINES = 500
 
 GRAPH_DOC_SECTIONS = 60
 
+_GRAPH_COMMENT_MAX_CHARS = 80
+_GRAPH_COMMENT_PER_FILE_CAP = 50
+
 
 _GRAPH_CODE_EXTS = frozenset(
     {
@@ -379,6 +382,89 @@ def _extract_graph_symbols(file_path: Path) -> list[tuple[str, str, int]]:
         if m:
             _push_graph_symbol(out, seen, m.group(1), "func", i)
             continue
+    # Comment/docstring nodes: separate cap so code symbols keep their 200 budget.
+    # Prefix gating by extension: md headings (# ) are not comments.
+    try:
+        ext = Path(file_path).suffix.lower() if file_path else ""
+    except Exception:
+        ext = ""
+    comment_cap = 0
+    for i, line in enumerate(lines, 1):
+        if comment_cap >= _GRAPH_COMMENT_PER_FILE_CAP:
+            break
+        stripped = line.strip()
+        raw = ""
+        if stripped.startswith("#"):
+            if ext == ".md":
+                continue
+            raw = stripped[1:].strip()
+        elif stripped.startswith("//"):
+            if ext not in (
+                ".js",
+                ".ts",
+                ".tsx",
+                ".jsx",
+                ".go",
+                ".rs",
+                ".java",
+                ".kt",
+                ".c",
+                ".cpp",
+                ".swift",
+            ):
+                continue
+            raw = stripped[2:].strip()
+        elif stripped.startswith("/*"):
+            if ext not in (
+                ".js",
+                ".ts",
+                ".tsx",
+                ".jsx",
+                ".go",
+                ".rs",
+                ".java",
+                ".kt",
+                ".c",
+                ".cpp",
+                ".swift",
+            ):
+                continue
+            raw = stripped[2:].split("*/")[0].strip()
+        elif stripped.startswith("*") and not stripped.startswith("**"):
+            if ext not in (
+                ".js",
+                ".ts",
+                ".tsx",
+                ".jsx",
+                ".go",
+                ".rs",
+                ".java",
+                ".kt",
+                ".c",
+                ".cpp",
+                ".swift",
+            ):
+                continue
+            raw = stripped[1:].strip()
+            if raw.endswith("*/"):
+                raw = raw[:-2].strip()
+        elif stripped.startswith("<!--"):
+            if ext not in (".html", ".xml", ".vue", ".svelte"):
+                continue
+            raw = stripped[4:].split("-->")[0].strip()
+        elif stripped.startswith('"""') or stripped.startswith("'''"):
+            if ext not in (".py",):
+                continue
+            raw = stripped.strip('"').strip("'").strip()
+        if not raw or len(raw) < 2:
+            continue
+        name = raw[:_GRAPH_COMMENT_MAX_CHARS].strip()
+        if len(name) < 2:
+            continue
+        before = len(out)
+        _push_graph_symbol(out, seen, name, "comment", i)
+        if len(out) > before:
+            comment_cap += 1
     return out
 
 
