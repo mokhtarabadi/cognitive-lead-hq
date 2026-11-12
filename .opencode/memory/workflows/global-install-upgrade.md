@@ -21,7 +21,7 @@ Updates the machine-global installations of the Cognitive Lead AI HQ (MCP server
 | Skills         | `~/.config/opencode/skills/<name>/SKILL.md` (synced 1:1 with `skill-templates/` — count varies, verify by diff not by number) |
 | Custom agents  | `~/.config/opencode/agents/{cognitive-executor,cognitive-discovery}.md` (**regular files, not symlinks** — editing the repo copy alone leaves the running agent stale; diff, then copy, then `cmp`) |
 | Shell strategy | `~/.config/opencode/opencode-shell-strategy.md` |
-| System prompt  | `~/.config/opencode/system-prompt.md` |
+| System prompt  | `~/.config/opencode/system-prompt.md` + stage artifacts `~/.config/opencode/system-prompt.{plan,implement,qa,review,closure,brainstorm}.md` (generated from `prompts/stage-manifest.json` + `prompts/fragments/personas/*.md` via `build/stage-prompts/`) |
 | Credentials    | `~/.config/opencode/.env` (chmod 600). The MCP servers self-load `.env` at import (`<server-dir>/.env` → `<server-dir>/../.env` → `<cwd>/.env`); for the global install that is this file, for repo runs the repo-root `.env`. Keep it seeded so both the CLI and the singleton services get the keys. |
 
 ## Source Files (repo)
@@ -31,11 +31,11 @@ Updates the machine-global installations of the Cognitive Lead AI HQ (MCP server
 - `mcp-common/src/mcp_common/` (shared dotenv loader) + every server dir's `pyproject.toml` + `uv.lock` (Task 170; sync all three file kinds globally)
 - `skill-templates/*/` (all skills, synced 1:1 — never hardcode the count)
 - `agents/cognitive-executor.md`, `agents/cognitive-discovery.md`
-- `docs/opencode-shell-strategy.md`, `system-prompt.md`, `.env.example` (PORTRAIT for `.env`, never copy secrets into docs)
+- `docs/opencode-shell-strategy.md`, `system-prompt.md`, `prompts/stage-manifest.json`, `prompts/fragments/personas/*.md` + manifest, `build/stage-prompts/system-prompt.*.md` (stage artifacts), `.env.example` (PORTRAIT for `.env`, never copy secrets into docs)
 
 ## Upgrade Steps
 
-1. **Audit drift** (diff repo vs installed — same loops as originally specified over servers, agents, shell-strategy, system-prompt, skills).
+1. **Audit drift** (diff repo vs installed — same loops as originally specified over servers, agents, shell-strategy, system-prompt + stage artifacts `system-prompt.*.md`, skills).
 2. **Copy drifted files** with `cp` + `chmod +x` (only those that differ). Multi-module servers copy `*.py` (never `__pycache__/`). For `opencode.json` do NOT blind copy — repo uses relative paths, global uses absolute paths; edit surgically and validate JSON after every edit. **Back it up first** (`opencode.json.bak-<UTC timestamp>`): a malformed or truncated edit disconnects every MCP server for every session, not just the one being changed.
 2b. **Delete global orphans** (rule added 2026-09-11: `cp` never removes, so deletions need this step). Any skill dir present under `~/.config/opencode/skills/` but absent from repo `skill-templates/` MUST be removed with `rm -rf` — that is how skill drops (e.g. brainstorm-swarm, perplexity-research) propagate globally. Same for MCP server dirs and custom agents missing from the repo. Never delete in the reverse direction (repo is source of truth).
 3. **Re-verify** with the same diff commands — expect no DRIFT output except the expected `opencode.json` relative vs absolute.

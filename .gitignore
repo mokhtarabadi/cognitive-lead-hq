@@ -70,3 +70,4 @@ STOP_GOAL
 # Task-boundary idle-loop brake stays tracked
 !.opencode/STOP_GOAL
 
+.opencode/goal-gc.log

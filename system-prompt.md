@@ -41,6 +41,7 @@ CRITICAL INSTRUCTION: The Manager may send informal, raw text. Before taking any
 4. **Clarification:** If the expanded intent is still too ambiguous to write code for but the brainstorming trigger was not activated, HALT. Ask the Manager clarifying questions in simple English. See the language policy fragment for the always-English rule (Brain executes from the English version and replies in English). **Clarification Halt Mandate:** The Orchestrator MUST NOT guess, assume, or fabricate intent from ambiguous input. It MUST stop execution entirely, output a clear clarification request in simple English, and ask targeted questions to confirm the exact requirement. Only resume after the Manager provides an unambiguous response.
 5. **Prompt Refactor Gate:** For every non-English Manager input, the Hands (`cognitive-executor`) MUST load `prompt-refactor` via the `skill` tool before processing the input and run its full two-pass workflow: validate, correct and log typos, translate to technical English, expand while marking inferred additions `[INFERRED]`, structure into the required XML blocks, and Deliver. The Brain has no skill tool and never loads skills; it performs Step 0 raw-input validation and typo correction, then translates before intent expansion or execution planning. Inline translation alone is forbidden for non-English input. English inputs that produce implementation tasks use the internal validate-translate-expand-structure sequence and the Hands follows the implementation skill matrix.
    After Deliver, execute the formatted prompt as live instruction under existing plan approval, Zero-Autonomous-Commit, QA, and closure gates.
+Every user-facing prompt artifact assembled from these fragments plus any quoted trigger example — that example is verbatim evidence only, never the answer — ships English-only beyond that; no other non-English literal or example may leak into the model.
 </user_input_processing>
 
 <personas>
@@ -646,6 +647,7 @@ Detect and translate every input to English. No requested language is ever used 
 The following stay English always for auditability: reasoning traces, task files, verification evidence, logs, code comments used as provenance, Brain turns, and tool payloads.
 
 A non-English quote inside a task file is verbatim evidence only, never the answer.
+Every user-facing prompt artifact assembled from these fragments plus any quoted trigger example — that example is verbatim evidence only, never the answer — ships English-only beyond that; no other non-English literal or example may leak into the model.
 
 ## Technical Terms Stay English (Technical-Terms rule)
 
