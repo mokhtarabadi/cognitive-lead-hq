@@ -1,9 +1,10 @@
 # Task 399: Remove Freebuff, clean LLM.txt and memories, fix upgrade mechanism
 
-**File:** `tasks/in-progress/399-remove-freebuff-clean-llm-and-memories.md`
+**File:** `tasks/completed/399-remove-freebuff-clean-llm-and-memories.md`
 **Source:** manager
 **Type:** chore
-**Status:** open
+**Status:** closed
+**Finished:** 2026-11-13T11:48:33Z
 
 ## Goal
 
@@ -123,12 +124,37 @@ The task is NOT done unless ALL of the following are true:
 
 **Stale memories corrected to reality.** The version shard claimed OpenCode 2.2.5 / OpenChamber 2.6.0 (actual: 2.3.0 / 2.7.1) and "no OpenCode plugins" (actual: smart-compact + goal + todolist installed). `no_task_for_global_upgrade` now separates a machine-local sync (no task file) from a change that also edits repo files (task file required) — this task is the latter.
 
+### QA and Code Review verdicts — executed by the Hands (Manager order 2026-11-13)
+
+The Manager ordered the QA and review steps to be run by the Hands because the Brain is unreachable: the provider returns `GoUsageLimitError` ("monthly, resets in 17d 20h") on the Go pool and `FreeUsageLimitError` on the Zen free pool. Direct probes confirmed no model path remains (`muse-spark-1.3-contributor` is served only on the Go pool; `muse-spark-1.2-contributor-free` and `crouton-alpha-free` are unavailable / region-blocked; `kimi-k3` on the Go pool hits the same workspace limit). So these verdicts are HANDS-executed, not Brain verdicts, and that is stated here so a reviewer does not mistake them for a Brain gate.
+
+**QA VERDICT: PASSED** (10 checks, all with live evidence)
+
+- QA-1 Freebuff removal: npm global count 0, `~/.config/manicode` GONE, `~/warp-fr/.freebuff` GONE, `~/.AGENTS.md` GONE, `~/.agents` GONE, home-wide trace count (maxdepth 3) = 0.
+- QA-2 Harness intact: OpenCode v2.3.0, OpenChamber 2.7.1, 24 skill dirs, 0 stray `.md` at the skills root, 2 agent files, 6 stage prompts, 7/7 services active, personas 7/1.
+- QA-3 The new `LLM.txt` upgrade block is valid shell: the extracted bash blocks pass `bash -n`.
+- QA-4 `LLM.txt` facts match reality: 24 skills claimed and 24 present; 7 MCP entries unchanged; the 3 remaining `~/.agents` mentions are all negative ("do not recreate", "delete it rather than syncing it", "must NOT exist"), verified by reading each line.
+- QA-5 Memories match the live system: OpenCode 2.3.0, OpenChamber 2.7.1, 3 plugins in `opencode.json` and 3 in the policy memory, index rebuilt to 34 rows.
+- QA-6 Commit hygiene: 10 staged files, 0 unstaged leftovers.
+- QA-7 Formatting: `LLM.txt` and `CHANGELOG.md` pass `prettier --check`. The 4 memory files fail — but every one of the 32 memory files in the repo already failed at HEAD, so this is a pre-existing condition, not a regression, and reformatting them would have added unrelated churn.
+- QA-8 The upgrade chain reproduces the LIVE global install exactly: skills YES, agents YES, full prompt YES, all 6 stage prompts YES.
+- QA-9 Memory fact retention: the provider-diagnostics and Go/Zen pool facts are still present (3 memory files).
+- QA-10 854 tests passed, `smoke-hq.sh` ALL CHECKS PASSED.
+
+**QA FOUND A REAL BUG (fixed):** QA-8 initially reported the stage prompts did not match the live install. Root cause: the deploy script COPIED the committed stage artifacts without REBUILDING them, so a prompt-fragment change left the stage prompts stale while the full prompt refreshed. `LLM.txt` §1 was already correct (it runs the assembler with `--stages`); the deploy script was not. The script now rebuilds both the full prompt and every stage artifact from the fragments before copying, and the drift audit now covers the stage prompts too. Retested: all six match.
+
+**CODE REVIEW VERDICT: APPROVED** (blueprint coverage + hygiene)
+
+- CR-1 Every one of the Manager's five orders maps to a concrete, verified change: one global skill root, 0 Freebuff traces, `LLM.txt` and the memories cleaned, the global upgrade workflow enhanced, and the OpenCode/OpenChamber upgrade path rebuilt in both `LLM.txt` and the memories.
+- CR-2 CHANGELOG parse-then-append is correct: exactly one `## [Unreleased]` header, exactly one `### Changed` section under it, and the task 399 entry appended under it. No duplicate version header.
+- CR-3 Commit readiness: 10 staged files, 0 unstaged leftovers, and the archived history under `docs/history/` deliberately keeps its Freebuff mentions because that is history, not live configuration.
+
+**Open items carried to the next Brain cycle (not blocking):** the Brain QA/review chain for this task still has to run once the provider quota resets; `docs/history/` Freebuff mentions stay as history.
+
 _(The Hands: Manually log your technical changes, file edits, and architectural reasoning here BEFORE calling the MCP tool)_
 
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
-
-_(Git diff will be automatically injected here by the MCP tool. Do not edit this block manually)_
-
+**Factual Git Diff:** Stored in Commit Hash: `baf510b81ae3f8fdfc7634b470cb500c9045918f`
 <!-- END_GIT_DIFF -->
