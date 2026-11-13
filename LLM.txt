@@ -285,7 +285,7 @@ After this, the `cognitive-executor` will be available as a primary agent, enfor
 
 Create or update `~/.config/opencode/opencode.json`. You MUST use **absolute paths** in the `command` array — resolve the `~` to the full home directory path discovered in Step 3. The project ships **7 MCP servers** (3 core + `brain` bridge + `blowsh` browsing + `telegram` account routing + `planner` capacity/QA gating); the persona server and the previous browser automation MCP are retired — use `blowsh` for JS-heavy browsing.
 
-Write the following JSON (replace `$HOME` with the actual home directory path only where it still appears — the `mcp` entries are loopback URLs shared by every session and project, so they contain no paths at all). V2 structure per https://opencode.ai/v2/docs/mcp-servers/ (verified 2026-09-29): each MCP runs as **one supervised singleton** on `127.0.0.1` (see `docs/services.md` + Step 7.5), and OpenCode connects via `mcp.servers` entries with `type: "remote"` + `url` + `disabled: false` + `timeout: {catalog, execution}` (ours are raised above the 5000ms default — 15s standard, 30s telegram, 120s blowsh, 600s LLM bridges). No session ever spawns its own server processes: with 2+ sessions open the OS process count per server stays exactly one.
+Write the following JSON (replace `$HOME` with the actual home directory path only where it still appears — the `mcp` entries are loopback URLs shared by every session and project, so they contain no paths at all). V2 structure per https://opencode.ai/v2/docs/mcp-servers/ (verified 2026-09-29): each MCP runs as **one supervised singleton** on `127.0.0.1` (see `docs/services.md` + Step 7.5), and OpenCode connects via `mcp.servers` entries with `type: "remote"` + `url` + `disabled: false` + `timeout: {catalog, execution}` (ours are raised above the 5000ms default — 15s standard, 30s telegram, 960s blowsh, 1200s brain). No session ever spawns its own server processes: with 2+ sessions open the OS process count per server stays exactly one.
 
 ```json
 {
@@ -327,7 +327,7 @@ Write the following JSON (replace `$HOME` with the actual home directory path on
         "url": "http://127.0.0.1:8107/mcp",
         "codemode": true,
         "disabled": false,
-        "timeout": { "catalog": 120000, "execution": 120000 }
+        "timeout": { "catalog": 960000, "execution": 960000 }
       },
       "telegram": {
         "type": "remote",
@@ -437,12 +437,26 @@ cd ~/.config/opencode/zen-proxy && uv venv .venv
 systemctl --user enable --now zen-proxy
 curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:8081/health   # 200
 
-# Blowsh singleton (any OS with Docker): one persistent container
+# Blowsh singleton (any OS with Docker): one persistent container.
+# The render path serializes through one browser slot, so the four budgets
+# form a ladder that must hold or a render is aborted while still queued.
+# Upstream states it in src/browshManager.ts:71-79 and .env.example:38,44:
+#   SEARCH_DEADLINE_MS >= BROWSH_QUEUE_TIMEOUT_MS + BROWSH_REQUEST_TIMEOUT_MS
+#   BROWSH_QUEUE_TIMEOUT_MS >= 2 x BROWSH_REQUEST_TIMEOUT_MS
+# 900000 >= 600000 + 180000 and 600000 >= 2 x 180000, so these values hold.
+# The MCP client cap in Step 7 is 960000, above SEARCH_DEADLINE_MS, so a
+# single search ends in its own honest deadline.hit. It does NOT cover
+# fetch_web_batch, which is serial over up to 10 URLs with a per-item
+# budget: keep batches small or pass an explicit per-item deadline_ms.
 docker run -d --name blowsh-singleton --restart unless-stopped \
   -p 127.0.0.1:8107:8107 \
   -e MCP_TRANSPORT=http -e MCP_HOST=0.0.0.0 -e MCP_PORT=8107 \
   -e BROWSH_PROFILE_DIR=/data/browsh-profile \
-  -v blowsh-profile:/data/browsh-profile \
+  -e BROWSH_STARTUP_TIMEOUT_MS=120000 \
+  -e BROWSH_REQUEST_TIMEOUT_MS=180000 \
+  -e BROWSH_QUEUE_TIMEOUT_MS=600000 \
+  -e SEARCH_DEADLINE_MS=900000 \
+  -v browsh-profile:/data/browsh-profile \
   ghcr.io/mokhtarabadi/blowsh-mcp:latest
 ```
 
@@ -508,7 +522,65 @@ docker run --rm ghcr.io/mokhtarabadi/blowsh-mcp:latest node -e "console.log('ima
 ```
 - If you cannot use Docker, install natively: Node 20.18+, Firefox in PATH, Browsh CLI, `html2markdown` — see https://github.com/mokhtarabadi/blowsh-mcp#installation. Then change the `blowsh` command to `["node", "dist/server.js"]` with the native checkout path.
 
-Telemetry-free cache/SSRF defaults (`CACHE_TTL_MS=300000`, `ALLOW_PRIVATE_URLS=false`, `BROWSH_REQUEST_TIMEOUT_MS=30000`) need no extra config.
+Telemetry-free cache/SSRF defaults (`CACHE_TTL_MS=300000`, `ALLOW_PRIVATE_URLS=false`) need no extra config. The render-path defaults are `BROWSH_REQUEST_TIMEOUT_MS=180000`, `BROWSH_QUEUE_TIMEOUT_MS=600000` and `BROWSH_STARTUP_TIMEOUT_MS=120000` (`browshManager.ts`); the singleton runbook above sets them explicitly, and the full environment table with the ladder invariant is at the end of this step.
+
+### Blowsh environment reference
+
+Source of truth: `blowsh-mcp` `src/browshManager.ts`, `src/server.ts`,
+`src/searchWeb.ts` and `.env.example`. Every value below is the code default;
+the runbook column is what this repo sets explicitly so a slow host does not
+silently inherit a tighter budget.
+
+| Variable | Code default | Our runbook | Effect |
+| --- | --- | --- | --- |
+| `BROWSH_REQUEST_TIMEOUT_MS` | 180000 | 180000 | Per-render budget, starts once the mutex is granted |
+| `BROWSH_QUEUE_TIMEOUT_MS` | 600000 | 600000 | How long a render may wait behind the serialized browser slot |
+| `BROWSH_STARTUP_TIMEOUT_MS` | 120000 | 120000 | Cold-start budget for the first render |
+| `SEARCH_DEADLINE_MS` | 900000 | 900000 | Default wall-clock budget for one `search_web` call |
+| `SEARCH_BLOCKED_ENGINE_TTL_MS` | 600000 | default | How long a bot-blocked engine is skipped |
+| `ENRICH_BUDGET_MS` | 180000 | default | Extra budget for the enrich pass |
+| `BROWSH_RECYCLE_REQUESTS` | 100 | default | Renders before the browser is recycled |
+| `BROWSH_IDLE_TIMEOUT_MS` | 600000 | default | Idle time before the browser is stopped |
+| `BROWSH_PROFILE_DIR` | `/data/browsh-profile` | same | Persistent Firefox profile |
+| `CACHE_TTL_MS` | 300000 | default | Response cache TTL |
+| `PDF_MAX_BYTES` | 20971520 | default | PDF extraction size cap |
+| `ALLOW_PRIVATE_URLS` | false | default | SSRF guard; leave false |
+| `BROWSH_PREWARM` | 1 | default | Prewarm the browser at boot |
+| `GUARD_DETECT` | 1 | default | Enable the bot-block detector |
+| `GUARD_CACHE_TTL_MS` | 3600000 | default | Bot-block verdict cache |
+
+**The ladder is a hard invariant, not a suggestion.** The render path
+serializes through one browser slot, so the three budgets must agree or a
+render can be aborted while it was still legitimately queued. Upstream states
+the constraint in two places: `blowsh-mcp/src/browshManager.ts:71-79` (the
+comment above `DEFAULT_RENDER_TIMEOUT_MS` / `DEFAULT_QUEUE_TIMEOUT_MS` /
+`DEFAULT_STARTUP_TIMEOUT_MS`) and `blowsh-mcp/.env.example:38,44` (the
+`Keep this >= ...` lines beside `BROWSH_QUEUE_TIMEOUT_MS` and
+`SEARCH_DEADLINE_MS`):
+
+    SEARCH_DEADLINE_MS >= BROWSH_QUEUE_TIMEOUT_MS + BROWSH_REQUEST_TIMEOUT_MS
+    BROWSH_QUEUE_TIMEOUT_MS >= 2 x BROWSH_REQUEST_TIMEOUT_MS
+
+With the code defaults this is `900000 >= 600000 + 180000` and
+`600000 >= 2 x 180000` (a 240000 margin). Raise them together on a slow host,
+and re-check both inequalities after any change — an env combination that
+clamps each knob into its own valid band can still break the ladder.
+
+**The MCP client cap bounds one call, not a batch.** A single `search_web`
+call is capped by `SEARCH_DEADLINE_MS` (900000), and a single `fetch_web` call
+by its own `deadline_ms` (ceiling `MAX_DEADLINE_MS = 1800000`). The `blowsh`
+entry in Step 7 is 960000, which covers a full-length search. It does **not**
+cover `fetch_web_batch`, which is **serial over up to 10 URLs**
+(`blowsh-mcp/src/tools/fetchWebBatch.ts:33-35`) with a **per-item** budget, so
+its worst case is `10 x deadline_ms`. Keep batches small, or pass an explicit
+per-item `deadline_ms` that keeps `10 x deadline_ms` under the client cap.
+
+**The cap is a ceiling, not a guarantee.** `MAX_DEADLINE_MS` is 1800000, which
+is above the 960000 client cap, so a single `fetch_web` that explicitly asks for
+a budget above 960000 is still cut by the transport rather than by its own
+`deadline.hit`. Ask for a `deadline_ms` at or below the client cap, or raise the
+cap in the same change. The two values are independent knobs and the docs cannot
+keep them in step for you.
 
 ---
 
@@ -707,7 +779,7 @@ After completing all steps, verify:
 - [ ] worktrees: OpenChamber native via sidebar/dialog (`https://docs.openchamber.dev/worktrees/`) — no plugin required
 - [ ] (optional) OpenChamber: if installed, `npm list -g @openchamber/web` shows 2.x, `openchamber status` password:yes, `openchamber startup status` shows enabled+active+lingering, `docs/openchamber.md` present; if not requested, this check is N/A
 - [ ] (optional) Server Browser: if requested, extension installed + service approved + Browser provider = Server Browser, `config.json` carries `chromePath` (wrapper with `--no-sandbox` on servers) and `allowedOrigins`, `browser.open` returns a real `tabId`; runbook `docs/openchamber.md` §10
-- [ ] `~/.config/opencode/opencode.json` all 7 `mcp` entries are `type: "remote"` loopback URLs (8101 lint, 8102 context, 8103 memory, 8105 brain, 8106 telegram timeout 30000, 8107 blowsh timeout 120000, 8108 planner timeout 30000) served by the supervised singletons — no stdio/`uv run` entries remain
+- [ ] `~/.config/opencode/opencode.json` all 7 `mcp` entries are `type: "remote"` loopback URLs (8101 lint, 8102 context, 8103 memory, 8105 brain, 8106 telegram timeout 300000, 8107 blowsh timeout 960000, 8108 planner timeout 15000/30000) served by the supervised singletons — no stdio/`uv run` entries remain
 - [ ] `~/.config/opencode/opencode-shell-strategy.md` exists (instructions file referenced by the `instructions` key)
 - [ ] `/tmp/cognitive-lead-hq` no longer exists
 - [ ] `docker pull ghcr.io/mokhtarabadi/blowsh-mcp:latest` succeeds (or `docker` not installed → blowsh stays disabled, document it)

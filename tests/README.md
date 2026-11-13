@@ -13,6 +13,7 @@ Offline-only verification suite for the HQ platform: Brain Bridge turns, capabil
 - `test_prompt_sync.py` — Assembled prompt equals committed `system-prompt.md` (rtk mandate included).
 - `test_session_lifecycle.py` / `test_loop_guard.py` — Session ledger lifecycle and spin-guard hashing.
 - `test_mcp_servers.py` / `test_skill_registry.py` / `test_input_validation_pipeline.py` — Server contracts, registry, input pipeline.
+- `test_zen_proxy.py` — the zen-proxy slice: failure contract, body limits, stream termination, request log, allowlist refresher.
 - `golden/` — Golden fixtures for deterministic comparisons.
 
 ## Key Risks & Invariants
@@ -20,3 +21,4 @@ Offline-only verification suite for the HQ platform: Brain Bridge turns, capabil
 - Offline only: live LLM HTTP paths are never touched in tests.
 - Prompt-sync tests are blocking gates; a drifted `system-prompt.md` must fail.
 - Golden files are versioned truth; update them only with the behavior change that justifies the diff.
+- The zen-proxy suite replaces the upstream with a fake response object, so it never spends gateway quota.

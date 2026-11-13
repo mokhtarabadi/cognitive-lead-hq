@@ -19,8 +19,9 @@
 - **Consequences:** One repo owns the proxy's behaviour and its consumer.
   The port (8081), the four mount paths, and `BRAIN_API_BASE` are unchanged,
   so Brain needs no reconfiguration. The proxy adds no secret of its own: it
-  passes the caller's `Authorization` header through and only reads
-  `ZEN_SESSION_ID` as a fallback.
+  passes the caller's `Authorization` header through and mints a session id
+  per request when the caller sends none (superseding the `ZEN_SESSION_ID`
+  fallback this ADR originally described — see ADR-005).
 - **Rollback:** Restore `archive/zen-proxy-native-2026-09-27/` from
   `code-server` git history, re-point the unit to that path, restart.
 
@@ -60,6 +61,50 @@
 ## [2026-11-08] ADR-004: `crouton-alpha-free` is a Go model — keep it on the Go mount
 
 - **Context:** For days, free-tier errors (`FreeUsageLimitError`) were happening on every Zen mount. A full matrix of UA (`Chrome` vs `opencode/…`), session (zero UUID vs real session vs fresh), and endpoint (Chat vs Responses) showed: **all Zen mounts fail, all Go mounts succeed** with the identical `oc_sk_` key. The live `opencode-go` session (pid env `OPENCODE_SESSION_ID`) was using `crouton-alpha-free` through `/zen/go/v1` and working. The proxy's allowlists were stale (13 vs 30 upstream Go models) and `crouton-alpha-free` was listed only on the Zen side.
-- **Decision:** Refresh `GO_CHAT`/`GO_RESP` to the 2026-11-08 upstream (30 ids, minus the messages-only `claude-*`/`gemini-*` family, which are not OpenAI-API compatible). Exception: `gemini-4-argon` stays allowlisted as the OpenAI-compatible member of the gemini family; other `gemini-*` and `claude-*` remain excluded. Group `crouton-alpha-free` and `iceman-contributor-free` on `/go/resp` and `/go/chat`, keeping them on the Zen mounts for list parity. `MODEL_WINDOWS` keeps the per-model overrides; unknown windows default to 1M.
+- **Decision:** Refresh `GO_CHAT`/`GO_RESP` to the 2026-11-08 upstream (30 ids, minus the messages-only `claude-*`/`gemini-*` family, which are not OpenAI-API compatible). Exception: `gemini-4-argon` stays allowlisted as the OpenAI-compatible member of the gemini family; other `gemini-*` and `claude-*` remain excluded. Group `crouton-alpha-free` and `iceman-contributor-free` on `/go/resp` and `/go/chat`, keeping them on the Zen mounts for list parity. The per-model window overrides lived in `MODEL_WINDOWS` there; they were never read and are gone since ADR-005, which keeps only the `grok-4.7` 500k caveat next to the allowlist.
 - **Consequences:** The Brain (which goes through `/go/resp`) can now address the model the user is actually running in the UI; `ModelNotServedHere` points callers to the right mount. Zen's free mount keeps its free quota (still exhausted for this account), which is now an explicit known gap.
 - **Rollback:** Restore the previous `GO_CHAT`/`GO_RESP` blocks in `zen-proxy/proxy.py` from git history, copy to `~/.config/opencode/zen-proxy/`, `systemctl --user restart zen-proxy`.
+
+## [2026-11-13] ADR-005: Every failure answers with a status, and the slice proves its own streams
+
+- **Context:** The slice had four defects that made a failure look like a
+  network problem. A socket timeout raised `TimeoutError`, which is not a
+  `urllib.error.URLError`, so it escaped both `except` clauses and dropped
+  the socket with no response — the caller saw "Server disconnected without
+  sending a response". An inbound body was read unbounded, and a
+  `Transfer-Encoding: chunked` request arrived as `Content-Length: 0` and was
+  forwarded as an empty body. The relay pumped bytes without looking for the
+  terminal event, so a stream that died mid-reply was indistinguishable from a
+  short but complete answer. `log_message` was a no-op, so the slice had no
+  request log at all. Two documented knobs were dead code: `ZEN_SESSION_ID`
+  was read and never used, and `MODEL_WINDOWS` was defined and never read
+  (four of its seven keys were not served model ids).
+- **Decision:** Give the hop an explicit failure contract: 504
+  `GatewayTimeout` for a stalled upstream, 502 `BadGatewayError` for an
+  unreachable one, 413 `PayloadTooLarge` for an over-cap body, 400
+  `BadRequest` for a malformed one, and the existing 404
+  `ModelNotServedHere` for a wrong-mount model. A stream that ends without
+  its terminal event reports `UpstreamStreamTruncated` in band, because the
+  status line is already on the wire. Add one structured journal line per
+  request that never carries the credential, a bounded body cap with a
+  chunked decoder, a `SIGTERM` drain that lets in-flight turns finish, and
+  fail-loud validation of every environment value. Delete the two dead
+  knobs and correct the docs that described them.
+- **Consequences:** The Brain Bridge can tell a timeout from a rejected body
+  from a refused connection and can tell a truncated turn from a complete
+  one. Configuration mistakes stop the unit with a readable message instead
+  of a traceback or a silently wrong timeout. The allowlists gained a
+  refresher (`refresh_allowlists.py`) that reports drift and, on `--apply`,
+  writes only the safe removals.
+- **Attribution:** The patterns for the failure contract, the bounded body
+  read, the fail-loud environment parsing, the terminal-event detection and
+  the catalogue-refresh safety rules follow `github.com/12errh/zen-proxy`
+  (MIT, (c) 2026 12errh). No code was copied from it and none of its
+  free-tier gate bypass (harness preamble, tool manifest, CLI header
+  spoofing, Bun TLS fingerprint) was adopted: this slice authenticates with
+  a real Go key and does not impersonate the CLI. The MIT notice travels with
+  the ideas.
+- **Rollback:** Revert `zen-proxy/proxy.py` to the previous revision, copy it
+  to `~/.config/opencode/zen-proxy/`, `systemctl --user restart zen-proxy`.
+  The new environment variables have defaults, so no configuration rollback
+  is needed.

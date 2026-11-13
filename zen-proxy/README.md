@@ -15,6 +15,38 @@ client:
 4. Chat-style `reasoning_effort` is rewritten into the Responses-API shape
    `reasoning: {effort}` so `high`/`xhigh`/`max` reach the model.
 
+## Failure contract
+
+Every failure answers with a parseable JSON error, never with a dropped
+socket. This matters because the Brain Bridge reads the body to decide
+whether to retry or to give up.
+
+| Case | Status | Error type |
+| --- | --- | --- |
+| upstream did not answer inside the timeout | 504 | `GatewayTimeout` |
+| upstream unreachable (egress, TLS, DNS) | 502 | `BadGatewayError` |
+| request body over the cap | 413 | `PayloadTooLarge` |
+| malformed or short request body | 400 | `BadRequest` |
+| model owned by another mount | 404 | `ModelNotServedHere` |
+| stream ended without its terminal event | 200 + in-band event | `UpstreamStreamTruncated` |
+
+The last row is the one that cannot use a status: the status line is
+already on the wire, so the failure is reported inside the stream itself.
+
+## Observability
+
+One structured line per request goes to stdout (the systemd journal):
+
+```
+ts=2026-11-13T12:41:55Z req_id=c8134dcb method=POST path=/go/resp/responses \
+  status=404 outcome=model_not_served model=big-pickle duration_ms=0 \
+  session=-(client) bytes=0
+```
+
+`session=…(injected)` means the proxy minted the session, `(client)` means
+the caller supplied it. The `Authorization` value, the request body and
+the response body are never written to the log.
+
 ## Routes (loopback `127.0.0.1:8081`)
 
 | Mount | Upstream | Serves |
@@ -37,8 +69,22 @@ client:
 ## Files
 
 - `proxy.py` — the whole server (`BaseHTTPRequestHandler` + `ThreadingHTTPServer`, stdlib only).
+- `refresh_allowlists.py` — reports allowlist drift against the live gateway catalogue and, on `--apply`, rewrites only the four allowlist literals. Read-only against upstream, never touches git, never writes a key.
 - `pyproject.toml` — no runtime dependencies; exists so the venv is built by `uv`.
 - `README.md` / `DECISIONS.md` — this slice's docs and ADRs.
+- `tests/test_zen_proxy.py` — the slice's own suite (offline, fake upstream).
+
+## Configuration
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `ZEN_PROXY_UPSTREAM_TIMEOUT` | `900` | upstream socket timeout, seconds; also the silence wall of a stream |
+| `ZEN_PROXY_MAX_BODY_BYTES` | `33554432` | hard cap on an inbound request body |
+| `ZEN_PROXY_DRAIN_TIMEOUT_S` | `30` | how long a `SIGTERM` waits for in-flight requests |
+| `ZEN_PROXY_AUDIT` | `0` | `1` writes prompts and responses to `~/.local/share/zen-proxy/audit-logs/` |
+
+A malformed value stops the process with a readable message and exit code
+2 instead of starting with a substituted default.
 
 ## Key Risks & Invariants
 
@@ -53,5 +99,10 @@ client:
   what silently killed long reasoning turns before 2026-10-22.
 - **Never truncate a replayed item id** in a caller; that rule lives in the
   bridge, but it exists because of this gateway's strict input validation.
+- **A stream must prove its own completion.** A relay that ends without the
+  terminal event reports `UpstreamStreamTruncated` instead of passing a cut
+  turn off as a short answer.
+- **Never log a credential.** The journal line carries the request id, the
+  model and the timing; the `Authorization` value stays in the header.
 - Audit mode (`ZEN_PROXY_AUDIT=1`) writes prompts to local disk. Leave it off
   outside active debugging.

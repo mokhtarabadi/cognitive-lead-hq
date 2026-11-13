@@ -22,7 +22,7 @@ cross-engine consensus. Returns ranked title/url/snippet results.
   (arXiv) | `news` (HN) | `entity` (Wikipedia)
 - `query_variants`: up to 2 alternate formulations, searched in parallel,
   merged with dedup into one flat array
-- `deadline_ms` (500–600000 hard budget), `enrich` (replace top-3
+- `deadline_ms` (500–1800000 hard budget), `enrich` (replace top-3
   snippets with fetched markdown, best-effort)
 - Deadline precedence: on expiry the tool returns `deadline.hit` or
   cheap-fallback partials — never a bare `[]`. A bare `[]` always means

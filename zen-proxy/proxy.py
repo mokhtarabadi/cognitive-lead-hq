@@ -1,20 +1,20 @@
 #!/usr/bin/env python3
-"""zen-proxy: sidecar between Open WebUI and the OpenCode Zen/Go gateways.
+"""zen-proxy: loopback gateway in front of the OpenCode Zen/Go gateways.
 
 Why this exists:
   1. The gateways reject requests without an `x-opencode-session` header
-     (Go: always; Zen free tier: always). Open WebUI cannot send it.
+     (Go: always; Zen free tier: always). A plain SDK client cannot send it.
   2. Cloudflare in front of opencode.ai blocks bare SDK user-agents (HTTP 1010).
-   3. Open WebUI merges model lists across connections by ID, so each mount
+   3. Clients merge model lists across connections by ID, so each mount
       path filters `/models` to only the IDs that actually work on its API
       style (chat/completions vs responses). Without this, picking e.g. a
       responses-only model on a chat connection fails.
-   4. Open WebUI sends reasoning effort chat-completions style (top-level
+   4. Some clients send reasoning effort chat-completions style (top-level
       `reasoning_effort`); the gateways' /responses endpoints only accept
       the Responses-API shape (`reasoning: {effort}`) — the proxy rewrites
       one into the other so high/xhigh actually reach the model.
 
-Routes (all mounted under port 8081, compose network only):
+Routes (all mounted on 127.0.0.1:8081, loopback only):
   /zen/chat/* -> https://opencode.ai/zen/v1/*      (chat models, free)
   /zen/resp/* -> https://opencode.ai/zen/v1/*      (responses models, free Muse)
   /go/chat/*  -> https://opencode.ai/zen/go/v1/*   (Go subscription, chat)
@@ -24,30 +24,98 @@ Routes (all mounted under port 8081, compose network only):
                   /chat/completions, but only on /go — Zen's copy hits the
                   free-tier quota with the same key)
 
+The consumer today is the brain bridge (mcp-brain-bridge), which talks
+Responses API on /go/resp. The Open WebUI consumer is retired (2026-09-19);
+the compose sidecar it used to run in is gone, and the slice now runs as a
+systemd user unit.
+
+Failure contract (2026-11-13): every failure answers with a parseable JSON
+error instead of dropping the socket — 504 GatewayTimeout when the upstream
+stalls, 502 BadGatewayError when the upstream is unreachable, 413
+PayloadTooLarge when the request body is over the cap, 400 BadRequest for a
+malformed body, 404 ModelNotServedHere for a model that another mount owns.
+
 Stdlib only. SSE streaming is relayed chunk-by-chunk, never buffered.
 Auth (Authorization: Bearer <key>) passes straight through untouched.
 """
 
 import json
 import os
-import uuid
+import re
+import signal
+import sys
+import threading
 import time
-import urllib.request
 import urllib.error
+import urllib.request
+import uuid
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 UPSTREAM = "https://opencode.ai"
-SESSION_ID = os.environ.get("ZEN_SESSION_ID", "00000000-0000-4000-8000-000000000000")
 UA = (
     "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/126.0 Safari/537.36"
 )
 
+# Exit code used when a configuration value is malformed. The process
+# refuses to start rather than silently falling back: the upstream timeout
+# is part of a contract (proxy timeout <= caller deadline <= client
+# timeout), and a substituted default would break the ordering it protects.
+EXIT_CONFIG_ERROR = 2
+
+
+def _env_int(name, default, minimum=1):
+    """Read an integer environment variable.
+
+    A malformed or out-of-range value stops the process with a readable
+    message instead of a traceback, because a silently substituted default
+    would hide the very mistake the value exists to prevent.
+    """
+    raw = os.environ.get(name)
+    if raw is None or not raw.strip():
+        return default
+    try:
+        value = int(raw.strip())
+    except ValueError:
+        sys.stderr.write(
+            f"zen-proxy: {name}={raw!r} is not an integer; use a whole "
+            f"number (default {default}) or unset it.\n"
+        )
+        raise SystemExit(EXIT_CONFIG_ERROR)
+    if value < minimum:
+        sys.stderr.write(
+            f"zen-proxy: {name}={value} is below the minimum of {minimum}.\n"
+        )
+        raise SystemExit(EXIT_CONFIG_ERROR)
+    return value
+
+
+def _env_float(name, default, minimum=1.0):
+    """Read a float environment variable with the same fail-loud policy."""
+    raw = os.environ.get(name)
+    if raw is None or not raw.strip():
+        return default
+    try:
+        value = float(raw.strip())
+    except ValueError:
+        sys.stderr.write(
+            f"zen-proxy: {name}={raw!r} is not a number; use a number "
+            f"(default {default}) or unset it.\n"
+        )
+        raise SystemExit(EXIT_CONFIG_ERROR)
+    if value < minimum:
+        sys.stderr.write(
+            f"zen-proxy: {name}={value} is below the minimum of {minimum}.\n"
+        )
+        raise SystemExit(EXIT_CONFIG_ERROR)
+    return value
+
+
 # Audit mode: when "1", every proxied request appends one JSON line to
 # audit.jsonl plus full request/response capture files, so you can prove
 # exactly what effort value was sent upstream and what came back.
-# Flip via ZEN_PROXY_AUDIT in .env (needs container recreate), default off.
+# Flip via ZEN_PROXY_AUDIT in .env (restart the unit), default off.
 # NOTE: captures contain your prompts — local disk only, disable after testing.
 AUDIT = os.environ.get("ZEN_PROXY_AUDIT", "0") == "1"
 AUDIT_DIR = os.path.expanduser("~/.local/share/zen-proxy/audit-logs")
@@ -59,7 +127,147 @@ AUDIT_MAX_BYTES = 2 * 1024 * 1024  # per-response capture cap
 # 300s and the bridge saw "RemoteProtocolError: Server disconnected
 # without sending a response", retried, and burned its own 500s deadline.
 # Env-tunable so a slow model can be given more room without a code edit.
-UPSTREAM_TIMEOUT = float(os.environ.get("ZEN_PROXY_UPSTREAM_TIMEOUT", "900"))
+# It is a socket timeout, so it is re-armed on every read: it is the
+# silence wall of a stream and the wall for the first byte of a response.
+UPSTREAM_TIMEOUT = _env_float("ZEN_PROXY_UPSTREAM_TIMEOUT", 900.0)
+
+# Hard cap on an inbound request body. The cap is enforced while reading,
+# before the body is buffered, so an oversized body costs one rejected
+# request instead of the process memory it would have consumed.
+MAX_BODY_BYTES = _env_int("ZEN_PROXY_MAX_BODY_BYTES", 32 * 1024 * 1024)
+
+# How long a SIGTERM waits for in-flight requests to finish before the
+# process exits anyway. Zero means "do not wait".
+DRAIN_TIMEOUT_S = _env_int("ZEN_PROXY_DRAIN_TIMEOUT_S", 30, minimum=0)
+
+# Bounded reception: a client that connects and dribbles a body must not
+# hold a handler thread forever. The window is reopened before a response
+# is streamed, so a slow upstream never trips it.
+CLIENT_RECEIVE_TIMEOUT_S = 60
+
+
+class _BodyTooLarge(Exception):
+    """Raised when an inbound body exceeds MAX_BODY_BYTES."""
+
+
+def _read_exact(rfile, count):
+    """Read exactly `count` bytes, or fewer when the stream ends."""
+    data = bytearray()
+    while len(data) < count:
+        chunk = rfile.read(count - len(data))
+        if not chunk:
+            break
+        data += chunk
+    return bytes(data)
+
+
+def _read_chunked(rfile, cap):
+    """Decode an HTTP/1.1 chunked request body under a byte cap.
+
+    Raises _BodyTooLarge when the decoded body would exceed `cap` and
+    ValueError when the framing is malformed. Trailers are consumed and
+    discarded.
+    """
+    out = bytearray()
+    while True:
+        line = rfile.readline(65536)
+        if not line:
+            raise ValueError("missing chunk header")
+        size_field = line.split(b";", 1)[0].strip()
+        try:
+            size = int(size_field, 16)
+        except ValueError:
+            raise ValueError(f"malformed chunk header {size_field!r}")
+        if size == 0:
+            while True:  # consume optional trailers
+                trailer = rfile.readline(65536)
+                if not trailer or trailer in (b"\r\n", b"\n"):
+                    break
+            return bytes(out)
+        if len(out) + size > cap:
+            raise _BodyTooLarge()
+        chunk = _read_exact(rfile, size)
+        if len(chunk) != size:
+            raise ValueError("truncated chunk body")
+        out += chunk
+        rfile.readline(8)  # the CRLF that terminates the chunk
+
+
+def _read_body(headers, rfile, cap):
+    """Read the request body under a hard cap.
+
+    Returns a (body, error) pair. `body` is None when the request carries
+    no body. `error` is a (status, error_type, message) triple when the
+    body must be rejected.
+    """
+    encoding = (headers.get("Transfer-Encoding") or "").lower()
+    if "chunked" in encoding:
+        try:
+            return _read_chunked(rfile, cap), None
+        except _BodyTooLarge:
+            return None, (
+                413,
+                "PayloadTooLarge",
+                f"zen-proxy: request body exceeds the {cap} byte limit",
+            )
+        except ValueError as exc:
+            return None, (
+                400,
+                "BadRequest",
+                f"zen-proxy: malformed chunked request body: {exc}",
+            )
+        except TimeoutError:
+            return None, (
+                408,
+                "RequestTimeout",
+                "zen-proxy: timed out reading the request body",
+            )
+    raw_length = headers.get("Content-Length")
+    if raw_length is None:
+        return None, None
+    try:
+        length = int(raw_length.strip())
+    except (AttributeError, ValueError):
+        return None, (400, "BadRequest", "zen-proxy: invalid Content-Length header")
+    if length < 0:
+        return None, (400, "BadRequest", "zen-proxy: invalid Content-Length header")
+    if length > cap:
+        return None, (
+            413,
+            "PayloadTooLarge",
+            f"zen-proxy: request body of {length} bytes exceeds the {cap} byte limit",
+        )
+    try:
+        body = _read_exact(rfile, length)
+    except TimeoutError:
+        return None, (
+            408,
+            "RequestTimeout",
+            "zen-proxy: timed out reading the request body",
+        )
+    if len(body) != length:
+        return None, (
+            400,
+            "BadRequest",
+            "zen-proxy: request body shorter than Content-Length",
+        )
+    return (body or None), None
+
+
+# A streamed response is only complete when it carries its terminal event.
+# Without this check a stream that dies mid-reply is indistinguishable from
+# a short but complete answer, and the caller believes it got a full turn.
+_TERMINAL_PATTERNS = (
+    re.compile(rb"response\.(completed|failed|incomplete)"),
+    re.compile(rb"\[DONE\]"),
+    re.compile(rb'"finish_reason"\s*:\s*"(?!null)'),
+)
+
+
+def _has_terminal_event(buffer):
+    """True when the buffered SSE bytes carry a terminal event marker."""
+    return any(pattern.search(buffer) for pattern in _TERMINAL_PATTERNS)
+
 
 # Refreshed live 2026-11-08 (Go: 30 models, Zen: 45 models; authenticated
 # with opencode UA + session). Go now includes crouton-alpha-free,
@@ -127,19 +335,9 @@ GO_RESP = {
     "step-5-preview",
 }
 
-# Per-model context windows (tokens), for callers that pre-size prompts
-# (e.g. brain BRAIN_CONTEXT_WINDOW_TOKENS). Values from models.dev feed
-# 2026-10-21; default when absent below is 1048576. WARNING: grok-4.7 is
+# Per-model context windows (tokens) are the caller's business: brain sizes
+# its prompts from BRAIN_CONTEXT_WINDOW_TOKENS. WARNING: grok-4.7 accepts
 # only 500000 — never send it a 1M-sized prompt, the server rejects it.
-MODEL_WINDOWS = {
-    "grok-4.7": 500000,
-    "hy3": 256000,
-    "deepseek-v4-flash": 1000000,
-    "deepseek-v4-flash-free": 200000,
-    "deepseek-v4.1-flash-free": 200000,
-    "glm-5.3-flash-free": 200000,
-    "mimo-v2.6-flash-free": 200000,
-}
 ZEN_CHAT = {
     "big-pickle",
     "nemotron-3.5-lightning-free",
@@ -209,8 +407,68 @@ def _audit_write(record, req_body=None):
 class Handler(BaseHTTPRequestHandler):
     server_version = "zen-proxy/1.0"
 
+    # Bounded reception: a client that connects and dribbles a body must
+    # not hold a handler thread for the life of the process. The window is
+    # reopened before a response is streamed (see _proxy_inner).
+    timeout = CLIENT_RECEIVE_TIMEOUT_S
+
     def log_message(self, *args):
-        pass  # keep logs quiet; errors still surface via status codes
+        pass  # one structured line per request is written by _log_request
+
+    def _send_json(self, status, payload, req_id=None):
+        """Answer with a JSON body and the headers a client needs."""
+        body = json.dumps(payload).encode()
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        if req_id:
+            self.send_header("X-Request-Id", req_id)
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _send_error(self, status, error_type, message, req_id=None):
+        """Answer with the error envelope the clients parse."""
+        self._send_json(
+            status,
+            {"type": "error", "error": {"type": error_type, "message": message}},
+            req_id,
+        )
+
+    def _write_stream_error(self, error_type, message):
+        """Report a mid-stream failure in band.
+
+        The status line is already on the wire at this point, so the only
+        honest signal left is an error event inside the stream itself.
+        """
+        payload = {"type": "error", "error": {"type": error_type, "message": message}}
+        try:
+            self.wfile.write(
+                ("event: error\ndata: " + json.dumps(payload) + "\n\n").encode()
+            )
+            self.wfile.flush()
+        except OSError:
+            pass
+
+    def _log_request(
+        self, req_id, started, status, outcome, model, session_id, session_origin, sent
+    ):
+        """Write one structured line per request to stdout (the journal).
+
+        The Authorization value, the request body and the response body are
+        never written: this line is safe to keep in the journal.
+        """
+        ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        line = (
+            f"ts={ts} req_id={req_id} method={self.command} path={self.path} "
+            f"status={status} outcome={outcome} model={model or '-'} "
+            f"duration_ms={round((time.monotonic() - started) * 1000)} "
+            f"session={(session_id or '-')[:8]}({session_origin}) bytes={sent}"
+        )
+        try:
+            sys.stdout.write(line + "\n")
+            sys.stdout.flush()
+        except OSError:
+            pass
 
     def _send_upstream(self):
         if self.path == "/health":
@@ -233,9 +491,50 @@ class Handler(BaseHTTPRequestHandler):
     do_POST = _send_upstream
 
     def _proxy(self, upstream_path, allow):
-        length = int(self.headers.get("Content-Length", 0) or 0)
-        body = self.rfile.read(length) if length else None
-        t0 = time.monotonic()
+        """Relay one request upstream and answer the client.
+
+        Every failure path answers with a parseable JSON error instead of
+        dropping the socket, so the caller can tell a timeout from a
+        rejected body from a refused connection.
+        """
+        req_id = uuid.uuid4().hex[:8]
+        started = time.monotonic()
+        state = {
+            "status": 500,
+            "outcome": "error",
+            "model": None,
+            "session_id": "",
+            "session_origin": "client",
+            "sent": 0,
+        }
+        try:
+            return self._proxy_inner(req_id, started, upstream_path, allow, state)
+        finally:
+            self._log_request(
+                req_id,
+                started,
+                state["status"],
+                state["outcome"],
+                state["model"],
+                state["session_id"],
+                state["session_origin"],
+                state["sent"],
+            )
+
+    def _proxy_inner(self, req_id, started, upstream_path, allow, state):
+        body, body_error = _read_body(self.headers, self.rfile, MAX_BODY_BYTES)
+        if body_error:
+            status, error_type, message = body_error
+            state["status"] = status
+            state["outcome"] = "rejected"
+            self._send_error(status, error_type, message, req_id)
+            return
+        # A streamed response can outlive the bounded reception window, so
+        # the window is widened to the upstream timeout for the response
+        # phase. It is not cleared: a client that stops reading must not
+        # hold this handler thread forever, or the drain would have to kill
+        # the process with a turn still in flight.
+        self.connection.settimeout(UPSTREAM_TIMEOUT)
         # Gate POST by the route allowlist: a model served on another
         # mount gets a 404 naming its correct route instead of a confusing
         # upstream 400 (endpoint/style mismatch).
@@ -248,32 +547,29 @@ class Handler(BaseHTTPRequestHandler):
                 _mid = _probe["model"]
                 if _mid not in allow:
                     _hint = _find_route(_mid)
-                    _err = {
-                        "type": "error",
-                        "error": {
-                            "type": "ModelNotServedHere",
-                            "message": (
-                                f"zen-proxy: model '{_mid}' is not served on "
-                                f"{self.path};"
-                                + (
-                                    f" use {_hint} instead."
-                                    if _hint
-                                    else " it is on no known route (check upstream list)."
-                                )
-                            ),
-                        },
-                    }
-                    _errb = json.dumps(_err).encode()
-                    self.send_response(404)
-                    self.send_header("Content-Type", "application/json")
-                    self.send_header("Content-Length", str(len(_errb)))
-                    self.end_headers()
-                    self.wfile.write(_errb)
+                    state["status"] = 404
+                    state["outcome"] = "model_not_served"
+                    state["model"] = _mid
+                    self._send_error(
+                        404,
+                        "ModelNotServedHere",
+                        (
+                            f"zen-proxy: model '{_mid}' is not served on "
+                            f"{self.path};"
+                            + (
+                                f" use {_hint} instead."
+                                if _hint
+                                else " it is on no known route (check upstream list)."
+                            )
+                        ),
+                        req_id,
+                    )
                     return
         record = None
         if AUDIT and self.command == "POST":
             record = {
                 "ts": datetime.now(timezone.utc).isoformat(),
+                "req_id": req_id,
                 "method": self.command,
                 "route": self.path,
                 "upstream": upstream_path,
@@ -290,6 +586,7 @@ class Handler(BaseHTTPRequestHandler):
             except ValueError:
                 payload = None
             if isinstance(payload, dict):
+                state["model"] = payload.get("model")
                 if record is not None:
                     record["model"] = payload.get("model")
                     record["stream"] = payload.get("stream")
@@ -300,20 +597,30 @@ class Handler(BaseHTTPRequestHandler):
                         record["translated"] = True
                         reasoning = payload.get("reasoning") or {}
                         record["effort_out"] = reasoning.get("effort")
-        elif record is not None and body:
+        elif body:
             try:
                 payload = json.loads(body)
             except ValueError:
                 payload = None
             if isinstance(payload, dict):
-                record["model"] = payload.get("model")
-                record["stream"] = payload.get("stream")
-                record["effort_in"] = payload.get("reasoning_effort")
-        minted_session = (
-            self.headers.get("x-opencode-session")
-            or self.headers.get("X-Session-ID")
-            or str(uuid.uuid4())  # Hermes recipe: mint fresh ID per request
+                state["model"] = payload.get("model")
+                if record is not None:
+                    record["model"] = payload.get("model")
+                    record["stream"] = payload.get("stream")
+                    record["effort_in"] = payload.get("reasoning_effort")
+        # Identity: a client that already carries a session keeps it, every
+        # other caller gets a fresh one per request (Hermes recipe), so the
+        # gateway never sees one shared session standing in for all traffic.
+        client_session = self.headers.get("x-opencode-session") or self.headers.get(
+            "X-Session-ID"
         )
+        if client_session:
+            minted_session = client_session
+            state["session_origin"] = "client"
+        else:
+            minted_session = str(uuid.uuid4())
+            state["session_origin"] = "injected"
+        state["session_id"] = minted_session
         client_ua = self.headers.get("User-Agent", "")
         out_headers = {
             "Authorization": self.headers.get("Authorization", ""),
@@ -350,20 +657,31 @@ class Handler(BaseHTTPRequestHandler):
             # Pool egress failure (e.g. MITM node cert refused, fail-closed).
             # Answer 502 instead of dropping the socket so SDK clients get a
             # parseable error they can retry against another node.
-            err = json.dumps(
-                {
-                    "type": "error",
-                    "error": {
-                        "type": "BadGatewayError",
-                        "message": f"zen-proxy: upstream unreachable: {e.reason}",
-                    },
-                }
-            ).encode()
-            self.send_response(502)
-            self.send_header("Content-Type", "application/json")
-            self.send_header("Content-Length", str(len(err)))
-            self.end_headers()
-            self.wfile.write(err)
+            state["status"] = 502
+            state["outcome"] = "egress_failed"
+            self._send_error(
+                502,
+                "BadGatewayError",
+                f"zen-proxy: upstream unreachable: {e.reason}",
+                req_id,
+            )
+            return
+        except TimeoutError as e:
+            # The upstream did not answer inside the socket timeout. This
+            # used to escape both handlers and drop the socket with no
+            # status, which the caller saw as "Server disconnected without
+            # sending a response".
+            state["status"] = 504
+            state["outcome"] = "timeout"
+            self._send_error(
+                504,
+                "GatewayTimeout",
+                (
+                    f"zen-proxy: upstream did not respond within "
+                    f"{UPSTREAM_TIMEOUT:g}s ({e})"
+                ),
+                req_id,
+            )
             return
 
         ctype = headers.get("Content-Type", "")
@@ -376,23 +694,33 @@ class Handler(BaseHTTPRequestHandler):
                 # Upstream error page (e.g. 404 on a mistyped path, 401 on a
                 # bad key) — relay it as-is instead of dropping the
                 # connection with an empty reply that clients can't explain.
+                state["status"] = status
+                state["outcome"] = "ok"
+                state["sent"] = len(raw)
                 self.send_response(status)
                 self.send_header("Content-Type", ctype or "application/octet-stream")
                 self.send_header("Content-Length", str(len(raw)))
+                self.send_header("X-Request-Id", req_id)
                 self.end_headers()
                 self.wfile.write(raw)
                 return
             data["data"] = [m for m in data.get("data", []) if m.get("id") in allow]
             out = json.dumps(data).encode()
+            state["status"] = status
+            state["outcome"] = "ok"
+            state["sent"] = len(out)
             self.send_response(status)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(out)))
+            self.send_header("X-Request-Id", req_id)
             self.end_headers()
             self.wfile.write(out)
             return
 
+        state["status"] = status
         self.send_response(status)
         self.send_header("Content-Type", ctype or "application/octet-stream")
+        self.send_header("X-Request-Id", req_id)
         if "text/event-stream" not in ctype:
             self.send_header("Connection", "close")
         self.end_headers()
@@ -406,22 +734,68 @@ class Handler(BaseHTTPRequestHandler):
                 record["resp_capture"] = os.path.join(
                     AUDIT_DIR, f"audit-{ts_fname}-resp.sse"
                 )
-                cap = open(record["resp_capture"], "wb")
+                # The capture file stays open across the relay, so it is
+                # closed by hand in the finally block below.
+                cap = open(record["resp_capture"], "wb")  # noqa: SIM115
             except OSError:
                 cap = None
         sent = 0
+        tail = bytearray()
+        is_sse = "text/event-stream" in ctype
+        failure = None
         try:
             while True:
-                chunk = stream.read(8192)
+                try:
+                    chunk = stream.read(8192)
+                except TimeoutError as e:
+                    # The upstream went silent mid-reply. The status line is
+                    # already on the wire, so the failure is reported in band.
+                    failure = (
+                        "UpstreamStreamTimeout",
+                        (
+                            "zen-proxy: upstream stalled for more than "
+                            f"{UPSTREAM_TIMEOUT:g}s while streaming ({e})"
+                        ),
+                    )
+                    break
+                except OSError as e:
+                    failure = (
+                        "UpstreamStreamError",
+                        f"zen-proxy: upstream stream failed ({e})",
+                    )
+                    break
                 if not chunk:
                     break
-                self.wfile.write(chunk)
-                self.wfile.flush()
+                try:
+                    self.wfile.write(chunk)
+                    self.wfile.flush()
+                except (BrokenPipeError, ConnectionResetError) as e:
+                    # The client hung up. Stop the upstream read so an
+                    # unread turn stops consuming quota.
+                    state["outcome"] = "client_gone"
+                    failure = (
+                        "ClientDisconnected",
+                        f"zen-proxy: client disconnected ({e})",
+                    )
+                    break
+                except TimeoutError as e:
+                    # The client stopped reading and the write window
+                    # expired. Same outcome as a disconnect.
+                    state["outcome"] = "client_gone"
+                    failure = (
+                        "ClientDisconnected",
+                        f"zen-proxy: client stopped reading ({e})",
+                    )
+                    break
                 sent += len(chunk)
+                if is_sse:
+                    tail += chunk
+                    if len(tail) > 65536:
+                        del tail[:-32768]
                 if cap is not None:
                     if sent <= AUDIT_MAX_BYTES:
                         cap.write(chunk)
-                    elif cap is not None:
+                    else:
                         cap.write(b"\n...[truncated]\n")
                         cap.close()
                         cap = None
@@ -429,11 +803,89 @@ class Handler(BaseHTTPRequestHandler):
             stream.close()
             if cap is not None:
                 cap.close()
+        if failure is not None and state["outcome"] == "client_gone":
+            # The client is gone. There is nothing left to signal on the
+            # wire; the only record is the journal line, and a disconnect
+            # must never be rewritten into a clean end.
+            pass
+        elif failure is not None:
+            error_type, message = failure
+            self._write_stream_error(error_type, message)
+            state["outcome"] = "stream_truncated"
+            state["status"] = 502
+        elif is_sse and sent and not _has_terminal_event(bytes(tail)):
+            # The stream ended without its terminal event, so the turn was
+            # cut short. Reporting it as a clean end would let the caller
+            # believe it received a complete answer.
+            self._write_stream_error(
+                "UpstreamStreamTruncated",
+                "zen-proxy: upstream stream ended without its terminal event",
+            )
+            state["outcome"] = "stream_truncated"
+            state["status"] = 502
+        else:
+            state["outcome"] = "ok"
+        state["sent"] = sent
         if record is not None:
             record["resp_bytes"] = sent
-            record["duration_ms"] = round((time.monotonic() - t0) * 1000)
+            record["outcome"] = state["outcome"]
+            record["duration_ms"] = round((time.monotonic() - started) * 1000)
             _audit_write(record, req_body=body)
 
 
+class ZenProxyServer(ThreadingHTTPServer):
+    """Threading server that can be drained instead of killed.
+
+    `daemon_threads` is off and `block_on_close` is on, so `server_close`
+    waits for the in-flight handlers to finish. That is what makes a
+    SIGTERM graceful: the listener stops first, the running turns are
+    allowed to complete.
+    """
+
+    daemon_threads = False
+    block_on_close = True
+    allow_reuse_address = True
+
+
+def _drain_watchdog():
+    """Force the process to exit when the drain deadline expires.
+
+    A wedged upstream must not keep the unit from restarting, so the
+    drain is bounded: after the deadline the process leaves on its own.
+    """
+    time.sleep(DRAIN_TIMEOUT_S)
+    sys.stdout.write(
+        f"ts={datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')} "
+        f"event=drain_timeout seconds={DRAIN_TIMEOUT_S} action=exit\n"
+    )
+    sys.stdout.flush()
+    os._exit(0)
+
+
+def _install_signal_handlers(server):
+    """Stop the listener on SIGTERM/SIGINT and let the turns finish."""
+
+    def _shutdown(signum, _frame):
+        sys.stdout.write(
+            f"ts={datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')} "
+            f"event=signal signal={signal.Signals(signum).name} action=drain\n"
+        )
+        sys.stdout.flush()
+        # shutdown() blocks until serve_forever() returns, so it must not
+        # run on the thread that is inside serve_forever().
+        threading.Thread(target=server.shutdown, daemon=True).start()
+        if DRAIN_TIMEOUT_S > 0:
+            threading.Thread(target=_drain_watchdog, daemon=True).start()
+
+    for sig in (signal.SIGTERM, signal.SIGINT):
+        signal.signal(sig, _shutdown)
+
+
 if __name__ == "__main__":
-    ThreadingHTTPServer(("127.0.0.1", 8081), Handler).serve_forever()
+    _server = ZenProxyServer(("127.0.0.1", 8081), Handler)
+    _install_signal_handlers(_server)
+    try:
+        _server.serve_forever()
+    finally:
+        # server_close() joins the in-flight handlers: the drain.
+        _server.server_close()

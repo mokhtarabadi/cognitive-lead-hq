@@ -72,11 +72,16 @@ Read from the single global `~/.config/opencode/.env` via the unit's
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
-| `ZEN_SESSION_ID` | zero UUID | Fallback session header when the caller sends none |
-| `ZEN_PROXY_UPSTREAM_TIMEOUT` | `900` | Upstream socket timeout, seconds |
+| `ZEN_PROXY_UPSTREAM_TIMEOUT` | `900` | Upstream socket timeout, seconds; also the silence wall of a stream. Upper bound: it must stay at or below the caller's overall deadline (`BRAIN_OVERALL_DEADLINE_S`, also `900`) and below the MCP client execution timeout (`1200000` ms). Raising it above `900` without raising the caller's deadline only moves the failure from a `504` here to a caller-side timeout. |
+| `ZEN_PROXY_MAX_BODY_BYTES` | `33554432` | Hard cap on an inbound request body |
+| `ZEN_PROXY_DRAIN_TIMEOUT_S` | `30` | How long a `SIGTERM` waits for in-flight requests |
 | `ZEN_PROXY_AUDIT` | `0` | `1` writes prompts + responses to `~/.local/share/zen-proxy/audit-logs/` |
 
 No API key of its own: the caller's `Authorization` header passes through.
+The session id is minted per request when the caller sends none; there is no
+`ZEN_SESSION_ID` knob (it was read but never used — see ADR-005). A malformed
+value stops the unit with a readable message and exit code 2 instead of
+starting with a substituted default.
 
 ### Timeout ordering (binding)
 
@@ -124,6 +129,10 @@ curl -s -X POST http://127.0.0.1:8081/go/resp/responses \
 curl -s -X POST http://127.0.0.1:8081/go/resp/responses \
   -H "Authorization: Bearer $BRAIN_API_KEY" -H 'Content-Type: application/json' \
   -d '{"model":"glm-5.3","input":[{"role":"user","content":"reply: ok"}],"max_output_tokens":64}' | jq -r .status
+# the slice's own suite (offline, fake upstream, no quota spent)
+uv run --with pytest pytest tests/test_zen_proxy.py -q
+# one structured journal line per request
+journalctl --user -u zen-proxy -n 5 --no-pager
 ```
 
 ## Failure modes
@@ -131,6 +140,10 @@ curl -s -X POST http://127.0.0.1:8081/go/resp/responses \
 | Symptom | Cause | Fix |
 | --- | --- | --- |
 | `502 BadGatewayError` | egress proxy node failed TLS | retry; check the mihomo pool if enabled |
+| `504 GatewayTimeout` | upstream did not answer inside `ZEN_PROXY_UPSTREAM_TIMEOUT` | raise the timeout within the ordering bound, or lower the caller's reasoning effort |
+| `413 PayloadTooLarge` | request body over `ZEN_PROXY_MAX_BODY_BYTES` | raise the cap or send a smaller body |
+| `400 BadRequest` | malformed or short request body | fix the client framing |
 | `404 ModelNotServedHere` | model posted to the wrong mount | use the mount named in the message |
-| `Server disconnected without sending a response` | upstream slower than `ZEN_PROXY_UPSTREAM_TIMEOUT` | raise the timeout, or lower the caller's reasoning effort |
-| `/models` count dropped | upstream list drift | re-probe upstream and refresh the allowlist |
+| `UpstreamStreamTruncated` in the stream | upstream ended without its terminal event | retry the turn; the relay refused to pass a cut turn off as a complete one |
+| `Server disconnected without sending a response` | pre-2026-11-13 behaviour; the timeout escaped the handler | fixed in ADR-005 — a timeout now answers 504 |
+| `/models` count dropped | upstream list drift | run `zen-proxy/refresh_allowlists.py` and apply the reported removals |
