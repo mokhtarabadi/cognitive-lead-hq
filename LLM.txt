@@ -70,9 +70,55 @@ curl -fsSL https://opencode.ai/v2/install | bash
 opencode --version   # expect 2.x
 ```
 
-If `opencode --version` shows 1.x, back up `~/.config/opencode/opencode.json` first, then run the installer above (it replaces the V1 binary). OpenChamber upgrades via `openchamber update` (expect 2.x). Full V1→V2 field map: `plugin`→`plugins`, `permission.bash`→`permission.shell`, layered `tui.json`→single global `cli.json`, flat `mcp`→`mcp.servers` — see https://opencode.ai/v2/docs/migrate-v1/.
+If `opencode --version` shows 1.x, back up `~/.config/opencode/opencode.json` first, then run the installer above (it replaces the V1 binary). Full V1→V2 field map: `plugin`→`plugins`, `permission.bash`→`permission.shell`, layered `tui.json`→single global `cli.json`, flat `mcp`→`mcp.servers` — see https://opencode.ai/v2/docs/migrate-v1/.
 
 > V2 native only: `opencode.json` carries `plugins` (not `plugin`); permission blocks carry `shell` denies (not `bash`); `tui.json` is deleted — the terminal client reads the single global `~/.config/opencode/cli.json`.
+
+### Upgrading OpenCode / OpenChamber — the full refresh chain
+
+Upgrading a binary is NOT an upgrade of the install. The OpenCode binary lives at `~/.opencode/bin/opencode`; OpenChamber is the npm package `@openchamber/web` (global, under mise node). The **servers, skills, agents, prompts and plugins** are separate copies in `~/.config/opencode/` and do not move when either binary is replaced. A binary-only upgrade leaves the harness on the old code — that is the drift this chain exists to prevent.
+
+Run the whole chain, in this order:
+
+```bash
+# 1. Upgrade the binaries.
+curl -fsSL https://opencode.ai/v2/install | bash        # OpenCode V2 only
+npm install -g @openchamber/web@latest                   # OpenChamber (mise node)
+opencode --version && openchamber --version
+
+# 2. Re-sync every global install target from the fresh clone (Step 5, 6, 6.5).
+#    Servers, skills, agents, prompts, plugins — NOT just the servers.
+rsync -a --exclude='.venv' --exclude='__pycache__' \
+  /tmp/cognitive-lead-hq/mcp-{context,brain-bridge,lint,memory}-server/ \
+  ~/.config/opencode/ 2>/dev/null || true
+cp -r /tmp/cognitive-lead-hq/skill-templates/* ~/.config/opencode/skills/
+rm -f ~/.config/opencode/skills/{DECISIONS.md,README.md}
+cp /tmp/cognitive-lead-hq/agents/cognitive-{executor,discovery}.md ~/.config/opencode/agents/
+rm -f ~/.config/opencode/agents/{DECISIONS.md,README.md}
+cp /tmp/cognitive-lead-hq/system-prompt.md ~/.config/opencode/system-prompt.md
+# Stage-scoped prompt artifacts (Stage-aware Brain, task 396).
+cd /tmp/cognitive-lead-hq && python3 scripts/prompt-build/assemble_system_prompt.py --stages
+cp build/stage-prompts/system-prompt.*.md ~/.config/opencode/
+
+# 3. Refresh plugin caches so the next start reinstalls from the pushed sources.
+rm -rf ~/.cache/opencode/npm/git-opencode-*-plugin-* ~/.cache/opencode/packages/opencode-*-plugin*
+
+# 4. Sync the MCP server venv dependencies (upstream imports may be new), then restart.
+#    See .opencode/memory/workflows/upstream-upgrade-dep-sync.md — the dependency
+#    sync must happen BEFORE the restart or the service crash-loops.
+systemctl --user daemon-reload
+for s in lint context memory brain telegram planner; do systemctl --user restart mcp-$s; done
+systemctl --user restart zen-proxy
+
+# 5. Verify — drift audit, then the Manager restarts OpenCode to load the new binary.
+diff -q /tmp/cognitive-lead-hq/system-prompt.md ~/.config/opencode/system-prompt.md
+ls -1d ~/.config/opencode/skills/*/ | wc -l          # expect 24
+ls ~/.config/opencode/agents/*.md | wc -l            # expect 2
+ls ~/.config/opencode/system-prompt.*.md | wc -l     # expect 7 (full + 6 stages)
+systemctl --user is-active mcp-brain mcp-context mcp-lint mcp-memory mcp-planner zen-proxy
+```
+
+> **The Manager restarts OpenCode and OpenChamber.** The Hands prepares the install and says so; it never restarts the editor or the app itself. The V1→V2 upgrade itself is a one-time migration; after V2, an upgrade is this chain.
 
 ---
 
@@ -193,22 +239,25 @@ rm -f ~/.config/opencode/skills/DECISIONS.md ~/.config/opencode/skills/README.md
 
 After this, the skills will be available via `/help` from any directory. `skill-templates/` contains **24 skills** (`kanban-lifecycle`, `telegram-suite`, `testing-verification`, and 21 more). `DECISIONS.md` and `README.md` stay in the repo only — they are not skills and must never be copied globally, or OpenChamber counts them as fake skills.
 
-> **Multiple skill roots — sync them all.** OpenCode V2 and OpenChamber merge skills from several sources, so cleaning one root leaves the others stale and the app keeps listing removed skills. After any skill change, sync every root that exists on the machine and verify the counts match:
+> **One global skill root — sync it completely.** OpenCode V2 and OpenChamber merge skills from several sources, so cleaning one root leaves the others stale and the app keeps listing removed skills. On a clean V2 machine there is exactly ONE writable global root, `~/.config/opencode/skills`. The former `~/.agents/skills` root (a Freebuff-era artifact) was removed on 2026-11-13 — do not recreate it. After any skill change, sync the global root and the project root, and verify the counts match:
 
 ```bash
-for d in ~/.config/opencode/skills ~/.agents/skills; do
+# Global root — the only writable global skills root.
+for d in ~/.config/opencode/skills; do
   [ -d "$d" ] || continue
+  # Drop skills that no longer exist in the repo (retired names).
   for s in "$d"/*/; do
     n=$(basename "$s")
     [ -d "/tmp/cognitive-lead-hq/skill-templates/$n" ] || rm -rf "$s"
   done
   cp -r /tmp/cognitive-lead-hq/skill-templates/* "$d"/
+  # DECISIONS.md / README.md are not skills — OpenChamber counts them as fake skills.
   rm -f "$d"/DECISIONS.md "$d"/README.md
-  echo "$d: $(ls -1d "$d"/*/ | wc -l)"
+  echo "$d: $(ls -1d "$d"/*/ | wc -l) skills"
 done
 ```
 
-Project roots (`<project>/.opencode/skills`) override the global copies and must be cleaned in the project itself. `~/.config/openchamber/run/instances/<id>/skills` holds only `openchamber-extensions` — leave it alone.
+Project roots (`<project>/.opencode/skills`) override the global copies and must be cleaned in the project itself. `~/.config/openchamber/run/instances/<id>/skills` holds only `openchamber-extensions` — leave it alone. If a legacy root such as `~/.agents/skills` ever reappears on a machine, delete it rather than syncing it — two global roots is the drift that made OpenChamber list retired skills.
 
 ### 6.1. Bundle CLI Script — Not Shipped
 
@@ -647,9 +696,10 @@ After completing all steps, verify:
 - [ ] `~/.config/opencode/mcp-brain-bridge/server.py` exists and is executable (plus its sibling modules `capability.py`, `preflight.py`, `loop_guard.py`, `session_ledger.py`)
 - [ ] `~/.config/opencode/mcp-common/src/mcp_common/env.py` exists
 - [ ] `~/.config/opencode/zen-proxy/proxy.py` exists and is executable, `~/.config/opencode/zen-proxy/.venv/bin/python` exists (built with `uv venv`), and `systemctl --user is-active zen-proxy` returns `active` on `127.0.0.1:8081` (`curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8081/health` → 200); the unit reads `~/.config/opencode/.env` and needs no API key of its own
-- [ ] Skills are installed under `~/.config/opencode/skills/` (at least one subfolder exists) — should include `kanban-lifecycle` (24 skills total); when `~/.agents/skills` exists, it holds the same 24 and no retired names (`task-generator`, `audit-agents`, `bundle-tasks`, …)
+- [ ] Skills are installed under `~/.config/opencode/skills/` — exactly **24 skill directories**, including `kanban-lifecycle`, and NO stray `DECISIONS.md` / `README.md` at the skills root (OpenChamber counts them as fake skills) and no retired names (`task-generator`, `audit-agents`, `bundle-tasks`, …). The legacy `~/.agents/skills` root must NOT exist (removed 2026-11-13 with Freebuff) — if it reappears, delete it.
 - [ ] `~/.config/opencode/agents/cognitive-executor.md` exists
 - [ ] `~/.config/opencode/agents/cognitive-discovery.md` exists
+- [ ] `~/.config/opencode/agents/` holds ONLY those two agent files (no `DECISIONS.md` / `README.md`)
 - [ ] `~/.config/opencode/opencode.json` exists with **absolute paths** (not `~` or relative paths) and 7 `mcp` entries (`custom_context`, `project_memory`, `lint`, `brain`, `blowsh`, `telegram`, `planner`) + `blowsh_*`/`telegram_*`/`brain_turn` permissions, no former browser entry
 - [ ] `~/.config/opencode/mcp-planner-server/` holds `server.py`, `uv.lock`, and `static/index.html`; `systemctl --user is-active mcp-planner` reports `active`; `curl http://127.0.0.1:8108/api/status` returns a non-zero task count for this repo
 - [ ] `~/.config/opencode/opencode.json` `plugins` carries `smart-compact` plus `opencode-goal-plugin` plus `opencode-todolist`, and `~/.config/opencode/cli.json` `plugins` carries `opencode-todolist` for the sidebar strip

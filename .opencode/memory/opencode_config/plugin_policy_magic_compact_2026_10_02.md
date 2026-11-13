@@ -5,10 +5,12 @@ tags: []
 updated_at: '2026-11-10T11:21:24.259409+00:00'
 ---
 
-# OpenCode plugin policy — Smart Compact (updated 2026-11-10)
+# OpenCode plugin policy — Smart Compact (updated 2026-11-13)
 
-One plugin is approved and installed: `@mokhtarabadi/opencode-smart-compact` (V2-native context compaction, our own repo `mokhtarabadi/opencode-smart-compact`). It REPLACES the V1 `magic-compact` package, which fails to load on OpenCode 2 (`PluginModule.LoadError`).
-- Global opencode.json: `plugins: ["github:mokhtarabadi/opencode-smart-compact"]` (Git spec, tracks main). Once published to npm, `@mokhtarabadi/opencode-smart-compact` is preferred. `opencode plugin add` rejects bare local paths.
+**THREE plugins are approved and installed** (2026-11-13): `github:mokhtarabadi/opencode-smart-compact` (V2-native context compaction), `github:mokhtarabadi/opencode-goal-plugin` (one long-running objective per session, with evidence-gated completion), and `opencode-todolist` (V1 `todowrite`/`todoread` + the TUI sidebar strip, also listed in `~/.config/opencode/cli.json`). Earlier notes claiming "no OpenCode plugins" are stale.
+
+Smart Compact REPLACES the V1 `magic-compact` package, which fails to load on OpenCode 2 (`PluginModule.LoadError`). `magic-compact` must never be added.
+- Global opencode.json `plugins`: `["github:mokhtarabadi/opencode-smart-compact", "github:mokhtarabadi/opencode-goal-plugin", "opencode-todolist"]` (git specs track `main`; `opencode plugin add` rejects bare local paths).
 - 2026-10-13 refresh: upstream HEAD `8dc42f9` = v0.2.1 (closes budget-guard deadlock); global npm cache still held v0.2.0, so `plugin remove` + `plugin add` re-registered the spec and the stale `~/.cache/opencode/npm/git-opencode-smart-compact-*/` dir was deleted to force a fresh git fetch on next session start. `opencode plugin list` / `check` / `update <github-spec>` do NOT see github-spec plugins (registry packages only; `update` errors `Plugin is not configured`) — remove+add is the refresh path. Restart required for new code to load.
 - Project reference: `.opencode/smart-compact.jsonc` overrides global defaults per-project and now carries the HQ working budget (200k cap, warn 120k, emergency 160k — needs plugin 0.3.0+); the audit-agents skill ignores it (never flag/patch/delete/gitignore).
 - Native OpenCode compaction stays on: `compaction: {auto: true, keep: {tokens: 20000}}`.

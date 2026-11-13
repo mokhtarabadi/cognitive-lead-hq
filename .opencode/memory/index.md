@@ -10,9 +10,9 @@
 | architecture | zen-proxy-ownership | # zen-proxy is owned by this repo (2026-10-23) | zen-proxy, gateway, brain-provider, systemd, global-install |
 | opencode_config | brain-model-routing-2026-10-24 | # Brain on zen-proxy with one model (Manager order 2026-10-24) |  |
 | opencode_config | global-skills-copy-excludes-docs | # Global skills copy must exclude DECISIONS.md and README.md | skills, opencode |
-| opencode_config | opencode_openchamber_versions_2026_11_02 | # OpenCode / OpenChamber versions — verified 2026-11-02 |  |
-| opencode_config | plugin_policy_magic_compact_2026_10_02 | # OpenCode plugin policy — Smart Compact (updated 2026-11-10) |  |
-| opencode_config | skill-sources-multiple-roots | # Skills load from several roots, not just ~/.config/opencode/skills | skills, opencode, openchamber |
+| opencode_config | opencode_openchamber_versions_2026_11_02 | # OpenCode / OpenChamber versions — verified 2026-11-13 |  |
+| opencode_config | plugin_policy_magic_compact_2026_10_02 | # OpenCode plugin policy — Smart Compact (updated 2026-11-13) |  |
+| opencode_config | skill-sources-multiple-roots | # Skills load from ONE writable global root | skills, opencode, openchamber |
 | opencode_config | smart_compact_verified_2026_10_13 | # Smart Compact v0.2.1 verified live (2026-10-13, post-restart smoke test) |  |
 | opencode_config | v2_server_password_sync_2026_09_26 | # V2 server auth — managed mode only (updated 2026-10-01) |  |
 | project | absent-file-policy | Absent-File Policy: If a referenced core file does not exist (e.g., DESIGN.md, docs/architecture.md, docs/data_model.... |  |
@@ -32,7 +32,7 @@
 | workflows | codemode-policy | # Code Mode policy (OpenCode v2, 2026-10-29) |  |
 | workflows | free-model-context-window-workflow | # Free-model context-window workflow (verified 2026-10-21) |  |
 | workflows | global-install-upgrade | # Global Install Upgrade Workflow (OpenCode) |  |
-| workflows | no_task_for_global_upgrade | Global install upgrades run WITHOUT a task file: Manager order 2026-09-14 — delete any upgrade task file, execute wor... |  |
+| workflows | no_task_for_global_upgrade | Global install **syncs** run WITHOUT a task file: Manager order 2026-09-14 — execute `workflows/global-install-upgrad... |  |
 | workflows | rtk_first_verification | RTK-first verification rule (Manager order 2026-09-17, structurally wired): every test-suite verification run begins ... |  |
 | workflows | telegram-file-delivery | # Sending Task Files to Telegram — MANAGER PREFERENCE (updated 2026-08-10, overrides previous version) |  |
-| workflows | upstream-upgrade-dep-sync | # Upstream Upgrade Dependency Sync (Manager standing rule 2026-10-15) |  |
+| workflows | upstream-upgrade-dep-sync | # Upstream Upgrade Dependency Sync (Manager standing rule 2026-10-15, extended 2026-11-13) |  |
