@@ -4,6 +4,7 @@
 **Source:** manager
 **Type:** improvement
 **Status:** closed
+**Started:** 2026-11-13T19:12:17Z
 **Finished:** 2026-11-13T19:12:17Z
 **Submitted:** 2026-11-13T12:55:41Z
 
@@ -176,6 +177,28 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 **Mode:** manual (default). Autopilot was announced for the QA/review chain and
 the Manager returned to manual on 2026-11-13 after the review verdict. No
 further autonomous chaining: the closure gate needs the Manager's word.
+
+### Closure (2026-11-13)
+
+The Manager issued the exact closure word `Close task` in answer to the
+closure-approval question. Preconditions verified before the turn: the file was
+in `tasks/qa/`, the Execution Log recorded `PO_REVIEW_PENDING`, the Brain QA seat
+had returned `QA_PASSED` (2026-11-13T19:04:21Z, `gen-1794596655`), the Brain Code
+Reviewer had returned `APPROVED` (2026-11-13T19:05:08Z, `gen-1794596693`), and
+the QA queue held 2 tasks, under the cap of 3.
+
+The file moved from `tasks/qa/` to `tasks/completed/` via `git mv`, the status
+became `closed`, and the `**File:**` header was updated to the new path. The
+atomic closure commit `custom_context_commit_and_clean_task` returned feature
+commit `ca71093884cc98fba61185fde89be29a4173a1ec` and created the closure commit
+`chore: close task 400 - harden zen proxy runtime and observability`
+(`569dc32`) on top. The `## Factual Git Diff` block was replaced by the commit
+reference, and the working tree is clean.
+
+Planner lead-time stamps: `sync_task_times` is not exposed in this planner
+build, so the stamp sync was skipped. The `**Started:**`, `**Submitted:**` and
+`**Finished:**` fields are therefore absent from this task file; they are written
+by the lane transitions themselves when the planner server provides the tool.
 
 _(The Hands: Manually log your technical changes, file edits, and architectural reasoning here BEFORE calling the MCP tool)_
 
@@ -713,5 +736,7 @@ and no closure was performed.
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
-**Factual Git Diff:** Stored in Commit Hash: `ca71093884cc98fba61185fde89be29a4173a1ec`
+```diff
+No code changes detected or staged.
+```
 <!-- END_GIT_DIFF -->
