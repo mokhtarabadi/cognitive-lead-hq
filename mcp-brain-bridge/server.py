@@ -64,6 +64,7 @@ import os
 import re
 import sys
 import json
+import logging
 import tempfile
 import threading
 import time
@@ -98,6 +99,8 @@ def _load_env_files(server_dir: Optional[Path] = None) -> Optional[str]:
 _loaded_from = _load_env_files()
 if _loaded_from is not None:
     print(f"brain-bridge: loaded env from {_loaded_from}", file=sys.stderr)
+
+logger = logging.getLogger(__name__)
 
 # Shared per-project sessions resolver lives in loop_guard (stdlib-only,
 # zero coupling back to this module). Guarded import so the server never
@@ -3085,15 +3088,33 @@ def _usage_month_key() -> str:
     return _time.strftime("%Y-%m", _time.gmtime())
 
 
-def _record_brain_use(model: Optional[str] = None) -> Optional[dict]:
+def _record_brain_use(
+    model: Optional[str] = None, usage: Optional[dict] = None
+) -> Optional[dict]:
     """Increment this UTC month's turn counter; return usage summary.
 
-    Returns ``{"count", "cap", "warn_at", "warn", "model"}`` or ``None``
+    Returns ``{"count", "cap", "warn_at", "warn", "model"}`` plus one key per
+    usage counter actually reported by the upstream (``input_tokens``,
+    ``output_tokens``, ``total_tokens``, ``cached_tokens``). Counters the
+    upstream omitted are absent from the return value, never ``None``, because
+    this dict feeds quota and budget arithmetic where ``None`` raises or voids
+    the total. The persisted monthly file stores the same counters under
+    ``last_usage`` and is rewritten every turn, so that key is the most recent
+    turn only, never a monthly sum. Returns ``None``
     when the counter cannot be maintained. File locking keeps concurrent
     turns from losing increments; every failure mode returns ``None``
     instead of raising so a broken counter can never break a turn.
     """
     try:
+        # Usage counters are copied only when present as integers. A missing or
+        # null counter must stay absent rather than become None, because this dict
+        # feeds quota and budget arithmetic where None raises or voids the total.
+        safe_usage: dict[str, int] = {}
+        for key in ("input_tokens", "output_tokens", "total_tokens", "cached_tokens"):
+            value = usage.get(key) if isinstance(usage, dict) else None
+            if isinstance(value, int):
+                safe_usage[key] = value
+
         root = _usage_root()
         root.mkdir(parents=True, exist_ok=True)
         path = root / (_usage_month_key() + ".json")
@@ -3111,18 +3132,27 @@ def _record_brain_use(model: Optional[str] = None) -> Optional[dict]:
                 count = int(data.get("count", 0) or 0) + 1
                 f.seek(0)
                 f.truncate()
-                f.write(json.dumps({"count": count, "model": model}))
+                payload_to_store: dict[str, Any] = {"count": count, "model": model}
+                # Named last_usage, not usage: this file is rewritten every
+                # turn, so a bare "usage" key reads as a monthly total when it
+                # only ever holds the most recent turn.
+                if safe_usage:
+                    payload_to_store["last_usage"] = safe_usage
+                f.write(json.dumps(payload_to_store))
             finally:
                 _fcntl.flock(f.fileno(), _fcntl.LOCK_UN)
         cap = _quota_cap()
         warn_at = _quota_warn_at()
-        return {
+        result_dict: dict[str, Any] = {
             "count": count,
             "cap": cap,
             "warn_at": warn_at,
             "warn": count >= warn_at,
             "model": model,
         }
+        if safe_usage:
+            result_dict.update(safe_usage)
+        return result_dict
     except Exception:
         return None
 
@@ -4814,16 +4844,38 @@ def brain_turn(
             project_root=project_root,
         )
         try:
+            mode = _upstream_mode()
+            target_url = _upstream_url()
+            wire_body = (
+                _convert_responses_to_chat_completions_body(body)
+                if mode == "chat_completions"
+                else body
+            )
             resp, attempts = _send_with_retry(
                 _make_client,
-                _responses_url(),
-                body,
+                target_url,
+                wire_body,
             )
             _total_attempts += attempts
-            resp_data = _resp_json(resp)
+            raw_data = _resp_json(resp)
+            resp_data = (
+                _convert_chat_completions_to_responses_data(raw_data)
+                if mode == "chat_completions"
+                else raw_data
+            )
+            # A translated response can carry status=failed or status=incomplete
+            # with an empty output list. parse_responses_text() would reduce that
+            # to "" and the session would be recorded as an ordinary report, so
+            # the failure has to be captured here, before any text parsing.
+            upstream_failure = _upstream_failure_message(resp_data)
+            if upstream_failure:
+                raise RuntimeError(upstream_failure)
             # Task 374: a completed HTTP round-trip counts against the
             # monthly quota (retries included — each pass is a real call).
-            _warn_brain_quota(_record_brain_use(model))
+            _usage_payload = (
+                resp_data.get("usage") if isinstance(resp_data, dict) else None
+            )
+            _warn_brain_quota(_record_brain_use(model, _usage_payload))
         except RuntimeError as exc:
             # Structured fatal (Task 329 F7): a transport failure, a
             # malformed body, or a fatal 4xx must surface as a REPORT
@@ -4848,7 +4900,18 @@ def brain_turn(
             xml_blocks = []
             _raw_text_present = False
             break
-        output = parse_responses_text(resp_data)
+        _raw_text = parse_responses_text(resp_data)
+        _raw_text_present = bool(_raw_text.strip())
+        output = _raw_text
+        _incomplete_reason = None
+        if isinstance(resp_data, dict):
+            _details = resp_data.get("incomplete_details")
+            if isinstance(_details, dict):
+                _candidate = _details.get("reason")
+                if isinstance(_candidate, str) and _candidate:
+                    _incomplete_reason = _candidate
+        if _incomplete_reason and _raw_text_present:
+            output = f"[upstream incomplete: {_incomplete_reason}]\n{output}"
         # Eligibility is judged on the RAW model text: the triage below
         # rewrites blank output into hint text, and a rewritten hint must
         # never qualify as a "partial" truncation (Task 259 stays terminal).
@@ -5081,12 +5144,440 @@ def brain_turn(
     return result
 
 
-def _responses_url() -> str:
-    """Responses endpoint; override via ``BRAIN_API_BASE``."""
+def _upstream_mode() -> str:
+    """Upstream protocol mode; override via ``BRAIN_UPSTREAM_MODE``.
+
+    Defaults to ``responses`` (OpenAI Responses API /responses endpoint).
+    Set to ``chat_completions`` to connect to OpenAI-compatible
+    /chat/completions endpoints (such as MiniMax Flash or custom gateways).
+    """
+    mode = (
+        os.environ.get("BRAIN_UPSTREAM_MODE", "responses").strip().lower()
+        or "responses"
+    )
+    if mode not in ("responses", "chat_completions"):
+        raise ValueError(
+            f"BRAIN_UPSTREAM_MODE={mode!r} is invalid; expected 'responses' or 'chat_completions'"
+        )
+    return mode
+
+
+def _upstream_url() -> str:
+    """Upstream endpoint URL resolved based on ``BRAIN_UPSTREAM_MODE``."""
     default = "https://api.openai.com/v1"
     base = os.environ.get("BRAIN_API_BASE", default).strip() or default
     base = _https_guard(base, "BRAIN_API_BASE")
+    mode = _upstream_mode()
+    if mode == "chat_completions":
+        return base.rstrip("/") + "/chat/completions"
     return base.rstrip("/") + "/responses"
+
+
+def _responses_url() -> str:
+    """Responses endpoint; override via ``BRAIN_API_BASE``."""
+    return _upstream_url()
+
+
+def _convert_responses_to_chat_completions_body(body: dict[str, Any]) -> dict[str, Any]:
+    """Translate a Responses API request body into a Chat Completions request body.
+
+    Handles:
+    - Flattening Responses 'input' and 'instructions' into 'messages' array
+    - Converting 'max_output_tokens' to 'max_tokens'
+    - Preserving 'model', 'temperature'
+    - Mapping 'reasoning.effort' to top-level 'reasoning_effort' when present
+    """
+    # Responses-only fields with no Chat Completions counterpart. Dropping one
+    # silently is worse than saying so: `previous_response_id` in particular
+    # carries multi-turn history, so a quiet drop ships the next turn without
+    # its context and the model answers blind.
+    _CHAT_UNSUPPORTED_FIELDS: tuple[str, ...] = (
+        "store",
+        "previous_response_id",
+        "metadata",
+        "include",
+        "truncation",
+        "service_tier",
+        "text",
+    )
+
+    chat_body: dict[str, Any] = {
+        "model": body.get("model", ""),
+    }
+    for _dropped in _CHAT_UNSUPPORTED_FIELDS:
+        if body.get(_dropped) is not None:
+            logger.warning(
+                "BRAIN_UPSTREAM_MODE=chat_completions dropped unsupported "
+                "Responses field %s; the chat completions wire format has no "
+                "equivalent",
+                _dropped,
+            )
+    messages: list[dict[str, Any]] = []
+
+    # System instruction handling
+    instructions = body.get("instructions")
+    if isinstance(instructions, str) and instructions.strip():
+        messages.append({"role": "system", "content": instructions})
+
+    # `input` is a string on the most common single-turn call. Iterating a
+    # str yields characters, every one of which fails the dict guard below,
+    # so the user turn would vanish without this branch.
+    raw_input = body.get("input")
+    if isinstance(raw_input, str):
+        if raw_input.strip():
+            messages.append({"role": "user", "content": raw_input})
+        raw_input = []
+
+    for item in raw_input or []:
+        if not isinstance(item, dict):
+            continue
+        role = item.get("role")
+        content = item.get("content")
+        # If the item is already a message role
+        if role in ("system", "user", "assistant"):
+            if isinstance(content, str):
+                messages.append({"role": role, "content": content})
+            elif isinstance(content, list):
+                # Flatten text parts if structured content
+                text_parts = []
+                for part in content:
+                    if isinstance(part, dict):
+                        if (
+                            part.get("type") in ("text", "output_text")
+                            or "text" in part
+                        ):
+                            text_parts.append(part.get("text", ""))
+                    elif isinstance(part, str):
+                        text_parts.append(part)
+                messages.append({"role": role, "content": "\n".join(text_parts)})
+        elif item.get("type") == "message":
+            # Responses item format
+            msg_role = item.get("role", "assistant")
+            item_content = item.get("content")
+            if isinstance(item_content, list):
+                text_parts = []
+                for chunk in item_content:
+                    if isinstance(chunk, dict):
+                        if (
+                            chunk.get("type") in ("text", "output_text")
+                            or "text" in chunk
+                        ):
+                            text_parts.append(chunk.get("text", ""))
+                    elif isinstance(chunk, str):
+                        text_parts.append(chunk)
+                messages.append({"role": msg_role, "content": "\n".join(text_parts)})
+            elif isinstance(item_content, str):
+                messages.append({"role": msg_role, "content": item_content})
+        elif item.get("type") == "function_call":
+            # An assistant tool call has no "role" key, so the two branches
+            # above cannot see it. Dropping it silently severs a multi-turn
+            # tool chain: the model's own call disappears and the next turn
+            # shows a tool result with no request behind it.
+            call_id = item.get("call_id")
+            call_name = item.get("name")
+            call_args = item.get("arguments")
+            if isinstance(call_name, str) and call_name:
+                call_entry: dict[str, Any] = {
+                    "id": call_id if isinstance(call_id, str) else call_name,
+                    "type": "function",
+                    "function": {
+                        "name": call_name,
+                        # Arguments travel as a JSON string on the chat
+                        # completions wire, never as a dict.
+                        "arguments": call_args
+                        if isinstance(call_args, str)
+                        else json.dumps(call_args if call_args is not None else {}),
+                    },
+                }
+                messages.append(
+                    {"role": "assistant", "content": None, "tool_calls": [call_entry]}
+                )
+        elif item.get("type") == "function_call_output":
+            # The matching tool result. Chat completions pairs a tool result
+            # with role="tool" plus the originating call id, so the id must
+            # survive the crossing or the provider rejects the whole request.
+            output_payload = item.get("output")
+            if isinstance(output_payload, (dict, list)):
+                output_payload = json.dumps(output_payload)
+            if not isinstance(output_payload, str):
+                output_payload = "" if output_payload is None else str(output_payload)
+            messages.append(
+                {
+                    "role": "tool",
+                    "tool_call_id": item.get("call_id"),
+                    "content": output_payload,
+                }
+            )
+
+    chat_body["messages"] = messages
+
+    if "max_output_tokens" in body:
+        chat_body["max_tokens"] = body["max_output_tokens"]
+    elif "max_tokens" in body:
+        chat_body["max_tokens"] = body["max_tokens"]
+
+    if "temperature" in body:
+        chat_body["temperature"] = body["temperature"]
+
+    reasoning = body.get("reasoning")
+    if isinstance(reasoning, dict) and "effort" in reasoning:
+        chat_body["reasoning_effort"] = reasoning["effort"]
+
+    # Tool definitions must survive the crossing, otherwise a
+    # chat-completions-only model can never call a tool and the Brain's
+    # hands protocol dead-ends. Responses uses a flat function list; chat
+    # completions nests the same fields under "function".
+    tools = body.get("tools")
+    if isinstance(tools, list) and tools:
+        mapped_tools: list[dict[str, Any]] = []
+        for tool in tools:
+            if not isinstance(tool, dict):
+                continue
+            if tool.get("type") == "function" and isinstance(
+                tool.get("function"), dict
+            ):
+                # Already chat-completions shaped; pass through unchanged.
+                mapped_tools.append(tool)
+                continue
+            name = tool.get("name")
+            if not isinstance(name, str) or not name:
+                continue
+            parameters = tool.get("parameters")
+            mapped_tools.append(
+                {
+                    "type": "function",
+                    "function": {
+                        "name": name,
+                        "description": tool.get("description", ""),
+                        "parameters": parameters
+                        if isinstance(parameters, dict)
+                        else {"type": "object", "properties": {}},
+                    },
+                }
+            )
+        if mapped_tools:
+            chat_body["tools"] = mapped_tools
+
+    # tool_choice: Responses accepts a bare string or a named-function dict;
+    # chat completions needs the nested {"type":"function","function":{"name":..}}.
+    tool_choice = body.get("tool_choice")
+    if isinstance(tool_choice, str):
+        chat_body["tool_choice"] = tool_choice
+    elif isinstance(tool_choice, dict) and isinstance(tool_choice.get("name"), str):
+        chat_body["tool_choice"] = {
+            "type": "function",
+            "function": {"name": tool_choice["name"]},
+        }
+
+    # Only forward parallel_tool_calls when tools are actually present; sending
+    # it without a tools array is a 400 on strict OpenAI-compatible gateways.
+    if "tools" in chat_body and "parallel_tool_calls" in body:
+        chat_body["parallel_tool_calls"] = body["parallel_tool_calls"]
+
+    return chat_body
+
+
+def _build_responses_output(
+    output_text: str,
+    reasoning_text: str,
+    tool_calls: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Assemble a Responses-shaped ``output`` list from Chat Completions parts.
+
+    Order is deliberate and matches how the Brain scans output: reasoning
+    first (diagnostics), then the assistant message, then function calls.
+    Sections with no content are omitted rather than emitted empty, because
+    an empty ``output_text`` block makes ``parse_responses_text`` return ""
+    and the caller cannot tell "no answer" from "empty answer".
+    """
+    items: list[dict[str, Any]] = []
+    if reasoning_text:
+        items.append(
+            {
+                "type": "reasoning",
+                "summary": [{"type": "summary_text", "text": reasoning_text}],
+            }
+        )
+    if output_text:
+        items.append(
+            {
+                "type": "message",
+                "role": "assistant",
+                "content": [{"type": "output_text", "text": output_text}],
+            }
+        )
+    for call in tool_calls:
+        function = call.get("function")
+        if not isinstance(function, dict):
+            continue
+        items.append(
+            {
+                "type": "function_call",
+                "call_id": call.get("id"),
+                "name": function.get("name"),
+                "arguments": function.get("arguments"),
+            }
+        )
+    return items
+
+
+# Chat Completions finish_reason -> Responses API status/incomplete_reason.
+# The Brain branches on `status`, so an unmapped or unknown reason must never
+# be reported as a clean completion.
+_FINISH_REASON_TO_STATUS: dict[str, tuple[str, str | None]] = {
+    "stop": ("completed", None),
+    "length": ("incomplete", "max_output_tokens"),
+    "content_filter": ("incomplete", "content_filter"),
+    "tool_calls": ("completed", None),
+    "function_call": ("completed", None),
+}
+
+
+def _responses_status_from_finish(finish_reason: Any) -> tuple[str, str | None]:
+    """Map a Chat Completions ``finish_reason`` to (status, incomplete_reason).
+
+    Returns ``("completed", None)`` only for reasons that mean the model
+    produced a final answer. An absent or unrecognised reason returns
+    ``("incomplete", "unknown_finish_reason")`` so a truncated or filtered
+    response is never mistaken for success.
+    """
+    if isinstance(finish_reason, str):
+        mapped = _FINISH_REASON_TO_STATUS.get(finish_reason.strip().lower())
+        if mapped is not None:
+            return mapped
+    return ("incomplete", "unknown_finish_reason")
+
+
+def _upstream_failure_message(resp_data: Any) -> str | None:
+    """Return a human-readable failure reason when a response is not usable.
+
+    Only a terminal failure returns a message. ``status=incomplete`` is NOT a
+    failure: a length-truncated answer is still a real answer the Brain can
+    parse, and treating it as an error would discard usable output. An
+    incomplete response is annotated instead (see the caller).
+
+    Returns ``None`` when the response is usable, so the caller can proceed
+    with normal parsing.
+    """
+    if not isinstance(resp_data, dict):
+        return None
+    status = resp_data.get("status")
+    if not isinstance(status, str):
+        return None
+    if status == "failed":
+        error = resp_data.get("error")
+        if isinstance(error, dict):
+            message = error.get("message")
+            if isinstance(message, str) and message.strip():
+                return f"brain upstream failed: {message.strip()}"
+        return "brain upstream failed: no error message provided"
+    return None
+
+
+def _convert_chat_completions_to_responses_data(
+    chat_resp: dict[str, Any],
+) -> dict[str, Any]:
+    """Translate a Chat Completions response JSON into the Responses API structure.
+
+    Normalizes choices[0].message.content into output[type=message] and usage fields.
+    """
+    if not isinstance(chat_resp, dict):
+        return {"output": []}
+
+    # Upstream errors arrive as a 200-with-error body on some gateways and as a
+    # non-2xx body on others. Surface both as status=failed with the message
+    # preserved, so the Brain reports a failure instead of empty output.
+    upstream_error = chat_resp.get("error")
+    if upstream_error:
+        err_message = (
+            upstream_error.get("message")
+            if isinstance(upstream_error, dict)
+            else str(upstream_error)
+        )
+        return {
+            "id": chat_resp.get("id"),
+            "model": chat_resp.get("model"),
+            "status": "failed",
+            "error": {"message": err_message or "upstream error"},
+            "output": [],
+        }
+
+    output_text = ""
+    _finish_reason: Any = None
+    # Tool calls and reasoning are first-class outputs for an agent brain: a
+    # chat-completions model that answers with a tool call has no message
+    # content at all, so reading content alone silently returns empty output.
+    tool_calls: list[dict[str, Any]] = []
+    reasoning_text = ""
+    choices = chat_resp.get("choices")
+    if isinstance(choices, list) and choices:
+        first = choices[0]
+        if isinstance(first, dict):
+            _finish_reason = first.get("finish_reason")
+            msg = first.get("message")
+            if isinstance(msg, dict):
+                # Some gateways return content as a list of parts; flatten it
+                # with the same rule the request converter uses.
+                raw_content = msg.get("content")
+                if isinstance(raw_content, str):
+                    output_text = raw_content
+                elif isinstance(raw_content, list):
+                    parts = [
+                        p.get("text", "")
+                        for p in raw_content
+                        if isinstance(p, dict) and isinstance(p.get("text"), str)
+                    ]
+                    output_text = "\n".join(parts)
+                # MiniMax and DeepSeek-style gateways name it reasoning_content;
+                # OpenAI-compatible ones use message.reasoning.
+                for key in ("reasoning_content", "reasoning"):
+                    candidate = msg.get(key)
+                    if isinstance(candidate, str) and candidate.strip():
+                        reasoning_text = candidate
+                        break
+                raw_calls = msg.get("tool_calls")
+                if isinstance(raw_calls, list):
+                    tool_calls = [c for c in raw_calls if isinstance(c, dict)]
+
+    # Status comes from the finish reason, never hardcoded: downstream
+    # session classification reads this field to decide XML_EXTRACTED vs REPORT.
+    _status, _incomplete_reason = _responses_status_from_finish(_finish_reason)
+
+    resp_data: dict[str, Any] = {
+        "id": chat_resp.get("id"),
+        "model": chat_resp.get("model"),
+        "status": _status,
+        "output": _build_responses_output(output_text, reasoning_text, tool_calls),
+    }
+
+    if _incomplete_reason is not None:
+        resp_data_incomplete: dict[str, Any] = {"reason": _incomplete_reason}
+        resp_data["incomplete_details"] = resp_data_incomplete
+
+    # Usage mapping: a counter that the upstream omitted stays OMITTED.
+    # Storing None here would leak into quota accounting and budget math,
+    # where None inside an arithmetic expression raises or silently voids
+    # the total. Presence of the key means "the provider reported a number".
+    usage = chat_resp.get("usage")
+    if isinstance(usage, dict):
+        mapped_usage: dict[str, int] = {}
+        if isinstance(usage.get("prompt_tokens"), int):
+            mapped_usage["input_tokens"] = usage["prompt_tokens"]
+        if isinstance(usage.get("completion_tokens"), int):
+            mapped_usage["output_tokens"] = usage["completion_tokens"]
+        if isinstance(usage.get("total_tokens"), int):
+            mapped_usage["total_tokens"] = usage["total_tokens"]
+        # Derived total only when the provider omitted it but both halves exist.
+        if "total_tokens" not in mapped_usage and (
+            "input_tokens" in mapped_usage and "output_tokens" in mapped_usage
+        ):
+            mapped_usage["total_tokens"] = (
+                mapped_usage["input_tokens"] + mapped_usage["output_tokens"]
+            )
+        if mapped_usage:
+            resp_data["usage"] = mapped_usage
+
+    return resp_data
 
 
 def _get_reasoning_effort() -> str:
@@ -5627,6 +6118,11 @@ def parse_responses_text(data: dict) -> str:
             text = item.get("text")
             if isinstance(text, str) and text:
                 parts.append(text)
+        elif item.get("type") == "function_call":
+            name = item.get("name")
+            args = item.get("arguments")
+            if isinstance(name, str):
+                parts.append(f"{name}({args or ''})")
     return "\n".join(parts)
 
 

@@ -2675,7 +2675,8 @@ def test_budget_window_and_margin_read_env_overrides(monkeypatch):
     assert "100000" in bridge._over_budget_hint(90000, 9001)
 
 
-def test_pure_budget_fits_exact_boundary():
+def test_pure_budget_fits_exact_boundary(monkeypatch):
+    monkeypatch.delenv("BRAIN_CONTEXT_WINDOW_TOKENS", raising=False)
     limit = (
         bridge._PROVIDER_CONTEXT_WINDOW_DEFAULT - bridge._BUDGET_SAFETY_MARGIN_DEFAULT
     )
@@ -2687,6 +2688,7 @@ def test_over_budget_returns_report_with_numbers_and_skips_provider(
     tmp_path, monkeypatch
 ):
     # Reserve above the window can never fit: provider must not be called.
+    monkeypatch.delenv("BRAIN_CONTEXT_WINDOW_TOKENS", raising=False)
     monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
     _mk_sys_prompt(tmp_path, monkeypatch)
     monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
@@ -5196,3 +5198,550 @@ def test_brain_turn_output_address_propagated_and_degraded(tmp_path, monkeypatch
     degraded = target("q", task_id="218", include_bundle=False, project_root=str(root))
     assert degraded["output_address"] is None
     assert degraded["status"] == "REPORT"
+
+
+# --- Task 401: Chat-completions translation and upstream mode ---
+
+
+def test_upstream_mode_default_and_validation(monkeypatch):
+    monkeypatch.delenv("BRAIN_UPSTREAM_MODE", raising=False)
+    assert bridge._upstream_mode() == "responses"
+
+    monkeypatch.setenv("BRAIN_UPSTREAM_MODE", "chat_completions")
+    assert bridge._upstream_mode() == "chat_completions"
+
+    monkeypatch.setenv("BRAIN_UPSTREAM_MODE", "RESPONSES")
+    assert bridge._upstream_mode() == "responses"
+
+    monkeypatch.setenv("BRAIN_UPSTREAM_MODE", "invalid_mode")
+    with pytest.raises(
+        ValueError, match="BRAIN_UPSTREAM_MODE='invalid_mode' is invalid"
+    ):
+        bridge._upstream_mode()
+
+
+def test_upstream_url_resolution(monkeypatch):
+    monkeypatch.delenv("BRAIN_UPSTREAM_MODE", raising=False)
+    monkeypatch.setenv("BRAIN_API_BASE", "http://127.0.0.1:8081/go/resp")
+    assert bridge._upstream_url() == "http://127.0.0.1:8081/go/resp/responses"
+
+    monkeypatch.setenv("BRAIN_UPSTREAM_MODE", "chat_completions")
+    monkeypatch.setenv("BRAIN_API_BASE", "https://api.openai.com/v1")
+    assert bridge._upstream_url() == "https://api.openai.com/v1/chat/completions"
+
+
+def test_convert_responses_to_chat_completions_body():
+    responses_body = {
+        "model": "minimax-m3.1-flash",
+        "instructions": "You are a helpful assistant.",
+        "input": [
+            {"role": "user", "content": "Hello!"},
+            {
+                "type": "message",
+                "role": "assistant",
+                "content": [{"type": "output_text", "text": "Hi there!"}],
+            },
+            {"role": "user", "content": "How are you?"},
+        ],
+        "max_output_tokens": 4096,
+        "temperature": 0.2,
+        "reasoning": {"effort": "high"},
+    }
+
+    chat_body = bridge._convert_responses_to_chat_completions_body(responses_body)
+    assert chat_body["model"] == "minimax-m3.1-flash"
+    assert chat_body["max_tokens"] == 4096
+    assert chat_body["temperature"] == 0.2
+    assert chat_body["reasoning_effort"] == "high"
+    assert len(chat_body["messages"]) == 4
+    assert chat_body["messages"][0] == {
+        "role": "system",
+        "content": "You are a helpful assistant.",
+    }
+    assert chat_body["messages"][1] == {"role": "user", "content": "Hello!"}
+    assert chat_body["messages"][2] == {"role": "assistant", "content": "Hi there!"}
+    assert chat_body["messages"][3] == {"role": "user", "content": "How are you?"}
+
+
+def test_convert_chat_completions_to_responses_data():
+    chat_resp = {
+        "id": "chatcmpl-12345",
+        "model": "minimax-m3.1-flash",
+        "choices": [
+            {
+                "index": 0,
+                "message": {
+                    "role": "assistant",
+                    "content": "Here is the plan:\n```xml\n<plan>123</plan>\n```",
+                },
+                "finish_reason": "stop",
+            }
+        ],
+        "usage": {
+            "prompt_tokens": 100,
+            "completion_tokens": 50,
+            "total_tokens": 150,
+        },
+    }
+
+    resp_data = bridge._convert_chat_completions_to_responses_data(chat_resp)
+    assert resp_data["id"] == "chatcmpl-12345"
+    assert resp_data["model"] == "minimax-m3.1-flash"
+    assert resp_data["status"] == "completed"
+    assert bridge.parse_responses_text(resp_data) == (
+        "Here is the plan:\n```xml\n<plan>123</plan>\n```"
+    )
+    assert resp_data["usage"]["input_tokens"] == 100
+    assert resp_data["usage"]["output_tokens"] == 50
+    assert resp_data["usage"]["total_tokens"] == 150
+
+
+def test_brain_turn_with_chat_completions_mode(tmp_path, monkeypatch):
+    """End-to-end brain_turn dispatch using BRAIN_UPSTREAM_MODE=chat_completions."""
+    monkeypatch.setenv("BRAIN_UPSTREAM_MODE", "chat_completions")
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-chat-key")
+    monkeypatch.setenv("BRAIN_API_BASE", "http://127.0.0.1:8081/chat")
+    monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
+    _mk_sys_prompt(tmp_path, monkeypatch)
+    root = _mk_tasks_root(tmp_path)
+
+    chat_upstream_payload = {
+        "id": "chatcmpl-minimax-1",
+        "model": "minimax-m3.1-flash",
+        "choices": [
+            {
+                "index": 0,
+                "message": {
+                    "role": "assistant",
+                    "content": "Plan approved.\nverdict: PLAN APPROVED\nseats: Architect",
+                },
+                "finish_reason": "stop",
+            }
+        ],
+        "usage": {"prompt_tokens": 120, "completion_tokens": 60, "total_tokens": 180},
+    }
+
+    holder = {}
+    _mk_bridge_client(
+        monkeypatch, [_FakeResp(200, "OK", chat_upstream_payload)], holder
+    )
+
+    call = bridge.brain_turn
+    target = call.fn if hasattr(call, "fn") else call
+    res = target(
+        "test question", task_id="218", include_bundle=False, project_root=str(root)
+    )
+
+    assert res["status"] == "REPORT"
+    assert "Plan approved." in res["output"]
+
+    # Verify that what went over the wire was chat completions shape
+    sent_body = holder["body"]
+    assert "messages" in sent_body
+    assert "input" not in sent_body
+    assert any(
+        m["role"] == "user" and "test question" in m["content"]
+        for m in sent_body["messages"]
+    )
+
+
+def test_convert_usage_omits_missing_counters():
+    """F3: a missing counter must be absent, never None."""
+    resp = bridge._convert_chat_completions_to_responses_data(
+        {"id": "x", "choices": [{"message": {"content": "ok"}}], "usage": {}}
+    )
+    assert "usage" not in resp
+
+    partial = bridge._convert_chat_completions_to_responses_data(
+        {
+            "id": "x",
+            "choices": [{"message": {"content": "ok"}}],
+            "usage": {"prompt_tokens": 10, "completion_tokens": 5},
+        }
+    )
+    assert partial["usage"] == {
+        "input_tokens": 10,
+        "output_tokens": 5,
+        "total_tokens": 15,
+    }
+
+
+def test_convert_finish_reason_maps_status():
+    """F1: status must come from finish_reason, not a constant."""
+    length = bridge._convert_chat_completions_to_responses_data(
+        {"choices": [{"message": {"content": "trunc"}, "finish_reason": "length"}]}
+    )
+    assert length["status"] == "incomplete"
+    assert length["incomplete_details"]["reason"] == "max_output_tokens"
+
+    filtered = bridge._convert_chat_completions_to_responses_data(
+        {
+            "choices": [
+                {
+                    "message": {"content": ""},
+                    "finish_reason": "content_filter",
+                }
+            ]
+        }
+    )
+    assert filtered["status"] == "incomplete"
+    assert filtered["incomplete_details"]["reason"] == "content_filter"
+
+    unknown = bridge._convert_chat_completions_to_responses_data(
+        {"choices": [{"message": {"content": "x"}, "finish_reason": "weird"}]}
+    )
+    assert unknown["status"] == "incomplete"
+    assert unknown["incomplete_details"]["reason"] == "unknown_finish_reason"
+
+    missing = bridge._convert_chat_completions_to_responses_data(
+        {"choices": [{"message": {"content": "x"}}]}
+    )
+    assert missing["status"] == "incomplete"
+
+
+def test_convert_upstream_error_becomes_failed_status():
+    """F1: an error body must not surface as an empty success."""
+    resp = bridge._convert_chat_completions_to_responses_data(
+        {"error": {"message": "model not found", "type": "invalid_request_error"}}
+    )
+    assert resp["status"] == "failed"
+    assert resp["error"]["message"] == "model not found"
+    assert resp["output"] == []
+
+
+def test_convert_tool_calls_and_reasoning_preserved():
+    """F2: tool calls and reasoning must cross the boundary."""
+    resp = bridge._convert_chat_completions_to_responses_data(
+        {
+            "id": "c1",
+            "choices": [
+                {
+                    "finish_reason": "tool_calls",
+                    "message": {
+                        "role": "assistant",
+                        "content": None,
+                        "reasoning_content": "thinking about it",
+                        "tool_calls": [
+                            {
+                                "id": "call_1",
+                                "type": "function",
+                                "function": {
+                                    "name": "read_file",
+                                    "arguments": '{"p":"a.py"}',
+                                },
+                            }
+                        ],
+                    },
+                }
+            ],
+        }
+    )
+    types = [item["type"] for item in resp["output"]]
+    assert types == ["reasoning", "function_call"]
+    assert resp["output"][0]["summary"][0]["text"] == "thinking about it"
+    call = resp["output"][1]
+    assert call["name"] == "read_file"
+    assert call["call_id"] == "call_1"
+    assert call["arguments"] == '{"p":"a.py"}'
+    assert resp["status"] == "completed"
+
+
+def test_request_body_carries_tools_and_tool_choice():
+    """F2: tool definitions must survive request translation."""
+    body = bridge._convert_responses_to_chat_completions_body(
+        {
+            "model": "m",
+            "input": [{"role": "user", "content": "hi"}],
+            "tools": [
+                {
+                    "type": "function",
+                    "name": "read_file",
+                    "description": "read",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {"p": {"type": "string"}},
+                    },
+                }
+            ],
+            "tool_choice": "auto",
+            "parallel_tool_calls": False,
+        }
+    )
+    assert body["tools"][0]["type"] == "function"
+    assert body["tools"][0]["function"]["name"] == "read_file"
+    assert body["tool_choice"] == "auto"
+    assert body["parallel_tool_calls"] is False
+
+
+def test_parallel_tool_calls_dropped_without_tools():
+    """A tools-less body must not carry parallel_tool_calls (strict 400)."""
+    body = bridge._convert_responses_to_chat_completions_body(
+        {"model": "m", "input": [], "parallel_tool_calls": True}
+    )
+    assert "parallel_tool_calls" not in body
+    assert "tools" not in body
+
+
+def test_brain_turn_chat_completions_non_200_is_failure(tmp_path, monkeypatch):
+    """F4: the retry/error path must be exercised in chat_completions mode."""
+    monkeypatch.setenv("BRAIN_UPSTREAM_MODE", "chat_completions")
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-chat-key")
+    monkeypatch.setenv("BRAIN_API_BASE", "http://127.0.0.1:8081/chat")
+    monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
+    _mk_sys_prompt(tmp_path, monkeypatch)
+    root = _mk_tasks_root(tmp_path)
+
+    _mk_bridge_client(
+        monkeypatch,
+        [_FakeResp(401, "Unauthorized", {"error": {"message": "bad key"}})],
+        {},
+    )
+    call = bridge.brain_turn
+    target = call.fn if hasattr(call, "fn") else call
+    res = target("q", task_id="218", include_bundle=False, project_root=str(root))
+    assert res["status"] == "REPORT"
+    assert "bad key" in res["output"] or "401" in res["output"]
+
+
+def test_brain_turn_chat_completions_failure_status_raises(tmp_path, monkeypatch):
+    """F1/F2: status=failed must surface as a failure through brain_turn."""
+    monkeypatch.setenv("BRAIN_UPSTREAM_MODE", "chat_completions")
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-chat-key")
+    monkeypatch.setenv("BRAIN_API_BASE", "http://127.0.0.1:8081/chat")
+    monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
+    _mk_sys_prompt(tmp_path, monkeypatch)
+    root = _mk_tasks_root(tmp_path)
+
+    payload = {
+        "id": "chatcmpl-err",
+        "error": {"message": "model not found", "type": "invalid_request_error"},
+    }
+    _mk_bridge_client(monkeypatch, [_FakeResp(200, "OK", payload)], {})
+    call = bridge.brain_turn
+    target = call.fn if hasattr(call, "fn") else call
+    res = target("q", task_id="218", include_bundle=False, project_root=str(root))
+    assert res["status"] == "REPORT"
+    assert "model not found" in res["output"]
+
+
+def test_brain_turn_chat_completions_incomplete_is_annotated(tmp_path, monkeypatch):
+    """F1/F2: an incomplete response stays usable but is marked truncated."""
+    monkeypatch.setenv("BRAIN_UPSTREAM_MODE", "chat_completions")
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-chat-key")
+    monkeypatch.setenv("BRAIN_API_BASE", "http://127.0.0.1:8081/chat")
+    monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
+    _mk_sys_prompt(tmp_path, monkeypatch)
+    root = _mk_tasks_root(tmp_path)
+
+    payload = {
+        "id": "chatcmpl-trunc",
+        "choices": [
+            {
+                "index": 0,
+                "message": {"role": "assistant", "content": "partial plan text"},
+                "finish_reason": "content_filter",
+            }
+        ],
+        "usage": {"prompt_tokens": 10, "completion_tokens": 4096},
+    }
+    _mk_bridge_client(monkeypatch, [_FakeResp(200, "OK", payload)], {})
+    call = bridge.brain_turn
+    target = call.fn if hasattr(call, "fn") else call
+    res = target("q", task_id="218", include_bundle=False, project_root=str(root))
+    assert res["status"] == "REPORT"
+    assert "upstream incomplete: content_filter" in res["output"]
+    assert "partial plan text" in res["output"]
+
+
+def test_brain_turn_chat_completions_tool_call_survives_dispatch(tmp_path, monkeypatch):
+    """F2: a tool-call-only answer must not be flattened into empty output."""
+    monkeypatch.setenv("BRAIN_UPSTREAM_MODE", "chat_completions")
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-chat-key")
+    monkeypatch.setenv("BRAIN_API_BASE", "http://127.0.0.1:8081/chat")
+    monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
+    _mk_sys_prompt(tmp_path, monkeypatch)
+    root = _mk_tasks_root(tmp_path)
+
+    payload = {
+        "id": "chatcmpl-tools",
+        "choices": [
+            {
+                "index": 0,
+                "finish_reason": "tool_calls",
+                "message": {
+                    "role": "assistant",
+                    "content": None,
+                    "tool_calls": [
+                        {
+                            "id": "call_9",
+                            "type": "function",
+                            "function": {
+                                "name": "read_file",
+                                "arguments": '{"p":"server.py"}',
+                            },
+                        }
+                    ],
+                },
+            }
+        ],
+    }
+    holder = {}
+    _mk_bridge_client(monkeypatch, [_FakeResp(200, "OK", payload)], holder)
+    call = bridge.brain_turn
+    target = call.fn if hasattr(call, "fn") else call
+    res = target("q", task_id="218", include_bundle=False, project_root=str(root))
+    assert res["status"] == "REPORT"
+    assert "read_file" in res["output"]
+    assert "server.py" in res["output"]
+
+
+def test_record_brain_use_tolerates_partial_usage(tmp_path, monkeypatch):
+    """F3: a partial usage dict must never store None counters."""
+    monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
+    bridge._record_brain_use("test-model", {"input_tokens": 100})
+    bridge._record_brain_use("test-model", {})
+    # Two calls must not raise on a missing counter. The concrete assertion is
+    # that the stored/returned usage contains no None values.
+    stored = bridge._record_brain_use(
+        "test-model", {"input_tokens": 1, "output_tokens": None}
+    )
+    assert all(v is not None for v in stored.values())
+
+
+def test_string_input_becomes_a_single_user_message():
+    """R2: a bare-string input must not be iterated character by character."""
+    body = bridge._convert_responses_to_chat_completions_body(
+        {
+            "model": "m",
+            "instructions": "be brief",
+            "input": "hello there",
+        }
+    )
+    assert body["messages"] == [
+        {"role": "system", "content": "be brief"},
+        {"role": "user", "content": "hello there"},
+    ]
+
+
+def test_blank_string_input_produces_no_user_message():
+    """R2: whitespace-only input adds no empty turn."""
+    body = bridge._convert_responses_to_chat_completions_body(
+        {"model": "m", "input": "   "}
+    )
+    assert body["messages"] == []
+
+
+def test_unsupported_responses_fields_are_dropped_with_warning(caplog):
+    """R1: a drop must be visible, never silent."""
+    with caplog.at_level("WARNING"):
+        body = bridge._convert_responses_to_chat_completions_body(
+            {
+                "model": "m",
+                "input": [{"role": "user", "content": "hi"}],
+                "previous_response_id": "resp_1",
+                "store": True,
+                "metadata": {"k": "v"},
+            }
+        )
+    assert "previous_response_id" not in body
+    assert "store" not in body
+    logged = " ".join(record.message for record in caplog.records)
+    assert "previous_response_id" in logged
+    assert "store" in logged
+
+
+def test_no_warning_when_no_unsupported_fields_present(caplog):
+    """R1: a clean body must not emit drop warnings."""
+    with caplog.at_level("WARNING"):
+        bridge._convert_responses_to_chat_completions_body(
+            {"model": "m", "input": [{"role": "user", "content": "hi"}]}
+        )
+    assert "dropped unsupported" not in " ".join(
+        record.message for record in caplog.records
+    )
+
+
+def test_assistant_function_call_item_becomes_tool_call_message():
+    """F1: a roleless function_call item must not vanish."""
+    body = bridge._convert_responses_to_chat_completions_body(
+        {
+            "model": "m",
+            "input": [
+                {"role": "user", "content": "read server.py"},
+                {
+                    "type": "function_call",
+                    "call_id": "call_1",
+                    "name": "read_file",
+                    "arguments": '{"p":"server.py"}',
+                },
+                {
+                    "type": "function_call_output",
+                    "call_id": "call_1",
+                    "output": "def main(): ...",
+                },
+            ],
+        }
+    )
+    roles = [m["role"] for m in body["messages"]]
+    assert roles == ["user", "assistant", "tool"]
+
+    tool_call_msg = body["messages"][1]
+    assert tool_call_msg["content"] is None
+    assert tool_call_msg["tool_calls"][0]["id"] == "call_1"
+    assert tool_call_msg["tool_calls"][0]["function"]["name"] == "read_file"
+    assert tool_call_msg["tool_calls"][0]["function"]["arguments"] == (
+        '{"p":"server.py"}'
+    )
+
+    tool_result = body["messages"][2]
+    assert tool_result["tool_call_id"] == "call_1"
+    assert tool_result["content"] == "def main(): ..."
+
+
+def test_function_call_with_dict_arguments_is_json_encoded():
+    """F1: dict arguments must cross as a JSON string, not a dict."""
+    body = bridge._convert_responses_to_chat_completions_body(
+        {
+            "model": "m",
+            "input": [
+                {
+                    "type": "function_call",
+                    "call_id": "c2",
+                    "name": "read_file",
+                    "arguments": {"p": "a.py"},
+                }
+            ],
+        }
+    )
+    raw = body["messages"][0]["tool_calls"][0]["function"]["arguments"]
+    assert isinstance(raw, str)
+    assert json.loads(raw) == {"p": "a.py"}
+
+
+def test_brain_turn_incomplete_is_not_a_terminal_failure(tmp_path, monkeypatch):
+    """F2: an incomplete response must be annotated, never aborted."""
+    monkeypatch.setenv("BRAIN_UPSTREAM_MODE", "chat_completions")
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-chat-key")
+    monkeypatch.setenv("BRAIN_API_BASE", "http://127.0.0.1:8081/chat")
+    monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
+    _mk_sys_prompt(tmp_path, monkeypatch)
+    root = _mk_tasks_root(tmp_path)
+
+    payload = {
+        "id": "chatcmpl-length",
+        "choices": [
+            {
+                "index": 0,
+                "message": {"role": "assistant", "content": "cut mid-sentence"},
+                "finish_reason": "content_filter",
+            }
+        ],
+    }
+    _mk_bridge_client(monkeypatch, [_FakeResp(200, "OK", payload)], {})
+    call = bridge.brain_turn
+    target = call.fn if hasattr(call, "fn") else call
+    res = target("q", task_id="218", include_bundle=False, project_root=str(root))
+    assert res["status"] == "REPORT"
+    assert "upstream incomplete: content_filter" in res["output"]
+    assert "cut mid-sentence" in res["output"]
+    assert "status=incomplete" not in res["output"]
