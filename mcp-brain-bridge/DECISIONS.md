@@ -16,6 +16,7 @@
 - **Incomplete is not a failure:** only an unrecognised upstream `status` aborts the turn. `status=incomplete` is annotated with `[upstream incomplete: <reason>]` and returned, because a truncated plan is cheaper to read than a re-run call.
 - **Consequences:** Brain Bridge can connect directly to OpenAI-compatible chat completion endpoints while preserving 100% backward compatibility when unset.
 - **Rollback:** Unset `BRAIN_UPSTREAM_MODE` (defaults to `responses`) or revert the converter helpers.
+- **[2026-11-15] ADR-014 addendum (task 403): structured `tool_calls` result channel.** `brain_turn` now returns an additive `tool_calls` list alongside `output`: one entry per `function_call` item in the normalized Responses-shaped output list, each with `call_id`, `name`, `arguments` (parsed dict, `{}` when the wire value is not a JSON object), `arguments_raw` (always the original string form), and `source` (`responses` or `chat_completions`). Both upstream modes share the single `extract_tool_calls` extractor over the already-normalized list, so the key set is identical by construction. The `parse_responses_text` text flattening (`name(arguments)`) is unchanged and remains the agent-consumption contract. Rollback: revert the extractor plus the three-line wiring hunk; the field defaults to `[]` and no consumer is required to read it.
 
 ## [2026-11-07] ADR-013: per-turn Brain-output persistence with address
 

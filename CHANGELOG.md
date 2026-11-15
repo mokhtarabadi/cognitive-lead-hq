@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Added
 
 - **Bridge chat completions to responses API in mcp-brain-bridge (task 401):** added `BRAIN_UPSTREAM_MODE` (`responses` by default, `chat_completions` optional) allowing the Brain to talk to standard OpenAI-compatible `/chat/completions` providers (such as MiniMax Flash or custom OpenAI chat proxies). Implemented bidirectional payload mapping: translates `instructions` + `input` into role-tagged `messages`, converts `max_output_tokens` to `max_tokens`, maps `reasoning.effort` to `reasoning_effort`, and transforms `/chat/completions` output back into the Responses API shape (`choices[0].message.content` into `output` message blocks, usage tokens mapped) without regressing existing Responses API functionality. Added offline unit tests in `tests/test_brain_bridge.py`.
+- **Structured tool-call channel for the Brain output (META 403, task 402):** `brain_turn` now returns an additive `tool_calls` list alongside `output` — one entry per `function_call` item in the normalized Responses-shaped output list, each with `call_id`, `name`, `arguments` (parsed dict), `arguments_raw` (original string), and `source` (`responses` or `chat_completions`). Both upstream modes share the single `extract_tool_calls` extractor, so the shape is identical by construction; `parse_responses_text` is unchanged per ADR-014. Added 6 offline unit tests (both modes, prose-empty, malformed-JSON fallback, dict scalar nonlist inputs, brain_turn wiring); full suite 360 passed.
 
 ### Fixed
 

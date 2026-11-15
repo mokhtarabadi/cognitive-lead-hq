@@ -1,9 +1,11 @@
 # Task 401: Bridge chat completions to responses API in mcp-brain-bridge
 
-**File:** `tasks/qa/401-bridge-chat-completions-to-responses-api.md`
+**File:** `tasks/archive/401-bridge-chat-completions-to-responses-api.md`
 **Source:** manager
 **Type:** improvement
-**Status:** in-progress
+**Status:** superseded
+**Superseded-By:** `403-bridge-chat-completions-plus-structured-tool-call-routing`
+**Superseded-At:** `2026-11-15 08:37 UTC`
 **Submitted:** 2026-11-14T06:54:44Z
 **Estimate:** 2h
 **Deadline:** 2026-11-15
@@ -57,6 +59,8 @@ Architectural decision: Add a clean adapter / translation layer between high-lev
 - **Mitigation:** Default mode remains `responses`; test suite tests both modes explicitly.
 - **Rollback:** Unset `BRAIN_UPSTREAM_MODE` or revert changes to `mcp-brain-bridge/server.py`.
 - **R1 (open, Manager-owned):** the live probe is blocked for lack of a credential. `BRAIN_UPSTREAM_MODE=chat_completions` has never answered a real endpoint; only offline fakes prove the mapping. Provide a key plus base URL in the environment, or approve closure with the live probe recorded as a follow-up.
+
+> **Superseded:** This task was bundled into META task `403-bridge-chat-completions-plus-structured-tool-call-routing` and archived on 2026-11-15 08:37 UTC. See `tasks/backlog/403-bridge-chat-completions-plus-structured-tool-call-routing.md` (or its Kanban successor) for the unified execution. History preserved via `git log --follow -- tasks/archive/401-bridge-chat-completions-to-responses-api.md`.
 
 ## Execution Log & Reasoning
 

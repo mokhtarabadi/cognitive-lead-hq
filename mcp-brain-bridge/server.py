@@ -5116,6 +5116,34 @@ def brain_turn(
         "retry_count": _total_attempts,
         "prompt_cache_split": cache_split,
     }
+    # Structured tool-call channel (Task 403, additive only): the same
+    # normalized Responses-shaped list that parse_responses_text reads is
+    # scanned for function_call items, so a tool-call-only answer is
+    # detectable without parsing prose. output, xml_blocks, and debug below
+    # are untouched; any failure here degrades to [] and never fails a turn.
+    try:
+        _mode_fn = globals().get("_upstream_mode")
+        if callable(_mode_fn):
+            _src_mode = _mode_fn()
+        else:
+            _src_mode = os.environ.get("BRAIN_UPSTREAM_MODE", "responses")
+    except Exception:
+        # Never fail a turn on mode detection; default is the safe path.
+        _src_mode = "responses"
+    if _src_mode not in ("responses", "chat_completions"):
+        # Coerce unexpected values (None, "", unknown) to the default so
+        # the recorded source is always one of the two known modes.
+        _src_mode = "responses"
+    try:
+        _items = resp_data.get("output", []) if isinstance(resp_data, dict) else []
+    except Exception:
+        # Never fail a turn on a malformed response envelope.
+        _items = []
+    try:
+        result["tool_calls"] = extract_tool_calls(_items, _src_mode)
+    except Exception:
+        # Extractor itself never raises, but the assignment must not either.
+        result["tool_calls"] = []
     # Per-turn persistence (best-effort by design): the artifact holds
     # xml_blocks plus the full raw output so a truncated inline payload
     # can be recovered from ``output_address`` with native tools. A
@@ -5419,6 +5447,73 @@ def _build_responses_output(
             }
         )
     return items
+
+
+def extract_tool_calls(output_items: Any, source_mode: str) -> list[dict[str, Any]]:
+    """Extract structured tool calls from a normalized Responses-shaped output list.
+
+    Returns one entry per ``function_call`` item with ``call_id``, ``name``,
+    ``arguments`` (parsed dict, ``{}`` when unparseable), ``arguments_raw``
+    (always the original string form), and ``source`` (``responses`` or
+    ``chat_completions``). Never raises on malformed input: non-list input
+    yields ``[]``, non-dict items are skipped, and bad JSON falls back to an
+    empty dict with the raw text preserved. The text channel is untouched —
+    use :func:`parse_responses_text` for prose, this for dispatch.
+    """
+    tool_calls: list[dict[str, Any]] = []
+    # Both upstream modes normalize into the same Responses-shaped output
+    # list before parsing, so one extractor serves both — no per-mode fork.
+    if not isinstance(output_items, list):
+        return tool_calls
+    for item in output_items:
+        if not isinstance(item, dict):
+            continue
+        if item.get("type") != "function_call":
+            continue
+        name = item.get("name") or ""
+        raw = item.get("arguments")
+        if raw is None:
+            raw = ""
+        if isinstance(raw, dict):
+            # Already structured (native responses mode may carry a dict).
+            # Copied so the caller can never mutate the provider payload
+            # through our return value; dumps is guarded so a
+            # non-serializable dict keeps str(raw) instead of raising.
+            parsed = dict(raw)
+            try:
+                raw_str = json.dumps(raw, separators=(",", ":"))
+            except (ValueError, TypeError):
+                raw_str = str(raw)
+        elif isinstance(raw, str):
+            raw_str = raw
+            stripped = raw.strip()
+            if not stripped:
+                parsed = {}
+            else:
+                try:
+                    value = json.loads(stripped)
+                except (ValueError, TypeError):
+                    # Not JSON (or not decodable): keep raw, no arguments.
+                    parsed = {}
+                else:
+                    # A scalar JSON value (e.g. "5") is valid JSON but not an
+                    # argument object; keep it under a key rather than dropping.
+                    parsed = value if isinstance(value, dict) else {"_value": value}
+        else:
+            # Numbers, bools, lists: stringify for raw, no argument object.
+            raw_str = str(raw)
+            parsed = {}
+        call_id = item.get("call_id") or item.get("id") or ""
+        tool_calls.append(
+            {
+                "call_id": call_id,
+                "name": name,
+                "arguments": parsed,
+                "arguments_raw": raw_str,
+                "source": source_mode,
+            }
+        )
+    return tool_calls
 
 
 # Chat Completions finish_reason -> Responses API status/incomplete_reason.

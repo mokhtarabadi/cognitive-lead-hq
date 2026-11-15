@@ -47,6 +47,7 @@ In `chat_completions` mode:
 - Responses are normalized into Responses API data structures: status is derived from `finish_reason` (`stop`/`tool_calls` -> `completed`, `length`/`content_filter`/unknown -> `incomplete`), errors map to `status: failed`, omitted usage counters remain omitted, and tool calls / reasoning content are preserved in `output`.
 - `parse_responses_text` renders `function_call` items as `name(arguments)` text for agent consumption.
 - Only an unrecognised status aborts while `status=incomplete` is annotated with `[upstream incomplete: <reason>]` and returned; `_record_brain_use` guards against null tokens in quota arithmetic.
+- Structured tool calls (additive, both modes): `brain_turn` returns `tool_calls`, one entry per `function_call` item with `call_id`, `name`, `arguments` (parsed dict), `arguments_raw` (original string), and `source` (`responses` or `chat_completions`). A tool-call-only answer is detectable as a non-empty list without parsing prose; prose-only answers yield `[]`. The text channel above is unchanged.
 
 ## Stage-Scoped System Prompts
 

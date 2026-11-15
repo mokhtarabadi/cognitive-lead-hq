@@ -5745,3 +5745,166 @@ def test_brain_turn_incomplete_is_not_a_terminal_failure(tmp_path, monkeypatch):
     assert "upstream incomplete: content_filter" in res["output"]
     assert "cut mid-sentence" in res["output"]
     assert "status=incomplete" not in res["output"]
+
+
+# --- Task 403 (META 401+402): structured tool-call channel, additive only ---
+
+
+def test_tool_calls_responses_mode_tool_only():
+    """A tool-call-only answer is distinguishable without parsing prose."""
+    items = [
+        {
+            "type": "function_call",
+            "call_id": "call_1",
+            "name": "question",
+            "arguments": '{"q": "hi"}',
+        }
+    ]
+    got = bridge.extract_tool_calls(items, "responses")
+    assert len(got) == 1
+    assert got[0]["name"] == "question"
+    assert got[0]["call_id"] == "call_1"
+    assert got[0]["arguments"] == {"q": "hi"}
+    assert got[0]["arguments_raw"] == '{"q": "hi"}'
+    assert got[0]["source"] == "responses"
+    # Text channel unchanged: the call still renders as name(args) prose.
+    assert "question" in bridge.parse_responses_text({"output": items})
+
+
+def test_tool_calls_chat_completions_mode_same_shape():
+    """Both modes produce the identical structured shape (same key set)."""
+    chat_body = {
+        "choices": [
+            {
+                "message": {
+                    "content": None,
+                    "tool_calls": [
+                        {
+                            "id": "call_9",
+                            "type": "function",
+                            "function": {
+                                "name": "question",
+                                "arguments": '{"q": "hi"}',
+                            },
+                        }
+                    ],
+                }
+            }
+        ],
+        "usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
+    }
+    out = bridge._build_responses_output(
+        "", "", chat_body["choices"][0]["message"]["tool_calls"]
+    )
+    items = out
+    got = bridge.extract_tool_calls(items, "chat_completions")
+    assert len(got) == 1
+    assert set(got[0].keys()) == {
+        "call_id",
+        "name",
+        "arguments",
+        "arguments_raw",
+        "source",
+    }
+    assert got[0]["arguments"] == {"q": "hi"}
+    assert got[0]["source"] == "chat_completions"
+
+
+def test_tool_calls_empty_for_prose():
+    """Prose-only output yields an empty structured list, never None."""
+    items = [
+        {
+            "type": "message",
+            "role": "assistant",
+            "content": [{"type": "output_text", "text": "hello"}],
+        }
+    ]
+    assert bridge.extract_tool_calls(items, "responses") == []
+    assert bridge.extract_tool_calls([], "chat_completions") == []
+
+
+def test_tool_calls_malformed_json_fallback():
+    """Malformed arguments never raise: parsed falls back, raw is kept."""
+    items = [
+        {
+            "type": "function_call",
+            "call_id": "c2",
+            "name": "question",
+            "arguments": "{not-json",
+        }
+    ]
+    got = bridge.extract_tool_calls(items, "responses")
+    assert len(got) == 1
+    assert got[0]["arguments"] == {}
+    assert got[0]["arguments_raw"] == "{not-json"
+
+
+def test_tool_calls_dict_and_scalar_and_nonlist_inputs():
+    """Dict args pass through; scalar JSON is kept under _value; garbage in, [] out."""
+    dict_items = [
+        {
+            "type": "function_call",
+            "call_id": "c3",
+            "name": "question",
+            "arguments": {"q": "hi"},
+        }
+    ]
+    got = bridge.extract_tool_calls(dict_items, "responses")
+    assert got[0]["arguments"] == {"q": "hi"}
+    assert got[0]["arguments_raw"] == '{"q":"hi"}'
+
+    scalar_items = [
+        {
+            "type": "function_call",
+            "call_id": "c4",
+            "name": "question",
+            "arguments": "5",
+        }
+    ]
+    got = bridge.extract_tool_calls(scalar_items, "responses")
+    assert got[0]["arguments"] == {"_value": 5}
+
+    assert bridge.extract_tool_calls(None, "responses") == []
+    assert bridge.extract_tool_calls("not-a-list", "responses") == []
+    assert bridge.extract_tool_calls([None, "x", 42], "chat_completions") == []
+
+
+def test_tool_calls_wired_into_brain_turn_result(tmp_path, monkeypatch):
+    """M1: the wiring hunk exposes tool_calls on the brain_turn result."""
+    monkeypatch.delenv("BRAIN_UPSTREAM_MODE", raising=False)
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    monkeypatch.setenv("BRAIN_API_BASE", "https://api.openai.com/v1")
+    monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
+    _mk_sys_prompt(tmp_path, monkeypatch)
+    root = _mk_tasks_root(tmp_path)
+
+    payload = {
+        "id": "resp-tools-1",
+        "model": "m",
+        "status": "completed",
+        "output": [
+            {
+                "type": "function_call",
+                "call_id": "call_1",
+                "name": "question",
+                "arguments": '{"q": "hi"}',
+            }
+        ],
+        "usage": {"input_tokens": 10, "output_tokens": 5, "total_tokens": 15},
+    }
+    _mk_bridge_client(monkeypatch, [_FakeResp(200, "OK", payload)], {})
+    call = bridge.brain_turn
+    target = call.fn if hasattr(call, "fn") else call
+    res = target("q", task_id="218", include_bundle=False, project_root=str(root))
+    assert res["status"] == "REPORT"
+    assert res["tool_calls"] == [
+        {
+            "call_id": "call_1",
+            "name": "question",
+            "arguments": {"q": "hi"},
+            "arguments_raw": '{"q": "hi"}',
+            "source": "responses",
+        }
+    ]
+    # Text channel still carries the call as prose.
+    assert "question" in res["output"]

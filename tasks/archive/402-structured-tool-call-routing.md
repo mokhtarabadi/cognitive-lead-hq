@@ -1,9 +1,11 @@
 # Task 402: Structured tool-call routing for the Brain output channel
 
-**File:** `tasks/backlog/402-structured-tool-call-routing.md`
+**File:** `tasks/archive/402-structured-tool-call-routing.md`
 **Source:** manager
 **Type:** improvement
-**Status:** open
+**Status:** superseded
+**Superseded-By:** `403-bridge-chat-completions-plus-structured-tool-call-routing`
+**Superseded-At:** `2026-11-15 08:37 UTC`
 **Submitted:** 2026-11-14T08:35:00Z
 
 ## Goal
@@ -43,6 +45,8 @@ _Pending implementation._
 - **Risk:** A new output field changes what the Hands reads.
 - **Mitigation:** Additive field only; the existing text channel stays unchanged.
 - **Rollback:** Revert the field addition.
+
+> **Superseded:** This task was bundled into META task `403-bridge-chat-completions-plus-structured-tool-call-routing` and archived on 2026-11-15 08:37 UTC. See `tasks/backlog/403-bridge-chat-completions-plus-structured-tool-call-routing.md` (or its Kanban successor) for the unified execution. History preserved via `git log --follow -- tasks/archive/402-structured-tool-call-routing.md`.
 
 ## Execution Log & Reasoning
 
