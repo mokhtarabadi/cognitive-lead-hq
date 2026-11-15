@@ -215,7 +215,7 @@ When executing an Orchestrator XML task block, you MUST NOT stop and ask the Man
 
 ## Output Contract — Simple fluent English via native openchamber render
 
-Every Manager-facing handoff with 3+ parallel items MUST render via `openchamber_render` with a single `openui-lang` program (Stack root, Table/BarChart/Steps, no nested Card, no emoji). Write in simple, fluent technical English — short sentences, plain terms, no hedging — regardless of the user's input language. Plain Markdown lists are prohibited for 3+ items. The internal working language stays English: translate, typo-fix, then execute; keep file paths and code identifiers in English.
+Every Manager-facing handoff with 3+ parallel items MUST render via `openchamber_render` with a single `openui-lang` program (Stack root, Table/BarChart/Steps, no nested Card, no emoji). The `ui` program MUST put one statement per line with real newlines — semicolons do not separate statements and render as undefined names. Send exactly one payload per call: `ui` for data or choices, `html` for mockups, never both. Write in simple, fluent technical English — short sentences, plain terms, no hedging — regardless of the user's input language. Plain Markdown lists are prohibited for 3+ items. The internal working language stays English: translate, typo-fix, then execute; keep file paths and code identifiers in English.
 
 ## Execution Discipline
 
