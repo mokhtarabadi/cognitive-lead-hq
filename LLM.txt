@@ -285,7 +285,7 @@ After this, the `cognitive-executor` will be available as a primary agent, enfor
 
 Create or update `~/.config/opencode/opencode.json`. You MUST use **absolute paths** in the `command` array — resolve the `~` to the full home directory path discovered in Step 3. The project ships **7 MCP servers** (3 core + `brain` bridge + `blowsh` browsing + `telegram` account routing + `planner` capacity/QA gating); the persona server and the previous browser automation MCP are retired — use `blowsh` for JS-heavy browsing.
 
-Write the following JSON (replace `$HOME` with the actual home directory path only where it still appears — the `mcp` entries are loopback URLs shared by every session and project, so they contain no paths at all). V2 structure per https://opencode.ai/v2/docs/mcp-servers/ (verified 2026-09-29): each MCP runs as **one supervised singleton** on `127.0.0.1` (see `docs/services.md` + Step 7.5), and OpenCode connects via `mcp.servers` entries with `type: "remote"` + `url` + `disabled: false` + `timeout: {catalog, execution}` (ours are raised above the 5000ms default — 15s standard, 30s telegram, 960s blowsh, 1200s brain). No session ever spawns its own server processes: with 2+ sessions open the OS process count per server stays exactly one.
+Write the following JSON (replace `$HOME` with the actual home directory path only where it still appears — the `mcp` entries are loopback URLs shared by every session and project, so they contain no paths at all). V2 structure per https://opencode.ai/v2/docs/mcp-servers/ (verified 2026-09-29): each MCP runs as **one supervised singleton** on `127.0.0.1` (see `docs/services.md` + Step 7.5), and OpenCode connects via `mcp.servers` entries with `type: "remote"` + `url` + `disabled: false` + `timeout: {catalog, execution}` (ours are raised above the 5000ms default — 15s standard, 120s `custom_context` execution for slow graph builds/queries, 30s telegram, 960s blowsh, 1200s brain). No session ever spawns its own server processes: with 2+ sessions open the OS process count per server stays exactly one.
 
 ```json
 {
@@ -299,7 +299,7 @@ Write the following JSON (replace `$HOME` with the actual home directory path on
         "url": "http://127.0.0.1:8102/mcp",
         "codemode": true,
         "disabled": false,
-        "timeout": { "catalog": 15000, "execution": 15000 }
+        "timeout": { "catalog": 15000, "execution": 120000 }
       },
       "project_memory": {
         "type": "remote",
@@ -779,7 +779,7 @@ After completing all steps, verify:
 - [ ] worktrees: OpenChamber native via sidebar/dialog (`https://docs.openchamber.dev/worktrees/`) — no plugin required
 - [ ] (optional) OpenChamber: if installed, `npm list -g @openchamber/web` shows 2.x, `openchamber status` password:yes, `openchamber startup status` shows enabled+active+lingering, `docs/openchamber.md` present; if not requested, this check is N/A
 - [ ] (optional) Server Browser: if requested, extension installed + service approved + Browser provider = Server Browser, `config.json` carries `chromePath` (wrapper with `--no-sandbox` on servers) and `allowedOrigins`, `browser.open` returns a real `tabId`; runbook `docs/openchamber.md` §10
-- [ ] `~/.config/opencode/opencode.json` all 7 `mcp` entries are `type: "remote"` loopback URLs (8101 lint, 8102 context, 8103 memory, 8105 brain, 8106 telegram timeout 300000, 8107 blowsh timeout 960000, 8108 planner timeout 15000/30000) served by the supervised singletons — no stdio/`uv run` entries remain
+- [ ] `~/.config/opencode/opencode.json` all 7 `mcp` entries are `type: "remote"` loopback URLs (8101 lint, 8102 context execution 120000, 8103 memory, 8105 brain, 8106 telegram timeout 300000, 8107 blowsh timeout 960000, 8108 planner timeout 15000/30000) served by the supervised singletons — no stdio/`uv run` entries remain
 - [ ] `~/.config/opencode/opencode-shell-strategy.md` exists (instructions file referenced by the `instructions` key)
 - [ ] `/tmp/cognitive-lead-hq` no longer exists
 - [ ] `docker pull ghcr.io/mokhtarabadi/blowsh-mcp:latest` succeeds (or `docker` not installed → blowsh stays disabled, document it)
