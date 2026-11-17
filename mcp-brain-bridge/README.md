@@ -43,7 +43,8 @@ In `chat_completions` mode:
 - `max_output_tokens` translates to `max_tokens`.
 - `reasoning.effort` translates to `reasoning_effort`.
 - `tools`, `tool_choice`, and `parallel_tool_calls` are converted to Chat Completions function calling shapes.
-- Responses-only fields (`store`, `previous_response_id`, `metadata`, `include`, `truncation`, `service_tier`, `text`) are dropped with a logged warning.
+- Responses-only fields (`store`, `previous_response_id`, `metadata`, `include`, `truncation`, `service_tier`, `text`, `prompt_cache_key`, `context_management`) are dropped with a logged warning. `prompt_cache_key` and `context_management` are added by the Responses builder behind `BRAIN_SEND_CACHE_KEY` and `BRAIN_SEND_CONTEXT_MANAGEMENT`, so chat-completions mode warns when those switches would otherwise be silently discarded.
+- `BRAIN_COMPACTION_THRESHOLD` must be an integer of at least 1000, the minimum documented by the OpenAI Responses API for `context_management.compaction.compact_threshold`. Smaller values fail loud at startup instead of being rejected upstream.
 - Responses are normalized into Responses API data structures: status is derived from `finish_reason` (`stop`/`tool_calls` -> `completed`, `length`/`content_filter`/unknown -> `incomplete`), errors map to `status: failed`, omitted usage counters remain omitted, and tool calls / reasoning content are preserved in `output`.
 - `parse_responses_text` renders `function_call` items as `name(arguments)` text for agent consumption.
 - Only an unrecognised status aborts while `status=incomplete` is annotated with `[upstream incomplete: <reason>]` and returned; `_record_brain_use` guards against null tokens in quota arithmetic.

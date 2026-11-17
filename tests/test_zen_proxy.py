@@ -187,10 +187,17 @@ def test_model_not_served_returns_404_with_route_hint(server, upstream):
 
 
 def test_unknown_route_returns_404(server):
-    """An unknown mount answers 404 and never reaches upstream."""
-    status, _headers, _payload = request(server, "GET", "/nope/models")
+    """An unknown mount answers 404 with the JSON failure contract and
+    never reaches upstream (Audit 404, upstream parity)."""
+    status, headers, payload = request(server, "GET", "/nope/models")
 
     assert status == 404
+    assert headers.get("Content-Type") == "application/json"
+    assert headers.get("X-Request-Id")
+    body = json.loads(payload)
+    assert body["type"] == "error"
+    assert body["error"]["type"] == "UnknownRoute"
+    assert "/nope/models" in body["error"]["message"]
 
 
 # --- the body limits ------------------------------------------------------

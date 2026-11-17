@@ -299,7 +299,8 @@ def test_replay_strips_status_from_reasoning_items():
     turns, _ = bridge._parse_turns(raw)
     body = bridge._build_request_body("sys", turns, "next")
     replayed = [
-        it for it in body["input"][3:]
+        it
+        for it in body["input"][3:]
         if isinstance(it, dict) and it.get("type") == "reasoning"
     ]
     assert len(replayed) == 1
@@ -341,7 +342,8 @@ def test_replay_drops_item_with_overlong_id():
     turns, _ = bridge._parse_turns(raw)
     body = bridge._build_request_body("sys", turns, "next")
     replayed = [
-        it for it in body["input"][3:]
+        it
+        for it in body["input"][3:]
         if isinstance(it, dict) and it.get("type") == "reasoning"
     ]
     assert replayed == []
@@ -378,7 +380,8 @@ def test_replay_drop_logs_no_item_fields(capsys):
     turns, _ = bridge._parse_turns(raw)
     body = bridge._build_request_body("sys", turns, "next")
     assert [
-        it for it in body["input"][3:]
+        it
+        for it in body["input"][3:]
         if isinstance(it, dict) and it.get("id") == long_id
     ] == []
     captured = capsys.readouterr()
@@ -487,3 +490,34 @@ def test_fatal_4xx_returns_report_with_provider_diagnostics(tmp_path, monkeypatc
     assert "insufficient_quota" in result["output"]
     assert result["debug"]["provider"]["error_code"] == "insufficient_quota"
     assert result["debug"]["provider"]["provider_status_code"] == 400
+
+
+# --- Audit 404: official OpenAI contract drift -----------------------------
+
+
+def test_compaction_threshold_official_minimum(monkeypatch):
+    """The Responses API reference sets compact_threshold minimum 1000; a
+    smaller override would be rejected upstream, so fail loud locally."""
+    monkeypatch.setenv("BRAIN_COMPACTION_THRESHOLD", "999")
+    with pytest.raises(ValueError, match="1000"):
+        bridge._compaction_threshold()
+    monkeypatch.setenv("BRAIN_COMPACTION_THRESHOLD", "1000")
+    assert bridge._compaction_threshold() == 1000
+
+
+def test_chat_conversion_warns_on_responses_only_cache_fields(caplog):
+    """prompt_cache_key and context_management have no Chat Completions
+    counterpart and must be dropped with a warning, never silently."""
+    body = {
+        "model": "m",
+        "input": [{"role": "user", "content": "hi"}],
+        "prompt_cache_key": "brain-x",
+        "context_management": [{"type": "compaction", "compact_threshold": 100000}],
+    }
+    with caplog.at_level("WARNING"):
+        chat = bridge._convert_responses_to_chat_completions_body(body)
+    logged = caplog.text
+    assert "prompt_cache_key" in logged
+    assert "context_management" in logged
+    assert "prompt_cache_key" not in chat
+    assert "context_management" not in chat

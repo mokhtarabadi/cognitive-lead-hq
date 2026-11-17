@@ -485,7 +485,16 @@ class Handler(BaseHTTPRequestHandler):
                 rest = self.path[len(prefix) :] or "/"
                 self._proxy(base + rest, allow)
                 return
-        self.send_error(404, "unknown zen-proxy route")
+        # The failure contract promises a parseable JSON envelope for every
+        # answer, including a path that matches no mount. `send_error` emits
+        # stdlib HTML and no X-Request-Id, so use the same envelope as the
+        # other rejection paths (Audit 404, upstream parity).
+        self._send_error(
+            404,
+            "UnknownRoute",
+            f"zen-proxy: path '{self.path}' matches no configured mount",
+            uuid.uuid4().hex[:8],
+        )
 
     do_GET = _send_upstream
     do_POST = _send_upstream

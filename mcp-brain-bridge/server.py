@@ -2283,7 +2283,9 @@ def _compaction_threshold() -> int:
     """Compaction token threshold for ``context_management`` (Task 329 F3).
 
     Override via ``BRAIN_COMPACTION_THRESHOLD`` (default 100000).
-    Malformed or non-positive values fail loud.
+    Malformed values and values below 1000 fail loud: the OpenAI Responses
+    API reference sets ``compact_threshold`` minimum 1000, so a smaller
+    override would be rejected upstream (Audit 404).
     """
     raw = os.environ.get("BRAIN_COMPACTION_THRESHOLD", "100000").strip() or "100000"
     try:
@@ -2293,10 +2295,10 @@ def _compaction_threshold() -> int:
             f"BRAIN_COMPACTION_THRESHOLD={raw!r} is not an integer; "
             "set a positive integer or leave it blank"
         )
-    if val <= 0:
+    if val < 1000:
         raise ValueError(
-            f"BRAIN_COMPACTION_THRESHOLD={raw!r} must be > 0; "
-            "set a positive integer or leave it blank"
+            f"BRAIN_COMPACTION_THRESHOLD={raw!r} must be >= 1000; "
+            "set an integer of at least 1000 or leave it blank"
         )
     return val
 
@@ -5227,6 +5229,12 @@ def _convert_responses_to_chat_completions_body(body: dict[str, Any]) -> dict[st
         "truncation",
         "service_tier",
         "text",
+        # Audit 404: these two are added by _build_request_body behind
+        # BRAIN_SEND_CACHE_KEY / BRAIN_SEND_CONTEXT_MANAGEMENT. The chat
+        # wire format has no counterpart, so warn instead of dropping them
+        # silently (the rule stated just above this tuple).
+        "prompt_cache_key",
+        "context_management",
     )
 
     chat_body: dict[str, Any] = {

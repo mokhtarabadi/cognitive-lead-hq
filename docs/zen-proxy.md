@@ -144,6 +144,7 @@ journalctl --user -u zen-proxy -n 5 --no-pager
 | `413 PayloadTooLarge` | request body over `ZEN_PROXY_MAX_BODY_BYTES` | raise the cap or send a smaller body |
 | `400 BadRequest` | malformed or short request body | fix the client framing |
 | `404 ModelNotServedHere` | model posted to the wrong mount | use the mount named in the message |
+| `404 UnknownRoute` | path matches no configured mount | use one of `/zen/chat`, `/zen/resp`, `/go/chat`, `/go/resp` |
 | `UpstreamStreamTruncated` in the stream | upstream ended without its terminal event | retry the turn; the relay refused to pass a cut turn off as a complete one |
 | `Server disconnected without sending a response` | pre-2026-11-13 behaviour; the timeout escaped the handler | fixed in ADR-005 — a timeout now answers 504 |
 | `/models` count dropped | upstream list drift | run `zen-proxy/refresh_allowlists.py` and apply the reported removals |

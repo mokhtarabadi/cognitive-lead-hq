@@ -28,6 +28,7 @@ whether to retry or to give up.
 | request body over the cap | 413 | `PayloadTooLarge` |
 | malformed or short request body | 400 | `BadRequest` |
 | model owned by another mount | 404 | `ModelNotServedHere` |
+| path matches no configured mount | 404 | `UnknownRoute` |
 | stream ended without its terminal event | 200 + in-band event | `UpstreamStreamTruncated` |
 
 The last row is the one that cannot use a status: the status line is

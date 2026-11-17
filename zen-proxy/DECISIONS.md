@@ -108,3 +108,10 @@
   to `~/.config/opencode/zen-proxy/`, `systemctl --user restart zen-proxy`.
   The new environment variables have defaults, so no configuration rollback
   is needed.
+
+## [2026-11-17] ADR-006: unknown routes answer the JSON failure contract
+
+- **Context:** an audit against `github.com/12errh/zen-proxy` (MIT, (c) 2026 12errh) noted that its unmatched paths return a JSON `not_found` error, while our `_send_upstream` called the stdlib `send_error(404, ...)` and emitted an HTML body with no `X-Request-Id`. That contradicted the slice's own failure contract, "every failure answers with a parseable JSON error, never with a dropped socket" (`zen-proxy/README.md:20-22`), which the Brain Bridge relies on when deciding to retry.
+- **Decision:** an unmatched path now uses `_send_error(404, "UnknownRoute", <message>, <fresh request id>)`. The mount allowlists, Authorization passthrough, silence timeout and 900<=900<=1200 ordering are untouched.
+- **Consequences:** a caller can parse the rejection like every other error; the new `UnknownRoute` type is documented in `zen-proxy/README.md` and `docs/zen-proxy.md`. One test in `tests/test_zen_proxy.py` now asserts the JSON envelope, the `UnknownRoute` type and the request-id header; it failed before the source change and passes after. No upstream behavior was copied beyond the idea that rejection bodies should be machine-readable.
+- **Rollback:** restore `self.send_error(404, "unknown zen-proxy route")` in `_send_upstream` and revert the test and the two doc rows.
