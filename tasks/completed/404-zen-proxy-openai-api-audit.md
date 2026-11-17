@@ -69,6 +69,8 @@ Prior work that must NOT be re-reported as new: task `400` already compared `git
 - **Final full-suite gate (green):** `rtk test uv run --with pytest==8.3.5 --with mcp==1.30.0 --with httpx==0.28.1 --with pathspec==0.12.1 --with pyyaml==6.0.2 python -m pytest tests/ -q` → `915 passed, 1 warning in 76.24s`, exit 0. Capture: `/tmp/opencode/task404_full_gate3.txt`.
 - **Compile gate:** `python3 -m py_compile zen-proxy/proxy.py zen-proxy/refresh_allowlists.py mcp-brain-bridge/server.py` → exit 0.
 - **Upstream tree report:** `/tmp/opencode/task404_upstream_tree.md` (native substitute because the workspace-scoped context MCP tool rejected `/tmp`).
+- **Closure lint:** first `lint_task_file` at `tasks/qa/` reported the expected path-mismatch (header updated to the completed path before the move); after `git mv`, `lint_task_file` on `tasks/completed/404-zen-proxy-openai-api-audit.md` returned "✅ passed Task File linting".
+- **Closure commits via sole MCP path:** feature `27122e43550b91b30d2e07d2b1dd16fea4a70368` and closure `9baa6516e5cf5ba552c50da2b8d1c34874d7f69d`; worktree clean afterward. No manual `git add`, `git commit`, `git checkout`, or `git push` was executed.
 
 > Verification runner rule honored: the first verification run used the `rtk test` prefix; raw commands were used only as diagnostic retries after an RTK failure; no failing output was collapsed.
 
