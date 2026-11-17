@@ -1,9 +1,10 @@
 # Task 404: Audit zen-proxy and brain bridge against OpenAI contracts and upstream proxy
 
-**File:** `tasks/qa/404-zen-proxy-openai-api-audit.md`
+**File:** `tasks/completed/404-zen-proxy-openai-api-audit.md`
 **Source:** manager
 **Type:** improvement
-**Status:** open
+**Status:** closed
+**Finished:** 2026-11-17T08:13:33Z
 **Submitted:** 2026-11-17T08:04:55Z
 **Created:** 2026-11-17 UTC
 **Mode:** autopilot (locked by Manager "auto brain mode", 2026-11-17)
@@ -51,7 +52,7 @@ Prior work that must NOT be re-reported as new: task `400` already compared `git
 - [x] Phase 5: all ten task-329 findings confirmed present or explicitly marked missing with file:line evidence; zero code edits.
 - [x] Phase 6: audit matrix complete; either a no-fix justification with evidence, or a minimal fix with doc URL plus code citation and a green strict tooling gate with `rtk test` evidence.
 - [x] Phase 7: audit matrix complete against upstream and task-400 scope; either a no-fix justification, or a minimal fix preserving Authorization passthrough and timeout ordering, with green gate evidence.
-- [ ] No autonomous commit; task staged via MCP and moved to `tasks/qa/` with QA/review brain turns chained under the active session.
+- [x] No autonomous commit; task staged via MCP and moved to `tasks/qa/` with QA/review brain turns chained under the active session.
 
 ## Verification Evidence
 
@@ -80,7 +81,7 @@ Strict tooling gate evidence (format → lint → typecheck → static analysis 
 - [x] `CHANGELOG.md` updated via Parse-Then-Append if a source fix landed — two entries appended under existing `### Fixed`, no duplicate section created.
 - [x] `testing-verification` applied and evidence recorded — TDD red then green for both fixes, `rtk test`-prefixed commands with exit codes and capture paths.
 - [x] All seven phase reports filled with citations.
-- [ ] QA/review brain turns chained under the active session — pending.
+- [x] QA/review brain turns chained under the active session — QA_PASSED then APPROVED, both recorded in Execution Log.
 
 ## Risk & Rollback
 
@@ -313,248 +314,18 @@ Read-only review by two parallel `cognitive-discovery` agents. The support-modul
 
 **Local TODOs:** all eight steps complete; every local TODO checkbox was checked as each step finished.
 
+**Finalization (2026-11-17).** `lint_task_file` passed. `qa_budget` returned 0/1. `custom_context_qa_transition` moved the file to `tasks/qa/`, synced the `**File:**` header, staged the ten modified files and injected the factual diff atomically. No `git add`, `git commit`, `git checkout`, or `git push` was executed.
+
+**QA turn (`brain_turn`, task 404, session `ses_e178e7d34ffewoGYL5tvo2Zn9n`, stage `qa`, include_diff=true):** `QA_PASSED`. Output address `tasks/.sessions/ses_e178e7d34ffewoGYL5tvo2Zn9n_6252dad9/brain_outputs/resp_6afc0b089fd5142bbc464ff0_637cc38013f74814876b58c01cd4afaa.json`. Findings: F1 `zen-proxy/proxy.py:488` JSON-only `UnknownRoute` with fresh id and no new logging; F2 `mcp-brain-bridge/server.py:2295` floor `>=1000` with default 100000 unchanged; F3 `server.py:5232` warning tuple additions, no default-wire change; F4 auth `proxy.py:626`, gating `:541-566`, timeout `:132` untouched; T1/T2/T3 new tests pin boundaries and no test weakened; D1/D2 audit matrices and deferred items consistent.
+
+**Code Reviewer turn (`brain_turn`, task 404, session `ses_e178e7d34ffewoGYL5tvo2Zn9n`, stage `review`, include_diff=true):** `APPROVED`. Output address `tasks/.sessions/ses_e178e7d34ffewoGYL5tvo2Zn9n_6252dad9/brain_outputs/resp_6afc0b7683e422d56c69421b_29e7bcb608dd490bb1bbfe1839e1e3b8.json`. Scope holds, three fixes minimal, docs synced with non-colliding ADR-015/ADR-006, full suite evidence sufficient, no timeout or credential regression. Two low-severity notes: I1 stale acceptance wording `tasks/in-progress/` while the `**File:**` header correctly says `tasks/qa/` (historical criterion, no lane error); I2 three whitespace-only reformat hunks in `tests/test_brain_responses_alignment.py` with identical predicates.
+
+**PO_REVIEW_PENDING.** Code approved technically. Awaiting the Manager's exact closure word before any commit or task closure.
+
+**Closure (2026-11-17).** The Manager answered the relayed closure-approval question with the exact value "Approved for closure". Session `ses_e178e7d34ffewoGYL5tvo2Zn9n`. QA verdict `QA_PASSED` (output `resp_6afc0b089fd5142bbc464ff0_637cc38013f74814876b58c01cd4afaa`) and Code Reviewer verdict `APPROVED` (output `resp_6afc0b7683e422d56c69421b_29e7bcb608dd490bb1bbfe1839e1e3b8`) were chained before the relay. Headers updated to `tasks/completed/404-zen-proxy-openai-api-audit.md` and `Status: closed`; `Started`, `Submitted`, `Finished`, `Estimate`, `Deadline`, `Depends on` and `Milestone` stamps were not hand-edited. Zero `git add`, `git commit`, `git checkout`, or `git push` commands were executed by the Hands.
+
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
-```diff
-diff --git a/CHANGELOG.md b/CHANGELOG.md
-index e0be2be..44c0bf4 100644
---- a/CHANGELOG.md
-+++ b/CHANGELOG.md
-@@ -16,6 +16,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
- - **Graph timeout raised past one minute (global + `LLM.txt`):** `custom_context` MCP client `execution` timeout `15000` -> `120000` in live `~/.config/opencode/opencode.json` and in the `LLM.txt` Step 7 template, so `build_graph`/`query_graph` over the full 9k-node index survive slow runs. Catalog stays `15000`; scoping (`target_path` + small `top_n`) remains the cheaper first move.
- - **Chat Completions bridge contract hardening (task 401 hotfix):** resolved QA findings F1–F3 and Code Reviewer recommendations R1–R4, round 2 findings F1–F2, and round 3 findings F1–F2. Omitted usage counters now stay omitted rather than injecting `None` (protecting downstream financial/quota math from null arithmetic). Mapped `finish_reason` to status and incomplete reason (`stop`/`tool_calls` -> `completed`, `length`/`content_filter`/unknown -> `incomplete`). Transformed upstream error bodies into `status: failed`. Preserved `tools`, `tool_choice`, `parallel_tool_calls`, tool calls, and `reasoning_content` across both request and response translation boundaries. Handled plain string `input` values and logged explicit warnings when unsupported Responses-only fields are dropped. Carried assistant `function_call` and `function_call_output` items across as `assistant` tool-call and `tool` result messages with JSON string arguments. Narrowed dispatch status handling so only unrecognised statuses abort while incomplete responses are annotated. Updated `_record_brain_use` docstring to document the `last_usage` store and dynamic return shape. Recorded backlog follow-up task 402 for future structured tool call routing. Added coverage for non-200 provider error handling, plain string input, dropped fields, and multi-turn tool chain items in `chat_completions` mode.
- 
-+- **zen-proxy unknown routes now use the JSON failure contract (task 404):** an audit against `github.com/12errh/zen-proxy` found that unmatched paths used stdlib `send_error(404, ...)` and returned an HTML body with no `X-Request-Id`, contradicting the slice's rule that every failure is a parseable JSON error the Brain Bridge can act on. `_send_upstream` now emits the same `{type:"error", error:{type:"UnknownRoute", message:...}}` envelope as the other rejection paths, with a fresh request id. Authorization passthrough, allowlist gating and the 900<=900<=1200 timeout ordering are unchanged. `tests/test_zen_proxy.py` gained an assertion for the envelope and the header; full suite 915 passed with exit 0. `zen-proxy/README.md`, `zen-proxy/DECISIONS.md` (ADR-006) and `docs/zen-proxy.md` updated.
-+- **Responses API parameter validation aligned to the official docs (task 404):** `_compaction_threshold` now rejects `BRAIN_COMPACTION_THRESHOLD` values below 1000, the `minimum` the OpenAI Responses reference sets for `context_management.compaction.compact_threshold`; a smaller override used to pass local validation and be rejected upstream with a 400. The chat-completions converter now warns when it drops `prompt_cache_key` or `context_management`, which the Responses builder adds behind `BRAIN_SEND_CACHE_KEY` and `BRAIN_SEND_CONTEXT_MANAGEMENT`; previously both vanished silently despite the converter's documented rule that every Responses-only field is dropped with a warning. Default wire bytes are unchanged. Added two offline tests in `tests/test_brain_responses_alignment.py`; 390 tests pass with exit 0. `mcp-brain-bridge/README.md` and `DECISIONS.md` (ADR-015) updated.
-+
- ### Changed
- 
- - **blowsh docs rewritten against the local source as the shipped contract (task 400):** the third-round note below recorded the queue budget and search deadline as "uncommitted work … ignored today", which was true of the published `2.6.2` image but is superseded: the Manager ruled the local checkout is the version to document and the remote image is building in CI/CD. The docs now describe that source with no version caveat. `LLM.txt` Step 7.6 carries a full environment table (15 knobs, code defaults from `browshManager.ts`, `server.ts` and `.env.example`) and states the ladder as an invariant with its upstream citations (`browshManager.ts:71-79`, `.env.example:38,44`): `SEARCH_DEADLINE_MS >= BROWSH_QUEUE_TIMEOUT_MS + BROWSH_REQUEST_TIMEOUT_MS` and `BROWSH_QUEUE_TIMEOUT_MS >= 2 x BROWSH_REQUEST_TIMEOUT_MS`, satisfied by the shipped values (900000 >= 780000, 600000 >= 360000 with a 240000 margin). The `blowsh` MCP client cap rose 600000 -> 960000 in `LLM.txt` and the live config, because at 600000 a full-length search was cut by the transport 300s before its own `SEARCH_DEADLINE_MS` could fire; 960000 > 900000. The docs now also state what that cap does *not* cover: `fetch_web_batch` is serial over up to 10 URLs (`src/tools/fetchWebBatch.ts:33-35`) with a **per-item** budget, so its worst case is `10 x deadline_ms` and a large batch will still exceed the client cap. `skill-templates/blowsh/SKILL.md` `deadline_ms` range corrected to `500–1800000` (was `500–600000`), and the stale "600s blowsh" / "600s LLM bridges" figures replaced with 960s and 1200s.
-diff --git a/docs/zen-proxy.md b/docs/zen-proxy.md
-index f6262e3..726e528 100644
---- a/docs/zen-proxy.md
-+++ b/docs/zen-proxy.md
-@@ -144,6 +144,7 @@ journalctl --user -u zen-proxy -n 5 --no-pager
- | `413 PayloadTooLarge` | request body over `ZEN_PROXY_MAX_BODY_BYTES` | raise the cap or send a smaller body |
- | `400 BadRequest` | malformed or short request body | fix the client framing |
- | `404 ModelNotServedHere` | model posted to the wrong mount | use the mount named in the message |
-+| `404 UnknownRoute` | path matches no configured mount | use one of `/zen/chat`, `/zen/resp`, `/go/chat`, `/go/resp` |
- | `UpstreamStreamTruncated` in the stream | upstream ended without its terminal event | retry the turn; the relay refused to pass a cut turn off as a complete one |
- | `Server disconnected without sending a response` | pre-2026-11-13 behaviour; the timeout escaped the handler | fixed in ADR-005 — a timeout now answers 504 |
- | `/models` count dropped | upstream list drift | run `zen-proxy/refresh_allowlists.py` and apply the reported removals |
-diff --git a/mcp-brain-bridge/DECISIONS.md b/mcp-brain-bridge/DECISIONS.md
-index 5dc919c..414e5fd 100644
---- a/mcp-brain-bridge/DECISIONS.md
-+++ b/mcp-brain-bridge/DECISIONS.md
-@@ -121,3 +121,10 @@
- - **Decision:** `prompts/stage-manifest.json` is the single routing table, read by both the assembler and the bridge. `resolve_stage_prompt_path(stage)` is pure and side-effect free. `load_system_prompt` resolves explicit path → stage artifact → `BRAIN_SYSTEM_PROMPT` → full prompt. A known stage whose artifact is missing falls back to the full prompt with one stderr note and never returns an empty prompt. An unknown stage string stays a loud `PreflightError` from the preflight gate, because a silently downgraded typo runs unscoped instead of failing visible.
- - **Consequences:** the manifest has one owner, so a stage cannot be declared in one place and resolved differently in the other. A partially installed global install degrades to today's behavior instead of failing. Measured: the QA prompt is 80140 bytes against a 95428-byte full prompt, and the QA artifact contains the QA Engineer block once and none of the other six seats.
- - **Rollback:** drop the `stage` parameter from `load_system_prompt`, remove `brainstorm` from `preflight.ALLOWED_STAGES`, and delete the stage block from the manifest; the bridge then serves the full prompt for every turn.
-+
-+## [2026-11-17] ADR-015: Responses parameter validation follows the official docs
-+
-+- **Context:** an audit against the official OpenAI Responses API reference found two provable drifts after the task-329 alignment work. The reference sets `context_management.compaction.compact_threshold` `minimum: 1000`, but `_compaction_threshold` accepted any positive integer, so an override between 1 and 999 would be sent to the provider and rejected with a 400. Separately, `_build_request_body` adds `prompt_cache_key` and `context_management` behind `BRAIN_SEND_*` switches, but the chat-completions converter builds a fresh body from an explicit allowlist and dropped both fields without the warning that its own contract promises for every Responses-only field.
-+- **Decision:** `_compaction_threshold` now rejects values below 1000 with a readable error, keeping the default 100000 unchanged. `_CHAT_UNSUPPORTED_FIELDS` gains `prompt_cache_key` and `context_management` so chat-completions mode logs a warning when it drops them. Both changes are additive validation and logging; the default wire bytes are unchanged.
-+- **Consequences:** a misconfigured threshold now fails locally before any model call; the two cache fields can no longer vanish silently in chat-completions mode. Two tests in `tests/test_brain_responses_alignment.py` pin both behaviors (TDD red before the source change, green after).
-+- **Rollback:** restore the `val <= 0` guard and the original seven-field warning tuple; remove the two tests.
-diff --git a/mcp-brain-bridge/README.md b/mcp-brain-bridge/README.md
-index 44cd99f..bbdb6bf 100644
---- a/mcp-brain-bridge/README.md
-+++ b/mcp-brain-bridge/README.md
-@@ -43,7 +43,8 @@ In `chat_completions` mode:
- - `max_output_tokens` translates to `max_tokens`.
- - `reasoning.effort` translates to `reasoning_effort`.
- - `tools`, `tool_choice`, and `parallel_tool_calls` are converted to Chat Completions function calling shapes.
--- Responses-only fields (`store`, `previous_response_id`, `metadata`, `include`, `truncation`, `service_tier`, `text`) are dropped with a logged warning.
-+- Responses-only fields (`store`, `previous_response_id`, `metadata`, `include`, `truncation`, `service_tier`, `text`, `prompt_cache_key`, `context_management`) are dropped with a logged warning. `prompt_cache_key` and `context_management` are added by the Responses builder behind `BRAIN_SEND_CACHE_KEY` and `BRAIN_SEND_CONTEXT_MANAGEMENT`, so chat-completions mode warns when those switches would otherwise be silently discarded.
-+- `BRAIN_COMPACTION_THRESHOLD` must be an integer of at least 1000, the minimum documented by the OpenAI Responses API for `context_management.compaction.compact_threshold`. Smaller values fail loud at startup instead of being rejected upstream.
- - Responses are normalized into Responses API data structures: status is derived from `finish_reason` (`stop`/`tool_calls` -> `completed`, `length`/`content_filter`/unknown -> `incomplete`), errors map to `status: failed`, omitted usage counters remain omitted, and tool calls / reasoning content are preserved in `output`.
- - `parse_responses_text` renders `function_call` items as `name(arguments)` text for agent consumption.
- - Only an unrecognised status aborts while `status=incomplete` is annotated with `[upstream incomplete: <reason>]` and returned; `_record_brain_use` guards against null tokens in quota arithmetic.
-diff --git a/mcp-brain-bridge/server.py b/mcp-brain-bridge/server.py
-index d1ec8d4..c452439 100644
---- a/mcp-brain-bridge/server.py
-+++ b/mcp-brain-bridge/server.py
-@@ -2283,7 +2283,9 @@ def _compaction_threshold() -> int:
-     """Compaction token threshold for ``context_management`` (Task 329 F3).
- 
-     Override via ``BRAIN_COMPACTION_THRESHOLD`` (default 100000).
--    Malformed or non-positive values fail loud.
-+    Malformed values and values below 1000 fail loud: the OpenAI Responses
-+    API reference sets ``compact_threshold`` minimum 1000, so a smaller
-+    override would be rejected upstream (Audit 404).
-     """
-     raw = os.environ.get("BRAIN_COMPACTION_THRESHOLD", "100000").strip() or "100000"
-     try:
-@@ -2293,10 +2295,10 @@ def _compaction_threshold() -> int:
-             f"BRAIN_COMPACTION_THRESHOLD={raw!r} is not an integer; "
-             "set a positive integer or leave it blank"
-         )
--    if val <= 0:
-+    if val < 1000:
-         raise ValueError(
--            f"BRAIN_COMPACTION_THRESHOLD={raw!r} must be > 0; "
--            "set a positive integer or leave it blank"
-+            f"BRAIN_COMPACTION_THRESHOLD={raw!r} must be >= 1000; "
-+            "set an integer of at least 1000 or leave it blank"
-         )
-     return val
- 
-@@ -5227,6 +5229,12 @@ def _convert_responses_to_chat_completions_body(body: dict[str, Any]) -> dict[st
-         "truncation",
-         "service_tier",
-         "text",
-+        # Audit 404: these two are added by _build_request_body behind
-+        # BRAIN_SEND_CACHE_KEY / BRAIN_SEND_CONTEXT_MANAGEMENT. The chat
-+        # wire format has no counterpart, so warn instead of dropping them
-+        # silently (the rule stated just above this tuple).
-+        "prompt_cache_key",
-+        "context_management",
-     )
- 
-     chat_body: dict[str, Any] = {
-diff --git a/tests/test_brain_responses_alignment.py b/tests/test_brain_responses_alignment.py
-index 8c724cf..3497ffa 100644
---- a/tests/test_brain_responses_alignment.py
-+++ b/tests/test_brain_responses_alignment.py
-@@ -299,7 +299,8 @@ def test_replay_strips_status_from_reasoning_items():
-     turns, _ = bridge._parse_turns(raw)
-     body = bridge._build_request_body("sys", turns, "next")
-     replayed = [
--        it for it in body["input"][3:]
-+        it
-+        for it in body["input"][3:]
-         if isinstance(it, dict) and it.get("type") == "reasoning"
-     ]
-     assert len(replayed) == 1
-@@ -341,7 +342,8 @@ def test_replay_drops_item_with_overlong_id():
-     turns, _ = bridge._parse_turns(raw)
-     body = bridge._build_request_body("sys", turns, "next")
-     replayed = [
--        it for it in body["input"][3:]
-+        it
-+        for it in body["input"][3:]
-         if isinstance(it, dict) and it.get("type") == "reasoning"
-     ]
-     assert replayed == []
-@@ -378,7 +380,8 @@ def test_replay_drop_logs_no_item_fields(capsys):
-     turns, _ = bridge._parse_turns(raw)
-     body = bridge._build_request_body("sys", turns, "next")
-     assert [
--        it for it in body["input"][3:]
-+        it
-+        for it in body["input"][3:]
-         if isinstance(it, dict) and it.get("id") == long_id
-     ] == []
-     captured = capsys.readouterr()
-@@ -487,3 +490,34 @@ def test_fatal_4xx_returns_report_with_provider_diagnostics(tmp_path, monkeypatc
-     assert "insufficient_quota" in result["output"]
-     assert result["debug"]["provider"]["error_code"] == "insufficient_quota"
-     assert result["debug"]["provider"]["provider_status_code"] == 400
-+
-+
-+# --- Audit 404: official OpenAI contract drift -----------------------------
-+
-+
-+def test_compaction_threshold_official_minimum(monkeypatch):
-+    """The Responses API reference sets compact_threshold minimum 1000; a
-+    smaller override would be rejected upstream, so fail loud locally."""
-+    monkeypatch.setenv("BRAIN_COMPACTION_THRESHOLD", "999")
-+    with pytest.raises(ValueError, match="1000"):
-+        bridge._compaction_threshold()
-+    monkeypatch.setenv("BRAIN_COMPACTION_THRESHOLD", "1000")
-+    assert bridge._compaction_threshold() == 1000
-+
-+
-+def test_chat_conversion_warns_on_responses_only_cache_fields(caplog):
-+    """prompt_cache_key and context_management have no Chat Completions
-+    counterpart and must be dropped with a warning, never silently."""
-+    body = {
-+        "model": "m",
-+        "input": [{"role": "user", "content": "hi"}],
-+        "prompt_cache_key": "brain-x",
-+        "context_management": [{"type": "compaction", "compact_threshold": 100000}],
-+    }
-+    with caplog.at_level("WARNING"):
-+        chat = bridge._convert_responses_to_chat_completions_body(body)
-+    logged = caplog.text
-+    assert "prompt_cache_key" in logged
-+    assert "context_management" in logged
-+    assert "prompt_cache_key" not in chat
-+    assert "context_management" not in chat
-diff --git a/tests/test_zen_proxy.py b/tests/test_zen_proxy.py
-index 8f09e9d..90d1ef1 100644
---- a/tests/test_zen_proxy.py
-+++ b/tests/test_zen_proxy.py
-@@ -187,10 +187,17 @@ def test_model_not_served_returns_404_with_route_hint(server, upstream):
- 
- 
- def test_unknown_route_returns_404(server):
--    """An unknown mount answers 404 and never reaches upstream."""
--    status, _headers, _payload = request(server, "GET", "/nope/models")
-+    """An unknown mount answers 404 with the JSON failure contract and
-+    never reaches upstream (Audit 404, upstream parity)."""
-+    status, headers, payload = request(server, "GET", "/nope/models")
- 
-     assert status == 404
-+    assert headers.get("Content-Type") == "application/json"
-+    assert headers.get("X-Request-Id")
-+    body = json.loads(payload)
-+    assert body["type"] == "error"
-+    assert body["error"]["type"] == "UnknownRoute"
-+    assert "/nope/models" in body["error"]["message"]
- 
- 
- # --- the body limits ------------------------------------------------------
-diff --git a/zen-proxy/DECISIONS.md b/zen-proxy/DECISIONS.md
-index 75e1f0c..a8df043 100644
---- a/zen-proxy/DECISIONS.md
-+++ b/zen-proxy/DECISIONS.md
-@@ -108,3 +108,10 @@
-   to `~/.config/opencode/zen-proxy/`, `systemctl --user restart zen-proxy`.
-   The new environment variables have defaults, so no configuration rollback
-   is needed.
-+
-+## [2026-11-17] ADR-006: unknown routes answer the JSON failure contract
-+
-+- **Context:** an audit against `github.com/12errh/zen-proxy` (MIT, (c) 2026 12errh) noted that its unmatched paths return a JSON `not_found` error, while our `_send_upstream` called the stdlib `send_error(404, ...)` and emitted an HTML body with no `X-Request-Id`. That contradicted the slice's own failure contract, "every failure answers with a parseable JSON error, never with a dropped socket" (`zen-proxy/README.md:20-22`), which the Brain Bridge relies on when deciding to retry.
-+- **Decision:** an unmatched path now uses `_send_error(404, "UnknownRoute", <message>, <fresh request id>)`. The mount allowlists, Authorization passthrough, silence timeout and 900<=900<=1200 ordering are untouched.
-+- **Consequences:** a caller can parse the rejection like every other error; the new `UnknownRoute` type is documented in `zen-proxy/README.md` and `docs/zen-proxy.md`. One test in `tests/test_zen_proxy.py` now asserts the JSON envelope, the `UnknownRoute` type and the request-id header; it failed before the source change and passes after. No upstream behavior was copied beyond the idea that rejection bodies should be machine-readable.
-+- **Rollback:** restore `self.send_error(404, "unknown zen-proxy route")` in `_send_upstream` and revert the test and the two doc rows.
-diff --git a/zen-proxy/README.md b/zen-proxy/README.md
-index 2cd2337..5b826ed 100644
---- a/zen-proxy/README.md
-+++ b/zen-proxy/README.md
-@@ -28,6 +28,7 @@ whether to retry or to give up.
- | request body over the cap | 413 | `PayloadTooLarge` |
- | malformed or short request body | 400 | `BadRequest` |
- | model owned by another mount | 404 | `ModelNotServedHere` |
-+| path matches no configured mount | 404 | `UnknownRoute` |
- | stream ended without its terminal event | 200 + in-band event | `UpstreamStreamTruncated` |
- 
- The last row is the one that cannot use a status: the status line is
-diff --git a/zen-proxy/proxy.py b/zen-proxy/proxy.py
-index e9e86f0..fa34c6b 100755
---- a/zen-proxy/proxy.py
-+++ b/zen-proxy/proxy.py
-@@ -485,7 +485,16 @@ class Handler(BaseHTTPRequestHandler):
-                 rest = self.path[len(prefix) :] or "/"
-                 self._proxy(base + rest, allow)
-                 return
--        self.send_error(404, "unknown zen-proxy route")
-+        # The failure contract promises a parseable JSON envelope for every
-+        # answer, including a path that matches no mount. `send_error` emits
-+        # stdlib HTML and no X-Request-Id, so use the same envelope as the
-+        # other rejection paths (Audit 404, upstream parity).
-+        self._send_error(
-+            404,
-+            "UnknownRoute",
-+            f"zen-proxy: path '{self.path}' matches no configured mount",
-+            uuid.uuid4().hex[:8],
-+        )
- 
-     do_GET = _send_upstream
-     do_POST = _send_upstream
-```
+**Factual Git Diff:** Stored in Commit Hash: `27122e43550b91b30d2e07d2b1dd16fea4a70368`
 <!-- END_GIT_DIFF -->
