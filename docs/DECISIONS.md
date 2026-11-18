@@ -27,3 +27,10 @@
 - **Decision:** The complete runbook is `docs/openchamber.md` §10 (install, headless-shell over apt-chromium, `--no-sandbox` wrapper, `config.json`, daily use, troubleshooting, snap removal); `LLM.txt` carries a §7.10 pointer plus a verification-checklist line.
 - **Consequences:** Future browser setups follow one doc instead of rediscovery.
 - **Rollback:** Delete §10, §7.10, and the checklist line.
+
+## [2026-11-18] ADR-005: WARP proxy lives inside Docker, not on the host
+
+- **Context:** The host proxy on port 7890 is unreachable from every bridge container because the host firewall drops container-to-host connections on all tested ports. A live container-to-container test on the same bridge returned `BRIDGE_OK`. The VPS IP is not clean enough for the web research workload, so a clean exit is required.
+- **Decision:** Run `ghcr.io/mon-ius/docker-warp-socks:v8` on a dedicated `warp-net` bridge and connect blowsh with `PROXY_TYPE=http` to `warp-socks:9091`. HTTP mode is required because the Node-side axios has no SOCKS agent. Loopback stays in `PROXY_BYPASS` to protect the Browsh control channel. The full procedure is `docs/blowsh-warp-proxy.md`.
+- **Consequences:** Browser renders and axios egress both use the Cloudflare WARP exit IP. The shared WARP IP may still be blocked by some sites, and the no-proxy setup remains the documented rollback.
+- **Rollback:** Recreate blowsh with `PROXY_TYPE=none`, remove `warp-socks`, and delete the guide.

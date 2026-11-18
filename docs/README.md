@@ -8,6 +8,7 @@ Human-readable spec hub for conventions, architecture-adjacent guides, service t
 
 - `conventions.md` — Syntax, naming, file boundaries, and automation patterns (bound spec).
 - `brain-bridge.md` — Brain Bridge protocol reference for QA/review turns.
+- `blowsh-warp-proxy.md` — Operator guide for giving blowsh a clean outbound IP via a Docker-side Cloudflare WARP proxy.
 - `compaction.md` — Context compaction and smart-compact usage.
 - `openchamber.md` — OpenChamber session linking guide.
 - `opencode-shell-strategy.md` — Shell execution strategy.
