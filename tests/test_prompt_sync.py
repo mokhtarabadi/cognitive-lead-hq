@@ -47,7 +47,7 @@ def test_shipped_version_is_expected_minor_bump():
     shipped = re.search(
         r"<system_version>(.*?)</system_version>", _read(SHIPPED)
     ).group(1)
-    assert shipped == "9.89.0"
+    assert shipped == "9.90.0"
 
 
 def test_shipped_prompt_documents_context_path_line_ranges():
@@ -370,9 +370,31 @@ def test_executor_contains_full_dto_mandate():
     )
 
 
-def test_shipped_prompt_version_is_9_89_0():
+def test_shipped_prompt_version_is_9_90_0():
     prompt = _read_shipped_prompt_for_approval_contract()
-    assert "9.89.0" in prompt
+    assert "9.90.0" in prompt
+
+
+def test_openui_validity_gate_in_executor_and_fragment():
+    """The render contract must carry signatures and a pre-render self-check."""
+    executor = _read(EXECUTOR)
+    assert (
+        "OpenUI validity gate (mandatory before every `openchamber_render` call)"
+        in executor
+    )
+    assert "`Table(columns: string[], rows: (string | number)[][])`" in executor
+    assert "Never wrap a cell in its own brackets" in executor
+    assert "never `name: value`" in executor
+    assert (
+        "Read a render diagnostic from the submitted source, not from its wording"
+        in executor
+    )
+
+    fragment = _read(FRAGMENT_09)
+    assert "MANAGER-FACING RENDER CONTRACT" in fragment
+    assert "`Table(columns: string[], rows: (string | number)[][])`" in fragment
+    assert "never wrap a `Table` cell in brackets" in fragment
+    assert "Arity-style render diagnostics mean a source defect" in fragment
 
 
 def test_assembler_output_matches_shipped(tmp_path):

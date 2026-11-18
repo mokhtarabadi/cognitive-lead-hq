@@ -18,6 +18,7 @@ Defines the two OpenCode agent personas for the Cognitive Lead HQ: primary execu
 - Discovery-fed grounding: a retry without verbatim code or `context_paths` predicts its own second `missing_context` — prose-only fed-context is a protocol violation.
 - Context-Paths manifest invariant: every discovery report ends with a machine-readable `### Context Manifest` (`Context-Paths:` with `#Lstart-end` slices) that the executor feeds directly into `brain_turn(context_paths=[...])`.
 - Code Mode execution standard: all MCP servers run under `codemode: true`; every tool call routes through `execute` as `tools.<server>.<tool>` with `project_root` on each call, and `brain_turn` results return whole.
+- OpenUI validity gate: every `openchamber_render` program is self-checked before the call — exact component signatures, plain string or number `Table` cells, balanced brackets, no named arguments, one statement per line. An arity diagnostic is treated as a source defect, not a renderer bug.
 - No runtime code here; changes are prompt-contract changes with system-wide effect.
 
 ### Free-tier bash gate

@@ -182,3 +182,12 @@ Context: The implementation summary declared DONE right after the QA transition 
 Decision: Step 4 now marks implementation complete with an explicit continue; a final step declares DONE only after the QA/review turn is invoked. The handoff test pins the order. The round-7 marker-provenance claim (inline `[fed-context]` spoofing) is disputed — see the task log for evidence — with no behavior change. No version change.
 Consequences: The summary sequence cannot terminate before the chain runs.
 Rollback: Restore the early DONE sentence and drop the order assertion.
+
+## OpenUI programs are validated before render
+
+Date: 2026-11-18
+Status: accepted
+Context: A render call shipped a `Table` row whose first cell was a one-element array instead of a plain string, and the renderer rejected the block with an arity-style diagnostic. Native issue 6813 documents the same failure class: a stray bracket produced "takes 2 arg(s), got 3" and was closed as invalid after the reporter confirmed the source defect. The executor's Output Contract named the components but gave no signatures, cell-type rule, or pre-render check, so the mistake had no contract-level guard.
+Decision: Add an OpenUI validity gate to the executor's Output Contract with exact positional signatures for `Stack`, `Table`, `Callout`, `Steps` and `KeyValue`; require plain string or number cells; ban named arguments; require bracket balance and one statement per line; and read any diagnostic from the submitted source rather than its wording. Mirror the same rule into the hands-protocol fragment and pin both with regression assertions.
+Consequences: The agent checks the program before sending it, so the known nested-cell and stray-bracket defects are caught at authoring time. A failed render is fixed at the source once instead of being retried verbatim. Version bumped with artifact regen.
+Rollback: Remove the executor subsection, the fragment paragraph, the regression assertions, and restore the prior version; regenerate the prompt from fragments.

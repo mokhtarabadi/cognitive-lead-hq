@@ -91,3 +91,10 @@ Rollback: Restore the Brain-owned automatic-mode overrides and remove the corres
 - **Consequences:** The QA prompt is 17% smaller, implement and review 16%, plan 7%, and brainstorm unchanged because it already carried every seat. The split is byte-identical for the full prompt: the assembler re-splices the slices and reproduces the committed artifact exactly. The `<panel>` sentence in `12-brainstorming_protocol.md` no longer says "seven personas" because the roster is now stage-scoped. Version bumped with artifact regen.
 - **Rollback:** Restore `06-personas.md` from git, delete `prompts/fragments/personas/` and `prompts/stage-manifest.json`, drop the `stage` parameter from `load_system_prompt`, and re-run the assembler.
 
+## [2026-11-18] ADR-010: Mirror the OpenUI validity gate into the Brain prompt
+
+- **Context:** The executor agent learned an OpenUI pre-render check, but the Brain that emits hands tasks had no matching rule, so an emitted task could still request a malformed `Table` program. A nested array cell in a real render call produced an arity-style diagnostic that pointed at the wrong layer.
+- **Decision:** Add a `MANAGER-FACING RENDER CONTRACT` paragraph to `09-hands_protocols.md` carrying the same signatures, plain-cell rule, bracket balance, named-argument ban, and diagnostic interpretation as the executor's gate. Bump the version fragment `9.89.0` → `9.90.0` and regenerate both `system-prompt.md` and the stage artifacts with the assembler.
+- **Consequences:** Brain and Hands read the same validity contract. A drift in either surface is caught by `test_openui_validity_gate_in_executor_and_fragment` and the assembler byte-identity gate.
+- **Rollback:** Remove the paragraph, restore the version fragment, regenerate the artifacts, and drop the regression assertions.
+

@@ -20,3 +20,10 @@
 - **Decision:** Add `test_zen_proxy.py` as a slice-local suite. It loads `zen-proxy/proxy.py` by path (never by import of the installed copy) and replaces the upstream with a fake response object, so no case spends gateway quota or touches the live gateway. Every case is named after the defect it prevents, so a regression names itself.
 - **Consequences:** The failure contract, the body cap, the chunked decoder, the truncated-stream rule, the fail-loud environment parsing, the credential-free log line and the allowlist merge rules are now regression-guarded. The slice can no longer be changed without a test that runs offline in under ten seconds.
 - **Rollback:** Delete `tests/test_zen_proxy.py` and the two lines in `tests/README.md`; no production code depends on the suite.
+
+## [2026-11-18] ADR-004: Pin the OpenUI validity gate on both prompt surfaces
+
+- **Context:** A malformed `openui-lang` `Table` program shipped to `openchamber_render` and was rejected because one cell was an array instead of a plain value. The agent contract had no signature table and no pre-render self-check, and the Brain prompt had no mirror.
+- **Decision:** Add `test_openui_validity_gate_in_executor_and_fragment` to `test_prompt_sync.py`, asserting the signature, plain-cell, named-argument, and diagnostic rules in both `agents/cognitive-executor.md` and `prompts/fragments/09-hands_protocols.md`. Update the two version pins to `9.90.0`.
+- **Consequences:** Removing either copy of the contract breaks the shipped-prompt gate, so prompt and agent drift cannot pass silently.
+- **Rollback:** Delete the test function and restore the version pins; no runtime code depends on them.

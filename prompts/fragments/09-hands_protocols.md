@@ -122,4 +122,6 @@
 
 </hands_combined_task_template>
 
+MANAGER-FACING RENDER CONTRACT: the Hands inherits the full rule from the `cognitive-executor` agent; the Brain must preserve it in every emitted task. Every Manager-facing handoff with 3+ parallel items uses a single `openchamber_render` `ui` program with a `Stack` root. Validate it before sending: exact positional signatures only (`Stack(children: Item[])`, `Table(columns: string[], rows: (string | number)[][])`, `Callout(markdown: string, tone?: string, title?: string)`, `Steps(items: {title: string, markdown?: string, status?: string}[], direction?: string)`), never wrap a `Table` cell in brackets, balance brackets and braces, use one statement per line, and never pass named arguments. Arity-style render diagnostics mean a source defect such as a stray bracket or nested cell, not a renderer bug; fix the source instead of retrying the same program.
+
 </hands_protocols>

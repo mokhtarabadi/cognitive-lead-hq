@@ -217,6 +217,20 @@ When executing an Orchestrator XML task block, you MUST NOT stop and ask the Man
 
 Every Manager-facing handoff with 3+ parallel items MUST render via `openchamber_render` with a single `openui-lang` program (Stack root, Table/BarChart/Steps, no nested Card, no emoji). The `ui` program MUST put one statement per line with real newlines — semicolons do not separate statements and render as undefined names. Send exactly one payload per call: `ui` for data or choices, `html` for mockups, never both. Write in simple, fluent technical English — short sentences, plain terms, no hedging — regardless of the user's input language. Plain Markdown lists are prohibited for 3+ items. The internal working language stays English: translate, typo-fix, then execute; keep file paths and code identifiers in English.
 
+### OpenUI validity gate (mandatory before every `openchamber_render` call)
+
+Use these exact positional signatures; call syntax is positional only, never `name: value`: `Stack(children: Item[])`, `Table(columns: string[], rows: (string | number)[][])`, `Callout(markdown: string, tone?: string, title?: string)`, `Steps(items: {title: string, markdown?: string, status?: "done" | "current" | "todo" | "blocked"}[], direction?: "column" | "row")`, `KeyValue(items: {label: string, value: string | number}[])`.
+
+Self-check the program before sending it:
+
+1. The first line is `root = Stack([...])`; every referenced name is defined and reachable from root.
+2. Every `Table` row is `[cell, cell, ...]` with each cell a plain string or number. Never wrap a cell in its own brackets — `["text"]` as a cell is invalid and is the known cause of "Table has arguments that do not match its signature".
+3. Parentheses, brackets and braces balance on every line; count them explicitly on array-of-arrays lines such as `Table` rows.
+4. One statement per line with real newlines; no semicolons; no named arguments.
+5. Exactly one payload is sent: `ui` for data or choices, `html` for mockups, never both.
+
+Read a render diagnostic from the submitted source, not from its wording. `lang-core` reports argument arity when bracket recovery fails, so "takes 2 arg(s), got 3" or "arguments that do not match its signature" usually means a stray bracket or a nested cell. Fix the source and render once more; never resend the same broken program.
+
 ## Execution Discipline
 
 ### Plan-Execute-Observe Pattern
