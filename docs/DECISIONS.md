@@ -34,3 +34,18 @@
 - **Decision:** Run `ghcr.io/mon-ius/docker-warp-socks:v8` on a dedicated `warp-net` bridge and connect blowsh with `PROXY_TYPE=http` to `warp-socks:9091`. HTTP mode is required because the Node-side axios has no SOCKS agent. Loopback stays in `PROXY_BYPASS` to protect the Browsh control channel. The full procedure is `docs/blowsh-warp-proxy.md`.
 - **Consequences:** Browser renders and axios egress both use the Cloudflare WARP exit IP. The shared WARP IP may still be blocked by some sites, and the no-proxy setup remains the documented rollback.
 - **Rollback:** Recreate blowsh with `PROXY_TYPE=none`, remove `warp-socks`, and delete the guide.
+
+## [2026-11-20] ADR-006: Direct egress replaces WARP and Psiphon
+
+- **Context:** The operator asked to move blowsh off WARP to a Psiphon Docker proxy with a US exit. During deployment every `fetch_web` failed with `FetchError: Browsh did not start in HTTP mode within timeout`. Live measurement showed Browsh's control endpoint answering HTTP 200 in 0.9–2 s while the manager's hardcoded 800 ms health probe timed out every time. Raising `BROWSH_STARTUP_TIMEOUT_MS` to 300 s did not help, and the same failure reproduced with proxying fully off. The proxy was incidental; the defect was in the blowsh source.
+- **Decision:** Fix the source in `blowsh-mcp` (`BROWSH_HEALTH_PROBE_TIMEOUT_MS`, default 5000 ms; no profile quarantine on a pure probe timeout) and retire both proxy containers. `blowsh-singleton` runs with `PROXY_TYPE=none` on the default bridge using the locally built fixed image. `docs/blowsh-direct-egress.md` is the current guide; `docs/blowsh-warp-proxy.md` is retired history.
+- **Consequences:** A real `fetch_web` render succeeds in about 10 s with no proxy. Exit traffic now uses the VPS IP, which may be blocked by some sites; the proxy knobs remain available if a clean exit is needed again. The deployed image is local until the source fix is pushed to the GitHub image repo and the remote `:latest` picks it up.
+- **Rollback:** Recreate blowsh with `PROXY_TYPE=http` and a proxy endpoint; the previous procedure stays in git history and in the retired guide.
+
+## [2026-11-20] ADR-007: Two optional proxy backends replace the one-way retirement
+
+- **Context:** after the blowsh health-probe source fix, direct egress was made the default and both proxy containers were removed. The operator then restored Psiphon for a live render and finally required both proxy types to exist as properly Dockerized, optional backends that the user may enable for blowsh.
+- **Decision:** keep two repo-owned build contexts. `warp-proxy/` wraps the pinned upstream image and bakes `NET_PORT=9091`; `psiphon-proxy/` builds `ubuntu:22.04` with `psiphon-tunnel-core` and a baked `EgressRegion=US` config. Neither proxy is mandatory. `docs/blowsh-proxy-options.md` is the comparison; each mode has its own deployment guide; direct remains the default. Blowsh selects a backend only through `PROXY_*` variables.
+- **Alternatives considered:** (a) mandatory Psiphon — rejected, the operator wants a choice; (b) keep only WARP — rejected, both types are required; (c) keep only direct — rejected, some sites block the VPS IP; (d) share one Dockerfile for both backends — rejected, the binaries and configs are unrelated.
+- **Consequences:** switching modes means recreating blowsh with different `PROXY_HOST`/`PROXY_PORT`; no data migration or profile reset. Both proxies must stay unpublished on a bridge. The live deployment currently uses Psiphon with the fixed blowsh image.
+- **Rollback:** remove either build context and its container and recreate blowsh in direct mode.

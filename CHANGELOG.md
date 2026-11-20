@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- **blowsh egress is direct; WARP and Psiphon retired:** the operator asked to move blowsh from Cloudflare WARP to a Psiphon Docker proxy with a US exit. Deployment exposed the real defect: blowsh's source had a hardcoded 800 ms health-probe timeout against Browsh's `/` endpoint, which takes 0.9–2 s here, so startup was always declared failed even though the endpoint answered HTTP 200. Fixed in the `blowsh-mcp` source with `BROWSH_HEALTH_PROBE_TIMEOUT_MS` (default 5000 ms) and no profile quarantine on a pure probe timeout. A real `fetch_web` render now succeeds in about 10 s with `PROXY_TYPE=none`. Removed `warp-socks` and `psiphon-socks`, retired the `psiphon-proxy/` build context, rewrote `docs/blowsh-warp-proxy.md` as history, added `docs/blowsh-direct-egress.md`, and updated `docs/README.md` and a dated ADR. The interim local image `blowsh-mcp:local-fix` is deployed until the source fix is pushed to the GitHub image repository. See task 269 in `blowsh-mcp` and task 407 in this repo.
+- **Both proxies restored as optional backends (supersedes the retirement above):** the operator clarified that blowsh must have two properly Dockerized, opt-in proxies. Added repo-owned build contexts `warp-proxy/` (thin wrapper over the pinned upstream image with `NET_PORT=9091` baked) and `psiphon-proxy/` (Ubuntu 22.04 with `psiphon-tunnel-core`, baked `EgressRegion=US`, HTTP `8082` / SOCKS `1081`). Direct egress remains the default; neither proxy is mandatory. Added `docs/blowsh-proxy-options.md` as the mode comparison and rewrote `docs/blowsh-warp-proxy.md` and `docs/blowsh-direct-egress.md` as live option guides, added `docs/blowsh-psiphon-proxy.md`, and updated `docs/README.md` and a dated ADR. Live Psiphon mode was verified on the fixed blowsh image: browser-side trace `ip=104.131.189.185`, `loc=US`, `warp=off`, and `fetch_web` rendered `example.com` in about 10 s. The current deployment keeps Psiphon enabled. Task 407 updated in place; no new task created.
+
 ## [9.90.0] - 2026-11-20
 
 ### Added
