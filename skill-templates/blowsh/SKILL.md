@@ -5,10 +5,10 @@ description: Web search, fetch, crawl, and link extraction via the blowsh MCP se
 
 # Blowsh Web Tooling
 
-All live-web work goes through the `blowsh` MCP server (Docker transport:
-`docker run --rm -i ghcr.io/mokhtarabadi/blowsh-mcp:latest`). Never shell
-out to `curl`/`wget` for page content — the server handles JS rendering,
-encoding, and SSRF guards.
+All live-web work goes through the `blowsh` MCP server's five tools. Never
+shell out to `curl`/`wget` for page content — the server handles JS
+rendering, encoding, and SSRF guards. Installation and runtime setup are
+documented in `LLM.txt`.
 
 ## The 5 Tools (pick the cheapest that answers the question)
 
