@@ -1,6 +1,6 @@
 # blowsh with a Docker-side Cloudflare WARP proxy
 
-This guide gives the blowsh MCP server a clean outbound IP by running a Cloudflare WARP proxy container on the same Docker network. It was verified on 2026-11-18 with `ghcr.io/mon-ius/docker-warp-socks:v8` and `blowsh-mcp:latest`.
+This guide gives the blowsh MCP server a clean outbound IP by running a Cloudflare WARP proxy container on the same Docker network. It was verified on 2026-11-18 with `ghcr.io/mon-ius/docker-warp-socks:v8` and the auto-built `ghcr.io/mokhtarabadi/blowsh-mcp:latest` image from the GitHub image repo. Blowsh always uses that remote `:latest` image — never a local build and never a pinned tag.
 
 ## Why this pattern
 
@@ -11,7 +11,7 @@ The WARP exit IP is shared Cloudflare infrastructure, not a dedicated residentia
 ## Prerequisites
 
 - Docker with permission to create networks and containers.
-- `blowsh-mcp:latest` built from `/home/mohammad/blowsh-mcp` at the current HEAD.
+- `ghcr.io/mokhtarabadi/blowsh-mcp:latest` pulled from the GitHub image repo (auto-built, always current; no local build).
 - The `browsh-profile` named volume. It preserves Firefox profile state across container recreation.
 
 ## Deploy the WARP proxy
@@ -65,7 +65,7 @@ docker run -d --name blowsh-singleton --restart unless-stopped --network warp-ne
   -e BROWSH_COLS=160 -e BROWSH_ROWS=60 \
   -e PROXY_TYPE=http -e PROXY_HOST=warp-socks -e PROXY_PORT=9091 \
   -e PROXY_BYPASS=localhost,127.0.0.1 \
-  blowsh-mcp:latest
+  ghcr.io/mokhtarabadi/blowsh-mcp:latest
 ```
 
 Use `PROXY_TYPE=http`, not `socks5`. blowsh's Firefox is fully SOCKS5-capable, but the Node-side axios calls have no SOCKS agent in this image. The HTTP mode covers both paths. Never remove `localhost,127.0.0.1` from `PROXY_BYPASS`: the Browsh control channel listens on `127.0.0.1:4333`.
@@ -106,7 +106,7 @@ docker run -d --name blowsh-singleton --restart unless-stopped \
   -v browsh-profile:/data/browsh-profile \
   -e MCP_TRANSPORT=http -e MCP_HOST=0.0.0.0 -e MCP_PORT=8107 \
   -e BROWSH_PROFILE_DIR=/data/browsh-profile \
-  -e PROXY_TYPE=none blowsh-mcp:latest
+  -e PROXY_TYPE=none ghcr.io/mokhtarabadi/blowsh-mcp:latest
 docker rm -f warp-socks
 ```
 

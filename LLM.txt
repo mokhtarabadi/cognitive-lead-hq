@@ -402,7 +402,7 @@ The `cli.json` `plugins` entry enables the todolist TUI sidebar strip.
 
 > **Project vs Global `opencode.json` (full V2, 2026-10-01):** The **repo's** `opencode.json` (committed) carries **no `mcp` section at all** — all 7 MCP servers live in the **global** `~/.config/opencode/opencode.json` (created here) under `mcp.servers` as `type: "remote"` loopback URLs (identical for every user — no per-machine paths). New installations and `global-install-upgrade` (Step 5 in `.opencode/memory/workflows/global-install-upgrade.md`) must keep this split — `diff` of repo vs global `opencode.json` will always differ (repo has no `mcp`, global has 7 remote entries) by design; verify global shows 7 `127.0.0.1:810*/mcp` URLs (8101 lint, 8102 context, 8103 memory, 8105 brain, 8106 telegram, 8107 blowsh, 8108 planner — there is no 8104 entry, the decision server was retired).
 
-**Telegram is optional but auto-configured:** the entry above points at `~/.config/opencode/mcp-telegram-server` (installed in the opencode config dir per global-install-upgrade, absolute path required) with three allowed roots (`/tmp/telegram-mcp` for temp state + `~/.config/opencode/mcp-telegram-server/downloads` for exported media + `$HOME` so home files upload). If you cloned elsewhere, update the venv-python path, the `main.py` path and the trailing roots — keep them inside `$HOME` or `/tmp` and ensure `telegram_download_media` can write there. The server is installed in Step 7.6 even before you have API credentials; it stays idle (no `TELEGRAM_SESSION_STRING`) until you finish 7.6. For Docker blowsh no host binary is needed — build `blowsh-mcp:latest` from the upstream checkout per Step 7.6 (the proxy env vars require that build), and keep the `warp-net` + `warp-socks` containers from Step 7.5 running; all blowsh egress goes through WARP.
+**Telegram is optional but auto-configured:** the entry above points at `~/.config/opencode/mcp-telegram-server` (installed in the opencode config dir per global-install-upgrade, absolute path required) with three allowed roots (`/tmp/telegram-mcp` for temp state + `~/.config/opencode/mcp-telegram-server/downloads` for exported media + `$HOME` so home files upload). If you cloned elsewhere, update the venv-python path, the `main.py` path and the trailing roots — keep them inside `$HOME` or `/tmp` and ensure `telegram_download_media` can write there. The server is installed in Step 7.6 even before you have API credentials; it stays idle (no `TELEGRAM_SESSION_STRING`) until you finish 7.6. For Docker blowsh no host binary is needed — pull the auto-built `ghcr.io/mokhtarabadi/blowsh-mcp:latest` per Step 7.6, and keep the `warp-net` + `warp-socks` containers from Step 7.5 running; all blowsh egress goes through WARP.
 
 ---
 
@@ -442,7 +442,8 @@ curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:8081/health   # 200
 # rebuild that drops the proxy vars is not a valid deployment. The proxy must
 # live in a container on the same bridge: the host firewall drops container-
 # to-host TCP. Full guide, verification and rollback: docs/blowsh-warp-proxy.md.
-# Always use the unpinned :latest image — never pin a version tag.
+# Always pull the auto-built remote image ghcr.io/mokhtarabadi/blowsh-mcp:latest
+# from the GitHub image repo — never build locally and never pin a version tag.
 docker network create warp-net
 docker run -d --name warp-socks --restart unless-stopped --network warp-net \
   -e NET_PORT=9091 \
@@ -470,7 +471,7 @@ docker run -d --name blowsh-singleton --restart unless-stopped --network warp-ne
   -e SEARCH_DEADLINE_MS=900000 \
   -e PROXY_TYPE=http -e PROXY_HOST=warp-socks -e PROXY_PORT=9091 \
   -e PROXY_BYPASS=localhost,127.0.0.1 \
-  blowsh-mcp:latest
+  ghcr.io/mokhtarabadi/blowsh-mcp:latest
 ```
 
 macOS/Windows equivalents (launchd plist template, Task Scheduler/NSSM): `docs/services.md`.
@@ -528,14 +529,13 @@ Do **not** `pip install telegram-mcp` / `uvx telegram-mcp` — that name on PyPI
 
 ### Blowsh prerequisites
 
-- Requires Docker only (no Firefox/Browsh on host). The image is built locally
-  from the upstream checkout and tagged `:latest`, because the proxy env vars in
-  Step 7.5 require that build. Always rebuild to `:latest` on upgrade — never
-  pin a version tag:
+- Requires Docker only (no Firefox/Browsh on host). Always pull the auto-built
+  remote image `ghcr.io/mokhtarabadi/blowsh-mcp:latest` from the GitHub image
+  repo — the repo builds `:latest` automatically, so the tag is always current.
+  Never build blowsh locally and never pin a version tag:
 ```bash
-git -C <upstream-blowsh-mcp-checkout> pull --ff-only   # on this host: /home/mohammad/blowsh-mcp
-docker build -t blowsh-mcp:latest <upstream-blowsh-mcp-checkout>
-docker run --rm blowsh-mcp:latest node -e "console.log('image ok')"  # image smoke test (server itself runs as the persistent singleton, not stdio)
+docker pull ghcr.io/mokhtarabadi/blowsh-mcp:latest
+docker run --rm ghcr.io/mokhtarabadi/blowsh-mcp:latest node -e "console.log('image ok')"  # image smoke test (server itself runs as the persistent singleton, not stdio)
 ```
 - The `warp-net` bridge and `warp-socks` container in Step 7.5 are mandatory, not optional. `docs/blowsh-warp-proxy.md` is the canonical guide for deployment, verification and rollback.
 - If you cannot use Docker, install natively: Node 20.18+, Firefox in PATH, Browsh CLI, `html2markdown` — see https://github.com/mokhtarabadi/blowsh-mcp#installation. Then change the `blowsh` command to `["node", "dist/server.js"]` with the native checkout path, and route that process through the WARP proxy yourself.
@@ -804,7 +804,7 @@ After completing all steps, verify:
 - [ ] `~/.config/opencode/opencode.json` all 7 `mcp` entries are `type: "remote"` loopback URLs (8101 lint, 8102 context execution 120000, 8103 memory, 8105 brain, 8106 telegram timeout 300000, 8107 blowsh timeout 960000, 8108 planner timeout 15000/30000) served by the supervised singletons — no stdio/`uv run` entries remain
 - [ ] `~/.config/opencode/opencode-shell-strategy.md` exists (instructions file referenced by the `instructions` key)
 - [ ] `/tmp/cognitive-lead-hq` no longer exists
-- [ ] locally built `blowsh-mcp:latest` succeeds (or `docker` not installed → blowsh stays disabled, document it); `warp-net` + `warp-socks` are running and `blowsh-singleton` shows `PROXY_TYPE=http` with `warp=on` (see `docs/blowsh-warp-proxy.md`)
+- [ ] `docker pull ghcr.io/mokhtarabadi/blowsh-mcp:latest` succeeds (or `docker` not installed → blowsh stays disabled, document it); `warp-net` + `warp-socks` are running and `blowsh-singleton` shows `PROXY_TYPE=http` with `warp=on` (see `docs/blowsh-warp-proxy.md`)
 - [ ] `~/.config/opencode/mcp-telegram-server/main.py` exists if telegram enabled (`ls $HOME/.config/opencode/mcp-telegram-server/main.py`); otherwise server stays `enabled:false` and no crash
 - [ ] Telegram smoke check (only if `TELEGRAM_SESSION_STRING` set): `telegram_get_messages` or `list_accounts` returns without `No Telegram session configured`
 - [ ] `.env` is seeded (repo-root `.env` for CLI runs and `~/.config/opencode/.env` for the singleton services; `chmod 600`) — verify `grep -c BRAIN_API_KEY .env ~/.config/opencode/.env`

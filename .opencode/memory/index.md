@@ -8,6 +8,7 @@
 | architecture | responses_api_best_practice_audit_2026_10_21 | # Responses API best-practice audit (2026-10-21) — Brain Bridge |  |
 | architecture | responses_api_provider_diagnostics | # Responses-API servers must surface provider diagnostics |  |
 | architecture | zen-proxy-ownership | # zen-proxy is owned by this repo (2026-10-23) | zen-proxy, gateway, brain-provider, systemd, global-install |
+| opencode_config | blowsh_image_policy | # Blowsh image policy: always pull the auto-built remote :latest image | blowsh, docker, images, opencode |
 | opencode_config | brain-model-routing-2026-10-24 | # Brain on zen-proxy with one model (Manager order 2026-10-24) |  |
 | opencode_config | global-skills-copy-excludes-docs | # Global skills copy must exclude DECISIONS.md and README.md | skills, opencode |
 | opencode_config | opencode_openchamber_versions_2026_11_02 | # OpenCode / OpenChamber versions — verified 2026-11-13 |  |
