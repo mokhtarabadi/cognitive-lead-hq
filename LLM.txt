@@ -722,7 +722,7 @@ Without a browser provider, `openchamber_web` pages open display-only
 Install `openchamber-server-browser` (experimental, OpenChamber ≥ 2.0.1):
 
 ```bash
-git clone https://github.com/JosueGalRe/openchamber-server-browser.git ~/Develop/openchamber-server-browser
+git clone https://github.com/JosueGalRe/openchamber-server-browser.git $HOME/openchamber-server-browser
 ```
 
 Then: Settings → Extensions → add the folder → approve the service →

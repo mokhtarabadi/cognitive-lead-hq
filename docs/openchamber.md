@@ -162,7 +162,7 @@ you watch the same page in the **Server Browser** panel.
 
 ```bash
 # folder install (URL install from extension settings works too)
-git clone https://github.com/JosueGalRe/openchamber-server-browser.git ~/Develop/openchamber-server-browser
+git clone https://github.com/JosueGalRe/openchamber-server-browser.git $HOME/openchamber-server-browser
 ```
 
 1. OpenChamber → Settings → Extensions → add the folder (or the GitHub URL).
