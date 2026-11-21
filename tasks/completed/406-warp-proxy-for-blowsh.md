@@ -1,9 +1,11 @@
 # Task 406: Run Cloudflare WARP in Docker as blowsh proxy, document the setup
 
-**File:** `tasks/qa/406-warp-proxy-for-blowsh.md`
+**File:** `tasks/completed/406-warp-proxy-for-blowsh.md`
 **Source:** manager
 **Type:** infrastructure + documentation
-**Status:** qa
+**Status:** closed
+**Superseded-By:** 407-psiphon-proxy-for-blowsh
+**Superseded-At:** 2026-11-20
 **Finished:** 2026-11-18T19:06:06Z
 **Submitted:** 2026-11-18T19:00:11Z
 
@@ -70,6 +72,7 @@ ZAC holds: no `git add`, `git commit`, `git checkout`, or `git push`.
 - Verified health, generated `user.js`, a real browser render, and a clean-IP trace from inside blowsh. No source code or tests were changed in `blowsh-mcp`.
 - Wrote `docs/blowsh-warp-proxy.md`; updated `docs/README.md`, `docs/DECISIONS.md` with a dated ADR, and `CHANGELOG.md` via Parse-Then-Append. No system-prompt edit, so no version bump.
 - **Review (Code Reviewer, same session):** technically approved, `PO_REVIEW_PENDING`. R1 (Status open in qa) and R2 (final TODO unchecked) fixed above. R3 (task number in guide prose) fixed by replacing the visible reference with a generic pointer; the number stays in the task file and CHANGELOG. A3 is already satisfied: no host port for the WARP proxy and loopback remains in `PROXY_BYPASS`.
+- **Closure 2026-11-20:** Manager approved closure with the exact phrase "Approved for closure" in response to the superseded-task question. The Psiphon migration retires WARP as the blowsh egress, so this work is superseded by task 407. Moved from `tasks/qa/` to `tasks/completed/` and status set to `closed`. The QA budget is freed so task 407 can be claimed.
 
 ## Factual Git Diff
 
