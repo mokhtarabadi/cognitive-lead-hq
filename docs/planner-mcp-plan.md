@@ -1,5 +1,16 @@
 # Planner MCP v1 — Design & Implementation Plan
 
+> **Historical document — superseded by `mcp-planner-server/README.md` and
+> `mcp-planner-server/DECISIONS.md`.** This was the Phase A design plan, not the
+> shipped contract. It still names task ID 331, a `tasks/.plan/index.json` read
+> model that was never implemented, SSE refresh and a light theme that were
+> never built, and milestone file names `M24-*`. The live server derives its
+> read model per request from Markdown, polls at 30/60 s, ships a dark-only
+> dashboard, uses canonical `Mnn` milestone ids, and requires an explicit
+> `project_root` on plan writes. See ADR-015 in `mcp-planner-server/DECISIONS.md`
+> dated 2026-11-21. Where this document and those two living files disagree,
+> the living files win.
+
 ## 1. Problem & scope
 
 The Manager reports entering autopilot unintentionally, running many tasks back-to-back, and then finding QA/testing of accumulated changes hard — work becomes complex and scattered. The brainstorming session (7 seats: Architect, UI/UX Designer, Senior Programmer, Project Planner, Sprint Strategist, QA Engineer, Code Reviewer) ranked **O1** as the winning option:
@@ -34,7 +45,7 @@ This plan records that decision and the v1 execution path so planning can contin
 
 ## 4. Out of scope for v1 (explicit)
 
-- Asana or Plane synchronization, Telegram task mutation, multi-user permissions.
+- Asana or Plane synchronization, Telegram task mutation. Multi-user permissions were originally out of scope but were later added under ADR-005/006/007 in `mcp-planner-server/DECISIONS.md`.
 - Automatic task creation without Manager approval.
 - General-purpose Gantt, webhooks/inbound events, git commit/push by agents.
 
@@ -43,20 +54,20 @@ This plan records that decision and the v1 execution path so planning can contin
 Existing task header stays. New optional header fields:
 
 ```
-**Estimate:** <hours>          # work estimate, used for capacity sums
-**Milestone:** <id>            # links to tasks/milestones/<id>.md
-**Deadline:** YYYY-MM-DD       # sortable
-**Depends on:** <id>, <id>     # prerequisite task IDs
+**Estimate:** 3h               # work estimate, used for capacity sums
+**Milestone:** M02             # links to tasks/milestones/M02-*.md
+**Deadline:** 2026-12-01       # sortable
+**Depends on:** 338, 340       # prerequisite task IDs, numeric
 ```
 
-Milestones get their own file: `tasks/milestones/M24-<name>.md` (context, target date, owning task IDs).
+Milestones get their own file: `tasks/milestones/Mnn-<name>.md` (context, target date, owning task IDs). Canonical ids are `M01`, `M02`, …; `M1` and `m01` normalize to `M01`, and declared files seed the board even with zero tagged tasks.
 
-A planner **read model** lives in `tasks/.plan/index.json` (gitignored, regenerated from Markdown on every planner invocation — never hand-edited). It contains task ID, source path, status, lane, estimate, milestone, deadline, depends_on, QA status, and derived fields (`blocked`, `due_soon`, `qa_pending`).
+A planner read model was **planned** at `tasks/.plan/index.json`, but no writer was ever shipped. The live server derives the same fields per request from the Markdown files instead, so there is no persisted index to hand-edit. (Superseded by `mcp-planner-server/README.md`.)
 
 ## 6. Architecture
 
 - **`mcp-planner-server/`** (new singleton, port 8108, same pattern as other MCP servers): tools only — `plan_status`, `plan_propose` (decompose a goal into tasks + estimates, **writes nothing**), `plan_materialize` (writes task files after Manager approval), `claim_next` (guarded claim: checks dependencies, WIP, QA budget), `qa_budget` (count of QA-pending tasks), `milestone_status`.
-- **Local dashboard**: served by the MCP on 8108, static HTML+JS, Kanban lanes, QA queue bar, capacity meter (default 20 h/week), milestone timeline, blocker list (`blocked_by`). SSE refresh. Accessible states (loading, empty, disconnected, stale-data), keyboard nav, light/dark.
+- **Local dashboard**: served by the MCP on 8108, static HTML+JS, Kanban lanes, QA queue bar, capacity meter (default 20 h/week), milestone timeline, blocker list (`blocked_by`). Shipped with 30 s status polling and 60 s plan/chart polling, dark-only theme, dialog focus traps, keyboard navigation, and aria-live status. SSE and a light theme were planned but not built.
 - **Rollback**: disable planner, return to `tasks/` Markdown workflow. No destructive migration — planner reads only.
 
 ## 7. Risks & rollback

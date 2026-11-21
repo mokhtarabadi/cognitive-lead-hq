@@ -529,8 +529,9 @@ def test_api_status_milestone_tree_and_deadlines(tmp_path):
     )
     payload = planner._api_status(str(tmp_path))
 
-    assert list(payload["milestone_tree"]) == ["M1"]
-    assert payload["milestone_tree"]["M1"][0]["title"] == "Milestone task"
+    # ADR-015: M1 is canonicalised to M01 so M1/m01/M001 merge on the board.
+    assert list(payload["milestone_tree"]) == ["M01"]
+    assert payload["milestone_tree"]["M01"][0]["title"] == "Milestone task"
     assert payload["deadlines"][0]["deadline"] == "2026-12-01"
 
 
@@ -540,7 +541,9 @@ def test_api_status_pacing_mirrors_quota(tmp_path):
     today = payload["today"]
 
     assert today["open"] == 1
-    assert today["done"] == today["target"] - 1
+    # ADR-015: done is the real finished-today count, not target minus open.
+    assert today["done"] == 0
+    assert today["quota_reached"] is False
     # Matches sprint_check_daily_quota: open work means quota not reached.
     assert "DAILY_QUOTA_REACHED" not in planner.sprint_check_daily_quota(str(tmp_path))
 
@@ -617,7 +620,7 @@ def test_milestone_tree_sorts_numerically(tmp_path):
         tmp_path, "backlog", "283-old.md", "Old task", Milestone="M1"
     )
     payload = planner._api_status(str(tmp_path))
-    ids = [b["id"] for b in payload["milestone_tree"]["M1"]]
+    ids = [b["id"] for b in payload["milestone_tree"]["M01"]]
     assert ids == ["283", "0356"], ids
 
 
@@ -1249,13 +1252,20 @@ def test_plan_api_admin_only_and_persists(open_client, tmp_path, monkeypatch):
     _write_task(tmp_path, "backlog", 53, "Saved", estimate=1)
     week_dt = __import__("datetime").date.today().isocalendar()
     week = f"{week_dt[0]}-W{week_dt[1]:02d}"
+    # ADR-015: a save must name the project it writes to.
     resp = open_client.post(
         "/api/plan",
-        json={"week": week, "deadline_edits": {"053": "2026-10-26"}},
+        json={
+            "project_root": str(tmp_path),
+            "week": week,
+            "deadline_edits": {"053": "2026-10-26"},
+        },
     )
     assert resp.status_code == 200
     assert resp.json()["deadline_edits"]["053"] == "2026-10-26"
-    status = open_client.get("/api/plan", params={"window": "week"}).json()
+    status = open_client.get(
+        "/api/plan", params={"window": "week", "project_root": str(tmp_path)}
+    ).json()
     assert status["plan"]["week"] == week
 
 
@@ -1371,7 +1381,10 @@ def test_login_valid_credentials_returns_token(auth_client):
     )
     assert resp.status_code == 200
     data = resp.json()
-    assert data["token"]
+    # ADR-015: the token lives only in the HttpOnly cookie, not the body.
+    assert data["ok"] is True
+    assert "token" not in data
+    assert resp.cookies.get("planner_session")
     assert data["username"] == "admin"
     assert data["role"] == "admin"
     assert data["allowed_projects"] == ["*"]

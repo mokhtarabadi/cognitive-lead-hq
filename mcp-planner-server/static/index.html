@@ -23,7 +23,7 @@
         <span class="badge text-bg-secondary" id="user-role">—</span>
       </div>
       <button type="button" class="btn btn-sm btn-outline-secondary d-none" id="logout-btn">Logout</button>
-      <span class="badge text-bg-secondary" id="status-chip"><span class="mono" id="status-dot">•</span> <span id="status-text">Loading…</span></span>
+      <span class="badge text-bg-secondary" id="status-chip"><span class="mono" id="status-dot">•</span> <span id="status-text" aria-live="polite" role="status">Loading…</span></span>
     </div>
   </header>
 
@@ -125,7 +125,7 @@
       <span class="label mb-0">Kanban lanes</span>
     </div>
     <input type="search" id="board-search" class="form-control form-control-sm mb-3" placeholder="Filter tasks by ID or title…" autocomplete="off" aria-label="Filter tasks">
-    <div class="d-flex justify-content-end mb-2"><button type="button" class="btn btn-sm btn-outline-secondary" id="mine-toggle" aria-pressed="false">Mine only</button></div>
+    <div class="d-flex justify-content-end mb-2"><button type="button" class="btn btn-sm btn-outline-secondary d-none" id="mine-toggle" aria-pressed="false">Mine only</button></div>
     <div class="row g-3" id="lanes-grid"></div>
   </section>
 
@@ -144,12 +144,12 @@
 </div>
 
 <!-- Login overlay -->
-<div class="gd-overlay hidden" id="login-modal">
-  <div class="gd-panel gd-panel-md p-4">
-    <h2 class="h6 mb-1">Sign in to Planner</h2>
+<div class="gd-overlay hidden" id="login-modal" role="dialog" aria-modal="true" aria-labelledby="login-title">
+  <div class="gd-panel gd-panel-md p-4" role="document">
+    <h2 class="h6 mb-1" id="login-title">Sign in to Planner</h2>
     <p class="small text-muted mb-3">Authentication is enabled on this server.</p>
     <form id="login-form" method="post" action="#" novalidate>
-      <div class="small mb-2" id="login-err" style="color:var(--gd-danger);min-height:1.2em"></div>
+      <div class="small mb-2" id="login-err" role="alert" style="color:var(--gd-danger);min-height:1.2em"></div>
       <div class="mb-2">
         <label class="form-label" for="login-username">Username</label>
         <input type="text" id="login-username" name="username" class="form-control form-control-sm"
@@ -169,8 +169,8 @@
 </div>
 
 <!-- Task overlay -->
-<div class="gd-overlay hidden" id="task-modal">
-  <div class="gd-panel gd-panel-lg">
+<div class="gd-overlay hidden" id="task-modal" role="dialog" aria-modal="true" aria-labelledby="task-modal-title">
+  <div class="gd-panel gd-panel-lg" role="document">
     <div class="d-flex align-items-start justify-content-between gap-3 p-3 border-bottom">
       <h2 class="h6 mb-0" id="task-modal-title">Task</h2>
       <div class="d-flex gap-2">
@@ -192,6 +192,9 @@
   // "board served a page" failure on deep links.
   const BASE_STATUS_URL = window.location.origin + '/api/status';
   let currentProject = '';
+  // Rebuilding the project selector on every 30 s poll closed an open dropdown
+  // and lost keyboard focus, so only a real project-list change rebuilds it.
+  let lastProjectSignature = '';
   let query = '';
   let lastData = null;
   let archiveOpen = false;
@@ -253,9 +256,18 @@
     return window.jalaali.toJalaali(date.getFullYear(), date.getMonth() + 1, date.getDate());
   }
 
+  // The Gregorian day shown beside a Jalali date must come from the same
+  // local calendar components. toISOString() shifts to UTC, so in UTC+ zones
+  // the tooltip showed the previous day for the first hours after midnight.
+  function localISO(d) {
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return d.getFullYear() + '-' + month + '-' + day;
+  }
+
   function formatJalali(d) {
     const j = jalaliOf(d);
-    if (!j) return d.toISOString().slice(0, 10);
+    if (!j) return localISO(d);
     return j.jd + ' ' + JALALI_MONTHS[j.jm - 1] + ' ' + j.jy;
   }
 
@@ -270,10 +282,30 @@
     return url + (url.indexOf('?') >= 0 ? '&' : '?') + '_t=' + Date.now();
   }
 
+  // Never leave the previous project's cards on screen while a new project
+  // loads, and never keep them after a 401/403. A stale board with a new
+  // dropdown value is misleading and was the source of "wrong project" reports.
+  function clearBoard() {
+    lastData = null;
+    elements.lanesGrid.innerHTML = '<div class="text-muted small p-3">Loading…</div>';
+    elements.milestoneTree.innerHTML = '<div class="text-muted small">Loading…</div>';
+    elements.planView.innerHTML = '<div class="text-muted small">Loading…</div>';
+    // Clear every derived panel: a project switch used to keep the previous
+    // project's timeline and charts visible behind the new dropdown value.
+    elements.timeline.innerHTML = '';
+    elements.hoursChart.innerHTML = '<div class="small text-muted">Loading…</div>';
+    elements.cfdChart.innerHTML = '<div class="small text-muted">Loading…</div>';
+    elements.controlChart.innerHTML = '<div class="small text-muted">Loading…</div>';
+    elements.deadlineRail.innerHTML = '<div class="small text-muted">Loading…</div>';
+    elements.statusChip.className = 'badge text-bg-secondary';
+    elements.statusText.textContent = 'Loading…';
+  }
+
   async function fetchStatus(retry) {
     try {
       const resp = await fetch(bust(statusUrl()), { cache: 'no-cache' });
       if (resp.status === 401) {
+        clearBoard();
         hideUserBadge();
         showLoginModal();
         elements.statusChip.className = 'badge text-bg-danger';
@@ -281,6 +313,7 @@
         return;
       }
       if (resp.status === 403) {
+        clearBoard();
         elements.statusChip.className = 'badge text-bg-danger';
         elements.statusText.textContent = 'Access denied for this project';
         return;
@@ -304,7 +337,10 @@
           ? 'board served a page (' + contentType + ') instead of data (edge login expired or /api/* misrouted)'
           : 'board served invalid data (' + contentType + ')');
       }
-      render(data);
+      // render() reports whether the payload was usable. A 200 response can
+      // still carry {"error": "..."}; in that case keep the danger badge
+      // instead of claiming the board is healthy.
+      if (!render(data)) return;
       elements.statusChip.className = 'badge text-bg-success';
       elements.statusText.textContent = 'Server reachable';
       if (pendingDeepTask) {
@@ -327,8 +363,8 @@
   function render(data) {
     if (data.error) {
       elements.statusChip.className = 'badge text-bg-danger';
-      elements.statusText.textContent = 'Error: ' + data.error;
-      return;
+      elements.statusText.textContent = 'Error: ' + (data.detail || data.error);
+      return false;
     }
     lastData = data;
 
@@ -352,61 +388,28 @@
 
     const projects = data.projects || [];
     if (projects.length) {
-      elements.projectSelect.innerHTML = projects.map(p =>
-        '<option value="' + escapeHtml(p.path) + '"' + (p.path === data.project_root ? ' selected' : '') + '>' + escapeHtml(p.label) + '</option>'
-      ).join('');
+      const signature = projects.map(function (p) { return p.path + '|' + p.label; }).join('||');
+      if (signature !== lastProjectSignature) {
+        lastProjectSignature = signature;
+        elements.projectSelect.innerHTML = projects.map(p =>
+          '<option value="' + escapeHtml(p.path) + '"' + (p.path === data.project_root ? ' selected' : '') + '>' + escapeHtml(p.label) + '</option>'
+        ).join('');
+      }
       currentProject = data.project_root || projects[0].path;
     }
 
-    // Lanes
-    const lanes = data.lanes || {};
-    elements.lanesGrid.innerHTML = '';
-    const laneOrder = ['backlog', 'in-progress', 'qa', 'completed', 'archive'];
-    const laneLabels = { backlog: 'Backlog', 'in-progress': 'In Progress', qa: 'QA / Review', completed: 'Completed', archive: 'Archive' };
-    const needle = query.trim().toLowerCase();
-    laneOrder.forEach(function (lane) {
-      const all = lanes[lane] || [];
-      const scoped = mineOnly && currentUser ? all.filter(function (t) { return t.owner === currentUser; }) : all;
-      const items = needle ? scoped.filter(function (t) { return taskMatches(t, needle); }) : scoped;
-      const isArchive = lane === 'archive';
-      const collapsed = isArchive && !archiveOpen;
-      const chipClass = { backlog: 'text-bg-secondary', 'in-progress': 'text-bg-info', qa: 'text-bg-warning', completed: 'text-bg-success', archive: 'text-bg-secondary' }[lane];
-      const header = '<span>' + laneLabels[lane] + ' <span class="badge ' + chipClass + '">' + all.length + '</span></span>' +
-        (isArchive ? '<button type="button" class="btn btn-sm btn-outline-secondary" id="archive-toggle" aria-expanded="' + (archiveOpen ? 'true' : 'false') + '">' + (archiveOpen ? 'Collapse' : 'Expand') + '</button>' : '');
-      const rows = items.length === 0
-        ? '<div class="text-muted small p-2">' + (needle ? 'No matches' : '—') + '</div>'
-        : items.map(function (t) {
-          return '<div class="task-row" role="button" tabindex="0" data-id="' + escapeHtml(t.id || t.name || '') + '" data-path="' + escapeHtml(t.path || '') + '">' +
-            '<span class="id">' + escapeHtml(t.id || t.name || 'task') + '</span> — ' + escapeHtml(t.title || 'untitled') +
-            (t.owner ? ' <span class="badge text-bg-secondary">' + escapeHtml(t.owner) + '</span>' : '') +
-            (t.blocked ? ' <span class="badge text-bg-danger">BLOCKED</span>' : '') +
-            (t.blocked && t.blocked_reason && t.blocked_reason !== 'none' ? ' <span class="text-muted small">' + escapeHtml(t.blocked_reason) + '</span>' : '') +
-            (t.swarm && t.swarm !== 'none' ? ' <span class="badge text-bg-warning">swarm: ' + escapeHtml(t.swarm) + '</span>' : '') +
-            (t.lane === 'in-progress' && t.started_at && isStale(t.started_at) ? ' <span class="badge text-bg-danger">STALE</span>' : '') +
-            (t.estimate_hours != null ? ' <span class="text-muted">' + t.estimate_hours + 'h</span>' : '') +
-            (t.elapsed_seconds != null ? ' <span class="text-muted mono">· lead time ' + formatDuration(t.elapsed_seconds) + '</span>' : '') +
-            '</div>';
-        }).join('');
-      const hint = isArchive && needle && items.length
-        ? '<div class="lane-hint mb-1">' + items.length + ' match(es) in Archive' + (collapsed ? ' — expand to view' : '') + '</div>'
-        : '';
-      const col = document.createElement('div');
-      col.className = 'col-12 col-md-6 col-xl';
-      col.innerHTML = '<div class="card lane-card h-100"><div class="card-header">' + header + '</div>' +
-        '<div class="card-body py-2">' + hint + '<div class="lane-list' + (collapsed ? ' hidden' : '') + '">' + rows + '</div></div></div>';
-      elements.lanesGrid.appendChild(col);
-    });
-    const toggle = document.getElementById('archive-toggle');
-    if (toggle) {
-      toggle.addEventListener('click', function () {
-        archiveOpen = !archiveOpen;
-        try { window.localStorage.setItem('planner-archive-open', archiveOpen ? '1' : '0'); } catch (e) { /* storage may be blocked */ }
-        if (lastData) render(lastData);
-      });
-    }
+    // Lanes are updated separately so typing in the search box does not
+    // rebuild milestones, the timeline, or the project selector.
+    renderLanes(data);
 
     // Milestones
     const tree = data.milestone_tree || {};
+    // Remember which milestone nodes the user collapsed. A full status poll
+    // used to reset every node to expanded, losing their reading position.
+    const collapsedMilestones = new Set();
+    elements.milestoneTree.querySelectorAll('.ms-node.collapsed').forEach(function (node) {
+      if (node.dataset.ms) collapsedMilestones.add(node.dataset.ms);
+    });
     elements.milestoneTree.innerHTML = '';
     if (!tree || Object.keys(tree).length === 0) {
       elements.milestoneTree.innerHTML = '<div class="text-muted small">No milestones defined.</div>';
@@ -416,16 +419,20 @@
         const items = entry[1];
         const node = document.createElement('div');
         node.className = 'ms-node';
+        node.dataset.ms = ms;
+        if (collapsedMilestones.has(ms)) node.classList.add('collapsed');
         const done = items.filter(function (i) { return i.status === 'closed'; }).length;
         node.innerHTML = '<div class="d-flex align-items-center gap-2">' +
-          '<button type="button" class="btn btn-sm btn-outline-secondary py-0 px-1" data-arrow>▾</button>' +
+          '<button type="button" class="btn btn-sm btn-outline-secondary py-0 px-1" data-arrow aria-label="Toggle milestone ' + escapeHtml(ms) + '" aria-expanded="' + (collapsedMilestones.has(ms) ? 'false' : 'true') + '">▾</button>' +
           '<strong class="small">' + escapeHtml(ms) + '</strong>' +
           '<span class="text-muted small mono">' + done + '/' + items.length + '</span></div>' +
           '<div class="children mt-1">' + items.map(function (i) {
             return '<div class="small text-muted">• ' + escapeHtml(i.title || i.name || 'untitled') + ' [' + escapeHtml(i.status || 'open') + ']</div>';
           }).join('') + '</div>';
         node.querySelector('[data-arrow]').addEventListener('click', function () {
-          node.classList.toggle('collapsed');
+          const isCollapsed = node.classList.toggle('collapsed');
+          this.setAttribute('aria-expanded', isCollapsed ? 'false' : 'true');
+          this.textContent = isCollapsed ? '▸' : '▾';
         });
         elements.milestoneTree.appendChild(node);
       });
@@ -458,9 +465,60 @@
         '<div class="cal-secondary">' + d.getDate() + (j ? '' : ' (G)') + '</div>' +
         (monthLabel ? '<div class="cal-secondary">' + monthLabel + '</div>' : '') +
         (due.length ? '<div class="cal-secondary">•' + due.length + '</div>' : '');
-      div.title = (j ? formatJalali(d) + ' · ' : '') + d.toISOString().slice(0, 10) + ' — ' +
+      div.title = (j ? formatJalali(d) + ' · ' : '') + localISO(d) + ' — ' +
         (due.length ? due.map(function (t) { return t.title; }).join(', ') : 'no deadlines');
       elements.timeline.appendChild(div);
+    }
+    return true;
+  }
+
+  function renderLanes(data) {
+    const lanes = data.lanes || {};
+    elements.lanesGrid.innerHTML = '';
+    const laneOrder = ['backlog', 'in-progress', 'qa', 'completed', 'archive'];
+    const laneLabels = { backlog: 'Backlog', 'in-progress': 'In Progress', qa: 'QA / Review', completed: 'Completed', archive: 'Archive' };
+    const needle = query.trim().toLowerCase();
+    laneOrder.forEach(function (lane) {
+      const all = lanes[lane] || [];
+      const scoped = mineOnly && currentUser ? all.filter(function (t) { return t.owner === currentUser; }) : all;
+      const items = needle ? scoped.filter(function (t) { return taskMatches(t, needle); }) : scoped;
+      const isArchive = lane === 'archive';
+      const collapsed = isArchive && !archiveOpen;
+      const chipClass = { backlog: 'text-bg-secondary', 'in-progress': 'text-bg-info', qa: 'text-bg-warning', completed: 'text-bg-success', archive: 'text-bg-secondary' }[lane];
+      // Badge is the lane total, independent of the search/Mine filter;
+      // only the rendered rows are filtered.
+      const header = '<span>' + laneLabels[lane] + ' <span class="badge ' + chipClass + '">' + all.length + '</span></span>' +
+        (isArchive ? '<button type="button" class="btn btn-sm btn-outline-secondary" id="archive-toggle" aria-expanded="' + (archiveOpen ? 'true' : 'false') + '">' + (archiveOpen ? 'Collapse' : 'Expand') + '</button>' : '');
+      const rows = items.length === 0
+        ? '<div class="text-muted small p-2">' + (needle ? 'No matches' : '—') + '</div>'
+        : items.map(function (t) {
+          return '<div class="task-row" role="button" tabindex="0" data-id="' + escapeHtml(t.id || t.name || '') + '" data-path="' + escapeHtml(t.path || '') + '">' +
+            '<span class="id">' + escapeHtml(t.id || t.name || 'task') + '</span> — ' + escapeHtml(t.title || 'untitled') +
+            (t.owner ? ' <span class="badge text-bg-secondary">' + escapeHtml(t.owner) + '</span>' : '') +
+            (t.blocked ? ' <span class="badge text-bg-danger">BLOCKED</span>' : '') +
+            (t.blocked && t.blocked_reason && t.blocked_reason !== 'none' ? ' <span class="text-muted small">' + escapeHtml(t.blocked_reason) + '</span>' : '') +
+            (t.swarm && t.swarm !== 'none' ? ' <span class="badge text-bg-warning">swarm: ' + escapeHtml(t.swarm) + '</span>' : '') +
+            (t.lane === 'in-progress' && t.started_at && isStale(t.started_at) ? ' <span class="badge text-bg-danger">STALE</span>' : '') +
+            (t.estimate_hours != null ? ' <span class="text-muted">' + escapeHtml(t.estimate_hours) + 'h</span>' : '') +
+            (t.elapsed_seconds != null ? ' <span class="text-muted mono">· lead time ' + formatDuration(t.elapsed_seconds) + '</span>' : '') +
+            '</div>';
+        }).join('');
+      const hint = isArchive && needle && items.length
+        ? '<div class="lane-hint mb-1">' + items.length + ' match(es) in Archive' + (collapsed ? ' — expand to view' : '') + '</div>'
+        : '';
+      const col = document.createElement('div');
+      col.className = 'col-12 col-md-6 col-xl';
+      col.innerHTML = '<div class="card lane-card h-100"><div class="card-header">' + header + '</div>' +
+        '<div class="card-body py-2">' + hint + '<div class="lane-list' + (collapsed ? ' hidden' : '') + '">' + rows + '</div></div></div>';
+      elements.lanesGrid.appendChild(col);
+    });
+    const toggle = document.getElementById('archive-toggle');
+    if (toggle) {
+      toggle.addEventListener('click', function () {
+        archiveOpen = !archiveOpen;
+        try { window.localStorage.setItem('planner-archive-open', archiveOpen ? '1' : '0'); } catch (e) { /* storage may be blocked */ }
+        if (lastData) renderLanes(lastData);
+      });
     }
   }
 
@@ -583,7 +641,7 @@
     elements.taskModalTitle.textContent = id ? 'Task ' + id : 'Task';
     elements.taskModalMeta.textContent = 'Loading…';
     elements.taskModalBody.innerHTML = '<p class="text-muted small">Loading…</p>';
-    elements.taskModal.classList.remove('hidden');
+    openDialog(elements.taskModal);
     elements.taskModalClose.focus();
     fetch(bust('/api/task?' + params.toString()), { cache: 'no-cache' })
       .then(async function (resp) {
@@ -614,7 +672,39 @@
       });
   }
 
-  function closeTaskModal() { elements.taskModal.classList.add('hidden'); }
+  // Dialog focus management: keep Tab inside the open dialog and return focus
+  // to the control that opened it, so keyboard users are not stranded on the
+  // board behind the overlay.
+  let modalReturnFocus = null;
+
+  function trapDialogFocus(event, dialog) {
+    const focusable = dialog.querySelectorAll(
+      'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    );
+    if (!focusable.length) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  }
+
+  function openDialog(dialog) {
+    modalReturnFocus = document.activeElement;
+    dialog.classList.remove('hidden');
+  }
+
+  function closeDialog(dialog) {
+    dialog.classList.add('hidden');
+    if (modalReturnFocus && typeof modalReturnFocus.focus === 'function') modalReturnFocus.focus();
+    modalReturnFocus = null;
+  }
+
+  function closeTaskModal() { closeDialog(elements.taskModal); }
 
   elements.lanesGrid.addEventListener('click', function (event) {
     const row = event.target.closest('.task-row');
@@ -640,11 +730,22 @@
     if (event.target === elements.taskModal) closeTaskModal();
   });
   document.addEventListener('keydown', function (event) {
-    if (event.key === 'Escape' && !elements.taskModal.classList.contains('hidden')) closeTaskModal();
+    const openDialog = !elements.taskModal.classList.contains('hidden')
+      ? elements.taskModal
+      : (!auth.modal.classList.contains('hidden') ? auth.modal : null);
+    if (!openDialog) return;
+    if (event.key === 'Escape') {
+      if (openDialog === elements.taskModal) closeTaskModal();
+      else hideLoginModal();
+      return;
+    }
+    if (event.key === 'Tab') trapDialogFocus(event, openDialog);
   });
   elements.search.addEventListener('input', function () {
     query = elements.search.value;
-    if (lastData) render(lastData);
+    // Only the lanes change; rebuilding the whole board here used to collapse
+    // milestones and close an open project selector on every keystroke.
+    if (lastData) renderLanes(lastData);
   });
 
   const mineToggle = document.getElementById('mine-toggle');
@@ -653,7 +754,7 @@
       mineOnly = !mineOnly;
       mineToggle.setAttribute('aria-pressed', mineOnly ? 'true' : 'false');
       mineToggle.className = 'btn btn-sm ' + (mineOnly ? 'btn-primary' : 'btn-outline-secondary');
-      if (lastData) render(lastData);
+      if (lastData) renderLanes(lastData);
     });
   }
 
@@ -695,7 +796,7 @@
       laneChip(t.lane) + ' <span class="id">' + escapeHtml(t.id || '') + '</span> — ' + escapeHtml(t.title || '') +
       (t.estimate_hours != null ? ' <span class="text-muted">' + escapeHtml(t.estimate_hours) + 'h</span>' : '') +
       (committed ? ' <span class="badge text-bg-success">committed</span>' : '') + '</div>' +
-      '<select class="form-select form-select-sm" style="width:8.5rem" data-assign="' + escapeHtml(t.id || '') + '">' + options + '</select>' +
+      '<select class="form-select form-select-sm" style="width:8.5rem" data-assign="' + escapeHtml(t.id || '') + '" aria-label="Set deadline for task ' + escapeHtml(t.id || '') + '">' + options + '</select>' +
       '</div>';
   }
 
@@ -884,15 +985,25 @@
         '<div class="small text-muted">Nothing scheduled for today.</div>';
     } else if (data.window === 'week') {
       const w = (data.weeks || [])[0] || { remaining_hours: 0, estimate_hours: 0, capacity_hours: 0 };
+      const cap = w.capacity_hours || 0;
+      const estimate = w.estimate_hours || 0;
+      const remaining = w.remaining_hours == null ? cap - estimate : w.remaining_hours;
+      const over = Math.max(0, -remaining);
+      // A negative "left" value read as a bug rather than an overrun. Show
+      // zero remaining plus an explicit overrun and colour the bar as an alert.
+      const capLabel = over > 0
+        ? estimate + 'h of ' + cap + 'h · 0h left · ' + over + 'h over'
+        : estimate + 'h of ' + cap + 'h · ' + Math.max(0, remaining) + 'h left';
+      const barColor = over > 0 ? 'var(--gd-danger)' : 'var(--gd-accent)';
       html = '<div class="d-flex justify-content-between small mb-2"><span class="text-muted">Capacity</span><span class="mono">' +
-        (w.estimate_hours || 0) + 'h of ' + (w.capacity_hours || 0) + 'h · ' + (w.remaining_hours || 0) + 'h left</span></div>' +
+        capLabel + '</span></div>' +
         '<div class="progress mb-2" style="height:6px;background:var(--gd-raised)"><div class="progress-bar" style="width:' +
-        Math.min(100, Math.round(((w.estimate_hours || 0) / Math.max(1, w.capacity_hours || 1)) * 100)) + '%;background:var(--gd-accent)"></div></div>' +
+        (cap > 0 ? Math.min(100, Math.round(estimate / cap * 100)) : (estimate > 0 ? 100 : 0)) + '%;background:' + barColor + '"></div></div>' +
         days.map(function (d) {
           return '<div class="d-flex justify-content-between align-items-center border-bottom py-1 small gap-2"><span>' + d.date.slice(5) + '</span>' +
             '<span class="mono text-muted">' + d.open + ' open · ' + d.in_progress + ' wip · ' + d.done + ' done · ' + (d.estimate_hours || 0) + 'h</span>' +
             '<input type="number" min="0" step="0.5" class="form-control form-control-sm" style="width:5.5rem" data-cap="' + d.date + '" value="' +
-            (((data.plan || {}).capacity_by_day || {})[d.date] || '') + '" aria-label="Capacity ' + d.date + '"></div>';
+            (((data.plan || {}).capacity_by_day || {})[d.date] ?? '') + '" aria-label="Capacity ' + d.date + '"></div>';
         }).join('');
     } else {
       html = (data.weeks || []).map(function (w) {
@@ -935,7 +1046,9 @@
     fetch('/api/plan', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ deadline_edits: deadline_edits, capacity_by_day: capacity_by_day, approved: !!approved }),
+      // Carry the selected project so the server never falls back to its
+      // default root and silently writes this edit into another project.
+      body: JSON.stringify({ project_root: currentProject, deadline_edits: deadline_edits, capacity_by_day: capacity_by_day, approved: !!approved }),
     }).then(function (resp) { return resp.json().then(function (body) { return { ok: resp.ok, body: body }; }); })
       .then(function (res) {
         elements.planTotals.textContent = res.ok ? (approved ? 'Plan approved' : 'Plan saved') : 'Save failed: ' + (res.body.error || 'error');
@@ -954,8 +1067,11 @@
 
   elements.projectSelect.addEventListener('change', function () {
     currentProject = elements.projectSelect.value;
+    clearBoard();
+    // Match refreshAll so no panel is left showing the previous project.
     fetchStatus();
     fetchPlan();
+    fetchHours();
     loadCFD();
     loadControlChart();
   });
@@ -976,13 +1092,13 @@
   };
 
   function showLoginModal() {
-    auth.modal.classList.remove('hidden');
+    openDialog(auth.modal);
     auth.err.textContent = '';
     auth.username.value = '';
     auth.password.value = '';
     auth.username.focus();
   }
-  function hideLoginModal() { auth.modal.classList.add('hidden'); }
+  function hideLoginModal() { closeDialog(auth.modal); }
 
   function showUserBadge(username, role) {
     currentUser = username || '';
@@ -993,12 +1109,26 @@
     auth.userRole.textContent = role;
     auth.userRole.className = 'badge ' + (role === 'admin' ? 'text-bg-info' : 'text-bg-secondary');
     auth.userAvatar.textContent = (username || '?').charAt(0).toUpperCase();
+    // "Mine only" has no meaning without a signed-in user.
+    const toggle = document.getElementById('mine-toggle');
+    if (toggle) toggle.classList.remove('d-none');
   }
 
   function hideUserBadge() {
     auth.userBadge.classList.add('d-none');
     auth.userBadge.classList.remove('d-flex');
     auth.logoutBtn.classList.add('d-none');
+    // Session expiry previously left currentUser set, so Mine only kept
+    // filtering by a user who was no longer signed in.
+    currentUser = '';
+    mineOnly = false;
+    const toggle = document.getElementById('mine-toggle');
+    if (toggle) {
+      toggle.classList.add('d-none');
+      toggle.setAttribute('aria-pressed', 'false');
+      toggle.className = 'btn btn-sm btn-outline-secondary d-none';
+    }
+    if (lastData) renderLanes(lastData);
   }
 
   async function login() {
@@ -1021,18 +1151,19 @@
         return;
       }
       const data = await resp.json();
-      if (data.token) {
+      // Success is signalled by ``ok``; the session token stays in the
+      // HttpOnly cookie and is never exposed to page JavaScript.
+      if (data.ok) {
         hideLoginModal();
         showUserBadge(data.username, data.role);
         currentProject = '';
-        fetchStatus().then(function () {
+        refreshAll().then(function () {
           if (pendingTaskModalId) {
             const retryId = pendingTaskModalId;
             pendingTaskModalId = '';
             openTaskModal(retryId);
           }
         });
-        fetchHours();
       } else if (data.note === 'auth disabled') {
         hideLoginModal();
         fetchStatus();
@@ -1068,12 +1199,18 @@
     } catch (e) { /* server unreachable: leave the board as is */ }
   })();
 
-  fetchStatus().then(function () {
-    fetchPlan();
-    fetchHours();
-    loadCFD();
-    loadControlChart();
-  });
+  // One refresh path for cold load and login. Previously login only fetched
+  // status and hours, leaving Plan, CFD and Control stuck at "unavailable"
+  // until the 60 s interval fired.
+  function refreshAll() {
+    return fetchStatus().then(function () {
+      fetchPlan();
+      fetchHours();
+      loadCFD();
+      loadControlChart();
+    });
+  }
+  refreshAll();
   setInterval(fetchStatus, 30000);
   setInterval(fetchPlan, 60000);
   setInterval(fetchHours, 60000);

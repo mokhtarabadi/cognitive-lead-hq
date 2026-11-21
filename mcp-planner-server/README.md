@@ -14,11 +14,13 @@ dashboard on loopback port 8108.
   `milestone_status`, `plan_status`, `sprint_daily_agenda`,
   `sprint_check_daily_quota`, `sprint_lock`) plus an embedded HTTP route
   serving the static dashboard on `GET /` and `GET /api/status`, the auth
-  routes, and the admin-guarded MCP endpoint.
+  routes, and the auth-free MCP endpoint guarded by a real loopback peer check
+  plus the tunnel's `/mcp` 404.
 - `manage_users.py` — stdlib-only user CLI (`add`, `update`, `remove`,
   `list`, `enable`, `disable`) writing `~/.config/opencode/planner-users.json`.
-- `static/index.html` — standalone dark-mode dashboard (no build step),
-  including the login modal and the user badge.
+- `static/index.html` — standalone dark-only dashboard (no build step, no SSE;
+  30 s status polling and 60 s plan/chart polling), including the login modal
+  and the user badge.
 - `pyproject.toml` / `uv.lock` — runtime deps and lockfile.
 - `README.md` / `DECISIONS.md` — Living Folder Docs for this slice.
 
@@ -26,21 +28,29 @@ dashboard on loopback port 8108.
 
 | Route                                                     | Purpose                                                                                                                                                                                                                                                                |
 | --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `GET /`                                                   | Standalone dark-mode dashboard (no build step).                                                                                                                                                                                                                        |
+| `GET /`                                                   | Standalone dark-only dashboard (no build step).                                                                                                                                                                                                                         |
 | `GET /static/*`                                           | Dashboard assets (same `static/` directory).                                                                                                                                                                                                                           |
 | `GET /api/status[?project_root=<abs path>]`               | JSON status contract the dashboard renders.                                                                                                                                                                                                                            |
 | `GET /api/task?id=<id>` or `?path=tasks/<lane>/<file>.md` | One task file as `{id, path, lane, title, markdown}` for the dashboard modal. `id` wins when both are sent. 400 no param, 401 no session, 403 outside grants or unsafe path, 404 unknown, 500 unexpected.                                                              |
 | `GET /api/hours[?project_root=<abs path>]`                | Lead time from task stamps: per-day rows for the last 14 days plus per-week rows for the last 8 ISO weeks (`{date/week, measured_hours, done}`). The key is historical; the value is `finished − started` wall clock, which counts nights and weekends and is **not** effort. Tasks without `Finished` + `elapsed_seconds` never count, and hours are attributed to the finish day. Same 401/403 contract as `/api/status`. |
-| `POST /api/login`                                         | `{"username","password"}` → `{token, username, role, allowed_projects}` + `HttpOnly` cookie.                                                                                                                                                                           |
+| `POST /api/login`                                         | `{"username","password"}` → `{ok, username, role, allowed_projects}` + `HttpOnly` cookie. The session token is never returned in the body.                                                                                                                          |
 | `POST /api/logout`                                        | Invalidates the session and clears the cookie.                                                                                                                                                                                                                         |
 | `GET /api/me`                                             | Current user, or 401 when signed out (200 + `note: "auth disabled"` in open mode).                                                                                                                                                                                     |
-| `POST /mcp`                                               | MCP Streamable HTTP endpoint (tools). Auth-free on loopback; the tunnel 404s it.                                                                                                                                                                                       |
+| `GET /api/plan[?project_root=<abs path>&window=day\|week\|month]` | Saved week plan plus derived capacity and deadline alerts. `window=month` prorates capacity for partial ISO weeks.                                                                                                                                            |
+| `POST /api/plan`                                          | `{project_root, deadline_edits, capacity_by_day, approved}`. `project_root` is required and absolute: 400 when missing or relative, 404 when the directory does not exist. Writes only to that root.                                                                |
+| `DELETE /api/plan[?project_root=<abs path>&week=YYYY-Www]` | Clears the saved plan for the given project; `project_root` is required and validated like POST.                                                                                                                                                                     |
+| `POST /mcp`                                               | MCP Streamable HTTP endpoint (tools). Auth-free on loopback; the wrapper rejects non-loopback peers with 403 and the tunnel 404s it.                                                                                                                                |
 
 `/api/status` returns per-lane **task lists** (`lanes`), the milestone tree
-(`milestone_tree`), upcoming deadlines (`deadlines`), the pacing figures
-(`today` = `done`/`target`/`open`, mirroring `sprint_check_daily_quota`), the
-selectable project roots (`projects`), and the root actually reported on
-(`project_root`). Lane values are lists, never counts — the dashboard calls
+(`milestone_tree`), deadlines (`deadlines`), the pacing figures
+(`today` = real finished-today `done`, `target`, open working set, and an
+explicit `quota_reached` boolean), the selectable project roots (`projects`),
+and the root actually reported on (`project_root`). Milestone keys are
+canonical `Mnn` ids: `M1`, `m01` and `M001` merge into `M01`, and every
+`tasks/milestones/*.md` declaration seeds the tree at zero tasks so a closed
+milestone such as M02 stays visible. Internal status failures return HTTP 500
+with `{error: "internal error", detail}`, never HTTP 200. Lane values are
+lists, never counts — the dashboard calls
 `.map()` on them. Every rendered list (lanes, milestone groups, plan buckets,
 alert rails) is ordered lowest task number first by the leading filename
 integer, so mixed widths (`283-*.md` vs `0356-*.md`) still sort numerically;
@@ -51,6 +61,13 @@ Project resolution order: the `project_root` query parameter, then
 holding `tasks/`, then the working directory. `PLANNER_PROJECTS`
 (pathsep-separated absolute paths) adds entries to the dashboard switcher;
 `PLANNER_DAILY_TARGET` overrides the daily batch size (default 3).
+`PLANNER_TRUSTED_PROXIES` is a comma-separated IP allowlist whose members may
+set `X-Forwarded-Proto` for cookie `Secure` and HSTS decisions; it defaults to
+loopback so the local tunnel keeps working. All day/week bucketing, plan week
+keys, quota checks, and overdue tests use UTC, matching the timestamp contract
+below. The installed service is a copy of this directory, deployed with the
+`cp` commands in `LLM.txt` §7 and then restarted; editing this repo alone does
+not change the live dashboard.
 
 ## Authentication and RBAC (optional, off by default)
 

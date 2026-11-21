@@ -48,6 +48,8 @@ Design rules:
 import contextvars
 import functools
 import hashlib
+import inspect
+import ipaddress
 import hmac
 import json
 import os
@@ -83,6 +85,65 @@ _ROOT_FALLBACK_WARNING = (
 
 _PROJECTS_REGISTRY_ENV = "PLANNER_PROJECTS_REGISTRY"
 _PROJECTS_REGISTRY_LIMIT = 50
+
+
+# Canonical milestone ids are M followed by digits; leading zeros vary across
+# task headers (M1) and milestone files (M02), so both map to one key.
+_MILESTONE_ID_RE = re.compile(r"^m0*(\d+)$", re.IGNORECASE)
+
+
+def _normalize_milestone(value: object) -> str:
+    """Return the canonical, casefolded key for a milestone label.
+
+    ``M1``, ``m01`` and ``M001`` all become ``M01``. Non-numeric labels are
+    trimmed and casefolded only, preserving the first-seen display spelling at
+    the call site. Empty labels return an empty string so callers can skip them.
+    """
+    text = str(value or "").strip().casefold()
+    if not text:
+        return ""
+    match = _MILESTONE_ID_RE.match(text)
+    if match:
+        return f"M{int(match.group(1)):02d}"
+    return text
+
+
+def _milestone_definitions(workspace_root: Path) -> dict[str, str]:
+    """Read ``tasks/milestones/*.md`` and map canonical id to display title.
+
+    A declared milestone must appear on the board even when no task carries
+    its header, otherwise a closed milestone document is invisible and users
+    read a false "no milestones" state.
+    """
+    result: dict[str, str] = {}
+    folder = workspace_root / "tasks" / "milestones"
+    if not folder.is_dir():
+        return result
+    for path in sorted(folder.glob("*.md")):
+        key = _normalize_milestone(path.stem.split("-", 1)[0])
+        if not key:
+            continue
+        title = path.stem.replace("-", " ")
+        try:
+            with path.open("r", encoding="utf-8") as handle:
+                first_line = handle.readline().strip()
+            if first_line.startswith("#"):
+                title = first_line.lstrip("#").strip()
+        except OSError:
+            pass
+        result[key] = title
+    return result
+
+
+def _utc_today() -> date:
+    """Return today's calendar date in UTC, the project's stored-time basis.
+
+    Task stamps are parsed as UTC (``_parse_utc``) and the documented contract
+    (DECISIONS.md) is UTC-at-rest. Anchoring day/week buckets on the host's
+    local date split a task's finish date from the bucket that displays it on
+    any non-UTC host, so every day/week decision goes through this helper.
+    """
+    return datetime.now(timezone.utc).date()
 
 
 def _registry_path() -> Path:
@@ -132,11 +193,15 @@ def _project_tool(fn):
 
     @functools.wraps(fn)
     def wrapper(*args, **kwargs):
+        # Bind against the real signature before reading project_root. The old
+        # args[0] heuristic misread the first positional argument of tools whose
+        # first parameter is not a root (plan_propose's goal, sprint_lock's id),
+        # which registered a bogus project path in the shared registry.
+        bound = inspect.signature(fn).bind(*args, **kwargs)
+        bound.apply_defaults()
         _FALLBACK_FIRED.set(False)
         out = fn(*args, **kwargs)
-        requested = kwargs.get("project_root")
-        if requested is None and args and isinstance(args[0], str):
-            requested = args[0]
+        requested = bound.arguments.get("project_root")
         if requested and str(requested).strip():
             _register_project(Path(str(requested)).expanduser())
         if not _FALLBACK_FIRED.get():
@@ -622,12 +687,13 @@ def plan_materialize(
     Args:
         project_root: Absolute path to the project holding tasks/.
         task_ids: Comma-separated list of task IDs to materialize.
-        Returns:
+
+    Returns:
         Summary of created files and any validation results.
 
-        Notes:
-        Planner metadata (**Estimate:**, **Milestone:**, **Deadline:**,
-        **Depends on:**) is deliberately left out: only the Manager knows
+    Notes:
+        Planner metadata (Estimate, Milestone, Deadline and Depends on
+        headers) is deliberately left out: only the Manager knows
         those values, and a fabricated placeholder would pollute the derived
         read model (an `Estimate: TBD` never parses and a `Deadline: TBD`
         would appear on the dashboard timeline).
@@ -715,7 +781,7 @@ Materialized from planner proposal. Review and refine before execution.
 
 ## Execution Log & Reasoning
 
-Materialized by planner on {date.today().isoformat()}.
+Materialized by planner on {_utc_today().isoformat()}.
 
 ## Factual Git Diff
 
@@ -1075,7 +1141,7 @@ def claim_next(project_root: str, task_id: str) -> str:
         if not raw:
             continue
         try:
-            if date.fromisoformat(str(raw)) < date.today():
+            if date.fromisoformat(str(raw)) < _utc_today():
                 overdue.append(str(_task_brief(candidate).get("id")))
         except ValueError:
             continue
@@ -1174,9 +1240,9 @@ def plan_status(project_root: Optional[str] = None) -> str:
     for t in tasks:
         m = t.get("milestone")
         if m:
-            # Group case-insensitively so M03 and m03 read as one
-            # milestone; display keeps the first-seen spelling.
-            key = str(m).casefold()
+            # Unified with the dashboard and ADR-013: M1 and M01 are one
+            # milestone, and M03/m03 merge. First-seen spelling is displayed.
+            key = _normalize_milestone(m)
             display.setdefault(key, str(m))
             milestones.setdefault(key, []).append(t)
     if not milestones:
@@ -1219,7 +1285,7 @@ def _week_range(week: Optional[str] = None):
 
 def _finished_today_count(tasks) -> int:
     """Count tasks whose Finished stamp falls on today's UTC date."""
-    today = datetime.now(timezone.utc).date()
+    today = _utc_today()
     count = 0
     for t in tasks:
         finished = _parse_task_timestamp(t.get("finished_at"))
@@ -1383,9 +1449,8 @@ def milestone_status(project_root: Optional[str] = None) -> str:
     for t in tasks:
         m = t.get("milestone")
         if m:
-            # Same casefold grouping as plan_status: one milestone
-            # regardless of spelling case, first-seen display.
-            key = str(m).casefold()
+            # Same canonical grouping as plan_status and /api/status.
+            key = _normalize_milestone(m)
             display.setdefault(key, str(m))
             milestones.setdefault(key, []).append(t)
 
@@ -1430,7 +1495,7 @@ def sprint_lock(sprint_id: str, project_root: Optional[str] = None) -> str:
     plan_dir.mkdir(parents=True, exist_ok=True)
     lock_file = plan_dir / f"sprint-{sprint_id}.lock"
     lock_file.write_text(
-        json.dumps({"sprint_id": sprint_id, "locked_at": date.today().isoformat()}),
+        json.dumps({"sprint_id": sprint_id, "locked_at": _utc_today().isoformat()}),
         encoding="utf-8",
     )
     return (
@@ -1464,7 +1529,7 @@ def sprint_daily_agenda(project_root: Optional[str] = None) -> str:
     lines: list[str] = ["# Daily Agenda", ""]
     week_plan = _read_week_plan(workspace_root, _plan_week_key())
     if week_plan:
-        today_key = date.today().isoformat()
+        today_key = _utc_today().isoformat()
         committed_today = [
             task_id
             for task_id, day_key in (week_plan.get("deadline_edits") or {}).items()
@@ -1521,7 +1586,7 @@ def sprint_daily_agenda(project_root: Optional[str] = None) -> str:
             if not raw or task.get("lane") not in ("backlog", "in-progress", "qa"):
                 continue
             try:
-                if date.fromisoformat(str(raw)) < date.today():
+                if date.fromisoformat(str(raw)) < _utc_today():
                     overdue_ids.append(str(_task_brief(task).get("id")))
             except ValueError:
                 continue
@@ -1848,15 +1913,56 @@ def _relative_root(project_root: Optional[str]) -> bool:
         return True
 
 
+_TRUSTED_PROXY_ENV = "PLANNER_TRUSTED_PROXIES"
+_LOOPBACK_IPS = frozenset({"127.0.0.1", "::1", "::ffff:127.0.0.1"})
+# In-process ASGI clients report a synthetic label instead of a socket IP.
+# Only these exact labels are trusted; an arbitrary hostname fails closed.
+_IN_PROCESS_PEERS = frozenset({"testclient", "unix", "localhost"})
+
+
+def _is_loopback_peer(peer: str) -> bool:
+    """True only for a loopback IP or a known in-process transport label.
+
+    Any peer that is neither a parseable loopback IP nor one of the explicit
+    in-process labels is rejected. A bare ``ValueError`` fallback used to trust
+    every non-IP peer, so a hostname such as ``evil.example`` bypassed the
+    ``/mcp`` loopback guard. Fail closed instead.
+    """
+    if not peer:
+        return False
+    try:
+        return ipaddress.ip_address(peer).is_loopback
+    except ValueError:
+        return peer in _IN_PROCESS_PEERS
+
+
+def _trusted_proxy_ips() -> frozenset[str]:
+    """IPs allowed to set ``X-Forwarded-Proto`` for cookie/HSTS decisions.
+
+    Defaults to loopback so the existing Cloudflare Tunnel setup keeps working:
+    cloudflared connects from 127.0.0.1. A deployment with a remote reverse
+    proxy should set ``PLANNER_TRUSTED_PROXIES`` explicitly rather than trusting
+    a header from any peer.
+    """
+    raw = os.environ.get(_TRUSTED_PROXY_ENV, "").strip()
+    if not raw:
+        return _LOOPBACK_IPS
+    return frozenset({part.strip() for part in raw.split(",") if part.strip()})
+
+
 def _is_https(request) -> bool:
     """True when the request reached the app over HTTPS.
 
-    The dashboard sits behind a Cloudflare Tunnel, so the origin sees plain
-    HTTP and must trust ``X-Forwarded-Proto``. Used to decide the session
-    cookie's ``Secure`` flag and whether HSTS may be sent.
+    A forwarded protocol header is honoured only from a configured trusted
+    proxy. An arbitrary direct client can no longer force ``Secure`` cookies
+    and HSTS by sending ``X-Forwarded-Proto: https`` over plain HTTP.
     """
     proto = (request.headers.get("x-forwarded-proto") or "").split(",")[0].strip()
-    if proto:
+    client = getattr(request, "client", None)
+    peer = str(getattr(client, "host", "") or "")
+    configured = os.environ.get(_TRUSTED_PROXY_ENV, "").strip()
+    trusted = peer in _trusted_proxy_ips() if configured else _is_loopback_peer(peer)
+    if proto and trusted:
         return proto.lower() == "https"
     return request.url.scheme == "https"
 
@@ -2175,7 +2281,7 @@ def _api_hours(
         workspace_root = fallback
 
     try:
-        today = date.today()
+        today = _utc_today()
         day_keys = [
             (today - timedelta(days=offset)).isoformat() for offset in range(14)
         ]
@@ -2353,7 +2459,7 @@ _PLAN_DIR_NAME = ".plan"
 
 def _plan_week_key(day: Optional[date] = None) -> str:
     """ISO week key for a date, e.g. ``2026-W43``."""
-    target = day or date.today()
+    target = day or _utc_today()
     iso = target.isocalendar()
     return f"{iso[0]}-W{iso[1]:02d}"
 
@@ -2502,7 +2608,7 @@ def _plan_payload(
             return {"error": "forbidden"}
         root = fallback
 
-    today = date.today()
+    today = _utc_today()
     week_start = today - timedelta(days=today.weekday())
     capacity = float(_WEEKLY_CAPACITY_HOURS or 0)
 
@@ -2562,6 +2668,17 @@ def _plan_payload(
 
     day_rows = [bucket_for(day) for day in days]
 
+    def _week_capacity(row_count: int) -> float:
+        """Scale weekly capacity to the days actually present in a bucket.
+
+        Month views start and end on partial ISO weeks. Charging a full week
+        to a one-day bucket inflated remaining hours, so a short week looked
+        like spare capacity that did not exist.
+        """
+        if window != "month":
+            return capacity
+        return round(capacity * row_count / 7, 2)
+
     # Undated open work is what "still to do" means in practice: most task
     # files carry no deadline, so counting deadlines alone would render an
     # empty cockpit. Attribute it to the current bucket (today, this week, or
@@ -2609,8 +2726,8 @@ def _plan_payload(
                     "estimate_hours": estimate,
                     # everything with a deadline in the window, so finished work stays visible
                     "committed_hours": committed,
-                    "capacity_hours": capacity,
-                    "remaining_hours": round(capacity - estimate, 2),
+                    "capacity_hours": _week_capacity(len(rows)),
+                    "remaining_hours": round(_week_capacity(len(rows)) - estimate, 2),
                 }
             )
 
@@ -2633,7 +2750,7 @@ def _plan_payload(
         "in_progress": sum(b["in_progress"] for b in day_rows),
         "done": sum(b["done"] for b in day_rows),
         "estimate_hours": round(sum(b["estimate_hours"] for b in day_rows), 2),
-        "capacity_hours": capacity,
+        "capacity_hours": _week_capacity(len(day_rows)),
     }
 
     return {
@@ -2658,9 +2775,11 @@ def _api_status(
     counts — the UI renders each lane as a list), the milestone tree, the
     upcoming deadlines plotted on the timeline, and today's pacing figures.
 
-    Pacing mirrors :func:`sprint_check_daily_quota`: a day is complete when no
-    task sits in ``in-progress`` and none waits in ``qa``, so ``done`` is the
-    batch target minus the open working set.
+    ``today.done`` is the real number of tasks whose Finished stamp falls on
+    today's UTC date. ``today.open`` is the in-progress plus QA working set,
+    and ``quota_reached`` uses the same no-open-work rule as
+    :func:`sprint_check_daily_quota`. Deriving ``done`` from ``target - open``
+    used to report three finished tasks on every project with an empty board.
 
     Args:
         project_root: Optional absolute project root from the query string.
@@ -2701,12 +2820,19 @@ def _api_status(
                 lanes[lane].append(brief)
             milestone = task.get("milestone")
             if milestone:
-                milestone_tree.setdefault(milestone, []).append(brief)
+                key = _normalize_milestone(milestone)
+                if key:
+                    milestone_tree.setdefault(key, []).append(brief)
             if task.get("deadline"):
                 deadlines.append(brief)
 
         for items in milestone_tree.values():
             items.sort(key=lambda b: _task_sort_key(b.get("name") or ""))
+        # A milestone document is a declaration even with zero tagged tasks.
+        # Seed it at the top so M02 is visible alongside M01 and M03.
+        for key, title in _milestone_definitions(workspace_root).items():
+            items = milestone_tree.setdefault(key, [])
+            items.insert(0, {"name": "0", "title": title, "status": "declared"})
         deadlines.sort(key=lambda t: t.get("deadline") or "")
         open_work = len(lanes["in-progress"]) + len(lanes["qa"])
 
@@ -2719,16 +2845,20 @@ def _api_status(
             "backlog": len(lanes["backlog"]),
             "completed": len(lanes["completed"]),
             "today": {
-                "done": max(0, _DAILY_TARGET - open_work),
+                "done": _finished_today_count(tasks),
                 "target": _DAILY_TARGET,
                 "open": open_work,
+                "quota_reached": open_work == 0,
             },
             "lanes": lanes,
             "milestone_tree": milestone_tree,
             "deadlines": deadlines,
         }
     except Exception as exc:  # noqa: BLE001
-        return {"error": str(exc)}
+        # Internal failures must not travel as HTTP 200: the dashboard used to
+        # paint a green "Server reachable" badge over a stale board. A stable
+        # sentinel lets the route answer 500 while the detail stays in JSON.
+        return {"error": "internal error", "detail": str(exc)}
 
 
 def _guarded_mcp_app(mcp_app):
@@ -2743,6 +2873,18 @@ def _guarded_mcp_app(mcp_app):
     """
 
     async def loopback_only(scope, receive, send):
+        # ADR-006 keeps /mcp auth-free and expects the network edge to block
+        # remote callers. Enforce that boundary here too: a bind misconfiguration
+        # or a misordered tunnel rule must fail closed instead of exposing all
+        # writing tools to an off-host caller.
+        from starlette.responses import JSONResponse
+
+        client = scope.get("client") or ()
+        peer = str(client[0]) if client else ""
+        if not _is_loopback_peer(peer):
+            response = JSONResponse({"error": "forbidden"}, status_code=403)
+            await response(scope, receive, send)
+            return
         await mcp_app(scope, receive, send)
 
     return loopback_only
@@ -2779,6 +2921,8 @@ def build_app():
             return JSONResponse(payload, status_code=401)
         if error == "forbidden":
             return JSONResponse(payload, status_code=403)
+        if error == "internal error":
+            return JSONResponse(payload, status_code=500)
         return JSONResponse(payload)
 
     async def api_task(request):
@@ -2905,7 +3049,23 @@ def build_app():
             return JSONResponse({"error": "invalid JSON body"}, status_code=400)
         if not isinstance(body, dict):
             return JSONResponse({"error": "invalid JSON body"}, status_code=400)
-        root = _resolve_dashboard_root(None)
+        # The selected project travels with every save. Resolving None here
+        # silently wrote edits into the daemon's default project when the board
+        # was showing a different one.
+        requested_root = body.get("project_root") or request.query_params.get(
+            "project_root"
+        )
+        if (
+            not isinstance(requested_root, str)
+            or not requested_root.strip()
+            or _relative_root(requested_root)
+        ):
+            return JSONResponse(
+                {"error": "project_root must be an absolute path"}, status_code=400
+            )
+        if not Path(requested_root).expanduser().is_dir():
+            return JSONResponse({"error": "unknown project_root"}, status_code=404)
+        root = _resolve_dashboard_root(requested_root)
         if auth is not None and not auth.project_allowed(root):
             fallback = _first_allowed_root(auth)
             if fallback is None:
@@ -2931,7 +3091,18 @@ def build_app():
             return JSONResponse(
                 {"error": "week must look like 2026-W43"}, status_code=400
             )
-        root = _resolve_dashboard_root(None)
+        requested_root = request.query_params.get("project_root")
+        if (
+            not isinstance(requested_root, str)
+            or not requested_root.strip()
+            or _relative_root(requested_root)
+        ):
+            return JSONResponse(
+                {"error": "project_root must be an absolute path"}, status_code=400
+            )
+        if not Path(requested_root).expanduser().is_dir():
+            return JSONResponse({"error": "unknown project_root"}, status_code=404)
+        root = _resolve_dashboard_root(requested_root)
         if auth is not None and not auth.project_allowed(root):
             fallback = _first_allowed_root(auth)
             if fallback is None:
@@ -2978,9 +3149,12 @@ def build_app():
         token = secrets.token_urlsafe(32)
         _SESSIONS[token] = {"user": user, "created": time.time()}
         state = AuthState(_USER_CONFIG, user, _SESSIONS)
+        # The token travels only in the HttpOnly cookie. Returning it in the
+        # response body widened exposure to any script that can read the login
+        # response; ``ok`` lets the client detect success without the secret.
         response = JSONResponse(
             {
-                "token": token,
+                "ok": True,
                 "username": state.username,
                 "role": state.role,
                 "allowed_projects": state.allowed_projects,
