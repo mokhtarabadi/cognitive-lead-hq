@@ -50,6 +50,9 @@ downloads/
 .opencode/worktree-sessions.json
 .opencode/worktrees/
 
+# OpenChamber local browser artifacts (screenshots, browser state)
+.openchamber/
+
 # Tracked task transcripts (runtime audit trail for Brain sessions)
 tasks/.sessions/
 
