@@ -10,8 +10,8 @@
 
 | Component | Version | Update command | Source of truth |
 | --- | --- | --- | --- |
-| OpenCode | 2.0.21 | `curl -fsSL https://opencode.ai/v2/install \| bash` (V2) | `opencode --version`; latest via `https://opencode.ai/update/api/latest/cli/npm` |
-| OpenChamber | 2.1.0 | `openchamber update` | `openchamber --version`; latest via `npm view @openchamber/web version` |
+| OpenCode | 2.3.2 | `curl -fsSL https://opencode.ai/v2/install \| bash` (V2) | `opencode --version`; latest via `https://opencode.ai/update/api/latest/cli/npm` |
+| OpenChamber | 2.7.3 | `npm install -g @openchamber/web@latest` | `openchamber --version`; latest via `npm view @openchamber/web version` |
 
 OpenChamber and OpenCode update **separately**. OpenChamber offers OpenCode
 updates in its UI and restarts the server afterward; you can also run the V2
@@ -77,6 +77,14 @@ Notes:
   minimal environment.
 - Re-run `startup enable` after changing env vars or the UI password — it
   rewrites `~/.config/openchamber/startup.env`.
+- Re-run `openchamber startup enable` after **every** `@openchamber/web`
+  upgrade. The npm package can move its CLI entry point between versions (2.7.x
+  moved it from `bin/cli.js` to `build/bin/cli.js`), and a hand-written unit that
+  pins the old path will then crash-loop with `MODULE_NOT_FOUND`. Regenerating
+  the unit makes it track the npm-managed entry point again. If you must keep a
+  hand-written unit, verify its path after each upgrade:
+  `systemctl --user show openchamber -p ExecStart --value`, then confirm the
+  target exists before restarting.
 - Manage it with `openchamber startup {status,enable,disable}`; inspect with
   `systemctl --user status openchamber`.
 - Uninstall: `openchamber startup disable` (stops + removes the service).
@@ -134,6 +142,7 @@ Full list: https://docs.openchamber.dev/environment/
 | UI does not load | `openchamber status`; open the URL it prints; confirm the port is listening (`ss -tlnp \| grep <port>`). |
 | "OpenChamber requires OpenCode 2.0.20 or newer" | Update OpenCode: `curl -fsSL https://opencode.ai/v2/install \| bash`, then restart OpenChamber. |
 | "OpenCode is restarting" never clears | OpenChamber pauses requests while the managed server starts; if stuck, `openchamber restart` and check `openchamber logs`. |
+| `MODULE_NOT_FOUND`, status `activating (auto-restart)`, exit 1 | The unit pins a CLI path that no longer exists after an `@openchamber/web` upgrade. `journalctl --user -u openchamber -n 50` shows the missing path; confirm the real entry point from `node -p "require('@openchamber/web/package.json').bin.openchamber"`, fix the unit (or re-run `openchamber startup enable`), then `systemctl --user daemon-reload && systemctl --user restart openchamber`. |
 | Not starting at boot | `openchamber startup status`; re-run `openchamber startup enable`; verify `loginctl show-user <user> \| grep Linger` → `yes`. |
 | Sessions visible but tools missing | Reconnect/restart; MCP servers must be reachable on their loopback ports (`docs/services.md`). |
 

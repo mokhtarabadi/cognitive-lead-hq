@@ -76,14 +76,14 @@ If `opencode --version` shows 1.x, back up `~/.config/opencode/opencode.json` fi
 
 ### Upgrading OpenCode / OpenChamber — the full refresh chain
 
-Upgrading a binary is NOT an upgrade of the install. The OpenCode binary lives at `~/.opencode/bin/opencode`; OpenChamber is the npm package `@openchamber/web` (global, under mise node). The **servers, skills, agents, prompts and plugins** are separate copies in `~/.config/opencode/` and do not move when either binary is replaced. A binary-only upgrade leaves the harness on the old code — that is the drift this chain exists to prevent.
+Upgrading a binary is NOT an upgrade of the install. The OpenCode binary lives at `~/.opencode/bin/opencode`; OpenChamber is the npm package `@openchamber/web` (global npm install under the active Node version). The **servers, skills, agents, prompts and plugins** are separate copies in `~/.config/opencode/` and do not move when either binary is replaced. A binary-only upgrade leaves the harness on the old code — that is the drift this chain exists to prevent.
 
 Run the whole chain, in this order:
 
 ```bash
 # 1. Upgrade the binaries.
 curl -fsSL https://opencode.ai/v2/install | bash        # OpenCode V2 only
-npm install -g @openchamber/web@latest                   # OpenChamber (mise node)
+npm install -g @openchamber/web@latest                   # OpenChamber (global npm)
 opencode --version && openchamber --version
 
 # 2. Re-sync every global install target from the fresh clone (Step 5, 6, 6.5).
@@ -723,6 +723,28 @@ sudo loginctl enable-linger $USER          # start at boot without login
 ```
 
 Re-run `openchamber startup enable` after any env/password change (it rewrites `startup.env`). Remove with `openchamber startup disable`.
+
+### After an `@openchamber/web` upgrade — verify the boot unit
+
+The npm package may move its CLI entry point between versions. In 2.7.x it
+moved from `bin/cli.js` to `build/bin/cli.js`, so any hand-written unit that
+pinned the old path crashed on the next boot with `MODULE_NOT_FOUND` and
+`activating (auto-restart)`. Regenerate the unit after every upgrade, then
+prove it is healthy:
+
+```bash
+npm install -g @openchamber/web@latest
+openchamber startup enable --port 3005 --host 127.0.0.1   # rewrites the unit
+systemctl --user show openchamber -p ExecStart --value     # inspect the resolved path
+systemctl --user daemon-reload && systemctl --user restart openchamber
+systemctl --user is-active openchamber                     # expect active
+curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:3005/   # expect 200
+```
+
+If a hand-written unit must be kept, resolve the real entry point with
+`node -p "require('@openchamber/web/package.json').bin.openchamber"` and point
+`ExecStart` at that path before restarting. Always check
+`journalctl --user -u openchamber -n 50` when the status shows auto-restart.
 
 ### Remote access (optional)
 
