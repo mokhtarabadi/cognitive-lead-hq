@@ -6,9 +6,9 @@ blowsh supports three egress modes. None is mandatory. Choose one when you recre
 | --- | --- | --- | --- | --- |
 | Direct | yes | none | `PROXY_TYPE=none` | VPS IP |
 | WARP | opt-in | `warp-socks` on `warp-net` | `PROXY_TYPE=http`, `PROXY_HOST=warp-socks`, `PROXY_PORT=9091` | Cloudflare WARP |
-| Psiphon | opt-in | `psiphon-socks` on `warp-net` | `PROXY_TYPE=http`, `PROXY_HOST=psiphon-socks`, `PROXY_PORT=8082` | Psiphon, `EgressRegion=US` |
+| Psiphon | opt-in | `psiphon-socks` on `warp-net` | `PROXY_TYPE=http`, `PROXY_HOST=psiphon-socks`, `PROXY_PORT=8082` | Psiphon, `EgressRegion=DE` |
 
-The source fix that added `BROWSH_HEALTH_PROBE_TIMEOUT_MS` is present in the current blowsh image. After that fix, Psiphon mode was verified live with a US browser-side trace and a successful `fetch_web` render, and direct mode was verified earlier with a successful render. The WARP build context is current and the WARP image builds, but WARP has not been re-traced live since the fix; record a fresh `warp=on` trace when enabling it. Do not use a blowsh image older than the fix with a proxy: the old 800 ms health probe made every startup fail regardless of the proxy.
+The source fix that added `BROWSH_HEALTH_PROBE_TIMEOUT_MS` is present in the current blowsh image. After that fix, Psiphon mode was verified live with a US browser-side trace and a successful `fetch_web` render, then re-verified on 2026-11-22 with `EgressRegion=DE` (`ip=172.105.78.25`, `loc=DE`, `colo=FRA`) through both the proxy container and blowsh's own `fetch_web`. Direct mode was verified earlier with a successful render. The WARP build context is current and the WARP image builds, but WARP has not been re-traced live since the fix; record a fresh `warp=on` trace when enabling it. Do not use a blowsh image older than the fix with a proxy: the old 800 ms health probe made every startup fail regardless of the proxy.
 
 ## Shared requirements
 
@@ -33,9 +33,9 @@ Build and start the chosen proxy:
 docker build -t warp-proxy:local warp-proxy/
 docker run -d --name warp-socks --restart unless-stopped --network warp-net warp-proxy:local
 
-# Psiphon
-docker build -t psiphon-proxy:us psiphon-proxy/
-docker run -d --name psiphon-socks --restart unless-stopped --network warp-net psiphon-proxy:us
+# Psiphon (tag matches the EgressRegion baked into psiphon.config)
+docker build -t psiphon-proxy:de psiphon-proxy/
+docker run -d --name psiphon-socks --restart unless-stopped --network warp-net psiphon-proxy:de
 ```
 
 Then recreate blowsh with the matching variables. Full commands live in `docs/blowsh-warp-proxy.md`, `docs/blowsh-psiphon-proxy.md`, and `docs/blowsh-direct-egress.md`.
@@ -53,4 +53,4 @@ curl -sS http://127.0.0.1:8107/mcp \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"fetch_web","arguments":{"url":"https://www.cloudflare.com/cdn-cgi/trace","type":"plain"}}}'
 ```
 
-The returned text must show the exit expected for the chosen mode: `warp=on` for WARP, `loc=US` and `warp=off` for Psiphon, and the VPS IP for direct.
+The returned text must show the exit expected for the chosen mode: `warp=on` for WARP, `loc=DE` and `warp=off` for Psiphon (the baked `EgressRegion` preference; always confirm the actual country), and the VPS IP for direct.

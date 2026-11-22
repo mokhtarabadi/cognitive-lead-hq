@@ -98,3 +98,10 @@ Rollback: Restore the Brain-owned automatic-mode overrides and remove the corres
 - **Consequences:** Brain and Hands read the same validity contract. A drift in either surface is caught by `test_openui_validity_gate_in_executor_and_fragment` and the assembler byte-identity gate.
 - **Rollback:** Remove the paragraph, restore the version fragment, regenerate the artifacts, and drop the regression assertions.
 
+## [2026-11-22] ADR-011: Pin the render call envelope in the Brain prompt
+
+- **Context:** A render call failed before the program was ever parsed because `parameters` was sent as a JSON string. The Brain prompt mirrored the program gate but had no envelope rule, so an emitted task could still request a malformed call.
+- **Decision:** Extend the `MANAGER-FACING RENDER CONTRACT` with the `action: "render.page"` / `parameters`-object shape, the object-not-string rule, one-payload rule, and the rebuild-on-`Expected object` directive. Bump `01-system_version.md` 9.90.0 to 9.90.1 and regenerate `system-prompt.md` and the stage artifacts.
+- **Consequences:** Brain and Hands read the same envelope contract. A drift in either surface fails `test_render_call_envelope_in_executor_and_fragment` and the assembler byte-identity gate.
+- **Rollback:** Remove the added sentences, restore the version fragment, regenerate the artifacts, and drop the regression test.
+

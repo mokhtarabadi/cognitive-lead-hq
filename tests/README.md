@@ -20,6 +20,6 @@ Offline-only verification suite for the HQ platform: Brain Bridge turns, capabil
 
 - Offline only: live LLM HTTP paths are never touched in tests.
 - Prompt-sync tests are blocking gates; a drifted `system-prompt.md` must fail.
-- The OpenUI validity gate is pinned in both the executor agent and the hands-protocol fragment; removing either side fails the suite.
+- The OpenUI validity gate and the `openchamber_render` call envelope are pinned in both the executor agent and the hands-protocol fragment; removing either side fails the suite.
 - Golden files are versioned truth; update them only with the behavior change that justifies the diff.
 - The zen-proxy suite replaces the upstream with a fake response object, so it never spends gateway quota.

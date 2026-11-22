@@ -191,3 +191,12 @@ Context: A render call shipped a `Table` row whose first cell was a one-element 
 Decision: Add an OpenUI validity gate to the executor's Output Contract with exact positional signatures for `Stack`, `Table`, `Callout`, `Steps` and `KeyValue`; require plain string or number cells; ban named arguments; require bracket balance and one statement per line; and read any diagnostic from the submitted source rather than its wording. Mirror the same rule into the hands-protocol fragment and pin both with regression assertions.
 Consequences: The agent checks the program before sending it, so the known nested-cell and stray-bracket defects are caught at authoring time. A failed render is fixed at the source once instead of being retried verbatim. Version bumped with artifact regen.
 Rollback: Remove the executor subsection, the fragment paragraph, the regression assertions, and restore the prior version; regenerate the prompt from fragments.
+
+## `openchamber_render` calls pin the envelope, not just the program
+
+Date: 2026-11-22
+Status: accepted
+Context: The OpenUI validity gate constrained the `openui-lang` program but never the tool-call envelope. A real render call failed with `parameters: Expected object` because the agent passed a JSON-encoded string instead of an object. The executor's Output Contract also described `ui` and `html` as flat fields, contrary to the tool's `action` + `parameters` schema, so the wording itself invited the mistake.
+Decision: Add a call-envelope subsection before the program gate with the exact `action: "render.page"` / `parameters` object shape, an envelope self-check (object not string, one payload, `awaitAnswer` only for answer-bearing choices, direct call not `execute`), and a rebuild-not-retry rule. Correct the Output Contract wording to place `ui`/`html` inside `parameters`. Mirror the rule into the hands-protocol fragment.
+Consequences: Both the program and the envelope are validated before a render call. A stringified `parameters` is recognized from its diagnostic and rebuilt rather than retried. Version bumped with artifact regen.
+Rollback: Remove the executor subsection, the fragment sentence, the regression assertions, and restore the prior version; regenerate the prompt from fragments.

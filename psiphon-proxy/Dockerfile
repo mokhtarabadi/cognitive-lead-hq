@@ -1,7 +1,7 @@
 # Optional Psiphon HTTP/SOCKS egress for blowsh.
 #
 # The binary is fetched from the official Psiphon binaries repository at build
-# time, so the image ships with Psiphon inside. The config is baked with a US
+# time, so the image ships with Psiphon inside. The config is baked with a DE
 # egress preference and loopback binding of the local proxy ports. Publish no
 # host ports and keep the container on a bridge network shared with blowsh.
 FROM ubuntu:22.04

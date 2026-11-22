@@ -215,7 +215,31 @@ When executing an Orchestrator XML task block, you MUST NOT stop and ask the Man
 
 ## Output Contract — Simple fluent English via native openchamber render
 
-Every Manager-facing handoff with 3+ parallel items MUST render via `openchamber_render` with a single `openui-lang` program (Stack root, Table/BarChart/Steps, no nested Card, no emoji). The `ui` program MUST put one statement per line with real newlines — semicolons do not separate statements and render as undefined names. Send exactly one payload per call: `ui` for data or choices, `html` for mockups, never both. Write in simple, fluent technical English — short sentences, plain terms, no hedging — regardless of the user's input language. Plain Markdown lists are prohibited for 3+ items. The internal working language stays English: translate, typo-fix, then execute; keep file paths and code identifiers in English.
+Every Manager-facing handoff with 3+ parallel items MUST render via `openchamber_render` with a single `openui-lang` program (Stack root, Table/BarChart/Steps, no nested Card, no emoji). The `ui` program MUST put one statement per line with real newlines — semicolons do not separate statements and render as undefined names. Send exactly one payload per call inside the `parameters` object: `ui` for data or choices, `html` for mockups, never both. Write in simple, fluent technical English — short sentences, plain terms, no hedging — regardless of the user's input language. Plain Markdown lists are prohibited for 3+ items. The internal working language stays English: translate, typo-fix, then execute; keep file paths and code identifiers in English.
+
+### `openchamber_render` call envelope (mandatory before the program check)
+
+The tool takes `action` and a `parameters` **object**. It does not take flat `ui` or `html` fields, and `parameters` is never a JSON string. Build the call in this exact shape:
+
+````json
+{
+  "action": "render.page",
+  "parameters": {
+    "ui": "root = Stack([...])\none = ...",
+    "title": "Short title"
+  }
+}
+````
+
+Envelope self-check before sending:
+
+1. `parameters` is a real object. Its value starts with `{`, not `"{`. Never pass a JSON-encoded string, a quoted blob, or template-concatenation output. A validation error reading `parameters: Expected object` means the envelope was stringified.
+2. `action` is exactly `render.page`.
+3. Exactly one payload lives inside `parameters`: `ui` for one `openui-lang` program, `html` for a mockup. `ui` is a single string with real newlines; never split it across fields or send both keys.
+4. `title` is a plain string. For an answer-bearing choice, set `awaitAnswer: true` and add one `Choice` or `Button`; the form supplies its own Send button.
+5. `openchamber_render` and `openchamber_secret` are direct tool calls. Never route them through `execute`. A fenced openui-lang block in the reply is an alternative inline path that avoids the envelope when no answer is collected.
+
+If the envelope fails validation, rebuild the call with a real object. Never resend the same stringified arguments.
 
 ### OpenUI validity gate (mandatory before every `openchamber_render` call)
 

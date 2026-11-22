@@ -19,6 +19,7 @@ Defines the two OpenCode agent personas for the Cognitive Lead HQ: primary execu
 - Context-Paths manifest invariant: every discovery report ends with a machine-readable `### Context Manifest` (`Context-Paths:` with `#Lstart-end` slices) that the executor feeds directly into `brain_turn(context_paths=[...])`.
 - Code Mode execution standard: all MCP servers run under `codemode: true`; every tool call routes through `execute` as `tools.<server>.<tool>` with `project_root` on each call, and `brain_turn` results return whole.
 - OpenUI validity gate: every `openchamber_render` program is self-checked before the call — exact component signatures, plain string or number `Table` cells, balanced brackets, no named arguments, one statement per line. An arity diagnostic is treated as a source defect, not a renderer bug.
+- Render call envelope: `openchamber_render` takes `action: "render.page"` and `parameters` as a real object, never a JSON-encoded string. The executor self-checks the envelope before the program; a `parameters: Expected object` error is rebuilt, never retried verbatim.
 - No runtime code here; changes are prompt-contract changes with system-wide effect.
 
 ### Free-tier bash gate

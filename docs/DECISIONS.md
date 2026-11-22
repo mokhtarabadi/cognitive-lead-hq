@@ -48,4 +48,12 @@
 - **Decision:** keep two repo-owned build contexts. `warp-proxy/` wraps the pinned upstream image and bakes `NET_PORT=9091`; `psiphon-proxy/` builds `ubuntu:22.04` with `psiphon-tunnel-core` and a baked `EgressRegion=US` config. Neither proxy is mandatory. `docs/blowsh-proxy-options.md` is the comparison; each mode has its own deployment guide; direct remains the default. Blowsh selects a backend only through `PROXY_*` variables.
 - **Alternatives considered:** (a) mandatory Psiphon — rejected, the operator wants a choice; (b) keep only WARP — rejected, both types are required; (c) keep only direct — rejected, some sites block the VPS IP; (d) share one Dockerfile for both backends — rejected, the binaries and configs are unrelated.
 - **Consequences:** switching modes means recreating blowsh with different `PROXY_HOST`/`PROXY_PORT`; no data migration or profile reset. Both proxies must stay unpublished on a bridge. The live deployment currently uses Psiphon with the fixed blowsh image.
+
+## [2026-11-22] ADR-008: Psiphon EgressRegion switched to DE for blowsh
+
+- **Context:** the operator asked for a German exit IP for blowsh and clarified the earlier ambiguous "GB node" wording as `EgressRegion=DE`, skipping GB. The baked config used `EgressRegion=US`. `EgressRegion` is a preference, not a guarantee, so the exit had to be traced live.
+- **Decision:** set `EgressRegion: "DE"` in `psiphon-proxy/psiphon.config`, build `psiphon-proxy:de`, run `psiphon-socks` on the `warp-net` bridge, and recreate `blowsh-singleton` with all prior environment preserved plus `PROXY_TYPE=http`, `PROXY_HOST=psiphon-socks`, `PROXY_PORT=8082`, `PROXY_BYPASS=localhost,127.0.0.1`.
+- **Alternatives considered:** (a) keep US — rejected, a DE IP was requested; (b) GB — explicitly skipped; (c) WARP or direct — rejected, neither offers a controllable country exit.
+- **Consequences:** the shared, rotating exit country remains a preference and must be re-traced after any change. Verified 2026-11-22: `ip=172.105.78.25`, `loc=DE`, `colo=FRA`, `warp=off` from both the proxy container and blowsh's own `fetch_web`. The sibling `psiphon-proxy/ADR-002` records the build-context decision.
+- **Rollback:** restore `EgressRegion=US`, rebuild `psiphon-proxy:us`, recreate the proxy and blowsh with the same `PROXY_*` variables.
 - **Rollback:** remove either build context and its container and recreate blowsh in direct mode.

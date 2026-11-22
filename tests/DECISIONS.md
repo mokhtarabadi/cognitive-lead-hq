@@ -27,3 +27,10 @@
 - **Decision:** Add `test_openui_validity_gate_in_executor_and_fragment` to `test_prompt_sync.py`, asserting the signature, plain-cell, named-argument, and diagnostic rules in both `agents/cognitive-executor.md` and `prompts/fragments/09-hands_protocols.md`. Update the two version pins to `9.90.0`.
 - **Consequences:** Removing either copy of the contract breaks the shipped-prompt gate, so prompt and agent drift cannot pass silently.
 - **Rollback:** Delete the test function and restore the version pins; no runtime code depends on them.
+
+## [2026-11-22] ADR-005: Pin the render call envelope on both prompt surfaces
+
+- **Context:** A real `openchamber_render` call was rejected with `parameters: Expected object`. The existing test pinned the `openui-lang` program gate only, so the envelope defect had no regression guard.
+- **Decision:** Add `test_render_call_envelope_in_executor_and_fragment`, asserting the `action`/`parameters` object shape, the object-not-string rule, one-payload rule, and rebuild-on-error directive in both `agents/cognitive-executor.md` and `prompts/fragments/09-hands_protocols.md`. Update both version pins to 9.90.1.
+- **Consequences:** Removing either copy of the envelope contract breaks the shipped-prompt gate, the same as the program gate.
+- **Rollback:** Delete the test function and restore the version pins; no runtime code depends on them.

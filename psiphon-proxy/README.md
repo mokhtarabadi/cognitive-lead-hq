@@ -5,13 +5,13 @@ Docker build context for the Psiphon proxy option. It is one of two optional egr
 ## Build and run
 
 ```bash
-docker build -t psiphon-proxy:us psiphon-proxy/
+docker build -t psiphon-proxy:de psiphon-proxy/
 docker network create warp-net 2>/dev/null || true
 docker run -d --name psiphon-socks --restart unless-stopped --network warp-net \
-  psiphon-proxy:us
+  psiphon-proxy:de
 ```
 
-The container serves HTTP on `8082` and SOCKS5 on `1081`. Publish no host ports. Only containers on the same bridge should reach it.
+The container serves HTTP on `8082` and SOCKS5 on `1081`. Publish no host ports. Only containers on the same bridge should reach it. `psiphon.config` bakes `EgressRegion=DE`; the `:de` tag records that preference.
 
 ## Use with blowsh
 
@@ -27,10 +27,10 @@ The HTTP port is required because blowsh's Node-side axios has no SOCKS agent. K
 ## Verify
 
 ```bash
-docker run --rm --network warp-net --entrypoint sh psiphon-proxy:us \
+docker run --rm --network warp-net --entrypoint sh psiphon-proxy:de \
   -c 'curl -x http://psiphon-socks:8082 -fsSL https://cloudflare.com/cdn-cgi/trace'
 ```
 
-Look for `loc=US` and `warp=off`. `EgressRegion` is a preference, not a guarantee; always verify the exit before trusting it.
+Look for `loc=DE` and `warp=off`. `EgressRegion` is a preference, not a guarantee; always verify the exit before trusting it.
 
 See `docs/blowsh-proxy-options.md` for the full comparison and rollback.

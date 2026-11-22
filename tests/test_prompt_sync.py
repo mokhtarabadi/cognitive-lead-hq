@@ -47,7 +47,7 @@ def test_shipped_version_is_expected_minor_bump():
     shipped = re.search(
         r"<system_version>(.*?)</system_version>", _read(SHIPPED)
     ).group(1)
-    assert shipped == "9.90.0"
+    assert shipped == "9.90.1"
 
 
 def test_shipped_prompt_documents_context_path_line_ranges():
@@ -370,9 +370,9 @@ def test_executor_contains_full_dto_mandate():
     )
 
 
-def test_shipped_prompt_version_is_9_90_0():
+def test_shipped_prompt_version_is_9_90_1():
     prompt = _read_shipped_prompt_for_approval_contract()
-    assert "9.90.0" in prompt
+    assert "9.90.1" in prompt
 
 
 def test_openui_validity_gate_in_executor_and_fragment():
@@ -395,6 +395,25 @@ def test_openui_validity_gate_in_executor_and_fragment():
     assert "`Table(columns: string[], rows: (string | number)[][])`" in fragment
     assert "never wrap a `Table` cell in brackets" in fragment
     assert "Arity-style render diagnostics mean a source defect" in fragment
+
+
+def test_render_call_envelope_in_executor_and_fragment():
+    """The tool-call shape must be pinned as strictly as the program itself."""
+    executor = _read(EXECUTOR)
+    assert (
+        "`openchamber_render` call envelope (mandatory before the program check)"
+        in executor
+    )
+    assert '"action": "render.page"' in executor
+    assert "`parameters` is a real object" in executor
+    assert "Never pass a JSON-encoded string" in executor
+    assert "Exactly one payload lives inside `parameters`" in executor
+    assert "Never resend the same stringified arguments" in executor
+
+    fragment = _read(FRAGMENT_09)
+    assert 'Build the `openchamber_render` call as `action: "render.page"`' in fragment
+    assert "with `parameters` as a real object, never a JSON-encoded string" in fragment
+    assert "`parameters: Expected object` validation error" in fragment
 
 
 def test_assembler_output_matches_shipped(tmp_path):

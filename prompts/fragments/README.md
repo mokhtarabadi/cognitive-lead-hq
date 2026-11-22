@@ -18,7 +18,7 @@ Authoritative system-prompt sources: one file per top-level XML tag in `system-p
 ## Key Risks & Invariants
 
 - Never edit `system-prompt.md` directly; edit fragments then run the assembler.
-- The manager-facing render contract lives in `09-hands_protocols.md` as a mirror of the executor agent's validity gate; one without the other fails prompt-sync.
+- The manager-facing render contract lives in `09-hands_protocols.md` as a mirror of the executor agent's validity gate and call-envelope rule; one without the other fails prompt-sync.
 - Fragment order is fixed by `prompts/manifest.txt`; renames break the build.
 - A persona slice is copied VERBATIM from its seat. The assembler re-splices the slices to rebuild the full prompt, so one changed byte in a persona body changes the shipped prompt.
 - `prompts/stage-manifest.json` is the single routing table for stage-to-persona mapping; the assembler and the bridge both read it. Never hard-code a stage mapping in either.

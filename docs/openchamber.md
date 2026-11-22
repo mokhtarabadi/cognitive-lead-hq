@@ -295,7 +295,7 @@ exposes, so instructions never name a tool the agent cannot call.
 
 | Tool | Purpose |
 | ---- | ------- |
-| `openchamber_render` | Draw an HTML page or a `ui` form inline in the chat; `awaitAnswer` collects a choice |
+| `openchamber_render` | Draw an HTML page or a `ui` form inline in the chat; call as `action: "render.page"` with `parameters` as an object, never a JSON string; `awaitAnswer` collects a choice |
 | `openchamber_secret` | Request a secret on a private card and return only its file path |
 | `openchamber_notify` | Send a notification outside the chat |
 | `openchamber_web` | OpenChamber's browser panel: open a page, snapshot it, click and type |

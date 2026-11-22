@@ -6,11 +6,11 @@ Psiphon is one of two optional egress backends. See `docs/blowsh-proxy-options.m
 
 ```bash
 docker network create warp-net 2>/dev/null || true
-docker build -t psiphon-proxy:us psiphon-proxy/
-docker run -d --name psiphon-socks --restart unless-stopped --network warp-net psiphon-proxy:us
+docker build -t psiphon-proxy:de psiphon-proxy/
+docker run -d --name psiphon-socks --restart unless-stopped --network warp-net psiphon-proxy:de
 ```
 
-Build context: `psiphon-proxy/Dockerfile` builds `ubuntu:22.04` with `psiphon-tunnel-core` baked in from the official binaries repository. The config is baked with `EgressRegion=US`, HTTP `8082`, and SOCKS5 `1081`. Publish no host ports; the container is reachable only from its bridge.
+Build context: `psiphon-proxy/Dockerfile` builds `ubuntu:22.04` with `psiphon-tunnel-core` baked in from the official binaries repository. The config is baked with `EgressRegion=DE`, HTTP `8082`, and SOCKS5 `1081`. Publish no host ports; the container is reachable only from its bridge. The `:de` tag records the region preference baked into the image; change the tag when changing `EgressRegion`.
 
 ## Connect blowsh
 
@@ -40,13 +40,13 @@ HTTP mode uses port `8082` because blowsh's Node-side axios has no SOCKS agent. 
 ## Verify
 
 ```bash
-docker run --rm --network warp-net --entrypoint sh psiphon-proxy:us \
+docker run --rm --network warp-net --entrypoint sh psiphon-proxy:de \
   -c 'curl -x http://psiphon-socks:8082 -fsSL https://cloudflare.com/cdn-cgi/trace'
 ```
 
-Expect `loc=US` and `warp=off`, with an `ip=` line. `EgressRegion` is a preference, not a guarantee, so always check. Then call `fetch_web` on the trace URL and confirm the same IP and country, which proves the browser itself uses the proxy.
+Expect `loc=DE` and `warp=off`, with an `ip=` line. `EgressRegion` is a preference, not a guarantee, so always check. Then call `fetch_web` on the trace URL and confirm the same IP and country, which proves the browser itself uses the proxy.
 
-Live proof on 2026-11-20 with the fixed blowsh image: `ip=104.131.189.185`, `loc=US`, `warp=off`, and `fetch_web` rendered `example.com` in about 10 s.
+Live proof on 2026-11-20 with the fixed blowsh image and `EgressRegion=US`: `ip=104.131.189.185`, `loc=US`, `warp=off`, and `fetch_web` rendered `example.com` in about 10 s. After the switch to `EgressRegion=DE` on 2026-11-22, both the proxy container trace and blowsh's own `fetch_web` returned `ip=172.105.78.25`, `loc=DE`, `colo=FRA`, `warp=off`.
 
 ## Rollback
 
