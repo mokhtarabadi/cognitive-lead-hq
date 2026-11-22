@@ -104,7 +104,5 @@ This task produced a report only. No doc files were edited under it; the recomme
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
-
-_(Git diff will be automatically injected here by the MCP tool. Do not edit this block manually)_
-
+**Factual Git Diff:** Stored in Commit Hash: `62fbd026b16a7095fc3758947346824bcee0af53`
 <!-- END_GIT_DIFF -->
