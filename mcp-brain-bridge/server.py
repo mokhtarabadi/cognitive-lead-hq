@@ -5266,6 +5266,10 @@ def _convert_responses_to_chat_completions_body(body: dict[str, Any]) -> dict[st
 
     for item in raw_input or []:
         if not isinstance(item, dict):
+            logger.warning(
+                "chat converter: dropping unsupported input item type %r",
+                type(item).__name__,
+            )
             continue
         role = item.get("role")
         content = item.get("content")
@@ -5343,6 +5347,11 @@ def _convert_responses_to_chat_completions_body(body: dict[str, Any]) -> dict[st
                     "tool_call_id": item.get("call_id"),
                     "content": output_payload,
                 }
+            )
+        else:
+            logger.warning(
+                "chat converter: dropping unsupported input item type %r",
+                item.get("type"),
             )
 
     chat_body["messages"] = messages
@@ -5663,7 +5672,7 @@ def _convert_chat_completions_to_responses_data(
     # the total. Presence of the key means "the provider reported a number".
     usage = chat_resp.get("usage")
     if isinstance(usage, dict):
-        mapped_usage: dict[str, int] = {}
+        mapped_usage: dict[str, Any] = {}
         if isinstance(usage.get("prompt_tokens"), int):
             mapped_usage["input_tokens"] = usage["prompt_tokens"]
         if isinstance(usage.get("completion_tokens"), int):
@@ -5677,6 +5686,29 @@ def _convert_chat_completions_to_responses_data(
             mapped_usage["total_tokens"] = (
                 mapped_usage["input_tokens"] + mapped_usage["output_tokens"]
             )
+        # Pass through usage details so reasoning-token spend and cache
+        # hits (DeepSeek prompt_cache_hit_tokens / OpenAI cached_tokens) are
+        # visible to the budget math instead of being silently dropped.
+        details_in: dict[str, Any] | None = None
+        prompt_details = usage.get("prompt_tokens_details")
+        if isinstance(prompt_details, dict):
+            details_in = dict(prompt_details)
+        # DeepSeek reports prompt_cache_hit_tokens at the top level rather
+        # than under prompt_tokens_details.cached_tokens.
+        if isinstance(usage.get("prompt_cache_hit_tokens"), int):
+            details_in = details_in or {}
+            details_in.setdefault("cached_tokens", usage["prompt_cache_hit_tokens"])
+        if details_in:
+            mapped_usage["input_tokens_details"] = details_in
+        details_out: dict[str, Any] = {}
+        completion_details = usage.get("completion_tokens_details")
+        if isinstance(completion_details, dict):
+            details_out.update(completion_details)
+        # DeepSeek may also surface reasoning tokens at the top level.
+        if isinstance(usage.get("reasoning_tokens"), int):
+            details_out.setdefault("reasoning_tokens", usage["reasoning_tokens"])
+        if details_out:
+            mapped_usage["output_tokens_details"] = details_out
         if mapped_usage:
             resp_data["usage"] = mapped_usage
 

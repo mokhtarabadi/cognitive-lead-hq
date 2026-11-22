@@ -14,6 +14,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pytest
+from unittest import mock
 
 BRIDGE_DIR = Path(__file__).parent.parent / "mcp-brain-bridge"
 sys.path.insert(0, str(BRIDGE_DIR))
@@ -5908,3 +5909,38 @@ def test_tool_calls_wired_into_brain_turn_result(tmp_path, monkeypatch):
     ]
     # Text channel still carries the call as prose.
     assert "question" in res["output"]
+
+
+def test_unsupported_input_items_are_dropped_with_exactly_one_warning():
+    """Unsupported Responses input items must be dropped with one warning, not
+    silently. Exactly-one also catches an over-eager branch that warns on items
+    the converter actually handles."""
+    body = {
+        "model": "deepseek-v4.1-flash",
+        "input": [
+            {"role": "user", "content": "keep me"},
+            {"type": "qa_unknown_item_type", "content": "drop me"},
+        ],
+    }
+    with mock.patch.object(bridge.logger, "warning") as warning_spy:
+        chat_body = bridge._convert_responses_to_chat_completions_body(body)
+
+    assert warning_spy.call_count == 1
+    log_args = warning_spy.call_args.args
+    assert "dropping unsupported input item type" in log_args[0]
+    assert log_args[1] == "qa_unknown_item_type"
+    serialized = [str(m) for m in chat_body["messages"]]
+    assert any("keep me" in m for m in serialized)
+    assert not any("drop me" in m for m in serialized)
+
+
+def test_non_dict_input_items_are_reported_not_crashing():
+    """A bare string item must hit the logging guard, never an AttributeError."""
+    with mock.patch.object(bridge.logger, "warning") as warning_spy:
+        chat_body = bridge._convert_responses_to_chat_completions_body({
+            "model": "deepseek-v4.1-flash",
+            "input": [{"role": "user", "content": "keep me"}, "stray-item"],
+        })
+    assert warning_spy.call_count == 1
+    assert warning_spy.call_args.args[1] == "str"
+    assert len(chat_body["messages"]) >= 1

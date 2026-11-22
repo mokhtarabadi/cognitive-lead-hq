@@ -521,3 +521,92 @@ def test_chat_conversion_warns_on_responses_only_cache_fields(caplog):
     assert "context_management" in logged
     assert "prompt_cache_key" not in chat
     assert "context_management" not in chat
+
+# QA regression coverage for the chat-completions usage-details passthrough.
+# Guards Task 412: cached_tokens and reasoning_tokens must reach budget math.
+
+
+_ASSISTANT_CHOICE = {
+    "index": 0,
+    "message": {"role": "assistant", "content": "ok"},
+    "finish_reason": "stop",
+}
+
+
+def _convert(chat_resp: dict):
+    """Call the chat->responses converter with the same minimal arguments used
+    by the other alignment tests. Isolated here so a signature change touches
+    exactly one line."""
+    return bridge._convert_chat_completions_to_responses_data(chat_resp)
+
+
+def _chat_resp(usage: dict) -> dict:
+    """Build a minimal chat-completion envelope carrying the given usage block."""
+    return {
+        "id": "chatcmpl-qa",
+        "object": "chat.completion",
+        "model": "deepseek-v4.1-flash",
+        "choices": [_ASSISTANT_CHOICE],
+        "usage": usage,
+    }
+
+
+def test_usage_details_openai_style_are_passed_through():
+    """OpenAI nests cache hits and reasoning tokens under *_tokens_details."""
+    data = _convert(_chat_resp({
+        "prompt_tokens": 100,
+        "completion_tokens": 40,
+        "total_tokens": 140,
+        "prompt_tokens_details": {"cached_tokens": 80},
+        "completion_tokens_details": {"reasoning_tokens": 25},
+    }))
+    usage = data["usage"]
+    assert usage["input_tokens"] == 100
+    assert usage["output_tokens"] == 40
+    assert usage["input_tokens_details"]["cached_tokens"] == 80
+    assert usage["output_tokens_details"]["reasoning_tokens"] == 25
+
+
+def test_usage_details_deepseek_top_level_fields_are_folded_in():
+    """DeepSeek reports prompt_cache_hit_tokens and reasoning_tokens at top level."""
+    data = _convert(_chat_resp({
+        "prompt_tokens": 100,
+        "completion_tokens": 40,
+        "total_tokens": 140,
+        "prompt_cache_hit_tokens": 64,
+        "reasoning_tokens": 12,
+    }))
+    usage = data["usage"]
+    assert usage["input_tokens_details"]["cached_tokens"] == 64
+    assert usage["output_tokens_details"]["reasoning_tokens"] == 12
+
+
+def test_nested_details_win_over_top_level_deepseek_fields():
+    """Nested *_tokens_details values must take precedence over top-level aliases."""
+    data = _convert(_chat_resp({
+        "prompt_tokens": 100,
+        "completion_tokens": 40,
+        "total_tokens": 140,
+        "prompt_tokens_details": {"cached_tokens": 90},
+        "prompt_cache_hit_tokens": 64,
+        "completion_tokens_details": {"reasoning_tokens": 30},
+        "reasoning_tokens": 12,
+    }))
+    usage = data["usage"]
+    assert usage["input_tokens_details"]["cached_tokens"] == 90
+    assert usage["output_tokens_details"]["reasoning_tokens"] == 30
+
+
+def test_malformed_or_absent_details_do_not_add_detail_keys():
+    """Non-dict detail payloads are ignored and must never raise or leak keys."""
+    data = _convert(_chat_resp({
+        "prompt_tokens": 10,
+        "completion_tokens": 5,
+        "total_tokens": 15,
+        "prompt_tokens_details": "not-a-dict",
+        "completion_tokens_details": ["not", "a", "dict"],
+    }))
+    usage = data["usage"]
+    assert usage["input_tokens"] == 10
+    assert "input_tokens_details" not in usage
+    assert "output_tokens_details" not in usage

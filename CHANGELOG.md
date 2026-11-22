@@ -25,6 +25,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - **OpenUI render contract hardened against stringified tool arguments:** the executor and the Brain-facing hands-protocol fragment now pin the `openchamber_render` call envelope — `action: "render.page"` with `parameters` as a real object, never a JSON-encoded string, one payload inside `parameters`, and a rebuild-not-retry directive for `parameters: Expected object`. The executor's Output Contract was corrected to place `ui`/`html` inside `parameters` instead of naming them as flat fields. The tool catalog row in `docs/openchamber.md`, four living-folder docs and their ADRs were updated, `01-system_version.md` bumped 9.90.0 to 9.90.1, both `system-prompt.md` and the stage artifacts regenerated, and a regression test added. No product code, no commit.
 
+- **Brain bridge chat-completions hardening (task 412):** the chat-completions converter now passes usage details through (`input_tokens_details.cached_tokens`, `output_tokens_details.reasoning_tokens`), folding DeepSeek top-level `prompt_cache_hit_tokens`/`reasoning_tokens` into the nested shape when absent, ignoring non-dict detail payloads, and logging a warning when an unsupported Responses input item is dropped. Output token budget raised to 131072 for max-effort turns via `BRAIN_MAX_TOKENS`. Six regression tests added; 396 passed.
+
 ## [9.90.0] - 2026-11-20
 
 ### Added

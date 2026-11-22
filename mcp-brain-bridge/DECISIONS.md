@@ -128,3 +128,13 @@
 - **Decision:** `_compaction_threshold` now rejects values below 1000 with a readable error, keeping the default 100000 unchanged. `_CHAT_UNSUPPORTED_FIELDS` gains `prompt_cache_key` and `context_management` so chat-completions mode logs a warning when it drops them. Both changes are additive validation and logging; the default wire bytes are unchanged.
 - **Consequences:** a misconfigured threshold now fails locally before any model call; the two cache fields can no longer vanish silently in chat-completions mode. Two tests in `tests/test_brain_responses_alignment.py` pin both behaviors (TDD red before the source change, green after).
 - **Rollback:** restore the `val <= 0` guard and the original seven-field warning tuple; remove the two tests.
+
+## 2026-11-22 — Chat-completions usage details pass through to Responses shape
+
+**Context:** DeepSeek V4.1 Flash reports cache hits as top-level `prompt_cache_hit_tokens` and can report `reasoning_tokens` at top level; OpenAI nests them under `*_tokens_details`.
+
+**Decision:** The converter folds nested details first, fills `cached_tokens` from `prompt_cache_hit_tokens` and `reasoning_tokens` from the top level only when absent, ignores non-dict detail payloads, and warns on dropped input item types.
+
+**Consequences:** Budget math can see cache hits and reasoning spend. Non-int values pass through untouched.
+
+**Rollback:** Revert the details block in `server.py`; usage reverts to prompt/completion/total only.
