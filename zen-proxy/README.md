@@ -57,7 +57,7 @@ the response body are never written to the log.
 | `/go/chat` | `opencode.ai/zen/go/v1` | Go subscription, chat completions |
 | `/go/resp` | `opencode.ai/zen/go/v1` | Go subscription, Responses API |
 
-`GET /health` answers `{"status":"ok"}` and is the liveness probe.
+`GET /health` answers `{"status":"ok","mounts":{...},"dormant":[...],"degraded":bool}` and is the liveness probe.
 
 ## Consumers
 

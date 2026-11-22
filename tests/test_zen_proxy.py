@@ -636,22 +636,30 @@ def test_main_keeps_the_current_set_when_a_merge_would_empty_it(monkeypatch):
 
 def test_a_candidate_is_never_removed_without_a_confirmation(monkeypatch, tmp_path):
     """The catalogue is not the served set, so a candidate is not a verdict."""
-    monkeypatch.setattr(refresh, "fetch_catalogue", lambda *a, **k: (["served"], True))
     source = (SLICE / "proxy.py").read_text(encoding="utf-8")
     target = tmp_path / "proxy.py"
     target.write_text(source, encoding="utf-8")
-    monkeypatch.setattr(
-        refresh,
-        "read_sets",
-        lambda *a, **k: {
-            "ZEN_CHAT": ["served", "served-but-unlisted"],
-            "ZEN_RESP": ["served"],
-            "GO_CHAT": ["served"],
-            "GO_RESP": ["served"],
-        },
-    )
 
-    code = refresh.main(["--key-env", "PATH", "--proxy", str(target), "--apply"])
+    # Mock the catalogue so every id is "served" except one candidate we
+    # inject into the allowlist by editing the file first.
+    text = target.read_text(encoding="utf-8")
+    text = text.replace('"mimo-v2.6-flash-free",', '"mimo-v2.6-flash-free",\n    "served-but-unlisted",')
+    target.write_text(text, encoding="utf-8")
+
+    def fake_fetch(base_url, upstream_base, key="", timeout=30):
+        import re as _re
+        ids = []
+        for mount, (fam, base, name) in refresh.MOUNTS.items():
+            if base != upstream_base:
+                continue
+            m = _re.search(rf"^{name} = (?:\{{(.*?)^\}}|set\(\))$", target.read_text(), _re.DOTALL | _re.MULTILINE)
+            if m and m.group(1):
+                ids.extend(i for i in _re.findall(r'"([^"]+)"', m.group(1)) if i != "served-but-unlisted")
+        return list(dict.fromkeys(ids)), True
+
+    monkeypatch.setattr(refresh, "fetch_catalogue", fake_fetch)
+    monkeypatch.setenv("ZEN_PROXY_UPSTREAM_KEY", "")
+    code = refresh.main(["--proxy", str(target), "--apply"])
 
     assert code == 0
     rewritten = target.read_text(encoding="utf-8")
@@ -671,3 +679,249 @@ def test_rewrite_sets_touches_only_the_allowlists(tmp_path):
     assert '"new-model",' in rewritten
     assert 'UPSTREAM = "https://opencode.ai"' in rewritten
     assert rewritten.count("def _proxy_inner(") == 1
+
+
+# --- Task 413 hardening tests ---
+
+
+def test_active_mounts_are_non_empty():
+    """F1: every non-dormant mount must serve at least one model."""
+    for mount, allow in proxy._mount_counts().items():
+        if mount in proxy.DORMANT_MOUNTS:
+            continue
+        assert allow > 0, f"{mount} is empty but not dormant"
+
+
+def test_health_reports_mount_counts_and_degraded_false():
+    """F4: /health carries per-mount counts and degraded is false on shipped tree."""
+    payload = proxy._health_payload()
+    assert payload["status"] == "ok"
+    assert set(payload["mounts"]) == {"/zen/chat", "/zen/resp", "/go/chat", "/go/resp"}
+    assert all(isinstance(v, int) and v >= 0 for v in payload["mounts"].values())
+    assert payload["dormant"] == ["/zen/resp"]
+    assert payload["degraded"] is False
+
+
+def test_health_degraded_flips_when_non_dormant_mount_emptied(monkeypatch):
+    """F4: degraded becomes true if a non-dormant mount has zero models."""
+    original = dict(proxy.ROUTES)
+    # Temporarily empty GO_CHAT by replacing its allowlist reference.
+    monkeypatch.setitem(proxy.ROUTES, "/go/chat", (proxy.ROUTES["/go/chat"][0], set()))
+    payload = proxy._health_payload()
+    assert payload["degraded"] is True
+    # Restore is automatic via monkeypatch on ROUTES? ROUTES mutated in place;
+    # restore manually to be safe.
+    proxy.ROUTES["/go/chat"] = original["/go/chat"]
+
+
+def test_find_route_ranks_go_over_zen_for_shared_id():
+    """F8: crouton-alpha-free on a zen mount resolves to /go/resp."""
+    assert proxy._find_route("crouton-alpha-free", "/zen/resp") == "/go/resp"
+    assert proxy._find_route("crouton-alpha-free", "/zen/chat") == "/go/chat"
+
+
+def test_find_route_names_responses_mount_for_responses_only_model():
+    """F8: a responses-only model posted to a chat mount names the resp mount."""
+    # gpt-6-luna is in GO_RESP but not GO_CHAT.
+    assert "gpt-6-luna" in proxy.GO_RESP
+    assert "gpt-6-luna" not in proxy.GO_CHAT
+    assert proxy._find_route("gpt-6-luna", "/go/chat") == "/go/resp"
+
+
+def test_refresh_check_exits_zero_on_clean_tree(tmp_path, monkeypatch):
+    """F3/F6: --check exits 0 when allow == served (no removal candidates)."""
+    # Use a proxy copy with crouton-alpha-free excluded so --check is clean.
+    source = (SLICE / "proxy.py").read_text(encoding="utf-8")
+    target = tmp_path / "proxy.py"
+    target.write_text(source, encoding="utf-8")
+
+    # Monkeypatch fetch_catalogue to report all current ids as served.
+    def fake_fetch(base_url, upstream_base, key="", timeout=30):
+        import re as _re
+
+        # Return the allowlist ids of that family as "served".
+        ids = []
+        for mount, (fam, base, name) in refresh.MOUNTS.items():
+            if base == upstream_base:
+                m = _re.search(
+                    rf"^{name} = \{{(.*?)^\}}$",
+                    target.read_text(),
+                    _re.DOTALL | _re.MULTILINE,
+                )
+                if m:
+                    ids.extend(_re.findall(r'"([^"]+)"', m.group(1)))
+        return list(dict.fromkeys(ids)), True
+
+    monkeypatch.setattr(refresh, "fetch_catalogue", fake_fetch)
+    monkeypatch.setenv("ZEN_PROXY_UPSTREAM_KEY", "")
+    code = refresh.main(["--key-env", "PATH", "--proxy", str(target), "--check"])
+    assert code == 0
+
+
+def test_refresh_check_exits_one_on_drift(tmp_path, monkeypatch):
+    """F3/F6: --check exits 1 when a mount has removal candidates."""
+    source = (SLICE / "proxy.py").read_text(encoding="utf-8")
+    target = tmp_path / "proxy.py"
+    target.write_text(source, encoding="utf-8")
+
+    # Fetch returns empty -> everything is a candidate (but probe_ok True).
+    monkeypatch.setattr(refresh, "fetch_catalogue", lambda *a, **k: ([], True))
+    monkeypatch.setenv("ZEN_PROXY_UPSTREAM_KEY", "")
+    code = refresh.main(["--key-env", "PATH", "--proxy", str(target), "--check"])
+    assert code == 1
+
+
+def test_refresh_write_roundtrips_and_parses(tmp_path, monkeypatch):
+    """F3: --write applies changes, ast.parse passes, round-trip matches."""
+    import ast
+
+    source = (SLICE / "proxy.py").read_text(encoding="utf-8")
+    target = tmp_path / "proxy.py"
+    target.write_text(source, encoding="utf-8")
+
+    # Mock the catalogue so glm-5.3 is absent -> becomes a removal candidate.
+    def fake_fetch(base_url, upstream_base, key="", timeout=30):
+        ids = []
+        import re as _re
+
+        for mount, (fam, base, name) in refresh.MOUNTS.items():
+            if base != upstream_base:
+                continue
+            m = _re.search(
+                rf"^{name} = \{{(.*?)^\}}$",
+                target.read_text(),
+                _re.DOTALL | _re.MULTILINE,
+            )
+            if m:
+                ids.extend(
+                    i for i in _re.findall(r'"([^"]+)"', m.group(1)) if i != "glm-5.3"
+                )
+        return list(dict.fromkeys(ids)), True
+
+    monkeypatch.setattr(refresh, "fetch_catalogue", fake_fetch)
+    monkeypatch.setenv("ZEN_PROXY_UPSTREAM_KEY", "")
+    code = refresh.main(
+        [
+            "--proxy",
+            str(target),
+            "--confirm-remove",
+            "/go/chat=glm-5.3",
+            "--write",
+        ]
+    )
+    assert code == 0
+    rewritten = target.read_text(encoding="utf-8")
+    ast.parse(rewritten)
+    rt = refresh.read_sets_from_source(rewritten)
+    assert "glm-5.3" not in rt["GO_CHAT"]
+
+
+def test_startup_line_contains_bind_and_counts():
+    """F7: startup line has bind address and per-mount sizes."""
+    line = proxy._startup_line()
+    assert "127.0.0.1:8081" in line
+    for mount in proxy.ROUTES:
+        assert mount in line
+
+
+# --- Task 413 QA round 2 regression tests ---
+
+
+def test_crouton_alpha_free_is_never_drift(tmp_path, monkeypatch):
+    """F1/F3: a catalogue-absent but served id must never count as drift."""
+    source = (SLICE / "proxy.py").read_text(encoding="utf-8")
+    target = tmp_path / "proxy.py"
+    target.write_text(source, encoding="utf-8")
+
+    def fake_fetch(base_url, upstream_base, key="", timeout=30):
+        import re as _re
+
+        ids = []
+        for mount, (fam, base, name) in refresh.MOUNTS.items():
+            if base != upstream_base:
+                continue
+            match = _re.search(
+                rf"^{name} = (?:\{{(.*?)^\}}|set\(\))$",
+                target.read_text(encoding="utf-8"),
+                _re.DOTALL | _re.MULTILINE,
+            )
+            if match and match.group(1):
+                ids.extend(
+                    i
+                    for i in _re.findall(r'"([^"]+)"', match.group(1))
+                    if i != "crouton-alpha-free"
+                )
+        return list(dict.fromkeys(ids)), True
+
+    monkeypatch.setattr(refresh, "fetch_catalogue", fake_fetch)
+    monkeypatch.delenv("ZEN_PROXY_UPSTREAM_KEY", raising=False)
+    assert refresh.main(["--proxy", str(target), "--check"]) == 0
+
+
+def test_rewrite_refuses_a_write_that_fails_the_guards(tmp_path, monkeypatch):
+    """Risk 4: ast.parse or round-trip failure must refuse the write."""
+    import pytest
+
+    source = (SLICE / "proxy.py").read_text(encoding="utf-8")
+    target = tmp_path / "proxy.py"
+    target.write_text(source, encoding="utf-8")
+
+    monkeypatch.setattr(
+        refresh,
+        "read_sets_from_source",
+        lambda _s: {
+            "GO_CHAT": ["tampered"],
+            "GO_RESP": [],
+            "ZEN_CHAT": [],
+            "ZEN_RESP": [],
+        },
+    )
+    with pytest.raises(refresh.RefreshError):
+        refresh.rewrite_sets(str(target), {"GO_CHAT": ["beam-free"]})
+    assert target.read_text(encoding="utf-8") == source
+
+    monkeypatch.undo()
+    monkeypatch.setattr(refresh, "render_literal", lambda _name, _ids: "GO_CHAT = {")
+    with pytest.raises(refresh.RefreshError):
+        refresh.rewrite_sets(str(target), {"GO_CHAT": ["beam-free"]})
+    assert target.read_text(encoding="utf-8") == source
+
+
+def test_read_dormant_reads_the_proxy_literal(tmp_path):
+    """The dormant set is owned by proxy.py, not duplicated in the tool."""
+    source = (SLICE / "proxy.py").read_text(encoding="utf-8")
+    target = tmp_path / "proxy.py"
+    target.write_text(source, encoding="utf-8")
+    assert refresh.read_dormant(str(target)) == {"/zen/resp"}
+
+
+def test_check_report_line_compares_allow_to_mount_served(tmp_path, monkeypatch, capsys):
+    """A2: the served count is the mount's own, never the family catalogue."""
+    source = (SLICE / "proxy.py").read_text(encoding="utf-8")
+    target = tmp_path / "proxy.py"
+    target.write_text(source, encoding="utf-8")
+
+    def fake_fetch(base_url, upstream_base, key="", timeout=30):
+        import re as _re
+
+        ids = []
+        for mount, (fam, base, name) in refresh.MOUNTS.items():
+            if base != upstream_base:
+                continue
+            match = _re.search(
+                rf"^{name} = (?:\{{(.*?)^\}}|set\(\))$",
+                target.read_text(encoding="utf-8"),
+                _re.DOTALL | _re.MULTILINE,
+            )
+            if match and match.group(1):
+                ids.extend(_re.findall(r'"([^"]+)"', match.group(1)))
+        return list(dict.fromkeys(ids)), True
+
+    monkeypatch.setattr(refresh, "fetch_catalogue", fake_fetch)
+    monkeypatch.delenv("ZEN_PROXY_UPSTREAM_KEY", raising=False)
+    assert refresh.main(["--proxy", str(target), "--check"]) == 0
+    out = capsys.readouterr().out
+    parsed = refresh.read_sets_from_source(target.read_text(encoding="utf-8"))
+    for mount, (_family, _base, name) in refresh.MOUNTS.items():
+        allow = len(parsed[name])
+        assert f"mount {mount}: allow={allow} served={allow} " in out

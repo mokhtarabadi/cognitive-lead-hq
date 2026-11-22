@@ -269,9 +269,9 @@ def _has_terminal_event(buffer):
     return any(pattern.search(buffer) for pattern in _TERMINAL_PATTERNS)
 
 
-# Refreshed live 2026-11-08 (Go: 30 models, Zen: 45 models; authenticated
-# with opencode UA + session). Go now includes crouton-alpha-free,
-# iceman-contributor-free and longcat-2.0 — they work on BOTH
+# Refreshed 2026-11-22 (Go: 32/22+27 served, Zen: 105/7+0; keyless probe
+# with opencode UA + session). Go includes crouton-alpha-free and
+# iceman-contributor-free — they work on BOTH
 # /zen/go/v1/responses and /chat/completions (verified 2026-11-08 via
 # proxy 7890 + oc_sk key). Zen's crouton-alpha-free is the same id but hits
 # the free-tier account quota (429) — use the Go mount for it.
@@ -281,11 +281,9 @@ GO_CHAT = {
     "beam-free",
     "crouton-alpha-free",
     "gemini-4-argon",
-    "glm-5.2",
     "glm-5.3",
     "glm-5.3-flash",
     "iceman-contributor-free",
-    "longcat-2.0",
     "mimo-v2.6-flash",
     "mimo-v2.6-pro",
     "minimax-m3",
@@ -307,14 +305,12 @@ GO_RESP = {
     "beam-free",
     "crouton-alpha-free",
     "gemini-4-argon",
-    "glm-5.2",
     "glm-5.3",
     "glm-5.3-flash",
     "gpt-5.6-luna",
     "gpt-6-luna",
     "grok-4.7",
     "iceman-contributor-free",
-    "longcat-2.0",
     "mimo-v2.6-flash",
     "mimo-v2.6-pro",
     "minimax-m3",
@@ -345,14 +341,9 @@ ZEN_CHAT = {
     "crouton-alpha-free",
     "iceman-free",
     "flint-40b-free",
-    "inkling-2-small-free",
     "mimo-v2.6-flash-free",
 }
-ZEN_RESP = {
-    "muse-spark-1.3-contributor-free",
-    "muse-spark-1.2-contributor-free",
-    "crouton-alpha-free",
-}
+ZEN_RESP = set()
 
 
 def _translate_reasoning_effort(payload):
@@ -378,13 +369,56 @@ ROUTES = {
     "/go/resp": ("/zen/go/v1", GO_RESP),
 }
 
+# Mounts whose allowlist is intentionally empty pending a Manager decision
+# (see F2: /zen/resp is dormant because its three ids are not servable for
+# this account). Dormant mounts are excluded from the `degraded` flag and
+# from the startup-line warning, and their emptiness is not a defect.
+DORMANT_MOUNTS = frozenset({"/zen/resp"})
 
-def _find_route(model):
-    """Return the mount prefix that serves `model`, or None."""
-    for prefix, (_, allow) in ROUTES.items():
-        if model in allow:
-            return prefix
-    return None
+
+def _find_route(model, current_mount=None):
+    """Return the mount prefix that serves `model`, ranked so callers on a
+    chat mount get a chat mount, callers on a responses mount get a
+    responses mount, and Go (paid) is preferred over Zen (free) when both
+    serve the same id. Returns None when no mount serves the model."""
+    candidates = [p for p, (_, allow) in ROUTES.items() if model in allow]
+    if not candidates:
+        return None
+    if current_mount is None:
+        current_mount = ""
+    style = "/resp" if current_mount.endswith("/resp") else "/chat"
+    same_style = [p for p in candidates if p.endswith(style)]
+    pool = same_style or candidates
+    go = [p for p in pool if p.startswith("/go/")]
+    ranked = go or pool
+    # Stable table order as the final tie-break.
+    ordered = [p for p in ROUTES if p in ranked]
+    return ordered[0] if ordered else None
+
+
+def _mount_counts():
+    """Return {mount: len(allowlist)} for every configured mount."""
+    return {prefix: len(allow) for prefix, (_, allow) in ROUTES.items()}
+
+
+def _health_payload():
+    """Build the /health body. All fields are computed locally so the
+    answer is instant and never depends on upstream reachability."""
+    counts = _mount_counts()
+    dormant = sorted(DORMANT_MOUNTS)
+    degraded = any(counts[m] == 0 for m in counts if m not in DORMANT_MOUNTS)
+    return {
+        "status": "ok",
+        "mounts": counts,
+        "dormant": dormant,
+        "degraded": degraded,
+    }
+
+
+def _startup_line():
+    counts = _mount_counts()
+    parts = " ".join(f"{m}={counts[m]}" for m in ROUTES)
+    return f"zen-proxy: listening on 127.0.0.1:8081 {parts}"
 
 
 def _audit_write(record, req_body=None):
@@ -472,7 +506,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def _send_upstream(self):
         if self.path == "/health":
-            body = b'{"status":"ok"}'
+            body = (json.dumps(_health_payload()) + "\n").encode()
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(body)))
@@ -483,7 +517,7 @@ class Handler(BaseHTTPRequestHandler):
         for prefix, (base, allow) in ROUTES.items():
             if self.path == prefix or self.path.startswith(prefix + "/"):
                 rest = self.path[len(prefix) :] or "/"
-                self._proxy(base + rest, allow)
+                self._proxy(base + rest, allow, prefix)
                 return
         # The failure contract promises a parseable JSON envelope for every
         # answer, including a path that matches no mount. `send_error` emits
@@ -499,7 +533,7 @@ class Handler(BaseHTTPRequestHandler):
     do_GET = _send_upstream
     do_POST = _send_upstream
 
-    def _proxy(self, upstream_path, allow):
+    def _proxy(self, upstream_path, allow, mount_prefix=None):
         """Relay one request upstream and answer the client.
 
         Every failure path answers with a parseable JSON error instead of
@@ -515,6 +549,7 @@ class Handler(BaseHTTPRequestHandler):
             "session_id": "",
             "session_origin": "client",
             "sent": 0,
+            "mount_prefix": mount_prefix,
         }
         try:
             return self._proxy_inner(req_id, started, upstream_path, allow, state)
@@ -555,7 +590,7 @@ class Handler(BaseHTTPRequestHandler):
             if isinstance(_probe, dict) and isinstance(_probe.get("model"), str):
                 _mid = _probe["model"]
                 if _mid not in allow:
-                    _hint = _find_route(_mid)
+                    _hint = _find_route(_mid, state.get("mount_prefix"))
                     state["status"] = 404
                     state["outcome"] = "model_not_served"
                     state["model"] = _mid
@@ -892,6 +927,7 @@ def _install_signal_handlers(server):
 
 if __name__ == "__main__":
     _server = ZenProxyServer(("127.0.0.1", 8081), Handler)
+    print(_startup_line(), flush=True)
     _install_signal_handlers(_server)
     try:
         _server.serve_forever()

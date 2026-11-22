@@ -34,36 +34,44 @@ consumer is the Brain Bridge: `BRAIN_API_BASE=http://127.0.0.1:8081/go/resp`.
 | `/go/chat` | `opencode.ai/zen/go/v1` | Go subscription, chat completions |
 | `/go/resp` | `opencode.ai/zen/go/v1` | Go subscription, Responses API |
 
-`GET /health` → `{"status":"ok"}`.
+`GET /health` → `{"status":"ok","mounts":{...},"dormant":[...],"degraded":bool}`.
 
 Both `GET /models` and `POST` are gated by the mount allowlist. A model
 posted to the wrong mount returns `404 ModelNotServedHere` naming the correct
 mount, or `no known route` when no mount serves it.
 
-## Verified allowlists (2026-11-08)
+## Allowlists (refreshed 2026-11-22)
 
-- `/go/resp` — 29: `muse-spark-1.2-contributor`, `muse-spark-1.3-contributor`, `gpt-5.6-luna`,
-  `gpt-6-luna`, `grok-4.7`, `glm-5.2`, `glm-5.3`, `glm-5.3-flash`,
+Post-prune counts: `/go/resp` 27, `/go/chat` 22, `/zen/chat` 7, `/zen/resp` 0
+(dormant). Counts are now enforced by `refresh_allowlists.py --check`
+(exit 0 when `allow == served` on every mount).
+
+- `/go/resp` — 27: `muse-spark-1.2-contributor`, `muse-spark-1.3-contributor`,
+  `gpt-5.6-luna`, `gpt-6-luna`, `grok-4.7`, `glm-5.3`, `glm-5.3-flash`,
   `kimi-k2.7-code`, `kimi-k3`, `kimi-k3.1-pro`, `qwen3.7-plus`,
   `qwen3.8-flash`, `qwen3.8-max`, `mimo-v2.6-flash`, `mimo-v2.6-pro`,
   `beam-free`, `deepseek-v4-pro`, `deepseek-v4.1-flash`, `gemini-4-argon`,
-  `minimax-m3`, `minimax-m3.1-flash`, `step-5-preview`, `longcat-2.0`,
+  `minimax-m3`, `minimax-m3.1-flash`, `step-5-preview`,
   `hy3`, `hy4`, `hy4-preview`, `iceman-contributor-free`,
-  `crouton-alpha-free`. (`muse-spark-1.2/1.3-contributor` counts as 2 ids; total 29.)
-  Every Go model listed above also answered on `/go/resp/responses`
-  (verified against live upstream 2026-11-08); the three-tuple test
-  `crouton-alpha-free` on `/go/resp` and `/go/chat` both returned 200 while
-  the same id on `/zen/v1` returned 429 `FreeUsageLimitError` (free quota
-  exhausted for this account). **Do not move `crouton-alpha-free` back to
-  only the Zen mount** — it is a Go model id; placing it only on Zen makes it
-  unreachable and the wrong-mount hint points the wrong way.
-- `/go/chat` — the Go chat set (24 ids). The served count tracks upstream;
-  re-probe before trusting a number.
-- `/zen/chat`, `/zen/resp` — free models only. Free-tier generation is
-  blocked server-side for non-OpenCode callers (see the A3 gate finding in
-  the `code-server` history); the mount exists for list parity. The same
-  `crouton-alpha-free` id exists on Zen too, but there it is the *free*
-  instance and shares the exhausted free quota — prefer `/go/resp`.
+  `crouton-alpha-free`. (`glm-5.2` and `longcat-2.0` removed — deprecated;
+  `crouton-alpha-free` kept as a documented exception, served by Go and
+  absent from both catalogues.)
+  `crouton-alpha-free` is served by Go on both mounts; **do not move it to
+  only the Zen mount** — placing it only on Zen makes it unreachable.
+- `/go/chat` — the Go chat set (22 ids). `glm-5.2` and `longcat-2.0` removed (deprecated).
+- `/zen/chat` — free models (7 ids). `inkling-2-small-free` removed (not
+  served). Free-tier generation is blocked server-side for non-OpenCode
+  callers; the mount exists for list parity.
+- `/zen/resp` — **dormant** (0 ids). All three free Responses ids were
+  removed; the route is retained until the Manager confirms deletion (F2) or
+  a Muse Responses switch. Its allowlist is empty, so a model posted to this
+  mount is refused with `404 ModelNotServedHere` naming the correct mount, or
+  `no known route` when no mount serves it. Dormant mounts are excluded from
+  the `degraded` flag.
+
+The free-tier identity layer (`x-opencode-client`, `x-opencode-project`,
+b3/traceparent, the harness preamble and the tool manifest) is out of scope
+for this proxy.
 
 ## Configuration
 

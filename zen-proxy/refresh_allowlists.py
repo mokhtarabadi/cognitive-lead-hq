@@ -63,6 +63,11 @@ MOUNTS = {
     "/go/resp": ("go", "/zen/go/v1", "GO_RESP"),
 }
 
+# Ids that are served by upstream but never appear in the catalogue, so they
+# must never be reported as removal candidates. crouton-alpha-free is served
+# by Go and is intentionally absent from both catalogues (docs/zen-proxy.md).
+KNOWN_EXCEPTIONS = frozenset({"crouton-alpha-free"})
+
 UA = (
     "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/126.0 Safari/537.36"
@@ -84,27 +89,34 @@ def read_sets(proxy_path=PROXY_PATH):
         source = handle.read()
     sets = {}
     for _family, _base, name in MOUNTS.values():
-        match = re.search(rf"^{name} = \{{(.*?)^\}}$", source, re.DOTALL | re.MULTILINE)
+        # Match either a brace literal or an empty set().
+        match = re.search(
+            rf"^{name} = (?:\{{(.*?)^\}}|set\(\))$",
+            source,
+            re.DOTALL | re.MULTILINE,
+        )
         if not match:
             raise RefreshError(f"could not find the {name} literal in {proxy_path}")
-        ids = re.findall(r'"([^"]+)"', match.group(1))
+        group = match.group(1) if match.group(1) is not None else ""
+        ids = re.findall(r'"([^"]+)"', group)
         sets[name] = ids
     return sets
 
 
-def merge_ids(current, removals, add=()):
+def merge_ids(current, removals, add=(), allow_empty=False):
     """Compute the new id list for one mount.
 
     Order is preserved for the ids that survive, additions are appended in
     alphabetical order, and only ids in `removals` are dropped — those are
-    the ids the operator confirmed. An empty result is refused: a mount
-    with no models serves nothing.
+    the ids the operator confirmed. An empty result is refused unless the
+    mount is dormant (allow_empty=True): a dormant mount serves nothing by
+    design.
     """
     removal_set = set(removals)
     kept = [model for model in current if model not in removal_set]
     additions = sorted({model for model in add if model and model not in kept})
     merged = kept + additions
-    if not merged:
+    if not merged and not allow_empty:
         raise RefreshError("refusing to write an empty allowlist")
     return merged
 
@@ -119,27 +131,35 @@ def classify(current, family_observed, probe_ok):
     if not probe_ok:
         return {"keep": list(current), "candidates": []}
     observed = set(family_observed)
-    keep = [model for model in current if model in observed]
-    candidates = [model for model in current if model not in observed]
+    keep = [
+        model for model in current if model in observed or model in KNOWN_EXCEPTIONS
+    ]
+    candidates = [
+        model
+        for model in current
+        if model not in observed and model not in KNOWN_EXCEPTIONS
+    ]
     return {"keep": keep, "candidates": candidates}
 
 
-def fetch_catalogue(base_url, upstream_base, key, timeout=30):
+def fetch_catalogue(base_url, upstream_base, key="", timeout=30):
     """Fetch the upstream model catalogue of one family.
 
     Returns (ids, ok). `ok` is False when the catalogue could not be
     fetched; the ids are then empty and nothing may be removed.
+
+    When `key` is empty the request is sent unauthenticated. The upstream
+    catalogue answers 200 without a key, so a missing key is no longer a
+    hard stop; it only means the refresh runs in keyless mode.
     """
     url = base_url.rstrip("/") + upstream_base + "/models"
-    request = urllib.request.Request(
-        url,
-        method="GET",
-        headers={
-            "Authorization": f"Bearer {key}",
-            "Accept": "application/json",
-            "User-Agent": UA,
-        },
-    )
+    headers = {"Accept": "application/json", "User-Agent": UA}
+    if key:
+        headers["Authorization"] = f"Bearer {key}"
+    # Mint a session id like the proxy does, so the request looks like a
+    # real client even when no key is present.
+    headers["x-opencode-session"] = "refresh-allowlists"
+    request = urllib.request.Request(url, method="GET", headers=headers)
     try:
         with urllib.request.urlopen(request, timeout=timeout) as response:
             payload = json.loads(response.read().decode("utf-8", "replace"))
@@ -170,6 +190,8 @@ def fetch_catalogue(base_url, upstream_base, key, timeout=30):
 
 def render_literal(name, ids):
     """Render an allowlist literal in the same shape proxy.py uses."""
+    if not ids:
+        return f"{name} = set()"
     lines = [f"{name} = {{"]
     for model in ids:
         lines.append(f'    "{model}",')
@@ -177,26 +199,60 @@ def render_literal(name, ids):
     return "\n".join(lines)
 
 
+def read_dormant(proxy_path=PROXY_PATH):
+    """Read the DORMANT_MOUNTS frozenset out of proxy.py, or empty set."""
+    with open(proxy_path, "r", encoding="utf-8") as handle:
+        source = handle.read()
+    match = re.search(r"DORMANT_MOUNTS\s*=\s*frozenset\(\{(.*?)\}\)", source, re.DOTALL)
+    if not match:
+        return set()
+    return {
+        m.strip().strip('"').strip("'")
+        for m in match.group(1).split(",")
+        if m.strip().strip('"').strip("'")
+    }
+
+
 def rewrite_sets(proxy_path, new_sets):
     """Rewrite the allowlist literals in proxy.py, atomically.
 
     Only the four literals are touched. The file is written to a temporary
     file in the same directory and moved into place, so a crash cannot leave
-    a half-written module behind.
+    a half-written module behind. The rewrite is guarded by ast.parse and a
+    round-trip re-extract so a corrupted file can never be committed.
     """
+    import ast
+
     with open(proxy_path, "r", encoding="utf-8") as handle:
         source = handle.read()
     original = source
     for name, ids in new_sets.items():
-        pattern = re.compile(rf"^{name} = \{{.*?^\}}$", re.DOTALL | re.MULTILINE)
+        pattern = re.compile(
+            rf"^{name} = (?:\{{.*?^\}}|set\(\))$", re.DOTALL | re.MULTILINE
+        )
         if not pattern.search(source):
             raise RefreshError(f"could not find the {name} literal in {proxy_path}")
         literal = render_literal(name, ids)
         source = pattern.sub(lambda _m, lit=literal: lit, source, count=1)
     if source == original:
         return False
+    # Guard: the rewritten source must still parse.
+    try:
+        ast.parse(source)
+    except SyntaxError as exc:
+        raise RefreshError(f"rewrite failed ast.parse: {exc}")
+    # Round-trip: re-extract the sets and confirm they match the intent.
+    try:
+        roundtrip = read_sets_from_source(source)
+    except RefreshError as exc:
+        raise RefreshError(f"rewrite round-trip failed: {exc}")
+    for name, ids in new_sets.items():
+        if roundtrip.get(name) != list(ids):
+            raise RefreshError(
+                f"rewrite round-trip mismatch for {name}: "
+                f"{roundtrip.get(name)!r} != {list(ids)!r}"
+            )
     directory = os.path.dirname(os.path.abspath(proxy_path))
-    # The temporary file is moved into place, so it is closed by hand.
     handle = tempfile.NamedTemporaryFile(  # noqa: SIM115
         "w",
         encoding="utf-8",
@@ -216,6 +272,23 @@ def rewrite_sets(proxy_path, new_sets):
             pass
         raise
     return True
+
+
+def read_sets_from_source(source):
+    """Parse sets from an in-memory source string (for round-trip checks)."""
+    sets = {}
+    for _family, _base, name in MOUNTS.values():
+        match = re.search(
+            rf"^{name} = (?:\{{(.*?)^\}}|set\(\))$",
+            source,
+            re.DOTALL | re.MULTILINE,
+        )
+        if not match:
+            raise RefreshError(f"could not find the {name} literal")
+        group = match.group(1) if match.group(1) is not None else ""
+        ids = re.findall(r'"([^"]+)"', group)
+        sets[name] = ids
+    return sets
 
 
 def parse_additions(values):
@@ -261,17 +334,34 @@ def main(argv=None):
     parser.add_argument(
         "--apply",
         action="store_true",
+        help="write the confirmed removals and additions into proxy.py (alias for --write)",
+    )
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help="report drift and exit 1 if any mount differs from upstream; never writes",
+    )
+    parser.add_argument(
+        "--write",
+        action="store_true",
         help="write the confirmed removals and additions into proxy.py",
     )
     args = parser.parse_args(argv)
 
+    # --apply is the legacy name for --write.
+    if args.apply:
+        args.write = True
+
+    # Dormancy is owned by proxy.py: read it from the same file this tool
+    # rewrites, so the two constants can never drift apart.
+    dormant_mounts = read_dormant(args.proxy)
     key = os.environ.get(args.key_env, "").strip()
-    if not key:
-        print(
-            f"zen-proxy: no key in ${args.key_env}; export the upstream key first.",
-            file=sys.stderr,
-        )
-        return 2
+    # Keyless mode: the upstream catalogue answers 200 without auth, so a
+    # missing key is no longer a hard stop. Report which mode ran.
+    if key:
+        print(f"zen-proxy: running with key from ${args.key_env}")
+    else:
+        print(f"zen-proxy: running keyless (no ${args.key_env})")
 
     try:
         sets = read_sets(args.proxy)
@@ -317,12 +407,28 @@ def main(argv=None):
         if add:
             print(f"{mount}: adding {', '.join(sorted(add))}")
         try:
-            new_sets[name] = merge_ids(current, confirmed, add)
+            new_sets[name] = merge_ids(
+                current, confirmed, add, allow_empty=(mount in dormant_mounts)
+            )
         except RefreshError as exc:
             # One mount that would end up empty must not block the report of
             # the others, and it must never be written.
             print(f"{mount}: keeping the current set ({exc})", file=sys.stderr)
             new_sets[name] = list(current)
+        # Per-mount report line (stable, machine-parseable). `served` counts
+        # this mount's own ids that upstream still serves, so `allow` and
+        # `served` are directly comparable (A2). The family catalogue size is
+        # a different number and is never printed as `served`.
+        observed_here = set(family_ids)
+        served_here = [
+            model
+            for model in current
+            if model in observed_here or model in KNOWN_EXCEPTIONS
+        ]
+        print(
+            f"mount {mount}: allow={len(current)} served={len(served_here) if probe_ok else 0} "
+            f"candidates={len(candidates)} dormant={mount in dormant_mounts}"
+        )
     # Candidates are reported, never written: the catalogue does not say
     # which API style a model speaks.
     known = {model for ids in sets.values() for model in ids}
@@ -336,8 +442,31 @@ def main(argv=None):
                 f"style, then add with --add): {', '.join(candidates)}"
             )
 
-    if not args.apply:
-        print("report only; pass --apply to write the confirmed removals")
+    # Drift summary: a mount with removal candidates counts as drift.
+    # New upstream ids are informational, not drift (they are additions
+    # the operator may choose to add with --add).
+    drift = False
+    for mount, (family, _base, name) in MOUNTS.items():
+        family_ids = families[family]["ids"]
+        probe_ok = families[family]["ok"]
+        if not probe_ok:
+            continue
+        current = sets[name]
+        candidates = [
+            m for m in current if m not in set(family_ids) and m not in KNOWN_EXCEPTIONS
+        ]
+        if candidates:
+            drift = True
+
+    if args.check:
+        if drift:
+            print("drift detected; exit 1")
+            return 1
+        print("no drift; exit 0")
+        return 0
+
+    if not args.write:
+        print("report only; pass --write (or --apply) to write the confirmed removals")
         return 0
 
     try:

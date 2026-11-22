@@ -115,3 +115,23 @@
 - **Decision:** an unmatched path now uses `_send_error(404, "UnknownRoute", <message>, <fresh request id>)`. The mount allowlists, Authorization passthrough, silence timeout and 900<=900<=1200 ordering are untouched.
 - **Consequences:** a caller can parse the rejection like every other error; the new `UnknownRoute` type is documented in `zen-proxy/README.md` and `docs/zen-proxy.md`. One test in `tests/test_zen_proxy.py` now asserts the JSON envelope, the `UnknownRoute` type and the request-id header; it failed before the source change and passes after. No upstream behavior was copied beyond the idea that rejection bodies should be machine-readable.
 - **Rollback:** restore `self.send_error(404, "unknown zen-proxy route")` in `_send_upstream` and revert the test and the two doc rows.
+
+## 2026-11-22 — Allowlist prune, keyless refresh, health counts
+
+**Context:** Audit F1/F3-F8. Eight allowlist slots were stale (catalogue-absent,
+six unique ids: glm-5.2 twice, longcat-2.0 twice, inkling-2-small-free,
+and the three /zen/resp ids), /zen/resp served zero models (region-gated),
+/health reported ok while a mount was empty, refresh_allowlists.py required
+a key that was unset, and docs carried 2026-11-08 counts.
+
+**Decision:** Prune only catalogue-absent ids with per-id confirmation and an
+`allow == served` proof (resulting counts 22/27/7/0). Mark /zen/resp dormant
+(not deleted, pending F2). Add --check/--write to refresh_allowlists.py with
+keyless catalogue fetch, ast.parse + round-trip guard. /health gains mounts,
+dormant, degraded (all local). Add startup log line and ranked _find_route.
+crouton-alpha-free kept as a documented exception.
+
+**Consequences:** --check exits 0 on the shipped tree. Drift surfaces in CI and
+journal. No new env knobs. Install/restart remain Manager actions.
+
+**Rollback:** Revert the commit; allowlists restore to prior literals.
