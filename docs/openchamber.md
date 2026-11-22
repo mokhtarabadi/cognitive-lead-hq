@@ -128,10 +128,16 @@ single-use and expire.
 | --- | --- |
 | `OPENCHAMBER_HOST` | Bind address for the web server (`0.0.0.0` for other machines). |
 | `OPENCHAMBER_UI_PASSWORD` | Browser UI password. |
+| `OPENCHAMBER_ALLOW_UNAUTHENTICATED_LAN` | Risk-acceptance flag: `true` lets OpenChamber bind a non-loopback host with **no** UI password. Keep `false` (this install) whenever a UI password is set. |
 | `OPENCHAMBER_API_ONLY` | Headless mode (`true`/`1`) — API routes only. |
 | `OPENCHAMBER_DATA_DIR` | Data dir (default `~/.config/openchamber`). |
 | `OPENCODE_BINARY` | Path to the `opencode` binary OpenChamber runs. |
 | `OPENCODE_HOST` / `OPENCODE_PORT` / `OPENCODE_SKIP_START` | External-server mode only. Not used here. |
+
+OpenChamber refuses a non-loopback bind without UI authentication unless
+`OPENCHAMBER_ALLOW_UNAUTHENTICATED_LAN=true` is set. That flag is an explicit
+risk acceptance, not a normal setting: keep it `false` and set a password
+before exposing the UI beyond `127.0.0.1`.
 
 Full list: https://docs.openchamber.dev/environment/
 

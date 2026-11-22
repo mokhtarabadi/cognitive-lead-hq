@@ -17,6 +17,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - **OpenChamber service repaired after reboot `MODULE_NOT_FOUND` (task 408):** the `@openchamber/web` 2.7.3 upgrade on 2026-11-20 moved the npm CLI entry point from `bin/cli.js` to `build/bin/cli.js`, but the hand-written `~/.config/systemd/user/openchamber.service` still pinned the old path, so the unit crash-looped every 5 seconds after the reboot (restart counter 47+). Corrected `ExecStart` to the `build/bin/cli.js` path, kept a `.bak-20261121` copy of the unit, and verified the service stays active with port 3005 listening and HTTP 200. Added the post-upgrade unit-verification rule to `LLM.txt` §7.9 and `docs/openchamber.md` §4/§8, and refreshed the version table to the live OpenCode 2.3.2 / OpenChamber 2.7.3. ZAC holds; no commit.
 
+- **OpenChamber auth docs reconciled with the live install (no task file):** added `OPENCHAMBER_ALLOW_UNAUTHENTICATED_LAN` to the `docs/openchamber.md` environment table with the rule that it must stay `false` when a UI password is set; the installed code treats `true` as an explicit bypass that allows a non-loopback bind with no password. The UI password was set from the `~/.secrets/openchamber-ui-password` file (mode 600), `startup enable` regenerated the unit and `startup.env`, and the LAN flag was changed from `true` to `false`. Login now returns 200 with the password and 401 without, and `openchamber status` reports `password: yes`. The `--host 127.0.0.1` examples in `docs/setup.md` and `LLM.txt` were changed to the live `0.0.0.0` bind on port 3005, with the flag export added. Docs-only; no product code, no commit.
+
 ## [9.90.0] - 2026-11-20
 
 ### Added

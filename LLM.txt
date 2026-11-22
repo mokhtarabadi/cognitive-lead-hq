@@ -701,15 +701,20 @@ mkdir -p ~/.secrets
 openssl rand -base64 24 > ~/.secrets/openchamber-ui-password
 chmod 600 ~/.secrets/openchamber-ui-password
 export OPENCHAMBER_UI_PASSWORD="$(cat ~/.secrets/openchamber-ui-password)"
+export OPENCHAMBER_ALLOW_UNAUTHENTICATED_LAN=false
 
-# 3. Start — managed OpenCode server, loopback bind
-openchamber --port 3005 --host 127.0.0.1 --ui-password "$OPENCHAMBER_UI_PASSWORD"
+# 3. Start — managed OpenCode server, bound beyond loopback for other devices
+openchamber --port 3005 --host 0.0.0.0 --ui-password "$OPENCHAMBER_UI_PASSWORD"
 
 # 4. Verify
 openchamber status                                   # running, password: yes
-ss -tlnp | grep 3005                                 # 127.0.0.1:3005 LISTEN
+ss -tlnp | grep 3005                                 # 0.0.0.0:3005 LISTEN
 curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:3005/   # 200
 ```
+
+A non-loopback bind requires the UI password. Keep
+`OPENCHAMBER_ALLOW_UNAUTHENTICATED_LAN=false`; `true` is an explicit risk
+acceptance that lets OpenChamber bind a public host without a password.
 
 ### Start at boot — use OpenChamber's own integration
 
@@ -717,7 +722,8 @@ OpenChamber writes the systemd user unit for you (it snapshots the environment a
 
 ```bash
 export OPENCHAMBER_UI_PASSWORD="$(cat ~/.secrets/openchamber-ui-password)"
-openchamber startup enable --port 3005 --host 127.0.0.1
+export OPENCHAMBER_ALLOW_UNAUTHENTICATED_LAN=false
+openchamber startup enable --port 3005 --host 0.0.0.0
 openchamber startup status                 # startup enabled + service active
 sudo loginctl enable-linger $USER          # start at boot without login
 ```
@@ -734,7 +740,9 @@ prove it is healthy:
 
 ```bash
 npm install -g @openchamber/web@latest
-openchamber startup enable --port 3005 --host 127.0.0.1   # rewrites the unit
+export OPENCHAMBER_UI_PASSWORD="$(cat ~/.secrets/openchamber-ui-password)"
+export OPENCHAMBER_ALLOW_UNAUTHENTICATED_LAN=false
+openchamber startup enable --port 3005 --host 0.0.0.0   # rewrites the unit
 systemctl --user show openchamber -p ExecStart --value     # inspect the resolved path
 systemctl --user daemon-reload && systemctl --user restart openchamber
 systemctl --user is-active openchamber                     # expect active

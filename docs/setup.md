@@ -91,8 +91,14 @@ to see (used by `{env:VAR}` forwarding) before enabling:
 
 ```bash
 export OPENCHAMBER_UI_PASSWORD="$(cat ~/.secrets/openchamber-ui-password)"
-openchamber startup enable --port 3005 --host 127.0.0.1
+export OPENCHAMBER_ALLOW_UNAUTHENTICATED_LAN=false
+openchamber startup enable --port 3005 --host 0.0.0.0
 ```
+
+This install binds `0.0.0.0:3005` so other devices can connect. A non-loopback
+bind requires the UI password above; keep
+`OPENCHAMBER_ALLOW_UNAUTHENTICATED_LAN=false` so OpenChamber's own guard cannot
+be bypassed.
 
 Re-run `openchamber startup enable` after changing any env var. If you run
 OpenCode as your own daemon instead, give that unit an `EnvironmentFile=`
