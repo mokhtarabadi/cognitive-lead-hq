@@ -6,6 +6,7 @@ version must match the fragment source, and the assembler output must
 equal the committed file (same contract as lint_system_prompt_sync).
 """
 
+import json
 import re
 import subprocess
 import sys
@@ -47,7 +48,7 @@ def test_shipped_version_is_expected_minor_bump():
     shipped = re.search(
         r"<system_version>(.*?)</system_version>", _read(SHIPPED)
     ).group(1)
-    assert shipped == "9.90.1"
+    assert shipped == "9.93.0"
 
 
 def test_shipped_prompt_documents_context_path_line_ranges():
@@ -370,9 +371,9 @@ def test_executor_contains_full_dto_mandate():
     )
 
 
-def test_shipped_prompt_version_is_9_90_1():
+def test_shipped_prompt_version_is_9_93_0():
     prompt = _read_shipped_prompt_for_approval_contract()
-    assert "9.90.1" in prompt
+    assert "9.93.0" in prompt
 
 
 def test_openui_validity_gate_in_executor_and_fragment():
@@ -758,3 +759,317 @@ def test_skill_templates_no_dsp_violations():
             if "2>/dev/null" in line:
                 violations.append(f"{path.relative_to(REPO)}:{i}")
     assert not violations, f"DSP violations found: {violations}"
+
+
+def test_no_template_preservation_rule_in_prompts():
+    """Template Preservation was deleted (W2); the Placeholder Ban covers it."""
+    for path in (REPO / "prompts" / "fragments").glob("*.md"):
+        content = path.read_text(encoding="utf-8")
+        assert "Template Preservation" not in content, (
+            f"Template Preservation remnant in {path.name}"
+        )
+
+
+def test_fragment_09_has_worked_examples():
+    """09 carries two worked example blocks plus two templates (G1)."""
+    text = _read(FRAGMENT_09)
+    assert "<worked_examples>" in text
+    lines = [
+        line for line in text.splitlines() if "<hands_implementation_task>" in line
+    ]
+    assert len(lines) >= 4, f"expected 4+ template/example lines, got {len(lines)}"
+
+
+def test_role_fragment_has_precedence_ladder():
+    """02-role.md carries the conflict-resolving precedence ladder (G2)."""
+    text = (REPO / "prompts" / "fragments" / "02-role.md").read_text(encoding="utf-8")
+    assert "precedence" in text
+    assert "ZAC and approval literals" in text
+
+
+def test_no_mutable_year_in_system_context():
+    """03-system_context.md carries no mutable year line (A3)."""
+    text = (REPO / "prompts" / "fragments" / "03-system_context.md").read_text(
+        encoding="utf-8"
+    )
+    assert "Remember it is 2026" not in text
+
+
+def test_executor_carries_context_map_contract():
+    """Executor owns the Context Map contract with per-site classes."""
+    text = _read(EXECUTOR)
+    assert "## Context Map Before Brain Calls" in text
+    count = sum(1 for line in text.splitlines() if "Context-Map" in line)
+    assert count >= 15, f"expected 15+ Context-Map lines, got {count}"
+
+
+def test_fragment_09_carries_context_map_classes():
+    """09 documents the Context-Map class of each template turn."""
+    text = _read(FRAGMENT_09)
+    count = sum(1 for line in text.splitlines() if "Context-Map" in line)
+    assert count >= 5, f"expected 5+ Context-Map lines, got {count}"
+
+
+def test_no_bare_context_paths_label():
+    """A bare label in context_paths is rejected (forbidden shape)."""
+    for base in (REPO / "agents", REPO / "prompts" / "fragments"):
+        for path in base.rglob("*.md"):
+            content = path.read_text(encoding="utf-8")
+            assert 'context_paths=["' not in content, (
+                f"bare context_paths label in {path.relative_to(REPO)}"
+            )
+
+
+def test_approval_never_count_canonical_in_constraints():
+    """The negative-case list lives in the 13-constraints guard (P3)."""
+    text = (REPO / "prompts" / "fragments" / "13-constraints.md").read_text(
+        encoding="utf-8"
+    )
+    assert "These never count:" in text
+
+
+def test_qa_persona_uses_verdict_format():
+    """qa-engineer orders VERDICT form, never the bare Status form (W13)."""
+    text = (REPO / "prompts" / "fragments" / "personas" / "qa-engineer.md").read_text(
+        encoding="utf-8"
+    )
+    assert "Status (QA_PASSED" not in text
+    assert "VERDICT: QA_PASSED" in text
+
+
+def test_communication_examples_language_rule():
+    """Example 4 is a translation example; the per-message clause is gone (W8)."""
+    text = (REPO / "prompts" / "fragments" / "20-communication_examples.md").read_text(
+        encoding="utf-8"
+    )
+    assert "follows the per-message request" not in text
+    assert "Translation example" in text
+
+
+def test_assembled_prompt_tags_balance():
+    """Every XML tag opened in the shipped prompt is closed (V1)."""
+    import re
+
+    pairs = REPO / "tests" / "fixtures" / "prompt_tag_pairs.txt"
+    shipped = _read(SHIPPED)
+    code_free = re.sub(r"`[^`\n]*`", "", shipped)
+    for line in pairs.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        open_tag, close_tag = line.split("|")
+        assert code_free.count(open_tag) == code_free.count(close_tag), (
+            f"tag imbalance: {open_tag} x{code_free.count(open_tag)} "
+            f"vs {close_tag} x{code_free.count(close_tag)}"
+        )
+        assert code_free.count(open_tag) >= 1, f"tag absent: {open_tag}"
+
+
+def test_approval_literal_single_home():
+    """The full approval-literal block lives only in 13-constraints (V3)."""
+    constraint = (REPO / "prompts" / "fragments" / "13-constraints.md").read_text(
+        encoding="utf-8"
+    )
+    policy = (REPO / "prompts" / "fragments" / "24-language_policy.md").read_text(
+        encoding="utf-8"
+    )
+    assert constraint.count("Approved for closure") >= 1
+    assert "Approved for closure" not in policy
+    assert "constraints fragment" in policy
+
+
+def test_worked_examples_contain_literal_task_block():
+    """The G1 examples are real blocks, not a description of blocks (V2)."""
+    text = _read(FRAGMENT_09)
+    assert "<worked_examples>" in text
+    section = text.split("<worked_examples>")[1].split("</worked_examples>")[0]
+    assert section.count("<hands_implementation_task>") == 2
+    assert section.count("</hands_implementation_task>") == 2
+    assert "require_recipient" in section
+
+
+def test_executor_has_no_hand_move_of_backlog_task():
+    """Taking a task goes through claim_next, never git mv (V6)."""
+    text = _read(EXECUTOR)
+    assert "git mv tasks/backlog" not in text
+    assert "call `claim_next(project_root, task_id)`" in text
+
+
+def test_assembled_prompt_has_no_fragment_paths():
+    """No fragment path or roster pointer reaches the shipped prompt (V14)."""
+    shipped = _read(SHIPPED)
+    assert "prompts/fragments/personas" not in shipped
+    assert "Personas Roster" not in shipped
+
+
+def test_qa_transition_absent_from_closure_step():
+    """The closure step orders commit, never lint or qa_transition (V13)."""
+    text = (REPO / "prompts" / "fragments" / "11-execution_workflow.md").read_text(
+        encoding="utf-8"
+    )
+    step8 = text.split("Step 8:")[1].split("Step 9:")[0]
+    assert step8.count("Closure sequence") == 1
+    assert (
+        "Do NOT call `lint_task_file` or `custom_context_qa_transition` again at this step."
+        in step8
+    )
+    assert step8.count("custom_context_commit_and_clean_task") == 1
+
+
+def test_validation_blocks_not_collapsed():
+    """Validation blocks keep the expanded five-step list (V15)."""
+    fragment = (REPO / "prompts" / "shared" / "validation-phase.md").read_text(
+        encoding="utf-8"
+    )
+    shipped = _read(SHIPPED)
+    assert "MANDATORY FIRST STEP): 1." not in fragment
+    assert "MANDATORY FIRST STEP): 1." not in shipped
+    assert "5. If no violations are found" in fragment
+    assert "BUFFER ISOLATION (MANDATORY):" in fragment
+
+
+def test_adr_test_counts_agree():
+    """ADR-012 Decision and Rollback name the same assertion count (V17)."""
+    import re
+
+    text = (REPO / "prompts" / "fragments" / "DECISIONS.md").read_text(encoding="utf-8")
+    adr = text.split("ADR-012")[1]
+    counts = re.findall(r"(\d+) new regression assertions", adr)
+    assert counts, "ADR-012 names no assertion count"
+    assert len(set(counts)) == 1, f"ADR-012 counts disagree: {counts}"
+
+
+def test_every_worked_example_has_validation_phase():
+    """Every worked example carries one validation block (V24)."""
+    text = _read(FRAGMENT_09)
+    section = text.split("<worked_examples>")[1].split("</worked_examples>")[0]
+    assert section.count("<validation_phase>") == 2
+    assert section.count("</validation_phase>") == 2
+
+
+def test_fragment_closing_tags_at_column_zero():
+    """Each fragment's root closing tag starts at column zero (V25)."""
+    import re
+
+    for path in (REPO / "prompts" / "fragments").glob("*.md"):
+        lines = path.read_text(encoding="utf-8").splitlines()
+        root = None
+        for line in lines:
+            m = re.match(r"^<([a-z_]+)>$", line.strip())
+            if m and not line.startswith((" ", "\t")):
+                root = m.group(1)
+                break
+        if root is None:
+            continue
+        assert f"</{root}>" in lines, f"missing root close in {path.name}"
+        idx = lines.index(f"</{root}>")
+        assert not lines[idx][:1].isspace(), (
+            f"indented root close in {path.name}:{idx + 1}"
+        )
+
+
+def test_approval_exclusion_list_single_home():
+    """The exclusion list appears exactly once in the shipped prompt (V27)."""
+    shipped = _read(SHIPPED)
+    assert shipped.count("These never count:") == 1
+
+
+def test_stage_tool_only_reruns_hunks():
+    """stage_and_inject_diff appears only in its hunk-restaging role (V26)."""
+    text = _read(EXECUTOR)
+    assert "hunk-level re-staging" in text
+    assert "Keep `custom_context_stage_and_inject_diff` only for hunk-level" in text
+
+
+def test_format_guard_matches_prettierignore() -> None:
+    """Every path class the prettier gate ignores must be skipped by the guard.
+
+    Guard and gate share one exclusion source by design. If they drift, a
+    fragment gets auto-formatted while the gate still checks it, or the
+    reverse, and the assembler byte-identity gate breaks with no obvious cause.
+    """
+    root = Path(__file__).resolve().parent.parent
+    ignored = [
+        line.strip()
+        for line in (root / ".prettierignore").read_text(encoding="utf-8").splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    ]
+    guard = (root / "scripts" / "format-guard.sh").read_text(encoding="utf-8")
+    missing = [entry for entry in ignored if entry not in guard]
+    assert not missing, f"guard skips no arm for: {missing}"
+
+
+def test_format_guard_extensions_match_config() -> None:
+    """The guard's dispatch arms and opencode.json's extension list must be identical.
+
+    The two lists are maintained by hand in different files. Parity here means a
+    new extension lands in both or in neither.
+    """
+    root = Path(__file__).resolve().parent.parent
+    config = json.loads((root / "opencode.json").read_text(encoding="utf-8"))
+    configured = {
+        ext.lstrip(".")
+        for formatter in config["formatter"].values()
+        for ext in formatter["extensions"]
+    }
+    guard = (root / "scripts" / "format-guard.sh").read_text(encoding="utf-8")
+    dispatch = guard.split('case "${FILE##*.}" in', 1)[1].split("esac", 1)[0]
+    armed = set()
+    for line in dispatch.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#") or stripped.startswith("require"):
+            continue
+        armed.update(
+            token.strip()
+            for token in stripped.replace(")", "").split("|")
+            if token.strip()
+            and not token.strip().startswith("*")
+            and " " not in token.strip()
+            and token.strip() != ";;"
+        )
+    assert armed == configured, (
+        f"drift: guard-only={armed - configured} config-only={configured - armed}"
+    )
+
+
+def test_script_sibling_decisions_exist() -> None:
+    """Every `Decisions:` sibling path cited by a script must resolve on disk.
+
+    A phantom sibling pointer sends a reader to a file that does not exist.
+    """
+    root = Path(__file__).resolve().parent.parent
+    pattern = re.compile(r"Decisions:\s*(\S+?)\s*$")
+    missing = []
+    for script in sorted((root / "scripts").glob("*.sh")):
+        for line in script.read_text(encoding="utf-8").splitlines()[:5]:
+            match = pattern.search(line)
+            if match and not (root / match.group(1)).exists():
+                missing.append(f"{script.name}: {match.group(1)}")
+    assert not missing, f"phantom sibling docs: {missing}"
+
+
+def test_prettierignore_covers_guard_arms() -> None:
+    """Every path class the guard skips must also be ignored by the prettier gate.
+
+    The companion test proves the ignore file is covered by the guard. This one
+    proves the reverse, so neither list can grow an entry the other lacks. The
+    guard cannot read `.prettierignore` portably in Bash, so the two lists are
+    duplicated by necessity and pinned here in both directions.
+    """
+    root = Path(__file__).resolve().parent.parent
+    guard = (root / "scripts" / "format-guard.sh").read_text(encoding="utf-8")
+    block = guard.split('case "$REL" in', 1)[1]
+    arm_line = next(line for line in block.splitlines() if "|" in line and ")" in line)
+    armed = [
+        token.strip().rstrip("/*")
+        for token in arm_line.replace(")", "").split("|")
+        if token.strip()
+    ]
+    ignored = [
+        line.strip()
+        for line in (root / ".prettierignore").read_text(encoding="utf-8").splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    ]
+    missing = [entry for entry in armed if not any(entry in line for line in ignored)]
+    assert armed, "could not parse the exclusion arm from scripts/format-guard.sh"
+    assert not missing, f"ignore file covers no entry for: {missing}"

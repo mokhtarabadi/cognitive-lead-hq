@@ -32,6 +32,7 @@ The `AGENTS.md` file MUST explicitly contain the following operational constrain
 - **Edit Tool Discipline**: `AGENTS.md` MUST forbid all scripted file edits — agents may use ONLY native file-editing tools for creating or modifying files (python, shell, heredoc, and `sed -i` are banned for edits; shell stays read-only for file content — e.g. grep, cat, diff, ls, git status). A non-unique anchor must fail loudly, never be forced. `docs/conventions.md` MUST contain a matching `## Edit Tool Discipline` section.
 - **Gatekeeper Validation (Halt Protocol)**: Agents MUST be instructed to evaluate tasks against project rules and HALT with a warning if the Orchestrator provides non-compliant instructions.
 - **Context Bootstrapping**: `AGENTS.md` MUST explicitly instruct the Hands: "At the start of every task, you MUST call `search_memory` or `list_namespaces` to load any hidden project quirks relevant to your domain before implementing."
+- **Context Map Before Brain Calls**: `AGENTS.md` MUST explicitly instruct the Hands: "Before any `brain_turn` carrying a planning or verdict request, produce a verified `context_paths` manifest (graph, capped directory tree at depth 3+, extracted signatures) and record one `Context-Map:` line beside the mode line. Never pass a bare label, directory, or wildcard in `context_paths`."
 - **Buffer Isolation**: The shared validation phase MUST include a buffer-flush directive requiring Hands to treat every task as contextually independent, preventing cross-task context leakage. When the project uses session-keyed conversation threads, the rules MUST note that flushing covers working execution assumptions only — the conversation thread persists across tasks under the active session ID until sprint completion.
 - **Defensive Shell Protocol (DSP)**: `AGENTS.md` MUST include a guardrail forbidding bash scripts without `set -euo pipefail` and banning `2>/dev/null` on data commands. `docs/conventions.md` MUST contain a `## Defensive Shell Protocol (DSP)` section.
 - **Universal Financial Ledger Standard**: `AGENTS.md` MUST include a guardrail requiring snapshot-on-write for financial mutations and `$ifNull` precedence for monetary aggregations. `docs/conventions.md` MUST contain a `## Universal Financial Ledger Standard` section.
@@ -448,4 +449,3 @@ Upon completion, output a strict, formatted summary for the Manager:
 **Actions Taken:** [Description of the patches applied, or "Both files already compliant"]
 
 ---
-

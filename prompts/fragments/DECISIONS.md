@@ -1,11 +1,13 @@
 ## Unify Architecture to 100% Brain Turn and Permanently Eliminate Manual Mode
 
 Date: 2026-11-08
-Status: accepted
+Status: superseded by "Decouple True Manual Mode (Human Courier) from Automatic Mode (MCP Brain Bridge)"
 Context: Maintaining dual modes (manual courier copy-pasting vs autonomous brain_turn) introduced prompt bloat, mode confusion, and human friction.
 Decision: Permanently eliminate manual mode across all prompts, agents, protocols, and documentation. The platform operates 100% autonomously via `mcp-brain-bridge` (`brain_turn`). The Manager is strictly executive supervisor, never a courier.
 Consequences: Zero copy-paste prompt templates survive; all turns chain directly through brain_turn.
 Rollback: Revert to 9.77.0 prompt fragments.
+Superseded-By: "Decouple True Manual Mode (Human Courier) from Automatic Mode (MCP Brain Bridge)" (2026-11-08)
+Superseded-Reason: The decouple ADR restored manual mode as a first-class topology; this ADR's "permanent elimination" claim was reverted but never marked superseded, creating a contradiction in the decision log.
 
 ## Comprehensive Repository Audit: Purge Contradictions, Phantoms, and Cruft
 
@@ -70,12 +72,13 @@ Rollback: Revert to 9.75.0 prompt fragments.
 - **Rollback:** Revert the fragment wording and re-run the assembler.
 
 ## [2026-11-02] ADR-007: Prompt-refactor becomes two-pass Refactor-then-Execute
+
 - **Context:** The prompt-refactor skill ended at Deliver (output the formatted prompt in a code block) with no Execute pass, so the refined prompt stalled as an artifact instead of running as the live instruction.
 - **Decision:** Retitle the workflow Two-Pass Refactor-then-Execute: Step 1 refactors (validate, translate, expand, structure), Step 2 executes the formatted prompt in the same session under the existing gates (plan approval, Zero-Autonomous-Commit, QA, closure). Mirror one-line execute clauses in the input-processing gate, the executor matrix and Direct Input protocol, the skills registry, and the language policy execution binding.
 - **Consequences:** Refined prompts execute instead of stalling; Step 2 cannot bypass gates, auto-commit, or push. Version bumped with artifact regen.
 - **Rollback:** Restore the four-step workflow wording, drop the mirror lines, and re-run the assembler.
 
-## Hands-owned automatic review chaining
+## [2026-11-06] ADR-008: Hands-owned automatic review chaining
 
 Date: 2026-11-06
 Status: accepted
@@ -105,3 +108,41 @@ Rollback: Restore the Brain-owned automatic-mode overrides and remove the corres
 - **Consequences:** Brain and Hands read the same envelope contract. A drift in either surface fails `test_render_call_envelope_in_executor_and_fragment` and the assembler byte-identity gate.
 - **Rollback:** Remove the added sentences, restore the version fragment, regenerate the artifacts, and drop the regression test.
 
+## [2026-11-22] ADR-012: META 417 context map, plan gate, and topology reconciliation
+
+- **Context:** The 67-finding audit (24 HIGH) showed the Brain plans from assumed context when no map is attached, the Hands can self-approve a plan on direct input, and five surfaces assert different topologies.
+- **Decision:** Context Map contract in fragments (turn classes, audit line, 09 per-turn classes, worked examples for the placeholder ban); direct-input plan gate in `05` and Brain context-before-plan rule in `08`; topology reconciliation (superseded-note, single finalization sequence, Personas Roster rebind); approval-literal consolidation with `13-constraints.md` canonical; fragment scope note (20 ship, 10/17/22/23 absent). Version fragment 9.92.0, prompt regenerated, 14 new regression assertions.
+- **Consequences:** Fragments carry the map, the gate, one topology and one approval home. Dedupe recorded per finding; persona full-compression and executor playbook-split deferred with rationale (no Brain playbook loader; unique rules single-homed).
+- **Rollback:** Revert the fragment edits, restore the version fragment, regenerate the artifacts, and drop the 14 new regression assertions.
+
+## [2026-11-22] ADR-013: Second QA round — closure correction and four assertions
+
+- **Context:** Second QA rejected on the closure step ordering `qa_transition` at closure, the roster pointer naming unreadable paths, and the ADR-012 count line. The fix also added tag-balance, fragment-path, closure-scope and count-agreement assertions.
+- **Decision:** Closure step orders commit only; roster seats are inline with no path pointers; ADR-012 keeps 14/14 while the suite total moves to 62 with the 4 QA-round assertions.
+- **Consequences:** `test_qa_transition_absent_from_closure_step`, `test_assembled_prompt_has_no_fragment_paths`, `test_validation_blocks_not_collapsed` and `test_adr_test_counts_agree` pin the second-round defects.
+- **Rollback:** Revert the closure bullet, restore the roster pointer, restore the version fragment, drop the 4 QA-round assertions, and regenerate.
+- **Forward reference:** The suite total moved to 66 in the O1 round, recorded in ADR-014.
+
+## [2026-11-22] ADR-014: O1 scoped round — four assertions and the final suite total (superseded by ADR-015)
+
+- **Context:** ADR-013 recorded 62 after the second QA round. The Manager-authorized O1 round added four assertions (example-presence, closing-tag column, approval single-home, staging-tool role) and corrected the ADR-012 version anchor. The fragments log carried no entry for that round, so its total predated the shipped suite.
+- **Decision:** Record the O1 round here. The suite total is 66 assertions: 44 pre-existing plus 14 plan-round plus 4 second-round plus 4 O1-round. ADR-013's 62 is a true round snapshot and stays as written.
+- **Total superseded:** The O1 round closed at 66 assertions. The reopen round added four more, so 66 is not the current total; ADR-015 records the delta and the task file's `## Verification Evidence` records the collected count.
+- **Consequences:** The fragments log and `agents/DECISIONS.md` now state the same current total. The O1 round changed fragments `09`, `05`, `07`, `08`, `20` and the reviewer persona plus ADR-012's version anchor, so the assembled prompt was regenerated; the count is what this entry reconciles.
+- **Rollback:** Delete this entry and restore the previous suite total in any surface that cites 66.
+- **Follow-up:** Example B now models the exact-command rule that Example A already modelled (postfix round two).
+
+## [2026-11-23] ADR-015: Reopen round - model-line policy and forced formatting
+
+- **Context:** The shipped `03-system_context.md` carried a Meta/Muse-Spark cutoff claim, a dated verification anchor and a hardcoded current year, all mutable state inside the cached system prefix (audit A3). Separately the project formatter covered only Python and referenced a binary absent from PATH, so no code or doc was reliably auto-formatted.
+- **Decision:** Rewrite `03-system_context.md` to name the active model line and drop the Meta/Muse reference, the dated anchor and every year literal, leaving current-source verification as the path. Route all formatting through `scripts/format-guard.sh` from `opencode.json`, with `.prettierignore` as the shared exclusion source. Bump the version fragment to 9.93.0 and regenerate the prompt.
+- **Suite total:** ADR-014's 66 plus four reopen-round assertions: ignore-file scope against the guard, guard arms against the ignore file, extension parity against `opencode.json`, and sibling `Decisions:` path resolution for `scripts/*.sh`. The collected count lives in the task file's `## Verification Evidence`.
+- **Consequences:** The system prefix carries no current-date or cutoff-year claim, so it does not expire on a fixed boundary. Prompt fragments, the assembled prompt, stage artifacts and task files are excluded from both the formatter and the format gate.
+- **Rollback:** Restore the prior `03-system_context.md`, restore the `ruff-format` formatter entry, delete `.prettierignore` and the guard, restore 9.92.0, and regenerate.
+
+## [2026-11-23] ADR-016: Discovery manifest shape aligned across four surfaces
+
+- **Context:** The reopen round moved three surfaces onto a discovery manifest whose first content line is a persisted tree report path: the discovery agent's Context Manifest block, its How to Work step 2 and the `agents/README.md` invariant, with `skill-templates/code-search/SKILL.md` already agreeing. The discovery summary phase in the protocols fragment still prescribed a two-line shape with no tree line, and the audit line's `tree=<path>` slot depends on exactly that value, which the executor treats as mandatory beside the mode line.
+- **Decision:** Align the discovery summary phase to the four-surface shape, naming the `Tree:` line and its role as the source of the audit line's tree slot. Add one sentence to the worked-examples preamble stating that the examples are prompt text, so their unwrapped outer blocks are not a contradiction of the four-backtick emission rule. Hold the version at 9.93.0, because a bump is owed per shipped change rather than per rebuild inside one unreleased change.
+- **Consequences:** All four manifest surfaces state one shape, and the tree path has a named home for the audit line. The worked examples stay authoritative for the placeholder ban without modelling a forbidden emission. Four residuals (I33-I36) plus one audit-line observation (I37) remain open as documentation debt.
+- **Rollback:** Restore the prior discovery summary sentence, drop the preamble paragraph, restore version 9.92.0 and regenerate.

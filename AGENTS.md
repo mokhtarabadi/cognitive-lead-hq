@@ -123,13 +123,13 @@ You MUST follow these skill loading rules in every session:
 
 ## 🛑 PROJECT SKILLS (Local, Audited)
 
-| Name | Trigger (when to load) | Duty (one line) |
-| ---- | ---------------------- | --------------- |
+| Name              | Trigger (when to load)             | Duty (one line)                                          |
+| ----------------- | ---------------------------------- | -------------------------------------------------------- |
 | `sop-maintenance` | When modifying this SOP repository | Rules for modifying the Cognitive Lead AI SOP repository |
 
 ## 🛑 CONTEXT BOOTSTRAPPING
 
-At the start of every task, you MUST call `search_memory` or `list_namespaces` to load any hidden project quirks relevant to your domain before implementing.
+At the start of every task, you MUST call `search_memory` or `list_namespaces` to load any hidden project quirks relevant to your domain before implementing. Before any `brain_turn` planning or verdict request, produce the graph, a capped directory tree at depth 3 or deeper, and a verified `context_paths` manifest, then record one `Context-Map:` line beside the mode line.
 
 ## 🛑 MANDATORY END-OF-TASK SEQUENCE
 

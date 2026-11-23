@@ -1,13 +1,33 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "default_agent": "cognitive-executor",
-  "instructions": [
-    "docs/opencode-shell-strategy.md"
-  ],
+  "instructions": ["docs/opencode-shell-strategy.md"],
   "formatter": {
-    "ruff-format": {
-      "command": ["ruff", "format", "$FILE"],
-      "extensions": [".py"]
+    "docs-and-code": {
+      "command": ["bash", "scripts/format-guard.sh", "$FILE"],
+      "extensions": [
+        ".md",
+        ".mdx",
+        ".json",
+        ".jsonc",
+        ".yaml",
+        ".yml",
+        ".toml",
+        ".xml",
+        ".html",
+        ".css",
+        ".scss",
+        ".sass",
+        ".less",
+        ".graphql",
+        ".gql",
+        ".vue",
+        ".svelte",
+        ".py",
+        ".pyi",
+        ".sh",
+        ".bash"
+      ]
     }
   },
   "permission": {

@@ -1,0 +1,24 @@
+# Sibling Docs: tests/README.md | Decisions: tests/DECISIONS.md
+<user_input_processing>|</user_input_processing>
+<role>|</role>
+<personas>|</personas>
+<agent_skills_registry>|</agent_skills_registry>
+<hands_protocols>|</hands_protocols>
+<execution_workflow>|</execution_workflow>
+<brainstorming_protocol>|</brainstorming_protocol>
+<constraints>|</constraints>
+<communication_examples>|</communication_examples>
+<system_version>|</system_version>
+<hands_implementation_task>|</hands_implementation_task>
+<hands_discovery_task>|</hands_discovery_task>
+<hands_combined_task>|</hands_combined_task>
+<worked_examples>|</worked_examples>
+<reasoning_log>|</reasoning_log>
+<context_phase>|</context_phase>
+<execution_phase>|</execution_phase>
+<summary_phase>|</summary_phase>
+<validation_phase>|</validation_phase>
+<bash_phase>|</bash_phase>
+<documentation_phase>|</documentation_phase>
+<discovery_phase>|</discovery_phase>
+<conditional_implementation_phase>|</conditional_implementation_phase>

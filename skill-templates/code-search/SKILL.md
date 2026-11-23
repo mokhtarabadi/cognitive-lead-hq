@@ -31,7 +31,7 @@ The same tools are reachable two ways; use whichever surface the session exposes
 
 5. **Extract signatures only for structural breadth.** `custom_context_extract_signatures` on a file or directory (inline, cap 12000, plus report path).
 
-6. **Halt and hand over.** Autopilot: `brain_turn(context_paths:[<report path>])`. Manual: Manager hand-off. Full reads via `custom_context_read_source_files` only after steps 2–5; native `read` bounded 2000 lines / 50 KiB, page with `offset`/`limit`.
+6. **Halt and hand over.** The report ends with the tree report path plus the `Context-Paths` manifest, and that manifest is what `brain_turn(context_paths=[...])` carries. Call `brain_turn(context_paths=[...])` in every autonomy level. Full reads via `custom_context_read_source_files` only after steps 2–5; native `read` bounded 2000 lines / 50 KiB, page with `offset`/`limit`.
 
 ## Parallel Discovery
 
@@ -48,16 +48,16 @@ The same tools are reachable two ways; use whichever surface the session exposes
 
 ## Choosing the Right Tool
 
-| Question | Tool |
-| --- | --- |
-| Where is X defined / what does it touch? | `explain_node` (label or printed ID) |
-| What does this behaviour live in? | `query_graph` with the domain words |
-| How do these two connect? | `shortest_path` |
-| What is the hub in this area? | `god_nodes` |
-| What is the shape of this module/folder? | `extract_signatures` (file or dir, inline) |
-| What is the folder layout? | `get_directory_tree` (depth-bounded) |
-| Exact literal / regex match | native `grep` |
-| Exact file body | `read` on the 2–3 narrowed files, or `read_source_files` for a report |
+| Question                                 | Tool                                                                  |
+| ---------------------------------------- | --------------------------------------------------------------------- |
+| Where is X defined / what does it touch? | `explain_node` (label or printed ID)                                  |
+| What does this behaviour live in?        | `query_graph` with the domain words                                   |
+| How do these two connect?                | `shortest_path`                                                       |
+| What is the hub in this area?            | `god_nodes`                                                           |
+| What is the shape of this module/folder? | `extract_signatures` (file or dir, inline)                            |
+| What is the folder layout?               | `get_directory_tree` (depth-bounded)                                  |
+| Exact literal / regex match              | native `grep`                                                         |
+| Exact file body                          | `read` on the 2–3 narrowed files, or `read_source_files` for a report |
 
 ## Graph Contracts
 
@@ -78,13 +78,13 @@ The same tools are reachable two ways; use whichever surface the session exposes
 
 ## Failure Modes
 
-| Symptom | Cause | Move |
-| --- | --- | --- |
-| Tool absent from the catalog | server is `codemode: false` or down | call the direct tool, or fall back to native `grep`/`glob`/`read` |
-| Query returns nothing | coverage truncated or graph stale | read the coverage line, rebuild with `include` |
-| `Ambiguous 'main'` | duplicate symbol names | pass the printed ID (`sym:path#name`) |
-| Signature tool says none | Markdown/HTML/JSON has no declarations | read the file or query its sections |
-| Tool returned only a report path | `read_source_files` works that way | autopilot: `brain_turn(context_paths=[...])`; manual: hand the path over |
+| Symptom                          | Cause                                  | Move                                                              |
+| -------------------------------- | -------------------------------------- | ----------------------------------------------------------------- |
+| Tool absent from the catalog     | server is `codemode: false` or down    | call the direct tool, or fall back to native `grep`/`glob`/`read` |
+| Query returns nothing            | coverage truncated or graph stale      | read the coverage line, rebuild with `include`                    |
+| `Ambiguous 'main'`               | duplicate symbol names                 | pass the printed ID (`sym:path#name`)                             |
+| Signature tool says none         | Markdown/HTML/JSON has no declarations | read the file or query its sections                               |
+| Tool returned only a report path | `read_source_files` works that way     | `brain_turn(context_paths=[...])` in every autonomy level         |
 
 ## Vertical Slicing Strategy
 

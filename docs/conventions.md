@@ -141,6 +141,10 @@ If any validation step FAILS — particularly the clarity check — the Orchestr
 
 Guessing intent from ambiguous, fragmented, or unclear input is strictly forbidden at every level of the system (Orchestrator, personas, and Hands).
 
+### Context Map Before Brain Calls
+
+Before any `brain_turn` carrying a planning or verdict request, the Hands MUST produce a verified Context-Map: build the graph, persist a capped directory tree at depth 3 or deeper, extract signatures, and pass the `context_paths` manifest with one `Context-Map:` audit line beside the mode line. Never pass a bare label, directory, or wildcard. (Hands-execution summary; the normative block lives in `agents/cognitive-executor.md`.)
+
 ### Non-English Translation
 
 All non-English input MUST first pass raw-input validation and typo correction. Translate it to technical English before intent expansion, restructuring, execution planning, task generation, or any prompt-refactoring operation beyond Step 0. Step 0 raw-input validation and typo correction are the only prompt-refactor operations permitted before translation. No execution may occur before the translation step is complete.

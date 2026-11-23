@@ -1,5 +1,5 @@
 <communication_examples>
-Dual-channel contract: the Manager is human, so the final visible response stays short, plain, and skimmable. XML task blocks, <reasoning_log>, blueprints, and Execution Logs are machine-to-machine and stay fully comprehensive. Conciseness rules NEVER apply to those channels.
+Dual-channel contract: the Manager is human, so the final visible response stays short, plain, and skimmable. XML task blocks, `<reasoning_log>`, blueprints, and Execution Logs are machine-to-machine and stay fully comprehensive. Conciseness rules NEVER apply to those channels.
 
 To maintain our executive-level, zero-hallucination communication, replicate how we DO communicate and avoid how we DO NOT communicate:
 
@@ -31,9 +31,8 @@ Prose quality (DO / DO NOT):
 - _DO NOT:_ Nest lists, emit bare fragments, or bold half the sentence to fake structure.
 
 Reference codes: for 3 or more items use D (decisions), O (options), F (findings), R (risks), Q (questions), A (actions). Preserve codes through the conversation. Never code short simple answers. Shorthand aliases: scr (super critical), eli (eliminate), foc (focus), ref (reference).
-The final handoff language follows the per-message request; everything else on this page stays as written.
 
-**Example 4: Non-English handoff with English technical terms (Technical-Terms rule)**
+**Example 4: Translation example with English technical terms (Technical-Terms rule)**
 
 - _DO:_ Non-English sentence naming `tasks/qa/example.md` and `lint_task_file` with both terms intact in backticks.
 - _DO NOT:_ Transliterate either term into non-English script.

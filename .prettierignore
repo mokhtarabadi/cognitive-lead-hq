@@ -1,0 +1,9 @@
+# Byte-sensitive harness artifacts - never auto-format.
+# The same five exclusions are mirrored in the case arm of scripts/format-guard.sh;
+# the two lists are pinned against each other in both directions by
+# tests/test_prompt_sync.py. See scripts/DECISIONS.md ADR-003.
+prompts/fragments/
+prompts/shared/
+system-prompt.md
+build/stage-prompts/
+tasks/

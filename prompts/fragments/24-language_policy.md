@@ -23,7 +23,7 @@ Every user-facing prompt artifact assembled from these fragments plus any quoted
 
 ## Technical Terms Stay English (Technical-Terms rule)
 
-All technical terms stay in English with no transliteration. Keep in English: file paths such as `tasks/qa/example.md`, tool names such as `brain_turn` `lint_task_file` `custom_context_stage_and_inject_diff`, XML tag names such as `hands_implementation_task` `reasoning_log`, code identifiers and branch names, commit types `feat` `fix` `docs` `refactor` `chore`, Kanban lane names `backlog` `in-progress` `qa` `completed` `archive`, verdict literals `QA_PASSED` `QA_REJECTED` `APPROVED` `PO_REVIEW_PENDING` `Approved for closure` `Close task`, plus test commands and exit codes. Match approval phrases as English literals only. Explain specialist terms in plain English the first time they appear.
+All technical terms stay in English with no transliteration. Keep in English: file paths such as `tasks/qa/example.md`, tool names such as `brain_turn` `lint_task_file` `custom_context_stage_and_inject_diff`, XML tag names such as `hands_implementation_task` `reasoning_log`, code identifiers and branch names, commit types `feat` `fix` `docs` `refactor` `chore`, Kanban lane names `backlog` `in-progress` `qa` `completed` `archive`, verdict literals `QA_PASSED` `QA_REJECTED` `APPROVED` `PO_REVIEW_PENDING`, plus test commands and exit codes. Match approval phrases as English literals only — see the Approval Literals Guard section below. Explain specialist terms in plain English the first time they appear.
 
 ## Manager-Facing Output (English always)
 
@@ -31,9 +31,7 @@ The final Manager-facing handoff is simple English but technical. Use short sent
 
 ## Approval Literals Guard
 
-Approval phrases match ONLY as English literals. Never translate-then-compare.
-
-Plan gate accepts `approved` in any case through the question tool path. For closure, accept either the exact standalone Manager answer "Approved for closure" or "Close task" (case-insensitive), or either exact phrase as the answer value in an unmodified question-tool result of the form `User has answered your questions: "<question>"="<answer>"` when that result answers the immediately preceding relayed closure-approval question. Compare only the answer value, not the quoted question/header, and do not require the approval phrase to be the entire Hands message. The existing bare "approved" exception remains limited to the Manager's direct answer to that immediately preceding closure-approval question, including the exact answer value "approved" in its question-tool result. Blanket acknowledgements never count at any gate.
+The normative approval-literal block lives in the constraints fragment §Approval Literals Guard. This section carries no copy of it.
 
 ## Execution Binding
 

@@ -1,11 +1,13 @@
 ## Unify Architecture to 100% Brain Turn and Permanently Eliminate Manual Mode
 
 Date: 2026-11-08
-Status: accepted
+Status: superseded by "Decouple True Manual Mode (Human Courier) from Automatic Mode (MCP Brain Bridge)"
 Context: Maintaining dual modes (manual courier copy-pasting vs autonomous brain_turn) introduced prompt bloat, mode confusion, and human friction.
 Decision: Permanently eliminate manual mode across all prompts, agents, protocols, and documentation. The platform operates 100% autonomously via `mcp-brain-bridge` (`brain_turn`). The Manager is strictly executive supervisor, never a courier.
 Consequences: Zero copy-paste prompt templates survive; all turns chain directly through brain_turn.
 Rollback: Revert to 9.77.0 prompt fragments.
+Superseded-By: "Decouple True Manual Mode (Human Courier) from Automatic Mode (MCP Brain Bridge)" (2026-11-08)
+Superseded-Reason: The decouple ADR restored manual mode as a first-class topology; this ADR's "permanent elimination" claim was reverted but never marked superseded, creating a contradiction in the decision log.
 
 ## Comprehensive Repository Audit: Purge Contradictions, Phantoms, and Cruft
 
@@ -99,6 +101,20 @@ Rollback: Restore the citations from git history.
 
 ## Free-tier bash gate documented
 
+Date: 2026-10-17
+Status: accepted
+Context: Upstream free-tier models discriminate by request-body tool list. Agents omitting bash receive 403 FreeTierError on free-tier models.
+Decision: Document bash requirement in agent docs. Add free-tier smoke test to the review checklist. Make no permission changes.
+Consequences: Agents intended for free-tier use keep bash. Hardening uses prompts and review, not tool removal.
+Refs:
+
+- https://github.com/anomalyco/opencode/issues/50627
+- https://github.com/anomalyco/opencode/issues/53347
+- https://github.com/anomalyco/opencode/issues/53885
+- https://github.com/anomalyco/opencode/issues/54744
+- https://github.com/anomalyco/opencode/issues/52880
+- https://github.com/anomalyco/opencode/issues/49592
+
 ## Subagent Delegation Names the Session Tool
 
 Date: 2026-10-27
@@ -107,18 +123,6 @@ Context: The executor told the Hands to delegate discovery "using your `task` to
 Decision: Name the `subagent` tool explicitly. One-word-class fix; delegation targets and the 4-agent cap are unchanged.
 Consequences: The delegation instruction resolves to a real tool. No behavior change beyond the name.
 Rollback: Restore the prior sentence from git history.
-Date: 2026-10-17
-Status: accepted
-Context: Upstream free-tier models discriminate by request-body tool list. Agents omitting bash receive 403 FreeTierError on free-tier models.
-Decision: Document bash requirement in agent docs. Add free-tier smoke test to the review checklist. Make no permission changes.
-Consequences: Agents intended for free-tier use keep bash. Hardening uses prompts and review, not tool removal.
-Refs:
-- https://github.com/anomalyco/opencode/issues/50627
-- https://github.com/anomalyco/opencode/issues/53347
-- https://github.com/anomalyco/opencode/issues/53885
-- https://github.com/anomalyco/opencode/issues/54744
-- https://github.com/anomalyco/opencode/issues/52880
-- https://github.com/anomalyco/opencode/issues/49592
 
 ## Prompt-refactor matrix row gains the execute pass
 
@@ -200,3 +204,30 @@ Context: The OpenUI validity gate constrained the `openui-lang` program but neve
 Decision: Add a call-envelope subsection before the program gate with the exact `action: "render.page"` / `parameters` object shape, an envelope self-check (object not string, one payload, `awaitAnswer` only for answer-bearing choices, direct call not `execute`), and a rebuild-not-retry rule. Correct the Output Contract wording to place `ui`/`html` inside `parameters`. Mirror the rule into the hands-protocol fragment.
 Consequences: Both the program and the envelope are validated before a render call. A stringified `parameters` is recognized from its diagnostic and rebuilt rather than retried. Version bumped with artifact regen.
 Rollback: Remove the executor subsection, the fragment sentence, the regression assertions, and restore the prior version; regenerate the prompt from fragments.
+
+## META 417: Context Map, plan gate, and topology reconciliation
+
+Date: 2026-11-22
+Status: accepted
+Context: The 67-finding audit (24 HIGH) showed the Brain plans from assumed context when no map is attached, the Hands can self-approve a plan on direct input, and five surfaces assert different topologies. The direct-input path bypassed both the Planning Gate and the context feed.
+Decision: Add the mandatory Context Map Before Brain Calls contract (turn classes A/B/C, audit line, forbidden shapes) to the executor, with the discovery agent persisting the tree and the READMEs carrying the invariant. Add the plan-before-implementation gate on direct Manager input and the context-before-plan rule for the Brain. Reconcile topology (superseded-note on the courier ADR, single finalization sequence, per-autonomy mode templates). Consolidate approval literals with 13-constraints.md canonical. Version fragment 9.92.0, prompt regenerated, 14 new regression assertions plus 8 QA-round assertions (66 total at that round), plus the reopen-round assertions recorded in the task file and summarised in `prompts/fragments/DECISIONS.md` ADR-015.
+Consequences: Every planning/verdict `brain_turn` carries a verified map; direct input cannot skip the Brain plan; one topology, one finalization path, one approval home.
+Rollback: Revert the contract sections and restore the prior version; regenerate the prompt from fragments.
+
+## META 417 second QA round: AGENTS.md single home
+
+Date: 2026-11-22
+Status: accepted
+Context: Second QA found the context-map rule in two places inside `AGENTS.md` (guardrail plus bootstrapping sentence) and a duplicate bullet in the governance audit template.
+Decision: Keep CONTEXT BOOTSTRAPPING as the single home in `AGENTS.md`; delete the guardrail duplicate and the template duplicate.
+Consequences: One home per rule in every file the META touched.
+Rollback: Restore the deleted lines from git history.
+
+## META 417 final review: discovery agent noise strip
+
+Date: 2026-11-23
+Status: accepted
+Context: Approved plan phase P6 under finding W17 directed stripping model-unverifiable embedding internals from `agents/cognitive-discovery.md`. The line survived unedited with no recorded deferral rationale, which reads as an omission rather than a decision.
+Decision: Strip the embedding internals (model name, dimensions, chunk constants, RRF k, collection name, line-order anchor), keep every tool name and the `create_tree_report` capability, and add a one-line rationale for `query_graph`. Scope the fragments README invariant so it claims only what is true of the validation phase, with finalization owned by the executor.
+Consequences: The discovery agent carries no constant the model cannot verify. Worked examples are validation-complete but their summary is illustrative; the executor's finalization sequence supplies the transition. Four residuals (I27-I30) registered as follow-up documentation debt.
+Rollback: Restore the prior `custom_context.*` bullet from git history and the prior README invariant.

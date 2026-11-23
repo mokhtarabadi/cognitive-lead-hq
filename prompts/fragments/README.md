@@ -2,7 +2,7 @@
 
 ## Duties
 
-Authoritative system-prompt sources: one file per top-level XML tag in `system-prompt.md` (version, role, personas, skills registry, Hands protocols, execution workflow, brainstorming, constraints, mandates). Assembled in `manifest.txt` order.
+Authoritative system-prompt sources: one file per top-level XML tag in `system-prompt.md` (version, role, personas, skills registry, Hands protocols, execution workflow, brainstorming, constraints, mandates). Assembled in `manifest.txt` order. Scope note: 20 numbered fragments ship (01-09, 11-16, 18-21, 24); fragments 10, 17, 22 and 23 do not exist in the shipped set.
 
 ## Files
 
@@ -24,4 +24,7 @@ Authoritative system-prompt sources: one file per top-level XML tag in `system-p
 - `prompts/stage-manifest.json` is the single routing table for stage-to-persona mapping; the assembler and the bridge both read it. Never hard-code a stage mapping in either.
 - A stage prompt carries only its declared personas. A stage artifact that leaks another seat breaks the scope contract the QA and review turns rely on.
 - HQ-only fragments (`09-hands_protocols.md`) must not leak into project-agnostic audit templates.
+- No fragment path may appear in the assembled prompt: `test_assembled_prompt_has_no_fragment_paths` pins it, and the tag-balance gate pins structural integrity.
+- The worked examples in the protocols fragment carry the same validation phase the templates do.
+- Their summary phase is illustrative and stops before finalization; the executor's finalization sequence, not the example text, is what moves the task to `tasks/qa/`.
 - Automatic-mode QA and review `brain_turn` calls are invoked by the Hands under the same `task_id`; the Manager does not ferry task text.

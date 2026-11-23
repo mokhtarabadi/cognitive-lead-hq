@@ -13,3 +13,10 @@
 - **Decision:** Adopting Living Folder Docs standard for this component.
 - **Consequences:** All future structural or contract changes must be recorded here.
 - **Rollback:** N/A (baseline adoption).
+
+## [2026-11-23] ADR-003: Formatter guard owns the auto-format policy
+
+- **Context:** The project formatter was a bare `ruff format` entry whose binary was absent from PATH, so Python files were silently unformatted. Widening it to prettier, ruff and shfmt through one dispatcher fixes that, but the exclusions the guard applies and the standing `prettier --check "**/*.md"` gate were two hand-maintained lists that disagreed: the guard skipped five path classes the gate still checked.
+- **Decision:** `scripts/format-guard.sh` dispatches prettier, ruff and shfmt on `write`/`edit`/`patch` and skips five byte-sensitive path classes. Prettier reads those five from `.prettierignore`. The guard cannot read that file portably in Bash, so it carries the same five classes in one `case` arm, and two assertions in `tests/test_prompt_sync.py` pin the lists against each other in both directions. The guard derives the repo root from its own location, normalizes a repo-relative `$FILE`, refuses any path that resolves outside the repo, and fails loud with a named stderr message when a dispatcher is missing.
+- **Consequences:** Gate and auto-formatter cannot disagree without a red test. `prompts/fragments/*`, `prompts/shared/*`, `system-prompt.md`, `build/stage-prompts/*` and `tasks/*` are excluded from both, so their formatting is a review concern rather than a build gate. Install semantics stay asymmetric by necessity: `npx --no-install` never fetches, `uvx` does. One limitation is recorded rather than fixed: `opencode.json` invokes `bash scripts/format-guard.sh` by a repo-relative path, so the guard runs only while the formatter's working directory is the repo root.
+- **Rollback:** Delete `.prettierignore`, delete this entry, restore the single `ruff-format` entry in `opencode.json`, delete the guard, and drop the parity assertions.
