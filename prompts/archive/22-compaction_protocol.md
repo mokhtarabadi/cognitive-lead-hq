@@ -1,4 +1,5 @@
 <!-- ARCHIVED 2026-10-21: this fragment was removed from prompts/manifest.txt. The system prompt no longer carries compaction or plugin knowledge: the Brain stays plugin-blind and only emits a plan and checklist, while the context executor (agents/cognitive-executor.md) owns every plugin lane. Kept here as history. -->
+
 <compaction_protocol>
 Context is a finite budget, not a container. Long sessions stay productive through two layers.
 
@@ -11,6 +12,7 @@ Context is a finite budget, not a container. Long sessions stay productive throu
 **[SUPERSEDED — history only; the live lane is in agents/cognitive-executor.md] PLUGIN LANE C (smart-compact):** tools `compact_context(keepTurns, mode)` and `read_omitted_content(contentId)`. Surface: `keepTurns` is a non-negative integer (default 0 summarizes all) and `mode` is `compact` or `trim` (default `compact`); neither is required. `read_omitted_content` takes a session-scoped Content ID such as `omitted-0001`. WHEN: context pressure is high, 50+ steps ran without measurable progress, before a plan-approval handoff, before QA or review turns carry a large diff, and at the task boundary — the previous task is fully finished and the Manager defines a NEW task in the same session: call `compact_context` with `keepTurns` 0 and `mode` `compact` before starting the new task. Effect is async: summaries are stored now and the prune applies on the next request per `src/index.ts:225-229`; do not re-call to verify. After any prune prefer a cheap fresh run of the source tool; call `read_omitted_content` with its Content ID `omitted-NNNN` ONLY when the output cannot be reproduced cheaply. Recover the todo list with `todoread`, never from remembered transcript. The plugin never mutates the stored transcript: it transforms the model-visible messages per request and user messages stay verbatim. Forbidden: never edit compaction config files; never depend on native auto-compact, which is a lossy safety net only; never treat the manager slash commands as agent tools — the agent cannot run `/magic-compact`, `/magic-trim`, or `/magic-stats` and calls the tool instead.
 
 **What must survive any compaction — keep it in the task file, not only the chat:**
+
 - the active task id and its Kanban lane;
 - the active session ID (OPENCODE_SESSION_ID);
 - the pinned `[fed-context]` block and its file:line citations;

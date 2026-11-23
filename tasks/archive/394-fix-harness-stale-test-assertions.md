@@ -152,7 +152,7 @@ settled it. Do not "fix" a test merely to make it green while its policy is stil
   a file, and the scanned list must equal templates plus one. Both `OpenCode Execution Log` bans are unchanged.
 - **F2/F3 fix:** `tests/test_input_validation_pipeline.py` asserts the documented positive phrases and adds
   negative asserts against the retired `per-message requested language` and `English inside, requested language
-  outside` wording, so a policy reversal fails loudly instead of silently passing.
+outside` wording, so a policy reversal fails loudly instead of silently passing.
 - **Scope:** test-only plus `CHANGELOG.md` and this task file. No production prompt, agent, or doc was edited.
 - **Kanban note:** `planner.claim_next` refused with "QA budget exhausted — task 0386 is already in tasks/qa/".
   The AGENTS.md Kanban rule permits up to 3 QA tasks and mandates the backlog → in-progress move, so I followed
@@ -175,5 +175,6 @@ settled it. Do not "fix" a test merely to make it green while its policy is stil
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `5ecd6f125757781d84d8dfb50c0a640581fbcd54`
 <!-- END_GIT_DIFF -->

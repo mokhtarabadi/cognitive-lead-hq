@@ -23,22 +23,22 @@ Milestone 7 completed the V8.0.0 Improvement Roadmap across all 5 phases. Key ch
 
 ## Files Modified
 
-| File | Change |
-| ---- | ------ |
-| `system-prompt.md` | Version bumped through 7.3.0 → 7.5.1 with input processing, lint integration, and evidence capture rules |
-| `AGENTS.md` | Input validation guardrail and MCP server exceptions |
-| `mcp-memory-server/server.py` | YAML frontmatter support, tag filtering, ranking, and tag-only query fix |
-| `mcp-lint-server/server.py` | New server with markdown/task linting tools |
-| `skill-templates/task-generator/SKILL.md` | Added Acceptance Criteria, Verification Evidence, Risk & Rollback sections |
-| `skill-templates/archive-tasks/SKILL.md` | Criteria extraction in milestone summaries |
-| `skill-templates/telegram-issue-sync/SKILL.md` | Acceptance criteria population from Telegram messages |
-| `skill-templates/code-search/SKILL.md` | Documented tree-sitter regex fallback languages |
-| `tests/test_mcp_servers.py` | New MCP server startup and logic validation tests |
-| `docs/system-prompt-modularization.md` | V9.0.0 modularization assessment document |
-| `user-prompts/input-validation-test.md` | Input validation pipeline test prompt |
-| `CHANGELOG.md` | Formal entries for all 7 tasks |
-| `opencode.json` | Lint server registration and permissions |
-| `LLM.txt` | Lint server global config |
+| File                                           | Change                                                                                                   |
+| ---------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `system-prompt.md`                             | Version bumped through 7.3.0 → 7.5.1 with input processing, lint integration, and evidence capture rules |
+| `AGENTS.md`                                    | Input validation guardrail and MCP server exceptions                                                     |
+| `mcp-memory-server/server.py`                  | YAML frontmatter support, tag filtering, ranking, and tag-only query fix                                 |
+| `mcp-lint-server/server.py`                    | New server with markdown/task linting tools                                                              |
+| `skill-templates/task-generator/SKILL.md`      | Added Acceptance Criteria, Verification Evidence, Risk & Rollback sections                               |
+| `skill-templates/archive-tasks/SKILL.md`       | Criteria extraction in milestone summaries                                                               |
+| `skill-templates/telegram-issue-sync/SKILL.md` | Acceptance criteria population from Telegram messages                                                    |
+| `skill-templates/code-search/SKILL.md`         | Documented tree-sitter regex fallback languages                                                          |
+| `tests/test_mcp_servers.py`                    | New MCP server startup and logic validation tests                                                        |
+| `docs/system-prompt-modularization.md`         | V9.0.0 modularization assessment document                                                                |
+| `user-prompts/input-validation-test.md`        | Input validation pipeline test prompt                                                                    |
+| `CHANGELOG.md`                                 | Formal entries for all 7 tasks                                                                           |
+| `opencode.json`                                | Lint server registration and permissions                                                                 |
+| `LLM.txt`                                      | Lint server global config                                                                                |
 
 ## Individual Task Summaries
 

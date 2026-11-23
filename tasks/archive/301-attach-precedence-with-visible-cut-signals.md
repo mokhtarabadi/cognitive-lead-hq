@@ -21,10 +21,12 @@ Brainstorm C2 must-task from self-judgment task 299: truncation is the worst opt
 ## Scope
 
 In scope:
+
 - `mcp-brain-bridge/server.py` attach builders, per-file 60k and total 200k caps, history bound markers
 - Boundary tests at cap minus 1, cap, cap plus 1 plus total overflow
 
 Out of scope:
+
 - XML gate, session contract, parity matrix (separate tasks)
 - External repos untouched
 - No git add/commit/push by Hands (ZAC holds)

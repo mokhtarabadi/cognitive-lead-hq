@@ -28,6 +28,7 @@ Manager input was Persian. Translated intent: "Study the codebase; find everythi
 Corrections applied: سایفون → Psiphon; میهمو → mihomo; بلوش → blowsh; وارپ → WARP. No Mihemo-exit project exists under `/home/mohammad`, so the Manager-approved fallback applies: use the live system Psiphon config and the vendored apex reference.
 
 Manager decisions collected through the approval gate:
+
 - Kanban: create this task file in `tasks/backlog/`.
 - Egress: bake `EgressRegion=US` into the new image and prove the exit country with a live trace.
 - Plan: approved as stated, under ZAC and the QA/review gates.
@@ -79,6 +80,7 @@ ZAC holds: no `git add`, `git commit`, `git checkout`, or `git push`.
 > Verification runner rule: the command above is the complete underlying test command. The first verification run MUST use the `rtk test` prefix; record the exact prefixed command above. A raw rerun is allowed only after a failed RTK run for detailed diagnostics.
 
 **Deployment evidence (pivot outcome):**
+
 - Psiphon image `psiphon-proxy:us` built (exit 0), container healthy, trace through `psiphon-socks:8082` returned `ip=159.65.246.226`, `loc=US`, `warp=off`.
 - blowsh recreated with `PROXY_HOST=psiphon-socks`, `PROXY_PORT=8082`; generated `user.js` showed host `psiphon-socks`, port `8082`, loopback bypass intact.
 - `fetch_web` still failed with the 800 ms probe timeout; raising `BROWSH_STARTUP_TIMEOUT_MS` to 300 s and changing the startup page made no difference. Direct HTTP probe on `127.0.0.1:4333` returned 200 while axios with 800 ms timed out. Root cause located in blowsh source `src/browshManager.ts:549`.
@@ -134,5 +136,6 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `cded157a2f2d3ee43123c643095f81ea672c7d75`
 <!-- END_GIT_DIFF -->

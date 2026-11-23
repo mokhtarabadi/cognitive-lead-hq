@@ -91,5 +91,6 @@ Graph over the whole repository (5,000 nodes / 7,382 links) plus targeted reads.
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `962bb357d85f10bc062c0a46e23552b7f444ff97`
 <!-- END_GIT_DIFF -->

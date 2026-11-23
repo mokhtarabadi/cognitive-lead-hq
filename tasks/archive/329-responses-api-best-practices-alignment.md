@@ -23,18 +23,18 @@ Align the Brain Bridge provider client with current official OpenAI Responses AP
 
 **Official sources consulted (2026-10-21):**
 
-| Source | URL |
-| ------ | --- |
-| Responses create reference (body parameters) | `https://developers.openai.com/api/reference/resources/responses/methods/create.md` |
-| Conversation state guide | `https://developers.openai.com/api/docs/guides/conversation-state` |
-| Reasoning guide (effort, `context`, `phase`, incomplete handling) | `https://developers.openai.com/api/docs/guides/reasoning` |
-| Text inputs and outputs guide (`instructions` vs roles) | `https://developers.openai.com/api/docs/guides/text` |
-| Prompt caching guide | `https://developers.openai.com/api/docs/guides/prompt-caching` |
-| Error codes guide | `https://developers.openai.com/api/docs/guides/error-codes` |
-| Your data guide (storage, ZDR) | `https://developers.openai.com/api/docs/guides/your-data` |
-| Streaming guide | `https://developers.openai.com/api/docs/guides/streaming-responses` |
-| Cookbook: per-run spending controller | `https://developers.openai.com/cookbook/articles/per_run_spending_controller_responses_api` |
-| Cookbook index | `https://developers.openai.com/cookbook/llms.txt` |
+| Source                                                            | URL                                                                                                  |
+| ----------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Responses create reference (body parameters)                      | `https://developers.openai.com/api/reference/resources/responses/methods/create.md`                  |
+| Conversation state guide                                          | `https://developers.openai.com/api/docs/guides/conversation-state`                                   |
+| Reasoning guide (effort, `context`, `phase`, incomplete handling) | `https://developers.openai.com/api/docs/guides/reasoning`                                            |
+| Text inputs and outputs guide (`instructions` vs roles)           | `https://developers.openai.com/api/docs/guides/text`                                                 |
+| Prompt caching guide                                              | `https://developers.openai.com/api/docs/guides/prompt-caching`                                       |
+| Error codes guide                                                 | `https://developers.openai.com/api/docs/guides/error-codes`                                          |
+| Your data guide (storage, ZDR)                                    | `https://developers.openai.com/api/docs/guides/your-data`                                            |
+| Streaming guide                                                   | `https://developers.openai.com/api/docs/guides/streaming-responses`                                  |
+| Cookbook: per-run spending controller                             | `https://developers.openai.com/cookbook/articles/per_run_spending_controller_responses_api`          |
+| Cookbook index                                                    | `https://developers.openai.com/cookbook/llms.txt`                                                    |
 | `openai-python` SDK 2.54.0 (vendored in `mcp-brain-bridge/.venv`) | `ResponseCreateParams` is generated from the OpenAPI spec, so it is the authoritative parameter list |
 
 **Code audited:** `mcp-brain-bridge/server.py` (3878 lines) plus `capability.py`, `session_ledger.py`, `loop_guard.py`, `preflight.py` (stdlib only, no provider calls). A repo-wide sweep found exactly **one** provider call site — `mcp-brain-bridge/server.py:1536`. No other server, script, or tool in this repository calls a model.
@@ -129,16 +129,16 @@ BRAIN_CONTEXT_WINDOW_TOKENS=1048576
 
 ## Verified As Correct (no action)
 
-| Behavior | Code | Official baseline |
-| -------- | ---- | ----------------- |
-| Walks all of `output[]`, both `type == "message"` → `content[]` → `type == "output_text"` and bare `output_text` | `server.py:3850-3869` | "The `output` array often has more than one item in it! … It is not safe to assume that the model's text output is present at `output[0].content[0].text`." |
-| Triage order: provider `error` → `refusal` → `status=incomplete` / `reason=max_output_tokens` → generic flake, and the budget case is explicitly not a flake | `server.py:3336-3355`, `3735-3760` | "If the generated tokens reach the context window limit or the `max_output_tokens` value you've set, you'll receive a response with a `status` of `incomplete` and `incomplete_details` with `reason` set to `max_output_tokens`." |
-| `reasoning.effort` nested under `reasoning`, never flat | `server.py:3198-3203` | The Responses shape is `reasoning: {effort}`; the flat form is rejected by strict providers. |
-| `temperature` and `reasoning` are mutually exclusive — setting one deletes the other | `server.py:3204-3217` | Reasoning models reject sampling overrides alongside reasoning effort. |
-| `Retry-After` honored (capped at 120 s), exponential backoff with jitter, 500 s overall deadline, 4xx fail fast, network errors retried | `server.py:1509-1577` | 429 guidance: "follow the `Retry-After` header when it's present"; 503: "Follow the `Retry-After` header when it's present, then retry your request." |
-| Provider diagnostics parsed and logged on every turn, parsers pure and non-raising | `server.py:3601-3714` | The repo's own provider-diagnostics memory rule (Task 259). |
-| API key never enters error strings; https enforced except loopback; empty key fails closed | `server.py:1424-1430`, `1598-1614`, `1515-1516` | Standard key-safety practice. |
-| Pre-send budget guard, transcript bounding (40 turns, compaction at 30 messages / 200 KB, 1 M char ceiling) | `server.py:3091-3146`, `1915-1921` | No official requirement; sound engineering, kept. |
+| Behavior                                                                                                                                                     | Code                                            | Official baseline                                                                                                                                                                                                                  |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Walks all of `output[]`, both `type == "message"` → `content[]` → `type == "output_text"` and bare `output_text`                                             | `server.py:3850-3869`                           | "The `output` array often has more than one item in it! … It is not safe to assume that the model's text output is present at `output[0].content[0].text`."                                                                        |
+| Triage order: provider `error` → `refusal` → `status=incomplete` / `reason=max_output_tokens` → generic flake, and the budget case is explicitly not a flake | `server.py:3336-3355`, `3735-3760`              | "If the generated tokens reach the context window limit or the `max_output_tokens` value you've set, you'll receive a response with a `status` of `incomplete` and `incomplete_details` with `reason` set to `max_output_tokens`." |
+| `reasoning.effort` nested under `reasoning`, never flat                                                                                                      | `server.py:3198-3203`                           | The Responses shape is `reasoning: {effort}`; the flat form is rejected by strict providers.                                                                                                                                       |
+| `temperature` and `reasoning` are mutually exclusive — setting one deletes the other                                                                         | `server.py:3204-3217`                           | Reasoning models reject sampling overrides alongside reasoning effort.                                                                                                                                                             |
+| `Retry-After` honored (capped at 120 s), exponential backoff with jitter, 500 s overall deadline, 4xx fail fast, network errors retried                      | `server.py:1509-1577`                           | 429 guidance: "follow the `Retry-After` header when it's present"; 503: "Follow the `Retry-After` header when it's present, then retry your request."                                                                              |
+| Provider diagnostics parsed and logged on every turn, parsers pure and non-raising                                                                           | `server.py:3601-3714`                           | The repo's own provider-diagnostics memory rule (Task 259).                                                                                                                                                                        |
+| API key never enters error strings; https enforced except loopback; empty key fails closed                                                                   | `server.py:1424-1430`, `1598-1614`, `1515-1516` | Standard key-safety practice.                                                                                                                                                                                                      |
+| Pre-send budget guard, transcript bounding (40 turns, compaction at 30 messages / 200 KB, 1 M char ceiling)                                                  | `server.py:3091-3146`, `1915-1921`              | No official requirement; sound engineering, kept.                                                                                                                                                                                  |
 
 ## Proposed Implementation Scopes
 
@@ -207,15 +207,15 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 
 **Gateway probe results (2026-10-21, recorded before any body change):** peer is `http://127.0.0.1:8081/go/resp/responses` (the `/responses` suffix is required — the bare base returns 404). All six rows returned HTTP 200, so every documented parameter is accepted and NO env switch needs to stay off for gateway reasons:
 
-| Row | Param | Result |
-| --- | ----- | ------ |
-| P1 | `store: false` | 200 `completed`, model echoed `muse-spark-1.3-contributor` |
-| P2 | `prompt_cache_key` | 200 `completed`; `usage.input_tokens_details.cached_tokens` present (0 on first-seen prefix) |
-| P3 | `truncation: "auto"` | 200 accepted |
-| P4 | `store: false` + `include: ["reasoning.encrypted_content"]` | 200 `completed` |
-| P5 | top-level `instructions` (system prompt moved out of `input`) | 200 `completed`, instruction obeyed (input was `Go.`, answer `PROBE-OK`) |
-| P6 | `context_management: [{type: compaction, compact_threshold}]` | 200 accepted |
-| Echo | baseline + all rows | `response.model` echoed correctly, `service_tier` is `null` (gateway does not report a tier), reasoning items carry `encrypted_content` BY DEFAULT even without `include`, no `phase` fields on this model (replay code must tolerate absent `phase`) |
+| Row  | Param                                                         | Result                                                                                                                                                                                                                                                |
+| ---- | ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| P1   | `store: false`                                                | 200 `completed`, model echoed `muse-spark-1.3-contributor`                                                                                                                                                                                            |
+| P2   | `prompt_cache_key`                                            | 200 `completed`; `usage.input_tokens_details.cached_tokens` present (0 on first-seen prefix)                                                                                                                                                          |
+| P3   | `truncation: "auto"`                                          | 200 accepted                                                                                                                                                                                                                                          |
+| P4   | `store: false` + `include: ["reasoning.encrypted_content"]`   | 200 `completed`                                                                                                                                                                                                                                       |
+| P5   | top-level `instructions` (system prompt moved out of `input`) | 200 `completed`, instruction obeyed (input was `Go.`, answer `PROBE-OK`)                                                                                                                                                                              |
+| P6   | `context_management: [{type: compaction, compact_threshold}]` | 200 accepted                                                                                                                                                                                                                                          |
+| Echo | baseline + all rows                                           | `response.model` echoed correctly, `service_tier` is `null` (gateway does not report a tier), reasoning items carry `encrypted_content` BY DEFAULT even without `include`, no `phase` fields on this model (replay code must tolerate absent `phase`) |
 
 Switches still ship default-off per the rollback plan (behavior change is opt-in until the Manager enables it), but none are blocked by the gateway.
 
@@ -270,5 +270,6 @@ All in `mcp-brain-bridge/server.py` unless noted; every new wire parameter behin
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `c3c54e37e2658e2e8f6261a371ea09fac880e23f`
 <!-- END_GIT_DIFF -->

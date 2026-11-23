@@ -14,6 +14,7 @@ Give the Brain a real codebase map on every planning turn, and make a blind plan
 Manager order (voice, translated): the research and gap analysis are done; define one task from the findings and implement it automatically on autopilot. The chosen improvement is the top gap from that research — the Brain plans against a five-file documentation bundle only, with no repository structure, so it either guesses or must spend a discovery round before it can even aim its context request. Providing the generated tree map in the bundle makes the first planning turn grounded and makes a still-ungrounded plan observable.
 
 Design constraints honored:
+
 - No bypass of the ask-Hands loop: the pack is the Hands-generated artifact, only carried by the bridge; the Brain still has no code file tools.
 - Additive and non-breaking: the pack section appears only when at least one `tree_report_*.md` exists, so every existing workspace and test that has none is byte-unchanged.
 - Non-blocking by design: the sufficiency diagnostic is stderr (plus a ledger-visible warning), never a halted turn or a new verdict token.
@@ -74,11 +75,13 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 **Seat Check:** domains = bridge/context orchestration (Software Architect) + Python implementation (Senior Programmer) → requested seats = Software Architect (context-sufficiency contract for `brain_turn`) + Senior Programmer (implementation). Seats skipped: UI/UX Designer (no user-visible surface), Sprint Strategist / Project Planner (no scope or file-state change), QA Engineer and Code Reviewer (run after this implementation on the staged diff).
 
 **Assumptions (logged, non-blocking):**
+
 - A1: The structural pack is the generated tree report, not a signature dump — a directory map is the cheapest signal that removes structural blindness; the Brain can still request deeper slices via the existing fed-context loop.
 - A2: Auto-attach is on by default but inert without a report, so no existing workspace changes behavior; the Manager's "Brain always asks, Hands always provide" loop stays the only source of code, since the bridge still carries no code-file tools for the Brain.
 - A3: The sufficiency diagnostic is stderr-only and `plan`-gated; treating it as a verdict would be a behavior change no AC authorizes, so it stays advisory and observable in logs.
 
 **What changed and why:**
+
 - `mcp-brain-bridge/server.py`: added `_STRUCTURAL_REPORT_GLOB`, `_STRUCTURAL_FILE_CAP`, `_STRUCTURAL_MARKER`; added `_latest_report_path` (newest by mtime then name, never raises) and `_build_structural_pack` (returns `""` when no report, honest `[truncated]` marker). `_build_context_bundle` now appends the pack last within the shared total cap with `[skipped: bundle total cap]` when it does not fit. Added pure `context_sufficiency_gaps(stage, user_prompt, bundle_text)` and wired a `plan`-stage-only stderr diagnostic into `brain_turn`.
 - `tests/test_brain_bridge.py`: 12 new tests — pack empty/newest/truncated, bundle append/omit, pure gap checker (four shapes plus non-plan silence), and the `brain_turn` stderr wiring (fires on a blind plan, silent on `qa`).
 - `CHANGELOG.md`: one `### Added` entry under `[Unreleased]`.
@@ -88,6 +91,7 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 **Q1 (ride-along, non-blocking):** `tests/test_decision_server.py::test_extract_drops_nonstring_tradeoffs_keeps_valid` and `::test_extract_all_bad_tradeoffs_returns_empty` fail on the current tree — the extraction path no longer drops non-string tradeoffs. Pre-existing and outside this task's scope; flagging it for the Manager.
 
 **QA round 1 (autopilot, stage=qa, task 285):** the Brain returned `XML_EXTRACTED` with a `<hands_implementation_task>` hotfix — i.e. an effective `QA_REJECTED`. Confirmed real and fixed:
+
 - `_build_structural_pack(str_root)` raised `AttributeError` (`str.glob`) — root is now normalized with `Path(...)`.
 - A `tree_report_*.md` symlinked outside the workspace root was read — now skipped (mirrors the file-pull tools), so outside content never leaks into the prompt.
 - A zero-byte / whitespace-only report counted as grounding — now returns `""` (no grounding).
@@ -99,6 +103,7 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 8 hotfix regression tests were added failing-first, then the source fixes landed; all 20 new tests pass. Assumption A4 (logged): the hotfix XML ordered "do not touch CHANGELOG.md", but the existing entry's test count would go stale, so its count and hardening note were corrected in place (no duplicate entry) per the Documentation Sync Rules.
 
 **Team consult (autopilot, task 285):**
+
 - QA Engineer (round 3): `VERDICT: QA_PASSED` — skip fix correct, diagnostic non-blocking, no `status`/`xml_blocks` change.
 - Code Reviewer: `PO_REVIEW_PENDING` — technically approved; 3 low nits (formatter churn, skip-marker can exceed `_BUNDLE_TOTAL_CAP` by ~45 chars, `context_sufficiency_gaps` assumes a str/None stage). Deliberately NOT fixed in this task (out of scope; Reviewer said proceed to closure).
 - Software Architect: sound — read-only generated map, no file tools for the Brain, auto-attach with opt-out is the right boundary; recommends a freshness stamp as future polish (the pack label already carries the timestamped report filename).
@@ -114,5 +119,6 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `80347202695091676f24dba74ee25b899165f825`
 <!-- END_GIT_DIFF -->

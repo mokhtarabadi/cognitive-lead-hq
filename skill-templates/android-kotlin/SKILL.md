@@ -57,7 +57,6 @@ Hilt is mandatory. Do not write manual dependency factories.
 | ViewModel (MVI) | Unit (Intent injection)    | JUnit 5 + Turbine (for Flows) |
 | UI / Composable | Snapshot / Compose UI Test | Compose Test                  |
 
-
 ## Strict Tooling Gate (Machine-Enforced — Forced Strict Mode)
 
 Strictest verified toolchain for this stack. Load this skill whenever the project matches the stack. Execute the gate in fail-fast order and stop on the first failure. Record the exact command, output, and exit code in the task's Verification Evidence.
@@ -68,31 +67,31 @@ Verified against live sources in September 2026. Suggested baseline stack: **Gra
 
 ### Required Toolchain
 
-| Tool | Purpose | Minimum version | Activate |
-| --- | --- | --- | --- |
-| Gradle | Build engine; dependency verification, locking, version catalogs, configuration cache | 9.7.1 (AGP 9.4 requires ≥9.6.0) | `gradle/wrapper/gradle-wrapper.properties`: `distributionUrl=https\://services.gradle.org/distributions/gradle-9.7.1-bin.zip` |
-| Android Gradle Plugin | Android + bundled Compose lint, R8 full mode, new Variant API | 9.4.0 | `plugins { id("com.android.application") version "9.4.0" }` |
-| Kotlin | Compiler strictness (`allWarningsAsErrors`, explicit API) | 2.4.20 | `plugins { kotlin("android") version "2.4.20" }` (AGP 9.4 also bundles KGP; pin explicitly) |
-| Compose Compiler plugin | Compose compiler + stability reports/metrics | 2.4.20 (= Kotlin version) | `plugins { id("org.jetbrains.kotlin.plugin.compose") version "2.4.20" }` |
-| Jetpack Compose BOM | Align all Compose artifacts | 2026.08.00 (Compose 1.12) | `implementation(platform("androidx.compose:compose-bom:2026.08.00"))` |
-| ktlint | Kotlin formatter/linter engine (stable; 2.0.0-ALPHA-4 is preview, needs JVM 17) | 1.8.0 | Pulled by Spotless: `ktlint("1.8.0")` |
-| Spotless | Format gate that **fails, never auto-fixes** in CI | 8.10.2 | `plugins { id("com.diffplug.spotless") version "8.10.2" }` |
-| detekt | Kotlin static analysis; warnings-as-errors, `buildUponDefaultConfig` | 2.0.0-alpha.6 (plugin id `dev.detekt`; aligned to Kotlin 2.4/AGP 9.3). Fallback: last stable `1.23.8` only supports Kotlin 2.0.21/AGP 8.8.1 — use it only on legacy stacks, and then downgrade the Kotlin/AGP toolchain to match; never mix the alpha config with the stable binary | `plugins { id("dev.detekt") version "2.0.0-alpha.6" }` |
-| detekt-compose-rules | Compose-specific static checks for detekt/ktlint | 0.6.6 (≥0.5.0 supports detekt 2.0) | `detektPlugins("io.nlopez.compose.rules:detekt:0.6.6")` |
-| Android Lint | Bundled AndroidX + Compose lint checks | ships with AGP 9.4.0 | `android { lint { warningsAsErrors = true; abortOnError = true; checkAllWarnings = true } }` |
-| Kover | Coverage verification gate | 0.9.9 | `plugins { id("org.jetbrains.kotlinx.kover") version "0.9.9" }` |
-| Robolectric | JVM Android/Compose unit tests (fast gate) | 4.17 | `testImplementation("org.robolectric:robolectric:4.17")` + `testOptions.unitTests.isIncludeAndroidResources = true` |
-| Compose UI Test | Instrumented UI gate (v2 test APIs are default from Compose 1.11) | BOM 2026.08.00 | `androidTestImplementation("androidx.compose.ui:ui-test-junit4")`, `debugImplementation("androidx.compose.ui:ui-test-manifest")` |
-| SQLDelight | Compile-time SQL typing + migration verification gate | 2.4.0 | `plugins { id("app.cash.sqldelight") version "2.4.0" }` |
-| Dependency Analysis (DAGP) | Unused / undeclared / mis-configured dependencies | 3.19.2 | `plugins { id("com.autonomousapps.build-health") version "3.19.2" }` |
-| Gradle dependency verification | Tamper/provenance detection for every artifact + plugin | built-in (Gradle 6.2+) | `./gradlew --write-verification-metadata sha256 help` → commit `gradle/verification-metadata.xml` |
-| Gradle dependency locking | Reproducible resolved versions | built-in (Gradle 4.8+) | `dependencyLocking { lockAllConfigurations() }` + `./gradlew dependencies --write-locks` |
-| Gradle version catalog | Single source of dependency coordinates | built-in | `gradle/libs.versions.toml` (default catalog) |
-| OSV-Scanner | Dependency CVE scan; reads `gradle.lockfile`, `buildscript-gradle.lockfile`, `gradle/verification-metadata.xml` | 2.6.0 | `osv-scanner scan source -r .` |
-| OWASP dependency-check | Graded CVE gate (`failBuildOnCVSS`) | 13.0.0 | `plugins { id("org.owasp.dependencycheck") version "13.0.0" }` + `./gradlew dependencyCheckAnalyze` |
-| gitleaks | Hardcoded-secret scan (must be ≥8.30.1 — CVE-2026-63728 affects <8.30.1) | 8.30.1 | `gitleaks git . --redact --exit-code 1` |
-| Hilt / Dagger | DI graph validated at compile time via KSP | 2.60.1 (`androidx.hilt` 1.4.0) | `implementation("com.google.dagger:hilt-android:2.60.1")` + `ksp("com.google.dagger:hilt-compiler:2.60.1")` |
-| KSP | Annotation processing (Hilt, Room, SQLDelight interop) | 2.3.11 | `plugins { id("com.google.devtools.ksp") version "2.3.11" }` |
+| Tool                           | Purpose                                                                                                         | Minimum version                                                                                                                                                                                                                                                                     | Activate                                                                                                                         |
+| ------------------------------ | --------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| Gradle                         | Build engine; dependency verification, locking, version catalogs, configuration cache                           | 9.7.1 (AGP 9.4 requires ≥9.6.0)                                                                                                                                                                                                                                                     | `gradle/wrapper/gradle-wrapper.properties`: `distributionUrl=https\://services.gradle.org/distributions/gradle-9.7.1-bin.zip`    |
+| Android Gradle Plugin          | Android + bundled Compose lint, R8 full mode, new Variant API                                                   | 9.4.0                                                                                                                                                                                                                                                                               | `plugins { id("com.android.application") version "9.4.0" }`                                                                      |
+| Kotlin                         | Compiler strictness (`allWarningsAsErrors`, explicit API)                                                       | 2.4.20                                                                                                                                                                                                                                                                              | `plugins { kotlin("android") version "2.4.20" }` (AGP 9.4 also bundles KGP; pin explicitly)                                      |
+| Compose Compiler plugin        | Compose compiler + stability reports/metrics                                                                    | 2.4.20 (= Kotlin version)                                                                                                                                                                                                                                                           | `plugins { id("org.jetbrains.kotlin.plugin.compose") version "2.4.20" }`                                                         |
+| Jetpack Compose BOM            | Align all Compose artifacts                                                                                     | 2026.08.00 (Compose 1.12)                                                                                                                                                                                                                                                           | `implementation(platform("androidx.compose:compose-bom:2026.08.00"))`                                                            |
+| ktlint                         | Kotlin formatter/linter engine (stable; 2.0.0-ALPHA-4 is preview, needs JVM 17)                                 | 1.8.0                                                                                                                                                                                                                                                                               | Pulled by Spotless: `ktlint("1.8.0")`                                                                                            |
+| Spotless                       | Format gate that **fails, never auto-fixes** in CI                                                              | 8.10.2                                                                                                                                                                                                                                                                              | `plugins { id("com.diffplug.spotless") version "8.10.2" }`                                                                       |
+| detekt                         | Kotlin static analysis; warnings-as-errors, `buildUponDefaultConfig`                                            | 2.0.0-alpha.6 (plugin id `dev.detekt`; aligned to Kotlin 2.4/AGP 9.3). Fallback: last stable `1.23.8` only supports Kotlin 2.0.21/AGP 8.8.1 — use it only on legacy stacks, and then downgrade the Kotlin/AGP toolchain to match; never mix the alpha config with the stable binary | `plugins { id("dev.detekt") version "2.0.0-alpha.6" }`                                                                           |
+| detekt-compose-rules           | Compose-specific static checks for detekt/ktlint                                                                | 0.6.6 (≥0.5.0 supports detekt 2.0)                                                                                                                                                                                                                                                  | `detektPlugins("io.nlopez.compose.rules:detekt:0.6.6")`                                                                          |
+| Android Lint                   | Bundled AndroidX + Compose lint checks                                                                          | ships with AGP 9.4.0                                                                                                                                                                                                                                                                | `android { lint { warningsAsErrors = true; abortOnError = true; checkAllWarnings = true } }`                                     |
+| Kover                          | Coverage verification gate                                                                                      | 0.9.9                                                                                                                                                                                                                                                                               | `plugins { id("org.jetbrains.kotlinx.kover") version "0.9.9" }`                                                                  |
+| Robolectric                    | JVM Android/Compose unit tests (fast gate)                                                                      | 4.17                                                                                                                                                                                                                                                                                | `testImplementation("org.robolectric:robolectric:4.17")` + `testOptions.unitTests.isIncludeAndroidResources = true`              |
+| Compose UI Test                | Instrumented UI gate (v2 test APIs are default from Compose 1.11)                                               | BOM 2026.08.00                                                                                                                                                                                                                                                                      | `androidTestImplementation("androidx.compose.ui:ui-test-junit4")`, `debugImplementation("androidx.compose.ui:ui-test-manifest")` |
+| SQLDelight                     | Compile-time SQL typing + migration verification gate                                                           | 2.4.0                                                                                                                                                                                                                                                                               | `plugins { id("app.cash.sqldelight") version "2.4.0" }`                                                                          |
+| Dependency Analysis (DAGP)     | Unused / undeclared / mis-configured dependencies                                                               | 3.19.2                                                                                                                                                                                                                                                                              | `plugins { id("com.autonomousapps.build-health") version "3.19.2" }`                                                             |
+| Gradle dependency verification | Tamper/provenance detection for every artifact + plugin                                                         | built-in (Gradle 6.2+)                                                                                                                                                                                                                                                              | `./gradlew --write-verification-metadata sha256 help` → commit `gradle/verification-metadata.xml`                                |
+| Gradle dependency locking      | Reproducible resolved versions                                                                                  | built-in (Gradle 4.8+)                                                                                                                                                                                                                                                              | `dependencyLocking { lockAllConfigurations() }` + `./gradlew dependencies --write-locks`                                         |
+| Gradle version catalog         | Single source of dependency coordinates                                                                         | built-in                                                                                                                                                                                                                                                                            | `gradle/libs.versions.toml` (default catalog)                                                                                    |
+| OSV-Scanner                    | Dependency CVE scan; reads `gradle.lockfile`, `buildscript-gradle.lockfile`, `gradle/verification-metadata.xml` | 2.6.0                                                                                                                                                                                                                                                                               | `osv-scanner scan source -r .`                                                                                                   |
+| OWASP dependency-check         | Graded CVE gate (`failBuildOnCVSS`)                                                                             | 13.0.0                                                                                                                                                                                                                                                                              | `plugins { id("org.owasp.dependencycheck") version "13.0.0" }` + `./gradlew dependencyCheckAnalyze`                              |
+| gitleaks                       | Hardcoded-secret scan (must be ≥8.30.1 — CVE-2026-63728 affects <8.30.1)                                        | 8.30.1                                                                                                                                                                                                                                                                              | `gitleaks git . --redact --exit-code 1`                                                                                          |
+| Hilt / Dagger                  | DI graph validated at compile time via KSP                                                                      | 2.60.1 (`androidx.hilt` 1.4.0)                                                                                                                                                                                                                                                      | `implementation("com.google.dagger:hilt-android:2.60.1")` + `ksp("com.google.dagger:hilt-compiler:2.60.1")`                      |
+| KSP                            | Annotation processing (Hilt, Room, SQLDelight interop)                                                          | 2.3.11                                                                                                                                                                                                                                                                              | `plugins { id("com.google.devtools.ksp") version "2.3.11" }`                                                                     |
 
 ### Strict Baseline Config
 
@@ -223,7 +222,7 @@ dependencyCheck {
 
 ```yaml
 build:
-  maxIssues: 0                 # any issue fails the build
+  maxIssues: 0 # any issue fails the build
   weights: { complexity: 0, LongParameterList: 2, comments: 0 }
 
 config:
@@ -270,8 +269,8 @@ style:
     active: true
   ForbiddenComment:
     active: true
-    comments: ['TODO:', 'FIXME:', 'STOPSHIP:']
-  ExplicitApi:                # for library modules
+    comments: ["TODO:", "FIXME:", "STOPSHIP:"]
+  ExplicitApi: # for library modules
     active: true
 
 potential-bugs:
@@ -306,7 +305,7 @@ naming:
     active: true
   FunctionNaming:
     active: true
-    ignoreAnnotated: ['Composable']
+    ignoreAnnotated: ["Composable"]
 
 Compose:
   ComposableAnnotationNaming:
@@ -521,23 +520,24 @@ sqldelight {
 
 Paste the exact command and its verdict into Verification Evidence. Pass criteria:
 
-| Command | Pass criterion / artifact |
-| --- | --- |
-| `./gradlew --dependency-verification strict spotlessCheck` | `BUILD SUCCESSFUL`; zero Spotless violations |
-| `./gradlew detekt` | `BUILD SUCCESSFUL`; `build/reports/detekt/detekt.sarif` shows 0 findings, 0 warnings |
-| `./gradlew :app:lintDebug :app:lintRelease` | `BUILD SUCCESSFUL`; `build/reports/lint-results-*.sarif` with 0 errors, 0 warnings |
-| `./gradlew :app:compileDebugKotlin :app:compileReleaseKotlin` | `BUILD SUCCESSFUL`; no Kotlin warnings |
-| `./gradlew verifySqlDelightMigration` | `BUILD SUCCESSFUL`; migrations reconstruct the latest schema |
-| `./gradlew testDebugUnitTest` | `BUILD SUCCESSFUL`; test report shows 0 failures; Robolectric tests executed |
-| `./gradlew :app:connectedDebugAndroidTest` | `BUILD SUCCESSFUL`; 0 failed Compose UI tests |
-| `./gradlew koverVerify` | `BUILD SUCCESSFUL`; `build/reports/kover/report.xml` line coverage ≥ 80% |
-| `./gradlew :app:assembleRelease` | `BUILD SUCCESSFUL`; no `Missing classes detected while running R8` |
-| `./gradlew buildHealth` | `BUILD SUCCESSFUL`; `build/reports/dependency-analysis/` has no fail-severity advice |
-| `osv-scanner scan source -r .` | Exit 0; no un-ignored vulnerabilities in `gradle.lockfile` / `verification-metadata.xml` |
-| `./gradlew dependencyCheckAnalyze` | `BUILD SUCCESSFUL`; no dependency with CVSS ≥ 7.0 |
-| `gitleaks git . --redact --exit-code 1` | Exit 0; no secrets detected |
+| Command                                                       | Pass criterion / artifact                                                                |
+| ------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `./gradlew --dependency-verification strict spotlessCheck`    | `BUILD SUCCESSFUL`; zero Spotless violations                                             |
+| `./gradlew detekt`                                            | `BUILD SUCCESSFUL`; `build/reports/detekt/detekt.sarif` shows 0 findings, 0 warnings     |
+| `./gradlew :app:lintDebug :app:lintRelease`                   | `BUILD SUCCESSFUL`; `build/reports/lint-results-*.sarif` with 0 errors, 0 warnings       |
+| `./gradlew :app:compileDebugKotlin :app:compileReleaseKotlin` | `BUILD SUCCESSFUL`; no Kotlin warnings                                                   |
+| `./gradlew verifySqlDelightMigration`                         | `BUILD SUCCESSFUL`; migrations reconstruct the latest schema                             |
+| `./gradlew testDebugUnitTest`                                 | `BUILD SUCCESSFUL`; test report shows 0 failures; Robolectric tests executed             |
+| `./gradlew :app:connectedDebugAndroidTest`                    | `BUILD SUCCESSFUL`; 0 failed Compose UI tests                                            |
+| `./gradlew koverVerify`                                       | `BUILD SUCCESSFUL`; `build/reports/kover/report.xml` line coverage ≥ 80%                 |
+| `./gradlew :app:assembleRelease`                              | `BUILD SUCCESSFUL`; no `Missing classes detected while running R8`                       |
+| `./gradlew buildHealth`                                       | `BUILD SUCCESSFUL`; `build/reports/dependency-analysis/` has no fail-severity advice     |
+| `osv-scanner scan source -r .`                                | Exit 0; no un-ignored vulnerabilities in `gradle.lockfile` / `verification-metadata.xml` |
+| `./gradlew dependencyCheckAnalyze`                            | `BUILD SUCCESSFUL`; no dependency with CVSS ≥ 7.0                                        |
+| `gitleaks git . --redact --exit-code 1`                       | Exit 0; no secrets detected                                                              |
 
 <!-- sources -->
+
 - https://github.com/diffplug/spotless & https://plugins.gradle.org/plugin/com.diffplug.spotless (Spotless 8.10.2)
 - https://plugins.gradle.org/search?term=ktlint (ktlint Gradle plugins; `org.jlleitschuh.gradle.ktlint` 14.2.0, `io.github.usefulness.ktlint-gradle-plugin` 0.14.0)
 - https://github.com/ktlint/ktlint/releases (ktlint 1.8.0 stable, 2.0.0-ALPHA-4; JVM 17 requirement)

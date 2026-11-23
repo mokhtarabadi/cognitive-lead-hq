@@ -12,7 +12,7 @@ Eliminate the two recurring Code Reviewer findings — unchecked AC/DoD checkbox
 ## Manager's Notes
 
 - Flagged twice by the Code Reviewer (Tasks 129, 130): (1) `## Acceptance Criteria` / `## Definition of Done` boxes left unchecked until the closure pass; (2) `</...>` closing tags indented by Prettier passes, drifting into the regenerated `system-prompt.md`.
-- Root causes: **R1** — no mandate to check AC/DoD boxes at implementation completion (the template only mandates the sections *exist*); **R2** — `npx prettier --write` indents closing XML tags inside fragment files and the assembler propagates the drift into the artifact.
+- Root causes: **R1** — no mandate to check AC/DoD boxes at implementation completion (the template only mandates the sections _exist_); **R2** — `npx prettier --write` indents closing XML tags inside fragment files and the assembler propagates the drift into the artifact.
 - This is a PATCH-level process-hardening change (no new capability): bump `<system_version>` MINOR? No — PATCH (e.g., `9.2.1` → `9.2.2`; use the actual current value at read-time).
 
 ## Local TODOs
@@ -50,11 +50,13 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 ## Manager Decisions
 
 **[2026-08-30] [D1] [ORCHESTRATOR-DETECTED]:** Chose assembler-level normalization over a Prettier-config exception for the closing-tag indentation drift.
+
 - **Rationale:** Single point of fix per the task's own stated preference — the assembler normalizes the artifact regardless of source-fragment indentation, is self-verifying via the Step 6 exit-non-zero check, and doesn't depend on every future fragment edit going through Prettier the same way.
 - **Alternatives considered:** `.prettierignore` on the fragments (rejected — fragile, easy to forget when adding new fragments).
 - **Impact:** `assemble_system_prompt.py` now normalizes pure closing-tag lines to column 0 and fails loudly if any drift remains; `split_system_prompt.py`'s `_VP_BLOCK_RE` was relaxed to accept the normalized form (round-trip preserved).
 
 **[2026-08-30] [D2] [ORCHESTRATOR-DETECTED]:** Chose to check AC/DoD boxes at implementation `<summary_phase>` rather than adding an automated `task-lint` enforcement rule.
+
 - **Rationale:** Faster to ship, addresses the immediate recurring finding (unchecked boxes until closure).
 - **Alternatives considered:** A hard `lint_task_file` failure if evidence-passing but boxes unchecked (deferred as a stronger but more invasive follow-up, not built here to avoid scope creep into the lint MCP server).
 - **Impact:** `<hands_protocols>` summary phases now mandate box-checking before lint/staging; task-generator templates and audit-agents checks reference it.
@@ -62,6 +64,7 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 **[2026-08-30] [D3] [EXECUTION-DETECTED]:** Flagged a follow-up hardening item — `npx prettier --write "**/*.md"` (the documented AGENTS.md format command) COLLAPSES `prompts/shared/validation-phase.md`, which is byte-load-bearing for the round-trip contract. Prettier must never run on it; a `.prettierignore` entry or a prettier-safe shared-partial layout is a recommended future task (not built here to stay in scope).
 
 **[2026-08-30] [D4] [ORCHESTRATOR-DETECTED]:** Confirmed Option A — uniform column-0 closing tags is the permanent convention (Code Reviewer F1 resolution).
+
 - **Rationale:** The Manager explicitly chose Option A after the Code Reviewer flagged that the normalization flattens ALL nested closing tags (not just top-level wrapper tags). Fragments are machine-authored and the artifact is generated — visual nesting cues on closing tags carry no functional value; Option A keeps the assembler self-check simple and the convention uniform.
 - **Alternatives considered:** Option B — scope the normalization regex to only the outermost fragment-wrapper tag and restore nested-block indentation (rejected by Manager: would re-introduce the exact indentation surface that Prettier keeps drifting).
 - **Impact:** Uniform column-0 closing tags is now the permanent convention for all fragments and the generated artifact; no follow-up task needed for F1. F2 (cosmetic summary_phase style inconsistency) deferred as optional cleanup; F3 (`import re`) verified present at line 40.
@@ -91,11 +94,13 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 ## Execution Log & Reasoning
 
 **Phase 1 — AC/DoD box-checking mandate (implementation-time):**
+
 - `prompts/fragments/09-hands_protocols.md` — inserted a new step 1 in the `<hands_implementation_task_template>` `<summary_phase>` (before the lint step, renumbering 1→7): "Before calling `lint_task_file`, review every `## Acceptance Criteria` and `## Definition of Done` checkbox... Check `- [x]` any item that is genuinely satisfied by that evidence NOW... do NOT defer box-checking to a separate closure task." Applied the identical mirrored instruction in `<hands_combined_task_template>`'s implementation-success branch.
 - `skill-templates/task-generator/SKILL.md` — added a one-line box-checking mandate (referencing `<hands_protocols>` as authoritative) to BOTH the single-phase and multi-phase `## Definition of Done` blocks.
 - `skill-templates/audit-agents/SKILL.md` — extended the Decision Logging Mandate audit bullet (both Target Audit Criteria + Mode 2 occurrences) with: "`prompts/fragments/09-hands_protocols.md` MUST instruct the Hands to check AC/DoD boxes during the implementation `<summary_phase>`, not defer to a closure task."
 
 **Phase 2 — Closing-tag indentation drift (assembler normalization):**
+
 - **Pre-existing assembler structure (read in full, 363 lines):** `assemble()` reads `prompts/manifest.txt`, validates each fragment path against the `fragments/` security boundary (`_safe_fragment_path`), resolves `<!--INCLUDE:...-->` markers (`_resolve_includes` with `_safe_include_path` path-traversal guard), runs two loud guards (unresolved include marker, unresolved `{{PLACEHOLDER}}`), strips trailing newlines per fragment, joins with `"\n\n".join(parts) + "\n"` (line 325), and writes to `output_path` (line 330).
 - **Step 5 (assembler normalization):** inserted between the join and the write — `_CLOSING_TAG_ONLY_RE = re.compile(r"^\s*(</[a-zA-Z_][a-zA-Z0-9_]*>)\s*$")`; every matching line is replaced by `match.group(1)` (the bare tag at column 0). Single-point fix: the artifact is normalized regardless of source-fragment indentation.
 - **Step 6 (self-check):** immediately after normalization, `_DRIFTED_CLOSING_TAG_RE = re.compile(r"^\s+</[a-zA-Z_][a-zA-Z0-9_]*>\s*$")` scans the final content; any remaining indented pure closing tag raises `ValueError` naming the offending line (exit non-zero) instead of silently writing a drifted artifact.
@@ -104,6 +109,7 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 - **Prettier landmine discovered:** running `npx prettier --write` on `prompts/shared/validation-phase.md` COLLAPSES the entire file (removes the 2-space wrapper indentation, collapses multi-line content into single lines, drops the no-trailing-newline structure) — this shared partial is byte-load-bearing for the round-trip contract. Restored it to the correct structure (2-space `<validation_phase>`, 4-space content, column-0 `</validation_phase>`, no trailing newline). **Prettier must NEVER be run on `prompts/shared/validation-phase.md`.** Flagged as a follow-up hardening item (see Manager Decisions D2).
 
 **Phase 3 — Version + regenerate:**
+
 - `prompts/fragments/01-system_version.md` — bumped `<system_version>` 9.2.1 → 9.2.2 (PATCH).
 - Regenerated `system-prompt.md` via the patched assembler (76225 bytes, exit 0). Verified: GREP 4 (fragments) empty, GREP 5 (artifact) empty, GREP 6 version sync `9.2.2` in both.
 - **Tests:** `uv run --with pytest ... pytest tests/ -q` → **55 passed, exit 0** (round-trip + lint-sync + all MCP tests green).
@@ -112,5 +118,6 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `7fbb87de742e96df6386c2ee25adc193d0270e41`
 <!-- END_GIT_DIFF -->

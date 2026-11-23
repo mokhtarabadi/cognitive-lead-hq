@@ -1,8 +1,8 @@
 ---
-created_at: '2026-10-21T18:38:48.542510+00:00'
+created_at: "2026-10-21T18:38:48.542510+00:00"
 status: active
 tags: []
-updated_at: '2026-10-21T18:38:48.542540+00:00'
+updated_at: "2026-10-21T18:38:48.542540+00:00"
 ---
 
 # Telegram Message Formatting Contract (Manager rule, 2026-10-21)

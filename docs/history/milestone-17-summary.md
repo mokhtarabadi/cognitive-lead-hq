@@ -24,44 +24,44 @@ Milestone 17 spans release + plugin installs (162-164), OpenChamber multi-device
 
 ## Files Modified
 
-| File                                                   | Change                                                                                                        |
-| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
-| docs/history/milestone-16-summary.md                   | New 31-task archive (162)                                                                                     |
-| CHANGELOG.md                                           | 9.10.0 release + Unreleased entries for 163-178                                                               |
-| opencode.json + tui.json (repo + global)               | DCP added (163), dcp-only after goal removal (165), persona/decisions added (167-168) then removed (176)      |
-| LLM.txt                                                | DCP docs, owt section, OpenChamber optional guide, plugin install verification (163-166, 173)                  |
-| mcp-persona-server/                                    | New persona dispatch server + session/telegram modules + fixes (167, 171, 174)                                 |
-| mcp-decision-server/                                   | New decision learning server + redactor (168)                                                                 |
-| mcp-context-server/server.py                           | Workspace confinement + runaway caps + report metrics (177)                                                   |
-| mcp-common/ + per-server pyproject/uv.lock             | Locked workspace with shared loader (171)                                                                     |
-| .opencode/commands/                                    | 9 persona commands created (167, 174), then archived (175)                                                    |
-| agents/cognitive-executor.md + cognitive-discovery.md  | Persona/decision loops, manual workflow default, clarity style (167-168, 174-175, 178)                        |
-| prompts/fragments/* + system-prompt.md                 | Skills registry, brainstorm stub, clarity constraints, 9.10.0 → 9.13.0 (174, 177-178)                          |
-| skill-templates/                                       | manager-decision added (168), brainstorm-swarm removed/restored inert (174-175), blowsh added (177)            |
-| docs/openchamber-tailscale.md                          | New Tailscale pairing + ops runbook (165)                                                                     |
-| archive/automation-paused-2026-09-09/                  | Archived commands, loop-engine docs, RESTORE.md with verbatim JSON blocks (175-177)                            |
-| .env.example                                           | PERSONA_*/DECISION_* vars added then PAUSED-commented (167-168, 176)                                          |
-| packages/cognitive-lead-decisions/                     | Decision repo schema + validate/compile scripts (168)                                                         |
-| README.md + .gitignore                                 | Plugin blocks, paused banner, blowsh row; worktree + cache guards (164, 166, 173, 177)                         |
-| scripts/smoke_test_live.py                             | Added (171) then removed as inapplicable while servers paused (177)                                           |
+| File                                                  | Change                                                                                                   |
+| ----------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| docs/history/milestone-16-summary.md                  | New 31-task archive (162)                                                                                |
+| CHANGELOG.md                                          | 9.10.0 release + Unreleased entries for 163-178                                                          |
+| opencode.json + tui.json (repo + global)              | DCP added (163), dcp-only after goal removal (165), persona/decisions added (167-168) then removed (176) |
+| LLM.txt                                               | DCP docs, owt section, OpenChamber optional guide, plugin install verification (163-166, 173)            |
+| mcp-persona-server/                                   | New persona dispatch server + session/telegram modules + fixes (167, 171, 174)                           |
+| mcp-decision-server/                                  | New decision learning server + redactor (168)                                                            |
+| mcp-context-server/server.py                          | Workspace confinement + runaway caps + report metrics (177)                                              |
+| mcp-common/ + per-server pyproject/uv.lock            | Locked workspace with shared loader (171)                                                                |
+| .opencode/commands/                                   | 9 persona commands created (167, 174), then archived (175)                                               |
+| agents/cognitive-executor.md + cognitive-discovery.md | Persona/decision loops, manual workflow default, clarity style (167-168, 174-175, 178)                   |
+| prompts/fragments/* + system-prompt.md                | Skills registry, brainstorm stub, clarity constraints, 9.10.0 → 9.13.0 (174, 177-178)                    |
+| skill-templates/                                      | manager-decision added (168), brainstorm-swarm removed/restored inert (174-175), blowsh added (177)      |
+| docs/openchamber-tailscale.md                         | New Tailscale pairing + ops runbook (165)                                                                |
+| archive/automation-paused-2026-09-09/                 | Archived commands, loop-engine docs, RESTORE.md with verbatim JSON blocks (175-177)                      |
+| .env.example                                          | PERSONA__/DECISION__ vars added then PAUSED-commented (167-168, 176)                                     |
+| packages/cognitive-lead-decisions/                    | Decision repo schema + validate/compile scripts (168)                                                    |
+| README.md + .gitignore                                | Plugin blocks, paused banner, blowsh row; worktree + cache guards (164, 166, 173, 177)                   |
+| scripts/smoke_test_live.py                            | Added (171) then removed as inapplicable while servers paused (177)                                      |
 
 ## Criteria Met
 
-| Task | Acceptance Criteria                                                        | Status |
-| ---- | -------------------------------------------------------------------------- | ------ |
-| 162  | Milestone-16 archived, 9.10.0 released, global + fork synced               | ✅ Met |
-| 163  | DCP in all 4 plugin arrays, docs + global install verified                 | ✅ Met |
-| 164  | owt installed globally, project guards + docs, tests green                 | ✅ Met |
-| 165  | OpenChamber on 3005 via Tailscale, dcp-only configs, runbook written       | ✅ Met |
-| 166  | LLM.txt optional OpenChamber guide + checklist, Tailscale-only verified    | ✅ Met |
-| 167  | Loop-engine removed, persona MCP spec + Telegram approval gate defined     | ✅ Met |
-| 168  | Decision schema + invocation contract + gated evolution loop               | ✅ Met |
-| 171  | META 169+170 bundled: split models, approval notes, locked workspace       | ✅ Met |
-| 172  | Stranded fixes re-staged, headers synced, suite green                      | ✅ Met |
-| 173  | Plugin install + cache-verify docs in LLM.txt and README                   | ✅ Met |
-| 174  | 5 persona commands added, brainstorm skill removed, prompt 9.10.0 in sync  | ✅ Met |
-| 175  | Executor automation commented, 9 commands archived, manual default active  | ✅ Met |
-| 176  | Both MCP servers unwired repo + global, restore record complete            | ✅ Met |
+| Task | Acceptance Criteria                                                       | Status |
+| ---- | ------------------------------------------------------------------------- | ------ |
+| 162  | Milestone-16 archived, 9.10.0 released, global + fork synced              | ✅ Met |
+| 163  | DCP in all 4 plugin arrays, docs + global install verified                | ✅ Met |
+| 164  | owt installed globally, project guards + docs, tests green                | ✅ Met |
+| 165  | OpenChamber on 3005 via Tailscale, dcp-only configs, runbook written      | ✅ Met |
+| 166  | LLM.txt optional OpenChamber guide + checklist, Tailscale-only verified   | ✅ Met |
+| 167  | Loop-engine removed, persona MCP spec + Telegram approval gate defined    | ✅ Met |
+| 168  | Decision schema + invocation contract + gated evolution loop              | ✅ Met |
+| 171  | META 169+170 bundled: split models, approval notes, locked workspace      | ✅ Met |
+| 172  | Stranded fixes re-staged, headers synced, suite green                     | ✅ Met |
+| 173  | Plugin install + cache-verify docs in LLM.txt and README                  | ✅ Met |
+| 174  | 5 persona commands added, brainstorm skill removed, prompt 9.10.0 in sync | ✅ Met |
+| 175  | Executor automation commented, 9 commands archived, manual default active | ✅ Met |
+| 176  | Both MCP servers unwired repo + global, restore record complete           | ✅ Met |
 | 177  | Audit cleanup, server hardening, blowsh skill, prompt 9.12.0 in sync      | ✅ Met |
 | 178  | Brainstorm stub + scoped clarity style, prompt 9.13.0 in sync             | ✅ Met |
 

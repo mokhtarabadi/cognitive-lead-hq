@@ -60,8 +60,8 @@ Inserted a new `## Criteria Met` table in the milestone summary template, positi
 ```markdown
 ## Criteria Met
 
-| Task | Acceptance Criteria | Status |
-| ---- | ------------------- | ------ |
+| Task | Acceptance Criteria                                                             | Status |
+| ---- | ------------------------------------------------------------------------------- | ------ |
 | XX   | [Extracted criteria from the completed task's `## Acceptance Criteria` section] | ✅ Met |
 ```
 
@@ -92,5 +92,6 @@ System version bumped from `7.4.1` to `7.4.2` (PATCH increment for ecosystem enf
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `1bb8fa0e6b988ca52f9afb77d59dc185ce750cce`
 <!-- END_GIT_DIFF -->

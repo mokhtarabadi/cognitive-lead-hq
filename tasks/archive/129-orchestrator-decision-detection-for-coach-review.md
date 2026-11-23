@@ -34,13 +34,15 @@ You operate inside the Cognitive Lead AI HQ repository (documentation-only: syst
 
 <agentic_reasoning>
 Before proposing any change, output a <reasoning_log> that evaluates:
+
 1. Logical dependencies — which files reference the decision-logging mandate (system-prompt.md, fragments, conventions, skill templates, audit checks).
 2. Risk assessment — version-bump requirement on system-prompt.md, scope creep into unrelated prompt sections, and the "do NOT log trivial changes" boundary.
 3. Abductive reasoning — why the current mandate fails to capture Orchestrator-conversation decisions (it is reactive and Hands-centric, logging only execution-time decisions).
 4. Precision and grounding — every proposed edit must map to a concrete file and a concrete acceptance criterion.
-</agentic_reasoning>
+   </agentic_reasoning>
 
 <execution_rules>
+
 - You MUST extend the decision-logging mandate so that decision DETECTION is a first-class responsibility of the Orchestrator and the Cognitive Executor, not just the Hands.
 - You MUST preserve the existing `## Manager Decisions` log format (DECISION_ID, rationale, alternatives, impact) — do not break the audit trail.
 - You MUST keep the raw Persian message verbatim in the task file's `## Original Message (Persian)` section; zero summarization.
@@ -48,10 +50,11 @@ Before proposing any change, output a <reasoning_log> that evaluates:
 - You MUST bump the `<system_version>` in system-prompt.md and log a CHANGELOG.md entry if system-prompt.md is modified.
 - You MUST update `skill-templates/audit-agents/SKILL.md` audit checks to verify the new detection responsibility exists.
 - You MUST NOT widen scope into unrelated prompt sections or adjacent features.
-</execution_rules>
+  </execution_rules>
 
 <output_format>
 Deliver a structured implementation plan with:
+
 - Root-cause diagnosis (why current logging is imprecise)
 - Exact file-by-file change list with rationale
 - Updated mandate text (fragment + system prompt + conventions)
@@ -59,7 +62,7 @@ Deliver a structured implementation plan with:
 - Updated skill templates and audit checks
 - Acceptance criteria mapped to each change
 - Risk & rollback plan
-</output_format>
+  </output_format>
 ```
 
 ## Relevant Code Context
@@ -78,6 +81,7 @@ Deliver a structured implementation plan with:
 **Root cause:** The current `<decision_logging_mandate>` is reactive and Hands-centric. It only logs decisions "made during task execution" and relies on the Hands to self-report after the fact. It does NOT capture the Manager's goals and decisions that occur during Orchestrator conversations (the majority of interactions) or during direct Manager↔Hands/OpenCode exchanges. As a result, the `## Manager Decisions` trail is incomplete and imprecise, which defeats the weekly/monthly coach-evaluation use case.
 
 **Recommended fix:**
+
 1. Extend `<decision_logging_mandate>` (fragment 17 + `system-prompt.md` + `docs/conventions.md`) to add a **Decision Detection** responsibility: the Orchestrator and Cognitive Executor MUST proactively detect and log Manager decisions/goals from conversation context during task finalization — not only execution-time decisions.
 2. Add the decision-detection role to `agents/cognitive-executor.md` (and the Orchestrator agent) so direct Manager↔agent conversations are captured.
 3. Update `skill-templates/task-generator/SKILL.md` and `skill-templates/audit-agents/SKILL.md` to reflect the new detection responsibility and audit checks.
@@ -123,6 +127,7 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 ## Manager Decisions
 
 **[2026-08-30] [D1] [EXECUTION-DETECTED]:** Adopted a three-tier `[SOURCE]` tag system (`ORCHESTRATOR-DETECTED` / `EXECUTOR-DETECTED` / `EXECUTION-DETECTED`) for the `## Manager Decisions` log.
+
 - **Rationale:** The Manager's Telegram message (msg 536) requires distinguishing decisions captured from Orchestrator chat conversations, direct Manager↔Hands/OpenCode conversations, and execution-time technical necessity — so a weekly/monthly coach review can separate stated Manager intent from technical necessity.
 - **Alternatives considered:** A single untagged shared log (rejected — cannot distinguish intent source, defeats the coach-evaluation use case); a two-tier system without the Hands tier (rejected — execution-time technical trade-offs would be misattributed to Manager intent).
 - **Impact:** Every task file's `## Manager Decisions` section now carries source-tagged entries; the mandate, Hands protocols, Cognitive Executor agent, conventions, task-generator template, audit checks, and AGENTS.md guardrail all reference the tag system; `<system_version>` bumped 9.1.0 → 9.2.0.
@@ -156,5 +161,6 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `6c7a41c7f4736ef909b09c86f0f920eac830e33d`
 <!-- END_GIT_DIFF -->

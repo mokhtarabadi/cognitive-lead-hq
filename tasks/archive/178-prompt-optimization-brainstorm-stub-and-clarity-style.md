@@ -63,6 +63,7 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 **Scope (hybrid, not full delete):** Manager approved: stub keeps Brain trigger (task discovery), Hands delegates detail to skill. ASD-STE100 style scoped to final Manager response only — chain-of-thought stays rich.
 
 **Edits (5 files):**
+
 - `prompts/fragments/12-brainstorming_protocol.md` — replaced 53-line persona table + report schema with 6-line stub: trigger `cross-disciplinary ambiguity OR explicit \"brainstorm\"` → `Max one turn per Orchestrator request, load skill \"brainstorm-swarm\" for full persona matrix + report schema`. Saves ~350 tokens per session.
 - `prompts/fragments/13-constraints.md` — added `Response Clarity — Final Manager Response Only` constraint: ≤25 words, one idea/sentence, define before reference, active voice, coded lists `F/D/R/Q/A`, does not apply to internal reasoning.
 - `prompts/fragments/01-system_version.md` — `9.12.0` → `9.13.0`.
@@ -77,5 +78,6 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `2afdff8a98cb925bd2321bd3ebb282da503c91a2`
 <!-- END_GIT_DIFF -->

@@ -43,13 +43,13 @@ Let `brain_turn(context_paths=[...])` accept a line-range suffix — `path#Lstar
 
 ## Verification Evidence
 
-| Gate | Result |
-|------|--------|
-| Web research (blowsh deep loop) | done — Desktop Commander offset/length, large-file-mcp chunk/navigate/search, ctoth tree-sitter extractor, mcp-file-lens; suffix convention chosen, libraries rejected with reasons |
-| Brainstorm | done — A: suffix (chosen); B: tree-sitter (rejected: native dep); C: external MCP (rejected: single-tool invariant) |
-| Unit + regression tests | pending |
-| `test_prompt_sync.py` + `test_brain_bridge.py` | pending |
-| Manager plan approval | pending |
+| Gate                                           | Result                                                                                                                                                                              |
+| ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Web research (blowsh deep loop)                | done — Desktop Commander offset/length, large-file-mcp chunk/navigate/search, ctoth tree-sitter extractor, mcp-file-lens; suffix convention chosen, libraries rejected with reasons |
+| Brainstorm                                     | done — A: suffix (chosen); B: tree-sitter (rejected: native dep); C: external MCP (rejected: single-tool invariant)                                                                 |
+| Unit + regression tests                        | pending                                                                                                                                                                             |
+| `test_prompt_sync.py` + `test_brain_bridge.py` | pending                                                                                                                                                                             |
+| Manager plan approval                          | pending                                                                                                                                                                             |
 
 ## Risk & Rollback
 
@@ -74,19 +74,20 @@ Let `brain_turn(context_paths=[...])` accept a line-range suffix — `path#Lstar
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
-```diff
+
+````diff
 diff --git a/CHANGELOG.md b/CHANGELOG.md
 index 1f143a7..10a60fa 100644
 --- a/CHANGELOG.md
 +++ b/CHANGELOG.md
 @@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
- 
+
  ### Fixed
- 
+
 +- **Brain `missing_context` narrowing rule + raised context-paths caps (Task 0375):** a planning loop stalled 3 turns re-requesting files the bridge had already delivered (truncated at the 60 KB/file cap with an explicit note). The contract only said STOP-and-list, giving the model no narrowing strategy. The rule now states: a truncation note means *partially present* — verify visible scope first, never re-request a fully-present file, narrow instead of repeating (smaller path, section, symbols). Caps raised `_CTX_PATHS_PER_FILE` 60k → 150k and `_CTX_PATHS_TOTAL` 200k → 400k (env overrides unchanged); `context_paths` also accepts `#Lstart-end` / `#Lstart-` slices, wired into both the tested helper and the live-turn path through shared parsers. System prompt rebuilt to `9.70.3` via the assembler (byte-identical except the two intended hunks); `test_prompt_sync` 22/22, `test_brain_bridge` 304/304 (incl. the exact-default pin test and 7 range tests).
  - **Brain `context_paths` rejected source files (Task 0372):** `_ALLOWED_READ_SUFFIXES` predated the task-210 injection feature and allowed only docs/reports, so every `.java`/`.js`/`.tsx` came back `[unavailable: unsupported extension]` — byte-proven (29.5k of 87k attached). Suffix set extended to source-text languages; binaries still rejected; traversal/size/budget guards untouched. 294/294 brain-bridge tests green.
  - **Brain follow-ups (Task 0374):** truncation notes verified pre-existing in the allocator (no code change); ledger rows carry per-path attach outcomes (`path`/`status`/`chars`, leak-tested — no file text ever); monthly quota counter with stderr warning past the threshold (best-effort, never blocks a turn); end-to-end `.java` injection proven live (91,991 chars attached, 297/297 green).
- 
+
 diff --git a/docs/brain-bridge.md b/docs/brain-bridge.md
 index ce5d05a..7036b8f 100644
 --- a/docs/brain-bridge.md
@@ -123,7 +124,7 @@ index 6e0a41a..dd8697f 100644
 --- a/mcp-brain-bridge/server.py
 +++ b/mcp-brain-bridge/server.py
 @@ -3010,13 +3010,17 @@ def load_fed_context(task_id: str, project_root: Optional[str] = None) -> str:
- 
+
  #: Default per-file cap for path-injected context (chars). Overridable via
  #: ``BRAIN_CTX_PER_FILE_CAP``. Rendering truncates with a resume marker.
 -_CTX_PATHS_PER_FILE = 60000
@@ -131,7 +132,7 @@ index 6e0a41a..dd8697f 100644
 +#: (~181 KB context report) was cut to 60 KB; 150 KB covers that class with
 +#: headroom while staying a fraction of the 1M input budget.
 +_CTX_PATHS_PER_FILE = 150000
- 
+
  #: Default total cap across all path-injected files per turn (chars).
  #: Overridable via ``BRAIN_CTX_TOTAL_CAP``. Files past the total are
  #: skipped with an explicit skipped note — stacked files must never
@@ -140,8 +141,8 @@ index 6e0a41a..dd8697f 100644
 +#: overflow the turn budget on their own. Raised 200k -> 400k alongside
 +#: the per-file cap so two large files plus the task attach fit one turn.
 +_CTX_PATHS_TOTAL = 400000
- 
- 
+
+
  def _paths_base(project_root: Optional[str] = None) -> Path:
 @@ -3063,8 +3067,16 @@ def build_paths_attach(paths: object, project_root: Optional[str] = None) -> str
      used = 0
@@ -187,8 +188,8 @@ index 6e0a41a..dd8697f 100644
      return "\n\n---\n\n".join(blocks)
 @@ -3360,6 +3380,57 @@ def _inline_path_candidate(rel: str, note: str) -> dict:
      }
- 
- 
+
+
 +def _split_line_range(rel: str) -> tuple[str, object, object, object]:
 +    """Split a trailing ``#L<start>[-<end>]`` range off a context path.
 +
@@ -242,7 +243,7 @@ index 6e0a41a..dd8697f 100644
 +
  def _path_candidates(paths: object, project_root: Optional[str] = None) -> list[dict]:
      """Full-text candidates for ``context_paths`` ('' labels kept explicit).
- 
+
 @@ -3381,8 +3452,17 @@ def _path_candidates(paths: object, project_root: Optional[str] = None) -> list[
      out: list[dict] = []
      base = _paths_base(project_root)
@@ -314,7 +315,7 @@ index b128dfc..c2ed6f8 100644
 @@ -1,4 +1,4 @@
 -<system_version>9.70.2</system_version>
 +<system_version>9.70.3</system_version>
- 
+
  <role>
  You are the Cognitive Lead AI running inside the Orchestrator platform, acting as an elite software agency orchestrator.
 @@ -499,7 +499,7 @@ The Orchestrator strictly operates as an Industrialized Software Production Line
@@ -332,8 +333,8 @@ index 30d8442..100359f 100644
 +++ b/tests/test_brain_bridge.py
 @@ -1654,6 +1654,75 @@ def test_paths_attach_empty_labelled(tmp_path, monkeypatch):
      assert "empty file" in out
- 
- 
+
+
 +def test_paths_attach_line_range_slice(tmp_path, monkeypatch):
 +    _ws(tmp_path, monkeypatch)
 +    (tmp_path / "code.py").write_text(
@@ -416,8 +417,8 @@ index 30d8442..100359f 100644
 +    assert bridge._CTX_PATHS_PER_FILE == 150000
 +    assert bridge._CTX_PATHS_TOTAL == 400000
      assert bridge._INPUT_BUDGET >= 200000
- 
- 
+
+
 diff --git a/tests/test_prompt_sync.py b/tests/test_prompt_sync.py
 index 5679f26..a9c1fa2 100644
 --- a/tests/test_prompt_sync.py
@@ -428,8 +429,9 @@ index 5679f26..a9c1fa2 100644
      ).group(1)
 -    assert shipped == "9.70.2"
 +    assert shipped == "9.70.3"
- 
- 
+
+
  def test_parallel_mandate_covers_implementation_triggers():
-```
+````
+
 <!-- END_GIT_DIFF -->

@@ -24,12 +24,14 @@ Whenever the Manager explicitly states a rule, preference, or architectural cons
    ---
    tags: [tag1, tag2]
    ---
+
    # One-line summary (becomes the index Summary, clamp to 120 chars)
 
    Rule or constraint in full, with reason and scope.
    ```
 
    Tags are optional but recommended. The first non-empty line after frontmatter becomes the index `Summary`.
+
 4. Call the `store_memory` MCP tool with the content. Ensure `overwrite=True` if updating an existing rule.
 
 ## When to DELETE Memory (Trigger)
@@ -56,7 +58,7 @@ When storing a new memory, check if an existing memory in the same namespace cov
 - **Format:** `| Namespace | Key | Summary | Tags |` Markdown table, sorted by `namespace` then `key`. `Summary` is the first non-empty content line after frontmatter, clamped to 120 chars, pipes escaped. `Tags` from frontmatter `tags:`.
 - **Generation:** Atomically rebuilt after every successful `store_memory` and `delete_memory` via `build_memory_index()` (`tempfile.mkstemp(dir=MEMORY_DIR)` + `os.replace` + `fsync` dir). Handles empty store (`*No memories recorded yet.*`) and pipe-escaping. Failures are logged but never fail the parent mutation. Also exposed as `rebuild_memory_index` MCP tool for manual recovery after out-of-band file operations.
 - **Workflow (Two-Step — Mandatory):**
-  1. **Phase 0 — Read the index:** In the Context Phase, read `.opencode/memory/index.md` (if present) alongside `AGENTS.md`/`DESIGN.md` to get a compact overview *before* planning.
+  1. **Phase 0 — Read the index:** In the Context Phase, read `.opencode/memory/index.md` (if present) alongside `AGENTS.md`/`DESIGN.md` to get a compact overview _before_ planning.
   2. **Selective fetch:** Choose relevant rows from the index, then fetch the full content via `read_memory(namespace, key)` or `search_memory(query)` — never auto-load all memories.
 
 The index is derived state: it will be recreated automatically; do not commit it as a source of truth, and do not create `TODO.md`/`STATE.md` equivalents elsewhere.

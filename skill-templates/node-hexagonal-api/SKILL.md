@@ -40,12 +40,12 @@ project-root/
 
 ## Naming Conventions
 
-| Artifact           | Convention              | Example                  |
-| ------------------ | ----------------------- | ------------------------ |
-| Port interfaces    | Nouns (`*Repository`) or role `er` nouns | `UserRepository`, `UserCreator` |
-| Use cases          | Verb + entity           | `CreateUser`, `ArchiveOrder` |
-| Files              | `kebab-case.ts`         | `create-user.ts`         |
-| DTOs               | `*Dto` with zod/class-validator | `CreateUserDto`   |
+| Artifact        | Convention                               | Example                         |
+| --------------- | ---------------------------------------- | ------------------------------- |
+| Port interfaces | Nouns (`*Repository`) or role `er` nouns | `UserRepository`, `UserCreator` |
+| Use cases       | Verb + entity                            | `CreateUser`, `ArchiveOrder`    |
+| Files           | `kebab-case.ts`                          | `create-user.ts`                |
+| DTOs            | `*Dto` with zod/class-validator          | `CreateUserDto`                 |
 
 ## Architectural Patterns
 
@@ -61,14 +61,13 @@ project-root/
 
 ## Testing Strategies
 
-| Layer       | Test Type   | Framework / Tools              |
-| ----------- | ----------- | ------------------------------ |
-| Application | Unit        | `vitest` + in-memory port fakes |
+| Layer       | Test Type   | Framework / Tools                           |
+| ----------- | ----------- | ------------------------------------------- |
+| Application | Unit        | `vitest` + in-memory port fakes             |
 | Adapters    | Integration | `vitest` + `testcontainers` (real PG/Redis) |
 
 - Write table-driven (`it.each`) tests for all use cases against faked outbound ports.
 - Inbound HTTP routes tested via supertest-style injection with the real container and faked repositories.
-
 
 ## Strict Tooling Gate (Machine-Enforced — Forced Strict Mode)
 
@@ -83,30 +82,31 @@ Strictest verified toolchain for this stack. Load this skill whenever the projec
 
 ### Required Toolchain
 
-| Tool | Purpose | Minimum version | Activate |
-| --- | --- | --- | --- |
-| Node.js | Runtime; LTS only | 24.0.0 (24.x Active LTS "Krypton") | `.nvmrc` → `24` ; `package.json` → `"engines": { "node": ">=24.0.0" }` |
-| TypeScript | `tsc --noEmit` type gate + parser backend for typed lint | 6.0.3 | `npm i -D typescript@6.0.3` |
-| @typescript/native-preview (optional) | TS7 `tsgo` fast type-check *alongside* TS6; TS7 has no programmatic API yet so typed-lint tools cannot use it | 7.0.2 | `npm i -D @typescript/native-preview@^7` (run via `tsgo --noEmit` only) |
-| ESLint | Core linter, flat config only (eslintrc deleted in v10) | 10.0.0 (10.4.x) | `npm i -D eslint@^10 @eslint/js@^10` |
-| typescript-eslint | Type-aware rule engine (`strictTypeChecked`, `stylisticTypeChecked`) | 8.70.1 | `npm i -D typescript-eslint@^8` |
-| eslint-plugin-n | Node correctness (`no-process-exit`, `no-missing-import`, deprecation) | 18.2.2 | `npm i -D eslint-plugin-n@^18` |
-| dependency-cruiser | **Primary** architectural boundary + cycle enforcement on the real resolved graph | 18.4.0 | `npm i -D dependency-cruiser@^18.4` |
-| eslint-plugin-boundaries | Secondary, in-editor boundary feedback (import-time, entity model v7) | 7.2.0 | `npm i -D eslint-plugin-boundaries@^7` |
-| eslint-plugin-import-x (optional) | Fast per-file `no-restricted-paths` guard; maintained fork (ESLint 10 ready) | 4.16.2 | `npm i -D eslint-plugin-import-x@^4` |
-| Vitest + @vitest/coverage-v8 | Unit / contract / property runner with fail-on-threshold coverage | 4.1.9 | `npm i -D vitest@^4 @vitest/coverage-v8@^4` |
-| testcontainers | Real infra in contract tests (Postgres, Redis, broker) | 12.1.0 | `npm i -D testcontainers@^12` |
-| fast-check | Property-based tests for core invariants | 4.9.0 | `npm i -D fast-check@^4` |
-| tsd | Type-level tests (`expectType` / `expectError`) | 0.33.0 | `npm i -D tsd@^0.33` |
-| @microsoft/api-extractor | Public API surface + declaration-diff gate | 7.59.1 | `npm i -D @microsoft/api-extractor@^7` |
-| publint | Package `exports` / publish-metadata gate | 0.3.24 | `npm i -D publint@^0.3` |
-| @arethetypeswrong/cli | Consumer-side `.d.ts` / module-resolution gate | 0.18.5 | `npm i -D @arethetypeswrong/cli@^0.18` |
-| knip | Unused files, exports, and dependencies | 6.4.1 | `npm i -D knip@^6` |
-| lockfile-lint | Lockfile host/integrity policy (anti-typosquat/injection) | 5.0.1 | `npm i -D lockfile-lint@^5` |
-| osv-scanner | Vulnerability scan against OSV (replaces/augments `npm audit`) | 2.5.1 | `go install github.com/google/osv-scanner/v2/cmd/osv-scanner@latest` or the official GH Action / binary |
-| zod (or valibot) | Strict boot-time environment schema | 4.5.4 (valibot 1.4.2) | `npm i zod@^4` |
+| Tool                                  | Purpose                                                                                                       | Minimum version                    | Activate                                                                                                |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Node.js                               | Runtime; LTS only                                                                                             | 24.0.0 (24.x Active LTS "Krypton") | `.nvmrc` → `24` ; `package.json` → `"engines": { "node": ">=24.0.0" }`                                  |
+| TypeScript                            | `tsc --noEmit` type gate + parser backend for typed lint                                                      | 6.0.3                              | `npm i -D typescript@6.0.3`                                                                             |
+| @typescript/native-preview (optional) | TS7 `tsgo` fast type-check _alongside_ TS6; TS7 has no programmatic API yet so typed-lint tools cannot use it | 7.0.2                              | `npm i -D @typescript/native-preview@^7` (run via `tsgo --noEmit` only)                                 |
+| ESLint                                | Core linter, flat config only (eslintrc deleted in v10)                                                       | 10.0.0 (10.4.x)                    | `npm i -D eslint@^10 @eslint/js@^10`                                                                    |
+| typescript-eslint                     | Type-aware rule engine (`strictTypeChecked`, `stylisticTypeChecked`)                                          | 8.70.1                             | `npm i -D typescript-eslint@^8`                                                                         |
+| eslint-plugin-n                       | Node correctness (`no-process-exit`, `no-missing-import`, deprecation)                                        | 18.2.2                             | `npm i -D eslint-plugin-n@^18`                                                                          |
+| dependency-cruiser                    | **Primary** architectural boundary + cycle enforcement on the real resolved graph                             | 18.4.0                             | `npm i -D dependency-cruiser@^18.4`                                                                     |
+| eslint-plugin-boundaries              | Secondary, in-editor boundary feedback (import-time, entity model v7)                                         | 7.2.0                              | `npm i -D eslint-plugin-boundaries@^7`                                                                  |
+| eslint-plugin-import-x (optional)     | Fast per-file `no-restricted-paths` guard; maintained fork (ESLint 10 ready)                                  | 4.16.2                             | `npm i -D eslint-plugin-import-x@^4`                                                                    |
+| Vitest + @vitest/coverage-v8          | Unit / contract / property runner with fail-on-threshold coverage                                             | 4.1.9                              | `npm i -D vitest@^4 @vitest/coverage-v8@^4`                                                             |
+| testcontainers                        | Real infra in contract tests (Postgres, Redis, broker)                                                        | 12.1.0                             | `npm i -D testcontainers@^12`                                                                           |
+| fast-check                            | Property-based tests for core invariants                                                                      | 4.9.0                              | `npm i -D fast-check@^4`                                                                                |
+| tsd                                   | Type-level tests (`expectType` / `expectError`)                                                               | 0.33.0                             | `npm i -D tsd@^0.33`                                                                                    |
+| @microsoft/api-extractor              | Public API surface + declaration-diff gate                                                                    | 7.59.1                             | `npm i -D @microsoft/api-extractor@^7`                                                                  |
+| publint                               | Package `exports` / publish-metadata gate                                                                     | 0.3.24                             | `npm i -D publint@^0.3`                                                                                 |
+| @arethetypeswrong/cli                 | Consumer-side `.d.ts` / module-resolution gate                                                                | 0.18.5                             | `npm i -D @arethetypeswrong/cli@^0.18`                                                                  |
+| knip                                  | Unused files, exports, and dependencies                                                                       | 6.4.1                              | `npm i -D knip@^6`                                                                                      |
+| lockfile-lint                         | Lockfile host/integrity policy (anti-typosquat/injection)                                                     | 5.0.1                              | `npm i -D lockfile-lint@^5`                                                                             |
+| osv-scanner                           | Vulnerability scan against OSV (replaces/augments `npm audit`)                                                | 2.5.1                              | `go install github.com/google/osv-scanner/v2/cmd/osv-scanner@latest` or the official GH Action / binary |
+| zod (or valibot)                      | Strict boot-time environment schema                                                                           | 4.5.4 (valibot 1.4.2)              | `npm i zod@^4`                                                                                          |
 
 **Discarded / demoted (say so, do not silently use):**
+
 - **madge** — cycle/graph tool, but last npm release is **8.0.0, Aug 2024** (dormant ~2 years, download trend falling). Its only irreplaceable role, cycle detection, is already covered by dependency-cruiser's `no-circular` rule (actively maintained, minimum 18.4.0 — the `$1` backreference used below was validated on 18.4). Keep madge only for one-off visual graphs, never as a gate.
 - **depcheck** — superseded by **knip** (knip covers files + exports + dependencies and is actively maintained; depcheck 1.4.7 last shipped Aug 2025 and is narrower).
 - **eslint-plugin-import** — effectively frozen/refuses `exports`/specifier support; the maintained successor is **eslint-plugin-import-x**, which declares ESLint `^8.57 || ^9 || ^10`.
@@ -154,10 +154,10 @@ Strictest verified toolchain for this stack. Load this skill whenever the projec
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
-    "skipLibCheck": false
+    "skipLibCheck": false,
   },
   "include": ["src"],
-  "exclude": ["dist", "node_modules"]
+  "exclude": ["dist", "node_modules"],
 }
 ```
 
@@ -165,13 +165,13 @@ Strictest verified toolchain for this stack. Load this skill whenever the projec
 
 ```js
 // @ts-check
-import js from '@eslint/js';
-import { defineConfig } from 'eslint/config';
-import tseslint from 'typescript-eslint';
-import node from 'eslint-plugin-n';
+import js from "@eslint/js";
+import { defineConfig } from "eslint/config";
+import tseslint from "typescript-eslint";
+import node from "eslint-plugin-n";
 
 export default defineConfig(
-  { ignores: ['dist/**', 'coverage/**', 'node_modules/**', '**/*.d.ts'] },
+  { ignores: ["dist/**", "coverage/**", "node_modules/**", "**/*.d.ts"] },
 
   js.configs.recommended,
 
@@ -179,28 +179,47 @@ export default defineConfig(
   ...tseslint.configs.stylisticTypeChecked,
 
   {
-    files: ['**/*.{ts,mts,cts}'],
+    files: ["**/*.{ts,mts,cts}"],
     languageOptions: {
       parserOptions: {
-        projectService: true,               // typed linting; no tsconfig.eslint.json
+        projectService: true, // typed linting; no tsconfig.eslint.json
         tsconfigRootDir: import.meta.dirname,
       },
     },
     rules: {
-      '@typescript-eslint/no-floating-promises': ['error', { ignoreVoid: false }],
-      '@typescript-eslint/no-misused-promises': ['error', {
-        checksConditionals: true,
-        checksSpreads: true,
-        checksVoidReturn: { arguments: true, attributes: false, returns: true },
-      }],
-      '@typescript-eslint/switch-exhaustiveness-check': ['error', {
-        considerDefaultExhaustiveForUnions: true,
-        requireDefaultForNonUnion: true,
-      }],
-      '@typescript-eslint/consistent-type-imports': ['error', { prefer: 'type-imports', fixStyle: 'inline-type-imports' }],
-      '@typescript-eslint/no-import-type-side-effects': 'error',
-      '@typescript-eslint/explicit-function-return-type': ['error', { allowExpressions: false }],
-      '@typescript-eslint/no-explicit-any': 'error',
+      "@typescript-eslint/no-floating-promises": [
+        "error",
+        { ignoreVoid: false },
+      ],
+      "@typescript-eslint/no-misused-promises": [
+        "error",
+        {
+          checksConditionals: true,
+          checksSpreads: true,
+          checksVoidReturn: {
+            arguments: true,
+            attributes: false,
+            returns: true,
+          },
+        },
+      ],
+      "@typescript-eslint/switch-exhaustiveness-check": [
+        "error",
+        {
+          considerDefaultExhaustiveForUnions: true,
+          requireDefaultForNonUnion: true,
+        },
+      ],
+      "@typescript-eslint/consistent-type-imports": [
+        "error",
+        { prefer: "type-imports", fixStyle: "inline-type-imports" },
+      ],
+      "@typescript-eslint/no-import-type-side-effects": "error",
+      "@typescript-eslint/explicit-function-return-type": [
+        "error",
+        { allowExpressions: false },
+      ],
+      "@typescript-eslint/no-explicit-any": "error",
     },
   },
 
@@ -215,69 +234,93 @@ export default defineConfig(
 module.exports = {
   forbidden: [
     {
-      name: 'no-circular',
-      severity: 'error',
-      comment: 'No dependency cycles anywhere.',
+      name: "no-circular",
+      severity: "error",
+      comment: "No dependency cycles anywhere.",
       from: {},
       to: { circular: true },
     },
     {
-      name: 'core-no-runtime-deps',
-      severity: 'error',
-      comment: 'domain+ports (the hexagon) must have ZERO npm runtime dependencies.',
-      from: { path: '^src/core/' },
-      to: { dependencyTypes: ['npm'], pathNot: '^src/core/' },
+      name: "core-no-runtime-deps",
+      severity: "error",
+      comment:
+        "domain+ports (the hexagon) must have ZERO npm runtime dependencies.",
+      from: { path: "^src/core/" },
+      to: { dependencyTypes: ["npm"], pathNot: "^src/core/" },
     },
     {
-      name: 'core-no-node-builtins',
-      severity: 'error',
-      comment: 'domain+ports must not touch Node builtins (fs/net/http/crypto).',
-      from: { path: '^src/core/' },
-      to: { dependencyTypes: ['core'] },
+      name: "core-no-node-builtins",
+      severity: "error",
+      comment:
+        "domain+ports must not touch Node builtins (fs/net/http/crypto).",
+      from: { path: "^src/core/" },
+      to: { dependencyTypes: ["core"] },
     },
     {
-      name: 'core-no-outward',
-      severity: 'error',
-      comment: 'core must never import adapters, shared infra, or the composition root.',
-      from: { path: '^src/core/' },
-      to: { path: '^src/(adapters|shared|composition)/' },
+      name: "core-no-outward",
+      severity: "error",
+      comment:
+        "core must never import adapters, shared infra, or the composition root.",
+      from: { path: "^src/core/" },
+      to: { path: "^src/(adapters|shared|composition)/" },
     },
     {
-      name: 'no-cross-adapter',
-      severity: 'error',
-      comment: 'adapters must not import each other; collaborate through core ports.',
-      from: { path: '^src/adapters/([^/]+)/' },
-      to: { path: '^src/adapters/([^/]+)/', pathNot: '^src/adapters/$1/' }, // $1 validated on 18.4
+      name: "no-cross-adapter",
+      severity: "error",
+      comment:
+        "adapters must not import each other; collaborate through core ports.",
+      from: { path: "^src/adapters/([^/]+)/" },
+      to: { path: "^src/adapters/([^/]+)/", pathNot: "^src/adapters/$1/" }, // $1 validated on 18.4
     },
     {
-      name: 'adapters-inward-only',
-      severity: 'error',
-      comment: 'adapters may import core/shared/their own folder only — never the composition root.',
-      from: { path: '^src/adapters/' },
-      to: { path: '^src/(?!core/|adapters/|shared/)' },
+      name: "adapters-inward-only",
+      severity: "error",
+      comment:
+        "adapters may import core/shared/their own folder only — never the composition root.",
+      from: { path: "^src/adapters/" },
+      to: { path: "^src/(?!core/|adapters/|shared/)" },
     },
     {
-      name: 'shared-no-outward',
-      severity: 'error',
-      comment: 'shared infra must not depend on core, adapters, or composition.',
-      from: { path: '^src/shared/' },
-      to: { path: '^src/(core|adapters|composition)/' },
+      name: "shared-no-outward",
+      severity: "error",
+      comment:
+        "shared infra must not depend on core, adapters, or composition.",
+      from: { path: "^src/shared/" },
+      to: { path: "^src/(core|adapters|composition)/" },
     },
     {
-      name: 'no-orphans',
-      severity: 'error',
-      comment: 'unreferenced modules are dead code.',
-      from: { orphan: true, pathNot: ['\\.d\\.ts$', '\\.test\\.ts$', '\\.spec\\.ts$', '^src/composition/'] },
+      name: "no-orphans",
+      severity: "error",
+      comment: "unreferenced modules are dead code.",
+      from: {
+        orphan: true,
+        pathNot: [
+          "\\.d\\.ts$",
+          "\\.test\\.ts$",
+          "\\.spec\\.ts$",
+          "^src/composition/",
+        ],
+      },
       to: {},
     },
   ],
   options: {
-    tsConfig: { fileName: 'tsconfig.json' },   // resolves tsconfig paths + aliases
+    tsConfig: { fileName: "tsconfig.json" }, // resolves tsconfig paths + aliases
     tsPreCompilationDeps: true,
-    doNotFollow: { path: 'node_modules' },
-    enhancedResolveOptions: { exportsFields: ['exports'], conditionNames: ['import', 'require', 'node', 'default'] },
-    exclude: { path: ['\\.test\\.ts$', '\\.spec\\.ts$', '\\.config\\.(ts|js|mjs|cjs)$', '^dist/'] },
-    includeOnly: { path: '^src/' },
+    doNotFollow: { path: "node_modules" },
+    enhancedResolveOptions: {
+      exportsFields: ["exports"],
+      conditionNames: ["import", "require", "node", "default"],
+    },
+    exclude: {
+      path: [
+        "\\.test\\.ts$",
+        "\\.spec\\.ts$",
+        "\\.config\\.(ts|js|mjs|cjs)$",
+        "^dist/",
+      ],
+    },
+    includeOnly: { path: "^src/" },
   },
 };
 ```
@@ -289,30 +332,35 @@ module.exports = {
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "entry": ["src/composition/main.ts"],
   "project": ["src/**/*.ts", "!src/**/*.test.ts", "!src/**/*.spec.ts"],
-  "ignoreExportsUsedInFile": true
+  "ignoreExportsUsedInFile": true,
 }
 ```
 
 `vitest.config.ts` — coverage thresholds are the gate (Vitest 4 requires `coverage.include`; `coverage.all` was removed):
 
 ```ts
-import { defineConfig } from 'vitest/config';
+import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
-    environment: 'node',
-    include: ['src/**/*.test.ts', 'test/**/*.test.ts'],
+    environment: "node",
+    include: ["src/**/*.test.ts", "test/**/*.test.ts"],
     coverage: {
-      provider: 'v8',
-      reporter: ['text', 'json-summary'],
-      include: ['src/core/**/*.ts', 'src/adapters/**/*.ts'],
+      provider: "v8",
+      reporter: ["text", "json-summary"],
+      include: ["src/core/**/*.ts", "src/adapters/**/*.ts"],
       thresholds: {
         lines: 100,
         functions: 100,
         branches: 100,
         statements: 100,
-        perFile: true,                         // every file, not just aggregate
-        'src/core/**': { branches: 100, functions: 100, lines: 100, statements: 100 }, // the hexagon is fully covered
+        perFile: true, // every file, not just aggregate
+        "src/core/**": {
+          branches: 100,
+          functions: 100,
+          lines: 100,
+          statements: 100,
+        }, // the hexagon is fully covered
       },
     },
   },
@@ -323,16 +371,17 @@ Boot-time env schema (fails the process before the server listens; unit-tested):
 
 ```ts
 // src/composition/config.ts
-import { z } from 'zod';
+import { z } from "zod";
 
 const Env = z.object({
-  NODE_ENV: z.enum(['development', 'test', 'production']),
+  NODE_ENV: z.enum(["development", "test", "production"]),
   PORT: z.coerce.number().int().positive(),
   DATABASE_URL: z.string().url(),
 });
 
 export type Config = z.infer<typeof Env>;
-export const loadConfig = (env: NodeJS.ProcessEnv = process.env): Config => Env.parse(env);
+export const loadConfig = (env: NodeJS.ProcessEnv = process.env): Config =>
+  Env.parse(env);
 ```
 
 `package.json` scripts — the single gate chain:
@@ -342,14 +391,14 @@ export const loadConfig = (env: NodeJS.ProcessEnv = process.env): Config => Env.
   "type": "module",
   "engines": { "node": ">=24.0.0" },
   "scripts": {
-    "verify": "npm run typecheck && npm run lint && npm run arch && npm run deadcode && npm run test && npm run types && npm run package"
-  }
+    "verify": "npm run typecheck && npm run lint && npm run arch && npm run deadcode && npm run test && npm run types && npm run package",
+  },
 }
 ```
 
 ### Mandatory Gate Order
 
-1. `npm ci --ignore-scripts`  *(npm 12 already blocks dependency install scripts; `--ignore-scripts` makes it explicit and works on npm 11)*
+1. `npm ci --ignore-scripts` _(npm 12 already blocks dependency install scripts; `--ignore-scripts` makes it explicit and works on npm 11)_
 2. `npx lockfile-lint --path package-lock.json --type npm --allowed-hosts npm --validate-https`
 3. `osv-scanner scan source -r . --licenses`
 4. `npx tsc --noEmit`
@@ -358,8 +407,8 @@ export const loadConfig = (env: NodeJS.ProcessEnv = process.env): Config => Env.
 7. `npx knip --production`
 8. `npx vitest run --coverage`
 9. `npx tsd`
-10. `npx publint && npx attw --pack .`  *(only when the package is published)*
-11. `npx api-extractor run --local`  *(only when a `.api.md` surface is maintained)*
+10. `npx publint && npx attw --pack .` _(only when the package is published)_
+11. `npx api-extractor run --local` _(only when a `.api.md` surface is maintained)_
 
 > Run in order, stop on the first non-zero exit. Warnings are errors; do not auto-fix in CI.
 > (`eslint` is invoked WITHOUT `--fix`; `--max-warnings=0` makes any warning fatal.)
@@ -394,6 +443,7 @@ Paste the exact command and its pass signal into Verification Evidence; all must
 - Env failure proof: `node -e "import('./dist/composition/config.js').then(m=>m.loadConfig({}))" ; test $? -ne 0` (missing vars must throw, not boot).
 
 <!-- sources -->
+
 - https://typescript-eslint.io/users/configs/
 - https://typescript-eslint.io/getting-started/typed-linting
 - https://typescript-eslint.io/users/dependency-versions/

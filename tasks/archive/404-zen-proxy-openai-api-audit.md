@@ -119,6 +119,7 @@ Clone: `git clone --depth 1 https://github.com/12errh/zen-proxy /tmp/zen-proxy-u
 All sources fetched 2026-11-17 via `blowsh.fetch_web`, `tier:"1"` (HTTP), official domains only. Initial six parallel `search_web` sweeps hit `deadline.hit` at 90s each, so research switched to the canonical Markdown doc URLs discovered in `https://developers.openai.com/llms.txt` and `https://developers.openai.com/api/reference/llms.txt`. This is a tool-degradation note, not a missing-evidence gap: every claim below comes from a fetched official page.
 
 **Sources**
+
 - S1 `https://developers.openai.com/api/reference/resources/chat.md` — "Create chat completion", `post /chat/completions` (primary reference).
 - S2 `https://developers.openai.com/api/reference/chat-completions/overview.md` — endpoint overview and Responses recommendation.
 - S3 `https://developers.openai.com/api/docs/guides/error-codes.md` — shared error-code table (also used in Phase 3).
@@ -126,26 +127,27 @@ All sources fetched 2026-11-17 via `blowsh.fetch_web`, `tier:"1"` (HTTP), offici
 
 **Endpoint contract table**
 
-| Field | Contract | Source |
-|---|---|---|
-| Method/path | `POST /chat/completions` (public `/v1/chat/completions`) | S1, S2 |
-| Auth | `Authorization: Bearer <key>`; 401s keyed to org/project permissions | S3 |
-| `model` | required string | S1 |
-| `messages` | required array, `minItems: 1`; roles `developer`, `system`, `user`, `assistant`, `tool` | S1 |
-| Message content | string or array of parts; supported parts `text`, `image_url` (`detail=auto\|low\|high\|original`), `input_audio` (`wav\|mp3`), `file`; each part may carry `prompt_cache_breakpoint {mode,ttl}` with `ttl` `30m\|12h` | S1 |
-| `developer` vs `system` | with o1 and newer, `developer` replaces `system` | S1 |
-| Tools | function tools with `name`, `description`, `parameters`; parallel-call control via `parallel_tool_calls`; `tool_choice` selects auto/none/required/specific | S1 |
-| Streaming | returns a chat completion object or a stream of chat completion chunk objects when `stream: true`; SSE | S1 |
-| Reasoning | `reasoning_effort` model-dependent: `none`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max`; GPT-6 Astra rejects `none` with HTTP 400; GPT-6.1 Sol rejects `none` and `minimal` and defaults to `medium` | S4 |
-| Function calling limit | Chat Completions does not support function calling with GPT-6 Astra or GPT-6.1 Sol | S4 |
-| Errors | 400 invalid `service_tier`; 401 invalid/incorrect key, org membership, IP not authorized; 403 unsupported region; 429 credit balance exhausted, rate limit, spend/usage limits; 500 server error; 503 overloaded | S3 |
-| Billing 429s | `credit_balance_exhausted`, `organization_spend_limit_exceeded`, `project_spend_limit_exceeded`, `organization_usage_limit_exceeded`; `error.type` may still be `insufficient_quota`; **retrying billing/spend/quota errors will not restore access** | S3 |
+| Field                   | Contract                                                                                                                                                                                                                                              | Source |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| Method/path             | `POST /chat/completions` (public `/v1/chat/completions`)                                                                                                                                                                                              | S1, S2 |
+| Auth                    | `Authorization: Bearer <key>`; 401s keyed to org/project permissions                                                                                                                                                                                  | S3     |
+| `model`                 | required string                                                                                                                                                                                                                                       | S1     |
+| `messages`              | required array, `minItems: 1`; roles `developer`, `system`, `user`, `assistant`, `tool`                                                                                                                                                               | S1     |
+| Message content         | string or array of parts; supported parts `text`, `image_url` (`detail=auto\|low\|high\|original`), `input_audio` (`wav\|mp3`), `file`; each part may carry `prompt_cache_breakpoint {mode,ttl}` with `ttl` `30m\|12h`                                | S1     |
+| `developer` vs `system` | with o1 and newer, `developer` replaces `system`                                                                                                                                                                                                      | S1     |
+| Tools                   | function tools with `name`, `description`, `parameters`; parallel-call control via `parallel_tool_calls`; `tool_choice` selects auto/none/required/specific                                                                                           | S1     |
+| Streaming               | returns a chat completion object or a stream of chat completion chunk objects when `stream: true`; SSE                                                                                                                                                | S1     |
+| Reasoning               | `reasoning_effort` model-dependent: `none`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max`; GPT-6 Astra rejects `none` with HTTP 400; GPT-6.1 Sol rejects `none` and `minimal` and defaults to `medium`                                           | S4     |
+| Function calling limit  | Chat Completions does not support function calling with GPT-6 Astra or GPT-6.1 Sol                                                                                                                                                                    | S4     |
+| Errors                  | 400 invalid `service_tier`; 401 invalid/incorrect key, org membership, IP not authorized; 403 unsupported region; 429 credit balance exhausted, rate limit, spend/usage limits; 500 server error; 503 overloaded                                      | S3     |
+| Billing 429s            | `credit_balance_exhausted`, `organization_spend_limit_exceeded`, `project_spend_limit_exceeded`, `organization_usage_limit_exceeded`; `error.type` may still be `insufficient_quota`; **retrying billing/spend/quota errors will not restore access** | S3     |
 
 Status for new projects: OpenAI recommends Responses and links a migration guide (S2). This matches our Brain Bridge choice to speak Responses on `/go/resp`.
 
 ## Phase 3 Report: Responses API endpoint docs
 
 **Sources**
+
 - S5 `https://developers.openai.com/api/reference/resources/responses/methods/create.md` — "Create a model response", `post /responses`, full parameter and schema reference.
 - S6 `https://developers.openai.com/api/docs/guides/conversation-state.md` — state, reasoning replay, `store:false`.
 - S7 `https://developers.openai.com/api/docs/guides/prompt-caching.md` — breakpoints, minimums, pricing.
@@ -154,21 +156,21 @@ Status for new projects: OpenAI recommends Responses and links a migration guide
 
 **Parameter matrix**
 
-| Parameter | Official contract | Source |
-|---|---|---|
-| `input` | string or array of items; `EasyInputMessage` roles `user`/`assistant`/`system`/`developer`; assistant `phase` is `commentary`\|`final_answer`, and for GPT-5.3-codex and beyond the docs say to **preserve and resend `phase`** because dropping it can degrade performance | S5 |
-| `instructions` | top-level field, inserted into model context as a system/developer message, takes priority over prompt text in `input` | S5, S7 |
-| `store` | stateless mode via `store: false` paired with `include: ["reasoning.encrypted_content"]` for reasoning replay; conversation-state example uses `store=False` and replays `response.output` | S5, S6 |
-| `include` | enum includes `reasoning.encrypted_content` (encrypted reasoning tokens for stateless multi-turn), plus search/code/file/message output extras | S5 |
-| `context_management` | array of `{type:"compaction", compact_threshold}`, `minItems: 1`, `compact_threshold` integer `minimum: 1000` | S5 |
-| `prompt_cache_key` / caching | caching enabled by default; explicit mode uses `prompt_cache_options.mode="explicit"` plus `prompt_cache_breakpoint` on supported content blocks; minimum cacheable prefix 1024 tokens for GPT-5.6+; up to 4 cache writes per request; changing `model`, `tools`, `reasoning.effort`, `context_management` etc. can break the cached prefix; cached reads 0.1× input rate (0.05× on some GPT-6.1 models) | S7 |
-| `reasoning.effort` | nested object; values `none`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max`, model-dependent; GPT-6 Astra rejects `none` with HTTP 400 | S4, S5 |
-| `max_output_tokens` | request-level output cap; reasoning tokens count against it (documented in our prior audit and corroborated by the incomplete/reasoning model); a reasoning-heavy turn can return `status=incomplete` with `incomplete_details.reason=max_output_tokens` and zero visible text | S5, prior memory audit |
-| `truncation` | documented in prior audit: default `disabled` fails with 400 on overflow; `auto` drops oldest items | prior memory audit (task 329) |
-| `stream` | semantic typed events (`response.created`, `response.output_text.delta`, `response.completed`, `error`, plus tool-call and content-part events), not raw token chunks | S8 |
-| `previous_response_id` / `conversation` | `conversation: string` or `{id}` prepends conversation items to `input_items` and stores outputs after completion; WebSocket mode error `previous_response_not_found` tells callers to retry with full input and null id | S5, S3 |
-| Errors | same shared table; billing/spend/quota codes in `error.code` are terminal, `error.type` may still be `insufficient_quota` | S3 |
-| Fatal 4xx remedies | 400 invalid `service_tier` → allowed tier; 401 → correct key/org; 401 IP → authorized IP; 403 region → supported country; 429 → credit/limit/Retry-After; 500 → brief wait; 503 overloaded → honor Retry-After | S3 |
+| Parameter                               | Official contract                                                                                                                                                                                                                                                                                                                                                                                        | Source                        |
+| --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------- |
+| `input`                                 | string or array of items; `EasyInputMessage` roles `user`/`assistant`/`system`/`developer`; assistant `phase` is `commentary`\|`final_answer`, and for GPT-5.3-codex and beyond the docs say to **preserve and resend `phase`** because dropping it can degrade performance                                                                                                                              | S5                            |
+| `instructions`                          | top-level field, inserted into model context as a system/developer message, takes priority over prompt text in `input`                                                                                                                                                                                                                                                                                   | S5, S7                        |
+| `store`                                 | stateless mode via `store: false` paired with `include: ["reasoning.encrypted_content"]` for reasoning replay; conversation-state example uses `store=False` and replays `response.output`                                                                                                                                                                                                               | S5, S6                        |
+| `include`                               | enum includes `reasoning.encrypted_content` (encrypted reasoning tokens for stateless multi-turn), plus search/code/file/message output extras                                                                                                                                                                                                                                                           | S5                            |
+| `context_management`                    | array of `{type:"compaction", compact_threshold}`, `minItems: 1`, `compact_threshold` integer `minimum: 1000`                                                                                                                                                                                                                                                                                            | S5                            |
+| `prompt_cache_key` / caching            | caching enabled by default; explicit mode uses `prompt_cache_options.mode="explicit"` plus `prompt_cache_breakpoint` on supported content blocks; minimum cacheable prefix 1024 tokens for GPT-5.6+; up to 4 cache writes per request; changing `model`, `tools`, `reasoning.effort`, `context_management` etc. can break the cached prefix; cached reads 0.1× input rate (0.05× on some GPT-6.1 models) | S7                            |
+| `reasoning.effort`                      | nested object; values `none`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max`, model-dependent; GPT-6 Astra rejects `none` with HTTP 400                                                                                                                                                                                                                                                              | S4, S5                        |
+| `max_output_tokens`                     | request-level output cap; reasoning tokens count against it (documented in our prior audit and corroborated by the incomplete/reasoning model); a reasoning-heavy turn can return `status=incomplete` with `incomplete_details.reason=max_output_tokens` and zero visible text                                                                                                                           | S5, prior memory audit        |
+| `truncation`                            | documented in prior audit: default `disabled` fails with 400 on overflow; `auto` drops oldest items                                                                                                                                                                                                                                                                                                      | prior memory audit (task 329) |
+| `stream`                                | semantic typed events (`response.created`, `response.output_text.delta`, `response.completed`, `error`, plus tool-call and content-part events), not raw token chunks                                                                                                                                                                                                                                    | S8                            |
+| `previous_response_id` / `conversation` | `conversation: string` or `{id}` prepends conversation items to `input_items` and stores outputs after completion; WebSocket mode error `previous_response_not_found` tells callers to retry with full input and null id                                                                                                                                                                                 | S5, S3                        |
+| Errors                                  | same shared table; billing/spend/quota codes in `error.code` are terminal, `error.type` may still be `insufficient_quota`                                                                                                                                                                                                                                                                                | S3                            |
+| Fatal 4xx remedies                      | 400 invalid `service_tier` → allowed tier; 401 → correct key/org; 401 IP → authorized IP; 403 region → supported country; 429 → credit/limit/Retry-After; 500 → brief wait; 503 overloaded → honor Retry-After                                                                                                                                                                                           | S3                            |
 
 **Responses vs Chat Completions (contrast):** Responses uses `input` + optional top-level `instructions` instead of `messages`; it exposes `store`, `include`, `context_management`, `conversation`, `previous_response_id`, and `reasoning.effort` as first-class controls; assistant messages carry `phase`; streaming is semantic typed events rather than delta chunks; state can be managed statelessly by replaying the full `output` array. Chat Completions remains supported but is not recommended for new projects and cannot do function calling with the newest Astra/Sol models (S2, S4).
 
@@ -197,6 +199,7 @@ Read-only review by two parallel `cognitive-discovery` agents (sessions `ses_e17
 **F9 — Refresher and docs.** `refresh_allowlists.py` reads the four literals, probes catalogues via GET with `ZEN_PROXY_UPSTREAM_KEY`, classifies keep/gone/add-candidate, and on `--apply` rewrites only the four literals atomically (`:76-92,127-142,180-218`). Safety rules: refuse-to-empty (`:107-108`), keep-order (`:98-106`), never-remove-on-transient (`:119-120`), confirm-remove required (`:305-307`), empty-catalogue-as-unknown (`:159-167`), never-auto-add (`:326-337`), idempotent (`:196-197`). **No git operations, no credential writes** (`:31`, stdlib-only imports at `:44-51`). The 30s catalogue probe (`:127`) is separate from the 900s request chain.
 
 **Risks found (to carry into Phase 7, not yet fixes):**
+
 - P4-R1: unknown-route 404 uses stdlib HTML, not the JSON envelope promised by the failure contract (`proxy.py:32-36` vs `:488`).
 - P4-R2: gating is bypassed if the POST body lacks a parseable string `model` (`proxy.py:541-547`).
 - P4-R3: allowlists are hard-coded in source; refresh requires a source edit (`proxy.py:272-355`).
@@ -221,6 +224,7 @@ Read-only review by two parallel `cognitive-discovery` agents. The support-modul
 **F6 — Documented invariants.** `DECISIONS.md:57-62` records ADR-004, the ten-drift Responses audit, all fixes behind per-parameter `BRAIN_SEND_*`/`BRAIN_USE_INSTRUCTIONS` switches defaulting off. `README.md:30-32` makes "default wire bytes never change silently" an explicit invariant. ADR-005/006 strip volatile `status` and drop overlong replay ids without truncating (`DECISIONS.md:64-76`). ADR-007 tunes `BRAIN_OVERALL_DEADLINE_S` and `ZEN_PROXY_UPSTREAM_TIMEOUT` (`:87-92`). ADR-014 adds Chat Completions ingress with Responses-only fields dropped under warning, `incomplete` not treated as failure, and a structured `tool_calls` channel (`:3-19`).
 
 **Provable drift found (support scope):**
+
 - B-D1 — Duplicate ADR number: two different decisions are both headed ADR-012 (`DECISIONS.md:29` and `:118`), while the highest other number is 014 (`:3`). The stage-prompt ADR should be 015. This makes number-based cross-references ambiguous.
 - B-D2 — Session-id grammar mismatch: `preflight.require_session_id` uses `.fullmatch` (`preflight.py:68`) while `loop_guard._hashes_path` uses `.match` (`loop_guard.py:118`) on the same anchored pattern. `$` matches before a trailing newline in Python, so an id ending in `\n` passes the loop guard but fails preflight.
 - B-O1 (observation, not a defect): `session_ledger` does not validate `session_id` and stores the transcript path as a plain string (`session_ledger.py:107`); no traversal occurs in that module, but there is no validation gate at that boundary.
@@ -237,22 +241,22 @@ Read-only review by two parallel `cognitive-discovery` agents. The support-modul
 
 **Audit matrix (doc source → our code → verdict):**
 
-| Doc contract | Source | Our code | Verdict |
-|---|---|---|---|
-| `store:false` stateless mode | S6 | `server.py:2477-2478` behind `BRAIN_SEND_STORE`, test `:72-74` | aligned, default off |
-| `prompt_cache_key` | S7 | `server.py:2481-2482`, diagnostics `:5883-5887` | aligned, default off |
-| Explicit `prompt_cache_breakpoint` blocks with `30m`/`12h` TTL | S7 | absent in `server.py` | not adopted; optional control, no misuse — no fix |
-| `truncation:auto` | S5 | `server.py:2483-2484`, test `:89-91` | aligned, default off |
-| `instructions` top-level | S5, S6 | `server.py:2444-2448,2475-2476`, test `:103-107` | aligned, default off |
-| `include:["reasoning.encrypted_content"]` | S5, S6 | `server.py:2486` region, test `:93-95` | aligned, default off |
-| `context_management.compaction.compact_threshold` minimum **1000** | S5 | validation at `server.py:2296-2300` accepted `> 0` | **drift — fixed** |
-| assistant message `phase` preserved | S5 | `server.py:2456-2459,5945-5976`, tests `:246-259,272-283` | aligned |
-| `reasoning.effort` vocabulary | S4 | `server.py:6102-6109,6111-6140` | aligned |
-| Terminal billing/spend/quota 429 codes | S3 | `server.py:2624-2656,2801-2812` | aligned |
-| Fatal 4xx → structured REPORT with `debug.provider` | S3 | `server.py:4879-4902,5167-5171` | aligned |
-| Semantic streaming events, `incomplete`/`max_output_tokens` | S8 | `server.py:4984-5003` branch order | aligned |
-| `background`, `conversation`, `image.context_compression` | S5 | absent | not adopted; optional controls, no misuse — no fix |
-| Responses-only fields dropped with a warning in chat mode | our own contract `server.py:5218-5221` | `prompt_cache_key` and `context_management` absent from `_CHAT_UNSUPPORTED_FIELDS` (`:5222-5230`) | **drift — fixed** |
+| Doc contract                                                       | Source                                 | Our code                                                                                          | Verdict                                            |
+| ------------------------------------------------------------------ | -------------------------------------- | ------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
+| `store:false` stateless mode                                       | S6                                     | `server.py:2477-2478` behind `BRAIN_SEND_STORE`, test `:72-74`                                    | aligned, default off                               |
+| `prompt_cache_key`                                                 | S7                                     | `server.py:2481-2482`, diagnostics `:5883-5887`                                                   | aligned, default off                               |
+| Explicit `prompt_cache_breakpoint` blocks with `30m`/`12h` TTL     | S7                                     | absent in `server.py`                                                                             | not adopted; optional control, no misuse — no fix  |
+| `truncation:auto`                                                  | S5                                     | `server.py:2483-2484`, test `:89-91`                                                              | aligned, default off                               |
+| `instructions` top-level                                           | S5, S6                                 | `server.py:2444-2448,2475-2476`, test `:103-107`                                                  | aligned, default off                               |
+| `include:["reasoning.encrypted_content"]`                          | S5, S6                                 | `server.py:2486` region, test `:93-95`                                                            | aligned, default off                               |
+| `context_management.compaction.compact_threshold` minimum **1000** | S5                                     | validation at `server.py:2296-2300` accepted `> 0`                                                | **drift — fixed**                                  |
+| assistant message `phase` preserved                                | S5                                     | `server.py:2456-2459,5945-5976`, tests `:246-259,272-283`                                         | aligned                                            |
+| `reasoning.effort` vocabulary                                      | S4                                     | `server.py:6102-6109,6111-6140`                                                                   | aligned                                            |
+| Terminal billing/spend/quota 429 codes                             | S3                                     | `server.py:2624-2656,2801-2812`                                                                   | aligned                                            |
+| Fatal 4xx → structured REPORT with `debug.provider`                | S3                                     | `server.py:4879-4902,5167-5171`                                                                   | aligned                                            |
+| Semantic streaming events, `incomplete`/`max_output_tokens`        | S8                                     | `server.py:4984-5003` branch order                                                                | aligned                                            |
+| `background`, `conversation`, `image.context_compression`          | S5                                     | absent                                                                                            | not adopted; optional controls, no misuse — no fix |
+| Responses-only fields dropped with a warning in chat mode          | our own contract `server.py:5218-5221` | `prompt_cache_key` and `context_management` absent from `_CHAT_UNSUPPORTED_FIELDS` (`:5222-5230`) | **drift — fixed**                                  |
 
 **Fix 1 (B-S1).** Added `prompt_cache_key` and `context_management` to `_CHAT_UNSUPPORTED_FIELDS` in `mcp-brain-bridge/server.py` so chat-completions mode warns instead of silently discarding them. Minimal: two tuple entries plus an explanatory comment.
 
@@ -270,21 +274,21 @@ Read-only review by two parallel `cognitive-discovery` agents. The support-modul
 
 **Parity matrix (Phase 1 finding → our code → verdict):**
 
-| Upstream behavior | Our code | Verdict |
-|---|---|---|
-| Flat OpenAI/Anthropic surface, no `/zen/*` or `/go/*` mounts (`zen-proxy.mjs:4032-4123`) | four literal mounts `ROUTES` (`proxy.py:374-379`) | deliberate divergence; Brain needs stable mount-to-tier mapping — no fix |
-| Endpoint family per model via `modelFormat()` (`:668-675`) | family by forwarded path suffix (`proxy.py:583,688`) | deliberate divergence; no fix |
-| Unknown model silently falls back to default (`:1351-1357`) | hard 404 `ModelNotServedHere` (`proxy.py:541-566`) | ours is stricter, matches ADR-003 — no fix |
-| Passthrough only without `PROXY_KEY`; key mode consumes caller credential (`:1482-1490`) | verbatim Authorization relay, no key held (`proxy.py:626`, `docs/zen-proxy.md:80`) | aligned with the documented "no key held" contract — no fix |
-| Chain fallback + same-model transient retry (`:608-662,785-902`) | no proxy retries; caller owns them (`proxy.py:127-128`) | deliberate; no fix |
-| `TIMEOUT_MS=120000` header wall + chunk-rearmed silence wall (`:346,2351-2405`) | `ZEN_PROXY_UPSTREAM_TIMEOUT=900`, re-armed socket silence wall (`proxy.py:130-131,132`) | aligned in kind, ours tuned for long reasoning; 900<=900<=1200 verified — no fix |
-| Always `stream:true` upstream, local collect (`:1669-1670`) | chunk-by-chunk SSE relay, no buffering (`proxy.py:38,747-771`) | deliberate; ours authenticates with a real Go key, not gate-shaped — no fix |
-| Harness preamble, tool manifest, CLI headers, Bun TLS (F9) | explicitly not adopted (`DECISIONS.md:102-105`) | deliberate, documented — no fix |
-| Session/project identity minting (`:580-598`) | per-request UUID session (`proxy.py:611-623`) | aligned in kind — no fix |
-| In-memory logs, no request ids (`:1293-1329`) | structured journal line + `X-Request-Id`, no credential (`proxy.py:452-471,500`) | ours stronger — no fix |
-| Unmatched path → JSON `not_found` (`:4122`) | stdlib HTML 404, no request id (`proxy.py:488`) | **drift — fixed** |
+| Upstream behavior                                                                                                                   | Our code                                                                                                                                     | Verdict                                                                                                        |
+| ----------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| Flat OpenAI/Anthropic surface, no `/zen/*` or `/go/*` mounts (`zen-proxy.mjs:4032-4123`)                                            | four literal mounts `ROUTES` (`proxy.py:374-379`)                                                                                            | deliberate divergence; Brain needs stable mount-to-tier mapping — no fix                                       |
+| Endpoint family per model via `modelFormat()` (`:668-675`)                                                                          | family by forwarded path suffix (`proxy.py:583,688`)                                                                                         | deliberate divergence; no fix                                                                                  |
+| Unknown model silently falls back to default (`:1351-1357`)                                                                         | hard 404 `ModelNotServedHere` (`proxy.py:541-566`)                                                                                           | ours is stricter, matches ADR-003 — no fix                                                                     |
+| Passthrough only without `PROXY_KEY`; key mode consumes caller credential (`:1482-1490`)                                            | verbatim Authorization relay, no key held (`proxy.py:626`, `docs/zen-proxy.md:80`)                                                           | aligned with the documented "no key held" contract — no fix                                                    |
+| Chain fallback + same-model transient retry (`:608-662,785-902`)                                                                    | no proxy retries; caller owns them (`proxy.py:127-128`)                                                                                      | deliberate; no fix                                                                                             |
+| `TIMEOUT_MS=120000` header wall + chunk-rearmed silence wall (`:346,2351-2405`)                                                     | `ZEN_PROXY_UPSTREAM_TIMEOUT=900`, re-armed socket silence wall (`proxy.py:130-131,132`)                                                      | aligned in kind, ours tuned for long reasoning; 900<=900<=1200 verified — no fix                               |
+| Always `stream:true` upstream, local collect (`:1669-1670`)                                                                         | chunk-by-chunk SSE relay, no buffering (`proxy.py:38,747-771`)                                                                               | deliberate; ours authenticates with a real Go key, not gate-shaped — no fix                                    |
+| Harness preamble, tool manifest, CLI headers, Bun TLS (F9)                                                                          | explicitly not adopted (`DECISIONS.md:102-105`)                                                                                              | deliberate, documented — no fix                                                                                |
+| Session/project identity minting (`:580-598`)                                                                                       | per-request UUID session (`proxy.py:611-623`)                                                                                                | aligned in kind — no fix                                                                                       |
+| In-memory logs, no request ids (`:1293-1329`)                                                                                       | structured journal line + `X-Request-Id`, no credential (`proxy.py:452-471,500`)                                                             | ours stronger — no fix                                                                                         |
+| Unmatched path → JSON `not_found` (`:4122`)                                                                                         | stdlib HTML 404, no request id (`proxy.py:488`)                                                                                              | **drift — fixed**                                                                                              |
 | Catalogue-sync safety: charset filter, refuse-empty, keep-order, never-remove-on-transient (`scripts/sync-models.mjs:37-40,70-115`) | refuse-empty, keep-order, never-remove-on-transient, confirm-remove, atomic rewrite (`refresh_allowlists.py:98-108,119-120,180-218,305-307`) | already adopted in task 400; missing charset filter is harmless because our tool never auto-adds — report only |
-| Sync script's autonomous `git add/commit/push` (`scripts/sync-models.mjs:93-115`) | no git operations (`refresh_allowlists.py:31`) | deliberately NOT adopted — ZAC forbids autonomous git mutations |
+| Sync script's autonomous `git add/commit/push` (`scripts/sync-models.mjs:93-115`)                                                   | no git operations (`refresh_allowlists.py:31`)                                                                                               | deliberately NOT adopted — ZAC forbids autonomous git mutations                                                |
 
 **Fix (P4-R1).** `_send_upstream` in `zen-proxy/proxy.py` now answers an unmatched path with `_send_error(404, "UnknownRoute", ..., uuid.uuid4().hex[:8])` instead of `self.send_error(404, "unknown zen-proxy route")`. This matches the upstream's machine-readable rejection and, more importantly, our own documented failure contract. Mount routing, allowlist gating, Authorization passthrough and timeout ordering are untouched.
 
@@ -329,5 +333,6 @@ Read-only review by two parallel `cognitive-discovery` agents. The support-modul
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `27122e43550b91b30d2e07d2b1dd16fea4a70368`
 <!-- END_GIT_DIFF -->

@@ -62,5 +62,6 @@ Close the four gaps the 0372 fix left open: prove source injection works live (n
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `475cb17a535a01d28ccbdd0ed7ad3d7531afcdf7`
 <!-- END_GIT_DIFF -->

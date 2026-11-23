@@ -47,11 +47,12 @@ You operate inside the Cognitive Lead AI HQ repository (documentation-only: syst
 
 <agentic_reasoning>
 Before patching, output a <reasoning_log> covering:
+
 1. Logical dependencies — which template is source of truth (skill-templates/task-generator/SKILL.md), which are derived (system-prompt.md via assembler, global skill copies via publish/sync), and the audit-agents purge rule insertion point (Scope Confinement / Target Audit Criteria vs Mode 2 Resolution Protocol).
 2. Risk assessment — over-deletion (removing a live section the Manager still wants), archive immutability (tasks/archive/ and tasks/completed/ history must NOT be rewritten), stale generated artifact (system-prompt.md must be reassembled with version bump, not hand-edited).
 3. Abductive reasoning — why residuals survived Task 151 (lite_mode fragment and audit-agents Lite Mode bullets were out of the listed micro-task scope; generated system-prompt.md was not reassembled for that orphan).
 4. Precision and Grounding — cite file:line for every Manager/Admin Decision reference before editing; verify with grep before/after.
-</agentic_reasoning>
+   </agentic_reasoning>
 
 <constraints>
 - You MUST remove every positive ## Manager Decisions / Admin Decision reference from live templates: skill-templates/audit-agents/SKILL.md (both Lite Mode bullets), prompts/fragments/10-lite_mode_protocol.md, and reassemble system-prompt.md (bump <system_version>, CHANGELOG entry) — never hand-edit system-prompt.md alone.
@@ -186,6 +187,7 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 **Scope:** Residual follow-up to Task 151 (Option A removal). Task 151 stripped the main decision-logging chain but left the Lite Mode chain (fragment 10 → generated `system-prompt.md:392` → audit-agents Lite Mode bullets ×2) untouched. This task retargets that chain to `## Execution Log & Reasoning` and hardens the project-agnostic `audit-agents` skill with a forward-looking deprecated-section purge rule.
 
 **Changes (11 files + 1 global sync target):**
+
 - `prompts/fragments/10-lite_mode_protocol.md:17` — `## Manager Decisions` → `## Execution Log & Reasoning` (Step 1).
 - `prompts/fragments/01-system_version.md` — `9.8.0` → `9.9.0` (Step 2).
 - `system-prompt.md` — reassembled via `scripts/prompt-build/assemble_system_prompt.py` (75697 bytes, exit 0); line 392 retargeted (Step 3). Never hand-edited.
@@ -198,6 +200,7 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 **Reasoning notes:** Kept the purge rule project-agnostic (only `AGENTS.md` + `tasks/` generic paths) to avoid violating the HQ-ONLY rule that forbids HQ scaffolding references in the global audit skill. Did not touch `prompts/archive/17-decision_logging_mandate.md`, `tasks/completed/*`, `tasks/archive/*` (immutable history). Residual grep hits that remain (skill lines 38/379/390) are the purge rule's own deprecated-name target lists — required by the spec, not prescriptive references. No `git commit`/`push` executed (ZAC); staging deferred to the atomic QA transition.
 
 **Scope extension log (re-opened from qa → in-progress):**
+
 - `README.md` — SEO header (`# Cognitive Lead AI HQ 🧠⚡` + platform subtitle + FastMCP/ZAC badges alongside existing Version/License/OpenCode/PRs badges); emoji taxonomy on all 8 specified `##` headers (`Manual Mode Workflow` promoted `###`→`##` per spec); purged 3 stale decision-logging references (V9 architecture bullet → Context Restoration Protocols; V9 changelog bullet removed; V6.7 note clause removed); consolidated verbose V5/V6/V7/V8 blocks into a `## 📜 Release Milestones` table (V9/V9.1 sections preserved in place). Verified `README_CLEAN`.
 - `user-prompts/founder-coaching-chat.md` — removed 3 retired Task 151 guard banners (lines 84/120/145), reframed `<intent_fidelity_audit>` around direct intent-vs-delivery audit (sole source of truth unchanged); elevated role with Campbell/Grove/Mochary executive-coach framing + new `<executive_coaching_frameworks>` block (Bottleneck Diagnosis, Energy & Leverage Audit, Socratic Decision Challenges); wrapped payload in quad-backtick markdown fence (inner triple fences nest safely). Verified `FOUNDER_CLEAN`, fence balanced.
 - `user-prompts/daily-english-coach-chat.md` — elevated role to high-impact Conversational Fluency Partner (high-stakes settings, natural phrasing, phonetic scaffolding, active recall); quad fence applied.
@@ -207,5 +210,6 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `51b0da4d5b1b7c73250e9b14591e76f21e2f873a`
 <!-- END_GIT_DIFF -->

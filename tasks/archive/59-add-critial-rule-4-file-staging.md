@@ -31,11 +31,13 @@ Add CRITICAL RULE 4 to the `<bash_phase>` of the `<opencode_implementation_task_
 **Fix:** Added CRITICAL RULE 4 that explicitly instructs the Orchestrator (the AI Studio persona generating the task block) to include `git mv tasks/backlog/XX-task.md tasks/in-progress/XX-task.md` as the first command in the bash phase whenever the task resides in backlog. This closes the gap between "OpenCode must not guess git commands" and "the Orchestrator must not forget to specify them."
 
 **Files modified:**
+
 1. `system-prompt.md` — Added CRITICAL RULE 4 after CRITICAL RULE 3; bumped version to 6.8.0
 2. `CHANGELOG.md` — Added 6.8.0 entry
 
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `cdf1401275e789480e42b97391e894d5ab5ca575`
 <!-- END_GIT_DIFF -->

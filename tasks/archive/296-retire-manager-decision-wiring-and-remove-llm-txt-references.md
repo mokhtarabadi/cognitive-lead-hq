@@ -17,14 +17,16 @@ Direct Manager order: "Review the entire project and make sure you've found ever
 ## Scope
 
 In scope:
+
 - prompts/fragments/07-agent_skills_registry.md, agents/cognitive-executor.md, system-prompt.md rebuild, opencode.json permissions
 - README.md, docs/setup.md, docs/brain-bridge.md, docs/manager-decisions.md
 - skill-templates/manager-decision/, skill-templates/decision-migration/, .opencode/skills/ manager copies
 - mcp-decision-server/ archive, tests/test_decision_server.py and related asserts, .opencode/decisions/ scaffolding
-- .opencode/memory/manager-decisions/*, manager/*, index.md entries, quirks/full_output_verification_rule.md mention
+- .opencode/memory/manager-decisions/_, manager/_, index.md entries, quirks/full_output_verification_rule.md mention
 - All live llm.txt mentions in README, docs/compaction.md, docs/openchamber.md, docs/telegram-setup.md, services/mcp-telegram.service, CHANGELOG references left intact as history, LLM.txt file disposition
 
 Out of scope:
+
 - External personal repo /home/mohammad/Develop/Projects/manager-decisions is KEPT as-is
 - docs/history/* and tasks/archive/* history is never rewritten
 - No git add/commit/push by Hands (ZAC holds)
@@ -94,10 +96,11 @@ Out of scope:
 - Brain QA round 3 verdict 2026-10-05: QA_PASSED. Scope confirmed safe and limited to decision wiring. S1 LLM kept, S2 README and setup docs intact, S3 server purged, S4 no unrelated behavior change. Tests 541 passed, lint pass, index 21 entries zero decision namespaces.
 - Code Reviewer verdict 2026-10-05: APPROVED to PO_REVIEW_PENDING. Technically approved with no functional issues. I1 capability.py and I2 session_ledger.py style reflows accepted as is. Awaiting Manager explicit closure words.
 - Closed: 2026-10-05 Approved for closure by Manager.
-- Grep evidence: live-source mgr grep (excl .git/archive/.venv/__pycache__/context-reports/docs-history/tasks/CHANGELOG/telegram-sync/.pytest_cache/external) returns exit 1 with zero hits. llm live grep (same exclusions plus LLM.txt self) returns zero hits. index grep for manager-decision returns exit 1.
+- Grep evidence: live-source mgr grep (excl .git/archive/.venv/**pycache**/context-reports/docs-history/tasks/CHANGELOG/telegram-sync/.pytest_cache/external) returns exit 1 with zero hits. llm live grep (same exclusions plus LLM.txt self) returns zero hits. index grep for manager-decision returns exit 1.
 
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `013ff1424c2796ccb4588c13682bbc571ef3de5a`
 <!-- END_GIT_DIFF -->

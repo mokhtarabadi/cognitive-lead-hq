@@ -75,6 +75,7 @@ Manager order (verbatim, translated from Persian): "Brain output always gets cut
 **Fix shape:** F1 recovery = one bounded server-side re-issue with lower effort (frees visible share) on partial truncation; terminal hint if it also truncates (no caller loop). Plus config recommendation: drop implement-turn effort from `xhigh` (proposal in implementation log).
 
 **Implementation (2026-10-03, `mcp-brain-bridge/server.py`):**
+
 - New machine token `TRUNCATION_UNRECOVERABLE` + `_truncation_exhausted_hint` (terminal: caller must NOT retry as-is).
 - New `_step_down_effort` (`max→xhigh→high→medium→low`, floor at `low`, unknown→`medium`).
 - `brain_turn` transport wrapped in a max-2-pass loop: pass 0 partial truncation (RAW non-empty text + incomplete/max_output_tokens + no usable XML, reasoning key present, step-down changes effort) discards the fragment and re-issues once with lower effort; else break. Fragment never reaches the transcript. `retry_count` now sums both passes. Task 259 empty-path untouched (eligibility judged on raw text before triage rewrite).
@@ -95,5 +96,6 @@ Manager order (verbatim, translated from Persian): "Brain output always gets cut
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `8438cca6b8b56030bd5f45172f08bf4493543eab`
 <!-- END_GIT_DIFF -->

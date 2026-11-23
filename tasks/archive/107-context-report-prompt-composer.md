@@ -57,7 +57,7 @@ Return the complete updated `tools/prompt-composer/index.html` file with the new
 
 ## AI Analysis & Opinion
 
-The Prompt Composer already bridges the Brain↔Hands workflow: Task Discovery and Collect Context presets tell the Hands to *gather* context reports, and the Project Tree section lets the user pass a tree inline. The missing link is the **return leg**: once the Hands produces `context-reports/context_report_*.md`, the Manager has no structured slot to feed that report to the Orchestrator — they must inline it into the Manager Message manually.
+The Prompt Composer already bridges the Brain↔Hands workflow: Task Discovery and Collect Context presets tell the Hands to _gather_ context reports, and the Project Tree section lets the user pass a tree inline. The missing link is the **return leg**: once the Hands produces `context-reports/context_report_*.md`, the Manager has no structured slot to feed that report to the Orchestrator — they must inline it into the Manager Message manually.
 
 1. **Placement:** A "Context Report" section between Project Tree and Task File mirrors the data flow (tree → report → task) and keeps the numbering intuitive (5. Context Report, 6. Task File, 7. Output, or renumber as the implementer sees fit).
 2. **Conditional output:** Reusing the exact Project Tree pattern — emit `# Context Report` only when non-empty — keeps the generated Markdown clean for users who don't use reports.
@@ -133,5 +133,6 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `a77bf883fa68420ecc8301edb70e5b50e85107b1`
 <!-- END_GIT_DIFF -->

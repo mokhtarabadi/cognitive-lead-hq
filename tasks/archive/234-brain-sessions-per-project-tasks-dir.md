@@ -60,8 +60,22 @@ PLAN APPROVED (Architect single-seat planning turn; Designer skipped — no UI t
 Implementation done in mcp-brain-bridge/server.py + loop_guard.py (per-project resolver, threaded project_root, legacy read-through with stderr note). 4 regression tests T1-T4 added (bridge suite 137 passed; T3 needed a test-side fix — legacy root is HOME-based, planted via fake HOME). Migrated HQ folders 230-233 (10/14/9/11 transcript lines + 233 fed_context.md) into tasks/.sessions/ — all sha256 hashes match globals, manifest at /tmp/migrate-234-manifest.json, legacy copies kept as fallback. CHANGELOG Unreleased entry appended (restored a mistakenly truncated 233 line first — verified exact).
 
 HOTFIX (QA_REJECTED verdict, same file): S1 CHANGELOG 234 entry de-duplicated (trailing 233 fragment removed, kept 4-test sentence + 354 count). S2 sibling import tries package name first, then plain, with loud stderr note when both miss. S3 no-global-write enforced: new _write_sessions_root (explicit override honored; legacy-fallback writes rerouted to cwd/tasks/.sessions with stderr warn); append_turn + save_fed_context use _write_transcript_path/_write_fed_context_path; legacy read fallbacks unchanged. S4 loop_guard _hashes_path/record_attempt gain project_root (scoped via project_sessions_root) + legacy hash read fallback with stderr note; server has no guard call sites (verified by grep). S5 brain_turn logs resolved sessions root to stderr once per turn. S6 manifest verified (5 files, folders 230/10, 231/14, 232/9, 233/11 lines + fed_context.md present); summary below.
+
 ```json
-{"date": "2026-09-15", "project_root": "tasks/.sessions", "task_ids": ["230", "231", "232", "233"], "files": 5, "sha256": {"230/transcript.jsonl": "31945f6d…c2920d21", "231/transcript.jsonl": "4b494fdb…1486de539", "232/transcript.jsonl": "4d55feb6…a11d9f5e82", "233/transcript.jsonl": "e274d8be…dba765e461", "233/fed_context.md": "0db0e433…9df33710bc"}, "verified": "all per-project copies byte-identical to global originals"}
+{
+  "date": "2026-09-15",
+  "project_root": "tasks/.sessions",
+  "task_ids": ["230", "231", "232", "233"],
+  "files": 5,
+  "sha256": {
+    "230/transcript.jsonl": "31945f6d…c2920d21",
+    "231/transcript.jsonl": "4b494fdb…1486de539",
+    "232/transcript.jsonl": "4d55feb6…a11d9f5e82",
+    "233/transcript.jsonl": "e274d8be…dba765e461",
+    "233/fed_context.md": "0db0e433…9df33710bc"
+  },
+  "verified": "all per-project copies byte-identical to global originals"
+}
 ```
 
 HOTFIX verification: py_compile clean (server, loop_guard, tests); T3 reworked to plant the legacy fixture by hand (append_turn now refuses global writes); T5-T7 added (no-global-write with stderr proof, loop-guard isolation, sibling-missing fallback). Bridge+guard suites: 148 passed. Full suite: 357 passed, exit 0. CHANGELOG 234 entry fixed + hotfix sentence appended. Micro-tasks S1-S8 all done.
@@ -75,5 +89,6 @@ Completeness audit (Manager asked, Brain judged, Hands proved A1-A4): A1 manifes
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `8fa650da311279159a14d888be0cc78eb73b567b`
 <!-- END_GIT_DIFF -->

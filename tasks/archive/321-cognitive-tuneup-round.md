@@ -95,6 +95,7 @@ the Compaction section.
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `bfbbe476f642aadc374463b667fb9791470de70a`
 <!-- END_GIT_DIFF -->
 

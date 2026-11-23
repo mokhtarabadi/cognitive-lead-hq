@@ -17,7 +17,7 @@ Take the Planner MCP server from repo-local code to a live part of the platform:
 
 - The server itself shipped previously; this task is deployment, registration, and agent wiring only. No changes to the planning tool surface.
 - Provisioning must stay reproducible: every deployment step taken by hand here belongs in `LLM.txt` so a fresh machine lands in the same state.
-- The executor section must describe *when* to call each planner tool, not restate its implementation.
+- The executor section must describe _when_ to call each planner tool, not restate its implementation.
 - `Claim next` is the circuit breaker: it is what stops unattended work from piling up behind an unresolved QA queue.
 
 ## Local TODOs
@@ -85,7 +85,7 @@ executor learned when to call it.
   (`type: remote`, `http://127.0.0.1:8108/mcp`, timeout 15000/30000).
   Config was backed up first to `opencode.json.bak-20261024-0629-planner`;
   the file still parses and all six pre-existing entries are untouched.
-- **Executor**: new *Planner MCP and Daily Pacing Protocol* section under
+- **Executor**: new _Planner MCP and Daily Pacing Protocol_ section under
   Execution Discipline, next to the circuit breakers, because it is the same
   concern (workload control). It binds start-of-day, task-claim, end-of-day,
   and status questions to `sprint_daily_agenda`, `claim_next`,
@@ -150,5 +150,6 @@ executor learned when to call it.
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `c665c9deab786210fa5b7a300464cbb769d31b69`
 <!-- END_GIT_DIFF -->

@@ -1,8 +1,8 @@
 ---
-created_at: '2026-09-14T19:20:54.893748+00:00'
+created_at: "2026-09-14T19:20:54.893748+00:00"
 status: active
 tags: []
-updated_at: '2026-11-13T00:00:00.000000+00:00'
+updated_at: "2026-11-13T00:00:00.000000+00:00"
 ---
 
 Global install **syncs** run WITHOUT a task file: Manager order 2026-09-14 — execute `workflows/global-install-upgrade` directly on the machine, then tell the Manager to restart OpenCode so the new server code/skills load. Task-file tracking adds no value for a machine-local copy of unchanged repo content.

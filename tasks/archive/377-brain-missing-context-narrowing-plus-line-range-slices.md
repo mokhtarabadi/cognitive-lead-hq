@@ -36,11 +36,13 @@ Unified execution of 2 related small tasks as a single META task to eliminate se
 **Bundle Decision (2026-08-21):** Manager requested fully automatic bundling with archive (not purge). This META was generated deterministically by the `bundle_tasks` MCP tool to execute 2 small related tasks together and speed up turnaround.
 
 **Traceability:**
+
 - Supersedes [375, 376] — see per-source verbatim blocks below
 - Archive: each source moved via `git mv` to `tasks/archive/` with `**Superseded-By:** 377-brain-missing-context-narrowing-plus-line-range-slices` header + superseded footer
 - Rollback: `git mv tasks/archive/<id>-*.md tasks/backlog/` + delete META file
 
 **Guardrails Applied:**
+
 - Cap 6 per bundle — this bundle has 2 (✅ within cap)
 - Verbatim preservation — every source Goal/AC/TODO/Risk copied verbatim below (SHA comparison available in bundler dry-run)
 - Diff-size check — combined 646 LOC (⚠️ exceeds 400 — consider split)
@@ -77,7 +79,7 @@ Stop the Brain from stalling on files it already has. When a turn delivers trunc
 
 #### Risk & Rollback (verbatim)
 
-- **Risk:** a stricter contract makes the model guess instead of asking. Mitigation: the rule only narrows *re-requests*; genuinely absent files are still listed the same way.
+- **Risk:** a stricter contract makes the model guess instead of asking. Mitigation: the rule only narrows _re-requests_; genuinely absent files are still listed the same way.
 - **Rollback:** revert the fragment hunk + rebuild system-prompt.
 
 #### Scope (verbatim)
@@ -95,13 +97,13 @@ Stop the Brain from stalling on files it already has. When a turn delivers trunc
 
 #### Verification Evidence (verbatim)
 
-| Gate | Result |
-|------|--------|
-| Incident ledger entry | `tasks/.sessions/context_ledger.jsonl`, task_id `1039`: `paths: [{path: "context-reports/context_report_20261105_221157_4c92bf65.md", status: "truncated", chars: 60190}]`, `util_pct: 168` |
-| Report head proves AGENTS.md fully inside the injected slice | first file in report, ~7.5 KB < 60,190 chars |
-| `attachment_chars_remaining: 0` | hardcoded constant in the allocator (`server.py`, always 0) — NOT exhaustion evidence |
-| Repro of the model failure | 3 consecutive turns under task 1039 listed `AGENTS.md` + complete `aiService.js`/`README.md`/`DECISIONS.md` despite the above |
-| Fix verification | pending |
+| Gate                                                         | Result                                                                                                                                                                                      |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Incident ledger entry                                        | `tasks/.sessions/context_ledger.jsonl`, task_id `1039`: `paths: [{path: "context-reports/context_report_20261105_221157_4c92bf65.md", status: "truncated", chars: 60190}]`, `util_pct: 168` |
+| Report head proves AGENTS.md fully inside the injected slice | first file in report, ~7.5 KB < 60,190 chars                                                                                                                                                |
+| `attachment_chars_remaining: 0`                              | hardcoded constant in the allocator (`server.py`, always 0) — NOT exhaustion evidence                                                                                                       |
+| Repro of the model failure                                   | 3 consecutive turns under task 1039 listed `AGENTS.md` + complete `aiService.js`/`README.md`/`DECISIONS.md` despite the above                                                               |
+| Fix verification                                             | pending                                                                                                                                                                                     |
 
 ---
 
@@ -152,16 +154,15 @@ Let `brain_turn(context_paths=[...])` accept a line-range suffix — `path#Lstar
 
 #### Verification Evidence (verbatim)
 
-| Gate | Result |
-|------|--------|
-| Web research (blowsh deep loop) | done — Desktop Commander offset/length, large-file-mcp chunk/navigate/search, ctoth tree-sitter extractor, mcp-file-lens; suffix convention chosen, libraries rejected with reasons |
-| Brainstorm | done — A: suffix (chosen); B: tree-sitter (rejected: native dep); C: external MCP (rejected: single-tool invariant) |
-| Unit + regression tests | pending |
-| `test_prompt_sync.py` + `test_brain_bridge.py` | pending |
-| Manager plan approval | pending |
+| Gate                                           | Result                                                                                                                                                                              |
+| ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Web research (blowsh deep loop)                | done — Desktop Commander offset/length, large-file-mcp chunk/navigate/search, ctoth tree-sitter extractor, mcp-file-lens; suffix convention chosen, libraries rejected with reasons |
+| Brainstorm                                     | done — A: suffix (chosen); B: tree-sitter (rejected: native dep); C: external MCP (rejected: single-tool invariant)                                                                 |
+| Unit + regression tests                        | pending                                                                                                                                                                             |
+| `test_prompt_sync.py` + `test_brain_bridge.py` | pending                                                                                                                                                                             |
+| Manager plan approval                          | pending                                                                                                                                                                             |
 
 ---
-
 
 ## Bundled Checklist (All-or-Nothing)
 
@@ -273,5 +274,6 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `02ce1d03b77f1c4411fc3777a44632f262316ce0`
 <!-- END_GIT_DIFF -->

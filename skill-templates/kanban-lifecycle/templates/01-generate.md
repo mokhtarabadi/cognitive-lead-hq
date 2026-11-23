@@ -112,14 +112,14 @@ If the output is non-empty, HALT and report duplicate task IDs. Do NOT overwrite
    - [ ] [Criterion 1 — what must be true for this task to be considered done]
    - [ ] [Criterion 2]
 
-    ## Verification Evidence
+   ## Verification Evidence
 
-    - **Test command:** rtk test [exact command]
-    - **Expected result:** [what success looks like]
-    - **Actual result:** _(The Hands fill this during execution)_
-    - **Exit code:** _(The Hands fill this during execution)_
+   - **Test command:** rtk test [exact command]
+   - **Expected result:** [what success looks like]
+   - **Actual result:** _(The Hands fill this during execution)_
+   - **Exit code:** _(The Hands fill this during execution)_
 
-    > Verification runner rule: `[exact command]` is the complete underlying test command. The first verification run MUST use the `rtk test` prefix; record the exact prefixed command above. A raw rerun is allowed only after a failed RTK run for detailed diagnostics.
+   > Verification runner rule: `[exact command]` is the complete underlying test command. The first verification run MUST use the `rtk test` prefix; record the exact prefixed command above. A raw rerun is allowed only after a failed RTK run for detailed diagnostics.
 
    ## Definition of Done
 
@@ -300,4 +300,3 @@ git log --oneline --follow -- tasks/archive/12-*.md | head
 ```
 
 ---
-

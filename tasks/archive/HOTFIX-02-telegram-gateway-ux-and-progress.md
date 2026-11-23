@@ -98,15 +98,16 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 ```diff
 diff --git a/CHANGELOG.md b/CHANGELOG.md
 index f098984..dd9ce15 100644
 --- a/CHANGELOG.md
 +++ b/CHANGELOG.md
 @@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
- 
+
  ### Added
- 
+
 +- **Telegram Gateway UX & Progress (Task HOTFIX-02)** — upgraded the approval gateway and boot intake for long-plan readability, real-time status, and anti-flood boot scans. `ApprovalGateway.request_approval` now sends plan/blueprint content longer than 3000 chars as a Markdown document attachment (`/tmp/plan_task_{task_id}.md` via `bot.send_document`) with a short summary caption plus the same Approve/Reject inline buttons, keeping the inline-message path for short content (`loop-engine/gateway.py`); added `send_progress(task_id, message)` — a non-raising helper for real-time status notifications (`⏳ Task #N: ...`); added a `/status` text command replying with a formatted summary of `state.get_active_tasks()` and `state.get_pending_trigger_tasks()`; added `send_boot_scan_summary(tasks, top_n=4)` — ONE consolidated trigger message listing every pending backlog task with inline Start buttons for the top tasks, replacing the per-task card fan-out in `LoopEngineDaemon.boot_scan()` (deduped merge of fresh `scan_existing()` files and `PENDING_TRIGGER` DB records, restart-survival preserved; `send_task_trigger_card` retained for live runtime detections); `LLMRouter.route_plan` strengthened with an architect `<deliverable>` system block and tightened user prompt requiring a direct, file-level implementation blueprint — no meta-requests for discovery, no questions back to the caller, no placeholders (`loop-engine/router.py`); test contract updated: `test_polyglot_smoke.py::test_smoke_boot_scan_registers_pending_trigger` now asserts exactly ONE consolidated summary and zero per-task cards, and `AutoApproveGateway` records `trigger_summaries`. Verified **247 passed, 0 failed** via `uv run --project loop-engine --with pytest pytest loop-engine/ -q` (baseline 247).
  - **Deep Research 2026 Flash & Reasoning Models (Task RD-02)** — R&D research report `context-reports/openrouter-latest-2026-models.md` compiled from the re-fetched live `https://openrouter.ai/api/v1/models` catalog (395 models, 2026-08-31): verified exact IDs for Google `gemini-3.7-flash` ($0.75/$3.75, mandatory reasoning w/ `reasoning_effort` low/med/high, coding 76.1), DeepSeek V4 family (`deepseek-v4-flash-0731` $0.065/$0.18 at 1.31M ctx, `v4-pro-0813` $0.66/$1.98), Qwen `qwen3.7-flash` ($0.03/$0.13, cheapest usable model), `moonshotai/kimi-k3` ($3/$15, coding 76.2), `z-ai/glm-5.3-flash` ($0.075/$0.25, best II/$ — coding 71.5). Truthfully reported 4 requested-but-missing IDs with replacements: `google/gemini-3.7-flash:thinking` and `moonshotai/kimi-k3-thinking` do not exist (reasoning is the `reasoning`/`reasoning_effort` request parameter, confirmed via `supported_parameters`), `google/gemini-3.7-pro` not yet on OpenRouter (use `gemini-3.1-pro-preview`/`~google/gemini-pro-latest`), `qwen/qwq-32b` absent (use `qwen3-max-thinking`). Delivered ready-to-copy `categories` JSONC for `loop-engine.jsonc` (quick → v4-flash-0731/qwen3.7-flash/gemini-3.1-flash-lite; deep → v4-pro-0813/claude-sonnet-5/glm-5.3; visual → gemini-3.7-flash/glm-5.3-flash/qwen3.7-flash; unspecified → v4-flash-0731/qwen3.7-flash). Re-confirmed config drift: `gemini/` and `kimi/` vendor prefixes in `loop-engine.jsonc` must be `google/`/`moonshotai/`. No application code changed — research artifact only.
  - **OpenRouter Model Catalog & Pricing 2026 (Task RD-01)** — R&D research report `context-reports/openrouter-models-2026.md` compiled from the live `https://openrouter.ai/api/v1/models` catalog (395 models, fetched 2026-08-31): exact OpenRouter IDs in the corrected `vendor/model` format (flagged that `openrouter/google/...` is invalid; `openrouter/` prefix applies only to the `openrouter/auto` router alias), per-1M-token prompt/completion pricing and context windows for Quick/Deep/Visual tier candidates, curated tier tables with `artificial_analysis` intelligence/coding indices, and 3 ready-to-copy `loop-engine.jsonc` `categories` blocks (Ultra-Budget: DeepSeek-first; Balanced: Google-first; Frontier: Claude/OpenAI-first). Documented config drift in `loop-engine/loop-engine.jsonc` (invalid `gemini/` and `kimi/` vendor prefixes → must be `google/` and `moonshotai/`; `openai/gpt-5.6-sol` and `anthropic/claude-opus-5` verified present in catalog). No application code changed — research artifact only.
@@ -116,7 +117,7 @@ index 05f783b..931ad0e 100644
 --- a/loop-engine/daemon.py
 +++ b/loop-engine/daemon.py
 @@ -448,8 +448,9 @@ class LoopEngineDaemon:
- 
+
          If auto_start_on_boot=True: register as BACKLOG and auto-process.
          If auto_start_on_boot=False: register as PENDING_TRIGGER and send
 -        trigger cards for BOTH newly detected backlog files AND any tasks
@@ -185,24 +186,24 @@ index 05f783b..931ad0e 100644
 +            if summary_tasks:
 +                await self.gateway.send_boot_scan_summary(summary_tasks)
              return existing or pending_in_db
- 
- 
+
+
 diff --git a/loop-engine/gateway.py b/loop-engine/gateway.py
 index 0e77258..f9d25d7 100644
 --- a/loop-engine/gateway.py
 +++ b/loop-engine/gateway.py
 @@ -12,6 +12,7 @@ Extended with Task Entry Trigger Gate:
- 
+
  import asyncio
  import os
 +from pathlib import Path
  from typing import Optional
- 
+
  from models import LoopEngineConfig
 @@ -99,19 +100,42 @@ class ApprovalGateway:
                  ]
              ])
- 
+
 -            msg = (
 -                f"{stage} — Task #{task_id}\n\n"
 -                f"{content[:1500]}\n\n"
@@ -252,13 +253,13 @@ index 0e77258..f9d25d7 100644
 +                    text=msg,
 +                    reply_markup=keyboard,
 +                )
- 
+
          except (ImportError, ValueError) as e:
              print(f"[gateway] Telegram unavailable: {e}")
 @@ -211,8 +235,70 @@ class ApprovalGateway:
              print(f"[gateway] Trigger card error: {e}")
              return False
- 
+
 +    async def send_progress(self, task_id: int, message: str) -> bool:
 +        """Send a brief real-time status update for a task to the Telegram chat.
 +
@@ -326,7 +327,7 @@ index 0e77258..f9d25d7 100644
 +        """Parse /run, /start, /tasks, /backlog, /status text commands."""
          text = message.text.strip()
          chat_id = message.chat.id
- 
+
 @@ -260,3 +346,29 @@ class ApprovalGateway:
              await self._bot.send_message(
                  chat_id=chat_id,
@@ -369,7 +370,7 @@ index d6244c7..ad416d3 100644
 -  "default_provider": "gemini/gemini-2.5-flash",
 +  // مدل پیش‌فرض: DeepSeek V4 Flash (سریع، ارزان و قدرتمند)
 +  "default_provider": "deepseek/deepseek-v4-flash-0731",
- 
+
 +  // روتینگ مدل‌های نسل جدید ۲۰۲۶ بر اساس دسته‌بندی
    "categories": {
      "quick": {
@@ -413,7 +414,7 @@ index d6244c7..ad416d3 100644
 +      "description": "Default fallback tier"
      }
    },
- 
+
 +  // محدودیت هم‌زمانی درخواست‌ها
    "provider_concurrency": {
 -    "anthropic": 3,
@@ -438,7 +439,7 @@ index d6244c7..ad416d3 100644
 +    "openrouter": 10,
 +    "opencode": 10
    },
- 
+
 +  // تنظیمات ربات تلگرام و Chat ID شما
    "approval": {
      "bot_token_env": "TELEGRAM_BOT_TOKEN",
@@ -446,11 +447,11 @@ index d6244c7..ad416d3 100644
 +    "chat_id": 1247026399,
      "timeout_seconds": 3600
    },
- 
+
 +  "max_parallel_tasks": 1,
    "max_qa_retries": 3,
    "evidence_dir": "loop-engine/evidence",
- 
+
 -  // --- Task Entry Trigger Gate ---
 -  // Controls how tasks enter the execution loop.
 -  // "telegram_button" = admin taps [🚀 Start Execution] in Telegram (default)
@@ -462,7 +463,7 @@ index d6244c7..ad416d3 100644
 -  // If true, existing backlog tasks run immediately on daemon boot.
 -  // If false (default), they are registered as PENDING_TRIGGER and await admin action.
    "auto_start_on_boot": false,
- 
+
    "system_prompt_path": "system-prompt.md",
    "tasks_dir": "tasks",
    "agmd_path": "AGENTS.md",
@@ -522,29 +523,29 @@ index 98c9f80..cc8125b 100644
          self.closure_approvals = 0
          self.trigger_cards = []
 +        self.trigger_summaries = []
- 
+
      async def request_approval(self, task_id, stage, content):
          if stage == "Plan Approval":
 @@ -486,6 +487,11 @@ class AutoApproveGateway(ApprovalGateway):
          self.trigger_cards.append((task_id, title, file_path))
          return True
- 
+
 +    async def send_boot_scan_summary(self, tasks, top_n=4):
 +        self.trigger_summaries.append(
 +            (len(tasks), [t["task_id"] for t in tasks]))
 +        return True
 +
- 
+
  # ---------------------------------------------------------------------------
  # Happy-path E2E smoke tests
 @@ -808,12 +814,13 @@ def test_smoke_qa_failure_retries_with_feedback(tmp_path):
- 
- 
+
+
  def test_smoke_boot_scan_registers_pending_trigger(tmp_path):
 -    """Daemon boot_scan registers backlog tasks as PENDING_TRIGGER + sends trigger cards.
 +    """Daemon boot_scan registers backlog tasks as PENDING_TRIGGER + sends ONE
 +    consolidated trigger summary (HOTFIX-02 anti-flood: no per-task cards).
- 
+
 -    daemon.boot_scan constructs KanbanWatcher without an explicit tasks_dir (it defaults
 -    to CWD-relative "tasks/backlog"). For hermeticity we patch the class with a factory
 -    that forwards config.tasks_dir, so boot_scan scans the temp workspace and never
@@ -571,4 +572,5 @@ index 98c9f80..cc8125b 100644
      finally:
          ws.close()
 ```
+
 <!-- END_GIT_DIFF -->

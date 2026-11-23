@@ -24,11 +24,13 @@ Unified execution of 5 related small tasks as a single META task to eliminate se
 **Bundle Decision (2026-08-21):** Manager requested fully automatic bundling with archive (not purge). This META was generated deterministically by the `bundle_tasks` MCP tool to execute 5 small related tasks together and speed up turnaround.
 
 **Traceability:**
+
 - Supersedes [308, 309, 310, 311, 312] — see per-source verbatim blocks below
 - Archive: each source moved via `git mv` to `tasks/archive/` with `**Superseded-By:** 313-unified-context-graph` header + superseded footer
 - Rollback: `git mv tasks/archive/<id>-*.md tasks/backlog/` + delete META file
 
 **Guardrails Applied:**
+
 - Cap 6 per bundle — this bundle has 5 (✅ within cap)
 - Verbatim preservation — every source Goal/AC/TODO/Risk copied verbatim below (SHA comparison available in bundler dry-run)
 - Diff-size check — combined 17151 LOC (⚠️ exceeds 400 — consider split)
@@ -248,7 +250,6 @@ Manager re-read order 2026-10-09 (Persian): re-check Graphify source for learnin
 
 ---
 
-
 ## Bundled Checklist (All-or-Nothing)
 
 > **QA Gate (all-or-nothing):** Every line below maps to one source acceptance criterion. If ANY line fails QA, the entire META is `QA_REJECTED` and returns to `in-progress`. Do not partially close.
@@ -403,5 +404,6 @@ _(The Hands: Manually log your technical changes, file edits, and architectural 
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `3d5db016e31bc7660abff99de6a27d70cb316213`
 <!-- END_GIT_DIFF -->

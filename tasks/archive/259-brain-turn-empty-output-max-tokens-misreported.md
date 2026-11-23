@@ -149,5 +149,6 @@ Replayed ruling basis: `Replayed from manager/full_automatic_mode (2026-09-17): 
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `c7d6cb5c683989ed15015a0bd1b86fb542d9a225`
 <!-- END_GIT_DIFF -->

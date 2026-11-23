@@ -27,75 +27,75 @@
 
 ## Files Modified
 
-| File | Change |
-| ---- | ------ |
-| mcp-brain-bridge/server.py | per-project session resolver, no-global-write guards, lean-retry state note, empty-output/provider diagnostics, routing + prompt-cache split, shared attachment budget/parts/resume, marker-safe diff extraction, HTTPS guard + read timeout, preflight/capability/ledger wiring |
-| mcp-brain-bridge/preflight.py | new: mandatory request preflight (project_root, task/session id, Kanban path, stage) |
-| mcp-brain-bridge/capability.py | new: three-status capability manifest, required-tool blocking, `question` availability |
-| mcp-brain-bridge/transport_learning.py | new: unsupported-parameter classifier, one corrected retry, saga-scoped memory, escalation |
-| mcp-brain-bridge/session_ledger.py | new: session start fields, ordered phase checkpoints, pending→approved candidate index |
-| mcp-brain-bridge/authority_retrieval.py | new: authority-ranked retrieval, gather-then-narrow chunk assembly |
-| mcp-brain-bridge/eval_harness.py | new: parse/grounding/rule/ZAC/repair/cost/latency metrics; absolute-path ZAC + finite-value hardening |
-| mcp-brain-bridge/loop_guard.py | project_root threading and per-project hash scoping |
-| mcp-context-server/server.py | tree-guard `.git` boundary fix, over-cap signatures fallback, tool docstrings |
-| mcp-memory-server/server.py | when-to-use tool docstrings |
-| mcp-lint-server/server.py | fenced source-evidence carve-out + `analysis` Type lifecycle |
-| mcp-decision-server/server.py | B1/B2 hardening, `DECISION_*` envs, provider diagnostics, transcript cap + loud cap validation, HTTPS guard + read timeout |
-| mcp-decision-server/redactor.py | word-edge credential-leak fix + short-Bearer rule |
-| agents/cognitive-executor.md | supervised autopilot, review-approval relay, seat routing, `question` grant, input-validation matrix |
-| prompts/fragments/ | version 9.35.0 → 9.41.0; validation gate reorder, reviewer contract, RTK rule 3b, autopilot contract, English-only rule |
-| system-prompt.md | rebuilt deterministically through 9.41.0 |
-| docs/conventions.md | risk tiers T0/T1/T2, Lite fast-path rules |
-| docs/brain-bridge.md | routing baseline, prompt-cache split, attachment caps/parts/resume, new env rows |
-| docs/velocity.md | new: closeout velocity ledger |
-| docs/history/milestone-19-summary.md | new: milestone-19 compaction |
-| skill-templates/opencode-init/ | project-only contract + validator/golden/matrix; LSP/formatter shape correction |
-| skill-templates/audit-agents/SKILL.md | session-history gitignore rule for other projects |
-| skill-templates/telegram-issue-sync/SKILL.md | autopilot data-ask contract note |
-| skill-templates/*/SKILL.md | six skills gained manifest-aware `question`-channel wording |
-| .gitignore | `tasks/.sessions/` ignore; `.env.*` (with `!.env.example`) and `*.bak*` |
-| .env.example | DECISION block, routing knobs, HTTPS + read-timeout knobs |
-| tests/ | suite 331 → 686 green |
-| CHANGELOG.md | per-task Parse-Then-Append entries |
-| tasks/.sessions/ | migrated per-project Brain session transcripts (230-234) |
+| File                                         | Change                                                                                                                                                                                                                                                                           |
+| -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| mcp-brain-bridge/server.py                   | per-project session resolver, no-global-write guards, lean-retry state note, empty-output/provider diagnostics, routing + prompt-cache split, shared attachment budget/parts/resume, marker-safe diff extraction, HTTPS guard + read timeout, preflight/capability/ledger wiring |
+| mcp-brain-bridge/preflight.py                | new: mandatory request preflight (project_root, task/session id, Kanban path, stage)                                                                                                                                                                                             |
+| mcp-brain-bridge/capability.py               | new: three-status capability manifest, required-tool blocking, `question` availability                                                                                                                                                                                           |
+| mcp-brain-bridge/transport_learning.py       | new: unsupported-parameter classifier, one corrected retry, saga-scoped memory, escalation                                                                                                                                                                                       |
+| mcp-brain-bridge/session_ledger.py           | new: session start fields, ordered phase checkpoints, pending→approved candidate index                                                                                                                                                                                           |
+| mcp-brain-bridge/authority_retrieval.py      | new: authority-ranked retrieval, gather-then-narrow chunk assembly                                                                                                                                                                                                               |
+| mcp-brain-bridge/eval_harness.py             | new: parse/grounding/rule/ZAC/repair/cost/latency metrics; absolute-path ZAC + finite-value hardening                                                                                                                                                                            |
+| mcp-brain-bridge/loop_guard.py               | project_root threading and per-project hash scoping                                                                                                                                                                                                                              |
+| mcp-context-server/server.py                 | tree-guard `.git` boundary fix, over-cap signatures fallback, tool docstrings                                                                                                                                                                                                    |
+| mcp-memory-server/server.py                  | when-to-use tool docstrings                                                                                                                                                                                                                                                      |
+| mcp-lint-server/server.py                    | fenced source-evidence carve-out + `analysis` Type lifecycle                                                                                                                                                                                                                     |
+| mcp-decision-server/server.py                | B1/B2 hardening, `DECISION_*` envs, provider diagnostics, transcript cap + loud cap validation, HTTPS guard + read timeout                                                                                                                                                       |
+| mcp-decision-server/redactor.py              | word-edge credential-leak fix + short-Bearer rule                                                                                                                                                                                                                                |
+| agents/cognitive-executor.md                 | supervised autopilot, review-approval relay, seat routing, `question` grant, input-validation matrix                                                                                                                                                                             |
+| prompts/fragments/                           | version 9.35.0 → 9.41.0; validation gate reorder, reviewer contract, RTK rule 3b, autopilot contract, English-only rule                                                                                                                                                          |
+| system-prompt.md                             | rebuilt deterministically through 9.41.0                                                                                                                                                                                                                                         |
+| docs/conventions.md                          | risk tiers T0/T1/T2, Lite fast-path rules                                                                                                                                                                                                                                        |
+| docs/brain-bridge.md                         | routing baseline, prompt-cache split, attachment caps/parts/resume, new env rows                                                                                                                                                                                                 |
+| docs/velocity.md                             | new: closeout velocity ledger                                                                                                                                                                                                                                                    |
+| docs/history/milestone-19-summary.md         | new: milestone-19 compaction                                                                                                                                                                                                                                                     |
+| skill-templates/opencode-init/               | project-only contract + validator/golden/matrix; LSP/formatter shape correction                                                                                                                                                                                                  |
+| skill-templates/audit-agents/SKILL.md        | session-history gitignore rule for other projects                                                                                                                                                                                                                                |
+| skill-templates/telegram-issue-sync/SKILL.md | autopilot data-ask contract note                                                                                                                                                                                                                                                 |
+| skill-templates/*/SKILL.md                   | six skills gained manifest-aware `question`-channel wording                                                                                                                                                                                                                      |
+| .gitignore                                   | `tasks/.sessions/` ignore; `.env.*` (with `!.env.example`) and `*.bak*`                                                                                                                                                                                                          |
+| .env.example                                 | DECISION block, routing knobs, HTTPS + read-timeout knobs                                                                                                                                                                                                                        |
+| tests/                                       | suite 331 → 686 green                                                                                                                                                                                                                                                            |
+| CHANGELOG.md                                 | per-task Parse-Then-Append entries                                                                                                                                                                                                                                               |
+| tasks/.sessions/                             | migrated per-project Brain session transcripts (230-234)                                                                                                                                                                                                                         |
 
 ## Criteria Met
 
-| Task | Acceptance Criteria | Status |
-| ---- | ------------------- | ------ |
-| 229 | Archive step first; CHANGELOG `[Unreleased]` empty under `[9.35.0]`; suite + docs-sync + prompt-sync pass; diff staged via MCP; push script written | ✅ Met |
-| 230 | Issue 8 body + all comments verbatim; B1/B2/P1 captured; sync comment on issue; no per-call path prompt; auto-capture evidence; first promotion lands | ✅ Met |
-| 231 | Real close-run shows `extract_session_decisions` firing; H1/H2/H3 fixed with regressions; decision suite exit 0 | ✅ Met |
-| 232 | Empty-output root cause documented; tool returns retry instruction; actionable MCP lints; suites exit 0 | ✅ Met |
-| 233 | Plan shown and awaited before non-trivial work; Lite runs without pauses; seat routing; bounded QA/review; tests + suite exit 0 | ✅ Met |
-| 234 | Same number in different roots → different paths; same root → same path; no cross-project writes; HQ folders migrated losslessly; suite exit 0 | ✅ Met |
-| 235 | Relay loop documented/working; `tasks/.sessions/` gitignored with zero tracked files; audit skill updates other projects; Brain consulted | ✅ Met |
-| 236 | Lean retry carries path/status/diff hash; regression proves state note; 234 folder byte-identical; manifest hashes match | ✅ Met |
-| 237 | Project-only config; no project-level MCP/plugin; skill/matrix/golden/validator consistent; validator rejects global-only; lint + CHANGELOG | ✅ Met |
-| 238 | Safe gaps fixed with evidence; T2 items deferred, none executed; QA + reviewer verdicts; staged, in qa, no commit/close | ✅ Met |
-| 239 | Validator accepts corrected golden, rejects wrapper shape; registry fully green; CHANGELOG present; staged, in qa | ✅ Met |
-| 240 | Note no longer orders Brain `read_file`; UNVERIFIABLE-not-REJECTED for unseen scope; pull path to Hands; tests + QA | ✅ Met |
-| 241 | History keyed by root+task_id with test; extraction fires at close with lint gate; rtk mandate in prompt; context ledger + over-cap fallback | ✅ Met |
-| 242 | No secret string passes `verify_clean`; suite exit 0; QA + reviewer verdicts recorded | ✅ Met |
-| 243 | All 4 `DECISION_*` envs with `BRAIN_*` fallback; both keys absent fails closed naming both; docs + example; suite exit 0 | ✅ Met |
-| 244 | Orphaned hunks verified as nested-effort scope only; focused + full suites green; staged, in qa; QA + reviewer verdicts | ✅ Met |
-| 245 | Context-path bug reproduced/root-caused/fixed/proven; semantic XML validation added; suite exit 0 | ✅ Met |
-| 246 | Tier resolves via one pure function; default reproduces current behavior; env overrides per tier; no secrets in cache keys; suite exit 0 | ✅ Met |
-| 247 | Static prefix byte-stable; dynamic suffix carries variation; split observable without leaking; inert = no wire change; suite + lint + CHANGELOG | ✅ Met |
-| 248 | Extract returns candidates or clean empty; record persists + returns id; profile consult predictable with/without sample; regressions; suite exit 0 | ✅ Met |
-| 249 | Authority order proven by tests; gather-then-narrow chunks; eval reports all metrics; goldens as JSON; suite exit 0 | ✅ Met |
-| 250 | Executor names RTK default runner; task files prescribe `rtk test`; memory holds RTK-first rule; suite exit 0 via `rtk test` | ✅ Met |
-| 251 | Absolute-path git flagged by ZAC scanner; boolean/non-finite cost latency excluded; suite exit 0 | ✅ Met |
-| 252 | No non-English prose in prompt rules; input-validation pipeline mandatory; deterministic prompt rebuild; suite exit 0 | ✅ Met |
-| 257 | All bundled issue criteria (capability preflight, transport learning, request preflight, session ledger/decision persistence/lint carve-out); archive traceability; suite green | ✅ Met |
-| 258 | Each tool states when to call it; look-alike pairs differ; no behavior change; runbook Hands-pull/Brain-quotes-paths; private helper hidden; suite evidence | ✅ Met |
-| 259 | Provider diagnostics every turn; budget exhaustion hints effort/cap not lean retry; refusal/error verbatim; xhigh+16k guarded; mirrored to decision server; issue 20 closed | ✅ Met |
-| 260 | Both servers explicit cap + effort defaults; `visible_tokens` logged; effort warning; `question` granted; gitignore hardened; skills point at question; suite exit 0 | ✅ Met |
-| 261 | Hard stage→high, light→low, missing→`BRAIN_MODEL`, unknown rejected; explicit `risk_tier` wins; off = single model; ledger records model+tier; docs + tests; global sync | ✅ Met |
-| 262 | Env-configurable caps ≥ old defaults; 60k context file untruncated; shared budget; QA/review priority; separate truncation report; back-compat history name; numbered parts; <250KB no UNVERIFIABLE; compact transcript; append-only; marker-safe extraction | ✅ Met |
-| 263 | Prompt bounded by env cap; explicit truncation note with dropped size; malformed/non-positive cap fails loud; temperature reader fails loud; request shape conformant; regressions; decisions extracted/saved | ✅ Met |
-| 264 | Bundle reads passed project root not install dir; missing markers correct; file-pull tools resolve active root; regression; suite green | ✅ Met |
-| 265 | `http://` non-loopback rejected naming env key; loopback allowed; https passes; read timeout configurable 600s default, malformed fails loud; connect/write/pool unchanged; `.env.example`; suite exit 0 | ✅ Met |
+| Task | Acceptance Criteria                                                                                                                                                                                                                                          | Status |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------ |
+| 229  | Archive step first; CHANGELOG `[Unreleased]` empty under `[9.35.0]`; suite + docs-sync + prompt-sync pass; diff staged via MCP; push script written                                                                                                          | ✅ Met |
+| 230  | Issue 8 body + all comments verbatim; B1/B2/P1 captured; sync comment on issue; no per-call path prompt; auto-capture evidence; first promotion lands                                                                                                        | ✅ Met |
+| 231  | Real close-run shows `extract_session_decisions` firing; H1/H2/H3 fixed with regressions; decision suite exit 0                                                                                                                                              | ✅ Met |
+| 232  | Empty-output root cause documented; tool returns retry instruction; actionable MCP lints; suites exit 0                                                                                                                                                      | ✅ Met |
+| 233  | Plan shown and awaited before non-trivial work; Lite runs without pauses; seat routing; bounded QA/review; tests + suite exit 0                                                                                                                              | ✅ Met |
+| 234  | Same number in different roots → different paths; same root → same path; no cross-project writes; HQ folders migrated losslessly; suite exit 0                                                                                                               | ✅ Met |
+| 235  | Relay loop documented/working; `tasks/.sessions/` gitignored with zero tracked files; audit skill updates other projects; Brain consulted                                                                                                                    | ✅ Met |
+| 236  | Lean retry carries path/status/diff hash; regression proves state note; 234 folder byte-identical; manifest hashes match                                                                                                                                     | ✅ Met |
+| 237  | Project-only config; no project-level MCP/plugin; skill/matrix/golden/validator consistent; validator rejects global-only; lint + CHANGELOG                                                                                                                  | ✅ Met |
+| 238  | Safe gaps fixed with evidence; T2 items deferred, none executed; QA + reviewer verdicts; staged, in qa, no commit/close                                                                                                                                      | ✅ Met |
+| 239  | Validator accepts corrected golden, rejects wrapper shape; registry fully green; CHANGELOG present; staged, in qa                                                                                                                                            | ✅ Met |
+| 240  | Note no longer orders Brain `read_file`; UNVERIFIABLE-not-REJECTED for unseen scope; pull path to Hands; tests + QA                                                                                                                                          | ✅ Met |
+| 241  | History keyed by root+task_id with test; extraction fires at close with lint gate; rtk mandate in prompt; context ledger + over-cap fallback                                                                                                                 | ✅ Met |
+| 242  | No secret string passes `verify_clean`; suite exit 0; QA + reviewer verdicts recorded                                                                                                                                                                        | ✅ Met |
+| 243  | All 4 `DECISION_*` envs with `BRAIN_*` fallback; both keys absent fails closed naming both; docs + example; suite exit 0                                                                                                                                     | ✅ Met |
+| 244  | Orphaned hunks verified as nested-effort scope only; focused + full suites green; staged, in qa; QA + reviewer verdicts                                                                                                                                      | ✅ Met |
+| 245  | Context-path bug reproduced/root-caused/fixed/proven; semantic XML validation added; suite exit 0                                                                                                                                                            | ✅ Met |
+| 246  | Tier resolves via one pure function; default reproduces current behavior; env overrides per tier; no secrets in cache keys; suite exit 0                                                                                                                     | ✅ Met |
+| 247  | Static prefix byte-stable; dynamic suffix carries variation; split observable without leaking; inert = no wire change; suite + lint + CHANGELOG                                                                                                              | ✅ Met |
+| 248  | Extract returns candidates or clean empty; record persists + returns id; profile consult predictable with/without sample; regressions; suite exit 0                                                                                                          | ✅ Met |
+| 249  | Authority order proven by tests; gather-then-narrow chunks; eval reports all metrics; goldens as JSON; suite exit 0                                                                                                                                          | ✅ Met |
+| 250  | Executor names RTK default runner; task files prescribe `rtk test`; memory holds RTK-first rule; suite exit 0 via `rtk test`                                                                                                                                 | ✅ Met |
+| 251  | Absolute-path git flagged by ZAC scanner; boolean/non-finite cost latency excluded; suite exit 0                                                                                                                                                             | ✅ Met |
+| 252  | No non-English prose in prompt rules; input-validation pipeline mandatory; deterministic prompt rebuild; suite exit 0                                                                                                                                        | ✅ Met |
+| 257  | All bundled issue criteria (capability preflight, transport learning, request preflight, session ledger/decision persistence/lint carve-out); archive traceability; suite green                                                                              | ✅ Met |
+| 258  | Each tool states when to call it; look-alike pairs differ; no behavior change; runbook Hands-pull/Brain-quotes-paths; private helper hidden; suite evidence                                                                                                  | ✅ Met |
+| 259  | Provider diagnostics every turn; budget exhaustion hints effort/cap not lean retry; refusal/error verbatim; xhigh+16k guarded; mirrored to decision server; issue 20 closed                                                                                  | ✅ Met |
+| 260  | Both servers explicit cap + effort defaults; `visible_tokens` logged; effort warning; `question` granted; gitignore hardened; skills point at question; suite exit 0                                                                                         | ✅ Met |
+| 261  | Hard stage→high, light→low, missing→`BRAIN_MODEL`, unknown rejected; explicit `risk_tier` wins; off = single model; ledger records model+tier; docs + tests; global sync                                                                                     | ✅ Met |
+| 262  | Env-configurable caps ≥ old defaults; 60k context file untruncated; shared budget; QA/review priority; separate truncation report; back-compat history name; numbered parts; <250KB no UNVERIFIABLE; compact transcript; append-only; marker-safe extraction | ✅ Met |
+| 263  | Prompt bounded by env cap; explicit truncation note with dropped size; malformed/non-positive cap fails loud; temperature reader fails loud; request shape conformant; regressions; decisions extracted/saved                                                | ✅ Met |
+| 264  | Bundle reads passed project root not install dir; missing markers correct; file-pull tools resolve active root; regression; suite green                                                                                                                      | ✅ Met |
+| 265  | `http://` non-loopback rejected naming env key; loopback allowed; https passes; read timeout configurable 600s default, malformed fails loud; connect/write/pool unchanged; `.env.example`; suite exit 0                                                     | ✅ Met |
 
 ## Individual Task Summaries
 

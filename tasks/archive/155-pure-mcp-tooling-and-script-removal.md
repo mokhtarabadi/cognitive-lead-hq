@@ -78,10 +78,12 @@ Ran `git rm scripts/bundle-tasks.py scripts/qa-transition.py` → `rm 'scripts/b
 Patched `_build_meta_content` at line 1093: `scripts/bundle-tasks.py (and bundle_tasks MCP tool)` → `bundle_tasks MCP tool`. This was the only in-code string coupling to the deleted script; the rest of `bundle_tasks` (779-1329) is already self-contained with inlined helpers and no subprocess invocation (verified `grep -n "subprocess.*bundle" mcp-context-server/server.py → 0`).
 
 **Step 3 — Purge Script References from Prompt Fragments:**
+
 - `prompts/fragments/09-hands_protocols.md`: removed both parenthetical fallbacks `(Alternatively, run uv run scripts/qa-transition.py … via terminal).` from implementation template line ~96 and combined template line ~142, leaving only `Call the custom_context_qa_transition MCP tool… This atomically moves…` as singular command.
 - `prompts/fragments/07-agent_skills_registry.md`: updated `bundle-tasks` bullet from `Exposed as both scripts/bundle-tasks.py CLI and bundle_tasks MCP tool (Task 110)` → `Exposed as the bundle_tasks MCP tool (Task 155)`.
 
 **Step 4 — Purge Script References from AGENTS.md and Skill Templates:**
+
 - `AGENTS.md`: `**Bundle Script:** scripts/bundle-tasks.py` → `**Bundle Tool:** bundle_tasks MCP tool (mcp-context-server/server.py) — Task 110/155`; `script-driven` → `MCP-driven`; `Manager runs uv run scripts/bundle-tasks.py … The script:` → `Manager invokes the bundle_tasks MCP tool with task_ids: [id,…], title… The tool:`; `Verification: uv run scripts/bundle-tasks.py --dry-run` → `bundle_tasks with dry_run: true`.
 - `skill-templates/bundle-tasks/SKILL.md`: description `Exposed as both CLI script and MCP tool` → `Exposed as the bundle_tasks MCP tool (Task 155)`; replaced `## Two Invocation Paths (Pick One)` (Path A CLI + Path B MCP thin wrapper) with `## Invocation — Pure MCP Tool (Task 155)` showing JSON `bundle_tasks` call; verification block updated to MCP-only; Reference section replaced `Script: scripts/bundle-tasks.py (694 lines)` with `MCP: mcp-context-server/server.py:bundle_tasks (self-contained…)` and docs pointer.
 - `skill-templates/task-generator/SKILL.md`: replaced `## Bundle Workflow — Task 110` Canonical Command `uv run scripts/bundle-tasks.py …` with `Canonical Invocation — Pure MCP Tool (Task 155)` JSON example, and `### Verification` block updated to `bundle_tasks(task_ids=…)` form.
@@ -100,5 +102,6 @@ Parse-Then-Append inserted `## [9.7.0] - 2026-09-03` between `## [Unreleased]` a
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `76fb3155b5d9757baf42a29defadfbb3fb254a1b`
 <!-- END_GIT_DIFF -->

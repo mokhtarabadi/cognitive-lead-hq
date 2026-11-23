@@ -2,11 +2,11 @@
 
 blowsh supports three egress modes. None is mandatory. Choose one when you recreate `blowsh-singleton`; the proxy is selected purely by environment variables, so switching modes needs no source change.
 
-| Mode | Default | Container | Blowsh variables | Exit |
-| --- | --- | --- | --- | --- |
-| Direct | yes | none | `PROXY_TYPE=none` | VPS IP |
-| WARP | opt-in | `warp-socks` on `warp-net` | `PROXY_TYPE=http`, `PROXY_HOST=warp-socks`, `PROXY_PORT=9091` | Cloudflare WARP |
-| Psiphon | opt-in | `psiphon-socks` on `warp-net` | `PROXY_TYPE=http`, `PROXY_HOST=psiphon-socks`, `PROXY_PORT=8082` | Psiphon, `EgressRegion=DE` |
+| Mode    | Default | Container                     | Blowsh variables                                                 | Exit                       |
+| ------- | ------- | ----------------------------- | ---------------------------------------------------------------- | -------------------------- |
+| Direct  | yes     | none                          | `PROXY_TYPE=none`                                                | VPS IP                     |
+| WARP    | opt-in  | `warp-socks` on `warp-net`    | `PROXY_TYPE=http`, `PROXY_HOST=warp-socks`, `PROXY_PORT=9091`    | Cloudflare WARP            |
+| Psiphon | opt-in  | `psiphon-socks` on `warp-net` | `PROXY_TYPE=http`, `PROXY_HOST=psiphon-socks`, `PROXY_PORT=8082` | Psiphon, `EgressRegion=DE` |
 
 The source fix that added `BROWSH_HEALTH_PROBE_TIMEOUT_MS` is present in the current blowsh image. After that fix, Psiphon mode was verified live with a US browser-side trace and a successful `fetch_web` render, then re-verified on 2026-11-22 with `EgressRegion=DE` (`ip=172.105.78.25`, `loc=DE`, `colo=FRA`) through both the proxy container and blowsh's own `fetch_web`. Direct mode was verified earlier with a successful render. The WARP build context is current and the WARP image builds, but WARP has not been re-traced live since the fix; record a fresh `warp=on` trace when enabling it. Do not use a blowsh image older than the fix with a proxy: the old 800 ms health probe made every startup fail regardless of the proxy.
 

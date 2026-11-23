@@ -1,8 +1,8 @@
 ---
-created_at: '2026-09-27T05:57:38.146788+00:00'
+created_at: "2026-09-27T05:57:38.146788+00:00"
 status: active
 tags: []
-updated_at: '2026-09-27T05:57:38.148311+00:00'
+updated_at: "2026-09-27T05:57:38.148311+00:00"
 ---
 
 # Approval gates must use the question tool (Manager standing rule 2026-09-27)

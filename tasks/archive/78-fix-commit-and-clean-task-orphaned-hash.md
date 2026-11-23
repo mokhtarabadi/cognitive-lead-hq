@@ -49,7 +49,7 @@ Fix the `commit_and_clean_task` MCP tool in `mcp-context-server/server.py` so th
 
 ### Execution Summary
 
-**Root cause confirmed:** `commit_and_clean_task` captured `git rev-parse HEAD` (H1) *before* `git commit --amend --no-edit`. The amend replaced H1 with H2, leaving the stored H1 orphaned (reachable only via reflog, ~30 days). Repo evidence: reflog shows `df48833` (referenced in Task 77's log) and `aa72dc7` are unreachable from HEAD.
+**Root cause confirmed:** `commit_and_clean_task` captured `git rev-parse HEAD` (H1) _before_ `git commit --amend --no-edit`. The amend replaced H1 with H2, leaving the stored H1 orphaned (reachable only via reflog, ~30 days). Repo evidence: reflog shows `df48833` (referenced in Task 77's log) and `aa72dc7` are unreachable from HEAD.
 
 **Fix (architectural reasoning):** An amend-based flow cannot satisfy both "stored hash == HEAD" and "no orphans" — writing the hash into the file before amending stores a stale hash, while capturing it after amending leaves the file edit uncommitted (dirty tree) and still orphans H1. The only clean design is a **two-commit flow**:
 
@@ -60,12 +60,14 @@ Fix the `commit_and_clean_task` MCP tool in `mcp-context-server/server.py` so th
 5. `git commit -m "chore: close <slug>"` → closure commit; H1 stays permanently reachable as its parent
 
 Also added:
+
 - **Idempotency guard** (checks for existing `Stored in Commit Hash:` before the empty-staged check) — prevents double-commit on repeated calls.
 - **`_derive_task_slug`** helper — builds the `chore: close task NN - <slug>` message from the task filename, matching the repo's existing close-commit convention.
 - **Removed the upstream-push amend warning** — no longer applicable since the tool never amends.
 - The empty-staged safety check from Task 71 is retained.
 
 **Files modified:**
+
 - `mcp-context-server/server.py` — rewritten `commit_and_clean_task` + new `_derive_task_slug` helper; also fixed `stage_and_inject_diff` (see below)
 - `tests/test_mcp_servers.py` — added regression tests covering reachability, no-amend history, `git show` of the stored hash, idempotency, and staging with an ignored `context-reports/` dir
 - `CHANGELOG.md` — [Unreleased] Fixed entry
@@ -75,7 +77,7 @@ Also added:
 While closing this task, the MCP `stage_and_inject_diff` tool failed with exit 1:
 `The following paths are ignored by one of your .gitignore files: context-reports`.
 
-**Root cause:** the tool ran `git add . :!*.env :!*.env.* :!*.key :!*.pem :!credentials* :!secrets* :!context-reports/ :!.opencode/cache/`. When any excluded path *actually exists on disk and is ignored* (the `context-reports/` directory had accumulated reports from earlier sessions), git treats the pathspec match against the ignored path as an error and exits 1 — even though nothing is staged. This blocked every subsequent closure until the reports were deleted. (Verified: plain `git add .` exits 0; adding `--ignore-errors` does NOT suppress this error.)
+**Root cause:** the tool ran `git add . :!*.env :!*.env.* :!*.key :!*.pem :!credentials* :!secrets* :!context-reports/ :!.opencode/cache/`. When any excluded path _actually exists on disk and is ignored_ (the `context-reports/` directory had accumulated reports from earlier sessions), git treats the pathspec match against the ignored path as an error and exits 1 — even though nothing is staged. This blocked every subsequent closure until the reports were deleted. (Verified: plain `git add .` exits 0; adding `--ignore-errors` does NOT suppress this error.)
 
 **Fix:** replace the negative-pathspec `git add` with plain `git add -A .` (which already respects .gitignore) followed by defense-in-depth unstaging of sensitive patterns via `git reset -q -- <pattern>` (`*.env`, `*.key`, `*.pem`, `credentials*`, `secrets*`, `context-reports/`, `.opencode/cache/`). Verified: exit 0, correct staging, no sensitive/ignored files staged.
 

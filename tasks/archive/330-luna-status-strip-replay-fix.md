@@ -26,7 +26,7 @@ Brain/Hands protocol contract.
 ## Local TODOs
 
 - [x] Root-cause the 400 (upstream attaches `status` to reasoning output
-  items; bridge replayed them verbatim; Luna validates strictly, Muse does not)
+      items; bridge replayed them verbatim; Luna validates strictly, Muse does not)
 - [x] Implement `_sanitize_replay_item` + wire into `_build_request_body`
 - [x] Add regression tests (strip + byte-identical fast path)
 - [x] Verify against official OpenAI Responses docs (reasoning item input schema)
@@ -37,13 +37,13 @@ Brain/Hands protocol contract.
 ## Acceptance Criteria
 
 - [ ] A replayed reasoning item carrying `"status": "completed"` reaches the
-  provider WITHOUT the `status` key, keeping `id`/`type`/`encrypted_content`
-  intact (proven live: real blob + status → `completed`, not 400)
+      provider WITHOUT the `status` key, keeping `id`/`type`/`encrypted_content`
+      intact (proven live: real blob + status → `completed`, not 400)
 - [ ] Items without volatile keys ride the wire byte-identical (F2 verbatim
-  contract preserved)
+      contract preserved)
 - [ ] Full brain suite green (`test_brain_bridge`, `test_brain_preflight`,
-  `test_brain_capability`, `test_brain_diff_attach`,
-  `test_brain_responses_alignment`)
+      `test_brain_capability`, `test_brain_diff_attach`,
+      `test_brain_responses_alignment`)
 - [ ] Official OpenAI docs confirm `status` is output-only on reasoning items
 - [ ] QA verdict `QA_PASSED`, reviewer verdict `APPROVED`/`APPROVED_WITH_CHANGES`
 - [ ] No secrets in repo or memory; ZAC holds (no autonomous commit)
@@ -89,7 +89,7 @@ Brain/Hands protocol contract.
   `reasoning.encrypted_content` doc states encrypted content exists to let
   reasoning items be used in multi-turn stateless conversations; the item
   shape is `{id, summary, type, +encrypted_content}`. `status` is documented
-  only as *response generation* status (`completed`/`incomplete`/…), never as
+  only as _response generation_ status (`completed`/`incomplete`/…), never as
   a reasoning-item input field — so stripping it at send time is
   spec-aligned, and Luna's strict `unknown_parameter` reject is correct
   server behavior, not a gateway quirk.
@@ -100,5 +100,6 @@ Brain/Hands protocol contract.
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `18c33cb2bb0dccb997e3cb0d7bcfe36711c2bfa1`
 <!-- END_GIT_DIFF -->

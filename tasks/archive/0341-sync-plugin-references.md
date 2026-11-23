@@ -82,5 +82,6 @@ Bring the living HQ documentation in line with what the two plugins now do, so t
 - Injected below via `custom_context_stage_and_inject_diff`.
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `1bc2c0858f90b66feaed2ce1c826aedc39d9b380`
 <!-- END_GIT_DIFF -->

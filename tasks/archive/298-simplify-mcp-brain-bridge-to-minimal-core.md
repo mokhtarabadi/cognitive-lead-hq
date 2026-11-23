@@ -17,12 +17,14 @@ Direct Manager order (translated from Persian): "Define a serious task for the B
 ## Scope
 
 In scope:
+
 - Web research on the latest OpenAI Responses API file and context inputs plus how LLMs receive files, compared against the current bridge
 - Read-only mapping of `mcp-brain-bridge/` modules, callers of `brain_turn`, and the context-report attach flow
 - Brain-authored simplification plan grounded in that context
 - Implementation of the plan after Manager approval, then QA, review, closure
 
 Out of scope:
+
 - External repos untouched
 - No git add/commit/push by Hands (ZAC holds)
 - docs/history, tasks/archive, CHANGELOG history lines immutable
@@ -85,5 +87,6 @@ Out of scope:
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `4f2aa98208a7802c71f3aa4c65a361c6c8c23827`
 <!-- END_GIT_DIFF -->

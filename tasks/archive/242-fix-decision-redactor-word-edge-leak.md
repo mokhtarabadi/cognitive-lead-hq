@@ -65,5 +65,6 @@ Closure accept (exact Manager quote): Approved for closure, chose the option you
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `84ce325025fb9cf3722b3f95fcf36a3685d6b1c6`
 <!-- END_GIT_DIFF -->

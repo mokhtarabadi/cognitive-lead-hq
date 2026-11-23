@@ -39,7 +39,7 @@ The bug: In version 9.71.0 (ADR `Hands-driven QA/review chaining in both modes`)
 The following files contain conflated definitions and require targeted refactoring:
 
 1. `prompts/fragments/02-role.md`:
-   - Lines 3-6: Erroneously asserts that the Hands coordinates via `mcp-brain-bridge` in *both* manual and automatic modes and forbids the courier role universally.
+   - Lines 3-6: Erroneously asserts that the Hands coordinates via `mcp-brain-bridge` in _both_ manual and automatic modes and forbids the courier role universally.
 
 2. `prompts/fragments/06-personas.md`:
    - Senior Programmer (line 17): Fenced XML is emitted for manual mode, but lines 50 (QA) and 56 (Reviewer) state the Hands calls the Brain directly in both modes.
@@ -132,19 +132,20 @@ The following files contain conflated definitions and require targeted refactori
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 ```diff
 diff --git a/AGENTS.md b/AGENTS.md
 index 150c328..2b3f5a9 100644
 --- a/AGENTS.md
 +++ b/AGENTS.md
 @@ -18,7 +18,7 @@ This repository is the Headquarters for the Cognitive Lead AI multi-agent system
- 
+
  ## Setup & Dev Commands
- 
+
 -- Run custom context MCP: `uv run mcp-context-server/server.py`
 +- Run custom context MCP: `mcp-context-server/.venv/bin/python mcp-context-server/server.py`
  - Format Markdown: `npx prettier --write "**/*.md"`
- 
+
  ## Actionable Guardrails (Do's & Don'ts)
 diff --git a/README.md b/README.md
 index 9e5f110..7526d08 100644
@@ -176,7 +177,7 @@ index 9855e79..a7b0044 100644
 @@ -587,9 +587,9 @@ There is no switch in code — the switch is WORDS, and the lock is public.
  Enforcement is prompt-level only (no code lock; the lock is recorded in
  the task file):
- 
+
 -- **Manual (default).** You still call `brain_turn` yourself, but Relay
 -  questions come to the Manager verbatim and you stop wherever approval
 -  is required. The Manager never ferries XML or task text.
@@ -200,7 +201,7 @@ index b5c14f2..1b76795 100644
 @@ -1,4 +1,4 @@
 -<system_version>9.76.0</system_version>
 +<system_version>9.77.0</system_version>
- 
+
  <role>
  You are the Cognitive Lead AI running inside the Orchestrator platform, acting as an elite software agency orchestrator.
 @@ -148,7 +148,7 @@ The following Agent Skills are available. You MUST intelligently instruct the Ha
@@ -209,9 +210,9 @@ index b5c14f2..1b76795 100644
  - **blowsh**: Web search, fetch, crawl, and link extraction via the blowsh MCP server (Docker transport) — rendered search engines, JS-rendered page fetch, sitemap-aware crawls. Use for all live-web research instead of raw curl.
 -- **opencode-init**: Analyze a project (or ask the user) and generate a comprehensive, correct V1 opencode.json for it. Validates with scripts/validate-opencode.py before writing; never touches global config.
 +- **opencode-init**: Analyze a project (or ask the user) and generate a comprehensive, correct opencode.json for it. Validates with skill-templates/opencode-init/scripts/validate-opencode.py before writing; never touches global config.
- 
+
  **Stack-Specific Blueprints (Load if matching the project):**
- 
+
 @@ -162,9 +162,9 @@ The following Agent Skills are available. You MUST intelligently instruct the Ha
  - **node-hexagonal-api**: Hexagonal Architecture (Ports and Adapters) for TypeScript Node.js backends — strict layer boundaries, interface ports, and swappable adapters. — Strict Tooling Gate: format → lint → typecheck → static analysis → security → test → build (see skill for exact commands).
  - **python-fastapi**: AI-Optimized FastAPI architecture with strict Pydantic V2 schemas and modular routing. — Strict Tooling Gate: format → lint → typecheck → static analysis → security → test → build (see skill for exact commands).
@@ -223,7 +224,7 @@ index b5c14f2..1b76795 100644
 +- **vue-nuxt**: Vue 3.5+ Composition API, Nuxt 4 routing, and state management — Strict Tooling Gate: format → lint → typecheck → static analysis → security → test → build (see skill for exact commands).
    **Binding Fallback Rule:** If no stack skill exactly matches, load the closest skill for discipline only and record an explicit skip with root plus marker scan list plus matched skills list plus reason phrase. Never invent a new skill inline and never claim coverage not present.
  </agent_skills_registry>
- 
+
 diff --git a/tests/test_prompt_sync.py b/tests/test_prompt_sync.py
 index eff6035..a97cff9 100644
 --- a/tests/test_prompt_sync.py
@@ -234,20 +235,20 @@ index eff6035..a97cff9 100644
      ).group(1)
 -    assert shipped == "9.76.0"
 +    assert shipped == "9.77.0"
- 
- 
+
+
  def test_shipped_prompt_documents_context_path_line_ranges():
 @@ -369,9 +369,9 @@ def test_executor_contains_full_dto_mandate():
      )
- 
- 
+
+
 -def test_shipped_prompt_version_is_9_76_0():
 +def test_shipped_prompt_version_is_9_77_0():
      prompt = _read_shipped_prompt_for_approval_contract()
 -    assert "9.76.0" in prompt
 +    assert "9.77.0" in prompt
- 
- 
+
+
  def test_assembler_output_matches_shipped(tmp_path):
 @@ -677,3 +677,34 @@ def test_dual_mode_topology_separation():
          assert "in both manual and automatic modes" not in content, (
@@ -285,4 +286,5 @@ index eff6035..a97cff9 100644
 +                violations.append(f"{path.relative_to(REPO)}:{i}")
 +    assert not violations, f"DSP violations found: {violations}"
 ```
+
 <!-- END_GIT_DIFF -->

@@ -24,11 +24,13 @@ Unified execution of 5 related hotfixes as a single META task to eliminate seque
 **Bundle Decision (2026-09-01):** Manager requested combining HOTFIX-02 through HOTFIX-06 into one QA task with full diff injection.
 
 **Traceability:**
+
 - Supersedes [HOTFIX-02, HOTFIX-03, HOTFIX-04, HOTFIX-05, HOTFIX-06] — see per-source verbatim blocks below
 - Archive: each source moved via `git mv` to `tasks/archive/` with `**Superseded-By:** 149-hotfix-bundle-telegram-gateway-telemetry-path-reasoning-concurrency` header + superseded footer
 - Rollback: `git mv tasks/archive/HOTFIX-*.md tasks/qa/` + delete META file
 
 **Guardrails Applied:**
+
 - Cap 6 per bundle — this bundle has 5 (✅ within cap)
 - Verbatim preservation — every source Goal/AC/TODO/Risk copied verbatim below
 - Diff-size check — combined 6655 LOC (⚠️ exceeds 400 — expected for 5 hotfixes)
@@ -229,8 +231,6 @@ Harden the Loop Engine runtime: (1) prevent duplicate concurrent execution of th
 
 ---
 
-
-
 ## Bundled Checklist (All-or-Nothing)
 
 > **QA Gate (all-or-nothing):** Every line below maps to one source acceptance criterion. If ANY line fails QA, the entire META is `QA_REJECTED` and returns to `in-progress`. Do not partially close.
@@ -361,6 +361,7 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 **Bundle creation:** Manager requested combining 5 QA tasks (HOTFIX-02..06) into one QA META. Generated META 149 via verbatim preservation (all Goals/ACs/TODOs/Risks copied). Source files moved via `git mv tasks/qa/HOTFIX-* tasks/archive/` and patched with `**Status:** superseded / **Superseded-By:** 149-hotfix-bundle-telegram-gateway-telemetry-path-reasoning-concurrency / **Superseded-At:** 2026-09-01` plus superseded footer. Next ID 149 discovered via max numeric 148+1.
 
 **HOTFIX-02 — Telegram Gateway UX & Progress (`loop-engine/gateway.py`, `loop-engine/daemon.py`, `loop-engine/router.py`, `loop-engine/test_polyglot_smoke.py`):**
+
 - `request_approval` long-content (>3000 chars) → `/tmp/plan_task_{id}.md` + `bot.send_document` with caption + Approve/Reject buttons; short content keeps inline path.
 - Added `send_progress(task_id, message)` non-raising helper (`⏳ Task #N: ...`).
 - Added `/status` handler (`get_active_tasks()` + `get_pending_trigger_tasks()` summary).
@@ -368,20 +369,24 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 - `route_plan` strengthened with architect `<deliverable>` system block and tightened user prompt (direct file-level blueprint, no meta-requests/placeholders).
 
 **HOTFIX-03 — Debug Telemetry & .env.example (`.env.example`, `loop-engine/router.py`, `loop-engine/executor.py`, `loop-engine/gateway.py`, `docs/loop-engine/configuration.md`, `docs/loop-engine/setup.md`):**
+
 - Rewrote root `.env.example` from stale blank placeholders to documented set: `TELEGRAM_BOT_TOKEN`, `OPENROUTER_API_KEY`, commented `GEMINI/OPENAI/ANTHROPIC/DEEPSEEK`, `LOOP_ENGINE_DEBUG=1` (security flag D4: token appears real — rotation needed if live).
 - `router.call_llm` gated `loop-engine/logs/llm_requests.log` (ts/model/system/user/response, dir auto-create, never raises).
 - `executor._run_once` → `_run_once_impl` wrapper + `_log_executor_debug` to `executor_sessions.log` (ts/task/prompt/returncode/stdout/stderr).
 - `gateway._log_event()` to `telegram_events.log` (cards, boot summaries, approvals, callbacks). Docs updated with telemetry sections.
 
 **HOTFIX-04 — Dynamic Task Path Resolution (`loop-engine/daemon.py`):**
+
 - Added `resolve_actual_task_path(task_file, repo_root)` — identity if exists, else search `in-progress → qa → backlog → completed` by filename.
 - Integrated into `trigger_task` (replaces direct Path exists check, best-effort DB `UPDATE tasks SET task_file` re-sync) and `process_task`/`_process_task` (defense-in-depth double resolve).
 
 **HOTFIX-05 — Reasoning Content & None Guard (`loop-engine/router.py`, `loop-engine/gateway.py`):**
+
 - `call_llm` safe content extraction: `getattr(msg,"content",None) or ""` → fallback `reasoning_content` → `reasoning` (stringified) → `str(msg)`, `.strip()`, telemetry logs resolved content.
 - `request_approval` coerces `None`/blank bodies to placeholder `[{stage} for Task #{id}] (No text body provided)` and uses `content_str` consistently (len check, temp file, truncation, telemetry).
 
 **HOTFIX-06 — Concurrency Locks & Token Expansion (`loop-engine/daemon.py`, `loop-engine/router.py`, `loop-engine/gateway.py`):**
+
 - `LoopEngineDaemon.__init__` → `self._in_flight_tasks: set[int]`; `trigger_task` early-return if in-flight; `process_task` re-checks via `gateway._daemon`, add/discard in `finally`.
 - `router.call_llm` `max_tokens` 4096→8192; `route_plan` anti-runaway prompt (`<150 words` reasoning, concrete file steps, no stubs) retains brainstorm `extra_context`.
 - `gateway`: `_processed_callback_ids` dedup, instant `cq.answer()` before processing (try/except), text-command handler wrapped (poller never dies).
@@ -393,5 +398,6 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `177a4ebbb56ea0794ac2ea9e4a00514ce8b71d48`
 <!-- END_GIT_DIFF -->

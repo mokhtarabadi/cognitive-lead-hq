@@ -28,7 +28,7 @@ time, preserving everything else.
 ## Local TODOs
 
 - [x] Root-cause the 400 (gateway-minted `rs_` + 64 hex = 67 chars;
-  Luna caps input `id` at 64; Muse ignores it)
+      Luna caps input `id` at 64; Muse ignores it)
 - [ ] Extend `_sanitize_replay_item` to drop items with `len(id) > 64`
 - [ ] Add regression tests (drop long-id, keep normal-id byte-identical)
 - [ ] Run full brain suite as verification evidence
@@ -39,9 +39,9 @@ time, preserving everything else.
 ## Acceptance Criteria
 
 - [ ] A replayed reasoning item with a 67-char `id` never reaches the wire
-  (dropped at send time with a logged note)
+      (dropped at send time with a logged note)
 - [ ] Items with `id` within the cap pass through unchanged (F2 verbatim
-  contract preserved)
+      contract preserved)
 - [ ] `status`-strip from task 330 keeps working (no regression)
 - [ ] Full brain suite green
 - [ ] Live proof: crafted long-id replay → `completed`, not 400
@@ -109,5 +109,6 @@ time, preserving everything else.
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `5a18324b08360e8a4ff9b4c0ae919d79860ed29f`
 <!-- END_GIT_DIFF -->

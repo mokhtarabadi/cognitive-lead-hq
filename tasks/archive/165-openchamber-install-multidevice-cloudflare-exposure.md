@@ -131,5 +131,6 @@ _(Hands: log below BEFORE staging. Research-only so far — no install executed.
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `efb1505fd8451bc389857c87da3eed2422489f50`
 <!-- END_GIT_DIFF -->

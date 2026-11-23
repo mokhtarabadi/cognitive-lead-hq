@@ -18,37 +18,37 @@ This milestone delivered the **Cognitive Loop Engine** (Task 101) — an automat
 
 ## Files Modified
 
-| File | Change |
-| --- | --- |
-| `loop-engine/` | New daemon, router, gateway, watcher, state, personas, brainstorm, qa_engine, models, config |
-| `prompts/fragments/` | RFC-001 hardening, immutable financial ledger, defensive shell protocol, github skill registry |
-| `system-prompt.md` | Regenerated to v8.9.0 (78041 bytes) |
-| `skill-templates/github/SKILL.md` | New github skill (mirrored to `.opencode/skills/`) |
-| `skill-templates/bundle-tasks/SKILL.md` | New bundle-tasks skill |
-| `scripts/bundle-tasks.py` | Meta-task bundler |
-| `mcp-context-server/server.py` | `bundle_tasks` MCP tool |
-| `docs/setup.md` | opentmux + GitHub CLI sections |
-| `docs/conventions.md` | github skill reference |
-| `README.md`, `LLM.txt` | Skill count 30→31, gh/opentmux prerequisites |
-| `tests/` | New test suites (bundle, personas, trigger, audit) |
+| File                                    | Change                                                                                         |
+| --------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `loop-engine/`                          | New daemon, router, gateway, watcher, state, personas, brainstorm, qa_engine, models, config   |
+| `prompts/fragments/`                    | RFC-001 hardening, immutable financial ledger, defensive shell protocol, github skill registry |
+| `system-prompt.md`                      | Regenerated to v8.9.0 (78041 bytes)                                                            |
+| `skill-templates/github/SKILL.md`       | New github skill (mirrored to `.opencode/skills/`)                                             |
+| `skill-templates/bundle-tasks/SKILL.md` | New bundle-tasks skill                                                                         |
+| `scripts/bundle-tasks.py`               | Meta-task bundler                                                                              |
+| `mcp-context-server/server.py`          | `bundle_tasks` MCP tool                                                                        |
+| `docs/setup.md`                         | opentmux + GitHub CLI sections                                                                 |
+| `docs/conventions.md`                   | github skill reference                                                                         |
+| `README.md`, `LLM.txt`                  | Skill count 30→31, gh/opentmux prerequisites                                                   |
+| `tests/`                                | New test suites (bundle, personas, trigger, audit)                                             |
 
 ## Criteria Met
 
-| Task | Acceptance Criteria | Status |
-| ---- | ------------------- | ------ |
-| 101 | Loop engine proposal + automated orchestration daemon | ✅ Met |
-| 108 | Executor max steps increased, agents enhanced | ✅ Met |
-| 109 | extract_signatures file-write bug fixed, docs synced | ✅ Met |
-| 110 | Meta-task bundle + auto-archive implemented | ✅ Met |
-| 113 | Blowsh + Telegram MCP integrated, home path cleanup | ✅ Met |
-| 114 | Loop engine pre-production audit fixes | ✅ Met |
-| 115 | Full persona coverage + brainstorming protocol | ✅ Met |
-| 116 | Freebuff docs executor rules agents merge | ✅ Met |
-| 117 | Freebuff completely removed | ✅ Met |
-| 118 | Loop engine task entry trigger gate | ✅ Met |
-| 119 | System prompt hardening RFC-001 | ✅ Met |
-| 120 | opentmux installed + docs updated | ✅ Met |
-| 121 | GitHub CLI installed + github skill integrated | ✅ Met |
+| Task | Acceptance Criteria                                   | Status |
+| ---- | ----------------------------------------------------- | ------ |
+| 101  | Loop engine proposal + automated orchestration daemon | ✅ Met |
+| 108  | Executor max steps increased, agents enhanced         | ✅ Met |
+| 109  | extract_signatures file-write bug fixed, docs synced  | ✅ Met |
+| 110  | Meta-task bundle + auto-archive implemented           | ✅ Met |
+| 113  | Blowsh + Telegram MCP integrated, home path cleanup   | ✅ Met |
+| 114  | Loop engine pre-production audit fixes                | ✅ Met |
+| 115  | Full persona coverage + brainstorming protocol        | ✅ Met |
+| 116  | Freebuff docs executor rules agents merge             | ✅ Met |
+| 117  | Freebuff completely removed                           | ✅ Met |
+| 118  | Loop engine task entry trigger gate                   | ✅ Met |
+| 119  | System prompt hardening RFC-001                       | ✅ Met |
+| 120  | opentmux installed + docs updated                     | ✅ Met |
+| 121  | GitHub CLI installed + github skill integrated        | ✅ Met |
 
 ## Individual Task Summaries
 

@@ -37,14 +37,16 @@ You operate inside the Cognitive Lead AI HQ — a documentation-only headquarter
 
 <agentic_reasoning>
 Before writing code, you must output a <reasoning_log> analyzing:
+
 1. Logical dependencies: MCP server is the source of truth for memory persistence; index is a derived view that must stay consistent with the underlying namespace files under `.opencode/memory/`. Agents and system-prompt are consumers that read the index first, then fetch specific memories via SDK.
 2. Risk assessment: Auto-generation on every task-file change vs on every memory mutation — which trigger is correct? Task-file changes are not memory writes; the index should update on `store_memory`/`delete_memory` mutations, not on unrelated task edits. If you hook task-file watcher you create circular coupling and miss memory-only updates.
 3. Abductive reasoning: Why does memory get ignored? Agents are never told where the index lives nor required to call `search_memory`/`list_namespaces` before planning. The fix is not “always read all memory” but “always read the compact index, then selectively fetch relevant namespaces via SDK.”
 4. Precision and grounding: Define the exact index path that is global across projects (e.g., `~/.config/opencode/memory-index.md` or `.opencode/memory/index.md` with global fallback), its Markdown schema (table of namespaces → keys → one-line summary → tags), atomic write semantics (same-directory temp file + `os.replace` + `fsync` as `store_memory` does), and size guardrails (truncate summaries, limit to ~200 lines).
 5. Plan-mode safety: The index read must be declared as a mandatory Phase 0 step in both `agents/cognitive-executor.md` and `prompts/fragments/14-hands_protocols.md` validation-phase, alongside `AGENTS.md`/`DESIGN.md` reads, but must not auto-fetch all memories — only the index.
-</agentic_reasoning>
+   </agentic_reasoning>
 
 <execution_rules>
+
 - You MUST edit `mcp-memory-server/server.py` to add an index generator: implement `build_memory_index()` that scans `.opencode/memory/**/*.md` (excluding `.opencode/goals` and `index.md` itself), parses frontmatter `tags` and first non-empty line as summary, and writes ` .opencode/memory/index.md` (project-local) and optionally mirrors to `~/.config/opencode/memory-index.md` (global) atomically. Hook it into `store_memory` and `delete_memory` success paths (not into task-file watcher). If generation fails, log but do not fail the parent mutation.
 - You MUST add/increment tests in `tests/test_mcp_servers.py` for the index: creates index on `store_memory`, updates on delete, valid Markdown, atomic, handles empty store.
 - You MUST update `skill-templates/project-memory/SKILL.md` (and sync to `.opencode/skills/project-memory/SKILL.md` + `~/.config/opencode/skills/project-memory/SKILL.md`) to document the index location, when it updates, and the two-step workflow: 1) read index 2) `search_memory`/`read_memory` for relevant keys.
@@ -54,7 +56,7 @@ Before writing code, you must output a <reasoning_log> analyzing:
 - You MUST NOT instrument task-file watchers to rebuild the index — the trigger is memory mutations only.
 - You MUST NOT hallucinate the index path: pick one canonical location, document it in the skill, agent, and fragment, and keep all three in sync.
 - You MUST respect existing `mcp-memory-server` safety: regex validation, `is_relative_to` boundary, atomic writes, temp cleanup.
-</execution_rules>
+  </execution_rules>
 
 <constraints>
 - Forbidden to summarize or paraphrase the Original Message section — keep it verbatim.
@@ -65,11 +67,12 @@ Before writing code, you must output a <reasoning_log> analyzing:
 
 <output_format>
 Return a structured Markdown report with:
+
 1. <reasoning_log> (analysis per agentic_reasoning)
 2. File list with exact paths edited/created
 3. Index Markdown schema example (header + table row)
 4. Verification commands and expected outputs: `python3 -m py_compile mcp-memory-server/server.py`, `uv run ... pytest tests/ -q` (new index tests), `python3 scripts/prompt-build/assemble_system_prompt.py`, `lint_system_prompt_sync`, `grep -rn "memory.*index" agents/ prompts/ skill-templates/`
-</output_format>
+   </output_format>
 
 ## Relevant Code Context
 
@@ -87,6 +90,7 @@ Return a structured Markdown report with:
 **Why not “always read all memory”:** Loading every memory file would bloat context (dozens of shards) and violate the slicing design. The manager’s proposal is correct: a single Markdown index that lists namespaces, keys, one-line summaries, and tags, generated automatically after each `store_memory`/`delete_memory`, gives the agent a cheap overview to decide which specific keys to fetch via SDK. Task-file changes are the wrong trigger — memory mutations are the source of truth; hooking task files would miss direct memory edits and create unnecessary coupling.
 
 **Recommended fix:**
+
 1. **MCP server:** Add `build_memory_index()` in `mcp-memory-server/server.py` — scans `.opencode/memory/**/*.md`, parses frontmatter/YAML, builds Markdown table (`| Namespace | Key | Summary | Tags |`), writes atomically to `.opencode/memory/index.md` (project) and optionally `~/.config/opencode/memory-index.md` (global mirror). Hook into `store_memory` and `delete_memory` success paths; on failure, log but don’t fail the parent mutation. Handle empty store (write header + “No memories” row).
 2. **Skill:** Extend `skill-templates/project-memory/SKILL.md` to document index path, update trigger, and the two-step workflow (read index → `search_memory`/`read_memory`).
 3. **Agent:** Extend `agents/cognitive-executor.md` Context Bootstrapping to mandate reading the index as the first memory step, before planning, parallel to `AGENTS.md` reads.
@@ -147,23 +151,29 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 **Step 1 — Move & Header Sync:** `mv tasks/backlog/127-memory-index-auto-generation.md tasks/in-progress/127-memory-index-auto-generation.md` (fallback for untracked), updated `**File:**` to `tasks/in-progress/...`, marked Local TODO 1 as done. No git mv (untracked) — correct per AGENTS.md.
 
 **Step 2 — Index Generator (mcp-memory-server/server.py):**
+
 - Added `build_memory_index() -> str` (55 lines docstring + logic): scans `MEMORY_DIR` via `rglob("*.md")` excluding `index.md`, derives `namespace` from `rel.parts[0]` and `key` from stem, parses YAML frontmatter `tags` safely via `yaml.safe_load`, extracts summary as first non-empty line after frontmatter (fallback to key), clamps 120 (`[:117]+"..."`), escapes `|`→`\|` in summary/tags, sorts rows `(namespace.lower, key.lower)`, builds header `# Project Memory Index` + `> Auto-generated…` + table `| Namespace | Key | Summary | Tags |` or `*No memories recorded yet.*`, writes atomically `tempfile.mkstemp(dir=MEMORY_DIR)` + `os.fsync` + `os.replace` + `fsync` parent dir, handles empty and errors best-effort (log, never raise). Hooked into `store_memory` (after `os.replace`) and `delete_memory` (after `unlink`/`rmdir`) with `try: build_memory_index() except: log`. Exposed `@mcp.tool() rebuild_memory_index()` wrapper. Added docstrings/comments, preserved existing validation/boundary checks, `py_compile` 0.
 
 **Step 3 — Tests (tests/test_mcp_servers.py):**
+
 - Appended 5 tests (after `test_lint_system_prompt_sync_handles_assembler_load_failure`): `test_memory_server_build_index_on_store` (store → index with headers, pipe-escaped summary, only first line), `test_memory_server_update_index_on_delete` (delete → row removed), `test_memory_server_index_empty_store` (empty → "No memories…", no table), `test_memory_server_index_sanitizes_pipes` (summary/tags pipe → `\|`, table columns intact), `test_memory_server_rebuild_tool` (manual unlink + rebuild restores). All 5 passed individually (`-k memory_server` 6 passed incl. import), full suite 55 passed after restoring `docs/workflow-upgrade-v8.4.5.md` (pre-existing failure).
 
 **Step 4 — Skill Docs (project-memory):**
+
 - Updated `skill-templates/project-memory/SKILL.md` with `## Memory Index (Auto-Generated)` section: canonical location `.opencode/memory/index.md`, format table, generation (store/delete + rebuild tool), two-step workflow (Phase 0 read index → selective `read_memory`/`search_memory`), derived-state note. Synced to `.opencode/skills/project-memory/SKILL.md` (created, 4233 bytes) and `~/.config/opencode/skills/project-memory/SKILL.md` (synced).
 
 **Step 5 — Agent (agents/cognitive-executor.md):**
+
 - Updated `## Context Bootstrapping & Memory Protocol` item 1 to mandate reading `.opencode/memory/index.md` (if present) alongside `AGENTS.md`/`DESIGN.md` before planning, then `search_memory`/`read_memory` for selected keys, fallback to `list_namespaces` + `rebuild_memory_index`; item 2 updated to selective retrieval based on index overview.
 
 **Step 6 — Prompt Fragment & System Prompt:**
+
 - Updated `prompts/shared/validation-phase.md` item 2 to include `.opencode/memory/index.md` (auto-generated, two-step, graceful skip) alongside `AGENTS.md`/`DESIGN.md`/architecture/data_model/conventions.
 - Ran `python3 scripts/prompt-build/assemble_system_prompt.py` → `Assembled 73242 bytes -> system-prompt.md` (`<system_version>9.1.0</system_version>` unchanged, 3 occurrences of `memory.*index` verified via `grep -n`).
 - Verified `py_compile` 0 and `grep` shows index in 3 validation-phase includes.
 
 **Step 7 — Initial Index & Verification:**
+
 - Generated baseline via `uv run --with mcp ... python -c "import server; build_memory_index()"` → `Memory index built: 11 memories indexed` → `.opencode/memory/index.md` 1.5K, header + table 11 rows, pipe-escaped, correctly derived from existing shards.
 - Restored `docs/workflow-upgrade-v8.4.5.md` from `f4acea1` (3.6K) to fix pre-existing `test_workflow_upgrade_guide_exists` failure — now 55 passed, 0 failed.
 - Ran full verification chain: `py_compile` both servers 0, `pytest` 55 passed, `assemble` 73KB, index 11 rows, `grep -rn "memory.*index"` shows skill/agent/fragment/system-prompt in sync.
@@ -173,5 +183,6 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `8f8c3ea8c21d14a698022a663144097fdc386d8d`
 <!-- END_GIT_DIFF -->

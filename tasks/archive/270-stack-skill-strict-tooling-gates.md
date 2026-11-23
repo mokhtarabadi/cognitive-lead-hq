@@ -35,12 +35,12 @@ Contents: five tracked YAML profiles — `generic.yaml`, `go-gin.yaml`, `kotlin-
 
 Every live reference:
 
-| Location | Reference | Live? |
-|---|---|---|
-| `tests/test_skill_registry.py:129-130` | `test_hexagonal_expansion_contract` reads `stacks/node-ts.yaml` and asserts `"node-hexagonal-api" in stacks` | Yes, the only code reference |
-| `skill-templates/testing-strategy/SKILL.md:37` | "see each stack's `toolchain.test_cmd`" | Documentation pointer |
-| `README.md:531` | Roadmap item noting the file was updated in a past task | Historical note |
-| `CHANGELOG.md:83, :1059, :1065, :1350-1355` | Historical entries | History, must not be edited |
+| Location                                       | Reference                                                                                                    | Live?                        |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------ | ---------------------------- |
+| `tests/test_skill_registry.py:129-130`         | `test_hexagonal_expansion_contract` reads `stacks/node-ts.yaml` and asserts `"node-hexagonal-api" in stacks` | Yes, the only code reference |
+| `skill-templates/testing-strategy/SKILL.md:37` | "see each stack's `toolchain.test_cmd`"                                                                      | Documentation pointer        |
+| `README.md:531`                                | Roadmap item noting the file was updated in a past task                                                      | Historical note              |
+| `CHANGELOG.md:83, :1059, :1065, :1350-1355`    | Historical entries                                                                                           | History, must not be edited  |
 
 The original consumer is **gone**. The folder was built for the retired `loop-engine` (Task 133 `loop-engine/stacks.py` with `StackRegistry`/`StackDetector`/`PreflightRunner`; Task 135 the Stack-Aware LLM Router reading `model_preferences`). Task 167 deleted `loop-engine/` entirely (48 tracked files, `CHANGELOG.md:291`). `docs/conventions.md:77` records the retirement and states that enforcement is manual review until a replacement lands.
 
@@ -48,25 +48,25 @@ Conclusion: no runtime path reads `stacks/`. Per the Manager's rule it is a dele
 
 ### The 13 stack skills and the gap
 
-| Skill | Lines | Lint/format/typecheck mentions |
-|---|---|---|
-| `android-kotlin` | 63 | 0 |
-| `flask-python` | 112 | 0 |
-| `go-gin` | 61 | 0 |
-| `go-hexagonal-grpc` | 99 | 0 |
-| `ios-swiftui` | 58 | 0 |
-| `nestjs-prisma-vertical` | 77 | 0 |
-| `nextjs` | 132 | 0 |
-| `node-hexagonal-api` | 74 | 3 |
-| `python-fastapi` | 68 | 0 |
-| `react-native-expo` | 58 | 0 |
-| `react-vite` | 60 | 0 |
-| `spring-boot` | 113 | 0 |
-| `vue-nuxt` | 70 | 0 |
+| Skill                    | Lines | Lint/format/typecheck mentions |
+| ------------------------ | ----- | ------------------------------ |
+| `android-kotlin`         | 63    | 0                              |
+| `flask-python`           | 112   | 0                              |
+| `go-gin`                 | 61    | 0                              |
+| `go-hexagonal-grpc`      | 99    | 0                              |
+| `ios-swiftui`            | 58    | 0                              |
+| `nestjs-prisma-vertical` | 77    | 0                              |
+| `nextjs`                 | 132   | 0                              |
+| `node-hexagonal-api`     | 74    | 3                              |
+| `python-fastapi`         | 68    | 0                              |
+| `react-native-expo`      | 58    | 0                              |
+| `react-vite`             | 60    | 0                              |
+| `spring-boot`            | 113   | 0                              |
+| `vue-nuxt`               | 70    | 0                              |
 
 Every stack skill carries the mandated Project Structure, Naming Conventions, Architectural Patterns, Universal DateTime Governance and Testing Strategies sections. **Not one carries a lint, formatting, type-check, or static-analysis section.**
 
-The framework's only enforced quality gate today is `lint_task_file`, which validates task-file *structure* (`prompts/fragments/09-hands_protocols.md:93-94`, `:139`). Nothing in the framework forces a stack's linters or type checkers onto generated application code. That is the hallucination-prevention gap.
+The framework's only enforced quality gate today is `lint_task_file`, which validates task-file _structure_ (`prompts/fragments/09-hands_protocols.md:93-94`, `:139`). Nothing in the framework forces a stack's linters or type checkers onto generated application code. That is the hallucination-prevention gap.
 
 ### Registry
 
@@ -204,5 +204,6 @@ selected_path:
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `06af2f4b32c10242f0c4d8988bb5486da992a91d`
 <!-- END_GIT_DIFF -->

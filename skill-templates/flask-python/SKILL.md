@@ -107,7 +107,6 @@ Create a `config.py` with at least three classes: `Config` (base), `DevelopmentC
 - Use an in-memory SQLite database for fast test runs.
 - For every Blueprint, write at least one test that validates the route returns the expected status code.
 
-
 ## Strict Tooling Gate (Machine-Enforced — Forced Strict Mode)
 
 Strictest verified toolchain for this stack. Load this skill whenever the project matches the stack. Execute the gate in fail-fast order and stop on the first failure. Record the exact command, output, and exit code in the task's Verification Evidence.
@@ -121,30 +120,31 @@ Strictest verified toolchain for this stack. Load this skill whenever the projec
 
 ### Required Toolchain
 
-| Tool | Purpose | Minimum version | Activate |
-| --- | --- | --- | --- |
-| uv | Lockfile resolution + reproducible env (replaces pip/poetry) | 0.12.17 | `uv add --dev` (uv itself via installer) |
-| Ruff | Formatting + lint (replaces Black, isort, flake8, pyupgrade, flake8-bugbear/bandit subset) | 0.16.8 | `uv add --dev ruff==0.16.8` |
-| Pyright | Primary static type checker, `strict` mode (98% typing-spec conformance) | 1.1.414 | `uv add --dev pyright==1.1.414` |
-| mypy | Secondary/compat type checker, `--strict` | 2.3.1 | `uv add --dev mypy==2.3.1` |
-| ty | Fast beta checker — advisory only, NOT a gate (53% conformance) | 0.0.82 | `uv add --dev ty==0.0.82` (advisory only — do not install as required gate dependency unless project explicitly opts in; Pyright+mypy are the gates) |
-| Bandit | Python AST security scan (SAST) | 1.9.4 | `uv add --dev bandit==1.9.4` |
-| Semgrep | SAST + taint tracking; Flask-specific rules | 1.177.0 | `uv add --dev semgrep==1.177.0` |
-| pip-audit | CVE scan of the resolved dependency set | 2.10.1 | `uv add --dev pip-audit==2.10.1` |
-| vulture | Dead-code / unreachable-code detection | 2.16 | `uv add --dev vulture==2.16` |
-| deptry | Unused / undeclared / transitive dependency detection | 0.25.1 | `uv add --dev deptry==0.25.1` |
-| import-linter | Architecture contracts (layers / independence / forbidden) | 2.15 | `uv add --dev import-linter==2.15` |
-| pytest | Test runner with strict options | 9.1.1 | `uv add --dev pytest==9.1.1` |
-| pytest-cov + coverage.py | Branch coverage + hard threshold | 7.1.0 / 7.16.1 | `uv add --dev pytest-cov==7.1.0 coverage==7.16.1` |
-| pytest-randomly | Test-order randomization (order-dependence gate) | 5.0.0 | `uv add --dev pytest-randomly==5.0.0` |
-| testcontainers | Real Postgres/MySQL in tests (no SQLite substitutes) | 4.15.0 | `uv add --dev "testcontainers[postgres]==4.15.0"` |
-| Alembic | Migration drift gate (`alembic check`) | 1.20.0 | `uv add alembic==1.20.0` (app dep) |
-| Flask | Framework + `flask --app ... routes` runtime gate | 3.1.3 | `uv add flask==3.1.3` |
-| SQLAlchemy | ORM 2.0 `Mapped[]` / `DeclarativeBase` (typed, no stubs) | 2.0.54 | `uv add sqlalchemy==2.0.54` |
-| jinja-multilint | Jinja filter/test-name validation (syntax always fails in strict mode) | 0.1.2 | `uv add --dev jinja-multilint==0.1.2` |
-| j2lint | Jinja template style + `jinja-syntax-error` (S0) | 1.3.0 | `uv add --dev j2lint==1.3.0` |
+| Tool                     | Purpose                                                                                    | Minimum version | Activate                                                                                                                                             |
+| ------------------------ | ------------------------------------------------------------------------------------------ | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| uv                       | Lockfile resolution + reproducible env (replaces pip/poetry)                               | 0.12.17         | `uv add --dev` (uv itself via installer)                                                                                                             |
+| Ruff                     | Formatting + lint (replaces Black, isort, flake8, pyupgrade, flake8-bugbear/bandit subset) | 0.16.8          | `uv add --dev ruff==0.16.8`                                                                                                                          |
+| Pyright                  | Primary static type checker, `strict` mode (98% typing-spec conformance)                   | 1.1.414         | `uv add --dev pyright==1.1.414`                                                                                                                      |
+| mypy                     | Secondary/compat type checker, `--strict`                                                  | 2.3.1           | `uv add --dev mypy==2.3.1`                                                                                                                           |
+| ty                       | Fast beta checker — advisory only, NOT a gate (53% conformance)                            | 0.0.82          | `uv add --dev ty==0.0.82` (advisory only — do not install as required gate dependency unless project explicitly opts in; Pyright+mypy are the gates) |
+| Bandit                   | Python AST security scan (SAST)                                                            | 1.9.4           | `uv add --dev bandit==1.9.4`                                                                                                                         |
+| Semgrep                  | SAST + taint tracking; Flask-specific rules                                                | 1.177.0         | `uv add --dev semgrep==1.177.0`                                                                                                                      |
+| pip-audit                | CVE scan of the resolved dependency set                                                    | 2.10.1          | `uv add --dev pip-audit==2.10.1`                                                                                                                     |
+| vulture                  | Dead-code / unreachable-code detection                                                     | 2.16            | `uv add --dev vulture==2.16`                                                                                                                         |
+| deptry                   | Unused / undeclared / transitive dependency detection                                      | 0.25.1          | `uv add --dev deptry==0.25.1`                                                                                                                        |
+| import-linter            | Architecture contracts (layers / independence / forbidden)                                 | 2.15            | `uv add --dev import-linter==2.15`                                                                                                                   |
+| pytest                   | Test runner with strict options                                                            | 9.1.1           | `uv add --dev pytest==9.1.1`                                                                                                                         |
+| pytest-cov + coverage.py | Branch coverage + hard threshold                                                           | 7.1.0 / 7.16.1  | `uv add --dev pytest-cov==7.1.0 coverage==7.16.1`                                                                                                    |
+| pytest-randomly          | Test-order randomization (order-dependence gate)                                           | 5.0.0           | `uv add --dev pytest-randomly==5.0.0`                                                                                                                |
+| testcontainers           | Real Postgres/MySQL in tests (no SQLite substitutes)                                       | 4.15.0          | `uv add --dev "testcontainers[postgres]==4.15.0"`                                                                                                    |
+| Alembic                  | Migration drift gate (`alembic check`)                                                     | 1.20.0          | `uv add alembic==1.20.0` (app dep)                                                                                                                   |
+| Flask                    | Framework + `flask --app ... routes` runtime gate                                          | 3.1.3           | `uv add flask==3.1.3`                                                                                                                                |
+| SQLAlchemy               | ORM 2.0 `Mapped[]` / `DeclarativeBase` (typed, no stubs)                                   | 2.0.54          | `uv add sqlalchemy==2.0.54`                                                                                                                          |
+| jinja-multilint          | Jinja filter/test-name validation (syntax always fails in strict mode)                     | 0.1.2           | `uv add --dev jinja-multilint==0.1.2`                                                                                                                |
+| j2lint                   | Jinja template style + `jinja-syntax-error` (S0)                                           | 1.3.0           | `uv add --dev j2lint==1.3.0`                                                                                                                         |
 
 **Discarded / not needed (2025–2026 verification):**
+
 - **Black** (26.5.1) — still maintained, but redundant: `ruff format` is Black-compatible and one tool covers format + lint + import sort. Not a gate.
 - **flake8, isort, pyupgrade, pycodestyle, flake8-bandit** — superseded by Ruff rule families (`E/W/F/I/UP/S/B/...`). Archived/avoid.
 - **SQLAlchemy mypy plugin** (`sqlalchemy.ext.mypy.plugin`) — **deprecated** and removed in SQLAlchemy 2.1; it only works up to mypy 1.10.1. Do **not** install `sqlalchemy-stubs` / `sqlalchemy2-stubs` on 2.0; `Mapped[]` + `DeclarativeBase` is PEP 484-native and works in Pyright without plugins.
@@ -448,28 +448,29 @@ uv run python -c "import json,pathlib;from <SERVICE_NAME> import create_app;a=cr
 
 Paste the command and its pass criterion (all must be green):
 
-| Command | Pass criterion |
-| --- | --- |
-| `uv lock --check && uv sync --locked` | exit 0; `uv.lock` unchanged by the run |
-| `uv run ruff format --check . && uv run ruff check .` | exit 0, `All checks passed!` / no reformatted files |
-| `uv run pyright` | `0 errors` |
-| `uv run mypy src` | `Success: no issues found` |
-| `uv run lint-imports` | `Contracts: N kept, 0 broken` |
-| `uv run bandit -c pyproject.toml -r src -lll -iii` | no HIGH severity, no HIGH confidence findings |
-| `uv run semgrep ... --error --strict` | exit 0 (no ERROR findings, no invalid syntax) |
-| `uv run jinja-multilint --mode strict templates/` | exit 0, no unknown filter/test errors |
-| `uv run j2lint templates/` | exit 0, no S0 jinja-syntax-error |
-| `uv run pip-audit --locked --strict` | `No known vulnerabilities found` |
-| `uv run deptry .` | `Success! No dependency issues found.` |
-| `uv run vulture` | no output, exit 0 |
-| `uv run flask --app <SERVICE_NAME>:create_app routes` | non-empty route table, exit 0 |
-| `uv run pytest -p randomly --cov=src --cov-branch --cov-fail-under=90` | all tests pass; `coverage: total >= 90%` |
-| `uv run alembic upgrade head && uv run alembic check` | `No new upgrade operations detected.` |
-| `uv run pip check` | `No broken requirements found.` |
+| Command                                                                | Pass criterion                                      |
+| ---------------------------------------------------------------------- | --------------------------------------------------- |
+| `uv lock --check && uv sync --locked`                                  | exit 0; `uv.lock` unchanged by the run              |
+| `uv run ruff format --check . && uv run ruff check .`                  | exit 0, `All checks passed!` / no reformatted files |
+| `uv run pyright`                                                       | `0 errors`                                          |
+| `uv run mypy src`                                                      | `Success: no issues found`                          |
+| `uv run lint-imports`                                                  | `Contracts: N kept, 0 broken`                       |
+| `uv run bandit -c pyproject.toml -r src -lll -iii`                     | no HIGH severity, no HIGH confidence findings       |
+| `uv run semgrep ... --error --strict`                                  | exit 0 (no ERROR findings, no invalid syntax)       |
+| `uv run jinja-multilint --mode strict templates/`                      | exit 0, no unknown filter/test errors               |
+| `uv run j2lint templates/`                                             | exit 0, no S0 jinja-syntax-error                    |
+| `uv run pip-audit --locked --strict`                                   | `No known vulnerabilities found`                    |
+| `uv run deptry .`                                                      | `Success! No dependency issues found.`              |
+| `uv run vulture`                                                       | no output, exit 0                                   |
+| `uv run flask --app <SERVICE_NAME>:create_app routes`                  | non-empty route table, exit 0                       |
+| `uv run pytest -p randomly --cov=src --cov-branch --cov-fail-under=90` | all tests pass; `coverage: total >= 90%`            |
+| `uv run alembic upgrade head && uv run alembic check`                  | `No new upgrade operations detected.`               |
+| `uv run pip check`                                                     | `No broken requirements found.`                     |
 
 Record the URL-map snapshot diff (if any) and the pytest-randomly seed printed at run start; the seed is required to reproduce any order-dependent failure.
 
 <!-- sources -->
+
 - https://docs.astral.sh/ruff/linter/ (ALL selector, rule precedence, formatter-conflict rules)
 - https://docs.astral.sh/ruff/configuration/ (select/ignore/extend-select, per-file-ignores)
 - https://docs.astral.sh/ruff/settings/

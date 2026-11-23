@@ -13,6 +13,7 @@ Bring HQ's description of the two plugins back in line with what they now do. Th
 ## What changed in the plugins (shipped today)
 
 `opencode-smart-compact` (feature `64554f76`, closed `eb031bf5`):
+
 - `awareness.autoTrimRatio` now defaults to `0.55` (was `0` = disabled), so lossless tool-output trimming happens without any `compact_context` call, one trim per sustained pressure period.
 - The emergency budget is derived from the resolved model window (`emergencyBudgetRatio`, default `0.6`). **Semantics change:** `tokens.emergencyBudgetTokens: 0` used to mean "disable" and now means "derive"; `emergencyBudgetRatio: 0` is the opt-out. A positive `emergencyBudgetTokens` still pins an exact number.
 - New `awareness.contextWindowTokens` fallback, used when the model registry entry has no `limit.context`.
@@ -20,6 +21,7 @@ Bring HQ's description of the two plugins back in line with what they now do. Th
 - `pruneMemo` removed; `compact_stats` now leads with the plugin version, reports the measurement path (`tokenizer` / `heuristic`) and counts heuristic summary fallbacks.
 
 `opencode-goal-plugin` (feature `da09098`, closed `ec0894b`):
+
 - The idle loop self-parks after 2 consecutive no-progress continuation turns and posts one message naming `goal_block`; the goal stays `active`.
 - `goal_resume` now also accepts an **active-but-parked** goal.
 - Evidence citations resolve by unique basename when the exact path misses, so a task file that moved lanes still proves; ambiguity fails as `ambiguous-citation`, no match keeps `missing-file`, and the traversal guard is unchanged.
@@ -27,14 +29,14 @@ Bring HQ's description of the two plugins back in line with what they now do. Th
 
 ## Findings (audit of HQ against the shipped behaviour)
 
-| ID | Where | What it says | What is true now | Severity |
-| --- | --- | --- | --- | --- |
-| F1 | `agents/cognitive-executor.md:118` | "resuming runs only on a parked (blocked or interrupted) goal" | Verified in `src/goal.ts:450-459`: `resumeGoal` accepts `interrupted`, `blocked`, **and** `active` when `idleParked` is set | **High** — an executor that believes resume is impossible will either stall or reach for `goal_set`, discarding evidence |
-| F2 | `agents/cognitive-executor.md:115` | "with an active goal and no stop marker, it injects a continuation prompt whenever the session idles" | Verified in `src/loop.ts:350-356`: it parks after 2 no-progress turns and posts `Goal idle awaiting input: … Answer the open question, or call goal_block <reason> …` | Med — the operator-facing mental model is wrong, and the new remedy is undiscoverable |
-| F3 | `agents/cognitive-executor.md:110` | `compact_stats` "returns the same savings line as `/magic-stats`" | True, but the line now also carries version, measurement path and fallback count | Low — omission, not error |
-| F4 | `agents/cognitive-executor.md:106` | "Above `awareness.autoTrimRatio` it trims tool output by itself" | True, and it is now armed by default, so notices appear without any manual call | Low — the reader is told the mechanism exists but not that it is on |
-| F5 | `docs/compaction.md:131` | Config example with `emergencyBudgetTokens: 50000`, `autoTrimRatio: 0.5` | Example still valid (positive pins absolute), but it never mentions `emergencyBudgetRatio`, `contextWindowTokens`, or that `0` changed meaning | Med — an operator copying this cannot tell how to disable the warning any more |
-| F6 | `.opencode/smart-compact.jsonc:2-3` | "validated against v0.2.1 (git main)" | Both plugins shipped behaviour changes with **no version bump** (smart-compact still `0.2.1`, goal-plugin still `0.2.0`); the smart-compact change includes a breaking config semantic, which semver puts at least at `0.3.0` | Med — the comment will silently assert a validation that no longer holds for the code actually loaded |
+| ID  | Where                               | What it says                                                                                          | What is true now                                                                                                                                                                                                              | Severity                                                                                                                 |
+| --- | ----------------------------------- | ----------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| F1  | `agents/cognitive-executor.md:118`  | "resuming runs only on a parked (blocked or interrupted) goal"                                        | Verified in `src/goal.ts:450-459`: `resumeGoal` accepts `interrupted`, `blocked`, **and** `active` when `idleParked` is set                                                                                                   | **High** — an executor that believes resume is impossible will either stall or reach for `goal_set`, discarding evidence |
+| F2  | `agents/cognitive-executor.md:115`  | "with an active goal and no stop marker, it injects a continuation prompt whenever the session idles" | Verified in `src/loop.ts:350-356`: it parks after 2 no-progress turns and posts `Goal idle awaiting input: … Answer the open question, or call goal_block <reason> …`                                                         | Med — the operator-facing mental model is wrong, and the new remedy is undiscoverable                                    |
+| F3  | `agents/cognitive-executor.md:110`  | `compact_stats` "returns the same savings line as `/magic-stats`"                                     | True, but the line now also carries version, measurement path and fallback count                                                                                                                                              | Low — omission, not error                                                                                                |
+| F4  | `agents/cognitive-executor.md:106`  | "Above `awareness.autoTrimRatio` it trims tool output by itself"                                      | True, and it is now armed by default, so notices appear without any manual call                                                                                                                                               | Low — the reader is told the mechanism exists but not that it is on                                                      |
+| F5  | `docs/compaction.md:131`            | Config example with `emergencyBudgetTokens: 50000`, `autoTrimRatio: 0.5`                              | Example still valid (positive pins absolute), but it never mentions `emergencyBudgetRatio`, `contextWindowTokens`, or that `0` changed meaning                                                                                | Med — an operator copying this cannot tell how to disable the warning any more                                           |
+| F6  | `.opencode/smart-compact.jsonc:2-3` | "validated against v0.2.1 (git main)"                                                                 | Both plugins shipped behaviour changes with **no version bump** (smart-compact still `0.2.1`, goal-plugin still `0.2.0`); the smart-compact change includes a breaking config semantic, which semver puts at least at `0.3.0` | Med — the comment will silently assert a validation that no longer holds for the code actually loaded                    |
 
 ## Scope
 
@@ -110,5 +112,6 @@ Bring HQ's description of the two plugins back in line with what they now do. Th
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `17011f09f54148254ae8cb4ffeab129406a3abeb`
 <!-- END_GIT_DIFF -->

@@ -113,18 +113,19 @@ The Architect's planning turn found the real conflict inside this task file: cri
 
 Defaults applied:
 
-| Setting | Old | New default | Env var |
-| --- | ---: | ---: | --- |
-| Task attach cap | 12000 | 60000 | `BRAIN_TASK_ATTACH_CAP` |
-| Task diff cap | 20000 | 200000 | `BRAIN_TASK_DIFF_CAP` |
-| `context_paths` per-file cap | 20000 | 60000 | `BRAIN_CTX_PER_FILE_CAP` |
-| `context_paths` total cap | 40000 | 200000 | `BRAIN_CTX_TOTAL_CAP` |
-| Input budget (hard send ceiling) | 100000 | 200000 | `BRAIN_INPUT_BUDGET` |
-| Model window estimate | 200000 | 200000 unchanged | `BRAIN_MODEL_WINDOW_CHARS` |
+| Setting                          |    Old |      New default | Env var                    |
+| -------------------------------- | -----: | ---------------: | -------------------------- |
+| Task attach cap                  |  12000 |            60000 | `BRAIN_TASK_ATTACH_CAP`    |
+| Task diff cap                    |  20000 |           200000 | `BRAIN_TASK_DIFF_CAP`      |
+| `context_paths` per-file cap     |  20000 |            60000 | `BRAIN_CTX_PER_FILE_CAP`   |
+| `context_paths` total cap        |  40000 |           200000 | `BRAIN_CTX_TOTAL_CAP`      |
+| Input budget (hard send ceiling) | 100000 |           200000 | `BRAIN_INPUT_BUDGET`       |
+| Model window estimate            | 200000 | 200000 unchanged | `BRAIN_MODEL_WINDOW_CHARS` |
 
 The input budget moved to 200000 after a live probe (see A4): the assembled system prompt alone measures ~87.6k chars, so the older 100000 ceiling left roughly 12k of room for the change set a QA or reviewer turn must read — the exact starvation this ceiling exists to bound. Criterion 1 is still met primarily by its second clause (exact budget left plus how much was dropped) and by numbered parts; the raised ceiling is what makes the first clause reachable for ordinary change sets.
 
 **Assumptions logged (non-blocking, decided and continued).**
+
 - A1 — The docstring documents the new argument, but `attachment_resume` is validated where it is used (like `context_paths`) rather than added to the preflight `ValidatedRequest` dataclass. Reason: turn-shaping arguments are not bindings, and the smaller diff keeps the preflight contract stable.
 - A2 — "History" in criterion 3 of the issue's AC list is satisfied by keeping the existing last-resort trimming loop while excluding history length from the attachment budget. Reason: subtracting history made the prompt-cache static prefix unstable across turns, which broke `test_cache_split_stable_across_turns`; history is documented as the last fallback, so it absorbs the loss instead of the attachments.
 - A3 — The three standalone builders (`_build_task_attach`, `build_diff_attach`, `build_paths_attach`) keep their truncating behaviour for direct callers, and the turn path uses new full-text source loaders. Reason: existing tests pin the builder-level truncation, so changing them would be a silent contract break for the file-pull tools.
@@ -137,6 +138,7 @@ The R3 fix was folded into this task rather than opened as a new saga: the task 
 **Responses-API conformance review of the second server.** `mcp-decision-server/server.py` is the only other server that calls `{api_base}/responses` (call site at its L1321). Its request body is already conformant and was left unchanged: nested `reasoning: {"effort": …}` rather than the flat `reasoning_effort` that strict providers reject; an explicit `max_output_tokens`; `input` as a list of `{role, content}` items; `temperature` sent only when explicitly configured and never together with `reasoning`; no `store` and no `previous_response_id` (it is a single-shot call with no transcript, so it has no replay-bloat exposure); and its diagnostics already triage in the documented error → refusal → `max_output_tokens` order.
 
 **Changes.**
+
 - `mcp-brain-bridge/server.py` — six blank-means-unset cap readers over the new `_env_positive_int`; four raised defaults; `_qa_like_prompt`, `_validate_attachment_resume`, `_fence_guard`, `_attachment_priority`, `_render_attachment`, `_allocate_attachments`, `_task_candidate`, `_diff_candidate`, `_inline_path_candidate`, `_path_candidates`; the independent append sequence in `brain_turn` replaced by one shared allocator plus a stage-priority render order; `attachment_resume` argument; the result payload split into `history_turns_dropped` / `truncated_count` / `attachments_truncated` / `attachment_parts` / `attachment_budget_chars` / `attachment_chars_used` / `attachment_chars_remaining`; the capability-blocked early return carries the same field set.
 - `tests/test_brain_bridge.py` — 14 new regression tests; 3 existing tests re-pinned to explicit caps (`test_task_attach_truncates_big_file`, `test_task_attach_truncation_has_pull_path`, `test_paths_attach_total_budget`, `test_paths_attach_size_pattern_truncates_never_blanks`).
 - `docs/brain-bridge.md` — six new env-table rows plus the blank-means-unset rule, and new sections on attachment budgeting, the part/resume contract, and the two separate truncation reports.
@@ -161,11 +163,11 @@ Remedy for the reviewer (only the Manager can apply it): restart the bridge MCP 
 
 **Scope extension (R3-follow-up) — keep ALL history per task.** The Manager then asked (verbatim): `serach how agents like opencode works and keep sessions ? we need use same techniqe, we can use simple json but make sure it keep all history for each task. did we have samething now? (i don't restarted yet)`.
 
-*Research answer.* OpenCode stores its full session history in a single SQLite database (`~/.local/share/opencode/opencode.db`, tables `session` → `message` → `part`); the old `storage/session|message|part` JSON trees are gone. Web research confirmed the same pattern across tools: OpenCode, Claude Code and Codex all persist the FULL transcript durably and compact only what they SEND (summarisation, overflow detection, tool-output pruning) — nobody solves context pressure by discarding stored history.
+_Research answer._ OpenCode stores its full session history in a single SQLite database (`~/.local/share/opencode/opencode.db`, tables `session` → `message` → `part`); the old `storage/session|message|part` JSON trees are gone. Web research confirmed the same pattern across tools: OpenCode, Claude Code and Codex all persist the FULL transcript durably and compact only what they SEND (summarisation, overflow detection, tool-output pruning) — nobody solves context pressure by discarding stored history.
 
-*Did we already have it?* Yes, in simpler form: a per-task JSONL transcript at `tasks/.sessions/<task_id>/transcript.jsonl`, one record per turn, `fcntl`-locked appends. But it was DESTROYING history — `load_history` called `_compact_locked(path)`, which rewrote the file down to one digest record plus the newest ten turns. So the storage medium was right and the policy was wrong.
+_Did we already have it?_ Yes, in simpler form: a per-task JSONL transcript at `tasks/.sessions/<task_id>/transcript.jsonl`, one record per turn, `fcntl`-locked appends. But it was DESTROYING history — `load_history` called `_compact_locked(path)`, which rewrote the file down to one digest record plus the newest ten turns. So the storage medium was right and the policy was wrong.
 
-*Fix.* The transcript is now append-only: `load_history` applies `_build_compacted` to the loaded list IN MEMORY (bounded send view) and never writes the file. The two now-dead helpers `_atomic_write_turns` and `_compact_locked` were deleted, and the compaction comments/docstrings now say they bound the SEND view only. New regression test `test_transcript_is_append_only_across_loads` proves repeated loads leave the file byte-identical while the view stays at 11 records; `test_compact_merges_prior_summary` was adapted to the append-only truth (digest counts all 60 stored turns once, file still holds 60 lines). Acceptance criterion 10 records this requirement.
+_Fix._ The transcript is now append-only: `load_history` applies `_build_compacted` to the loaded list IN MEMORY (bounded send view) and never writes the file. The two now-dead helpers `_atomic_write_turns` and `_compact_locked` were deleted, and the compaction comments/docstrings now say they bound the SEND view only. New regression test `test_transcript_is_append_only_across_loads` proves repeated loads leave the file byte-identical while the view stays at 11 records; `test_compact_merges_prior_summary` was adapted to the append-only truth (digest counts all 60 stored turns once, file still holds 60 lines). Acceptance criterion 10 records this requirement.
 
 **QA round 2 — `QA_REJECTED` (`insufficient-evidence`), and the real defect it exposed.**
 
@@ -238,5 +240,6 @@ Closing line: "**PO_REVIEW_PENDING** — Code approved technically. PO, please r
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `cc0b7c0cee578a6649f3e22339dbff8221d75d0b`
 <!-- END_GIT_DIFF -->

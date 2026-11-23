@@ -59,5 +59,6 @@ Align goal plugin tool specification across prompt fragments, docs, and README w
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `7b8a7e4740f4213a7f17340c25716bfd48c59a9c`
 <!-- END_GIT_DIFF -->

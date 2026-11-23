@@ -39,11 +39,12 @@ Before changing anything, output a <reasoning_log> tracing the exact post-approv
 </agentic_reasoning>
 
 <execution_rules>
+
 - You MUST enforce: plan approval → answer returns to Brain → Brain routes to Senior Programmer for Hands XML → Hands executes ONLY from that XML. Direct implement-on-approve is forbidden.
 - You MUST NOT hand-edit system-prompt.md (generated artifact). Change prompts/fragments/03-system_context.md and rebuild via the build process.
 - You MUST verify the Muse Spark 1.3 knowledge cutoff with a live web search; do NOT hallucinate the date.
 - Do NOT widen scope into unrelated prompt rewrites.
-</execution_rules>
+  </execution_rules>
 
 <output_format>
 AOndecision + patch list: (1) the broken link in the approval chain with file:line evidence, (2) the minimal fragment/agent edits restoring Brain → Programmer → Hands order, (3) the verified cutoff date with source URL, (4) rebuild + verification commands and their output.
@@ -110,6 +111,7 @@ _(The Hands: Manually log your technical changes, file edits, and architectural 
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `bd415c950a5d4e1fa273b78e5587d682c671f725`
 <!-- END_GIT_DIFF -->
 

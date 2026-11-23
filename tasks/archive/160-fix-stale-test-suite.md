@@ -14,6 +14,7 @@ Repair the two pre-existing test drifts so the full suite passes and MCP servers
 Manager requested: fix it all, must test MCP servers. Found via `/tmp/release_v9.2.2.sh` pre-flight failure and recorded in Task 159 evidence.
 
 Requirements:
+
 - Fix 1: `tests/test_bundle_tasks.py` imports retired `scripts/bundle-tasks.py` (removed Task 155, Pure MCP). Decide: retarget to `bundle_tasks` MCP tool in `mcp-context-server/server.py` or remove stale file.
 - Fix 2: `tests/test_mcp_servers.py::test_system_prompt_split_assemble_round_trip` fails because `scripts/prompt-build/split_system_prompt.py` expects retired `<decision_logging_mandate>` block (removed Task 151). Update splitter expected-block list and/or test fixture.
 - Must test MCP servers: run full `tests/` suite plus `opencode mcp list` smoke. No production behavior change beyond test/tooling repair.
@@ -69,5 +70,6 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `ace57423d51ddeab38ba0e5cb32e10174b93df9f`
 <!-- END_GIT_DIFF -->

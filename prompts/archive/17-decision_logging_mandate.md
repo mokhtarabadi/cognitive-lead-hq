@@ -42,4 +42,4 @@ Each entry MUST follow this exact format:
 
 - **Log:** Architectural patterns, technology choices, API contracts, data model decisions, security trade-offs, performance vs. readability trade-offs, scope changes.
 - **Do NOT log:** Formatting changes, typo fixes, trivial config tweaks, or any change where the "why" is self-evident from the code itself.
-</decision_logging_mandate>
+  </decision_logging_mandate>

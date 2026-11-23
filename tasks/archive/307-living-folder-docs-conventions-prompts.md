@@ -74,5 +74,6 @@ Hotfix round (Hands, 2026-10-06): moved the task back qa → in-progress via `gi
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `e2cf88080dcdcc9cf0f46b336d7de44136ae27a2`
 <!-- END_GIT_DIFF -->

@@ -52,17 +52,20 @@ The task is NOT done unless ALL of the following are true:
 ## Execution Log & Reasoning
 
 **Files created:**
+
 - `user-prompts/founder-coaching-chat.md` — 9 XML blocks: `<system_version>`, `<role>`, `<coachee_profile>` (6 behavioral patterns), `<coaching_philosophy>` (7 principles), `<growth_model>` (6-stage progression), `<decision_evaluation_framework>` (6 questions with application rules), `<chat_interaction_modes>` (3 modes with distinct rhythms), `<in_chat_memory_protocol>` (running summary structure), `<initialization>`.
 - `user-prompts/daily-english-coach-chat.md` — 8 XML blocks: `<system_version>`, `<role>` (English-only, no coding), `<learner_profile>` (Persian native, common patterns), `<coaching_philosophy>` (6 principles including Persian phonetic pronunciation guides), `<session_modes>` (4 modes: Free, Roleplay, Vocab, Pronunciation), `<correction_format>` (Persian `> 💡 **نکته‌ی مربی:**`), `<in_chat_vocabulary_bank>` (track/test/build/retire), `<initialization>`.
 
 **Files modified:**
+
 - `README.md` — added `founder-coaching-chat.md` and `daily-english-coach-chat.md` to `user-prompts/` directory tree listing.
 - `CHANGELOG.md` — added `### Added` section under `[Unreleased]` with two entries documenting the new templates.
 
 **Architectural reasoning:**
+
 - Both prompts are designed as standalone chat-interface system instructions — copy-paste into AI Studio, Claude, or ChatGPT. No external tools or MCP servers required.
 - The Founder Coaching prompt follows the V9 separation-of-concerns principle: coaching content lives in a dedicated user prompt, NOT in the system prompt. This allows the Manager to customize coaching style independently.
-- The English Coach prompt includes Persian phonetic pronunciation guides (e.g., /اِکسپِرت/ for *expert*) — a unique feature for Persian-speaking learners that bridges the gap between written English and spoken sounds.
+- The English Coach prompt includes Persian phonetic pronunciation guides (e.g., /اِکسپِرت/ for _expert_) — a unique feature for Persian-speaking learners that bridges the gap between written English and spoken sounds.
 - Both prompts use `<in_chat_memory_protocol>` / `<in_chat_vocabulary_bank>` to maintain state within the chat history, avoiding the need for external memory systems.
 
 **Verification:** pytest 49/50 passed (1 pre-existing failure: `test_workflow_upgrade_guide_exists`). No regressions introduced by this task.
@@ -70,5 +73,6 @@ The task is NOT done unless ALL of the following are true:
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `bbdd4460aeb18d652de552c4fefdbf238ca91cbb`
 <!-- END_GIT_DIFF -->

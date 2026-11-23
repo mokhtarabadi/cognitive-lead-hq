@@ -69,12 +69,12 @@ Autopilot is locked for this task on the Manager's words: "I like d1 too / Task 
 
 Routing already existed (Task 246) but was inert: `BRAIN_RISK_ROUTING_ENABLED` was unset and no caller ever passed `risk_tier`, so every turn used `BRAIN_MODEL`. The approved plan supplies the missing input by deriving the tier from the `stage` the caller already sends.
 
-| Stage | Tier | Model |
-| --- | --- | --- |
-| `plan`, `review` | `T2` | `openai/gpt-5.6-luna` |
-| `implement`, `qa`, `closure` | `T0` | `deepseek/deepseek-v4.1-flash` |
-| missing | none | `BRAIN_MODEL` |
-| unknown | rejected by preflight | n/a |
+| Stage                        | Tier                  | Model                          |
+| ---------------------------- | --------------------- | ------------------------------ |
+| `plan`, `review`             | `T2`                  | `openai/gpt-5.6-luna`          |
+| `implement`, `qa`, `closure` | `T0`                  | `deepseek/deepseek-v4.1-flash` |
+| missing                      | none                  | `BRAIN_MODEL`                  |
+| unknown                      | rejected by preflight | n/a                            |
 
 An explicit `risk_tier` stays authoritative over the derived tier.
 
@@ -108,7 +108,7 @@ The first full bridge run failed one test because it passed `stage="nonsense"` a
 
 QA rejected the first submission on one reproducible defect (V1): a blank `BRAIN_MODEL_LOW`/`BRAIN_MODEL_HIGH` silently selected the built-in routed model, while `docs/brain-bridge.md` promised that blank per-tier overrides fall back to `BRAIN_MODEL`. An operator clearing an override would have been routed to an unintended model.
 
-Repair — a three-state contract in `mcp-brain-bridge/server.py`, chosen so the QA contract and the Manager's condition both hold (every value is `.env`-changeable *and* carries that value as its built-in default):
+Repair — a three-state contract in `mcp-brain-bridge/server.py`, chosen so the QA contract and the Manager's condition both hold (every value is `.env`-changeable _and_ carries that value as its built-in default):
 
 - key **unset** → the built-in default (`_MODEL_LOW_DEFAULT` = `deepseek/deepseek-v4.1-flash`, `_MODEL_HIGH_DEFAULT` = `openai/gpt-5.6-luna`), so the baseline works with no `.env` entry;
 - key **set but blank** → `""`, which the unchanged pure resolver `resolve_routed_model()` maps back to `BRAIN_MODEL`;
@@ -138,5 +138,6 @@ The Manager answered the closure question through the native `question` tool wit
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `58e70a490fa83daeedae9d3080d3faf31f8e015f`
 <!-- END_GIT_DIFF -->

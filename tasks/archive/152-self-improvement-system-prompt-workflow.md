@@ -33,11 +33,12 @@ You operate in Cognitive Lead AI HQ — orchestration repo where `system-prompt.
 
 <agentic_reasoning>
 Before designing the retrofit, output a <reasoning_log> analyzing:
+
 1. Logical dependencies — which fragments host workflow triggers, personas, and improvement gates; how session memory (goal plugin, opencode logs, task files, CHANGELOG) feeds retrospection.
 2. Risk assessment — hallucinated improvements, scope creep, self-modifying loops without human approval, token bloat.
 3. Abductive reasoning — why current workflow lacks compounding: no explicit post-sprint reflection trigger, no evidence-bound proposal shape.
 4. Precision and Grounding — cite file:line for fragment insertion point, gate command, and output schema; ensure version bump via `<system_version>` fragment.
-</agentic_reasoning>
+   </agentic_reasoning>
 
 <constraints>
 - You MUST keep human-in-the-loop: self-improvement PROPOSES, Manager disposes — never auto-apply patches; output is task-ready proposals.
@@ -174,5 +175,6 @@ _(Log non-trivial architectural, design, or strategic decisions here using the f
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `c56d08dfd032b2b464e1f8c46c82ebfb8e09dcb0`
 <!-- END_GIT_DIFF -->

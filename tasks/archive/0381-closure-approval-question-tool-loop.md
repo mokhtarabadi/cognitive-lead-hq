@@ -59,7 +59,7 @@ Translation: a new bug was found in Approve-for-Closure. The Manager selected it
 - **Expected result:** red-first 4 failed (3 new tests + version pin) before the fix, all green after; assembler diff = 4 intended hunks only
 - **Actual result:** red confirmed `4 failed, 27 passed`; after fix `31 passed` prompt-sync, `799 passed` full; assembler output differs from old shipped file in exactly the 4 intended hunks (version + 3 contract sentences)
 - **Exit code:** 0
-- Stack-gate skip: root=. markers=[go.mod, buf.yaml, build.gradle.kts, Package.swift, *.xcodeproj, pyproject.toml+Flask, pyproject.toml+FastAPI, package.json+next.config.*, package.json+src/ports/, package.json+apps/expo, vite.config.*, nuxt.config.*, nest-cli.json, prisma/schema.prisma] matched=[] reason=no matching stack marker found; python-fastapi loaded for Python discipline only
+- Stack-gate skip: root=. markers=[go.mod, buf.yaml, build.gradle.kts, Package.swift, _.xcodeproj, pyproject.toml+Flask, pyproject.toml+FastAPI, package.json+next.config._, package.json+src/ports/, package.json+apps/expo, vite.config._, nuxt.config._, nest-cli.json, prisma/schema.prisma] matched=[] reason=no matching stack marker found; python-fastapi loaded for Python discipline only
 - **QA hotfix (2026-11-06):** negative-case pin only.
   - **Test command:** `rtk test uv run --project mcp-brain-bridge --with pytest --with pyyaml python -m pytest tests/test_prompt_sync.py -q` → `32 passed` (incl. `test_closure_approval_keeps_existing_negative_cases`); full `rtk test ... python -m pytest tests/ -q` → `800 passed, 24 warnings`; `python3 -m py_compile tests/test_prompt_sync.py` OK; `python3 scripts/check_docs_sync.py` → `docs-sync: OK`
   - **Expected result:** all green; Deviation D1 logged (removed pre-0381 sentence not pinned)
@@ -119,5 +119,6 @@ Translation: a new bug was found in Approve-for-Closure. The Manager selected it
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `4eae396c9fb6bed4712c585ae502f2467d71a821`
 <!-- END_GIT_DIFF -->

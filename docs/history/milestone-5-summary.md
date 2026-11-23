@@ -11,19 +11,19 @@ Key changes: `system-prompt.md` role block updated, 3 skill templates and 3 user
 
 ## Files Modified
 
-| File | Change |
-|---|---|
-| `system-prompt.md` | Version 6.12.0 → 7.0.0, "Google AI Studio (powered by Gemini)" → "the Orchestrator platform" |
-| `README.md` | 9 "AI Studio" and 2 "Gemini" references replaced with generic terms |
-| `AGENTS.md` | 2 "AI Studio" references replaced with "Orchestrator" |
-| `skill-templates/code-search/SKILL.md` | 5 references rebranded |
-| `skill-templates/audit-agents/SKILL.md` | 2 references rebranded |
-| `skill-templates/task-generator/SKILL.md` | 1 reference rebranded |
-| `skill-templates/telegram-issue-sync/SKILL.md` | 1 reference rebranded |
-| `user-prompts/multi-agent-brainstorming.md` | Platform list generalized |
-| `user-prompts/session-compactor.md` | 2 "AI Studio" → "Orchestrator" |
-| `user-prompts/perplexity-deep-research.md` | "AI Studio Orchestrator" → "the Orchestrator" |
-| `CHANGELOG.md` | v7.0.0 entry added |
+| File                                           | Change                                                                                       |
+| ---------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `system-prompt.md`                             | Version 6.12.0 → 7.0.0, "Google AI Studio (powered by Gemini)" → "the Orchestrator platform" |
+| `README.md`                                    | 9 "AI Studio" and 2 "Gemini" references replaced with generic terms                          |
+| `AGENTS.md`                                    | 2 "AI Studio" references replaced with "Orchestrator"                                        |
+| `skill-templates/code-search/SKILL.md`         | 5 references rebranded                                                                       |
+| `skill-templates/audit-agents/SKILL.md`        | 2 references rebranded                                                                       |
+| `skill-templates/task-generator/SKILL.md`      | 1 reference rebranded                                                                        |
+| `skill-templates/telegram-issue-sync/SKILL.md` | 1 reference rebranded                                                                        |
+| `user-prompts/multi-agent-brainstorming.md`    | Platform list generalized                                                                    |
+| `user-prompts/session-compactor.md`            | 2 "AI Studio" → "Orchestrator"                                                               |
+| `user-prompts/perplexity-deep-research.md`     | "AI Studio Orchestrator" → "the Orchestrator"                                                |
+| `CHANGELOG.md`                                 | v7.0.0 entry added                                                                           |
 
 ## Individual Task Summaries
 

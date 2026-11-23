@@ -12,13 +12,13 @@ documented in `LLM.txt`.
 
 ## Pick the cheapest tool
 
-| Need | Tool |
-| --- | --- |
-| Find candidate pages | `blowsh_search_web` |
-| Read one page | `blowsh_fetch_web` |
-| Read up to 10 known pages | `blowsh_fetch_web_batch` |
-| Extract a docs site or wiki | `blowsh_crawl_web` |
-| Follow navigation without full content | `blowsh_extract_links` |
+| Need                                   | Tool                     |
+| -------------------------------------- | ------------------------ |
+| Find candidate pages                   | `blowsh_search_web`      |
+| Read one page                          | `blowsh_fetch_web`       |
+| Read up to 10 known pages              | `blowsh_fetch_web_batch` |
+| Extract a docs site or wiki            | `blowsh_crawl_web`       |
+| Follow navigation without full content | `blowsh_extract_links`   |
 
 ## The five tools
 

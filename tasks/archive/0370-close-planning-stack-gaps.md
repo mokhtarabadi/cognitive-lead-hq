@@ -75,5 +75,6 @@ Implementation notes: milestone as trailing optional `:milestone` segment (backw
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `07b1ddc24fb43f2bb96a65d376a2c6e528396439`
 <!-- END_GIT_DIFF -->

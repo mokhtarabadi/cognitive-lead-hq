@@ -93,9 +93,10 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 - **M3:** `ls -d ~/.config/opencode/skills/brainstorm-swarm` → "No such file or directory" — global removal proven.
 
 **QA round 1 follow-up verification (Hands, pre re-audit):**
+
 - **V1 refined — staged set proven 174-only.** `git diff --cached --stat` + full staged hunks for `README.md`/`CHANGELOG.md` inspected: staged CHANGELOG = exactly the 2×174 hunks (Added commands entry + Removed skill entry), staged README = exactly the 174 tree prune (2 lines). QA's README/CHANGELOG contamination claim described the pre-fix state — already eliminated by the worktree surgery. Remaining scope leak was structural: pre-existing staged `tasks/qa/173-*.md` (not mine, staged during 173's own pipeline) — `git reset --` unstaged it (now untracked, content fully preserved on disk; 173 re-stages at its own closure). `/tmp/task173-orphan-changes.patch` verified present (12,486 bytes) holding 173's README/CHANGELOG hunks. **Flag to Manager (updated):** 173's closure must re-apply that patch + re-stage `LLM.txt`, memory workflow, and its task file.
 - **V2 re-verified broader (round 3).** `grep -rln brainstorm-swarm|brainstorm_swarm` over py/md/json/jsonc/txt/yaml/yml/sh excluding archive/history/context-reports/sessions/174-file/memory/CHANGELOG → exit 1, **zero hits**. AC3 proven without needing the transcript carve-out.
-- **V3 double-disproved.** QA claimed (a) "no such parameter" — false (`server.py:141` + doc 169 + enforcement 200-208); (b) "log claims commands pass force_xml=True" — false (log documents a *suggestion* in `programmer.md` REPORT guidance: "consider `force_xml=true` when a bare report is not actionable"; commands pass no kwargs — they are markdown instructions, and the suggestion targets a real tool parameter).
+- **V3 double-disproved.** QA claimed (a) "no such parameter" — false (`server.py:141` + doc 169 + enforcement 200-208); (b) "log claims commands pass force_xml=True" — false (log documents a _suggestion_ in `programmer.md` REPORT guidance: "consider `force_xml=true` when a bare report is not actionable"; commands pass no kwargs — they are markdown instructions, and the suggestion targets a real tool parameter).
 
 ## Verification Evidence (recorded)
 
@@ -125,6 +126,7 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 - **Self-caught in half-2 diff review (Hands):** first refactor passed pre-formatted text into `post_approval_gate` (double header) — fixed to raw summary + regression test (header count==1).
 
 **QA round 3 on the extension (QA_REJECTED → triaged, Hands):**
+
 - **Blocking-1 (no dispatch wiring) — FALSE POSITIVE with evidence.** QA received an abridged paste (server.py hunk omitted by the Hands to save tokens). Real code: `server.py:235` calls `extract_context_request(output)` and returns `CONTEXT_REQUEST`; `XML_BLOCK_RE` (`dual_dispatch.py:29`, `<(hands_[a-z_]+_task|failure_report)>`) cannot match `<hands_context_request>` (`_request` ≠ `_task`), so the XML-first order is safe. Lesson: never abridge evidence for QA — resend full verbatim hunks.
 - **Blocking-2 (bare `path` in load) — FALSE POSITIVE with evidence.** Real `session.py` assigns `path = persona_card_path(...)` first (grep proves, lines 211/252); the paste condensation dropped it. Lesson stands (same as above).
 - **Advisory fixes ACCEPTED + implemented:** (a) present-but-empty lineage files no longer warn "not found" (`_read_lineage_file` returns found-flag; repo-empty shadows global instead of falling through); (b) card writes are atomic (tmp + `os.replace`); torn-write resets impossible; (c) context nudge stands down after a CONTEXT_REQUEST turn ("proceed with planning on that evidence") — kills the infinite re-request loop. Race-lock (fcntl) declined: single Hands process, atomic writes suffice; corrupt-JSON default fallback kept as audit resilience.
@@ -140,5 +142,6 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `70ac2e09a253d8fee6a59a554e3577c091732fd3`
 <!-- END_GIT_DIFF -->

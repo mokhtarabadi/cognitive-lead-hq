@@ -22,11 +22,13 @@ Unified execution of 5 related small tasks as a single META task to eliminate se
 **Bundle Decision (2026-08-21):** Manager requested fully automatic bundling with archive (not purge). This META was generated deterministically by the `bundle_tasks` MCP tool to execute 5 small related tasks together and speed up turnaround.
 
 **Traceability:**
+
 - Supersedes [300, 301, 302, 303, 304] — see per-source verbatim blocks below
 - Archive: each source moved via `git mv` to `tasks/archive/` with `**Superseded-By:** 305-brain-anti-hallucination-harness` header + superseded footer
 - Rollback: `git mv tasks/archive/<id>-*.md tasks/backlog/` + delete META file
 
 **Guardrails Applied:**
+
 - Cap 6 per bundle — this bundle has 5 (✅ within cap)
 - Verbatim preservation — every source Goal/AC/TODO/Risk copied verbatim below (SHA comparison available in bundler dry-run)
 - Diff-size check — combined 355 LOC (✅ within 400)
@@ -200,7 +202,6 @@ Brainstorm C5 must-task from self-judgment task 299: correctness wins over cache
 
 ---
 
-
 ## Bundled Checklist (All-or-Nothing)
 
 > **QA Gate (all-or-nothing):** Every line below maps to one source acceptance criterion. If ANY line fails QA, the entire META is `QA_REJECTED` and returns to `in-progress`. Do not partially close.
@@ -310,5 +311,6 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `360994c18739d96fc70be50b8a71c8f4dc77829d`
 <!-- END_GIT_DIFF -->

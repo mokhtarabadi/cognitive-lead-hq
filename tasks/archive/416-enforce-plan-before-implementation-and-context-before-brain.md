@@ -1,9 +1,11 @@
 # Task 416: Enforce plan-before-implementation and context-before-brain on direct Manager input
 
-**File:** `tasks/backlog/416-enforce-plan-before-implementation-and-context-before-brain.md`
+**File:** `tasks/archive/416-enforce-plan-before-implementation-and-context-before-brain.md`
 **Source:** manager
 **Type:** improvement
-**Status:** open
+**Status:** superseded
+**Superseded-By:** `417-comprehensive-prompt-and-workflow-hardening-across-fragments-agents-and-brain-context`
+**Superseded-At:** `2026-11-22 20:56 UTC`
 
 ## Goal
 
@@ -71,6 +73,8 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 - **Risk:** The Brain's context-before-plan rule must not break existing XML task flows where context is already fed. The rule should only trigger when `context_paths` is absent or empty.
 - **Risk:** HQ-only changes (agents/, prompts/fragments/) must not leak into project-agnostic governance scaffolding unless the rule is project-agnostic (it is, since it applies to all projects using the harness).
 - **Rollback plan:** Git revert of changed agent/fragment files. No data migration involved.
+
+> **Superseded:** This task was bundled into META task `417-comprehensive-prompt-and-workflow-hardening-across-fragments-agents-and-brain-context` and archived on 2026-11-22 20:56 UTC. See `tasks/backlog/417-comprehensive-prompt-and-workflow-hardening-across-fragments-agents-and-brain-context.md` (or its Kanban successor) for the unified execution. History preserved via `git log --follow -- tasks/archive/416-enforce-plan-before-implementation-and-context-before-brain.md`.
 
 ## Execution Log & Reasoning
 

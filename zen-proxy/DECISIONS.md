@@ -51,8 +51,7 @@
 - **Decision:** `POST` bodies are checked against the mount's allowlist
   before dispatch. A mismatch returns `404 ModelNotServedHere` with the
   correct mount named, or `no known route` when the id is unserved anywhere.
-- **Consequences:** Callers get an actionable error instead of a provider
-  400. The allowlist must be refreshed against upstream when it drifts;
+- **Consequences:** Callers get an actionable error instead of a provider 400. The allowlist must be refreshed against upstream when it drifts;
   `GO_RESP` was widened on 2026-10-21 after probing showed every Go chat
   model tested also answers on `/responses`.
 - **Rollback:** Remove the POST gate; `GET /models` filtering alone remains

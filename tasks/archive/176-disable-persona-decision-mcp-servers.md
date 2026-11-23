@@ -14,6 +14,7 @@ Disable the `persona` and `manager_decisions` MCP servers in both the repo and g
 Manager order (verbatim intent): "Also disable the MCP servers related to this system. Initially, I considered keeping the Manager Decision MCP server, but forget that — disable both of them for now. Do not delete anything. Keep all the code, configurations, and implementation available for future development. For the global configuration and this repository, disable the MCP servers. For JSON files where comments are not supported, remove the active configuration from the JSON, but make sure the task clearly documents: What was implemented. What is being disabled. Why it is being disabled. Which components/configurations were affected. Where the archived implementation was moved. How the system was restored to the previous manual workflow. How we can restore and continue developing the automated system in the future."
 
 What was implemented (automation system, Tasks 167/168/170/174):
+
 - `mcp-persona-server/` (server.py, dual_dispatch.py, session.py, telegram.py; tools: dispatch_session_turn, get_session_summary, escalate_to_admin, request_admin_approval, open_approval_gate, poll_approval_gate; 138 tests).
 - `mcp-decision-server/` (server.py, redactor.py; tools: extract_session_decisions, record_manager_decision, query_manager_decisions, get_manager_profile, propose_profile_evolution).
 - Wiring: repo `opencode.json` `mcp.persona` + `mcp.manager_decisions` blocks (relative paths) + permission allows (`dispatch_session_turn`, `get_session_summary`, `escalate_to_admin`, `request_admin_approval`, `open_approval_gate`, `poll_approval_gate`, `extract_session_decisions`, `record_manager_decision`, `query_manager_decisions`, `get_manager_profile`, `propose_profile_evolution`); same blocks with absolute paths in `~/.config/opencode/opencode.json`; env vars `PERSONA_*` / `DECISION_*` in `.env.example` (+ live `.env`, gitignored).
@@ -21,6 +22,7 @@ What was implemented (automation system, Tasks 167/168/170/174):
 What is being disabled / why: both servers (persona first, decision too per explicit reversal) because the orchestration is immature; production must run no experimental automation.
 
 Affected components/configurations:
+
 - Repo `opencode.json`: delete the two `mcp.*` blocks + their permission lines (keep `custom_context`, `project_memory`, `lint`, `bundle_tasks` intact).
 - Global `~/.config/opencode/opencode.json`: same two blocks + permission lines (absolute-path variants).
 - `.env.example`: comment out `PERSONA_*` / `DECISION_*` lines (file supports `#` comments) with a `PAUSED-AUTOMATION` note. Live `.env` values stay (gitignored, server absent = inert).
@@ -79,9 +81,9 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 
 ## Execution Log & Reasoning
 
-**What was implemented (automation, Tasks 167/168/170/174):** persona server (6 tools, 138 tests), decision server (5 tools), JSON wiring repo+global, PERSONA_*/DECISION_* env, 9 archived commands, executor automation sections. **Disabled:** both `mcp.*` blocks + 9 repo / 11 global permission lines (JSON has no comments — removed, code untouched). **Why:** Manager order — system immature, production runs zero experimental automation. **Affected:** repo `opencode.json`, global `opencode.json`, `.env.example`, CHANGELOG, RESTORE.md Appendix A. **Archive location:** server code stays in place (inert without wiring); commands at `archive/automation-paused-2026-09-09/commands/`; exact removed JSON in RESTORE.md Appendix A. **Manual restore:** executor `## Manual Workflow (ACTIVE DEFAULT)`; remaining MCPs (custom_context, project_memory, lint) connected. **Future restore:** RESTORE.md steps 1-6 + Appendix A blocks (repo relative paths / global absolute paths), uncomment env, restart OpenCode, `opencode mcp list` must show both connected.
+**What was implemented (automation, Tasks 167/168/170/174):** persona server (6 tools, 138 tests), decision server (5 tools), JSON wiring repo+global, PERSONA__/DECISION__ env, 9 archived commands, executor automation sections. **Disabled:** both `mcp.*` blocks + 9 repo / 11 global permission lines (JSON has no comments — removed, code untouched). **Why:** Manager order — system immature, production runs zero experimental automation. **Affected:** repo `opencode.json`, global `opencode.json`, `.env.example`, CHANGELOG, RESTORE.md Appendix A. **Archive location:** server code stays in place (inert without wiring); commands at `archive/automation-paused-2026-09-09/commands/`; exact removed JSON in RESTORE.md Appendix A. **Manual restore:** executor `## Manual Workflow (ACTIVE DEFAULT)`; remaining MCPs (custom_context, project_memory, lint) connected. **Future restore:** RESTORE.md steps 1-6 + Appendix A blocks (repo relative paths / global absolute paths), uncomment env, restart OpenCode, `opencode mcp list` must show both connected.
 
-Edits: (1) repo `opencode.json` — deleted persona + manager_decisions blocks, lint block closing comma fixed, 9 permission lines deleted; (2) global same (11 lines incl. open/poll gates) — first attempt dropped the `"blowsh":` key line (global JSON invalid, caught by validator), repaired by re-adding the key; both files now parse, mcp keys repo=[custom_context,lint,project_memory], global=+blowsh/telegram; (3) `.env.example` — 7 active PERSONA_*/DECISION_* vars commented with PAUSED note; (4) CHANGELOG 176 bullet; (5) RESTORE.md Appendix A verbatim blocks. Count correction: repo=9 lines, global=11 (task text said 11 for repo). `opencode mcp list`: 5/5 connected, persona + decisions absent. Server dirs/tests/skills/fragments/system-prompt untouched. Global config change is machine-local, never staged.
+Edits: (1) repo `opencode.json` — deleted persona + manager_decisions blocks, lint block closing comma fixed, 9 permission lines deleted; (2) global same (11 lines incl. open/poll gates) — first attempt dropped the `"blowsh":` key line (global JSON invalid, caught by validator), repaired by re-adding the key; both files now parse, mcp keys repo=[custom_context,lint,project_memory], global=+blowsh/telegram; (3) `.env.example` — 7 active PERSONA__/DECISION__ vars commented with PAUSED note; (4) CHANGELOG 176 bullet; (5) RESTORE.md Appendix A verbatim blocks. Count correction: repo=9 lines, global=11 (task text said 11 for repo). `opencode mcp list`: 5/5 connected, persona + decisions absent. Server dirs/tests/skills/fragments/system-prompt untouched. Global config change is machine-local, never staged.
 
 **Orchestrator micro-task (same session, recorded here for traceability):**
 companion grep sweep for Task 175 found + neutralized one live
@@ -92,5 +94,6 @@ scope change — server wiring stays removed.
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `161929690ecb4c4c877d234841a7f70b81aa9c51`
 <!-- END_GIT_DIFF -->

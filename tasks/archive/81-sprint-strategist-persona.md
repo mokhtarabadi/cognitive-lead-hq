@@ -77,5 +77,6 @@ The Orchestrator's bash phase explicitly listed `git mv tasks/backlog/81-sprint-
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `d38676bcdd89e948faea182636c21add8e7e3d1c`
 <!-- END_GIT_DIFF -->

@@ -21,10 +21,12 @@ Brainstorm C4 must-task from self-judgment task 299: model routing tiers plus ca
 ## Scope
 
 In scope:
+
 - Parity matrix tests for input_file file_data, file_id, file_url, inline markdown, chunk overlap, 400 fatal versus 429 and 5xx retry, missing key, HTTPS violation, timeouts
 - Versioned contract note for routing tiers plus caps
 
 Out of scope:
+
 - XML gate, attach signaling, session contract (separate tasks)
 - External repos untouched
 - No git add/commit/push by Hands (ZAC holds)

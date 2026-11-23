@@ -31,7 +31,7 @@ Phase A / Task LE-4 — OpenCode Executor Stack Context Injection & Goal Plugin 
 - [x] Initial codebase exploration
 - [x] Initialize task file with canonical template (D1–D5, AC, DoD)
 - [x] Update regex definitions in executor.py
-- [x] Add semaphore to HandsExecutor.__init__
+- [x] Add semaphore to HandsExecutor.**init**
 - [x] Implement _build_prompt XML construction
 - [x] Update execute() to use semaphore + _build_prompt
 - [x] Update _run_once with timeout/process-group/killpg/blocked-reason handling
@@ -72,26 +72,31 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 ## Manager Decisions
 
 **[2026-08-31] [D1] [ORCHESTRATOR-DETECTED]:** Structured XML Prompt Construction and Skill Directives
+
 - **Rationale:** XML-delimited prompt blocks (`<task_instructions>`, `<stack_context>`, `<goal_rules>`) provide unambiguous instruction boundaries for local autonomous agents, preventing prompt confusion.
 - **Alternatives considered:** Plain unformatted markdown or comma-separated string appending.
 - **Impact:** Local OpenCode agents reliably load declared skills and execute verification toolchains prior to goal completion.
 
 **[2026-08-31] [D2] [ORCHESTRATOR-DETECTED]:** Goal Plugin Termination Token Extraction
+
 - **Rationale:** Parsing `[goal:complete]` / `[goal:blocked: <reason>]` from agent output lets the executor map agent signals to pipeline states deterministically, with blocker reasons propagated for QA feedback.
 - **Alternatives considered:** Inferring completion purely from subprocess exit code; free-text blocked parsing.
 - **Impact:** Deterministic terminal-state detection; blocked reasons flow into retry/feedback logic.
 
 **[2026-08-31] [D3] [ORCHESTRATOR-DETECTED]:** Process Group Isolation via `start_new_session=True`
+
 - **Rationale:** Launching the OpenCode subprocess in its own process group lets the executor kill the entire tree on timeout with `os.killpg(SIGKILL)`, preventing orphaned agent processes.
 - **Alternatives considered:** Killing only the direct child PID.
 - **Impact:** Clean timeout teardown; no leaked subprocesses or hung sessions.
 
 **[2026-08-31] [D4] [ORCHESTRATOR-DETECTED]:** Concurrency Semaphore Enforcement
+
 - **Rationale:** `asyncio.Semaphore(config.max_parallel_tasks)` in the executor guarantees the daemon never exceeds the configured concurrent Hands sessions, even under retry or multi-task bursts.
 - **Alternatives considered:** Relying solely on daemon-level scheduling.
 - **Impact:** Deterministic concurrency cap at the execution boundary; matches `config.max_parallel_tasks` (1–4).
 
 **[2026-08-31] [D5] [ORCHESTRATOR-DETECTED]:** Configurable Executor Timeout from `idle.executing_timeout_seconds`
+
 - **Rationale:** Using the existing idle config as the subprocess timeout (fallback 900.0) keeps a single source of truth for execution duration and aligns with the Goal Plugin's idle semantics.
 - **Alternatives considered:** A hardcoded 7200s safety cap.
 - **Impact:** Executor honors the same timeout budget as the rest of the pipeline; no new config surface.
@@ -121,5 +126,6 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `d368b911c851ec32dd19efd12ce544d4c37debf7`
 <!-- END_GIT_DIFF -->

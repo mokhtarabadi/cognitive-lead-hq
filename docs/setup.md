@@ -53,12 +53,12 @@ The project uses five FastMCP Python servers, all running as supervised singleto
 
 **Code Mode:** every server runs in Code Mode (default `codemode: true`) — all tool schemas stay out of the system prompt and every call routes through `execute`. Manager decision 2026-11-06. See `docs/services.md` for the rationale table.
 
-| Server                                        | Purpose                                                                       | Singleton (port)              |
-| --------------------------------------------- | ----------------------------------------------------------------------------- | ----------------------------- |
-| `mcp-context-server`                          | `.gitignore`-aware file reading, tree exploration                             | 8102 (`mcp-context.service`)  |
-| `mcp-memory-server`                           | Persistent project memory (namespaces + index)                                | 8103 (`mcp-memory.service`)   |
-| `mcp-lint-server`                             | Task file linting and Markdown validation                                     | 8101 (`mcp-lint.service`)     |
-| `mcp-brain-bridge`                            | Unified Brain bridge: `brain_turn` (system-prompt loader + LLM + XML extract) | 8105 (`mcp-brain.service`)    |
+| Server               | Purpose                                                                       | Singleton (port)             |
+| -------------------- | ----------------------------------------------------------------------------- | ---------------------------- |
+| `mcp-context-server` | `.gitignore`-aware file reading, tree exploration                             | 8102 (`mcp-context.service`) |
+| `mcp-memory-server`  | Persistent project memory (namespaces + index)                                | 8103 (`mcp-memory.service`)  |
+| `mcp-lint-server`    | Task file linting and Markdown validation                                     | 8101 (`mcp-lint.service`)    |
+| `mcp-brain-bridge`   | Unified Brain bridge: `brain_turn` (system-prompt loader + LLM + XML extract) | 8105 (`mcp-brain.service`)   |
 
 Each unit launches its server via the persistent venv interpreter (`<dir>/.venv/bin/python <dir>/server.py`, never `uv run` — `uv` startup exceeds the V2 connect timeout under multi-session spawn load, 2026-09-29 fix), with `MCP_TRANSPORT=streamable-http` plus `MCP_HOST`/`MCP_PORT` in the unit environment.
 

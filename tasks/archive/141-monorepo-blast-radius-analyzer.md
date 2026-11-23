@@ -47,16 +47,19 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 ## Manager Decisions
 
 **[2026-08-31] [D1] [ORCHESTRATOR-DETECTED]:** Monorepo Blast-Radius Dependency Graph Scoping
+
 - **Rationale:** Analyzing git diffs against intra-monorepo dependency graphs scopes toolchain verification strictly to impacted packages, skipping unrelated test suites while guaranteeing transitive coverage for shared contract mutations.
 - **Alternatives considered:** Running full-workspace verification on every commit, or manual test directory selection.
 - **Impact:** Accelerates verification turnaround in polyglot monorepos while preventing false-negative regressions in dependent consumer apps.
 
 **[2026-09-01] [D2] [EXECUTION-DETECTED]:** Dual-API backward compat for PackageDependency and BlastRadiusMatrix
+
 - **Rationale:** Spec required `name`/`dependencies`/`is_monorepo`/`is_empty`/`BlastRadiusConfig` while 24 existing tests relied on legacy `package`/`depends_on`/`packages`/`dependency_map`/`root_owned_files` and `skip_unaffected` flag. Implemented AliasChoices + properties + computed `is_monorepo`/`is_empty` and dual `ToolchainRunner` config (`blast_radius_config` + legacy `skip_unaffected`) to satisfy both without test rewrites.
 - **Alternatives considered:** Breaking change renaming all fields and updating 24 tests — rejected: violates verification-before-completion (would need test migration); keeping only legacy fields — rejected: fails spec AC.
 - **Impact:** Both spec AC and existing 24 tests pass (271 total); verifier handles both global `is_monorepo && is_empty` skip and per-workspace conservative skip.
 
 **[2026-09-01] [D3] [EXECUTION-DETECTED]:** Hybrid discover_packages return type
+
 - **Rationale:** Spec required `discover_packages(workspace_root, globs=None) -> dict[str, PackageDependency]` while legacy tests expect `list[PackageInfo]`. Implemented globs-aware branch returning dict when globs provided, list when None, preserving deterministic sort and workspaces pseudo-manifest handling.
 - **Alternatives considered:** Always return dict — breaks 7 legacy discover tests; always return list — fails spec.
 - **Impact:** Both call sites work; spec's `build_dependency_graph` wrapper consumes dict, legacy `build_dependency_map` consumes list.
@@ -89,5 +92,6 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `0f679ac8423ec5a62e89617079e52cc2ae200219`
 <!-- END_GIT_DIFF -->

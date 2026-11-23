@@ -98,5 +98,6 @@ approval; RTK parity run collapsed the suite verdict to 3 lines, exit 0).
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `aad2006b3ae35b8afd9ebc44feff0f5022a8e311`
 <!-- END_GIT_DIFF -->

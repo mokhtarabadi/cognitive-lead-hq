@@ -72,6 +72,7 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 **Research:** native OpenCode compaction (v2 docs) is automatic and lossy — one summary, keeps ~15k recent tokens, configurable. Magic Compact (173 stars, last release Sep 2026) keeps user messages verbatim, summarizes each old assistant turn, prunes bulky tool I/O into a retrievable cache, and runs on command with no runtime cache churn. Its upstream is paused in favor of Operator Memory, but the pinned release is fully functional. Chose the plugin as the high-fidelity layer, native as the safety net.
 
 **Changes:**
+
 - Global `~/.config/opencode/opencode.json`: `plugins: ["magic-compact"]` (installed `magic-compact@1.2.2`) and `compaction: {auto: true, keep: {tokens: 20000}}`; config backed up first.
 - `~/.npmrc`: commented the dead proxy lines (`127.0.0.1:7890`; mihomo moved to 8118 behind auth) — the plugin install otherwise fails with `NPMInstallFailedError`. Backup taken. This is the fix that makes auto-install actually work.
 - New `prompts/fragments/22-compaction_protocol.md` + `prompts/manifest.txt`; `<system_version>` 9.49.0 → 9.50.0; `system-prompt.md` regenerated (byte-identical re-assemble).
@@ -92,5 +93,6 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `150834df1a4718586494dfd86bfc072b8e82ea8e`
 <!-- END_GIT_DIFF -->

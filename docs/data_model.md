@@ -9,6 +9,7 @@ This document defines the data schemas, file formats, and object relationships f
 Task files are Markdown files stored in `tasks/{backlog,in-progress,qa,completed,archive}/`. Each file follows this structure:
 
 ### Frontmatter
+
 ```markdown
 # Task [NN]: [Title]
 
@@ -26,6 +27,7 @@ Task files are Markdown files stored in `tasks/{backlog,in-progress,qa,completed
 ```
 
 ### Body Sections
+
 - `## Goal` — mandatory, one-line goal
 - `## Manager's Notes` — specific notes/constraints
 - `## Local TODOs` — checklist of steps
@@ -39,8 +41,10 @@ Task files are Markdown files stored in `tasks/{backlog,in-progress,qa,completed
 ## Session Data
 
 ### Transcript
+
 Location: `tasks/.sessions/<session_id>/transcript.jsonl`
 Format: JSONL, one entry per `brain_turn` call. Each entry contains:
+
 - `task_id`, `session_id`
 - `user_prompt`, `output`
 - `xml_blocks` (extracted XML)
@@ -48,8 +52,10 @@ Format: JSONL, one entry per `brain_turn` call. Each entry contains:
 - `model`, `response_id`
 
 ### Brain Output Artifacts
+
 Location: `tasks/.sessions/<session_id>/brain_outputs/<response_id>_<uuid>.json`
 Format: JSON with:
+
 - `task_id`, `session_key`, `response_id`
 - `created_at_utc` (ISO-8601 UTC)
 - `truncated` (boolean)
@@ -61,31 +67,40 @@ Format: JSON with:
 Retention: 50 files / 5 MB per session, oldest-first by mtime.
 
 ### Session Ledger
+
 Location: `tasks/.sessions/<session_id>/session_ledger.jsonl`
 Format: JSONL, append-only event log.
 
 ## Prompt Cache Split
+
 The `brain_turn` result includes a `prompt_cache_split` object:
+
 - `schema_version`: 2
 - `split_boundary`: "after_system_bundle_task_attach"
 - `static_prefix_sha256`: SHA-256 of the static prompt prefix
 - `dynamic_suffix_sha256`: SHA-256 of the dynamic suffix
 
 ## Goal State (External Plugin)
+
 Location: `.opencode/goals/<session-id>.json` + `.evidence.json` sidecar
+
 - Per-session, not shared across sessions
 - Scratch data only, never replaces Kanban state
 - Evidence gate: every criterion needs one existing file + passing test
 
 ## Memory System
+
 Location: `.opencode/memory/` (namespaced Markdown shards)
 Index: `.opencode/memory/index.md` (auto-generated)
+
 - Namespaces: architecture, project, quirks, workflows, telegram-sync, etc.
 - Each shard: YAML frontmatter + content
 - Auto-rebuilt after store/delete operations
 
 ## Context Reports
+
 Location: `context-reports/`
+
 - Tree reports: `tree_report_<timestamp>_<uuid>.md`
 - Context reports: `context_report_<timestamp>_<uuid>.md`
 - Discovery reports: various descriptive names

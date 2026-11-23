@@ -34,10 +34,12 @@ Brain Bridge MCP daemon: single-tool (`brain_turn`) automation path for planning
 ## Upstream Modes & Chat Completions Protocol Bridge
 
 `BRAIN_UPSTREAM_MODE` controls whether the bridge emits OpenAI Responses API requests or Chat Completions requests:
+
 - `responses` (default): posts to `BRAIN_API_BASE/responses` with native Responses format.
 - `chat_completions`: posts to `BRAIN_API_BASE/chat/completions` with OpenAI-compatible Chat Completions format.
 
 In `chat_completions` mode:
+
 - `instructions` and `input` are mapped to role-tagged `messages` (plain string `input` is supported as a single user message).
 - `function_call` input items become `assistant` tool-call messages and `function_call_output` items become `role="tool"` messages with JSON arguments.
 - `max_output_tokens` translates to `max_tokens`.

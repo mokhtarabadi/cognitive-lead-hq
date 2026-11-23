@@ -126,5 +126,6 @@ Manager decision: full reversal of the 0361 policy — every MCP server goes to 
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `e2158b71d99ee6853d60898f4664b8ceb44ece5b`
 <!-- END_GIT_DIFF -->

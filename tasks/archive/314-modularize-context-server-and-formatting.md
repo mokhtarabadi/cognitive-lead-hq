@@ -67,14 +67,15 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 Seat Check: backend Python refactor (no behavior change) plus config/text → Architect kept (module boundaries), Programmer kept, Designer skipped. Brainstorm: not required — reversible via git checkout. Mode: manual (313 autopilot closed with the META commit).
 
 Design (mirrors mcp-brain-bridge: entrypoint owns the FastMCP app, siblings stay stdlib-pure with no registration, dual import robustness):
-- server.py keeps: shebang/uv-script block, sys.path bootstrap, mcp = FastMCP("CustomContext"), _FALLBACK_FIRED + ROOT_FALLBACK_WARNING + _project_tool + _explicit_project_root (fallback framework), the 14 tool defs, __main__; re-exports every test-accessed helper via plain from-imports (monkeypatch-settable).
+
+- server.py keeps: shebang/uv-script block, sys.path bootstrap, mcp = FastMCP("CustomContext"), _FALLBACK_FIRED + ROOT_FALLBACK_WARNING + _project_tool + _explicit_project_root (fallback framework), the 14 tool defs, **main**; re-exports every test-accessed helper via plain from-imports (monkeypatch-settable).
 - fsutil.py: GitIgnoreFilter, TEXT_ENCODINGS, is_binary, BANNED_DIRS + tree caps, _is_banned_dir, generate_tree, process_source_file, collect_files, _ensure_context_reports_ignored.
 - signatures.py: tree-sitter maps/queries/cache + language/signature extractors.
 - graph.py: all GRAPH_* constants + symbol/md/sql parsers + build/degrees/save/load/tokens/find/neighbors/bfs/vocab/suggest.
 - gitops.py: _repo_root, slug/commit-message/commit helpers, kebab/next-id/find-task/extract helpers, checklist/stack/checksum/mv/patch helpers + kanban constants.
 - bundle.py: _build_meta_content (imports gitops helpers).
 - Import graph: server → all; bundle → gitops; no cycles; no sibling → server edge.
-- Formatter decision: ruff (single binary, format is AST-safe whitespace-only; `uv tool install ruff@0.16.10` pinned global since PATH lacks it and uvx needs cache). Enforce via opencode.json named map ruff-format on .py (validator-accepted shape). No new runtime deps; uv.lock untouched. Global deploy copies all *.py (never __pycache__).
+- Formatter decision: ruff (single binary, format is AST-safe whitespace-only; `uv tool install ruff@0.16.10` pinned global since PATH lacks it and uvx needs cache). Enforce via opencode.json named map ruff-format on .py (validator-accepted shape). No new runtime deps; uv.lock untouched. Global deploy copies all *.py (never **pycache**).
 - Deviation D1 (logged, minimal): test_prompt_sync.py version pin 9.54.0 → 9.56.0 — stale since 309 shipped 9.56.0 without updating it (fails on clean HEAD too); same precedent as 307.
 - Incident (caught by deploy, fixed): first split dropped `import os` from server.py `__main__` (tests never execute it) and crashed the singleton restart loop; restored, redeployed, service active. Lesson recorded: live restart is the real entrypoint test.
 - Autopilot locked for 314 per Manager order "start auto pilot for task" (2026-10-09). Saga: sync-global → live-verify → Brain QA → fix → re-stage → Brain review → relay; never auto-commit, never close without exact approval words. Global sync verified IN_SYNC (context 6/6, memory/lint/brain drifted files copied); all four singletons restarted active and tool-tested live.
@@ -86,5 +87,6 @@ Design (mirrors mcp-brain-bridge: entrypoint owns the FastMCP app, siblings stay
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `004ca80a004b83c21f40132c7260b877733f128a`
 <!-- END_GIT_DIFF -->

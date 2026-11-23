@@ -53,10 +53,12 @@ Review and redesign how tasks enter the loop engine execution cycle. Currently, 
 The trigger gate decouples task creation from execution via a new `PENDING_TRIGGER` state in the `TaskState` enum. When `trigger_mode != "auto"`, newly detected tasks register as `PENDING_TRIGGER` instead of `BACKLOG`, and the gateway sends a Telegram card with [🚀 Start Execution] / [⏸️ Hold] buttons.
 
 **New config fields:**
+
 - `trigger_mode`: `"telegram_button"` (default) | `"command_only"` | `"auto"`
 - `auto_start_on_boot`: `false` (default) — controls boot-scan behavior
 
 **New methods:**
+
 - `gateway.send_task_trigger_card(task_id, title, file_path)` — sends Telegram card
 - `gateway._handle_text_command(message)` — parses `/run`, `/start`, `/tasks`, `/backlog`
 - `daemon.trigger_task(task_id)` — fresh file re-read, PENDING_TRIGGER→PLANNING, launches processing
@@ -64,11 +66,13 @@ The trigger gate decouples task creation from execution via a new `PENDING_TRIGG
 - `state.get_pending_trigger_tasks()` — returns tasks awaiting trigger
 
 **State transitions:**
+
 - `PENDING_TRIGGER → PLANNING` (via `trigger_task()`)
 - `PENDING_TRIGGER → CRASHED` (on error)
 - `PENDING_TRIGGER → ABORTED` (explicit abort)
 
 **CLI support:**
+
 - `python daemon.py --run <task_id>` — triggers a specific staged task directly
 
 ### Thread-Safety Fix (QA Remediation)
@@ -81,20 +85,20 @@ The trigger gate decouples task creation from execution via a new `PENDING_TRIGG
 
 ### Files Modified
 
-| File | Changes |
-|------|---------|
-| `loop-engine/models.py` | Added `PENDING_TRIGGER`, `ABORTED` to `TaskState`; added `trigger_mode`, `auto_start_on_boot` to `LoopEngineConfig` |
-| `loop-engine/state.py` | Added `get_pending_trigger_tasks()` method |
-| `loop-engine/gateway.py` | Added trigger card, text command parsing, daemon/state wiring |
-| `loop-engine/watcher.py` | Conditional registration based on `trigger_mode`; **thread-safety fix** — removed `asyncio.get_event_loop().create_task()` from background thread |
-| `loop-engine/daemon.py` | New `LoopEngineDaemon` class, CLI `--run`, boot scan logic |
-| `loop-engine/loop-engine.jsonc` | Documented new config fields |
-| `loop-engine/test_trigger_entry.py` | 10 tests (including thread-safety regression) |
-| `loop-engine/test_models.py` | Updated enum count assertion (10→12) |
-| `docs/loop-engine/README.md` | Updated architecture diagram and workflow |
-| `docs/loop-engine/configuration.md` | Added trigger_mode, auto_start_on_boot docs |
-| `docs/loop-engine/setup.md` | Added trigger config examples and CLI usage |
-| `CHANGELOG.md` | Added Task 118 entry under [Unreleased] > Changed |
+| File                                | Changes                                                                                                                                           |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `loop-engine/models.py`             | Added `PENDING_TRIGGER`, `ABORTED` to `TaskState`; added `trigger_mode`, `auto_start_on_boot` to `LoopEngineConfig`                               |
+| `loop-engine/state.py`              | Added `get_pending_trigger_tasks()` method                                                                                                        |
+| `loop-engine/gateway.py`            | Added trigger card, text command parsing, daemon/state wiring                                                                                     |
+| `loop-engine/watcher.py`            | Conditional registration based on `trigger_mode`; **thread-safety fix** — removed `asyncio.get_event_loop().create_task()` from background thread |
+| `loop-engine/daemon.py`             | New `LoopEngineDaemon` class, CLI `--run`, boot scan logic                                                                                        |
+| `loop-engine/loop-engine.jsonc`     | Documented new config fields                                                                                                                      |
+| `loop-engine/test_trigger_entry.py` | 10 tests (including thread-safety regression)                                                                                                     |
+| `loop-engine/test_models.py`        | Updated enum count assertion (10→12)                                                                                                              |
+| `docs/loop-engine/README.md`        | Updated architecture diagram and workflow                                                                                                         |
+| `docs/loop-engine/configuration.md` | Added trigger_mode, auto_start_on_boot docs                                                                                                       |
+| `docs/loop-engine/setup.md`         | Added trigger config examples and CLI usage                                                                                                       |
+| `CHANGELOG.md`                      | Added Task 118 entry under [Unreleased] > Changed                                                                                                 |
 
 ## Implementation Checklist
 
@@ -112,5 +116,6 @@ The trigger gate decouples task creation from execution via a new `PENDING_TRIGG
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `8102928ed59e945e848beddaab357a398b45d3c3`
 <!-- END_GIT_DIFF -->

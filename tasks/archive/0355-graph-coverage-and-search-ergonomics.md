@@ -106,5 +106,6 @@ Make the lite graph find things reliably: index recent work instead of truncatin
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `3654a426adcc4bb9961bffb9e407ce7187829e07`
 <!-- END_GIT_DIFF -->

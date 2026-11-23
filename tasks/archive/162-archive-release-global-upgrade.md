@@ -51,7 +51,7 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 ## Risk & Rollback
 
 - **Risk:** Large milestone-16 summary, version misjudgment, global cp overwrites working install, Telegram fork rebase conflicts
-- **Rollback plan:** git mv tasks/archive/162-*.md back + delete milestone summary; git reset staged release; restore /tmp/opencode/telegram-backup-* for global; push script is manual-only, no remote side effects until Manager runs it
+- **Rollback plan:** git mv tasks/archive/162-_.md back + delete milestone summary; git reset staged release; restore /tmp/opencode/telegram-backup-_ for global; push script is manual-only, no remote side effects until Manager runs it
 
 ---
 
@@ -76,5 +76,6 @@ No stale memories. All 12 keys active, none reference tasks/completed/ or supers
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `a4272b396a344142cb0b4c69fb7c96a354b742c0`
 <!-- END_GIT_DIFF -->

@@ -14,6 +14,7 @@ Publish v9.9.0 (missing tag + GitHub Release via manual push script) and upgrade
 Manager requested: load memory about release then make a release then load memory about system upgrade then upgrade our installation. Approved with follow memory.
 
 Requirements:
+
 - Follow `release/release-workflow` and `workflows/global-install-upgrade` memories (skills versioning-and-release, project-memory, verification-before-completion, task-lint already loaded; SemVer; Keep a Changelog Parse-Then-Append; system-prompt sync; verification gates; ZAC-safe staging).
 - Current state at task creation: CHANGELOG [Unreleased] empty, [9.9.0] 2026-09-04 released, fragment 01-system_version.md 9.9.0, tree clean on main, tag v9.9.0 missing (latest tag v9.8.0). No new code changes to release, so this is a publication release, not a bump. system-prompt.md version unchanged (still 9.9.0).
 - Generate `/tmp/cognitive-lead-push-release.sh` for VERSION v9.9.0 (set -euo pipefail, clean-tree + gh auth check, annotated tag if missing, push commits + tags, gh release create --generate-notes, verification). Manager runs manually. ZAC: Hands never execute push/tag/gh release.
@@ -74,5 +75,6 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `320e459a09b673412e0d90a0fd62999571e19b92`
 <!-- END_GIT_DIFF -->

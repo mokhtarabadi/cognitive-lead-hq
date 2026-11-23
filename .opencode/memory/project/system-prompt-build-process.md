@@ -1,8 +1,8 @@
 ---
-created_at: '2026-08-16T06:51:03.566089+00:00'
+created_at: "2026-08-16T06:51:03.566089+00:00"
 status: active
 tags: []
-updated_at: '2026-08-16T06:51:03.566185+00:00'
+updated_at: "2026-08-16T06:51:03.566185+00:00"
 ---
 
 system-prompt.md is a GENERATED build artifact, NOT a hand-edited source file.

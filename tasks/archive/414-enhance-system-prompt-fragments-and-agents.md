@@ -1,9 +1,11 @@
 # Task 414: Enhance system-prompt fragments and custom agents with best-practices audit
 
-**File:** `tasks/in-progress/414-enhance-system-prompt-fragments-and-agents.md`
+**File:** `tasks/archive/414-enhance-system-prompt-fragments-and-agents.md`
 **Source:** manager
 **Type:** improvement
-**Status:** in-progress
+**Status:** superseded
+**Superseded-By:** `417-comprehensive-prompt-and-workflow-hardening-across-fragments-agents-and-brain-context`
+**Superseded-At:** `2026-11-22 20:56 UTC`
 **Started:** 2026-11-22T19:41:48Z
 
 ## Source Context
@@ -170,6 +172,8 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 - [ ] Run the assembler identity gate (Verification Block 3 command) and record the exit code
 - [ ] Run `lint_task_file` on this task file
 - [ ] Record all verification evidence in `## Verification Evidence`
+
+> **Superseded:** This task was bundled into META task `417-comprehensive-prompt-and-workflow-hardening-across-fragments-agents-and-brain-context` and archived on 2026-11-22 20:56 UTC. See `tasks/backlog/417-comprehensive-prompt-and-workflow-hardening-across-fragments-agents-and-brain-context.md` (or its Kanban successor) for the unified execution. History preserved via `git log --follow -- tasks/archive/414-enhance-system-prompt-fragments-and-agents.md`.
 
 ## Execution Log & Reasoning
 

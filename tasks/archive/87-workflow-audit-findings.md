@@ -37,4 +37,5 @@ Create a single canonical documentation record (NO implementation) of the full-w
 - [x] Task file passes `lint_task_file` (all required sections present, ID/title match, valid Source/Type)
 - [x] `<!-- BEGIN_GIT_DIFF -->
 **Factual Git Diff:** Stored in Commit Hash: `f7830df87473b401eae886e6f0b6cc9d05321bbd`
+
 <!-- END_GIT_DIFF -->

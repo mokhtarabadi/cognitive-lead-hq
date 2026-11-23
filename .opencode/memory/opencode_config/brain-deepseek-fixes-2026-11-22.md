@@ -1,19 +1,21 @@
 ---
-created_at: '2026-11-22T14:53:53.021502+00:00'
+created_at: "2026-11-22T14:53:53.021502+00:00"
 status: active
 tags: []
-updated_at: '2026-11-22T14:53:53.021543+00:00'
+updated_at: "2026-11-22T14:53:53.021543+00:00"
 ---
 
 # Brain DeepSeek hardening (2026-11-22)
 
 Verified via DeepSeek docs (api-docs.deepseek.com):
+
 - reasoning_effort accepts none/low/high/max (minimal->low, medium/xhigh->high). 'max' is valid, so no clamp needed.
 - temperature is IGNORED in thinking mode (no error). No suppression needed.
 - max_tokens default: 8K non-thinking, 64K thinking, 128K with max effort. Max allowed 384K.
 - usage reports prompt_cache_hit_tokens, prompt_cache_miss_tokens, completion_tokens_details.reasoning_tokens, prompt_tokens_details.cached_tokens.
 
 Changes:
+
 - .env: BRAIN_MAX_TOKENS=131072 (to match max-effort default).
 - server.py: _convert_chat_completions_to_responses_data now passes through input_tokens_details (cached_tokens / prompt_cache_hit_tokens) and output_tokens_details (reasoning_tokens etc.).
 - server.py: added warning branch for dropped input item types.

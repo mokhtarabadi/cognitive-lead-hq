@@ -65,6 +65,7 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 ## Execution Log & Reasoning
 
 Phase 1 + Phase 2 partial: blocked/swarm metadata parsing in planner, DoD advisory in lint, dashboard blocked badge, WIP aging (3-day threshold). CFD and control chart deferred to follow-up.
+
 - `_parse_task_file`: mcp-planner-server/server.py:187 (header loop extended with blocked/blocked reason/swarm branches).
 - `_task_brief`: mcp-planner-server/server.py:1769 (blocked/blocked_reason/swarm added).
 - `_header_value` helper: mcp-planner-server/server.py:183 (new).
@@ -77,5 +78,6 @@ Strict tooling gate: docs+python repo; stack skill python-fastapi? No FastAPI ma
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `b1bc9e3519b15425e4c2accf1d83bfc236cb35df`
 <!-- END_GIT_DIFF -->

@@ -1,8 +1,8 @@
 ---
-created_at: '2026-10-21T19:11:37.699463+00:00'
+created_at: "2026-10-21T19:11:37.699463+00:00"
 status: active
 tags: []
-updated_at: '2026-10-21T19:11:37.699481+00:00'
+updated_at: "2026-10-21T19:11:37.699481+00:00"
 ---
 
 # Responses API best-practice audit (2026-10-21) — Brain Bridge
@@ -31,19 +31,22 @@ F7 (robustness) — a fatal 4xx escapes brain_turn as a raw RuntimeError instead
 
 F8 (correctness) — effort ladder omits `minimal` and the unknown-value fallback RAISES effort to medium; the vocabulary is not validated. Official values: none/minimal/low/medium/high/xhigh/max, model-dependent; 'GPT-6 Astra does not support none... returns HTTP 400'. Code: ladder :3778-3784, fallback 'medium' at :3787-3793, regex-only validation :3479-3482. Fix: validate the vocabulary, add minimal, fall back to low/current.
 
-F9 (hygiene) — _get_max_tokens silently falls back to 32768 on a bad BRAIN_MAX_TOKENS and passes negatives through (:1383-1386) while every other env reader fails loud; _FATAL_STATUS is dead (:1443); _send_with_learning is vestigial with unused kwargs (:1644-1662) and there is NO unsupported_parameter correction path in the code (only a comment at :3198-3200) although the CHANGELOG still claims one; stale __pycache__ for 8 deleted modules.
+F9 (hygiene) — _get_max_tokens silently falls back to 32768 on a bad BRAIN_MAX_TOKENS and passes negatives through (:1383-1386) while every other env reader fails loud; _FATAL_STATUS is dead (:1443); _send_with_learning is vestigial with unused kwargs (:1644-1662) and there is NO unsupported_parameter correction path in the code (only a comment at :3198-3200) although the CHANGELOG still claims one; stale **pycache** for 8 deleted modules.
 
 F10 (low) — system prompt is a `role: system` item inside `input` (:3192) instead of the top-level `instructions` field. Official: 'A system (or developer) message inserted into the model's context' and instructions 'take priority over a prompt in the input parameter'. Fix: use `instructions`, keep role form as gateway fallback.
 
 ## Verified correct (do not 'fix')
+
 output[] is walked fully (both message/content/output_text and bare output_text) at :3850-3869 — official: 'not safe to assume output[0].content[0].text'. Triage order error -> refusal -> incomplete/max_output_tokens -> flake at :3336-3355, with the budget case deliberately not a flake. `reasoning.effort` nested not flat. temperature deletes reasoning. Retry-After + backoff + jitter + 500s deadline, 4xx fail fast. Diagnostics on every turn, parsers pure. Key never in error strings, https-only except loopback, fail-closed key. Pre-send budget guard and transcript bounding (40 turns, compaction at 30 msgs / 200KB, 1M char ceiling).
 
 ## Scopes (pick later)
+
 D1 safe alignment, no protocol change: F1 F4 F5 F6 F8 F9 — request shape + observability, unit-testable offline.
 D2 continuity and context: F2 F3 F10 — transcript format change (output items + phase), truncation auto, token calibration, instructions field. Needs its own design pass.
 D3 record only: no behavior change; correct the CHANGELOG claims; keep this memory shard.
 
 ## Gateway probe checklist (prerequisite for any scope)
+
 One small request per parameter: store:false, prompt_cache_key, truncation:auto, include:[reasoning.encrypted_content], instructions, context_management. Record which are accepted, whether the response echoes model and service_tier, and whether usage.input_tokens_details.cached_tokens is populated.
 
 ## Implementation outcome (2026-10-21, task 329 — supersedes the scopes above)

@@ -86,5 +86,6 @@ The running agent and prompt artifacts now match the repo. The Manager must rest
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `e88064afde66d4f77a9bdc3ce429f2434b9f2500`
 <!-- END_GIT_DIFF -->

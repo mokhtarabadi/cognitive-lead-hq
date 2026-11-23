@@ -33,11 +33,12 @@ You operate in Cognitive Lead AI HQ — a documentation-only orchestration repo 
 
 <agentic_reasoning>
 Before auditing, output a <reasoning_log> covering:
+
 1. Logical dependencies — which fragments, skills, and agents touch decision logging (17-decision_logging_mandate.md, docs/conventions.md, AGENTS.md, task-generator, audit-agents, cognitive-executor.md, 09-hands_protocols.md).
 2. Risk assessment — silent loss of manager intent, coach-review blind spots, `[LITE]` justification gaps, archiving drift.
 3. Abductive reasoning — where does logging actually break? Missing detection? Unstructured free-text? Overwritten sections?
 4. Precision and Grounding — grep every `## Manager Decisions` instance, sample 5 recent `tasks/completed/*.md`, verify `[SOURCE]` tags and `DECISION_ID` sequencing.
-</agentic_reasoning>
+   </agentic_reasoning>
 
 <constraints>
 - You MUST preserve verbatim `## Manager Decisions` format: `**[YYYY-MM-DD] [DECISION_ID] [SOURCE]:** <summary>` with rationale, alternatives considered, impact.
@@ -173,14 +174,15 @@ Per Manager Message 555 (2026-09-02, Telegram #555, reply_to 542): `## Manager D
 - **Step 6 — Verification:** `npx prettier --write` on 5 touched files exit 0 (66ms/38ms/112ms/119ms/149ms); verification evidence captured with exit code 0; historical `tasks/completed/*.md` headers (58) intentionally untouched (immutable history, not rewritten).
 
 **Design decisions:**
+
 - Archive (not delete) fragment 17 → history stays via `prompts/archive/` and `git log --follow`.
 - No rewrite of `tasks/completed/*.md` Manager Decisions history — archive is immutable; future tasks simply won't have the section.
 - Residual `Manager Decisions` string remains in `tasks/in-progress/151` itself (this file's own placeholder) and in historic completed files, plus one orphan in `prompts/fragments/10-lite_mode_protocol.md` line 17 (`[LITE]` entry reference) — intentionally not patched per micro-task scope (Step 3 lists only 09-hands_protocols, not 10-lite_mode).
 - All 11 modified files staged via `modified_files` array to keep diff injection accurate.
 
-
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `93b935feef4e43338c87c7f8fd2351f03b46770f`
 <!-- END_GIT_DIFF -->

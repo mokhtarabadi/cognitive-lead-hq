@@ -56,11 +56,13 @@ The `extract_signatures` tool was returning signature strings inline but never p
 **Root Cause:** `extract_signatures` (line 440) returned the signature string inline but never wrote to a file under `context-reports/`. The other two context tools (`read_source_files`, `create_tree_report`) both persist to disk.
 
 **Fix:** Modified `extract_signatures` to:
+
 1. Call `_ensure_context_reports_ignored()` (same safeguard as sibling tools)
 2. Write extracted signatures to `context-reports/signatures_report_<timestamp>_<uuid>.md`
 3. Return a success message with the file path
 
 **Files modified:**
+
 - `mcp-context-server/server.py` — rewrote `extract_signatures` tool function (lines 440-496)
 
 ### Docs Sync: `skill-templates/code-search/SKILL.md`
@@ -70,6 +72,7 @@ The `extract_signatures` tool was returning signature strings inline but never p
 **Fix:** Updated example to show the actual return value (file path) and the report content.
 
 **Files modified:**
+
 - `skill-templates/code-search/SKILL.md` — Example Usage section (lines 90-103)
 - `~/.config/opencode/skills/code-search/SKILL.md` — synced from template
 - `~/.agents/skills/code-search/SKILL.md` — synced from template
@@ -92,5 +95,6 @@ Three robustness fixes applied to `extract_signatures` in `mcp-context-server/se
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `bb6e6e8e4145fca0d4260f8a7e4ee203a3b23872`
 <!-- END_GIT_DIFF -->

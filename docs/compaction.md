@@ -66,10 +66,10 @@ The agent compresses the session itself with the `compact_context` tool (never t
 
 The agent also compresses at the task boundary: when the previous task is fully finished and the Manager defines a new task in the same session, call `compact_context` with `keepTurns` 0 and `mode` `compact` before starting the new task, so the old turns do not crowd the new task's context. Recover the todo list with `todoread` after any compaction — never from a remembered transcript, because smart-compact replaces `todowrite` output with a short notice.
 
-| Input | Effect |
-| --- | --- |
-| `keepTurns` (optional) | Most recent turns to keep unsummarized. Default `0` summarizes all. |
-| `mode` (optional) | `compact` (default) summarizes and prunes; `trim` prunes tool output only. |
+| Input                  | Effect                                                                     |
+| ---------------------- | -------------------------------------------------------------------------- |
+| `keepTurns` (optional) | Most recent turns to keep unsummarized. Default `0` summarizes all.        |
+| `mode` (optional)      | `compact` (default) summarizes and prunes; `trim` prunes tool output only. |
 
 Invalid input returns a friendly message instead of failing. The slash commands remain available for the Manager.
 
@@ -104,26 +104,49 @@ The platform runs `warnRatio 0.5` / `emergencyRatio 0.8` for window-relative fir
 {
   "enabled": true,
   "pruning": {
-    "maxChars": 1024, "maxWords": 128, "taskMaxChars": 4096, "taskMaxWords": 512,
-    "protectedTools": ["question", "skill"], "alwaysPruneTools": ["read"],
+    "maxChars": 1024,
+    "maxWords": 128,
+    "taskMaxChars": 4096,
+    "taskMaxWords": 512,
+    "protectedTools": ["question", "skill"],
+    "alwaysPruneTools": ["read"],
     "discardTools": {
-      "todowrite": "Successfully updated todos."
+      "todowrite": "Successfully updated todos.",
     },
-    "preserveRecentTurns": 2, "truncateToolsChars": 1024, "useTokens": true
+    "preserveRecentTurns": 2,
+    "truncateToolsChars": 1024,
+    "useTokens": true,
   },
   "strategies": {
     "deduplication": { "enabled": true, "protectedTools": ["question"] },
-    "purgeErrors": { "enabled": true, "turns": 4, "protectedTools": ["question"] },
-    "stripReasoning": { "enabled": true, "thresholdChars": 500 }
+    "purgeErrors": {
+      "enabled": true,
+      "turns": 4,
+      "protectedTools": ["question"],
+    },
+    "stripReasoning": { "enabled": true, "thresholdChars": 500 },
   },
-  "tokens": { "enabled": true, "emergencyBudgetTokens": 0, "emergencyBudgetRatio": 0.6 },
-  "awareness": { "enabled": true, "warnRatio": 0.5, "emergencyRatio": 0.8, "rearmStep": 0.05, "autoTrimRatio": 0.55, "contextWindowTokens": 1000000, "warnAtTokens": 0, "emergencyAtTokens": 0 }
+  "tokens": {
+    "enabled": true,
+    "emergencyBudgetTokens": 0,
+    "emergencyBudgetRatio": 0.6,
+  },
+  "awareness": {
+    "enabled": true,
+    "warnRatio": 0.5,
+    "emergencyRatio": 0.8,
+    "rearmStep": 0.05,
+    "autoTrimRatio": 0.55,
+    "contextWindowTokens": 1000000,
+    "warnAtTokens": 0,
+    "emergencyAtTokens": 0,
+  },
 }
 ```
 
 Four rules govern the numbers in that block.
 
-- **The emergency budget follows the window.** A positive `emergencyBudgetTokens` pins an exact number and behaves exactly as before. `0` means *derive*: the budget becomes `emergencyBudgetRatio` (default `0.6`) of the resolved context window, so a large-window model no longer warns from the first few turns. To switch the warning off, set `emergencyBudgetRatio` to `0` — **not** `emergencyBudgetTokens`, because zero there now means derive. An unknown window keeps the warning silent rather than firing against a guessed denominator.
+- **The emergency budget follows the window.** A positive `emergencyBudgetTokens` pins an exact number and behaves exactly as before. `0` means _derive_: the budget becomes `emergencyBudgetRatio` (default `0.6`) of the resolved context window, so a large-window model no longer warns from the first few turns. To switch the warning off, set `emergencyBudgetRatio` to `0` — **not** `emergencyBudgetTokens`, because zero there now means derive. An unknown window keeps the warning silent rather than firing against a guessed denominator.
 - **Awareness needs a denominator, and that number is a cap.** When the model registry entry carries no `limit.context`, set `awareness.contextWindowTokens` to the window size and the reminder states that the figure is configured rather than measured. With neither a registry limit nor a fallback, the advisory (and the lossless auto-trim that depends on the same ratio) stays inert — which is why the sample above carries an explicit `1000000` rather than the neutral `0`, and why a copied config with `0` here silently reproduces a plugin that never speaks. The same key is a hard ceiling: the plugin takes `min(registry limit, configured)`, so a project can lower the denominator below the model's real window and get a working budget instead of a percentage nobody ever reaches.
 - **Set the absolute pair where work degrades, not where the window ends.** `warnAtTokens` / `emergencyAtTokens` fire on token counts (`0` disables either). The global file leaves them at `0` so no machine-wide budget is imposed; a project that wants one pins it in its own `.opencode/smart-compact.jsonc` — this repo uses 200k / 120k / 160k on a 1M-token model.
 - **Auto-trim is armed by default.** `autoTrimRatio` defaults to `0.55`, so bulky completed tool results become notices without any manual call, one trim per sustained pressure period. Pruning is lossless — the original stays cached — so this is safe to leave on.
@@ -138,10 +161,10 @@ The plugin watches fill by itself and can take two actions. Neither one summariz
 
 Fill is measured against a **working budget**, not against the model ceiling. `awareness.contextWindowTokens` is a hard cap on the denominator — the plugin measures against `min(registry limit, configured)` — so a 1M-token model is still reported against the budget in which the work actually happens. That is the point: a ratio threshold on a 1M window is unreachable in practice. The shipped `warnRatio` 0.5 first speaks at 500k tokens, and a session's useful detail is long gone by then. This repo pins a 200k budget on a 1M window in `.opencode/smart-compact.jsonc` (warn at 120k, emergency at 160k).
 
-| Action | Trigger | Effect | Lossy? |
-| --- | --- | --- | --- |
-| Advisory reminder | Fill crosses `awareness.warnAtTokens` (repo: 120k tokens) or `emergencyAtTokens` (160k); the ratio pair (`warnRatio` / `emergencyRatio`) stays as the window-relative path | One system part telling the agent how full the window is and what to call | No |
-| Tool-output trim (`awareness.autoTrimRatio`) | Fill crosses the ratio (platform: `0.5`) | Queues a `trim` for the next request, reusing the manual trim pass. Once per sustained pressure period, not once per request | No — originals stay cached under a Content ID |
+| Action                                       | Trigger                                                                                                                                                                    | Effect                                                                                                                       | Lossy?                                        |
+| -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| Advisory reminder                            | Fill crosses `awareness.warnAtTokens` (repo: 120k tokens) or `emergencyAtTokens` (160k); the ratio pair (`warnRatio` / `emergencyRatio`) stays as the window-relative path | One system part telling the agent how full the window is and what to call                                                    | No                                            |
+| Tool-output trim (`awareness.autoTrimRatio`) | Fill crosses the ratio (platform: `0.5`)                                                                                                                                   | Queues a `trim` for the next request, reusing the manual trim pass. Once per sustained pressure period, not once per request | No — originals stay cached under a Content ID |
 
 `0` disables either absolute threshold, and an unknown window keeps the reminder silent rather than firing against a guessed denominator. The plugin logs one console line each time it fires a reminder and each time it queues a trim, so a silent log means nothing fired — never assume the mechanism is broken, and check the fill the `compact_stats` line reports.
 

@@ -40,13 +40,14 @@ Before implementing, analyze: Is `gh` already installed? Which skills reference 
 </agentic_reasoning>
 
 <execution_rules>
+
 - You MUST verify `gh` is installed; if not, install it via the official method
 - You MUST authenticate `gh` with GitHub (or document the auth steps)
 - You MUST search all skills for `gh` references and ensure they use the installed CLI
 - You MUST update system-prompt.md or relevant fragments to mention `gh` as a required tool
 - You MUST update AGENTS.md skill registry if a new GitHub skill is added
 - Do NOT break existing GitHub integrations
-</execution_rules>
+  </execution_rules>
 
 <output_format>
 Return: installation status, authentication status, files modified, verification results.
@@ -62,6 +63,7 @@ Return: installation status, authentication status, files modified, verification
 ## AI Analysis & Opinion
 
 The `gh` CLI is essential for GitHub operations in the agent workflow. Integration should:
+
 1. Install `gh` via official package manager
 2. Run `gh auth login` for authentication
 3. Search codebase for `gh` references to ensure consistency
@@ -95,6 +97,7 @@ Risks: Authentication may require interactive browser flow; environment may not 
 - **Exit code:** 0
 
 **Additional verification:**
+
 - `python3 -m py_compile scripts/prompt-build/assemble_system_prompt.py mcp-context-server/server.py mcp-lint-server/server.py mcp-memory-server/server.py` → PY_COMPILE_OK
 - `python3 scripts/prompt-build/assemble_system_prompt.py` → Assembled 78041 bytes
 - Round-trip: `diff /tmp/check.md system-prompt.md` → ROUND_TRIP_OK (byte-identical)
@@ -120,11 +123,13 @@ The task is NOT done unless ALL of the following are true:
 ## Execution Log & Reasoning
 
 **Discovery (prior phase):**
+
 - `gh` v2.98.0 already installed and authenticated as `@mokhtarabadi` — no install/auth needed
 - Official GitHub skill researched: `gh skill` (new CLI command) + `Dimillian/Skills` `github` skill (3.9k stars)
 - Mapped 59 `gh` references across repo; active files: `docs/conventions.md` (--body-file), `skill-templates/telegram-issue-sync/SKILL.md`, `README.md`
 
 **Implementation:**
+
 1. **Created `skill-templates/github/SKILL.md`** — canonical GitHub CLI workflow with YAML frontmatter (`name: github`, `description: GitHub CLI (gh) workflow for pull request triage, issue management, CI/CD run analysis, and API queries.`). Sections: Issue Management (with mandatory `--body-file`), PR Review & Status, CI/CD Workflow & Log Triage, GitHub API & Structured Output, ZAC Guardrails (declaring `gh release create`/`git push`/`git tag` Manager-owned), and `gh skill` self-management. Mirrored to `.opencode/skills/github/SKILL.md`.
 2. **Registered in `prompts/fragments/10-agent_skills_registry.md`** — added `- **github**: ...` under Global Workflow Skills.
 3. **Bumped `<system_version>` 8.8.0 → 8.9.0** in `prompts/fragments/01-system_version.md` (no trailing newline).
@@ -134,12 +139,14 @@ The task is NOT done unless ALL of the following are true:
 7. **Updated CHANGELOG.md** under `[Unreleased] > Added` via Parse-Then-Append.
 
 **Architecture Notes:**
+
 - `gh` was already installed/authenticated — the task focused on skill creation and documentation integration, not installation
 - The `github` skill is a Global Workflow Skill (not stack-specific) since `gh` is used across all projects
 - ZAC guardrails are explicitly encoded in the skill to prevent autonomous `gh release create`/`git push`/`git tag`
 - System prompt bumped to v8.9.0 (MINOR — new agent skill) per SemVer rules
 
 **Verification:**
+
 - `gh --version` → v2.98.0; `gh auth status` → authenticated as mokhtarabadi
 - py_compile all servers → OK
 - pytest: 49 passed, 1 pre-existing failure (`test_workflow_upgrade_guide_exists` — unrelated, `docs/workflow-upgrade-v8.4.5.md` removed in Task 117)
@@ -149,5 +156,6 @@ The task is NOT done unless ALL of the following are true:
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `7cd321f81df2b90366ca9f7cacd24c2dcabc2844`
 <!-- END_GIT_DIFF -->

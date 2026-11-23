@@ -145,25 +145,25 @@ All Git commit/add/push operations are strictly handled by the `custom_context_s
 `permission.shell` block denies these for agents — the deny fires before
 execution, so the command never runs:
 
-| Denied pattern | Covers |
-| -------------- | ------ |
-| `git add`, `git add *` | staging (staging goes through `stage_and_inject_diff` only) |
-| `git checkout`, `git checkout *` | branch/file checkout |
-| `git commit`, `git commit *` | committing (closure goes through `commit_and_clean_task` only) |
-| `git push`, `git push *` | pushing (the Manager pushes) |
+| Denied pattern                   | Covers                                                         |
+| -------------------------------- | -------------------------------------------------------------- |
+| `git add`, `git add *`           | staging (staging goes through `stage_and_inject_diff` only)    |
+| `git checkout`, `git checkout *` | branch/file checkout                                           |
+| `git commit`, `git commit *`     | committing (closure goes through `commit_and_clean_task` only) |
+| `git push`, `git push *`         | pushing (the Manager pushes)                                   |
 
 ## 8. Token-trimming practices (verified spike)
 
 Measured 2026-09-12 with RTK 0.49.0 (x86_64 musl binary, installed at
 `~/.local/bin/rtk` and in active use). Evidence table:
 
-| Command | Raw | Via RTK | Reduction | Exit code |
-| ------- | --- | ------- | --------- | --------- |
-| `pytest tests/ -q` (232 passed) | 1801 bytes / 21 lines | 44 bytes / 3 lines | **97.6% bytes** | preserved (0) |
-| `git status --short` (32 lines) | 1589 bytes | 1621 bytes | −2% (overhead) | n/a |
-| `git log --oneline -15` | 1218 bytes | 1696 bytes | −39% (overhead) | n/a |
-| `git diff --stat HEAD` | 1952 bytes | 1951 bytes | ~0% | n/a |
-| `rtk git diff` (2-file sample) | 5297 bytes / 48 lines | 5204 bytes / 51 lines | ~2% (reformat) | n/a |
+| Command                         | Raw                   | Via RTK               | Reduction       | Exit code     |
+| ------------------------------- | --------------------- | --------------------- | --------------- | ------------- |
+| `pytest tests/ -q` (232 passed) | 1801 bytes / 21 lines | 44 bytes / 3 lines    | **97.6% bytes** | preserved (0) |
+| `git status --short` (32 lines) | 1589 bytes            | 1621 bytes            | −2% (overhead)  | n/a           |
+| `git log --oneline -15`         | 1218 bytes            | 1696 bytes            | −39% (overhead) | n/a           |
+| `git diff --stat HEAD`          | 1952 bytes            | 1951 bytes            | ~0%             | n/a           |
+| `rtk git diff` (2-file sample)  | 5297 bytes / 48 lines | 5204 bytes / 51 lines | ~2% (reformat)  | n/a           |
 
 `rtk gain` self-report for the eval session: 11 commands, 1.9K tokens
 saved (41.0% blended — dominated by the test-runner wins; tool

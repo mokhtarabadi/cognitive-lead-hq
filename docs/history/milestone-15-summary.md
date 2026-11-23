@@ -18,34 +18,34 @@ This milestone delivered the **System Prompt V9.0.0 Architecture** (Task 122-orc
 
 ## Files Modified
 
-| File | Change |
-| --- | --- |
-| `prompts/fragments/01-system_version.md` | Bumped 8.9.0 → 9.0.0 → 9.1.0 |
-| `prompts/fragments/05-user_input_processing.md` | Added Ambiguity Mandate, Clarification Halt Mandate |
-| `prompts/fragments/06-personas.md` | Goal-Oriented Task Mandate for Architect + Programmer |
-| `prompts/fragments/13-constraints.md` | Parallel Agent Execution Mandate |
-| `agents/cognitive-executor.md` | Ambiguity Halt + Parallel Execution Mandate |
-| `system-prompt.md` | Reassembled to v9.1.0 (72630 bytes) |
-| `AGENTS.md` | 3 new V9.1.0 guardrails |
-| `docs/conventions.md` | 2 new sections (Goal-Oriented/Parallel + Input Validation) |
-| `README.md` | V9.1 ref + Key V9.1 Changes |
-| `LLM.txt` | V9.1.0 description |
-| `CHANGELOG.md` | V9.0.0 + V9.1.0 entries |
-| `opencode.json` | Goal plugin aligned |
-| `user-prompts/founder-coaching-chat.md` | New founder coaching chat prompt |
-| `user-prompts/daily-english-coach-chat.md` | New daily English coach chat prompt |
+| File                                            | Change                                                     |
+| ----------------------------------------------- | ---------------------------------------------------------- |
+| `prompts/fragments/01-system_version.md`        | Bumped 8.9.0 → 9.0.0 → 9.1.0                               |
+| `prompts/fragments/05-user_input_processing.md` | Added Ambiguity Mandate, Clarification Halt Mandate        |
+| `prompts/fragments/06-personas.md`              | Goal-Oriented Task Mandate for Architect + Programmer      |
+| `prompts/fragments/13-constraints.md`           | Parallel Agent Execution Mandate                           |
+| `agents/cognitive-executor.md`                  | Ambiguity Halt + Parallel Execution Mandate                |
+| `system-prompt.md`                              | Reassembled to v9.1.0 (72630 bytes)                        |
+| `AGENTS.md`                                     | 3 new V9.1.0 guardrails                                    |
+| `docs/conventions.md`                           | 2 new sections (Goal-Oriented/Parallel + Input Validation) |
+| `README.md`                                     | V9.1 ref + Key V9.1 Changes                                |
+| `LLM.txt`                                       | V9.1.0 description                                         |
+| `CHANGELOG.md`                                  | V9.0.0 + V9.1.0 entries                                    |
+| `opencode.json`                                 | Goal plugin aligned                                        |
+| `user-prompts/founder-coaching-chat.md`         | New founder coaching chat prompt                           |
+| `user-prompts/daily-english-coach-chat.md`      | New daily English coach chat prompt                        |
 
 ## Criteria Met
 
-| Task | Acceptance Criteria | Status |
-| ---- | ------------------- | ------ |
-| 122 | Goal plugin config aligned with official docs | ✅ Met |
-| 122 | System prompt upgraded to V9.0.0 (19 fragments, 70554 bytes) | ✅ Met |
-| 123 | Goal-Oriented Task Mandate enforced in personas | ✅ Met |
-| 123 | Parallel Agent Execution Mandate added | ✅ Met |
-| 123 | Clarification Halt Mandate added | ✅ Met |
-| 124 | Founder Coaching Chat prompt created | ✅ Met |
-| 124 | Daily English Coach Chat prompt created | ✅ Met |
+| Task | Acceptance Criteria                                          | Status |
+| ---- | ------------------------------------------------------------ | ------ |
+| 122  | Goal plugin config aligned with official docs                | ✅ Met |
+| 122  | System prompt upgraded to V9.0.0 (19 fragments, 70554 bytes) | ✅ Met |
+| 123  | Goal-Oriented Task Mandate enforced in personas              | ✅ Met |
+| 123  | Parallel Agent Execution Mandate added                       | ✅ Met |
+| 123  | Clarification Halt Mandate added                             | ✅ Met |
+| 124  | Founder Coaching Chat prompt created                         | ✅ Met |
+| 124  | Daily English Coach Chat prompt created                      | ✅ Met |
 
 ## Individual Task Summaries
 

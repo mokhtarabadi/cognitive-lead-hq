@@ -88,16 +88,20 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 ## Execution Log & Reasoning
 
 **Turn 1 — V2 config migration + rate-limit change.**
+
 - `plugins/rate-limit-rescue`: `RETRY_DELAY_MS` 30_000 → 2_000 (+ tests/README/package description). Verified `node --test` 11/11.
 - Repo/global configs moved to V2-native: `plugins`, `permission.shell`, `mcp.servers` (disabled + `timeout{catalog,execution}`); deleted repo + global `tui.json`; verified JSON + `opencode mcp list` 7/7.
 
 **Turn 2 — serve-mode vs service-mode attempt (superseded).**
+
 - Investigated `opencode service`/`serve`; set `~/.config/opencode/service.json` `disabled:true`. The background service (`:49374`) could not be stopped while this session was hosted on it — each stop dropped the transport. Later superseded by the OpenChamber-managed approach.
 
 **Turn 3 — state divergence (external actor).**
+
 - At 11:41-11:42 both `openchamber.service` and `opencode-server.service` were stopped, their `.d/` drop-ins deleted, and units masked to `/dev/null` by an external actor. Recorded; later rebuilt.
 
 **Turn 4 — V2 docs audit + full plugin removal + docs rewrite.**
+
 - Fetched current OpenCode V2 + OpenChamber 2 docs (config, MCP, plugins, agent/CLI, service/serve, migrate-v1, OpenChamber install/environment/opencode-server/updates).
 - Removed every goal-plugin + DCP reference from repo/global configs, README, `LLM.txt`, docs, agents, memory. Archived retry plugin: `plugins/rate-limit-rescue/` → `archive/rate-limit-rescue/` (node_modules dropped).
 - Rewrote `docs/openchamber-tailscale.md` → `docs/openchamber.md` (managed OpenCode, `openchamber startup enable` boot, remote access, env vars). Removed Tailscale everywhere.
@@ -105,6 +109,7 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 - Pruned repo `.bak-*`, `.opencode/goals/`, `.gitignore` goal guard.
 
 **Turn 5 — docs/leftover audit + env-contract fixes.**
+
 - Removed orphaned `scripts/fetch-opencode-docs.py`, `scripts/repomd`, `docs/velocity.md`; deleted plugin-SDK leftovers (`.opencode/{package.json,package-lock.json,node_modules,commands}`) and `.pytest_cache/`.
 - **Real install bugs fixed in `LLM.txt` §4–§5:** the global install now copies **all** server modules (brain-bridge siblings + `mcp-decision-server` — previously 4 single `server.py` files, decision-server never installed) and creates the repo `.env` then `install -m 600` seeds `~/.config/opencode/.env`.
 - Documented the `.env` self-load contract (`<server-dir>/.env` → `<server-dir>/../.env` → `<cwd>/.env`; global = `~/.config/opencode/.env`) across `LLM.txt`, `docs/services.md` (new Credentials section + launchd/Windows notes), `docs/setup.md`, `docs/telegram-setup.md`, `docs/brain-bridge.md`; fixed `DECISION_REPO_PATH` guidance (self-loaded, no `{env:}` block). Proven live with a temp-dir loader probe.
@@ -112,24 +117,29 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 - Installed the **OpenChamber-managed service** (`openchamber startup enable --port 3005 --host 127.0.0.1`).
 
 **Turn 6 — OpenChamber data cleanup.**
+
 - Removed stale provider leftovers from `~/.config/openchamber/settings.json` + `preferences.json`: 385 `hiddenModels` + `favoriteModels`/`recentModels`/`recentEfforts` OpenRouter entries and the retired `zen-proxy` provider (404 → 0 refs each); removed `startup.env.bak-20260926`; restarted + verified.
 
 **Turn 7 — global install per `LLM.txt`.**
+
 - Copied all server modules + `mcp-common` + `system-prompt.md` + `opencode-shell-strategy.md` + 36 skills + 2 agents to `~/.config/opencode/`; `uv sync` per server; seeded `~/.config/opencode/.env` (chmod 600); wrote global `opencode.json` (default_agent + instructions + `mcp.servers` ×7 + permissions) and schema-only `cli.json`.
 - Installed `services/mcp-*.service` → `~/.config/systemd/user/`; enabled + started lint/context/memory/decision/brain; pulled + ran `blowsh-singleton` (Docker `:8107`).
 - Telegram: cloned upstream + `uv sync`; upstream now hard-requires `TELEGRAM_API_ID` at import → disabled pending credentials.
 
 **Turn 8 — single OpenChamber-managed instance.**
+
 - Confirmed this session's shell ancestry → `opencode serve --port 35649` → `openchamber.service` (ownerPid match in `managed-opencode/*.json`).
 - Stopped the duplicate background service (`serve --service`, `:49374`) and set `service.json` `disabled:true`. Verified `ps` opencode count = 1.
 
 **Turn 9 — Telegram credential recovery + enable.**
+
 - Found the old Telegram MCP `.env` at `/tmp/opencode/telegram-backup-20260929-070816/.env` (API_ID/HASH + work/personal session strings + session lock).
 - Appended the 5 `TELEGRAM_*` keys to `~/.config/opencode/.env` (chmod 600); re-enabled + started `mcp-telegram`; flipped `telegram` to `disabled:false` in global `opencode.json`; the managed instance hot-reloaded it.
 - Verified: unit enabled+active, `:8106` listening, `telegram_get_me` returns both accounts.
 - Security: deleted 6 leftover shell-output logs under `~/.local/share/opencode/shell/` that contained the session strings in plaintext.
 
 **Intentional residuals (recorded, not defects):**
+
 - `docs/workflow-upgrade-v8.4.5.md` kept — a regression test (`tests/test_mcp_servers.py`) requires it.
 - `CHANGELOG.md` historical entries still name the archived retry plugin (history is immutable per repo convention).
 - `mcp-common/env.py` docstring updated (persona-server mention removed).
@@ -186,5 +196,6 @@ Reviewer round 2 returned `REJECTED_NEEDS_FIXES` with one **real, High** blocker
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `47868bb9a800bb691191393a5850502b10d5906d`
 <!-- END_GIT_DIFF -->

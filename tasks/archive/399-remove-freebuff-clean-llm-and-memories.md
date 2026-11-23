@@ -25,12 +25,14 @@ Autopilot locked for this task.
 ### Verified inventory (2026-11-13)
 
 Freebuff footprint to remove:
+
 - `freebuff@0.2.34` npm global package, binary `~/.local/share/mise/installs/node/lts/bin/freebuff` (symlink into the global `node_modules/freebuff`).
 - `~/.config/manicode/` — 231M Freebuff vendor state: `freebuff/`, `freebuff-metadata.json`, `credentials.json`, `device-key.json`, `analytics-id.json`, `rg` binary, `projects/{freebuff2api,warp-fr,cognitive-lead-hq,mohammad}`, `message-history.json`, `tree-sitter.wasm`.
 - `~/warp-fr/.freebuff/project-id` — Freebuff project marker inside the WARP egress project.
 - `~/.AGENTS.md` (54K) + `~/.AGENTS.md.bak-20261024-0652-planner` — the V1-format global agent file installed from `freebuff/AGENTS.global.md` (Task 98). Stale duplicate of `~/.config/opencode/agents/cognitive-executor.md` (V2-native home, synced).
 
 Keep (harness / OpenCode / OpenChamber):
+
 - `~/.config/opencode/` (global install), `~/.config/openchamber/`, `~/.config/code-server/`, `~/.config/opencode-backups/`.
 - `~/.opencode/` — the ACTIVE OpenCode v2.3.0 binary (`~/.opencode/bin/opencode`, `opencode2` shim) plus the global memory root. NOT Freebuff.
 - `~/warp-fr/` itself — a Cloudflare WARP egress project, not Freebuff. Only its `.freebuff/` marker is removed.
@@ -39,6 +41,7 @@ Keep (harness / OpenCode / OpenChamber):
 `~/.agents` does NOT exist on this machine (verified). Its removal is therefore a removal of every REFERENCE to it: `LLM.txt` (the multi-root skill loop + the verification checklist) and the memory `opencode_config/skill-sources-multiple-roots.md`.
 
 Stale memories to fix:
+
 - `opencode_config/opencode_openchamber_versions_2026_11_02.md` — records OpenCode 2.2.5 / OpenChamber 2.6.0 (actual: 2.3.0 / 2.7.1) and claims "no OpenCode plugins" (actual: smart-compact + goal + todolist installed).
 - `opencode_config/skill-sources-multiple-roots.md` — lists `~/.agents/skills` as a root to sync.
 - `opencode_config/plugin_policy_magic_compact_2026_10_02.md` — plugin policy needs the goal + todolist entries.
@@ -83,7 +86,7 @@ Stale memories to fix:
 - **Expected result:** ALL CHECKS PASSED
 - **Actual result:** ALL CHECKS PASSED (6 stage artifacts installed, plugin-blind, byte-stable, personas 7/1)
 - **Exit code:** 0
-- **Test command:** freebuff before/after inventory (npm ls -g | grep freebuff; test -e ~/.config/manicode; test -e ~/.opencode/bin/opencode; ls -1d ~/.config/opencode/skills/*/ | wc -l; ls ~/.config/opencode/agents/*.md | wc -l)
+- **Test command:** freebuff before/after inventory (npm ls -g | grep freebuff; test -e ~/.config/manicode; test -e ~/.opencode/bin/opencode; ls -1d ~/.config/opencode/skills/_/ | wc -l; ls ~/.config/opencode/agents/_.md | wc -l)
 - **Expected result:** freebuff count 0 and manicode absent AFTER; opencode binary present; 24 skills; 2 agents
 - **Actual result:** BEFORE → freebuff npm 1, binary present, manicode 231M, ~/.AGENTS.md 54180 bytes, ~/.agents absent. AFTER → freebuff npm 0, binary GONE, package GONE, manicode removed, warp-fr/.freebuff removed, ~/.AGENTS.md + backup removed; opencode v2.3.0 present, openchamber 2.7.1 present, 24 skill dirs, 2 agent files, 6 stage prompts + full prompt, 7 services active.
 - **Exit code:** 0
@@ -156,5 +159,6 @@ _(The Hands: Manually log your technical changes, file edits, and architectural 
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `baf510b81ae3f8fdfc7634b470cb500c9045918f`
 <!-- END_GIT_DIFF -->

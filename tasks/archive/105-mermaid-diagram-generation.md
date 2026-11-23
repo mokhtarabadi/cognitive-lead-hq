@@ -62,11 +62,13 @@ Return: (1) A recommendation on whether to proceed, with rationale. (2) If proce
 This is a research/exploration task. The core question is: does adding Mermaid to the system prompt genuinely help the Manager understand plans better?
 
 **Pros:**
+
 - Visual diagrams significantly improve comprehension of complex architectures and workflows
 - Mermaid syntax is simple enough for AI to generate reliably
 - The Manager (Founder) explicitly wants visual understanding of plans
 
 **Cons/Risks:**
+
 - The Orchestrator (Brain) is text-only — it generates Mermaid code blocks but cannot render them. The Manager must render them externally (Mermaid Live Editor, VS Code plugin, etc.)
 - Adding Mermaid instructions to the system prompt increases token usage for every persona, even those that don't need diagrams
 - The Planner persona already produces structured text output; diagrams may be redundant for simple plans
@@ -127,6 +129,7 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 4. **`system-prompt.md` — regenerated** via `assemble_system_prompt.py` (72979 bytes). Grep confirms 3 occurrences of 'mermaid' in the output.
 
 **Key design decisions:**
+
 - Modified existing fragments rather than creating a new one — minimal token overhead
 - Only the Software Architect and UI/UX Designer personas get explicit Mermaid directives (the two personas most likely to produce visual plans)
 - The constraint change is an encouragement, not a mandate — personas can choose when diagrams add value
@@ -135,5 +138,6 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `ff07236954c16a7c81e7ff32ac5b8ca58ffdf1aa`
 <!-- END_GIT_DIFF -->

@@ -1,5 +1,5 @@
 ---
-created_at: '2026-10-23T00:00:00+00:00'
+created_at: "2026-10-23T00:00:00+00:00"
 status: active
 tags: [zen-proxy, gateway, brain-provider, systemd, global-install]
 ---

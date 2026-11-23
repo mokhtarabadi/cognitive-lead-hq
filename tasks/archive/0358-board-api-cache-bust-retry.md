@@ -75,5 +75,6 @@ Kill the persistent `?task=` status failure seen live: `/api/status` served 200 
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `bde64ad670d07996c9770d971dc19e2af8a53e7c`
 <!-- END_GIT_DIFF -->

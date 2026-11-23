@@ -70,6 +70,7 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 **Skills loaded:** `debug-instrumentation` (silent crash-loop diagnosis), `code-search` (graph + grep over all docs), `kanban-lifecycle` (task creation), `blowsh` (upstream extension README cross-check).
 
 **Changes:**
+
 1. `~/.config/systemd/user/openchamber.service` — `ExecStart` CLI path changed from `@openchamber/web/bin/cli.js` to `@openchamber/web/build/bin/cli.js`. Node binary, port 3005, host 0.0.0.0, and all other arguments unchanged. A byte-for-byte backup is at `openchamber.service.bak-20261121`.
 2. `docs/openchamber.md` — refreshed version table to the live OpenCode 2.3.2 / OpenChamber 2.7.3, switched the update command to `npm install -g @openchamber/web@latest`, added a §4 rule to re-run `openchamber startup enable` after every package upgrade, and added a §8 `MODULE_NOT_FOUND` troubleshooting row.
 3. `LLM.txt` — corrected the stale "mise node" wording, added §7.9 "After an `@openchamber/web` upgrade — verify the boot unit" with the resolve/regen/restart/verify commands.
@@ -100,5 +101,6 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `cf2a5cc2cee8970e291b37777bdb2e1397b93d2a`
 <!-- END_GIT_DIFF -->

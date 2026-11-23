@@ -1,8 +1,8 @@
 ---
-created_at: '2026-10-17T06:05:50.448451+00:00'
+created_at: "2026-10-17T06:05:50.448451+00:00"
 status: active
 tags: []
-updated_at: '2026-10-17T06:05:50.448466+00:00'
+updated_at: "2026-10-17T06:05:50.448466+00:00"
 ---
 
 # Free-tier bash gate (upstream OpenCode behavior, recorded 2026-10-17)

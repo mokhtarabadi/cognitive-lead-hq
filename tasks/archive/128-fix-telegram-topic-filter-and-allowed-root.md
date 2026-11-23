@@ -65,11 +65,13 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 ## Execution Log & Reasoning
 
 **Phase 1 — HQ Skill Fix (reply_to filtering):**
+
 - Edited `skill-templates/telegram-issue-sync/SKILL.md` Phase 1 step 2 to mandate client-filter `reply_to == config.topic_id` OR chain walk via `telegram_get_message_context` after `telegram_get_history` (Telegram has no server-side topic filter). Added `Forum Topic Targeting (Critical)` section with reading/writing rules and MANDATORY per `topic-scoped-sync-workflow.md`. This restores pre-Task 22 logic that was deleted in Task 22 refactor.
 - Updated `docs/telegram-setup.md` §6 table row for `telegram-issue-sync` to document `reply_to == config.topic_id` then `id > last_processed_message_id` and `telegram_get_message_context` chain walk, and `telegram_reply_to_message` topic-targeted reply. Updated §4.4 to note patched server auto-creates missing roots with `mkdir -p` instead of `SystemExit`.
 - Verified via `grep -n reply_to.*topic_id skill-templates/telegram-issue-sync/SKILL.md` → 3 hits.
 
 **Phase 2 — Upstream Patch (fork + PR/issue):**
+
 - Forked `chigwell/telegram-mcp` to `mokhtarabadi/telegram-mcp` via `gh repo fork` (fork exists at https://github.com/mokhtarabadi/telegram-mcp), added `fork` remote to local clone `~/.config/opencode/mcp-telegram-server`, created branch `fix/allowed-root-automkdir-and-topic-filter` from `main` (52cca20).
 - Patched `telegram_mcp/runtime.py:1811-1814` — changed `if not root.exists(): raise SystemExit` to auto-`mkdir(parents=True, exist_ok=True)` with OSError fallback to SystemExit. Pattern already used elsewhere in file. Verified `python3 -m py_compile` exit 0.
 - Patched `telegram_mcp/tools/messages.py:1571` — extended `get_history` signature with optional `topic_id` param and server-side filter `r.get("reply_to") == int(topic_id)` when set, backwards compatible (None = all). Verified `py_compile` exit 0.
@@ -78,6 +80,7 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 - Auto-created upstream PR `gh pr create --repo chigwell/telegram-mcp --head mokhtarabadi:fix/allowed-root-automkdir-and-topic-filter` → https://github.com/chigwell/telegram-mcp/pull/201 with body Fixes #200, changes, verification.
 
 **Phase 3 — HQ Integration & Verification:**
+
 - Tested auto-mkdir fix: `rm -rf /tmp/telegram-mcp && timeout 6 uv run main.py /tmp/telegram-mcp .../downloads` → dir auto-created within 3s and prints `Starting 2 Telegram client(s) (work, personal)` (previously SystemExit). This proves reboot crash is fixed.
 - `opencode mcp list` before patch: `telegram ✗ failed — Connection closed (SystemExit)`; after patch manual test: server starts; opencode list now shows `timeout 15000ms` (server starts but Telegram handshake >15s, improvement from immediate death, will stabilize on next OpenCode restart after patch).
 - Updated `CHANGELOG.md` Unreleased with Task 128 entry via Parse-Then-Append.
@@ -86,5 +89,6 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `ccd3c8d469468edb3412f2eb2c2e9b316ae9633c`
 <!-- END_GIT_DIFF -->

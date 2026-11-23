@@ -21,63 +21,63 @@ In parallel, the **prompt/agent contract** moved through three shipped-prompt bu
 
 ## Files Modified
 
-| File | Change |
-| ---- | ------ |
-| `docs/history/milestone-21-summary.md` | new: 7-task compaction (266–272) (273) |
-| `docs/history/milestone-22-summary.md` | new: this 9-task compaction (273 compaction output) |
-| `tasks/archive/266-*.md` … `tasks/archive/272-*.md` | released tasks moved to archive (273) |
-| `CHANGELOG.md` | 9.46.0 release block (273); plugin V2 entry (274); [Unreleased] entries (275–283); retry archive + 30→2 retry-delay entries (283) |
-| `README.md` | plugin V2 status + `@latest (currently 3.2.0)` (274); singularity + legacy stdio pointer + never-`uv run` (279, 283) |
-| `LLM.txt` | plugin V2 status §7.7 (274); singleton setup/migration/schema (279); full V2 rewrite + `.env` contract + correct §4–§5 global-install copy/seed (283) |
-| `opencode.json` (global) | stdio → 7 `type: remote` loopback URLs (279); V2-native mcp.servers/permissions; blowsh timeout restored 120000 (283) |
-| `~/.config/opencode/cli.json` | schema-only V2 client config (283) |
-| `tui.json` (repo + global) | deleted (283) |
-| `docs/services.md` | singleton units + creds/`.env` section + launchd/Windows notes (279, 283) |
-| `docs/setup.md` | singleton setup + canonical full-dep suite command pointer (279, 283) |
-| `docs/openchamber.md` | new: replaces deleted `docs/openchamber-tailscale.md`; managed OpenCode, no Tailscale, no plugin content (283) |
-| `docs/brain-bridge.md`, `docs/telegram-setup.md` | `.env` self-load contract (283) |
-| `services/mcp-{brain,context,decision,lint,memory,telegram}.service` | systemd units, `Restart=always`, loopback bind, pinned `MCP_TRANSPORT` (279) |
-| `services/launchd/ai.cognitivelead.mcp-*.plist` | 6 plists; telegram `http` transport (279) |
-| `services/windows/*` | Windows scheduled-task template + env notes (279) |
-| `mcp-context-server/server.py` | `project_root` on 8 tools + `_project_tool` isolation banner + transport default (279) |
-| `mcp-memory-server/server.py` | `project_root` on 6 tools + `_memory_dir` threading + banner + transport default (279) |
-| `mcp-lint-server/server.py` | `project_root` on 4 tools + banner + transport default (279) |
-| `mcp-decision-server/server.py` | `project_root` on 6 tools + `_repo_root` override + banner dict key + transport default (279) |
-| `mcp-common/env.py` | persona-server mention removed (283) |
-| `prompts/fragments/01-system_version.md` | 9.47.0 (276) → 9.48.0 (280) → 9.49.0 (281) |
-| `prompts/fragments/03-system_context.md` | knowledge-cutoff O2 unverified marker (280) |
-| `prompts/fragments/05-user_input_processing.md` | brainstorm trigger append (276) |
-| `prompts/fragments/06-personas.md` | QA/Reviewer automatic-mode overrides (281) |
-| `prompts/fragments/09-hands_protocols.md` | automatic-mode skip-ferry overrides in both summary blocks (281) |
-| `prompts/fragments/11-execution_workflow.md` | question-tool gate Steps 3/4/8 + brainstorm auto-eval Step 2 (276) |
-| `prompts/fragments/12-brainstorming_protocol.md` | brainstorm trigger + auditability append (276) |
-| `prompts/fragments/19-initialization.md` | MODE declaration banner (281) |
-| `agents/cognitive-executor.md` | question-tool mandate + capability preflight (276); plan-approval → Brain → Programmer XML routing fix + Seat Check (280) |
-| `system-prompt.md` | regenerated each bump: 9.47.0 (276), 9.48.0 (280), 9.49.0 (281) |
-| `tests/test_prompt_sync.py` | version pin 9.47.0 (276) |
-| `plugins/rate-limit-rescue/{package.json,index.js,README.md,test.mjs,package-lock.json}` | new: free-tier 429 rescue + JSONL metrics (282) |
-| `archive/rate-limit-rescue/` | plugin archived, removed from all configs (283) |
-| `scripts/fetch-opencode-docs.py`, `scripts/repomd`, `docs/velocity.md` | orphaned files deleted (283) |
-| `.opencode/{package.json,package-lock.json,node_modules,commands}`, `.pytest_cache/` | plugin-SDK leftovers deleted (283) |
-| `.opencode/memory/` | 3 stale shards deleted, V2/password memories refreshed, index rebuilt (279, 283) |
-| `.opencode/memory/workflows/global-install-upgrade.md` | singleton migration step, streamable-http line, decision-server list (279, 283) |
-| `.gitignore` | `node_modules/` (282); goals/worktrees guards restored (283) |
-| `~/.config/opencode/.env` | seeded chmod-600 + Telegram `TELEGRAM_*` recovered (283) |
-| `/tmp/cognitive-lead-push-release.sh` | executable v9.46.0 push/tag/release script, strict mode (273) |
+| File                                                                                     | Change                                                                                                                                                |
+| ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `docs/history/milestone-21-summary.md`                                                   | new: 7-task compaction (266–272) (273)                                                                                                                |
+| `docs/history/milestone-22-summary.md`                                                   | new: this 9-task compaction (273 compaction output)                                                                                                   |
+| `tasks/archive/266-*.md` … `tasks/archive/272-*.md`                                      | released tasks moved to archive (273)                                                                                                                 |
+| `CHANGELOG.md`                                                                           | 9.46.0 release block (273); plugin V2 entry (274); [Unreleased] entries (275–283); retry archive + 30→2 retry-delay entries (283)                     |
+| `README.md`                                                                              | plugin V2 status + `@latest (currently 3.2.0)` (274); singularity + legacy stdio pointer + never-`uv run` (279, 283)                                  |
+| `LLM.txt`                                                                                | plugin V2 status §7.7 (274); singleton setup/migration/schema (279); full V2 rewrite + `.env` contract + correct §4–§5 global-install copy/seed (283) |
+| `opencode.json` (global)                                                                 | stdio → 7 `type: remote` loopback URLs (279); V2-native mcp.servers/permissions; blowsh timeout restored 120000 (283)                                 |
+| `~/.config/opencode/cli.json`                                                            | schema-only V2 client config (283)                                                                                                                    |
+| `tui.json` (repo + global)                                                               | deleted (283)                                                                                                                                         |
+| `docs/services.md`                                                                       | singleton units + creds/`.env` section + launchd/Windows notes (279, 283)                                                                             |
+| `docs/setup.md`                                                                          | singleton setup + canonical full-dep suite command pointer (279, 283)                                                                                 |
+| `docs/openchamber.md`                                                                    | new: replaces deleted `docs/openchamber-tailscale.md`; managed OpenCode, no Tailscale, no plugin content (283)                                        |
+| `docs/brain-bridge.md`, `docs/telegram-setup.md`                                         | `.env` self-load contract (283)                                                                                                                       |
+| `services/mcp-{brain,context,decision,lint,memory,telegram}.service`                     | systemd units, `Restart=always`, loopback bind, pinned `MCP_TRANSPORT` (279)                                                                          |
+| `services/launchd/ai.cognitivelead.mcp-*.plist`                                          | 6 plists; telegram `http` transport (279)                                                                                                             |
+| `services/windows/*`                                                                     | Windows scheduled-task template + env notes (279)                                                                                                     |
+| `mcp-context-server/server.py`                                                           | `project_root` on 8 tools + `_project_tool` isolation banner + transport default (279)                                                                |
+| `mcp-memory-server/server.py`                                                            | `project_root` on 6 tools + `_memory_dir` threading + banner + transport default (279)                                                                |
+| `mcp-lint-server/server.py`                                                              | `project_root` on 4 tools + banner + transport default (279)                                                                                          |
+| `mcp-decision-server/server.py`                                                          | `project_root` on 6 tools + `_repo_root` override + banner dict key + transport default (279)                                                         |
+| `mcp-common/env.py`                                                                      | persona-server mention removed (283)                                                                                                                  |
+| `prompts/fragments/01-system_version.md`                                                 | 9.47.0 (276) → 9.48.0 (280) → 9.49.0 (281)                                                                                                            |
+| `prompts/fragments/03-system_context.md`                                                 | knowledge-cutoff O2 unverified marker (280)                                                                                                           |
+| `prompts/fragments/05-user_input_processing.md`                                          | brainstorm trigger append (276)                                                                                                                       |
+| `prompts/fragments/06-personas.md`                                                       | QA/Reviewer automatic-mode overrides (281)                                                                                                            |
+| `prompts/fragments/09-hands_protocols.md`                                                | automatic-mode skip-ferry overrides in both summary blocks (281)                                                                                      |
+| `prompts/fragments/11-execution_workflow.md`                                             | question-tool gate Steps 3/4/8 + brainstorm auto-eval Step 2 (276)                                                                                    |
+| `prompts/fragments/12-brainstorming_protocol.md`                                         | brainstorm trigger + auditability append (276)                                                                                                        |
+| `prompts/fragments/19-initialization.md`                                                 | MODE declaration banner (281)                                                                                                                         |
+| `agents/cognitive-executor.md`                                                           | question-tool mandate + capability preflight (276); plan-approval → Brain → Programmer XML routing fix + Seat Check (280)                             |
+| `system-prompt.md`                                                                       | regenerated each bump: 9.47.0 (276), 9.48.0 (280), 9.49.0 (281)                                                                                       |
+| `tests/test_prompt_sync.py`                                                              | version pin 9.47.0 (276)                                                                                                                              |
+| `plugins/rate-limit-rescue/{package.json,index.js,README.md,test.mjs,package-lock.json}` | new: free-tier 429 rescue + JSONL metrics (282)                                                                                                       |
+| `archive/rate-limit-rescue/`                                                             | plugin archived, removed from all configs (283)                                                                                                       |
+| `scripts/fetch-opencode-docs.py`, `scripts/repomd`, `docs/velocity.md`                   | orphaned files deleted (283)                                                                                                                          |
+| `.opencode/{package.json,package-lock.json,node_modules,commands}`, `.pytest_cache/`     | plugin-SDK leftovers deleted (283)                                                                                                                    |
+| `.opencode/memory/`                                                                      | 3 stale shards deleted, V2/password memories refreshed, index rebuilt (279, 283)                                                                      |
+| `.opencode/memory/workflows/global-install-upgrade.md`                                   | singleton migration step, streamable-http line, decision-server list (279, 283)                                                                       |
+| `.gitignore`                                                                             | `node_modules/` (282); goals/worktrees guards restored (283)                                                                                          |
+| `~/.config/opencode/.env`                                                                | seeded chmod-600 + Telegram `TELEGRAM_*` recovered (283)                                                                                              |
+| `/tmp/cognitive-lead-push-release.sh`                                                    | executable v9.46.0 push/tag/release script, strict mode (273)                                                                                         |
 
 ## Criteria Met
 
-| Task | Acceptance Criteria | Status |
-| ---- | ------------------- | ------ |
-| 273 | milestone-21 compacts 266–272 + all 7 archived; CHANGELOG `[9.46.0]` moved + `[Unreleased]` empty; all gates exit 0; push script strict + executable; stale-memory report, no deletion | ✅ Met (5/5) |
-| 274 | Both plugins latest stable w/ genuine V2 support; no duplicate upstream issues; README + LLM.txt exact versions; lint; verification evidence | ✅ Met (5/5) |
-| 275 | All 5 servers inventoried; current web data with sources; per-server pass/flag findings; **no source code modified** | ✅ Met (4/4) |
-| 276 | Approval gates use `question` tool; brainstorming self-triggers; agents + prompt consistent, sync passes; CHANGELOG + lint/suite green | ✅ Met (4/4) |
-| 279 | One OS process/server; 7 MCP shared across sessions; single server + OpenChamber healthy; supervised loopback services; memory migration; opencode-2 schema clean; service files present | ✅ Met (7/12) — META all-or-nothing gate **open**: `[277]` stdio rollback revert, `[278]` fresh-user e2e, global-upgrade-at-latest, blowsh triple-transport, and commit-gated traceability boxes left unchecked (window/foreign-repo/commit-gated, documented) |
-| 280 | Plan-approval routes back through Brain → Programmer XML (no direct implement-on-approve); cutoff updated to honest unverified marker + prompt regenerated; evidence recorded | ✅ Met (3/3) |
-| 281 | Brainstorm report A-vs-B + Manager selection; winning option in fragments + regen, no manual ferry in automatic mode; evidence recorded | ✅ Met (3/3 AC) — DoD `lint_task_file` box left unchecked |
-| 282 | Free-tier 429 runs env command + JSONL metrics + 30s retry (proven); both paths env-overridable; plugin installed globally + listed | ⚠️ Partial (2/3 AC) — global-install/listed box unchecked; DoD `CHANGELOG.md` box also unchecked |
-| 283 | One OpenChamber-managed OpenCode instance; zero plugins + absent refs; retry plugin archived/unreferenced; docs aligned to V2; orphans removed; global install 7 MCP; Telegram verified both accounts | ✅ Met (7/7) |
+| Task | Acceptance Criteria                                                                                                                                                                                   | Status                                                                                                                                                                                                                                                         |
+| ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 273  | milestone-21 compacts 266–272 + all 7 archived; CHANGELOG `[9.46.0]` moved + `[Unreleased]` empty; all gates exit 0; push script strict + executable; stale-memory report, no deletion                | ✅ Met (5/5)                                                                                                                                                                                                                                                   |
+| 274  | Both plugins latest stable w/ genuine V2 support; no duplicate upstream issues; README + LLM.txt exact versions; lint; verification evidence                                                          | ✅ Met (5/5)                                                                                                                                                                                                                                                   |
+| 275  | All 5 servers inventoried; current web data with sources; per-server pass/flag findings; **no source code modified**                                                                                  | ✅ Met (4/4)                                                                                                                                                                                                                                                   |
+| 276  | Approval gates use `question` tool; brainstorming self-triggers; agents + prompt consistent, sync passes; CHANGELOG + lint/suite green                                                                | ✅ Met (4/4)                                                                                                                                                                                                                                                   |
+| 279  | One OS process/server; 7 MCP shared across sessions; single server + OpenChamber healthy; supervised loopback services; memory migration; opencode-2 schema clean; service files present              | ✅ Met (7/12) — META all-or-nothing gate **open**: `[277]` stdio rollback revert, `[278]` fresh-user e2e, global-upgrade-at-latest, blowsh triple-transport, and commit-gated traceability boxes left unchecked (window/foreign-repo/commit-gated, documented) |
+| 280  | Plan-approval routes back through Brain → Programmer XML (no direct implement-on-approve); cutoff updated to honest unverified marker + prompt regenerated; evidence recorded                         | ✅ Met (3/3)                                                                                                                                                                                                                                                   |
+| 281  | Brainstorm report A-vs-B + Manager selection; winning option in fragments + regen, no manual ferry in automatic mode; evidence recorded                                                               | ✅ Met (3/3 AC) — DoD `lint_task_file` box left unchecked                                                                                                                                                                                                      |
+| 282  | Free-tier 429 runs env command + JSONL metrics + 30s retry (proven); both paths env-overridable; plugin installed globally + listed                                                                   | ⚠️ Partial (2/3 AC) — global-install/listed box unchecked; DoD `CHANGELOG.md` box also unchecked                                                                                                                                                               |
+| 283  | One OpenChamber-managed OpenCode instance; zero plugins + absent refs; retry plugin archived/unreferenced; docs aligned to V2; orphans removed; global install 7 MCP; Telegram verified both accounts | ✅ Met (7/7)                                                                                                                                                                                                                                                   |
 
 ## Individual Task Summaries
 

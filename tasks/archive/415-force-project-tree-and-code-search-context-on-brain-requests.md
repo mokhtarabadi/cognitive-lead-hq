@@ -1,9 +1,11 @@
 # Task 415: Force project-tree generation and code-search context attachment on brain requests
 
-**File:** `tasks/in-progress/415-force-project-tree-and-code-search-context-on-brain-requests.md`
+**File:** `tasks/archive/415-force-project-tree-and-code-search-context-on-brain-requests.md`
 **Source:** manager
 **Type:** improvement
-**Status:** in-progress
+**Status:** superseded
+**Superseded-By:** `417-comprehensive-prompt-and-workflow-hardening-across-fragments-agents-and-brain-context`
+**Superseded-At:** `2026-11-22 20:56 UTC`
 **Started:** 2026-11-22T19:46:09Z
 
 ## Goal
@@ -69,6 +71,8 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 - **Risk:** HQ-only changes (agents/, prompts/fragments/) must not leak into project-agnostic governance scaffolding (`skill-templates/governance`).
 - **Rollback plan:** Git revert of changed agent/fragment/skill files. No data migration involved.
 
+> **Superseded:** This task was bundled into META task `417-comprehensive-prompt-and-workflow-hardening-across-fragments-agents-and-brain-context` and archived on 2026-11-22 20:56 UTC. See `tasks/backlog/417-comprehensive-prompt-and-workflow-hardening-across-fragments-agents-and-brain-context.md` (or its Kanban successor) for the unified execution. History preserved via `git log --follow -- tasks/archive/415-force-project-tree-and-code-search-context-on-brain-requests.md`.
+
 ## Execution Log & Reasoning
 
 ### Brain Plan (verbatim)
@@ -84,6 +88,7 @@ The three things you should see before the plan:
 - **`cognitive-discovery.md` currently forbids the change.** Its `§How to Work` step 2 says "persist a tree report only when asked". That single sentence is why the map never reaches the Brain.
 
 <reasoning_log>
+
 1. Logical dependencies and constraints.
    1.1 Policy first. The turn is a planning turn under the Planning Gate, so the deliverable is a plan, not an XML task block. The explicit instruction repeats that. The automatic-mode emission rule binds XML blocks only, so a REPORT satisfies both the mode line and the instruction. No relay sentences, because the Hands chains.
    1.2 Order. Enumerate sites from injected text, then design the rule, then the attachment shape, then the file table, then gates, then the decisions that must precede implementation. Reversing would let a design centre on sites I had not counted.
@@ -131,33 +136,33 @@ The three things you should see before the plan:
 9. Inhibit response.
    9.1 Pre-emit check. No XML task block. No relay instruction. No invented path. No semicolon or em-dash chain in the report prose. Every command is one I can construct from the injected text or from the task file's own verification section.
    9.2 Verified. Emitting.
-</reasoning_log>
+   </reasoning_log>
 
 ## 1. Site inventory
 
 Nineteen clauses invoke or configure `brain_turn`. Ten in the executor plus five template sites require a map. Four executor sites are control turns and are exempt by class.
 
-| # | File | Section | Turn class |
-|---|---|---|---|
-| E1 | `agents/cognitive-executor.md` | `## Planning Gate` | A |
-| E2 | same | `### Supervised autopilot plan approval` | A |
-| E3 | same | `### Discovery-fed planning` (fed retry and manifest extraction) | A |
-| E4 | same | `## Manual Workflow` step 4 | B |
-| E5 | same | `### Mandatory manual review chain` (QA call) | B |
-| E6 | same | `### Mandatory manual review chain` (Reviewer call) | B |
-| E7 | same | `## Brain Bridge` §State machine step 1 Build and step 2 Call | A or B by content |
-| E8 | same | §State machine step 3 Relay | C |
-| E9 | same | §State machine step 5 Empty output retry | C |
-| E10 | same | `### Review-approval relay` (answer envelope) | C |
-| E11 | same | `### Review-approval relay` (closure XML) | C |
-| E12 | same | `### Autopilot mode (default OFF)` (chained QA, re-QA, review) | B |
-| E13 | same | `### Saga self-sufficiency` (reviewer call) | B |
-| E14 | same | `### File context retrieval` | A |
-| T1 | `prompts/fragments/09-hands_protocols.md` | discovery `summary_phase` | A |
-| T2 | same | implementation `summary_phase` step 4 | B |
-| T3 | same | combined `conditional_implementation_phase` | A |
-| T4 | same | combined `summary_phase` step 1 | A |
-| T5 | same | combined `summary_phase` step 4 | B |
+| #   | File                                      | Section                                                          | Turn class        |
+| --- | ----------------------------------------- | ---------------------------------------------------------------- | ----------------- |
+| E1  | `agents/cognitive-executor.md`            | `## Planning Gate`                                               | A                 |
+| E2  | same                                      | `### Supervised autopilot plan approval`                         | A                 |
+| E3  | same                                      | `### Discovery-fed planning` (fed retry and manifest extraction) | A                 |
+| E4  | same                                      | `## Manual Workflow` step 4                                      | B                 |
+| E5  | same                                      | `### Mandatory manual review chain` (QA call)                    | B                 |
+| E6  | same                                      | `### Mandatory manual review chain` (Reviewer call)              | B                 |
+| E7  | same                                      | `## Brain Bridge` §State machine step 1 Build and step 2 Call    | A or B by content |
+| E8  | same                                      | §State machine step 3 Relay                                      | C                 |
+| E9  | same                                      | §State machine step 5 Empty output retry                         | C                 |
+| E10 | same                                      | `### Review-approval relay` (answer envelope)                    | C                 |
+| E11 | same                                      | `### Review-approval relay` (closure XML)                        | C                 |
+| E12 | same                                      | `### Autopilot mode (default OFF)` (chained QA, re-QA, review)   | B                 |
+| E13 | same                                      | `### Saga self-sufficiency` (reviewer call)                      | B                 |
+| E14 | same                                      | `### File context retrieval`                                     | A                 |
+| T1  | `prompts/fragments/09-hands_protocols.md` | discovery `summary_phase`                                        | A                 |
+| T2  | same                                      | implementation `summary_phase` step 4                            | B                 |
+| T3  | same                                      | combined `conditional_implementation_phase`                      | A                 |
+| T4  | same                                      | combined `summary_phase` step 1                                  | A                 |
+| T5  | same                                      | combined `summary_phase` step 4                                  | B                 |
 
 Roughly a dozen other lines mention `brain_turn` descriptively, such as the capability-manifest diagnostic and the Code Mode routing note. Those carry no call and need no pointer.
 
@@ -176,11 +181,11 @@ path costs a round trip. Produce the map and attach it before every such call.
 
 ### Turn classes
 
-| Class | Turns | Map required |
-| ----- | ----- | ------------ |
+| Class                     | Turns                                                                                        | Map required                |
+| ------------------------- | -------------------------------------------------------------------------------------------- | --------------------------- |
 | A, plan or implementation | planning turns, revised-plan turns after discovery, plan-approval routing, fed-context turns | Full: graph, tree, manifest |
-| B, review or verdict | QA, re-QA, Code Reviewer, hotfix and postfix | Diff-scoped manifest |
-| C, control | relay answers, closure XML request, empty-output retry, mode changes | Exempt |
+| B, review or verdict      | QA, re-QA, Code Reviewer, hotfix and postfix                                                 | Diff-scoped manifest        |
+| C, control                | relay answers, closure XML request, empty-output retry, mode changes                         | Exempt                      |
 
 ### Producing the map (Class A)
 
@@ -256,17 +261,17 @@ Rules the shape enforces:
 
 ## 4. Files to edit
 
-| File | Change | Why |
-|---|---|---|
-| `agents/cognitive-executor.md` | Append the §2 block, then add one pointer line at E1, E2, E3, E4, E5, E6, E7, E12, E13 and E14. Insert-only, no rewrite of surrounding text | Single normative home, minimal collision with the 414 plan |
-| `agents/cognitive-discovery.md` | Replace `§How to Work` step 2 ("persist a tree report only when asked") with a mandatory persist, depth 3 or deeper, 400-entry cap. Add the tree path above `### Context Manifest` in `§What You Return` | This one sentence is the reason the map never reaches the Brain |
-| `agents/README.md` | Extend the existing Context-Paths invariant bullet with the tree requirement and the turn-class line. Correct `bash` to `shell` in the free-tier note | Keeps the slice README true to the contract it documents |
-| `prompts/fragments/09-hands_protocols.md` | Five template edits at T1 to T5, each one line naming the audit line and `context_paths`. Also fix the implementation `summary_phase` numbering gap where the list jumps 5 to 7 | The templates are where the Hands actually learns the call shape |
-| `prompts/fragments/07-agent_skills_registry.md` | Extend the `code-search` line: its output is the required hand-off artifact before any `brain_turn` carrying `context_paths` | In-repo, versioned with the prompt, present on every project |
-| `AGENTS.md` | Read first. Add one pointer line in the `Context Bootstrapping` and `MCP-First Context` sections | Task requires it. Text cannot be specified without reading the file |
-| `agents/DECISIONS.md` and `prompts/fragments/DECISIONS.md` | Dated ADR recording the context-map contract, the turn classes and the global-skill decision | Local TODOs require it, and the contract is architectural |
-| `CHANGELOG.md` | Parse-Then-Append | Definition of Done |
-| `~/.config/opencode/skills/code-search/SKILL.md` | **Do not edit under the recommended path.** See D2 | Outside the workspace, global in effect, contradicts the task's own HQ-only constraint |
+| File                                                       | Change                                                                                                                                                                                                   | Why                                                                                    |
+| ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `agents/cognitive-executor.md`                             | Append the §2 block, then add one pointer line at E1, E2, E3, E4, E5, E6, E7, E12, E13 and E14. Insert-only, no rewrite of surrounding text                                                              | Single normative home, minimal collision with the 414 plan                             |
+| `agents/cognitive-discovery.md`                            | Replace `§How to Work` step 2 ("persist a tree report only when asked") with a mandatory persist, depth 3 or deeper, 400-entry cap. Add the tree path above `### Context Manifest` in `§What You Return` | This one sentence is the reason the map never reaches the Brain                        |
+| `agents/README.md`                                         | Extend the existing Context-Paths invariant bullet with the tree requirement and the turn-class line. Correct `bash` to `shell` in the free-tier note                                                    | Keeps the slice README true to the contract it documents                               |
+| `prompts/fragments/09-hands_protocols.md`                  | Five template edits at T1 to T5, each one line naming the audit line and `context_paths`. Also fix the implementation `summary_phase` numbering gap where the list jumps 5 to 7                          | The templates are where the Hands actually learns the call shape                       |
+| `prompts/fragments/07-agent_skills_registry.md`            | Extend the `code-search` line: its output is the required hand-off artifact before any `brain_turn` carrying `context_paths`                                                                             | In-repo, versioned with the prompt, present on every project                           |
+| `AGENTS.md`                                                | Read first. Add one pointer line in the `Context Bootstrapping` and `MCP-First Context` sections                                                                                                         | Task requires it. Text cannot be specified without reading the file                    |
+| `agents/DECISIONS.md` and `prompts/fragments/DECISIONS.md` | Dated ADR recording the context-map contract, the turn classes and the global-skill decision                                                                                                             | Local TODOs require it, and the contract is architectural                              |
+| `CHANGELOG.md`                                             | Parse-Then-Append                                                                                                                                                                                        | Definition of Done                                                                     |
+| `~/.config/opencode/skills/code-search/SKILL.md`           | **Do not edit under the recommended path.** See D2                                                                                                                                                       | Outside the workspace, global in effect, contradicts the task's own HQ-only constraint |
 
 Two adjacent defects found while reading, listed so the diff stays honest and **not** included: `agents/README.md` says "keep bash in the tool allowlist" while `cognitive-discovery.md` denies `shell`, and `cognitive-discovery.md` `§Your Tools` grants `skill` while executor `§Subagent Delegation` rule 5 states subagents have no `skill` tool. Both belong to the 414 cycle.
 
@@ -311,7 +316,6 @@ AGENTS.md
 </missing_context>
 
 Next action: the Hands presents this plan in chat under the Plan presentation contract, puts D1 through D4 into the question body with one answer slot, and asks for approval. On approval it chains `brain_turn` under the same `task_id` for the implementation XML.
-
 
 _(The Hands: Manually log your technical changes, file edits, and architectural reasoning here BEFORE calling the MCP tool)_
 

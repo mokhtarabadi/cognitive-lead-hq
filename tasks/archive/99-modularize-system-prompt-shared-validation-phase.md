@@ -168,32 +168,33 @@ Read-only audit of the system-prompt build-process references (Step 7; NO files 
 
 The 20 top-level tags and their line ranges (1-indexed) in the pristine `system-prompt.md`:
 
-| #  | Tag                          | Lines    |
-|----|------------------------------|----------|
-| 1  | system_version               | 1–1      |
-| 2  | role                         | 3–10     |
-| 3  | system_context               | 12–15    |
-| 4  | manager_profile              | 17–163   |
-| 5  | ai_objective                 | 165–167  |
-| 6  | operating_principles         | 169–180  |
-| 7  | delegation_strategy          | 182–184  |
-| 8  | challenge_policy             | 186–188  |
-| 9  | leadership_and_language_protocol | 190–198 |
-| 10 | agent_skills_registry        | 200–237  |
-| 11 | user_input_processing        | 239–260  |
-| 12 | personas                     | 262–315  |
-| 13 | agentic_reasoning            | 317–363  |
-| 14 | hands_protocols              | 365–531  |
-| 15 | execution_workflow           | 533–552  |
-| 16 | brainstorming_protocol       | 554–606  |
-| 17 | constraints                  | 608–626  |
-| 18 | solid_programming_mandate    | 628–645  |
-| 19 | universal_datetime_rules     | 647–668  |
-| 20 | initialization               | 670–672  |
+| #   | Tag                              | Lines   |
+| --- | -------------------------------- | ------- |
+| 1   | system_version                   | 1–1     |
+| 2   | role                             | 3–10    |
+| 3   | system_context                   | 12–15   |
+| 4   | manager_profile                  | 17–163  |
+| 5   | ai_objective                     | 165–167 |
+| 6   | operating_principles             | 169–180 |
+| 7   | delegation_strategy              | 182–184 |
+| 8   | challenge_policy                 | 186–188 |
+| 9   | leadership_and_language_protocol | 190–198 |
+| 10  | agent_skills_registry            | 200–237 |
+| 11  | user_input_processing            | 239–260 |
+| 12  | personas                         | 262–315 |
+| 13  | agentic_reasoning                | 317–363 |
+| 14  | hands_protocols                  | 365–531 |
+| 15  | execution_workflow               | 533–552 |
+| 16  | brainstorming_protocol           | 554–606 |
+| 17  | constraints                      | 608–626 |
+| 18  | solid_programming_mandate        | 628–645 |
+| 19  | universal_datetime_rules         | 647–668 |
+| 20  | initialization                   | 670–672 |
 
 ### Validation-Phase Verification
 
 All 3 `<validation_phase>` block occurrences are byte-identical except the final line's phase name:
+
 - Occurrence 1 (inside `<hands_discovery_task_template>`): "proceed to the **Context** Phase."
 - Occurrence 2 (inside `<hands_implementation_task_template>`): "proceed to the **Context** Phase."
 - Occurrence 3 (inside `<hands_combined_task_template>`): "proceed to the **Discovery** Phase."
@@ -301,6 +302,7 @@ A marker like `<!--INCLUDE:../outside.md-->` would resolve to a sibling of
 `prompts/` and read an arbitrary file from outside the prompt source tree. The
 new private helper `_safe_include_path(rel_path, prompts_dir)` enforces the
 security boundary:
+
 - **Absolute include paths are rejected outright** — only relative paths are
   part of the include API.
 - The candidate is resolved via `Path.resolve()` (collapsing `..` segments,
@@ -339,6 +341,7 @@ cleanup preserved in the `finally` block. The two specific
 callers.
 
 **4. New regression tests (4 added; 38 → 42 total).**
+
 - `test_assemble_rejects_path_traversal_include` — temp prompt tree with
   `outside.md` outside `prompts/`, fragment with `<!--INCLUDE:../outside.md-->`;
   asserts `ValueError` naming the unsafe path.
@@ -382,6 +385,7 @@ arbitrary host file — would resolve outside `prompts/fragments/` and be read
 and inlined into the generated `system-prompt.md`. The new private helper
 `_safe_fragment_path(filename, fragments_dir)` enforces the same trust
 boundary that round 3 added for include paths:
+
 - Empty manifest entries (after stripping) are rejected — a blank manifest line
   is a configuration error, not something to silently skip.
 - Absolute manifest entries are rejected — the manifest API only contains
@@ -408,6 +412,7 @@ for all other load failures. `except Exception` deliberately does NOT catch
 `SystemExit`/`KeyboardInterrupt` (both derive from `BaseException`).
 
 **4. New regression tests (3 added; 42 → 45 total).**
+
 - `test_assemble_rejects_path_traversal_manifest_entry` — manifest with
   `../outside.md`; asserts `ValueError` naming the unsafe manifest entry.
 - `test_assemble_rejects_absolute_manifest_entry` — manifest with the absolute
@@ -445,5 +450,6 @@ bytes were NOT changed by this round.
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `cb1c423d2fd9c709b4a60ea4bc35fc272900f277`
 <!-- END_GIT_DIFF -->

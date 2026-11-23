@@ -31,11 +31,13 @@ Unified execution of 2 related small tasks as a single META task to eliminate se
 **Bundle Decision (2026-08-21):** Manager requested fully automatic bundling with archive (not purge). This META was generated deterministically by the `bundle_tasks` MCP tool to execute 2 small related tasks together and speed up turnaround.
 
 **Traceability:**
+
 - Supersedes [0339, 0343] — see per-source verbatim blocks below
 - Archive: each source moved via `git mv` to `tasks/archive/` with `**Superseded-By:** 344-planner-dashboard-and-prompt-composer-on-graphite-desk` header + superseded footer
 - Rollback: `git mv tasks/archive/<id>-*.md tasks/backlog/` + delete META file
 
 **Guardrails Applied:**
+
 - Cap 6 per bundle — this bundle has 2 (✅ within cap)
 - Verbatim preservation — every source Goal/AC/TODO/Risk copied verbatim below (SHA comparison available in bundler dry-run)
 - Diff-size check — combined 1146 LOC (⚠️ exceeds 400 — consider split)
@@ -137,7 +139,6 @@ Make `tools/prompt-composer/index.html` follow `DESIGN.md` (Graphite Desk) inste
 - **Rollback:** restore the previous `index.html` from git; the tool is standalone.
 
 ---
-
 
 ## Bundled Checklist (All-or-Nothing)
 
@@ -263,5 +264,6 @@ _(The Hands: Manually log your technical changes, file edits, and architectural 
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `dc31a5820ef1198ad8f2905bae55fc72a86a43e6`
 <!-- END_GIT_DIFF -->

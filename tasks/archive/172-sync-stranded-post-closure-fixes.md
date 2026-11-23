@@ -61,5 +61,6 @@ Sync-only task: no source edits. `git show HEAD:...` vs worktree comparison prov
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `aa73e71cf40a446fc65f7b3db213000fc8d55596`
 <!-- END_GIT_DIFF -->

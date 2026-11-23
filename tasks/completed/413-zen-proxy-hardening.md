@@ -65,15 +65,15 @@ Harden zen-proxy from the 2026-11-22 audit (F1, F3-F8): prune nine stale allowli
 
 ## Verification Evidence
 
-| Command | Expected | Actual | Exit |
-|---------|----------|--------|------|
-| `python3 -m py_compile zen-proxy/proxy.py zen-proxy/refresh_allowlists.py` | no output | no output | 0 |
-| `rtk test uv run --with pytest pytest tests/test_zen_proxy.py -q` | all pass | 43 passed in 8.35s | 0 |
-| `ZEN_PROXY_UPSTREAM_KEY= python3 zen-proxy/refresh_allowlists.py --check` | allow==served, exit 0 | 4 mounts, allow==served, no drift, exit 0 | 0 |
-| `python3 -c "import sys; sys.path.insert(0,'zen-proxy'); import proxy; print({p: len(a) for p,(_,a) in proxy.ROUTES.items()})"` | 22/27/7/0 | {'/go/chat': 22, '/go/resp': 27, '/zen/chat': 7, '/zen/resp': 0} | 0 |
-| `grep -n "DORMANT_MOUNTS" zen-proxy/refresh_allowlists.py` | only in read_dormant | lines 206, 209 (docstring+regex) | 0 |
-| smoke: `curl http://127.0.0.1:8081/health` | mounts+degraded false | {"status":"ok","mounts":{...},"dormant":["/zen/resp"],"degraded":false} | 0 |
-| smoke: POST /go/resp deepseek-v4.1-flash | response | status incomplete (max_output_tokens) | 0 |
+| Command                                                                                                                         | Expected              | Actual                                                                  | Exit |
+| ------------------------------------------------------------------------------------------------------------------------------- | --------------------- | ----------------------------------------------------------------------- | ---- |
+| `python3 -m py_compile zen-proxy/proxy.py zen-proxy/refresh_allowlists.py`                                                      | no output             | no output                                                               | 0    |
+| `rtk test uv run --with pytest pytest tests/test_zen_proxy.py -q`                                                               | all pass              | 43 passed in 8.35s                                                      | 0    |
+| `ZEN_PROXY_UPSTREAM_KEY= python3 zen-proxy/refresh_allowlists.py --check`                                                       | allow==served, exit 0 | 4 mounts, allow==served, no drift, exit 0                               | 0    |
+| `python3 -c "import sys; sys.path.insert(0,'zen-proxy'); import proxy; print({p: len(a) for p,(_,a) in proxy.ROUTES.items()})"` | 22/27/7/0             | {'/go/chat': 22, '/go/resp': 27, '/zen/chat': 7, '/zen/resp': 0}        | 0    |
+| `grep -n "DORMANT_MOUNTS" zen-proxy/refresh_allowlists.py`                                                                      | only in read_dormant  | lines 206, 209 (docstring+regex)                                        | 0    |
+| smoke: `curl http://127.0.0.1:8081/health`                                                                                      | mounts+degraded false | {"status":"ok","mounts":{...},"dormant":["/zen/resp"],"degraded":false} | 0    |
+| smoke: POST /go/resp deepseek-v4.1-flash                                                                                        | response              | status incomplete (max_output_tokens)                                   | 0    |
 
 ## Definition of Done
 
@@ -83,13 +83,13 @@ Harden zen-proxy from the 2026-11-22 audit (F1, F3-F8): prune nine stale allowli
 
 ## Risk & Rollback
 
-| Risk | Mitigation | Rollback |
-|------|------------|----------|
-| A still-served but unlisted id is pruned | Candidate-only removal, documented exception excluded, `allow == served` proof, `--add` restores | Restore the id by native edit |
-| `/zen/resp` emptied while F2 is deferred | `DORMANT_MOUNTS`, excluded from `degraded`, documented | Restore the three ids |
-| `/health` shape change breaks a monitor | `status` unchanged, fields additive only | Revert the commit |
-| The rewrite corrupts `proxy.py` | `ast.parse`, round-trip re-extract, atomic replace | Restore from the committed file |
-| The unit restart interrupts a turn | Drain timeout is 30s, restart in a quiet window | None needed |
+| Risk                                     | Mitigation                                                                                       | Rollback                        |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------- |
+| A still-served but unlisted id is pruned | Candidate-only removal, documented exception excluded, `allow == served` proof, `--add` restores | Restore the id by native edit   |
+| `/zen/resp` emptied while F2 is deferred | `DORMANT_MOUNTS`, excluded from `degraded`, documented                                           | Restore the three ids           |
+| `/health` shape change breaks a monitor  | `status` unchanged, fields additive only                                                         | Revert the commit               |
+| The rewrite corrupts `proxy.py`          | `ast.parse`, round-trip re-extract, atomic replace                                               | Restore from the committed file |
+| The unit restart interrupts a turn       | Drain timeout is 30s, restart in a quiet window                                                  | None needed                     |
 
 ## Execution Log & Reasoning
 
@@ -103,13 +103,13 @@ Harden zen-proxy from the 2026-11-22 audit (F1, F3-F8): prune nine stale allowli
 
 ### Per-id prune evidence
 
-| Mount | Removed id | Evidence |
-|-------|-----------|----------|
-| /go/chat, /go/resp | glm-5.2 | upstream 410 ModelDeprecated ("Use glm-5.3") |
-| /go/chat, /go/resp | longcat-2.0 | upstream 410 ModelDeprecated ("Use longcat-2.5") |
-| /zen/chat | inkling-2-small-free | upstream 404 (not served) |
-| /zen/resp | muse-spark-1.3-contributor-free | region-gated (Model is unavailable) |
-| /zen/resp | muse-spark-1.2-contributor-free | region-gated (Model is unavailable) |
+| Mount              | Removed id                      | Evidence                                         |
+| ------------------ | ------------------------------- | ------------------------------------------------ |
+| /go/chat, /go/resp | glm-5.2                         | upstream 410 ModelDeprecated ("Use glm-5.3")     |
+| /go/chat, /go/resp | longcat-2.0                     | upstream 410 ModelDeprecated ("Use longcat-2.5") |
+| /zen/chat          | inkling-2-small-free            | upstream 404 (not served)                        |
+| /zen/resp          | muse-spark-1.3-contributor-free | region-gated (Model is unavailable)              |
+| /zen/resp          | muse-spark-1.2-contributor-free | region-gated (Model is unavailable)              |
 
 Note: `crouton-alpha-free` is served by Go and absent from both catalogues; it
 was retained, not removed, and is excluded via KNOWN_EXCEPTIONS. It appears in
@@ -139,7 +139,9 @@ Total removals: 8 slots, 6 unique ids.
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `0e7548f687620d1a2f4dfe27e715c1ff7f8d9c48`
 <!-- END_GIT_DIFF -->
+
 EOF
 echo written

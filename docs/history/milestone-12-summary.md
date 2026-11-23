@@ -19,35 +19,35 @@
 
 ## Files Modified
 
-| File         | Change      |
-| ------------ | ----------- |
-| system-prompt.md | v8.4.5 → v8.4.6; runtime-agnostic; generated artifact (Tasks 98-99) |
-| AGENTS.md | Runtime-agnostic gatekeeper wording; Freebuff equivalents note; QA/closure Kanban rules (Task 98) |
-| docs/freebuff-support.md | Rewritten to ✅ FULL (REPO-LEVEL) + free-tier limitation (Task 98) |
-| docs/workflow-upgrade-v8.4.5.md | v8.4.5 migration guide (Task 98) |
-| docs/system-prompt-modularization.md | Superseded status note pointing to Task 99 |
-| prompts/fragments/*.md (20 files) | Per-tag fragment source of system-prompt.md (Task 99) |
-| prompts/shared/validation-phase.md | Shared `<validation_phase>` partial with {{NEXT_PHASE}} (Task 99) |
-| prompts/manifest.txt | Ordered fragment list (Task 99) |
-| prompts/README.md | Authoring workflow + include/manifest safety notes (Tasks 99-100) |
-| scripts/prompt-build/split_system_prompt.py | Disassembler (Task 99) |
-| scripts/prompt-build/assemble_system_prompt.py | Assembler + safety guards (Tasks 99) |
-| mcp-lint-server/server.py | lint_system_prompt_sync + exception hardening (Tasks 99) |
-| tests/test_mcp_servers.py | 14 → 45 regression tests (Tasks 98-99) |
-| freebuff/agents/*.ts (2 files) | Freebuff agent ports v1.2.0 (Task 98) |
-| freebuff/AGENTS.global.md | Global rules source → ~/.AGENTS.md (Task 98) |
-| CHANGELOG.md | v8.4.5 + v8.4.6 sections, QA fix rounds, release preparation (Tasks 98-100) |
-| .opencode/memory/release/release-workflow.md | Persistent release workflow memory (Task 100) |
-| .opencode/memory/project/system-prompt-build-process.md | Generated-artifact constraint (Task 99) |
-| README.md | Repo structure tree + Freebuff matrix + prompt-build entries (Tasks 98-99) |
+| File                                                    | Change                                                                                            |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| system-prompt.md                                        | v8.4.5 → v8.4.6; runtime-agnostic; generated artifact (Tasks 98-99)                               |
+| AGENTS.md                                               | Runtime-agnostic gatekeeper wording; Freebuff equivalents note; QA/closure Kanban rules (Task 98) |
+| docs/freebuff-support.md                                | Rewritten to ✅ FULL (REPO-LEVEL) + free-tier limitation (Task 98)                                |
+| docs/workflow-upgrade-v8.4.5.md                         | v8.4.5 migration guide (Task 98)                                                                  |
+| docs/system-prompt-modularization.md                    | Superseded status note pointing to Task 99                                                        |
+| prompts/fragments/*.md (20 files)                       | Per-tag fragment source of system-prompt.md (Task 99)                                             |
+| prompts/shared/validation-phase.md                      | Shared `<validation_phase>` partial with {{NEXT_PHASE}} (Task 99)                                 |
+| prompts/manifest.txt                                    | Ordered fragment list (Task 99)                                                                   |
+| prompts/README.md                                       | Authoring workflow + include/manifest safety notes (Tasks 99-100)                                 |
+| scripts/prompt-build/split_system_prompt.py             | Disassembler (Task 99)                                                                            |
+| scripts/prompt-build/assemble_system_prompt.py          | Assembler + safety guards (Tasks 99)                                                              |
+| mcp-lint-server/server.py                               | lint_system_prompt_sync + exception hardening (Tasks 99)                                          |
+| tests/test_mcp_servers.py                               | 14 → 45 regression tests (Tasks 98-99)                                                            |
+| freebuff/agents/*.ts (2 files)                          | Freebuff agent ports v1.2.0 (Task 98)                                                             |
+| freebuff/AGENTS.global.md                               | Global rules source → ~/.AGENTS.md (Task 98)                                                      |
+| CHANGELOG.md                                            | v8.4.5 + v8.4.6 sections, QA fix rounds, release preparation (Tasks 98-100)                       |
+| .opencode/memory/release/release-workflow.md            | Persistent release workflow memory (Task 100)                                                     |
+| .opencode/memory/project/system-prompt-build-process.md | Generated-artifact constraint (Task 99)                                                           |
+| README.md                                               | Repo structure tree + Freebuff matrix + prompt-build entries (Tasks 98-99)                        |
 
 ## Criteria Met
 
-| Task | Acceptance Criteria | Status |
-| ---- | ------------------- | ------ |
-| 98   | Runtime-agnostic tags/headers; Freebuff ports schema-validated & model-free; legacy headers still lint; pytest 31/31 | ✅ Met |
+| Task | Acceptance Criteria                                                                                                                                 | Status |
+| ---- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| 98   | Runtime-agnostic tags/headers; Freebuff ports schema-validated & model-free; legacy headers still lint; pytest 31/31                                | ✅ Met |
 | 99   | Assemble output byte-identical except version line; lint_system_prompt_sync clean + drift detection; full pytest 45/45; memory stored; docs updated | ✅ Met |
-| 100  | Canonical task file; release memory stored & verified; Unreleased empty; release-prep entry added; gates verified (lint, sync, py_compile, pytest) | ✅ Met |
+| 100  | Canonical task file; release memory stored & verified; Unreleased empty; release-prep entry added; gates verified (lint, sync, py_compile, pytest)  | ✅ Met |
 
 ## Individual Task Summaries
 

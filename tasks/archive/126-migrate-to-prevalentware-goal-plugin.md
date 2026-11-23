@@ -96,10 +96,12 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 **Context:** Manager requested full migration from `opencode-goal-plugin` (willytop8) to `@prevalentware/opencode-goal-plugin` with global + tui.json + memories + LLM + loop-engine + everyplace coverage. Follow-up clarified `command.goal` block in `opencode.json` is legacy willytop8 registration and should be cleaned (prevalentware uses `register_command` internally).
 
 **Discovery (2026-08-28):**
+
 - Current: `opencode --version` 1.18.25 (stable, uses `plugin` + `tui.json`; OpenCode 2 beta uses `plugins` + `cli.json`), `npm view opencode-goal-plugin` 0.8.2, `npm view @prevalentware/opencode-goal-plugin` 0.1.39, `~/.config/opencode/opencode.json` + `opencode.json` both `plugin: ["opencode-goal-plugin"]` + `command.goal` block (added Task 122), `tui.json` missing at both global and project, `.opencode/opencode.json` corrupted to `{"plugin":["list"]}` (untracked, created by erroneous `opencode plugin list`).
 - Grep over active files (excl archive/history/context-reports/goals) showed only history docs + tasks referencing old plugin; active docs (README, loop-engine) had no direct plugin name — no README change needed beyond verification.
 
 **Implementation (NEXT_ID=126):**
+
 1. **Corruption fix:** `rm .opencode/opencode.json` → `ls` fails ✓, `git status` clean (untracked removed).
 2. **Global configs:** Edited `~/.config/opencode/opencode.json` plugin → `["@prevalentware/opencode-goal-plugin"]`, removed `command` block (5 lines), kept `mcp`/`instructions`/`permission`. Created `~/.config/opencode/tui.json` → `{"plugin":["@prevalentware/opencode-goal-plugin"]}`. Verified `python3 -m json.tool` valid, `has command: False` via Python.
 3. **Project configs:** Edited `opencode.json` (project) same plugin + command removal. Created `tui.json` (project root) same content. Verified valid.
@@ -117,5 +119,6 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `cfaf6886a17372cd34483a4668ecd2d523fdaf10`
 <!-- END_GIT_DIFF -->

@@ -80,5 +80,6 @@ Phase 2 QA verdict (manual chain, same session): QA_PASSED — fallback resolves
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `65725721fb3adf4504f0b9a609f30866a39798b3`
 <!-- END_GIT_DIFF -->

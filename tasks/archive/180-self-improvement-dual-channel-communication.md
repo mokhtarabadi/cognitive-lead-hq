@@ -92,6 +92,7 @@ Implemented the manager-ordered self-improvement (Task 180) after chained resear
 Diagnosis: the verbosity the manager feels comes from fragment 08 forcing a full 9-step `<reasoning_log>` before every Brain response including pure chat, plus thin communication examples (fragment 20 had only 2 examples, no ban list, no dual-channel rule).
 
 Changes (docs-only, zero `.py` touched, zero performance impact on machine path):
+
 1. `prompts/fragments/20-communication_examples.md` — added dual-channel contract header, banned-phrase list, style bans, D/O/F/R/Q/A codes with scr/eli/foc/ref aliases, and Example 3 (status update DO/DON'T).
 2. `prompts/fragments/08-agentic_reasoning.md` — pure Manager conversation exempted from the 9-step log (3-line verdict instead); full log stays mandatory before every XML task block.
 3. `agents/cognitive-executor.md` — Communication Patterns gain alias row, dual-channel scope line, and ban list. Machine channels (`<reasoning_log>`, XML, Execution Logs) explicitly stay comprehensive.
@@ -110,5 +111,6 @@ Deleted `skill-templates/brainstorm-swarm/` + `skill-templates/perplexity-resear
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `5cdc8753971ff737cf6fb98dbfd091fbbde4c041`
 <!-- END_GIT_DIFF -->

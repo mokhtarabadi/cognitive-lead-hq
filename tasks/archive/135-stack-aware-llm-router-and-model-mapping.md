@@ -70,26 +70,31 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 ## Manager Decisions
 
 **[2026-08-31] [D1] [ORCHESTRATOR-DETECTED]:** Two-Tier Stack Model Resolution Hierarchy
+
 - **Rationale:** Enabling stack profiles to declare preferred models per category allows specialized LLMs (e.g. Kotlin AST specialists vs TypeScript specialists) while maintaining transparent fallback to global category models when keys are absent.
 - **Alternatives considered:** Hardcoding stack-to-model mappings inside `router.py`, or replacing category routing entirely with stack routing.
 - **Impact:** Clean composition of stack context with cognitive categories; full backward compatibility when stack preferences are empty or unkeyed.
 
 **[2026-08-31] [D2] [ORCHESTRATOR-DETECTED]:** Three-Tier Fallback Chain (Stack Preferences → Category Config → Default Provider)
+
 - **Rationale:** Guarantees a model is always resolvable: stack-preferred models win when their provider key is present, otherwise the global category chain applies, and `default_provider` is the terminal fallback.
 - **Alternatives considered:** Hard-failing when no stack key exists; single-tier routing that ignores stack context.
 - **Impact:** Deterministic resolution in every environment state; no new failure modes for unkeyed providers.
 
 **[2026-08-31] [D3] [ORCHESTRATOR-DETECTED]:** Single Stack Detection at Pipeline Start
+
 - **Rationale:** Detecting the stack once at the beginning of `_process_task` (before planning) ensures planning, QA, and review all share one consistent profile for model routing, avoiding per-stage re-detection drift.
 - **Alternatives considered:** Re-detecting the stack independently at each pipeline stage.
 - **Impact:** One detection point, one preflight gate; profile propagates through `route_plan`, `_execute_and_qa`, and `qa.run_review`.
 
 **[2026-08-31] [D4] [ORCHESTRATOR-DETECTED]:** Declarative `model_preferences` in Stack YAML
+
 - **Rationale:** Stack-specific model choice is configuration, not code — new stacks declare preferred models per category without touching `router.py`.
 - **Alternatives considered:** Hardcoding stack-to-model mappings inside `router.py`.
 - **Impact:** Extensible stack catalog; `StackProfileConfig.model_preferences` already exists in `models.py` and is exposed via `StackProfile.model_preferences`.
 
 **[2026-08-31] [D5] [ORCHESTRATOR-DETECTED]:** Backward-Compatible Optional `stack_profile` Parameter
+
 - **Rationale:** All routing helpers and QA entry points accept `stack_profile: Optional[Any] = None`, so legacy routers, stubs, and existing callers keep working unchanged.
 - **Alternatives considered:** Making `stack_profile` a required parameter.
 - **Impact:** Zero breaking changes; TypeError fallback chains in `qa_engine.py` and `daemon.py` preserve compatibility with legacy signatures.
@@ -121,5 +126,6 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `43059db71cbc4a1775f9dd703a11b3caaeb5d389`
 <!-- END_GIT_DIFF -->

@@ -54,7 +54,7 @@ Always store the Brain output somewhere and give its address in the output to th
 - **Actual result:** red `4 failed` confirmed via stash, green after; shipped prompt no longer carries `output_address` (moved to executor only); scope-grep hits are pre-existing constants only
 - **Exit code:** 0
 - **Fallback location:** `agents/cognitive-executor.md` (NOT 09-hands_protocols.md) — the Hands-owned truncated-read fallback lives in the executor's Code-mode output discipline section.
-- Stack-gate skip: root=. markers=[go.mod, buf.yaml, build.gradle.kts, Package.swift, *.xcodeproj, pyproject.toml+Flask, pyproject.toml+FastAPI, package.json+next.config.*, package.json+src/ports/, package.json+apps/expo, vite.config.*, nuxt.config.*, nest-cli.json, prisma/schema.prisma] matched=[] reason=no matching stack marker found; python-fastapi loaded for Python discipline only
+- Stack-gate skip: root=. markers=[go.mod, buf.yaml, build.gradle.kts, Package.swift, _.xcodeproj, pyproject.toml+Flask, pyproject.toml+FastAPI, package.json+next.config._, package.json+src/ports/, package.json+apps/expo, vite.config._, nuxt.config._, nest-cli.json, prisma/schema.prisma] matched=[] reason=no matching stack marker found; python-fastapi loaded for Python discipline only
 - [2026-11-07] QA hotfix 3 (prune accounting when new artifact sorts first): QA_REJECTED was correct — `entries.pop(0)` then `continue` removed the target from accounting while leaving it on disk, allowing 51 files. Fixed by scanning `entries` for the oldest non-target candidate before popping (skip target, pick next oldest); if only target remains, stop. Added `test_brain_output_retention_preserves_newest_when_it_sorts_first` (red-then-green: confirmed red with old code, green with fix). F2 was a false positive: `output_address` already absent from both working tree and staged 09 fragment (grep confirmed 0). Full `811 passed, 24 warnings`; docs-sync OK; diff-check clean.
 - [2026-11-07] QA hotfix 4 (DTO mandate ownership + conventions reference): QA_REJECTED was correct — executor had abridged version missing SOLID reconciliation, YAGNI, 3-Implementation Rule, Occam's Razor, Type Drift Sentinel, and docs/conventions.md still pointed to system-prompt.md as canonical source. Fixed: executor now contains full original mandate text (all sections); conventions.md updated to point to cognitive-executor.md. Added test_executor_contains_full_dto_mandate pin. Full `811 passed, 24 warnings` (now 812 with new test); docs-sync OK; diff-check clean.
 - [2026-11-07] QA hotfix 8 (restore Approval Literals Guard): QA_REJECTED was correct — when removing CRITICAL RULE 3b from 13-constraints.md, the Python line-removal also deleted the Approval Literals Guard line. Restored it. Full `811 passed, 24 warnings`; docs-sync OK; diff-check clean. System prompt now 100.2KB.
@@ -105,5 +105,6 @@ Always store the Brain output somewhere and give its address in the output to th
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `93dc4c782aa3f2cb7a9ebcd083bc22802a251819`
 <!-- END_GIT_DIFF -->

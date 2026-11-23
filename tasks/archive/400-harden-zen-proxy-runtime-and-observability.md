@@ -47,7 +47,7 @@ What we adopt, in scope:
    "Server disconnected without sending a response" symptom documented in
    `docs/zen-proxy.md`. Map it to an explicit `504` JSON body.
 2. Inbound request bodies are read unbounded, and a `Transfer-Encoding:
-   chunked` body arrives as `length=0` and is silently forwarded as empty.
+chunked` body arrives as `length=0` and is silently forwarded as empty.
    Enforce a byte cap and decode chunked bodies.
 3. No signal handling: a `systemctl --user restart` kills in-flight SSE turns.
    Drain gracefully on `SIGTERM`.
@@ -370,17 +370,17 @@ Manager.
 
 **Issues.**
 
-| # | Severity | Issue |
-| --- | --- | --- |
-| R1 | High (fixed) | The timeout chain was asserted as nested when it is sequential, so the worst case was 720000 against a 600000 cap. Fixed by lowering the queue budget to 300000 and correcting the prose. |
-| R2 | High (fixed) | `LLM.txt` Step 7.5 kept the pre-change `docker run` block: no `BROWSH_*` flag, wrong volume name. Fixed to match the memory workflow. |
-| R2b | High (fixed) | Two stale numbers survived the sync: the render-timeout default was documented as 30000 (source: 90000) and the telegram timeout as 30000 (live: 300000). Both corrected and diffed against live config. |
-| R7 | High (fixed) | Third round: the queue budget and search deadline were documented as active knobs, but the deployed 2.6.2 image does not read either. The unbounded mutex wait was mis-described as a bounded sequential chain. Corrected against the live container; the values now match upstream's released defaults. |
-| R8 | Medium | The docs did not distinguish "read by the deployed image" from "read by the next release", which is what let R7 survive review. An environment table with an explicit "read by 2.6.2" column now closes that ambiguity. |
-| R3 | Medium | Two documents now describe the same container run and must stay in step. Nothing enforces that, so the next edit can drift them apart again. A single canonical block, referenced rather than duplicated, would remove the class of defect. |
-| R4 | Medium | No test covers the blowsh configuration at all. The client timeout and the container environment are both unguarded, so R1 and R2 were both invisible to CI. |
-| R5 | Low | `skill-templates/blowsh/SKILL.md:9` documents a `docker run --rm -i` stdio invocation that does not match the supervised singleton the repo actually runs. Pre-existing, out of scope, worth its own task. |
-| R6 | Low | The blowsh work arrived without a task file and was folded in here at the Manager's request. The changelog records it as "direct Manager request, no task file", which is honest, but the change now has no independent audit trail of its own. |
+| #   | Severity     | Issue                                                                                                                                                                                                                                                                                                    |
+| --- | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| R1  | High (fixed) | The timeout chain was asserted as nested when it is sequential, so the worst case was 720000 against a 600000 cap. Fixed by lowering the queue budget to 300000 and correcting the prose.                                                                                                                |
+| R2  | High (fixed) | `LLM.txt` Step 7.5 kept the pre-change `docker run` block: no `BROWSH_*` flag, wrong volume name. Fixed to match the memory workflow.                                                                                                                                                                    |
+| R2b | High (fixed) | Two stale numbers survived the sync: the render-timeout default was documented as 30000 (source: 90000) and the telegram timeout as 30000 (live: 300000). Both corrected and diffed against live config.                                                                                                 |
+| R7  | High (fixed) | Third round: the queue budget and search deadline were documented as active knobs, but the deployed 2.6.2 image does not read either. The unbounded mutex wait was mis-described as a bounded sequential chain. Corrected against the live container; the values now match upstream's released defaults. |
+| R8  | Medium       | The docs did not distinguish "read by the deployed image" from "read by the next release", which is what let R7 survive review. An environment table with an explicit "read by 2.6.2" column now closes that ambiguity.                                                                                  |
+| R3  | Medium       | Two documents now describe the same container run and must stay in step. Nothing enforces that, so the next edit can drift them apart again. A single canonical block, referenced rather than duplicated, would remove the class of defect.                                                              |
+| R4  | Medium       | No test covers the blowsh configuration at all. The client timeout and the container environment are both unguarded, so R1 and R2 were both invisible to CI.                                                                                                                                             |
+| R5  | Low          | `skill-templates/blowsh/SKILL.md:9` documents a `docker run --rm -i` stdio invocation that does not match the supervised singleton the repo actually runs. Pre-existing, out of scope, worth its own task.                                                                                               |
+| R6  | Low          | The blowsh work arrived without a task file and was folded in here at the Manager's request. The changelog records it as "direct Manager request, no task file", which is honest, but the change now has no independent audit trail of its own.                                                          |
 
 **Recommendations.**
 
@@ -736,5 +736,6 @@ and no closure was performed.
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `50a5b64c4c4ad3239c3971c4ee1305edf59b5ad2`
 <!-- END_GIT_DIFF -->

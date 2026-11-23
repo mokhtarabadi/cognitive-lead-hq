@@ -110,13 +110,13 @@ because it only ever called the tool functions directly:
 - **F1 — the HTTP server did not start at all.** `build_app()` called
   `mcp.http_app()`, which does not exist in the installed `mcp` 1.30 SDK
   (`AttributeError`). Switched to `mcp.streamable_http_app()` and mounted it at
-the root: the transport app already routes itself at
+  the root: the transport app already routes itself at
   `settings.streamable_http_path` (`/mcp`), so mounting at `/mcp` would have
   double-prefixed the endpoint.
 - **F2 — the mounted app's lifespan never ran.** Starlette runs only the parent
   app's lifespan, so the session manager's task group stayed uninitialised and
   every `/mcp` request returned 500 `RuntimeError: Task group is not
-  initialized`. Added an explicit
+initialized`. Added an explicit
   `async with mcp_app.router.lifespan_context(mcp_app)` in the parent lifespan.
 - **F3 — the dashboard crashed on every load.** `/api/status` returned a scalar
   count per lane while `render()` calls `items.map(...)`; the resulting
@@ -149,8 +149,8 @@ Two further defects were in the test suite itself:
   `import server` for their own MCP server: `sys.modules["server"]` caches
   whichever loads first, so the planner tests ran against the brain bridge and
   failed with `AttributeError: module 'server' has no attribute
-  '_parse_task_file'`. Now loaded via `spec_from_file_location("planner_server",
-  ...)`, following the existing convention in `tests/test_mcp_servers.py`.
+'_parse_task_file'`. Now loaded via `spec_from_file_location("planner_server",
+...)`, following the existing convention in `tests/test_mcp_servers.py`.
 
 ### Assumptions
 
@@ -201,5 +201,6 @@ Two further defects were in the test suite itself:
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `0fa79f0cb54441e0444d3b6021ac999f73c776a4`
 <!-- END_GIT_DIFF -->

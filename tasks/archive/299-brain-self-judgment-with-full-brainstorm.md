@@ -17,12 +17,14 @@ Direct Manager order (translated from Persian): "Give the Brain MCP codes to the
 ## Scope
 
 In scope:
+
 - Full seven-seat brainstorming report over `mcp-brain-bridge/` from the Brain itself
 - Self-judgment of sufficiency, gaps, flaws, prompt mistakes, anti-hallucination strength
 - New task files for critical findings only, fixed together after approval
 - Autopilot locked, zero questions except hard blockers and closure gate
 
 Out of scope:
+
 - No implementation until the brainstorm report lands and critical items are tasked
 - External repos untouched
 - No git add/commit/push by Hands (ZAC holds)
@@ -78,5 +80,6 @@ Out of scope:
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `357f171c3a02d0e5a87c1ec1a0adc869d8d51e24`
 <!-- END_GIT_DIFF -->

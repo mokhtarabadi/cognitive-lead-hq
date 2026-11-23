@@ -98,5 +98,6 @@ Add a `create_tree_report` tool to `mcp-context-server/server.py` that generates
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `ea54ba6e66e9012a5f51e6f4d9ee1e8e2f09dff1`
 <!-- END_GIT_DIFF -->

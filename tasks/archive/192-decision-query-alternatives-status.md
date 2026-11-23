@@ -60,5 +60,6 @@ State-machine closure (goal: auto-close if brain APPROVED): fresh `brain_turn` Q
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `ca0ddf62aed75222a963ff37c8253fed802dbed8`
 <!-- END_GIT_DIFF -->

@@ -57,6 +57,7 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 Planning Gate: Manager's explicit order (flaws task after judgment task) is the approved plan — Manager-direct path, executed on locked autopilot.
 
 W3 (persona overlap), fixed in `prompts/fragments/06-personas.md`:
+
 - Planner vs Strategist: added ownership boundaries (Planner owns file state + milestones, never priority; Strategist owns priority + scope, never file moves).
 - Architect vs Programmer: added WHAT-vs-HOW boundary on both sides (Architect: design + skill list; Programmer: task XML + orchestration).
 - QA vs Reviewer: already separated (QA hunts bugs, never format/architecture; Reviewer audits blueprint/conventions) — justified, no edit.
@@ -65,15 +66,17 @@ W3 (persona overlap), fixed in `prompts/fragments/06-personas.md`:
 W4 (positive-directive noise), same file: Architect Discovery-First triple coverage (forbidden + MUST + do-not) trimmed to prohibition + single directive. Bounded: no meaning change, MUST count reduced where a prohibition already covers the ground.
 
 W2 (ZAC mechanical lock) — PROPOSAL ONLY, needs Manager approval:
+
 - Finding: history records permission-layer denies for git add/commit/push, but both repo and global `opencode.json` carry MCP-tool allows only — no bash deny entries exist now. ZAC is prompt-words-only.
 - Proposal: restore command deny entries for the commit path in global config, then dry-verify (read-only git commands still work, commit path prompts/denies). I did NOT touch global config — enforcement semantics are a Manager decision.
- - Prompt bumped to 9.29.0, prompt rebuilt, sync check passed.
+- Prompt bumped to 9.29.0, prompt rebuilt, sync check passed.
 
- QA round (same task_id, verbatim changed lines pasted, truncation 0): QA_PASSED with machine block (VERDICT + 6 CITE lines to 06-personas.md:5/18/24/41/50/56). Findings F1-F6 confirm ownership splits + mode-aware ferry; W2 excluded by design; no extra tests needed for wording change.
- Reviewer round (same evidence): PO_REVIEW_PENDING — technically approved, S1-S6 strengths, no defects, W4 trim + W2 proposal-only confirmed. No autoclosure per standing rule — Manager closes.
+QA round (same task_id, verbatim changed lines pasted, truncation 0): QA_PASSED with machine block (VERDICT + 6 CITE lines to 06-personas.md:5/18/24/41/50/56). Findings F1-F6 confirm ownership splits + mode-aware ferry; W2 excluded by design; no extra tests needed for wording change.
+Reviewer round (same evidence): PO_REVIEW_PENDING — technically approved, S1-S6 strengths, no defects, W4 trim + W2 proposal-only confirmed. No autoclosure per standing rule — Manager closes.
 
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `4e7e2d63bf5451ec5ab652c16e724ee670cc9897`
 <!-- END_GIT_DIFF -->

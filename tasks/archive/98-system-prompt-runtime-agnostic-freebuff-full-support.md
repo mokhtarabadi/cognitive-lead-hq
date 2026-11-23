@@ -156,40 +156,40 @@ prettier ✅. Free-tier spawn smoke test left to the Manager (live Freebuff sess
 real defects, all fixed:
 
 1. **AGENTS.md still OpenCode-named:** line 58 gatekeeper phrasing said "You (OpenCode) are the final
-gatekeeper" and line 86 still referenced the task-file section as "OpenCode Execution Log". Renamed to
-"the Hands" / "Execution Log & Reasoning" to match the runtime-agnostic v8.4.5 system prompt, and added a
-Freebuff-equivalents note (`.agents/skills/`, `~/.AGENTS.md`) under the `.opencode/skills/` CORE FILE
-LOCATIONS bullet (the OpenCode path stays as a legitimate install location).
+   gatekeeper" and line 86 still referenced the task-file section as "OpenCode Execution Log". Renamed to
+   "the Hands" / "Execution Log & Reasoning" to match the runtime-agnostic v8.4.5 system prompt, and added a
+   Freebuff-equivalents note (`.agents/skills/`, `~/.AGENTS.md`) under the `.opencode/skills/` CORE FILE
+   LOCATIONS bullet (the OpenCode path stays as a legitimate install location).
 
 2. **Invalid Freebuff `toolNames` (schema-unsafe):** both ports whitelisted tools that are NOT in the
-Codebuff 17-tool platform whitelist (`apply_patch`, `list_directory`, `glob`, `read_subtree`, `read_url`,
-`skill`, `ask_user`, `suggest_followups`, `lookup_agent_info`). Verified live against the Codebuff Agent
-Reference (codebuff.com/docs/agents/agent-reference, 2026-08-13): executor pruned 20 → **11** valid tools
-(`read_files`, `write_file`, `str_replace`, `code_search`, `find_files`, `run_terminal_command`,
-`web_search`, `read_docs`, `spawn_agents`, `set_output`, `end_turn`); discovery pruned 8 → **4**
-(`read_files`, `code_search`, `find_files`, `set_output`). Directory/context mapping remains fully covered
-by the `custom_context` MCP tools, which are auto-available to all base agents and need no whitelisting.
-Skills are loaded via `/skill:<name>` slash commands (the `skill` tool is not whitelistable).
+   Codebuff 17-tool platform whitelist (`apply_patch`, `list_directory`, `glob`, `read_subtree`, `read_url`,
+   `skill`, `ask_user`, `suggest_followups`, `lookup_agent_info`). Verified live against the Codebuff Agent
+   Reference (codebuff.com/docs/agents/agent-reference, 2026-08-13): executor pruned 20 → **11** valid tools
+   (`read_files`, `write_file`, `str_replace`, `code_search`, `find_files`, `run_terminal_command`,
+   `web_search`, `read_docs`, `spawn_agents`, `set_output`, `end_turn`); discovery pruned 8 → **4**
+   (`read_files`, `code_search`, `find_files`, `set_output`). Directory/context mapping remains fully covered
+   by the `custom_context` MCP tools, which are auto-available to all base agents and need no whitelisting.
+   Skills are loaded via `/skill:<name>` slash commands (the `skill` tool is not whitelistable).
 
 3. **Invalid `spawnableAgents`:** 8 of 10 entries (`code-searcher`, `basher`, `researcher-web`,
-`researcher-docs`, `code-reviewer-deepseek-flash`, `browser-use`, `tmux-cli`, `context-pruner`) were
-neither local `.agents/*.ts` agents nor documented built-ins in `publisher/name@version` format. Fixed to
-local `cognitive-discovery` + the three verified built-ins `codebuff/file-picker@0.0.1`,
-`codebuff/researcher@0.0.1`, `codebuff/reviewer@0.0.1` (exact documented catalog + format).
+   `researcher-docs`, `code-reviewer-deepseek-flash`, `browser-use`, `tmux-cli`, `context-pruner`) were
+   neither local `.agents/*.ts` agents nor documented built-ins in `publisher/name@version` format. Fixed to
+   local `cognitive-discovery` + the three verified built-ins `codebuff/file-picker@0.0.1`,
+   `codebuff/researcher@0.0.1`, `codebuff/reviewer@0.0.1` (exact documented catalog + format).
 
 4. **Missing regression tests + overclaimed status:** added T1 (`test_lint_task_file_rejects_old_header`),
-T2 (`test_freebuff_agents_have_no_model_key`), T4 (`test_system_prompt_has_no_opencode_task_tags`) to
-`tests/test_mcp_servers.py` (17 → **20** tests). Downgraded `docs/freebuff-support.md`/README status from
-`✅ FULL` to **`✅ FULL (REPO-LEVEL)`** with an explicit note that the live free-tier spawn remains a manual
-verification item until the Manager confirms it (verification-before-completion). Both ports bumped to
-**v1.2.0**. Installed `~/.agents/*.ts` copies now trail the fixed in-repo ports — re-sync via LLM.txt Step
-7.5 when the Manager next touches the machine install._
+   T2 (`test_freebuff_agents_have_no_model_key`), T4 (`test_system_prompt_has_no_opencode_task_tags`) to
+   `tests/test_mcp_servers.py` (17 → **20** tests). Downgraded `docs/freebuff-support.md`/README status from
+   `✅ FULL` to **`✅ FULL (REPO-LEVEL)`** with an explicit note that the live free-tier spawn remains a manual
+   verification item until the Manager confirms it (verification-before-completion). Both ports bumped to
+   **v1.2.0**. Installed `~/.agents/*.ts` copies now trail the fixed in-repo ports — re-sync via LLM.txt Step
+   7.5 when the Manager next touches the machine install._
 
 **QA round 3 (2026-08-13): repo-wide consistency sweep + residual fixes.**
 
 1. **Repo-wide search (Step 1).** Ran the deterministic grep
-   (`OpenCode Execution Log` | `<opencode_` | `using the \`skill\` tool` | `v1.1.0`, excluding `.git`/
-   `context-reports`/`.pytest_cache`). Every match was classified:
+   (`OpenCode Execution Log` | `<opencode_` | `using the \`skill\` tool`|`v1.1.0`, excluding `.git`/
+`context-reports`/`.pytest_cache`). Every match was classified:
    - **Intentional OpenCode documentation / history:** `docs/opencode-*.md`, `docs/opencode-schema.json`,
      all `tasks/archive/*`, `CHANGELOG.md` (historical entries), `docs/history/*`, `.opencode/node_modules/*`.
    - **Intentional version history in active files:** the `v1.1.0` mentions in `freebuff/agents/*.ts` header
@@ -221,15 +221,12 @@ verification item until the Manager confirms it (verification-before-completion)
 
 **QA round 4 (2026-08-13): residual skill-template + agent normalization (the follow-up flagged in round 3).**
 
-1. **Targeted grep (Step 1):** `grep -RIn "OpenCode Execution Log\|using the \`skill\` tool" skill-templates agents`
-   matched exactly the four expected files: `skill-templates/audit-agents/SKILL.md` (8 lines),
-   `skill-templates/versioning-and-release/SKILL.md` (1), `skill-templates/archive-tasks/SKILL.md` (1), and
-   `agents/cognitive-executor.md` (1). No other active workflow skill templates matched.
+1. **Targeted grep (Step 1):** `grep -RIn "OpenCode Execution Log\|using the \`skill\` tool" skill-templates agents`matched exactly the four expected files:`skill-templates/audit-agents/SKILL.md`(8 lines),`skill-templates/versioning-and-release/SKILL.md`(1),`skill-templates/archive-tasks/SKILL.md`(1), and`agents/cognitive-executor.md` (1). No other active workflow skill templates matched.
 2. **Files changed (Steps 2–3):**
    - `skill-templates/audit-agents/SKILL.md` — `OpenCode Execution Log` → `Execution Log & Reasoning`
      (Explicit Staging Contract ×2, Write-your-Summary), `instruct OpenCode to` → `instruct the Hands to`
      (Task-Generator/Project Skill Loading ×2, Context Bootstrapping ×2), `You (OpenCode) are the final
-     gatekeeper` → `You (the Hands) are the final gatekeeper`, and the task-generator bullet now notes the
+gatekeeper` → `You (the Hands) are the final gatekeeper`, and the task-generator bullet now notes the
      `/skill:<name>` Freebuff form. Kept as intentional product/category references: the `# OpenCode Skill:`
      title and the quoted `Task Management & OpenCode Rules` AGENTS.md section label.
    - `skill-templates/versioning-and-release/SKILL.md` — logged-under section name → `Execution Log & Reasoning`.
@@ -241,11 +238,12 @@ verification item until the Manager confirms it (verification-before-completion)
    `## OpenCode Execution Log & Reasoning` header or the prose wording (20 → **21 tests**).
 4. **CHANGELOG (Step 6):** Parse-Then-Append under v8.4.5 `### Fixed`, no duplicate headers.
 5. **Acceptance Criteria:** all genuinely-met boxes were already checked off in round 3; `## Definition of
-   Done` boxes deliberately left unchecked pending final closure authorization._
+Done` boxes deliberately left unchecked pending final closure authorization._
 
 **QA round 6 (2026-08-13): double verification (live-doc deep check) + minimal adjustments.**
 
 Phase A — Freebuff deep verification (sources retrieved 2026-08-13):
+
 - Freebuff CLI **0.0.149** (installed binary `~/.config/manicode/freebuff --version`) — docs said 0.0.147.
 - Codebuff Agent Reference (codebuff.com/docs/agents/agent-reference): **17-tool platform whitelist CONFIRMED**
   (exact match with `freebuff/agents/*.ts`), `spawnableAgents` **`publisher/name@version` format CONFIRMED**,
@@ -256,16 +254,17 @@ Phase A — Freebuff deep verification (sources retrieved 2026-08-13):
 - Free-tier custom-agent behavior: no official doc covers it (manicode Freebuff fork); evidence remains
   Task 96/98 empirical (pinned `model` → HTTP 403; omission → free-mode fallback). Live spawn still a
   manual Manager verification item.
-Phase B — OpenCode deep verification (vendored `docs/opencode/`): agent frontmatter (`mode`/`temperature`/
-`permission`), `steps` field (valid — vendored agents.md §Max steps), skills via `.opencode/skills/`, MCP via
-`opencode.json` — all intact; Task 98 touched none of the OpenCode artifacts (git status clean).
-Phase C — adjustments (LOW/MEDIUM docs-only; no workflow behavior changed):
+  Phase B — OpenCode deep verification (vendored `docs/opencode/`): agent frontmatter (`mode`/`temperature`/
+  `permission`), `steps` field (valid — vendored agents.md §Max steps), skills via `.opencode/skills/`, MCP via
+  `opencode.json` — all intact; Task 98 touched none of the OpenCode artifacts (git status clean).
+  Phase C — adjustments (LOW/MEDIUM docs-only; no workflow behavior changed):
+
 1. Freebuff CLI version `0.0.147` → **`0.0.149`** in `docs/freebuff-support.md` (4 refs) + `README.md` (1 ref).
 2. `model` field doc clarified in `docs/freebuff-support.md` §2.3 — upstream Agent Reference marks it
    required; Freebuff free-tier effectively requires omission (HTTP 403 when pinned).
-Deferred (no change): `model` omission in the `.ts` ports themselves (core free-tier fix — re-adding a
-pinned model would break it); live spawn confirmation. Full report:
-`context-reports/task-98-double-verification.md` + patch `context-reports/task-98-double-verification.patch`._
+   Deferred (no change): `model` omission in the `.ts` ports themselves (core free-tier fix — re-adding a
+   pinned model would break it); live spawn confirmation. Full report:
+   `context-reports/task-98-double-verification.md` + patch `context-reports/task-98-double-verification.patch`._
 
 **QA round 7 (2026-08-13): non-breaking upgrade guarantee & residual consistency.**
 
@@ -345,9 +344,9 @@ pinned model would break it); live spawn confirmation. Full report:
    - `test_system_prompt_summary_mentions_qa_transition` — at least one `<summary_phase>` block in
      `system-prompt.md` mentions `tasks/qa/`;
    - `test_workflow_upgrade_guide_exists` — `docs/workflow-upgrade-v8.4.5.md` exists.
-   All round-7 guarantees remain covered: either header alone passes, neither header fails, Freebuff
-   agents have no `model:` key, system prompt has no `<opencode_` tags, and workflow skills have no old
-   OpenCode Execution Log wording.
+     All round-7 guarantees remain covered: either header alone passes, neither header fails, Freebuff
+     agents have no `model:` key, system prompt has no `<opencode_` tags, and workflow skills have no old
+     OpenCode Execution Log wording.
 6. **v8.4.5 upgrade guide (Step 6):** authored `docs/workflow-upgrade-v8.4.5.md` covering the
    runtime-agnostic rename (`<opencode_*_task>` → `<hands_*_task>`, execution agent → "the Hands",
    legacy header → canonical header), the non-breaking guarantee, a safe step-by-step upgrade path for
@@ -453,5 +452,6 @@ durable lock. No code files were modified in this follow-up; only this task file
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `aafb79216a47753060f196a17efbacd7052d2c0f`
 <!-- END_GIT_DIFF -->

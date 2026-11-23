@@ -77,5 +77,6 @@ duty. Same shape as the global matrix so the executor treats both uniformly.
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `e909e006a2a1a8e19f81de472c87e2a055205b3e`
 <!-- END_GIT_DIFF -->

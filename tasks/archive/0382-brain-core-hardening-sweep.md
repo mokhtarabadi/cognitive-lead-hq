@@ -51,7 +51,7 @@ Find remaining REAL bugs/gaps in the Brain tooling and core that could amplify h
 - **Expected result:** red-first on the ferry-phrase pin; green after the 2-phrase fix + 9.74.0 rebuild; assembler diff = 3 hunks only
 - **Actual result:** green across all gates; `grep -c "where to paste it" system-prompt.md` → 0; version pins updated 9.73.0 → 9.74.0
 - **Exit code:** 0
-- Stack-gate skip: root=. markers=[go.mod, buf.yaml, build.gradle.kts, Package.swift, *.xcodeproj, pyproject.toml+Flask, pyproject.toml+FastAPI, package.json+next.config.*, package.json+src/ports/, package.json+apps/expo, vite.config.*, nuxt.config.*, nest-cli.json, prisma/schema.prisma] matched=[] reason=no matching stack marker found; python-fastapi loaded for Python discipline only
+- Stack-gate skip: root=. markers=[go.mod, buf.yaml, build.gradle.kts, Package.swift, _.xcodeproj, pyproject.toml+Flask, pyproject.toml+FastAPI, package.json+next.config._, package.json+src/ports/, package.json+apps/expo, vite.config._, nuxt.config._, nest-cli.json, prisma/schema.prisma] matched=[] reason=no matching stack marker found; python-fastapi loaded for Python discipline only
 
 ## Definition of Done
 
@@ -82,5 +82,6 @@ Find remaining REAL bugs/gaps in the Brain tooling and core that could amplify h
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `d63f46749a12e5bccf4dd0f3dc921ed0dc6225a5`
 <!-- END_GIT_DIFF -->

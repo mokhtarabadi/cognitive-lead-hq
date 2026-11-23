@@ -175,5 +175,6 @@ no raw `git add`/`git commit`/`git push`; closure runs only through
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `25de01245845eaedde599c11153fd042641261e1`
 <!-- END_GIT_DIFF -->

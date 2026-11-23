@@ -77,7 +77,7 @@ Case: dumble 1047 Phase 3 env switches. The Hands fed `context_paths` including 
   - **Expected result:** focused + full green; `_path_candidates` injects `.env.example#L1-1` with sniff label
   - **Actual result:** green; candidate repr carries `sniffed text, unlisted extension` + `OPENAI_MODEL=gemma`
   - **Exit code:** 0
-  - Stack-gate skip: root=. markers=[mcp-brain-bridge/pyproject.toml, Flask markers, FastAPI markers, go.mod, build.gradle.kts, Package.swift, *.xcodeproj, package.json, vite.config.*, nuxt.config.*, nest-cli.json, prisma/schema.prisma] matched=[] reason=no matching stack marker found (python-fastapi discipline-only).
+  - Stack-gate skip: root=. markers=[mcp-brain-bridge/pyproject.toml, Flask markers, FastAPI markers, go.mod, build.gradle.kts, Package.swift, _.xcodeproj, package.json, vite.config._, nuxt.config.*, nest-cli.json, prisma/schema.prisma] matched=[] reason=no matching stack marker found (python-fastapi discipline-only).
 
 ## Definition of Done
 
@@ -108,5 +108,6 @@ Case: dumble 1047 Phase 3 env switches. The Hands fed `context_paths` including 
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `353d819449e314ad661f73c2cea6b26b171635ef`
 <!-- END_GIT_DIFF -->

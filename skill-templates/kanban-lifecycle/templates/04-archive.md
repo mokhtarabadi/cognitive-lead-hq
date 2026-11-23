@@ -49,8 +49,8 @@ ls tasks/completed/*.md
 
    ## Criteria Met
 
-   | Task | Acceptance Criteria | Status |
-   | ---- | ------------------- | ------ |
+   | Task | Acceptance Criteria                                                             | Status |
+   | ---- | ------------------------------------------------------------------------------- | ------ |
    | XX   | [Extracted criteria from the completed task's `## Acceptance Criteria` section] | ✅ Met |
 
    ## Individual Task Summaries
@@ -74,7 +74,7 @@ mkdir -p docs/history
 git mv tasks/completed/*.md tasks/archive/
 ```
 
-*Note: For untracked task files, use the supported native file-management operation to move them. Stage the moved files only through `custom_context_stage_and_inject_diff`; never run `git add` directly.*
+_Note: For untracked task files, use the supported native file-management operation to move them. Stage the moved files only through `custom_context_stage_and_inject_diff`; never run `git add` directly._
 
 6. **Memory Validation:** After compacting tasks, audit the project memory bank for stale or superseded entries:
    a. Call `list_namespaces` to enumerate all memory namespaces.
@@ -93,4 +93,3 @@ Call `custom_context_stage_and_inject_diff` with the active task file and an exp
 Run this skill at the end of each milestone or when `tasks/completed/` contains more than 20 files. The milestone number should be determined by reading the highest existing milestone in `docs/history/` and incrementing by one.
 
 ---
-

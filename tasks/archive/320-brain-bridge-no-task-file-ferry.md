@@ -15,8 +15,9 @@ while the Brain only needs the decision inputs.
 ## Goal
 
 Redefine the bridge payload: the Brain receives `diff` hunks + `Execution Log`
-+ verdict question only. Full task-file copy is forbidden. The task file stays
-where it is; the Hands sends pointers (task id + lane), never the body.
+
+- verdict question only. Full task-file copy is forbidden. The task file stays
+  where it is; the Hands sends pointers (task id + lane), never the body.
 
 ## Scope
 
@@ -37,4 +38,5 @@ where it is; the Hands sends pointers (task id + lane), never the body.
 - Task created 2026-10-17 from Manager direction (proposal 2 of cognitive tune-up). Owner implements.
 
 ---
+
 Archived 2026-10-17 per Manager order. Left as-is per task 321 scope (owner keeps full task-file ferrying; 320 not pursued).

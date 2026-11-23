@@ -67,6 +67,7 @@ The task is NOT done unless ALL of the following are true:
 ### Changes Made
 
 1. **Project `opencode.json`** — replaced `"@prevalentware/opencode-goal-plugin"` with `"opencode-goal-plugin"` in the `plugin` array. Added the mandatory `command.goal` block:
+
    ```json
    "command": {
      "goal": {
@@ -103,5 +104,6 @@ The task is NOT done unless ALL of the following are true:
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `a7176b1eeedd1ce0149e8798d43b08f27ae7342d`
 <!-- END_GIT_DIFF -->

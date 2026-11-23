@@ -22,11 +22,13 @@ Unified execution of 6 related small tasks as a single META task to eliminate se
 **Bundle Decision (2026-08-21):** Manager requested fully automatic bundling with archive (not purge). This META was generated deterministically by the `bundle_tasks` MCP tool to execute 6 small related tasks together and speed up turnaround.
 
 **Traceability:**
+
 - Supersedes [143, 144, 145, 146, 147, 148] — see per-source verbatim blocks below
 - Archive: each source moved via `git mv` to `tasks/archive/` with `**Superseded-By:** 161-production-readiness-bundle` header + superseded footer
 - Rollback: `git mv tasks/archive/<id>-*.md tasks/backlog/` + delete META file
 
 **Guardrails Applied:**
+
 - Cap 6 per bundle — this bundle has 6 (✅ within cap)
 - Verbatim preservation — every source Goal/AC/TODO/Risk copied verbatim below (SHA comparison available in bundler dry-run)
 - Diff-size check — combined 378 LOC (✅ within 400)
@@ -233,7 +235,6 @@ Create production deployment configurations including a hardened `Dockerfile`, `
 
 ---
 
-
 ## Bundled Checklist (All-or-Nothing)
 
 > **QA Gate (all-or-nothing):** Every line below maps to one source acceptance criterion. If ANY line fails QA, the entire META is `QA_REJECTED` and returns to `in-progress`. Do not partially close.
@@ -391,5 +392,6 @@ F5 — QA remediation (QA_REJECTED -> fix): repaired `test_sentinel` drift — v
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `c8ba47f2d51cebe4008cac2bf617f73e383d5421`
 <!-- END_GIT_DIFF -->

@@ -42,14 +42,14 @@ Remove the client-side 30-second execution cap on the Telegram MCP so a large fi
 
 ## Verification Evidence
 
-| Gate | Result |
-|------|--------|
-| Global config backup | `~/.config/opencode/opencode.json.bak-20261103-194528` (3056 B) |
-| `jq . ~/.config/opencode/opencode.json` | exit 0 — JSON valid; `mcp.servers.telegram.timeout = {catalog: 300000, execution: 300000}` |
-| Stale-number grep (`30000` minus `300000`) | NONE |
-| Markdown lint (`docs/telegram-setup.md`) | ✅ passed |
-| Structural diff vs backup | only 2 numbers differ; all other servers unchanged |
-| Subagent scope check | `git diff --stat` = 2 files, 3 insertions, 3 deletions, numeric-only hunks |
+| Gate                                       | Result                                                                                     |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------ |
+| Global config backup                       | `~/.config/opencode/opencode.json.bak-20261103-194528` (3056 B)                            |
+| `jq . ~/.config/opencode/opencode.json`    | exit 0 — JSON valid; `mcp.servers.telegram.timeout = {catalog: 300000, execution: 300000}` |
+| Stale-number grep (`30000` minus `300000`) | NONE                                                                                       |
+| Markdown lint (`docs/telegram-setup.md`)   | ✅ passed                                                                                  |
+| Structural diff vs backup                  | only 2 numbers differ; all other servers unchanged                                         |
+| Subagent scope check                       | `git diff --stat` = 2 files, 3 insertions, 3 deletions, numeric-only hunks                 |
 
 ## Risk & Rollback
 
@@ -75,5 +75,6 @@ Remove the client-side 30-second execution cap on the Telegram MCP so a large fi
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `d355efd760e7dccd4be3728d21ec2f2565d36116`
 <!-- END_GIT_DIFF -->

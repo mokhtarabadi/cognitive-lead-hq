@@ -67,5 +67,6 @@ Implementation notes (Hands, 2026-10-06): moved the file backlog → in-progress
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `accbcd54154e35641907e4f711d04bb61bf4fc6c`
 <!-- END_GIT_DIFF -->

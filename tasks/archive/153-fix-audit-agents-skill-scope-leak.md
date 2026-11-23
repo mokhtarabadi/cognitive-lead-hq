@@ -31,11 +31,12 @@ You operate on the `audit-agents` skill — published under `skill-templates/aud
 
 <agentic_reasoning>
 Before patching, output a <reasoning_log> covering:
+
 1. Logical dependencies — which skill sections resolve project root, enumerate core files, and decide what to generate/patch (Target Audit Criteria, Mode 1/2, conventions.md governance).
 2. Risk assessment — cross-project contamination, silent overwrites, false "missing file" diagnostics when caller project legitimately has no DESIGN.md (Absent-File Policy).
 3. Abductive reasoning — why the leak happens: hard-coded repo name/path, greedy globs, or skill description mentioning `cognitive-lead-hq` / `.opencode` templates that the LLM copies as concrete file operations.
 4. Precision and Grounding — read `skill-templates/audit-agents/SKILL.md` line-by-line, diff global vs template copy, identify exact lines that name opencode scaffolding or global state paths.
-</agentic_reasoning>
+   </agentic_reasoning>
 
 <constraints>
 - You MUST scope all file enumeration to the caller's cwd — never reference `cognitive-lead-hq` as a literal project; use generic placeholders like `[PROJECT_ROOT]/AGENTS.md`.
@@ -133,6 +134,7 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 ## Manager Decisions
 
 **[2026-09-02] [D1] [ORCHESTRATOR-DETECTED]:** Confined audit-agents skill scope strictly to caller cwd with conditional OpenCode gating and Absent-File Policy enforcement.
+
 - **Rationale:** Prevent pollution of third-party repositories with unwanted OpenCode scaffolding or HQ agent files.
 - **Alternatives considered:** Removing OpenCode audit rules entirely (rejected because HQ legitimately needs to audit its own OpenCode configuration).
 - **Impact:** Third-party projects remain completely clean of OpenCode artifacts unless explicitly opted in.
@@ -149,6 +151,7 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 **Scope:** Confined `audit-agents` to caller cwd, gated OpenCode scaffolding, enforced Absent-File Policy, decoupled HQ paths.
 
 **Changes to `skill-templates/audit-agents/SKILL.md` (390→398 lines):**
+
 - **Step 1:** Title neutralized `OpenCode Skill: Agent Protocol Auditor` → `Skill: Agent Protocol Auditor (Project-Agnostic)`; inserted `## 🛑 SCOPE CONFINEMENT (Priority 0)` with 4 bullets (cwd confinement, forbidden traversal/search for `cognitive-lead-hq`, Absent-File Policy for DESIGN.md/architecture.md/data_model.md, OpenCode isolation gating).
 - **Step 2:** Core File Locations (lines 20 & 356) updated to conditional `.opencode/skills/` — only require when `.opencode/` exists or `with_opencode: true`; Mode 1 AGENTS.md template `Agent Skills` now marked optional.
 - **Step 3:** Decision Logging Mandate bullets (lines 38 & 379) reworded to `Decision Detection Responsibility (Gated — only evaluate when target files exist)` with `If prompts/fragments/...If agents/cognitive-executor.md exists (HQ-specific) — DO NOT create...If skill-templates/...otherwise audit local templates`.
@@ -164,5 +167,6 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `93f5bdd74ee005f3880b8a12f016e8c3723a2166`
 <!-- END_GIT_DIFF -->

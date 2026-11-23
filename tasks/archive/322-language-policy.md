@@ -35,7 +35,8 @@ requested language (detected per message, Persian default for this Manager).
 ## Deliverable
 
 New prompt fragment (language policy) wired into `system-prompt.md` generation
-+ executor boundary update + sync test update. Owner implements.
+
+- executor boundary update + sync test update. Owner implements.
 
 ## Local TODOs
 
@@ -79,6 +80,7 @@ New prompt fragment (language policy) wired into `system-prompt.md` generation
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 ```diff
 diff --git a/AGENTS.md b/AGENTS.md
 index 3960615..a37131d 100644
@@ -98,9 +100,9 @@ index c71b6c0..40d02bf 100644
 --- a/agents/cognitive-executor.md
 +++ b/agents/cognitive-executor.md
 @@ -80,7 +80,7 @@ If the Orchestrator or Manager forgets to explicitly list a skill in the `<conte
- 
+
  If the Manager sends you a direct message that is NOT an XML task block (e.g., "fix the login bug on Android"), you MUST execute this validation pipeline before writing any code:
- 
+
 -1. **Intent Validation:** Confirm the language is English. If non-English (any language), translate to technical English internally. **Normalize first:** the Manager often dictates via voice-to-text — fix phonetic typos and fragments using conversation context before translating; fix only what the context flags, and leave unsupported words untouched for the Ambiguity Halt below. **Ambiguity Halt:** If direct input from the Manager is ambiguous, fragmented, or unclear, the Hands MUST HALT immediately and ask for clarification in simple English rather than executing speculative commands. Guessing intent from unclear input is strictly forbidden.
 +1. **Intent Validation:** Confirm the language is English. If non-English (any language), translate to technical English internally. **Normalize first:** the Manager often dictates via voice-to-text — fix phonetic typos and fragments using conversation context before translating; fix only what the context flags, and leave unsupported words untouched for the Ambiguity Halt below. **Ambiguity Halt:** If direct input from the Manager is ambiguous, fragmented, or unclear, the Hands MUST HALT immediately and ask for clarification in the per-message requested language (Persian default) rather than executing speculative commands. Guessing intent from unclear input is strictly forbidden.
  2. **Task File Enforcement:** You MUST ask the Manager: "This is an ad-hoc request. Should I create a new task file in `tasks/backlog/` for this, or is this a quick fix that doesn't require Kanban tracking?"
@@ -113,7 +115,7 @@ index c71b6c0..40d02bf 100644
 -- For the final Manager-facing handoff only (not `<reasoning_log>` or XML tasks), write in simple English always, even when the Manager wrote in another language. Answer first, then the reason, then the next action. Budget the length: a short reply is 2–5 sentences with no heading, a normal reply is 80–180 words or at most 5 bullets. Treat 25 words as a ceiling for any single sentence, never a target. Prefer prose; use flat bullets only for 3–7 parallel items and a table only for repeated attributes. Never nest lists. Think in English as well — deep reasoning stays unrestricted and rich.
 +- For the final Manager-facing handoff only (not `<reasoning_log>` or XML tasks), write in the per-message requested language (Persian default for this Manager), even when the Manager wrote in another language. Answer first, then the reason, then the next action. Budget the length: a short reply is 2–5 sentences with no heading, a normal reply is 80–180 words or at most 5 bullets. Treat 25 words as a ceiling for any single sentence, never a target. Prefer prose; use flat bullets only for 3–7 parallel items and a table only for repeated attributes. Never nest lists. Think in English as well — deep reasoning stays unrestricted and rich.
  - Dual-channel scope: the sentence rule, the ban list, and the no-decoration rules apply ONLY to the final Manager-facing handoff. `<reasoning_log>`, XML task blocks, and Execution Logs stay fully comprehensive.
- 
+
  ### Negative Patterns
 @@ -167,7 +167,7 @@ Shorthand aliases: scr (super critical), eli (eliminate), foc (focus), ref (refe
  - Do not use decorative headings, emoji, or motivational language.
@@ -125,15 +127,15 @@ index c71b6c0..40d02bf 100644
  - Do not speculate on abstractions for future requirements.
  - Do not widen work into cleanup, refactoring, or documentation beyond the requested scope.
 @@ -197,6 +197,10 @@ Do not skip the observe step. Every code change MUST be verified before claiming
- 
+
  Test-suite verification runs begin with `rtk test <underlying command>` by default. Inspect the active task's `## Verification Evidence` before running verification and record the exact `rtk test`-prefixed command, expected result, actual result, and exit code there. A raw test command is a diagnostic retry after a failed RTK run only — it never replaces the initial RTK verification run. Never claim completion without a successful exit code and recorded evidence.
- 
+
 +### Edit Tool Discipline (native tools only)
 +
 +File edits use ONLY native file-editing tools (edit for replacements, file-write tools for new files). Using python, shell, heredoc, `sed -i`, or any script to create or modify files is strictly forbidden — scripted edits fail silently (replace-all on non-unique anchors, quoting and encoding mangling) while native tools fail loudly on a non-unique anchor. If the anchor does not match uniquely, stop and re-read instead of forcing it. Shell stays read-only for file content (e.g. grep, cat, diff, ls, git status). Verify every edit with grep/diff.
 +
  ### Micro-Task Tracking (todowrite/todoread)
- 
+
  The `opencode-todolist` plugin provides session-scoped `todowrite` (create/replace the whole list; empty array clears) and `todoread` (read it back), with fields `content` (imperative), `status` (`pending`/`in_progress`/`completed`/`cancelled`), and optional `priority`. Whenever a task decomposes into 2 or more micro-steps, maintain them here alongside the task file: keep exactly one `in_progress`, mark steps `completed` the moment they finish, and `todoread` to recover the list after any compaction instead of reconstructing it from memory.
 diff --git a/docs/conventions.md b/docs/conventions.md
 index 433e2c5..f3084c7 100644
@@ -141,23 +143,23 @@ index 433e2c5..f3084c7 100644
 +++ b/docs/conventions.md
 @@ -162,7 +162,7 @@ All Manager input — English, Persian, or mixed — MUST pass through the Input
  If any validation step FAILS — particularly the clarity check — the Orchestrator and Hands MUST:
- 
+
  1. **HALT immediately.** Do NOT guess, assume, or fabricate intent from ambiguous input.
 -2. **Output a clarification request** in simple English, no matter which language the input used.
 +2. **Output a clarification request** in the per-message requested language (Persian default), no matter which language the input used.
  3. **Ask targeted questions** to confirm the exact intent before proceeding.
  4. **Only resume** after the Manager provides an unambiguous response.
- 
+
 @@ -190,6 +190,10 @@ Task numbers are provenance for humans, not reasoning material for the model. A
- 
+
  **Authoring rule:** when writing or editing prompt-facing Markdown, strip task-number parentheticals. Record provenance in the task file and CHANGELOG instead — never in the prompt text itself.
- 
+
 +## Edit Tool Discipline
 +
 +File edits use ONLY native file-editing tools (edit for replacements, file-write tools for new files). Using python, shell, heredoc, `sed -i`, or any script to create or modify files is strictly forbidden — scripted edits fail silently (replace-all on non-unique anchors, quoting and encoding mangling) while native tools fail loudly on a non-unique anchor. Shell stays read-only for file content (e.g. grep, cat, diff, ls, git status). Verify every edit with grep/diff.
 +
  ## Living Folder Docs Standard
- 
+
  All vertical slices and component directories across projects in this ecosystem MUST maintain colocated documentation and decision records:
 diff --git a/skill-templates/audit-agents/SKILL.md b/skill-templates/audit-agents/SKILL.md
 index 1a273e6..9cf8301 100644
@@ -174,7 +176,7 @@ index 1a273e6..9cf8301 100644
 @@ -238,6 +239,14 @@ When writing or reviewing bash scripts, cron jobs, or container orchestration co
  3. **No Post-Redirect Status Checks:** Never use `command > file; if [ $? -eq 0 ]` — the shell creates the file before running the command, masking failures.
  4. **Sidecar Isolation for Hostless Backups:** Never rely on host file staging for Docker volume backups. Always use ephemeral containers (`docker run --rm -v volume:/data:ro alpine tar...`) with read-only mounts.
- 
+
 +## Edit Tool Discipline
 +
 +File edits use ONLY native file-editing tools (edit for replacements, file-write tools for new files). Using python, shell, heredoc, `sed -i`, or any script to create or modify files is strictly forbidden — scripted edits fail silently (replace-all on non-unique anchors, quoting and encoding mangling) while native tools fail loudly on a non-unique anchor.
@@ -184,7 +186,7 @@ index 1a273e6..9cf8301 100644
 +3. **Verify always:** grep/diff after every edit.
 +
  ## Task-Number Reference Discipline
- 
+
  Task numbers are provenance for humans, not reasoning material for the model. A bare task number in visible prompt prose invites hallucination: the model treats it as load-bearing context it cannot resolve.
 @@ -400,6 +409,7 @@ Additionally, the `docs/conventions.md` file MUST exist and contain:
  - **MCP Report Generation**: `AGENTS.md` MUST instruct agents to generate context reports (`custom_context_read_source_files`) and tree reports (`custom_context_create_tree_report` — "create a tree of the project") via the MCP server and hand the file path to the Manager instead of reading `context-reports/` files inline.
@@ -195,6 +197,7 @@ index 1a273e6..9cf8301 100644
  - **Bilingual Prompt Refactoring & Brainstorming Protocol**: Agents MUST be instructed not to execute raw, informal, or non-English prompts directly. The `prompt-refactor` skill must be loaded, or the Phase 1.5 Multi-Agent Brainstorming Protocol triggered, to translate and expand intent first. Standard XML task blocks are exempt.
  - **Context Bootstrapping**: `AGENTS.md` MUST explicitly instruct the Hands: "At the start of every task, you MUST call `search_memory` or `list_namespaces` to load any hidden project quirks relevant to your domain before implementing."
 ```
+
 <!-- END_GIT_DIFF -->
 
 - Rework try 2 (Reviewer REJECTED_NEEDS_FIXES, R1+R2): fragment 13 Cognitive Rule no longer lists clarification requests as English-only (handoff including clarification uses requested language); fragment 20 handoff line moved inside `</communication_examples>`. Rebuilt 9.61.0 (111226 bytes, byte-identical re-assemble), no version bump.

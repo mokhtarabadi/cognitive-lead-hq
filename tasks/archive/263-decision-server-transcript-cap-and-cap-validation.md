@@ -160,5 +160,6 @@ It cited the operator documentation at `.env.example:40-55` (`DECISION_MAX_TOKEN
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `937724016edb6faab60f322564cc8d354649255a`
 <!-- END_GIT_DIFF -->

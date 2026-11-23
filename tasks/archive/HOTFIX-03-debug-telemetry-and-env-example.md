@@ -101,6 +101,7 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 ```diff
 diff --git a/.env.example b/.env.example
 index ede5327..e85d0be 100644
@@ -111,13 +112,13 @@ index ede5327..e85d0be 100644
 -# Copy this to .env and fill in your keys
 +# Telegram Approval Bot (from @BotFather)
 +TELEGRAM_BOT_TOKEN=your_bot_token_here
- 
+
 -# Telegram Bot (for approval gateway)
 -TELEGRAM_BOT_TOKEN=
 -TELEGRAM_CHAT_ID=
 +# Unified LLM Provider Key (OpenRouter)
 +OPENROUTER_API_KEY=sk-or-v1-...
- 
+
 -# LLM Providers (at least one required)
 -GEMINI_API_KEY=
 -KIMI_API_KEY=
@@ -137,9 +138,9 @@ index f098984..f2de9ff 100644
 --- a/CHANGELOG.md
 +++ b/CHANGELOG.md
 @@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
- 
+
  ### Added
- 
+
 +- **Debug Telemetry & .env.example (Task HOTFIX-03)** — added opt-in debug observability gated by `LOOP_ENGINE_DEBUG=1` with raw request/response logging under `loop-engine/logs/` (dir auto-created, UTC-ISO timestamps, never raises). Root `.env.example` rewritten from the stale Aug 25 blank-placeholder version to the documented variable set: `TELEGRAM_BOT_TOKEN`, unified `OPENROUTER_API_KEY`, commented optional `GEMINI_API_KEY`/`OPENAI_API_KEY`/`ANTHROPIC_API_KEY`/`DEEPSEEK_API_KEY`, and `LOOP_ENGINE_DEBUG=1` (stale `TELEGRAM_CHAT_ID=` line dropped — it contradicted setup.md). `LLMRouter.call_llm` appends model/system/user/raw-response to `loop-engine/logs/llm_requests.log` when debug is on (`loop-engine/router.py`); `HandsExecutor._run_once` refactored into a thin telemetry wrapper around `_run_once_impl` plus `_log_executor_debug` appending task file, generated XML prompt, returncode, stdout, stderr to `loop-engine/logs/executor_sessions.log` — one hook covers every result path (complete/blocked/transport_error/timeout/error) without changing the tested method signature (`loop-engine/executor.py`); `ApprovalGateway` gained `_log_event()` wired into approval requests (stage/task/content length/delivery method document|inline), trigger cards (+boot summaries, success/error), and received callbacks in `loop-engine/logs/telegram_events.log` (`loop-engine/gateway.py`); docs updated — `docs/loop-engine/configuration.md` (env table rows + `## Debug Telemetry (LOOP_ENGINE_DEBUG)` section) and `docs/loop-engine/setup.md` (OpenRouter provider row + `## Debug Telemetry` section). Security flag logged in task D4: the spec-verbatim `.env.example` embeds what appears to be a real bot token — rotation/placeholder-ization is a Manager decision before closure. Verified **247 passed, 0 failed** via `uv run --project loop-engine --with pytest pytest loop-engine/ -q` in default AND `LOOP_ENGINE_DEBUG=1` modes (baseline 247).
 +- **Telegram Gateway UX & Progress (Task HOTFIX-02)** — upgraded the approval gateway and boot intake for long-plan readability, real-time status, and anti-flood boot scans. `ApprovalGateway.request_approval` now sends plan/blueprint content longer than 3000 chars as a Markdown document attachment (`/tmp/plan_task_{task_id}.md` via `bot.send_document`) with a short summary caption plus the same Approve/Reject inline buttons, keeping the inline-message path for short content (`loop-engine/gateway.py`); added `send_progress(task_id, message)` — a non-raising helper for real-time status notifications (`⏳ Task #N: ...`); added a `/status` text command replying with a formatted summary of `state.get_active_tasks()` and `state.get_pending_trigger_tasks()`; added `send_boot_scan_summary(tasks, top_n=4)` — ONE consolidated trigger message listing every pending backlog task with inline Start buttons for the top tasks, replacing the per-task card fan-out in `LoopEngineDaemon.boot_scan()` (deduped merge of fresh `scan_existing()` files and `PENDING_TRIGGER` DB records, restart-survival preserved; `send_task_trigger_card` retained for live runtime detections); `LLMRouter.route_plan` strengthened with an architect `<deliverable>` system block and tightened user prompt requiring a direct, file-level implementation blueprint — no meta-requests for discovery, no questions back to the caller, no placeholders (`loop-engine/router.py`); test contract updated: `test_polyglot_smoke.py::test_smoke_boot_scan_registers_pending_trigger` now asserts exactly ONE consolidated summary and zero per-task cards, and `AutoApproveGateway` records `trigger_summaries`. Verified **247 passed, 0 failed** via `uv run --project loop-engine --with pytest pytest loop-engine/ -q` (baseline 247).
  - **Deep Research 2026 Flash & Reasoning Models (Task RD-02)** — R&D research report `context-reports/openrouter-latest-2026-models.md` compiled from the re-fetched live `https://openrouter.ai/api/v1/models` catalog (395 models, 2026-08-31): verified exact IDs for Google `gemini-3.7-flash` ($0.75/$3.75, mandatory reasoning w/ `reasoning_effort` low/med/high, coding 76.1), DeepSeek V4 family (`deepseek-v4-flash-0731` $0.065/$0.18 at 1.31M ctx, `v4-pro-0813` $0.66/$1.98), Qwen `qwen3.7-flash` ($0.03/$0.13, cheapest usable model), `moonshotai/kimi-k3` ($3/$15, coding 76.2), `z-ai/glm-5.3-flash` ($0.075/$0.25, best II/$ — coding 71.5). Truthfully reported 4 requested-but-missing IDs with replacements: `google/gemini-3.7-flash:thinking` and `moonshotai/kimi-k3-thinking` do not exist (reasoning is the `reasoning`/`reasoning_effort` request parameter, confirmed via `supported_parameters`), `google/gemini-3.7-pro` not yet on OpenRouter (use `gemini-3.1-pro-preview`/`~google/gemini-pro-latest`), `qwen/qwq-32b` absent (use `qwen3-max-thinking`). Delivered ready-to-copy `categories` JSONC for `loop-engine.jsonc` (quick → v4-flash-0731/qwen3.7-flash/gemini-3.1-flash-lite; deep → v4-pro-0813/claude-sonnet-5/glm-5.3; visual → gemini-3.7-flash/glm-5.3-flash/qwen3.7-flash; unspecified → v4-flash-0731/qwen3.7-flash). Re-confirmed config drift: `gemini/` and `kimi/` vendor prefixes in `loop-engine.jsonc` must be `google/`/`moonshotai/`. No application code changed — research artifact only.
@@ -159,13 +160,13 @@ index d25dd6c..ee93eec 100644
  | `OPENAI_API_KEY` | No* | OpenAI API key |
  | `ANTHROPIC_API_KEY` | No* | Anthropic API key |
 +| `LOOP_ENGINE_DEBUG` | No | Set to `1` to enable opt-in debug telemetry under `loop-engine/logs/` (see below) |
- 
+
  *At least one LLM provider key is required.
- 
+
 @@ -624,6 +626,22 @@ tokens.
  > chat ID is configured via `approval.chat_id` in this file. The engine reads
  > `os.environ` directly and does not auto-load a `.env` file.
- 
+
 +## Debug Telemetry (`LOOP_ENGINE_DEBUG`)
 +
 +Set `LOOP_ENGINE_DEBUG=1` to enable opt-in raw request/response logging. The
@@ -183,14 +184,14 @@ index d25dd6c..ee93eec 100644
 +`OPENROUTER_API_KEY`, optional provider keys, `LOOP_ENGINE_DEBUG=1`).
 +
  ## Provider Extensibility
- 
+
  Adding a new LLM provider requires no code changes:
 diff --git a/docs/loop-engine/setup.md b/docs/loop-engine/setup.md
 index 136b42d..63ed47d 100644
 --- a/docs/loop-engine/setup.md
 +++ b/docs/loop-engine/setup.md
 @@ -67,6 +67,7 @@ Choose at least one provider:
- 
+
  | Provider | How to Get | Environment Variable |
  |---|---|---|
 +| OpenRouter | [openrouter.ai](https://openrouter.ai/) | `OPENROUTER_API_KEY` |
@@ -199,57 +200,70 @@ index 136b42d..63ed47d 100644
  | OpenAI | [Platform](https://platform.openai.com/) | `OPENAI_API_KEY` |
 @@ -143,6 +144,29 @@ Expected output:
  python daemon.py --run <task_id>
- ```
- 
-+## Debug Telemetry
-+
+```
+
++## Debug Telemetry +
 +For diagnosing routing, execution, and Telegram issues, the Loop Engine can
-+write opt-in raw logs under `loop-engine/logs/`:
-+
-+1. Copy `.env.example` and set:
-+
-+   ```bash
-+   LOOP_ENGINE_DEBUG=1
-+   ```
-+
-+2. Restart the daemon. While enabled it appends:
-+
-+   | Log file | Contents |
-+   |---|---|
-+   | `llm_requests.log` | Each LLM call: timestamp, target model, system prompt, user prompt, raw response |
-+   | `executor_sessions.log` | Each OpenCode subprocess: timestamp, task file, generated XML prompt, returncode, stdout, stderr |
-+   | `telegram_events.log` | Gateway events: sent trigger cards, boot summaries, approval requests, received callbacks |
-+
++write opt-in raw logs under `loop-engine/logs/`: +
++1. Copy `.env.example` and set: +
+
+- ```bash
+
+  ```
+- LOOP_ENGINE_DEBUG=1
+- ```
+
+  ```
+-
+
++2. Restart the daemon. While enabled it appends: +
+
+- | Log file | Contents |
+- |---|---|
+- | `llm_requests.log` | Each LLM call: timestamp, target model, system prompt, user prompt, raw response |
+- | `executor_sessions.log` | Each OpenCode subprocess: timestamp, task file, generated XML prompt, returncode, stdout, stderr |
+- | `telegram_events.log` | Gateway events: sent trigger cards, boot summaries, approval requests, received callbacks |
+-
+
 +3. When done, unset `LOOP_ENGINE_DEBUG` (or set it to anything other than `1`)
-+   and restart — logging is completely off by default. The `logs/` directory is
-+   created automatically on first debug write and is safe to delete.
-+
- ## Testing
- 
- ### Run All Tests
+
+- and restart — logging is completely off by default. The `logs/` directory is
+- created automatically on first debug write and is safe to delete.
+-
+
+## Testing
+
+### Run All Tests
+
 diff --git a/loop-engine/daemon.py b/loop-engine/daemon.py
 index 05f783b..931ad0e 100644
 --- a/loop-engine/daemon.py
 +++ b/loop-engine/daemon.py
 @@ -448,8 +448,9 @@ class LoopEngineDaemon:
- 
+
          If auto_start_on_boot=True: register as BACKLOG and auto-process.
          If auto_start_on_boot=False: register as PENDING_TRIGGER and send
+
 -        trigger cards for BOTH newly detected backlog files AND any tasks
 -        already registered in PENDING_TRIGGER state (survives daemon restarts).
-+        ONE consolidated trigger summary (anti-flood, HOTFIX-02) covering BOTH
-+        newly detected backlog files AND any tasks already registered in
-+        PENDING_TRIGGER state (survives daemon restarts).
+
+*        ONE consolidated trigger summary (anti-flood, HOTFIX-02) covering BOTH
+*        newly detected backlog files AND any tasks already registered in
+*        PENDING_TRIGGER state (survives daemon restarts).
          """
          self.gateway._ensure_poller()
          from watcher import KanbanWatcher
+
 @@ -465,26 +466,43 @@ class LoopEngineDaemon:
-                                  self.executor, self.qa, self.brainstorm))
-             return existing
-         else:
+self.executor, self.qa, self.brainstorm))
+return existing
+else:
+
 -            # 1. Register newly detected backlog files (PENDING_TRIGGER + cards)
-+            # 1. Register newly detected backlog files (PENDING_TRIGGER).
+
+*            # 1. Register newly detected backlog files (PENDING_TRIGGER).
              existing = watcher.scan_existing()
+
 -            sent_ids = set()
 -            for t in existing:
 -                from pathlib import Path
@@ -260,579 +274,628 @@ index 05f783b..931ad0e 100644
 -            # 2. Resend cards for any tasks already in PENDING_TRIGGER state.
 -            # Dedup by task_id: scan_existing() JUST registered the fresh files,
 -            # so a blind re-query would double-send every card on every boot.
-+            # 2. Include tasks already in PENDING_TRIGGER state (restart survival).
+
+*            # 2. Include tasks already in PENDING_TRIGGER state (restart survival).
              pending_in_db = self.state.get_pending_trigger_tasks()
-+
-+            # Normalize both sources into one deduped, ordered task list.
-+            # scan_existing() yields {"task_id", "file"}; the DB yields
-+            # {"task_id", "task_file", ...}. New files come first (scan order),
-+            # then DB-only leftovers. Dedup by task_id so a fresh boot with a
-+            # partially registered DB does not list any task twice.
-+            seen: set[int] = set()
-+            summary_tasks: list[dict] = []
-+            for t in existing:
-+                sid = t["task_id"]
-+                if sid in seen:
-+                    continue
-+                seen.add(sid)
-+                summary_tasks.append({
-+                    "task_id": sid,
-+                    "title": Path(t["file"]).stem,
-+                    "file": t["file"],
-+                })
+*
+*            # Normalize both sources into one deduped, ordered task list.
+*            # scan_existing() yields {"task_id", "file"}; the DB yields
+*            # {"task_id", "task_file", ...}. New files come first (scan order),
+*            # then DB-only leftovers. Dedup by task_id so a fresh boot with a
+*            # partially registered DB does not list any task twice.
+*            seen: set[int] = set()
+*            summary_tasks: list[dict] = []
+*            for t in existing:
+*                sid = t["task_id"]
+*                if sid in seen:
+*                    continue
+*                seen.add(sid)
+*                summary_tasks.append({
+*                    "task_id": sid,
+*                    "title": Path(t["file"]).stem,
+*                    "file": t["file"],
+*                })
              for t in pending_in_db:
+
 -                if t["task_id"] in sent_ids:
-+                sid = t["task_id"]
-+                if sid in seen:
+
+*                sid = t["task_id"]
+*                if sid in seen:
                      continue
+
 -                from pathlib import Path
 -                title = Path(t["task_file"]).stem
 -                await self.gateway.send_task_trigger_card(
 -                    t["task_id"], title, t["task_file"])
-+                seen.add(sid)
-+                summary_tasks.append({
-+                    "task_id": sid,
-+                    "title": Path(t["task_file"]).stem,
-+                    "file": t["task_file"],
-+                })
-+
-+            # Anti-flood: ONE consolidated message with Start buttons for the
-+            # top pending tasks — never one card per task on boot.
-+            if summary_tasks:
-+                await self.gateway.send_boot_scan_summary(summary_tasks)
+
+*                seen.add(sid)
+*                summary_tasks.append({
+*                    "task_id": sid,
+*                    "title": Path(t["task_file"]).stem,
+*                    "file": t["task_file"],
+*                })
+*
+*            # Anti-flood: ONE consolidated message with Start buttons for the
+*            # top pending tasks — never one card per task on boot.
+*            if summary_tasks:
+*                await self.gateway.send_boot_scan_summary(summary_tasks)
              return existing or pending_in_db
- 
- 
+
 diff --git a/loop-engine/executor.py b/loop-engine/executor.py
 index ddffc72..07494ec 100644
 --- a/loop-engine/executor.py
 +++ b/loop-engine/executor.py
 @@ -19,6 +19,7 @@ import os
- import re
- import signal
- import time
+import re
+import signal
+import time
 +from datetime import datetime, timezone
- from pathlib import Path
- from typing import Optional, Any
- 
+from pathlib import Path
+from typing import Optional, Any
+
 @@ -148,6 +149,40 @@ class HandsExecutor:
-             return result  # last attempt result
- 
+return result # last attempt result
+
      async def _run_once(self, task_file: str, prompt: str) -> dict:
-+        """Run one OpenCode turn via subprocess, with debug telemetry (HOTFIX-03).
-+
-+        Wraps the real implementation so every result path (complete, blocked,
-+        transport_error, timeout, error) is captured by the same debug log hook.
-+        """
-+        result = await self._run_once_impl(task_file, prompt)
-+        if os.environ.get("LOOP_ENGINE_DEBUG") == "1":
-+            self._log_executor_debug(task_file, prompt, result)
-+        return result
-+
-+    def _log_executor_debug(self, task_file: str, prompt: str, result: dict) -> None:
-+        """Append the executor session to loop-engine/logs/executor_sessions.log.
-+
-+        Opt-in ONLY via LOOP_ENGINE_DEBUG=1. Never raises: telemetry must not
-+        affect pipeline execution.
-+        """
-+        try:
-+            log_dir = Path(__file__).resolve().parent / "logs"
-+            log_dir.mkdir(parents=True, exist_ok=True)
-+            entry = (
-+                f"\n===== [{datetime.now(timezone.utc).isoformat(timespec='seconds')}Z] "
-+                f"task_file={task_file} status={result.get('status')} "
-+                f"returncode={result.get('returncode')} elapsed={result.get('elapsed', 0):.1f}s =====\n"
-+                f"--- PROMPT ---\n{prompt}\n"
-+                f"--- STDOUT ---\n{result.get('output', '')}\n"
-+                f"--- STDERR ---\n{result.get('error', '')}\n"
-+                f"===== END =====\n"
-+            )
-+            with open(log_dir / "executor_sessions.log", "a", encoding="utf-8") as f:
-+                f.write(entry)
-+        except Exception as e:
-+            print(f"[executor] debug telemetry log error: {e}")
-+
-+    async def _run_once_impl(self, task_file: str, prompt: str) -> dict:
-         """Run one OpenCode turn via subprocess."""
-         start = time.time()
-         timeout = float(getattr(self.config.idle, "executing_timeout_seconds", None) or 900.0)
-diff --git a/loop-engine/gateway.py b/loop-engine/gateway.py
-index 0e77258..5cf2f23 100644
---- a/loop-engine/gateway.py
-+++ b/loop-engine/gateway.py
-@@ -12,6 +12,8 @@ Extended with Task Entry Trigger Gate:
- 
- import asyncio
- import os
+
+-        """Run one OpenCode turn via subprocess, with debug telemetry (HOTFIX-03).
+-
+-        Wraps the real implementation so every result path (complete, blocked,
+-        transport_error, timeout, error) is captured by the same debug log hook.
+-        """
+-        result = await self._run_once_impl(task_file, prompt)
+-        if os.environ.get("LOOP_ENGINE_DEBUG") == "1":
+-            self._log_executor_debug(task_file, prompt, result)
+-        return result
+-
+- def _log_executor_debug(self, task_file: str, prompt: str, result: dict) -> None:
+-        """Append the executor session to loop-engine/logs/executor_sessions.log.
+-
+-        Opt-in ONLY via LOOP_ENGINE_DEBUG=1. Never raises: telemetry must not
+-        affect pipeline execution.
+-        """
+-        try:
+-            log_dir = Path(__file__).resolve().parent / "logs"
+-            log_dir.mkdir(parents=True, exist_ok=True)
+-            entry = (
+-                f"\n===== [{datetime.now(timezone.utc).isoformat(timespec='seconds')}Z] "
+-                f"task_file={task_file} status={result.get('status')} "
+-                f"returncode={result.get('returncode')} elapsed={result.get('elapsed', 0):.1f}s =====\n"
+-                f"--- PROMPT ---\n{prompt}\n"
+-                f"--- STDOUT ---\n{result.get('output', '')}\n"
+-                f"--- STDERR ---\n{result.get('error', '')}\n"
+-                f"===== END =====\n"
+-            )
+-            with open(log_dir / "executor_sessions.log", "a", encoding="utf-8") as f:
+-                f.write(entry)
+-        except Exception as e:
+-            print(f"[executor] debug telemetry log error: {e}")
+-
+- async def _run_once_impl(self, task_file: str, prompt: str) -> dict:
+  """Run one OpenCode turn via subprocess."""
+  start = time.time()
+  timeout = float(getattr(self.config.idle, "executing_timeout_seconds", None) or 900.0)
+  diff --git a/loop-engine/gateway.py b/loop-engine/gateway.py
+  index 0e77258..5cf2f23 100644
+  --- a/loop-engine/gateway.py
+  +++ b/loop-engine/gateway.py
+  @@ -12,6 +12,8 @@ Extended with Task Entry Trigger Gate:
+
+import asyncio
+import os
 +from datetime import datetime, timezone
 +from pathlib import Path
- from typing import Optional
- 
- from models import LoopEngineConfig
+from typing import Optional
+
+from models import LoopEngineConfig
 @@ -37,6 +39,25 @@ class ApprovalGateway:
-         """Register the state machine for /tasks queries."""
-         self._state = state
- 
-+    def _log_event(self, event: str) -> None:
-+        """Append a Telegram event to loop-engine/logs/telegram_events.log.
-+
-+        Debug telemetry (HOTFIX-03): opt-in ONLY via LOOP_ENGINE_DEBUG=1.
-+        Never raises — telemetry must not affect gateway operation.
-+        """
-+        if os.environ.get("LOOP_ENGINE_DEBUG") != "1":
-+            return
-+        try:
-+            log_dir = Path(__file__).resolve().parent / "logs"
-+            log_dir.mkdir(parents=True, exist_ok=True)
-+            with open(log_dir / "telegram_events.log", "a", encoding="utf-8") as f:
-+                f.write(
-+                    f"[{datetime.now(timezone.utc).isoformat(timespec='seconds')}Z] "
-+                    f"{event}\n"
-+                )
-+        except Exception as e:
-+            print(f"[gateway] debug telemetry log error: {e}")
-+
-     def _get_bot(self):
-         """Lazy-init Telegram bot."""
-         if self._bot is None:
-@@ -99,19 +120,48 @@ class ApprovalGateway:
-                 ]
-             ])
- 
--            msg = (
--                f"{stage} — Task #{task_id}\n\n"
--                f"{content[:1500]}\n\n"
--                f"Approve or Reject?"
--            )
+"""Register the state machine for /tasks queries."""
+self._state = state
+
+- def _log_event(self, event: str) -> None:
+-        """Append a Telegram event to loop-engine/logs/telegram_events.log.
 -
--            # No parse_mode: LLM-generated content routinely breaks Markdown
--            # entity parsing, which would fail the whole approval request.
--            await bot.send_message(
--                chat_id=self.config.approval.chat_id,
--                text=msg,
--                reply_markup=keyboard,
--            )
-+            if len(content) > 3000:
-+                # Long plan/blueprint content (HOTFIX-02): inline text would be
-+                # unreadable and hit Telegram's message cap. Send the FULL
-+                # Markdown as a document attachment with a short summary caption
-+                # plus the same Approve/Reject buttons.
-+                tmp_path = Path(f"/tmp/plan_task_{task_id}.md")
-+                send_method = "document"
-+                try:
-+                    tmp_path.write_text(content, encoding="utf-8")
-+                    # No parse_mode for the caption: keep it plain (consistent
-+                    # with the inline path — LLM content breaks Markdown parsing).
-+                    await bot.send_document(
-+                        chat_id=self.config.approval.chat_id,
-+                        document=str(tmp_path),
-+                        caption=(
-+                            f"{stage} — Task #{task_id} "
-+                            f"(plan attached as file)\n\n"
-+                            f"Approve or Reject?"
-+                        ),
-+                        reply_markup=keyboard,
-+                    )
-+                finally:
-+                    tmp_path.unlink(missing_ok=True)
-+            else:
-+                send_method = "inline"
-+                msg = (
-+                    f"{stage} — Task #{task_id}\n\n"
-+                    f"{content[:1500]}\n\n"
-+                    f"Approve or Reject?"
-+                )
-+
-+                # No parse_mode: LLM-generated content routinely breaks Markdown
-+                # entity parsing, which would fail the whole approval request.
-+                await bot.send_message(
-+                    chat_id=self.config.approval.chat_id,
-+                    text=msg,
-+                    reply_markup=keyboard,
-+                )
-+
-+            self._log_event(
-+                f"approval_request stage={stage!r} task={task_id} "
-+                f"content_len={len(content)} via={send_method}")
- 
+-        Debug telemetry (HOTFIX-03): opt-in ONLY via LOOP_ENGINE_DEBUG=1.
+-        Never raises — telemetry must not affect gateway operation.
+-        """
+-        if os.environ.get("LOOP_ENGINE_DEBUG") != "1":
+-            return
+-        try:
+-            log_dir = Path(__file__).resolve().parent / "logs"
+-            log_dir.mkdir(parents=True, exist_ok=True)
+-            with open(log_dir / "telegram_events.log", "a", encoding="utf-8") as f:
+-                f.write(
+-                    f"[{datetime.now(timezone.utc).isoformat(timespec='seconds')}Z] "
+-                    f"{event}\n"
+-                )
+-        except Exception as e:
+-            print(f"[gateway] debug telemetry log error: {e}")
+- def _get_bot(self):
+  """Lazy-init Telegram bot."""
+  if self._bot is None:
+  @@ -99,19 +120,48 @@ class ApprovalGateway:
+  ]
+  ])
+
+*            msg = (
+*                f"{stage} — Task #{task_id}\n\n"
+*                f"{content[:1500]}\n\n"
+*                f"Approve or Reject?"
+*            )
+*
+*            # No parse_mode: LLM-generated content routinely breaks Markdown
+*            # entity parsing, which would fail the whole approval request.
+*            await bot.send_message(
+*                chat_id=self.config.approval.chat_id,
+*                text=msg,
+*                reply_markup=keyboard,
+*            )
+
+-            if len(content) > 3000:
+-                # Long plan/blueprint content (HOTFIX-02): inline text would be
+-                # unreadable and hit Telegram's message cap. Send the FULL
+-                # Markdown as a document attachment with a short summary caption
+-                # plus the same Approve/Reject buttons.
+-                tmp_path = Path(f"/tmp/plan_task_{task_id}.md")
+-                send_method = "document"
+-                try:
+-                    tmp_path.write_text(content, encoding="utf-8")
+-                    # No parse_mode for the caption: keep it plain (consistent
+-                    # with the inline path — LLM content breaks Markdown parsing).
+-                    await bot.send_document(
+-                        chat_id=self.config.approval.chat_id,
+-                        document=str(tmp_path),
+-                        caption=(
+-                            f"{stage} — Task #{task_id} "
+-                            f"(plan attached as file)\n\n"
+-                            f"Approve or Reject?"
+-                        ),
+-                        reply_markup=keyboard,
+-                    )
+-                finally:
+-                    tmp_path.unlink(missing_ok=True)
+-            else:
+-                send_method = "inline"
+-                msg = (
+-                    f"{stage} — Task #{task_id}\n\n"
+-                    f"{content[:1500]}\n\n"
+-                    f"Approve or Reject?"
+-                )
+-
+-                # No parse_mode: LLM-generated content routinely breaks Markdown
+-                # entity parsing, which would fail the whole approval request.
+-                await bot.send_message(
+-                    chat_id=self.config.approval.chat_id,
+-                    text=msg,
+-                    reply_markup=keyboard,
+-                )
+-
+-            self._log_event(
+-                f"approval_request stage={stage!r} task={task_id} "
+-                f"content_len={len(content)} via={send_method}")
+
          except (ImportError, ValueError) as e:
              print(f"[gateway] Telegram unavailable: {e}")
+
 @@ -142,6 +192,7 @@ class ApprovalGateway:
- 
+
      def handle_callback(self, callback_data: str) -> Optional[str]:
          """Handle Telegram callback query. Returns acknowledgment message."""
-+        self._log_event(f"callback_received data={callback_data!r}")
+
+-        self._log_event(f"callback_received data={callback_data!r}")
          # --- Approval callbacks (existing) ---
          if callback_data.startswith(("approve:", "reject:")):
              action, key = callback_data.split(":", 1)
+
 @@ -202,17 +253,86 @@ class ApprovalGateway:
-                 text=msg,
-                 reply_markup=keyboard,
-             )
-+            self._log_event(
-+                f"trigger_card_sent task={task_id} title={title!r} file={file_path}")
+text=msg,
+reply_markup=keyboard,
+)
+
+-            self._log_event(
+-                f"trigger_card_sent task={task_id} title={title!r} file={file_path}")
              return True
- 
+
          except (ImportError, ValueError) as e:
              print(f"[gateway] Telegram unavailable for trigger card: {e}")
              return False
          except Exception as e:
-+            self._log_event(f"trigger_card_error task={task_id} error={e!r}")
+-            self._log_event(f"trigger_card_error task={task_id} error={e!r}")
              print(f"[gateway] Trigger card error: {e}")
              return False
- 
-+    async def send_progress(self, task_id: int, message: str) -> bool:
-+        """Send a brief real-time status update for a task to the Telegram chat.
-+
-+        Non-fatal by design: pipeline progress notifications must never crash
-+        task processing, so every Telegram failure is logged and swallowed.
-+        """
-+        try:
-+            bot = self._get_bot()
-+            await bot.send_message(
-+                chat_id=self.config.approval.chat_id,
-+                text=f"⏳ Task #{task_id}: {message}",
-+            )
-+            return True
-+        except (ImportError, ValueError) as e:
-+            print(f"[gateway] Telegram unavailable for progress: {e}")
-+            return False
-+        except Exception as e:
-+            print(f"[gateway] Progress notification error: {e}")
-+            return False
-+
-+    async def send_boot_scan_summary(self, tasks: list[dict], top_n: int = 4) -> bool:
-+        """Send ONE consolidated trigger summary for all pending backlog tasks.
-+
-+        Anti-flood replacement (HOTFIX-02) for the per-task trigger-card
-+        fan-out during boot scans: lists every pending task in a single message
-+        and attaches inline Start buttons for the top `top_n` tasks. Each task
-+        record is expected to carry ``task_id`` and ``title``.
-+        """
-+        try:
-+            bot = self._get_bot()
-+            from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-+
-+            lines = [
-+                f"📋 Boot Scan — {len(tasks)} task(s) awaiting trigger:"
-+            ]
-+            for t in tasks:
-+                lines.append(f"  • #{t['task_id']} — {t.get('title', '')}")
-+            lines.append("\nTap Start on a task to run it now.")
-+
-+            buttons = [
-+                InlineKeyboardButton(
-+                    f"🚀 #{t['task_id']} Start",
-+                    callback_data=f"trigger_task:{t['task_id']}",
-+                )
-+                for t in tasks[:top_n]
-+            ]
-+            keyboard = InlineKeyboardMarkup([buttons]) if buttons else None
-+
-+            await bot.send_message(
-+                chat_id=self.config.approval.chat_id,
-+                text="\n".join(lines),
-+                reply_markup=keyboard,
-+            )
-+            self._log_event(
-+                f"boot_summary_sent tasks={len(tasks)} "
-+                f"ids={[t['task_id'] for t in tasks]} buttons={top_n}")
-+            return True
-+
-+        except (ImportError, ValueError) as e:
-+            print(f"[gateway] Telegram unavailable for boot scan summary: {e}")
-+            return False
-+        except Exception as e:
-+            self._log_event(f"boot_summary_error tasks={len(tasks)} error={e!r}")
-+            print(f"[gateway] Boot scan summary error: {e}")
-+            return False
-+
-     async def _handle_text_command(self, message) -> None:
--        """Parse /run, /start, /tasks, /backlog text commands."""
-+        """Parse /run, /start, /tasks, /backlog, /status text commands."""
+
+- async def send_progress(self, task_id: int, message: str) -> bool:
+-        """Send a brief real-time status update for a task to the Telegram chat.
+-
+-        Non-fatal by design: pipeline progress notifications must never crash
+-        task processing, so every Telegram failure is logged and swallowed.
+-        """
+-        try:
+-            bot = self._get_bot()
+-            await bot.send_message(
+-                chat_id=self.config.approval.chat_id,
+-                text=f"⏳ Task #{task_id}: {message}",
+-            )
+-            return True
+-        except (ImportError, ValueError) as e:
+-            print(f"[gateway] Telegram unavailable for progress: {e}")
+-            return False
+-        except Exception as e:
+-            print(f"[gateway] Progress notification error: {e}")
+-            return False
+-
+- async def send_boot_scan_summary(self, tasks: list[dict], top_n: int = 4) -> bool:
+-        """Send ONE consolidated trigger summary for all pending backlog tasks.
+-
+-        Anti-flood replacement (HOTFIX-02) for the per-task trigger-card
+-        fan-out during boot scans: lists every pending task in a single message
+-        and attaches inline Start buttons for the top `top_n` tasks. Each task
+-        record is expected to carry ``task_id`` and ``title``.
+-        """
+-        try:
+-            bot = self._get_bot()
+-            from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+-
+-            lines = [
+-                f"📋 Boot Scan — {len(tasks)} task(s) awaiting trigger:"
+-            ]
+-            for t in tasks:
+-                lines.append(f"  • #{t['task_id']} — {t.get('title', '')}")
+-            lines.append("\nTap Start on a task to run it now.")
+-
+-            buttons = [
+-                InlineKeyboardButton(
+-                    f"🚀 #{t['task_id']} Start",
+-                    callback_data=f"trigger_task:{t['task_id']}",
+-                )
+-                for t in tasks[:top_n]
+-            ]
+-            keyboard = InlineKeyboardMarkup([buttons]) if buttons else None
+-
+-            await bot.send_message(
+-                chat_id=self.config.approval.chat_id,
+-                text="\n".join(lines),
+-                reply_markup=keyboard,
+-            )
+-            self._log_event(
+-                f"boot_summary_sent tasks={len(tasks)} "
+-                f"ids={[t['task_id'] for t in tasks]} buttons={top_n}")
+-            return True
+-
+-        except (ImportError, ValueError) as e:
+-            print(f"[gateway] Telegram unavailable for boot scan summary: {e}")
+-            return False
+-        except Exception as e:
+-            self._log_event(f"boot_summary_error tasks={len(tasks)} error={e!r}")
+-            print(f"[gateway] Boot scan summary error: {e}")
+-            return False
+- async def _handle_text_command(self, message) -> None:
+
+*        """Parse /run, /start, /tasks, /backlog text commands."""
+
+-        """Parse /run, /start, /tasks, /backlog, /status text commands."""
          text = message.text.strip()
          chat_id = message.chat.id
- 
+
 @@ -260,3 +380,29 @@ class ApprovalGateway:
-             await self._bot.send_message(
-                 chat_id=chat_id,
-                 text="\n".join(lines))
-+
-+        elif text == "/status":
-+            # Status summary (HOTFIX-02): active tasks + pending-trigger tasks.
-+            if self._state is None:
-+                await self._bot.send_message(
-+                    chat_id=chat_id,
-+                    text="State machine not initialized.")
-+                return
-+            active = self._state.get_active_tasks()
-+            pending = self._state.get_pending_trigger_tasks()
-+            if not active and not pending:
-+                await self._bot.send_message(
-+                    chat_id=chat_id,
-+                    text="📊 Status: no active tasks.")
-+                return
-+            lines = ["📊 Status Summary"]
-+            lines.append(f"\n🔄 Active tasks ({len(active)}):")
-+            for t in active:
-+                lines.append(
-+                    f"  • #{t['task_id']} — {t.get('state', '?')} — {t['task_file']}")
-+            lines.append(f"\n⏸ Pending trigger ({len(pending)}):")
-+            for t in pending:
-+                lines.append(f"  • #{t['task_id']} — {t['task_file']}")
-+            await self._bot.send_message(
-+                chat_id=chat_id,
-+                text="\n".join(lines))
+await self._bot.send_message(
+chat_id=chat_id,
+text="\n".join(lines)) +
+
+-        elif text == "/status":
+-            # Status summary (HOTFIX-02): active tasks + pending-trigger tasks.
+-            if self._state is None:
+-                await self._bot.send_message(
+-                    chat_id=chat_id,
+-                    text="State machine not initialized.")
+-                return
+-            active = self._state.get_active_tasks()
+-            pending = self._state.get_pending_trigger_tasks()
+-            if not active and not pending:
+-                await self._bot.send_message(
+-                    chat_id=chat_id,
+-                    text="📊 Status: no active tasks.")
+-                return
+-            lines = ["📊 Status Summary"]
+-            lines.append(f"\n🔄 Active tasks ({len(active)}):")
+-            for t in active:
+-                lines.append(
+-                    f"  • #{t['task_id']} — {t.get('state', '?')} — {t['task_file']}")
+-            lines.append(f"\n⏸ Pending trigger ({len(pending)}):")
+-            for t in pending:
+-                lines.append(f"  • #{t['task_id']} — {t['task_file']}")
+-            await self._bot.send_message(
+-                chat_id=chat_id,
+-                text="\n".join(lines))
+
 diff --git a/loop-engine/loop-engine.jsonc b/loop-engine/loop-engine.jsonc
 index d6244c7..ad416d3 100644
 --- a/loop-engine/loop-engine.jsonc
 +++ b/loop-engine/loop-engine.jsonc
 @@ -1,70 +1,71 @@
- {
--  // Cognitive Loop Engine Configuration
--  // API keys are loaded from environment variables (never stored here)
+{
+
+- // Cognitive Loop Engine Configuration
+- // API keys are loaded from environment variables (never stored here)
 -
--  "default_provider": "gemini/gemini-2.5-flash",
-+  // مدل پیش‌فرض: DeepSeek V4 Flash (سریع، ارزان و قدرتمند)
-+  "default_provider": "deepseek/deepseek-v4-flash-0731",
- 
-+  // روتینگ مدل‌های نسل جدید ۲۰۲۶ بر اساس دسته‌بندی
-   "categories": {
-     "quick": {
+- "default_provider": "gemini/gemini-2.5-flash",
+
+* // مدل پیش‌فرض: DeepSeek V4 Flash (سریع، ارزان و قدرتمند)
+* "default_provider": "deepseek/deepseek-v4-flash-0731",
+
+* // روتینگ مدل‌های نسل جدید ۲۰۲۶ بر اساس دسته‌بندی
+  "categories": {
+  "quick": {
+
 -      "models": ["kimi/kimi-k3"],
 -      "description": "Single-file changes, typos, quick fixes"
-+      "models": [
-+        "deepseek/deepseek-v4-flash-0731",
-+        "qwen/qwen3.7-flash",
-+        "z-ai/glm-5.3-flash"
-+      ],
-+      "description": "Ultra-cheap, fast single-file edits, typos, and formatting"
-     },
-     "deep": {
+
+*      "models": [
+*        "deepseek/deepseek-v4-flash-0731",
+*        "qwen/qwen3.7-flash",
+*        "z-ai/glm-5.3-flash"
+*      ],
+*      "description": "Ultra-cheap, fast single-file edits, typos, and formatting"
+  },
+  "deep": {
+
 -      "models": ["openai/gpt-5.6-sol", "gemini/gemini-2.5-pro"],
-+      "models": [
-+        "google/gemini-3.7-flash",
-+        "z-ai/glm-5.3-flash",
-+        "deepseek/deepseek-v4-flash-0731"
-+      ],
+
+*      "models": [
+*        "google/gemini-3.7-flash",
+*        "z-ai/glm-5.3-flash",
+*        "deepseek/deepseek-v4-flash-0731"
+*      ],
        "reasoning": "medium",
+
 -      "description": "Autonomous research + execution"
-+      "description": "High-reasoning architecture, planning, and QA review"
-     },
-     "visual": {
+
+*      "description": "High-reasoning architecture, planning, and QA review"
+  },
+  "visual": {
+
 -      "models": ["anthropic/claude-opus-5", "kimi/kimi-k3"],
 -      "reasoning": "max",
 -      "description": "Frontend, UI/UX, design"
-+      "models": [
-+        "google/gemini-3.7-flash",
-+        "qwen/qwen3.7-flash"
-+      ],
-+      "description": "Frontend, UI/UX, and multimodal validation"
-     },
-     "unspecified": {
+
+*      "models": [
+*        "google/gemini-3.7-flash",
+*        "qwen/qwen3.7-flash"
+*      ],
+*      "description": "Frontend, UI/UX, and multimodal validation"
+  },
+  "unspecified": {
+
 -      "models": ["gemini/gemini-2.5-flash", "kimi/kimi-k3"],
 -      "description": "Default fallback"
-+      "models": [
-+        "deepseek/deepseek-v4-flash-0731",
-+        "google/gemini-3.7-flash"
-+      ],
-+      "description": "Default fallback tier"
-     }
-   },
- 
-+  // محدودیت هم‌زمانی درخواست‌ها
-   "provider_concurrency": {
--    "anthropic": 3,
--    "openai": 3,
--    "opencode": 10,
--    "kimi": 5
--  },
+
+*      "models": [
+*        "deepseek/deepseek-v4-flash-0731",
+*        "google/gemini-3.7-flash"
+*      ],
+*      "description": "Default fallback tier"
+
+  }
+  },
+
+* // محدودیت هم‌زمانی درخواست‌ها
+  "provider_concurrency": {
+
+- "anthropic": 3,
+- "openai": 3,
+- "opencode": 10,
+- "kimi": 5
+- },
 -
--  "max_parallel_tasks": 1,
+- "max_parallel_tasks": 1,
 -
--  "idle": {
--    "thinking_timeout_seconds": 60,
--    "executing_timeout_seconds": 900,
--    "max_retries": 5,
--    "no_progress_threshold": 50,
--    "no_progress_turns_before_pause": 2,
--    "min_delay_seconds": 2.0
-+    "google": 5,
-+    "deepseek": 5,
-+    "qwen": 5,
-+    "z-ai": 5,
-+    "openrouter": 10,
-+    "opencode": 10
-   },
- 
-+  // تنظیمات ربات تلگرام و Chat ID شما
-   "approval": {
-     "bot_token_env": "TELEGRAM_BOT_TOKEN",
--    "chat_id": 0,
-+    "chat_id": 1247026399,
-     "timeout_seconds": 3600
-   },
- 
-+  "max_parallel_tasks": 1,
-   "max_qa_retries": 3,
-   "evidence_dir": "loop-engine/evidence",
- 
--  // --- Task Entry Trigger Gate ---
--  // Controls how tasks enter the execution loop.
--  // "telegram_button" = admin taps [🚀 Start Execution] in Telegram (default)
--  // "command_only"    = admin runs /run <task_id> in Telegram
--  // "auto"            = legacy: auto-pickup on file detection (no admin gate)
-+  // حالت شروع با تایید در تلگرام
-   "trigger_mode": "telegram_button",
+- "idle": {
+- "thinking_timeout_seconds": 60,
+- "executing_timeout_seconds": 900,
+- "max_retries": 5,
+- "no_progress_threshold": 50,
+- "no_progress_turns_before_pause": 2,
+- "min_delay_seconds": 2.0
+
+* "google": 5,
+* "deepseek": 5,
+* "qwen": 5,
+* "z-ai": 5,
+* "openrouter": 10,
+* "opencode": 10
+  },
+
+* // تنظیمات ربات تلگرام و Chat ID شما
+  "approval": {
+  "bot_token_env": "TELEGRAM_BOT_TOKEN",
+
+- "chat_id": 0,
+
+* "chat_id": 1247026399,
+  "timeout_seconds": 3600
+  },
+
+* "max_parallel_tasks": 1,
+  "max_qa_retries": 3,
+  "evidence_dir": "loop-engine/evidence",
+
+- // --- Task Entry Trigger Gate ---
+- // Controls how tasks enter the execution loop.
+- // "telegram_button" = admin taps [🚀 Start Execution] in Telegram (default)
+- // "command_only" = admin runs /run <task_id> in Telegram
+- // "auto" = legacy: auto-pickup on file detection (no admin gate)
+
+* // حالت شروع با تایید در تلگرام
+  "trigger_mode": "telegram_button",
+
 -
--  // If true, existing backlog tasks run immediately on daemon boot.
--  // If false (default), they are registered as PENDING_TRIGGER and await admin action.
-   "auto_start_on_boot": false,
- 
-   "system_prompt_path": "system-prompt.md",
-   "tasks_dir": "tasks",
-   "agmd_path": "AGENTS.md",
--  "conventions_path": "docs/conventions.md"
-+  "conventions_path": "docs/conventions.md",
-+  "stacks_dir": "stacks",
-+  "default_stack": "generic"
- }
-diff --git a/loop-engine/router.py b/loop-engine/router.py
-index f37dacd..6dd1d1c 100644
---- a/loop-engine/router.py
-+++ b/loop-engine/router.py
-@@ -11,6 +11,7 @@ Reads system-prompt.md + AGENTS.md + docs/conventions.md on every invocation.
- """
- 
- import os
+- // If true, existing backlog tasks run immediately on daemon boot.
+- // If false (default), they are registered as PENDING_TRIGGER and await admin action.
+  "auto_start_on_boot": false,
+
+  "system_prompt_path": "system-prompt.md",
+  "tasks_dir": "tasks",
+  "agmd_path": "AGENTS.md",
+
+- "conventions_path": "docs/conventions.md"
+
+* "conventions_path": "docs/conventions.md",
+* "stacks_dir": "stacks",
+* "default_stack": "generic"
+  }
+  diff --git a/loop-engine/router.py b/loop-engine/router.py
+  index f37dacd..6dd1d1c 100644
+  --- a/loop-engine/router.py
+  +++ b/loop-engine/router.py
+  @@ -11,6 +11,7 @@ Reads system-prompt.md + AGENTS.md + docs/conventions.md on every invocation.
+  """
+
+import os
 +from datetime import datetime, timezone
- from pathlib import Path
- from typing import Any, Optional
- 
+from pathlib import Path
+from typing import Any, Optional
+
 @@ -197,13 +198,35 @@ class LLMRouter:
-     def route_plan(self, task_content: str, category: str = "unspecified",
-                    extra_context: str = "",
-                    stack_profile: Optional[Any] = None) -> dict:
+def route_plan(self, task_content: str, category: str = "unspecified",
+extra_context: str = "",
+stack_profile: Optional[Any] = None) -> dict:
+
 -        user = f"Generate implementation blueprint:\n\n{task_content}"
-+        user = (
-+            "Generate the DIRECT implementation blueprint for the Hands "
-+            "executor to execute immediately. Requirements:\n"
-+            "- Concrete, file-level steps: exact paths, function/method names, "
-+            "and verification commands.\n"
-+            "- Resolve ambiguity yourself from AGENTS.md, DESIGN.md, "
-+            "docs/conventions.md, and the memory context. Do NOT emit "
-+            "meta-requests for discovery, questions back to the caller, or "
-+            "placeholder stubs.\n"
-+            "- Map each step to the task's acceptance criteria and include a "
-+            "risk/rollback note.\n\n"
-+            f"## Task\n\n{task_content}"
-+        )
+
+*        user = (
+*            "Generate the DIRECT implementation blueprint for the Hands "
+*            "executor to execute immediately. Requirements:\n"
+*            "- Concrete, file-level steps: exact paths, function/method names, "
+*            "and verification commands.\n"
+*            "- Resolve ambiguity yourself from AGENTS.md, DESIGN.md, "
+*            "docs/conventions.md, and the memory context. Do NOT emit "
+*            "meta-requests for discovery, questions back to the caller, or "
+*            "placeholder stubs.\n"
+*            "- Map each step to the task's acceptance criteria and include a "
+*            "risk/rollback note.\n\n"
+*            f"## Task\n\n{task_content}"
+*        )
          if extra_context:
              user += f"\n\nIncorporate this brainstorming session output:\n\n{extra_context}"
          model, reasoning = self._resolve_model(category, stack_profile=stack_profile)
-+        system = self._build_system_context("architect")
-+        system += (
-+            "\n\n<deliverable>\n"
-+            "PLANNING output MUST be the direct implementation blueprint: "
-+            "concrete file-level steps, exact symbols, and verification "
-+            "commands. Never respond with meta-requests for discovery or "
-+            "clarification questions to the caller — produce the blueprint "
-+            "itself.\n"
-+            "</deliverable>"
-+        )
+*        system = self._build_system_context("architect")
+*        system += (
+*            "\n\n<deliverable>\n"
+*            "PLANNING output MUST be the direct implementation blueprint: "
+*            "concrete file-level steps, exact symbols, and verification "
+*            "commands. Never respond with meta-requests for discovery or "
+*            "clarification questions to the caller — produce the blueprint "
+*            "itself.\n"
+*            "</deliverable>"
+*        )
          return {
              "model": model, "reasoning": reasoning,
+
 -            "system": self._build_system_context("architect"),
-+            "system": system,
+
+*            "system": system,
              "user": user,
              "temperature": 0.3,
          }
+
 @@ -253,7 +276,28 @@ class LLMRouter:
-             if reasoning:
-                 kwargs["reasoning_effort"] = reasoning
-             response = litellm.completion(**kwargs)
+if reasoning:
+kwargs["reasoning_effort"] = reasoning
+response = litellm.completion(**kwargs)
+
 -            return response.choices[0].message.content
-+            content = response.choices[0].message.content
-+
-+            # Debug telemetry (HOTFIX-03): raw request/response logging.
-+            # Opt-in ONLY via LOOP_ENGINE_DEBUG=1 — zero impact in normal runs.
-+            if os.environ.get("LOOP_ENGINE_DEBUG") == "1":
-+                try:
-+                    log_dir = Path(__file__).resolve().parent / "logs"
-+                    log_dir.mkdir(parents=True, exist_ok=True)
-+                    entry = (
-+                        f"\n===== [{datetime.now(timezone.utc).isoformat(timespec='seconds')}Z] "
-+                        f"model={routing.get('model')} =====\n"
-+                        f"--- SYSTEM ---\n{routing.get('system')}\n"
-+                        f"--- USER ---\n{routing.get('user')}\n"
-+                        f"--- RESPONSE ---\n{content}\n"
-+                        f"===== END =====\n"
-+                    )
-+                    with open(log_dir / "llm_requests.log", "a", encoding="utf-8") as f:
-+                        f.write(entry)
-+                except Exception as log_e:
-+                    print(f"[router] debug telemetry log error: {log_e}")
-+
-+            return content
+
+*            content = response.choices[0].message.content
+*
+*            # Debug telemetry (HOTFIX-03): raw request/response logging.
+*            # Opt-in ONLY via LOOP_ENGINE_DEBUG=1 — zero impact in normal runs.
+*            if os.environ.get("LOOP_ENGINE_DEBUG") == "1":
+*                try:
+*                    log_dir = Path(__file__).resolve().parent / "logs"
+*                    log_dir.mkdir(parents=True, exist_ok=True)
+*                    entry = (
+*                        f"\n===== [{datetime.now(timezone.utc).isoformat(timespec='seconds')}Z] "
+*                        f"model={routing.get('model')} =====\n"
+*                        f"--- SYSTEM ---\n{routing.get('system')}\n"
+*                        f"--- USER ---\n{routing.get('user')}\n"
+*                        f"--- RESPONSE ---\n{content}\n"
+*                        f"===== END =====\n"
+*                    )
+*                    with open(log_dir / "llm_requests.log", "a", encoding="utf-8") as f:
+*                        f.write(entry)
+*                except Exception as log_e:
+*                    print(f"[router] debug telemetry log error: {log_e}")
+*
+*            return content
          except ImportError as e:
              raise RuntimeError(
                  f"litellm not installed. Run: pip install litellm ({e})") from e
+
 diff --git a/loop-engine/test_polyglot_smoke.py b/loop-engine/test_polyglot_smoke.py
 index 98c9f80..cc8125b 100644
 --- a/loop-engine/test_polyglot_smoke.py
 +++ b/loop-engine/test_polyglot_smoke.py
 @@ -472,6 +472,7 @@ class AutoApproveGateway(ApprovalGateway):
-         self.plan_approvals = 0
-         self.closure_approvals = 0
-         self.trigger_cards = []
-+        self.trigger_summaries = []
- 
-     async def request_approval(self, task_id, stage, content):
-         if stage == "Plan Approval":
-@@ -486,6 +487,11 @@ class AutoApproveGateway(ApprovalGateway):
-         self.trigger_cards.append((task_id, title, file_path))
-         return True
- 
-+    async def send_boot_scan_summary(self, tasks, top_n=4):
-+        self.trigger_summaries.append(
-+            (len(tasks), [t["task_id"] for t in tasks]))
-+        return True
-+
- 
- # ---------------------------------------------------------------------------
- # Happy-path E2E smoke tests
+self.plan_approvals = 0
+self.closure_approvals = 0
+self.trigger_cards = []
+
+-        self.trigger_summaries = []
+
+  async def request_approval(self, task_id, stage, content):
+  if stage == "Plan Approval":
+  @@ -486,6 +487,11 @@ class AutoApproveGateway(ApprovalGateway):
+  self.trigger_cards.append((task_id, title, file_path))
+  return True
+
+- async def send_boot_scan_summary(self, tasks, top_n=4):
+-        self.trigger_summaries.append(
+-            (len(tasks), [t["task_id"] for t in tasks]))
+-        return True
+-
+
+# ---------------------------------------------------------------------------
+
+# Happy-path E2E smoke tests
+
 @@ -808,12 +814,13 @@ def test_smoke_qa_failure_retries_with_feedback(tmp_path):
- 
- 
- def test_smoke_boot_scan_registers_pending_trigger(tmp_path):
--    """Daemon boot_scan registers backlog tasks as PENDING_TRIGGER + sends trigger cards.
-+    """Daemon boot_scan registers backlog tasks as PENDING_TRIGGER + sends ONE
-+    consolidated trigger summary (HOTFIX-02 anti-flood: no per-task cards).
- 
--    daemon.boot_scan constructs KanbanWatcher without an explicit tasks_dir (it defaults
--    to CWD-relative "tasks/backlog"). For hermeticity we patch the class with a factory
--    that forwards config.tasks_dir, so boot_scan scans the temp workspace and never
--    registers unrelated real-repo backlog files.
-+    daemon.boot_scan constructs KanbanWatcher without an explicit tasks_dir (it
-+    defaults to CWD-relative "tasks/backlog"). For hermeticity we patch the
-+    class with a factory that forwards config.tasks_dir, so boot_scan scans the
-+    temp workspace and never registers unrelated real-repo backlog files.
-     """
-     from watcher import KanbanWatcher as RealKanbanWatcher
-     import watcher as watcher_module
-@@ -837,8 +844,12 @@ def test_smoke_boot_scan_registers_pending_trigger(tmp_path):
-         tid = existing[0]["task_id"]
-         rec = ws.state.get_task(tid)
-         assert rec["state"] == "pending_trigger"
+
+def test_smoke_boot_scan_registers_pending_trigger(tmp_path):
+
+- """Daemon boot_scan registers backlog tasks as PENDING_TRIGGER + sends trigger cards.
+
+* """Daemon boot_scan registers backlog tasks as PENDING_TRIGGER + sends ONE
+* consolidated trigger summary (HOTFIX-02 anti-flood: no per-task cards).
+
+- daemon.boot_scan constructs KanbanWatcher without an explicit tasks_dir (it defaults
+- to CWD-relative "tasks/backlog"). For hermeticity we patch the class with a factory
+- that forwards config.tasks_dir, so boot_scan scans the temp workspace and never
+- registers unrelated real-repo backlog files.
+
+* daemon.boot_scan constructs KanbanWatcher without an explicit tasks_dir (it
+* defaults to CWD-relative "tasks/backlog"). For hermeticity we patch the
+* class with a factory that forwards config.tasks_dir, so boot_scan scans the
+* temp workspace and never registers unrelated real-repo backlog files.
+  """
+  from watcher import KanbanWatcher as RealKanbanWatcher
+  import watcher as watcher_module
+  @@ -837,8 +844,12 @@ def test_smoke_boot_scan_registers_pending_trigger(tmp_path):
+  tid = existing[0]["task_id"]
+  rec = ws.state.get_task(tid)
+  assert rec["state"] == "pending_trigger"
+
 -        assert len(ws.gateway.trigger_cards) == 1
 -        assert ws.gateway.trigger_cards[0][0] == tid
-+        # HOTFIX-02: boot scan sends ONE consolidated summary, never per-task cards.
-+        assert len(ws.gateway.trigger_cards) == 0
-+        assert len(ws.gateway.trigger_summaries) == 1
-+        count, ids = ws.gateway.trigger_summaries[0]
-+        assert count == 1
-+        assert ids == [tid]
-     finally:
-         ws.close()
+
+*        # HOTFIX-02: boot scan sends ONE consolidated summary, never per-task cards.
+*        assert len(ws.gateway.trigger_cards) == 0
+*        assert len(ws.gateway.trigger_summaries) == 1
+*        count, ids = ws.gateway.trigger_summaries[0]
+*        assert count == 1
+*        assert ids == [tid]
+  finally:
+  ws.close()
+
 ```
 <!-- END_GIT_DIFF -->
+```

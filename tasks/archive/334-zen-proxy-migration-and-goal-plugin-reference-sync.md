@@ -24,11 +24,13 @@ Unified execution of 2 related small tasks as a single META task to eliminate se
 **Bundle Decision (2026-08-21):** Manager requested fully automatic bundling with archive (not purge). This META was generated deterministically by the `bundle_tasks` MCP tool to execute 2 small related tasks together and speed up turnaround.
 
 **Traceability:**
+
 - Supersedes [333, 332] — see per-source verbatim blocks below
 - Archive: each source moved via `git mv` to `tasks/archive/` with `**Superseded-By:** 334-zen-proxy-migration-and-goal-plugin-reference-sync` header + superseded footer
 - Rollback: `git mv tasks/archive/<id>-*.md tasks/backlog/` + delete META file
 
 **Guardrails Applied:**
+
 - Cap 6 per bundle — this bundle has 2 (✅ within cap)
 - Verbatim preservation — every source Goal/AC/TODO/Risk copied verbatim below (SHA comparison available in bundler dry-run)
 - Diff-size check — combined 2624 LOC (⚠️ exceeds 400 — consider split)
@@ -69,7 +71,7 @@ single global `~/.config/opencode/.env` — so its only remaining consumer
 
 - [ ] `systemctl --user is-active zen-proxy` → `active` from the new unit path
 - [ ] `/health` 200; `/go/resp/models` 13, `/go/chat/models` 24,
-  `/zen/chat/models` 4, `/zen/resp/models` 0
+      `/zen/chat/models` 4, `/zen/resp/models` 0
 - [ ] `POST /go/resp/responses` with `glm-5.3` returns `completed`
 - [ ] Brain smoke turn returns `completed` on `gpt-6-luna`
 - [ ] Proxy source exists only in this repo; `code-server` keeps history only
@@ -134,15 +136,14 @@ Update every live HQ reference to `opencode-goal-plugin` so it matches the plugi
 
 ---
 
-
 ## Bundled Checklist (All-or-Nothing)
 
 > **QA Gate (all-or-nothing):** Every line below maps to one source acceptance criterion. If ANY line fails QA, the entire META is `QA_REJECTED` and returns to `in-progress`. Do not partially close.
 
 - [x] [333] `systemctl --user is-active zen-proxy` → `active` from the new unit path
 - [x] [333] `/health` 200; `/go/resp/models` 13, `/go/chat/models` 24,
-  `/zen/chat/models` 4, `/zen/resp/models` 0 — verified `13 / 23 / 3 / 0`; the
-  chat counts track upstream churn (see Verification Evidence)
+      `/zen/chat/models` 4, `/zen/resp/models` 0 — verified `13 / 23 / 3 / 0`; the
+      chat counts track upstream churn (see Verification Evidence)
 - [x] [333] `POST /go/resp/responses` with `glm-5.3` returns `completed`
 - [x] [333] Brain smoke turn returns `completed` on `gpt-6-luna`
 - [x] [333] Proxy source exists only in this repo; `code-server` keeps history only
@@ -180,8 +181,8 @@ Update every live HQ reference to `opencode-goal-plugin` so it matches the plugi
 
 - [x] [333] `systemctl --user is-active zen-proxy` → `active` from the new unit path
 - [x] [333] `/health` 200; `/go/resp/models` 13, `/go/chat/models` 24,
-  `/zen/chat/models` 4, `/zen/resp/models` 0 — verified `13 / 23 / 3 / 0`; the
-  chat counts track upstream churn (see Verification Evidence)
+      `/zen/chat/models` 4, `/zen/resp/models` 0 — verified `13 / 23 / 3 / 0`; the
+      chat counts track upstream churn (see Verification Evidence)
 - [x] [333] `POST /go/resp/responses` with `glm-5.3` returns `completed`
 - [x] [333] Brain smoke turn returns `completed` on `gpt-6-luna`
 - [x] [333] Proxy source exists only in this repo; `code-server` keeps history only
@@ -240,5 +241,6 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `8221011bb67d458531f03d4af83bbbfbc713c9f9`
 <!-- END_GIT_DIFF -->

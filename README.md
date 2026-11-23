@@ -279,34 +279,34 @@ cp .env.example .env
 
 ### General & Workflow Skills
 
-| Skill Name                | Purpose                                                                                                                                                                                                                         |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `kanban-lifecycle`      | Unified Kanban lifecycle — task generation, lint validation, META bundling, completion archiving, and flat-to-V6 migration.                                                                                                        |
-| `governance`            | Agent protocol auditing plus living folder docs scaffolding — `AGENTS.md` governance and README/DECISIONS baselines.                                                                                                              |
-| `code-search`             | Mandatory for discovery. Uses MCP tools (`get_directory_tree`, `read_source_files`, `extract_signatures`) to explore the codebase without token bloat.                                                                          |
-| `debug-instrumentation`   | Diagnoses complex runtime bugs, deadlocks, race conditions, and silent failures via strategic temporary logging and tracing.                                                                                                    |
-| `design-md`               | Extracts a comprehensive design system (`DESIGN.md`) directly from frontend source code — React, Vue, Svelte, Angular, plain HTML/CSS, or any web framework.                                                                    |
-| `doc-coauthoring`         | Guides users through a structured 3-stage workflow (Context Gathering, Refinement & Structure, Reader Testing) for co-authoring documentation with AI.                                                                          |
-| `github`                  | GitHub CLI (gh) workflow for pull request triage, issue management, CI/CD run analysis, and API queries.                                                                                                                        |
-| `prompt-refactor`         | Meta-cognitive skill that refactors basic human prompts into elite, highly constrained, XML-tagged instructions optimized for AI agent reasoning.                                                                               |
-| `telegram-suite`          | Unified Telegram skills — HTML message formatting, contextual export to ZIP, and issue sync to tasks/GitHub.                                                                                                                     |
-| `testing-verification`    | TDD test ordering with coverage gates plus mandatory fresh verification evidence before any completion claim.                                                                                                                  |
-| `blowsh`                  | Live-web research via the blowsh MCP server (Docker): `search_web`, `fetch_web`, `fetch_web_batch`, `crawl_web`, `extract_links` — rendered engines, JS rendering, sitemap-aware crawls. See `skill-templates/blowsh/SKILL.md`. |
-| `versioning-and-release`  | Standardizes Semantic Versioning (SemVer), Keep a Changelog formats, Conventional Commits, and Safe Push Protocols across all repositories.                                                                                     |
+| Skill Name               | Purpose                                                                                                                                                                                                                         |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `kanban-lifecycle`       | Unified Kanban lifecycle — task generation, lint validation, META bundling, completion archiving, and flat-to-V6 migration.                                                                                                     |
+| `governance`             | Agent protocol auditing plus living folder docs scaffolding — `AGENTS.md` governance and README/DECISIONS baselines.                                                                                                            |
+| `code-search`            | Mandatory for discovery. Uses MCP tools (`get_directory_tree`, `read_source_files`, `extract_signatures`) to explore the codebase without token bloat.                                                                          |
+| `debug-instrumentation`  | Diagnoses complex runtime bugs, deadlocks, race conditions, and silent failures via strategic temporary logging and tracing.                                                                                                    |
+| `design-md`              | Extracts a comprehensive design system (`DESIGN.md`) directly from frontend source code — React, Vue, Svelte, Angular, plain HTML/CSS, or any web framework.                                                                    |
+| `doc-coauthoring`        | Guides users through a structured 3-stage workflow (Context Gathering, Refinement & Structure, Reader Testing) for co-authoring documentation with AI.                                                                          |
+| `github`                 | GitHub CLI (gh) workflow for pull request triage, issue management, CI/CD run analysis, and API queries.                                                                                                                        |
+| `prompt-refactor`        | Meta-cognitive skill that refactors basic human prompts into elite, highly constrained, XML-tagged instructions optimized for AI agent reasoning.                                                                               |
+| `telegram-suite`         | Unified Telegram skills — HTML message formatting, contextual export to ZIP, and issue sync to tasks/GitHub.                                                                                                                    |
+| `testing-verification`   | TDD test ordering with coverage gates plus mandatory fresh verification evidence before any completion claim.                                                                                                                   |
+| `blowsh`                 | Live-web research via the blowsh MCP server (Docker): `search_web`, `fetch_web`, `fetch_web_batch`, `crawl_web`, `extract_links` — rendered engines, JS rendering, sitemap-aware crawls. See `skill-templates/blowsh/SKILL.md`. |
+| `versioning-and-release` | Standardizes Semantic Versioning (SemVer), Keep a Changelog formats, Conventional Commits, and Safe Push Protocols across all repositories.                                                                                     |
 
 ### Stack-Specific Blueprints
 
-| Stack                  | Architecture Enforced                                                                                      |
-| ---------------------- | ---------------------------------------------------------------------------------------------------------- |
-| Android Kotlin         | **100% Jetpack Compose — XML Strictly Banned.** MVI (UDF), Hilt, SQLDelight/Room.                          |
-| Flask Python           | Application Factory, Blueprints, SQLAlchemy, and config separation for modular Flask applications.         |
-| NestJS Prisma Vertical | NestJS, Prisma ORM, Vertical Slice Architecture, strict TypeScript, and class-validator DTOs.              |
-| Next.js                | App Router, Server/Client Component separation, Server Actions, and Tailwind CSS design tokens.            |
-| Python FastAPI         | Pydantic schemas, dependency injection, async routing, and layered service architecture.                   |
-| React Native Expo      | **Expo Managed Workflow ONLY — no native folders.** Expo Router, NativeWind, Zustand, strict TypeScript.   |
-| React Vite             | React 18+ SPA architecture, hooks, and Vite configuration with optimized build tooling.                    |
-| Spring Boot            | DDD, hexagonal-style packaging, MapStruct, constructor injection, and global exception handlers.           |
-| Vue Nuxt               | Vue 3 Composition API, Nuxt 3 routing, and Pinia state management.                                         |
+| Stack                  | Architecture Enforced                                                                                    |
+| ---------------------- | -------------------------------------------------------------------------------------------------------- |
+| Android Kotlin         | **100% Jetpack Compose — XML Strictly Banned.** MVI (UDF), Hilt, SQLDelight/Room.                        |
+| Flask Python           | Application Factory, Blueprints, SQLAlchemy, and config separation for modular Flask applications.       |
+| NestJS Prisma Vertical | NestJS, Prisma ORM, Vertical Slice Architecture, strict TypeScript, and class-validator DTOs.            |
+| Next.js                | App Router, Server/Client Component separation, Server Actions, and Tailwind CSS design tokens.          |
+| Python FastAPI         | Pydantic schemas, dependency injection, async routing, and layered service architecture.                 |
+| React Native Expo      | **Expo Managed Workflow ONLY — no native folders.** Expo Router, NativeWind, Zustand, strict TypeScript. |
+| React Vite             | React 18+ SPA architecture, hooks, and Vite configuration with optimized build tooling.                  |
+| Spring Boot            | DDD, hexagonal-style packaging, MapStruct, constructor injection, and global exception handlers.         |
+| Vue Nuxt               | Vue 3 Composition API, Nuxt 3 routing, and Pinia state management.                                       |
 
 ---
 
@@ -389,7 +389,6 @@ _(Note: Replace `/Users/<YOUR_USER>` with your actual home directory path)._
 `codemode: true` (the default — key absent or explicit) keeps the server's tools behind `execute` instead of exposing them as native calls. The HQ ships Code Mode for every server, including `telegram` (147 tools); see `docs/services.md`.
 
 Full HQ install covering all core MCP servers plus skills plus both agents is documented in LLM.txt sections 4 through 7 and the global-install-upgrade memory workflow not here. The steps above cover only the standalone context server for third party projects.
-
 
 ### How It Works
 

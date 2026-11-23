@@ -14,6 +14,7 @@ Upgrade the entire Cognitive Lead HQ system — project configs, plugins, MCP se
 Manager said: "create a task and start full upgrade our system workflow and everything to new versions. search and find everyplace and upgrade. finally when done. upgrade our global installation too."
 
 Prior research (tasks/ completed research) found:
+
 - Opencode V2 intentional breaks: `tui.json` → global `cli.json`, Plugin API `Plugin.define`, Server API `@opencode/client`; config renames `permission.bash`→`shell`, `command`→`commands`, `agent`→`agents`, `mcp.*.command` string allowed, `mcp.servers.*.enabled` removed, flat `mcp` alias, snapshot/tool/provider renames. V1 config auto-normalized but should be migrated for cleanliness.
 - OpenChamber 2.0.0+ requires Opencode ≥2.0.15, adds hot-reload + Code Mode, drops CLAUDE.md, sessions carry over. Latest then was 2.0.2 (verify latest at execution).
 - Plugins V2-ready: `@prevalentware/opencode-goal-plugin` (beta 19425 dual-mode) and `@tarquinen/opencode-dcp@latest` (3.2.0 with V2 adapter). No blocking plugin work.
@@ -93,5 +94,6 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `6e28991de63540146786a6e2e697d78b908a3790`
 <!-- END_GIT_DIFF -->

@@ -65,6 +65,7 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 ## Execution Log & Reasoning
 
 Context gathered via graph and grep. Citations for gap audit:
+
 - 14-day load view: `mcp-planner-server/static/index.html:674-690` (`renderPlanChart`, aria-label "14-day load").
 - Measured-hours view: `mcp-planner-server/static/index.html:703-732` (`hoursChart`, aria-label "Measured hours, last 14 days").
 - Planner task parsing: `mcp-planner-server/server.py:187` (`_parse_task_file`).
@@ -77,5 +78,6 @@ Created docs: `docs/kanban-board-manager-guide.md`, `docs/kanban-policies.md`, `
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `c20ee41da3c9f8986690576c290337a85a7cec37`
 <!-- END_GIT_DIFF -->

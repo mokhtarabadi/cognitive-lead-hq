@@ -10,6 +10,7 @@
 ## Goal
 
 Over months of active evolution across 23 milestones, the repository has accumulated historical drift, obsolete references, and redundant clauses across its documentation and codebases:
+
 1. **Mode Contradictions:** Lingering mentions of manual ferrying vs autonomous execution that create ambiguity for agents.
 2. **Phantom Names:** References to tools, skills, or subagents that do not exist in the active runtime or were renamed.
 3. **Dead References:** Citations pointing to retired components (e.g. `loop-engine/sentinel.py`, legacy CLI scripts) or obsolete line numbers.
@@ -87,5 +88,6 @@ Over months of active evolution across 23 milestones, the repository has accumul
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `d2802189b0da023916489218b959d022348f52cc`
 <!-- END_GIT_DIFF -->

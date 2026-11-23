@@ -77,12 +77,14 @@ Closure 2026-10-01: Manager replied "Approved for closure" (exact accept phrase)
 ## Stale Memory Report
 
 Released-task and superseded-workflow scan (archive-tasks step 6, flag-only):
+
 - `workflows/global-install-upgrade` — FLAGGED (re-confirmed from the earlier audit). Its 2026-09-09 note claims persona + manager_decisions servers are DISABLED and that server code dirs are KEPT; in fact `mcp-persona-server/` was deleted and manager_decisions is an enabled MCP server. Awaiting Manager approval to correct; not deleted.
 - No hits for `loop-engine`, `stacks`, or V1-migration leftovers; `opencode_config/opencode_v2_upgrade_2026_09_26` is current (refreshed 2026-10-01).
-No memory deleted (approval gate preserved).
+  No memory deleted (approval gate preserved).
 
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `a0b83a976cd11631f4d249879249dece44b0ad0b`
 <!-- END_GIT_DIFF -->

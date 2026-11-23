@@ -49,17 +49,17 @@ _(OpenCode: Manually log your technical changes, file edits, and architectural r
 
 ### Files Modified
 
-| File | Change | Reasoning |
-| --- | --- | --- |
-| `AGENTS.md` | Added exception for MCP servers, scripts, and platform tooling | Resolves contradiction: repo is "documentation-only" but hosts MCP servers and scripts that are core to the platform. Adding explicit exceptions prevents gatekeeper halts on legitimate tooling. |
-| `skill-templates/versioning-and-release/SKILL.md` | Added rules 4, 5, 6 to Phase 2 | Rules 4-5 enforce that system-prompt.md version bumps are tied to behavioral changes, not just metadata. Rule 6 ensures `[Unreleased]` is emptied after releases to prevent stale entries. |
-| `skill-templates/design-md/SKILL.md` | Changed Phase 3 output path from `.stitch/DESIGN.md` to project root | Aligns with AGENTS.md Core File Locations which declares `DESIGN.md` (root) as canonical. Stitch copy is now optional and secondary. |
-| `skill-templates/archive-tasks/SKILL.md` | Replaced `mv` with `git mv` + untracked fallback note | `git mv` preserves file history in Git. The fallback note handles edge cases where files aren't tracked yet. |
-| `mcp-context-server/server.py` — `stage_and_inject_diff` | Hardened `git add .` with exclusion patterns | Prevents accidental staging of `.env`, `.key`, `.pem`, credentials, secrets, context-reports, and cache files. Defense-in-depth for sensitive file exposure. |
-| `mcp-context-server/server.py` — `commit_and_clean_task` | Added empty-staged check + upstream push warning | Empty check prevents empty commits. Upstream warning alerts when amending a commit that has already been pushed, reducing force-push risks. |
-| `opencode.json` | Changed `delete_memory` from `"allow"` to `"ask"` | Memory deletion is destructive and irreversible. Requiring user confirmation prevents accidental data loss. |
-| `LLM.txt` | Changed `delete_memory` from `"allow"` to `"ask"` | Syncs with opencode.json to ensure global installations also require confirmation for memory deletion. |
-| `skill-templates/project-memory/SKILL.md` | Added Safety Gate to DELETE Memory section | Agent now must output confirmation prompt and wait for Manager approval before deleting memory (except store-time supersession). Prevents autonomous memory pruning. |
+| File                                                     | Change                                                               | Reasoning                                                                                                                                                                                         |
+| -------------------------------------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `AGENTS.md`                                              | Added exception for MCP servers, scripts, and platform tooling       | Resolves contradiction: repo is "documentation-only" but hosts MCP servers and scripts that are core to the platform. Adding explicit exceptions prevents gatekeeper halts on legitimate tooling. |
+| `skill-templates/versioning-and-release/SKILL.md`        | Added rules 4, 5, 6 to Phase 2                                       | Rules 4-5 enforce that system-prompt.md version bumps are tied to behavioral changes, not just metadata. Rule 6 ensures `[Unreleased]` is emptied after releases to prevent stale entries.        |
+| `skill-templates/design-md/SKILL.md`                     | Changed Phase 3 output path from `.stitch/DESIGN.md` to project root | Aligns with AGENTS.md Core File Locations which declares `DESIGN.md` (root) as canonical. Stitch copy is now optional and secondary.                                                              |
+| `skill-templates/archive-tasks/SKILL.md`                 | Replaced `mv` with `git mv` + untracked fallback note                | `git mv` preserves file history in Git. The fallback note handles edge cases where files aren't tracked yet.                                                                                      |
+| `mcp-context-server/server.py` — `stage_and_inject_diff` | Hardened `git add .` with exclusion patterns                         | Prevents accidental staging of `.env`, `.key`, `.pem`, credentials, secrets, context-reports, and cache files. Defense-in-depth for sensitive file exposure.                                      |
+| `mcp-context-server/server.py` — `commit_and_clean_task` | Added empty-staged check + upstream push warning                     | Empty check prevents empty commits. Upstream warning alerts when amending a commit that has already been pushed, reducing force-push risks.                                                       |
+| `opencode.json`                                          | Changed `delete_memory` from `"allow"` to `"ask"`                    | Memory deletion is destructive and irreversible. Requiring user confirmation prevents accidental data loss.                                                                                       |
+| `LLM.txt`                                                | Changed `delete_memory` from `"allow"` to `"ask"`                    | Syncs with opencode.json to ensure global installations also require confirmation for memory deletion.                                                                                            |
+| `skill-templates/project-memory/SKILL.md`                | Added Safety Gate to DELETE Memory section                           | Agent now must output confirmation prompt and wait for Manager approval before deleting memory (except store-time supersession). Prevents autonomous memory pruning.                              |
 
 ### Verification
 
@@ -69,5 +69,6 @@ _(OpenCode: Manually log your technical changes, file edits, and architectural r
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `19694762beb06fbfc6acab96350df0453a8c660b`
 <!-- END_GIT_DIFF -->

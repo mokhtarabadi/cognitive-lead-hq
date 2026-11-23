@@ -12,17 +12,17 @@ This skill is the agent-facing rulebook. The full evidence (probe transcripts, d
 
 ## The 9 Rules
 
-| # | Rule                                                                                                    | Why                                                                            |
-| - | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| 1 | Always send with `parse_mode: "HTML"`.                                                                   | Markdown mode strips fence/backtick markers and creates no entities.          |
-| 2 | Escape `&` → `&amp;`, `<` → `&lt;`, `>` → `&gt;` inside `<pre>` and `<code>`.                             | A raw `<` breaks the HTML parse and aborts the entire message.                |
-| 3 | Use `<b>` for headings, `<code>` for inline identifiers, `<pre>` for code blocks.                          | These three are the only elements proven to survive the round-trip.           |
-| 4 | Never use ` ``` ` fences or `*bold*` Markdown syntax.                                                     | Fences vanish; asterisks stay literal.                                        |
-| 5 | Write Persian without U+200C ZWNJ — use a normal space where the half-space belongs.                      | ZWNJ is lost on the read path of every message, including hand-typed ones.    |
-| 6 | Keep each message under ~3800 characters; split longer payloads into parts, each a reply to the same parent id. | The hard cap is 4096 chars and the failure is an opaque `GEN-ERR-184`.      |
-| 7 | Post into a forum topic with `reply_to_message` anchored to a message already inside that topic.           | `send_message` has no `topic_id` and lands in General.                        |
-| 8 | Verify a formatted send by reading it back and checking the `&lt;`/`&gt;` round-trip.                      | `get_history` resolves entities to plain text, so a text diff proves nothing. |
-| 9 | Delete every probe message after reading it back.                                                         | Keeps the chat clean; message ids are never reused.                           |
+| #   | Rule                                                                                                            | Why                                                                           |
+| --- | --------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| 1   | Always send with `parse_mode: "HTML"`.                                                                          | Markdown mode strips fence/backtick markers and creates no entities.          |
+| 2   | Escape `&` → `&amp;`, `<` → `&lt;`, `>` → `&gt;` inside `<pre>` and `<code>`.                                   | A raw `<` breaks the HTML parse and aborts the entire message.                |
+| 3   | Use `<b>` for headings, `<code>` for inline identifiers, `<pre>` for code blocks.                               | These three are the only elements proven to survive the round-trip.           |
+| 4   | Never use ` ``` ` fences or `*bold*` Markdown syntax.                                                           | Fences vanish; asterisks stay literal.                                        |
+| 5   | Write Persian without U+200C ZWNJ — use a normal space where the half-space belongs.                            | ZWNJ is lost on the read path of every message, including hand-typed ones.    |
+| 6   | Keep each message under ~3800 characters; split longer payloads into parts, each a reply to the same parent id. | The hard cap is 4096 chars and the failure is an opaque `GEN-ERR-184`.        |
+| 7   | Post into a forum topic with `reply_to_message` anchored to a message already inside that topic.                | `send_message` has no `topic_id` and lands in General.                        |
+| 8   | Verify a formatted send by reading it back and checking the `&lt;`/`&gt;` round-trip.                           | `get_history` resolves entities to plain text, so a text diff proves nothing. |
+| 9   | Delete every probe message after reading it back.                                                               | Keeps the chat clean; message ids are never reused.                           |
 
 ---
 
@@ -98,7 +98,8 @@ Plain prose with <code>identifiers</code> and no markup dependency.
 ```html
 <b>Heading</b> and <code>inline_identifier</code>
 
-<pre>curl -X POST "https://example.com/api" \
+<pre>
+curl -X POST "https://example.com/api" \
   --data 'key=value'</pre>
 
 <b>Second heading</b>
@@ -113,9 +114,8 @@ Notes with <code>snake_case_names</code> inline.
 ```html
 <b>Task synced</b>
 
-<b>File:</b> <code>tasks/backlog/123-example.md</code>
-<b>Issue:</b> <code>https://github.com/org/repo/issues/7</code>
-<b>Type:</b> BUG
+<b>File:</b> <code>tasks/backlog/123-example.md</code> <b>Issue:</b>
+<code>https://github.com/org/repo/issues/7</code> <b>Type:</b> BUG
 ```
 
 Keep the body plain — no emoji, no ASCII art, no horizontal rules made of dashes. One blank line between blocks, never more.
@@ -148,15 +148,14 @@ Run through this before every send:
 
 The following are upstream defects in the Telegram MCP server. Work around them; do not report them as your own errors, and do not retry them.
 
-| Defect                                                | Workaround                                                       |
-| ----------------------------------------------------- | ---------------------------------------------------------------- |
-| Over-length message returns opaque `GEN-ERR-184`       | Self-enforce the 3800-character budget; never retry.            |
-| Markdown mode destroys code blocks                    | Use HTML.                                                         |
-| Markdown `*bold*` not applied                         | Use `<b>`.                                                        |
-| ZWNJ lost on the read path                            | Author Persian without U+200C.                                   |
-| `send_message` cannot target a forum topic            | Use `reply_to_message` anchored inside the topic.                |
-| Message `entities` not exposed on read               | Verify with the `&lt;`/`&gt;` round-trip, not a text diff.      |
-| Length counted without UTF-16 semantics                | Count characters yourself, not bytes.                            |
+| Defect                                           | Workaround                                                 |
+| ------------------------------------------------ | ---------------------------------------------------------- |
+| Over-length message returns opaque `GEN-ERR-184` | Self-enforce the 3800-character budget; never retry.       |
+| Markdown mode destroys code blocks               | Use HTML.                                                  |
+| Markdown `*bold*` not applied                    | Use `<b>`.                                                 |
+| ZWNJ lost on the read path                       | Author Persian without U+200C.                             |
+| `send_message` cannot target a forum topic       | Use `reply_to_message` anchored inside the topic.          |
+| Message `entities` not exposed on read           | Verify with the `&lt;`/`&gt;` round-trip, not a text diff. |
+| Length counted without UTF-16 semantics          | Count characters yourself, not bytes.                      |
 
 ---
-

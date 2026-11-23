@@ -82,12 +82,14 @@ _(Log non-trivial architectural, design, or strategic decisions here using the f
 **Context:** Manager asked to learn tmux vs opentmux, then create and fully execute a task removing opentmux ("full removed it from our project and from my system"), later clarified to keep tmux but remove opencode tmux plugins globally and from project.
 
 **Discovery (2026-08-28):**
+
 - tmux: system terminal multiplexer, `/usr/bin/tmux` v3.6 (apt `tmux 3.6a-2ubuntu0.1`) — session persistence, pane/window management, independent of OpenCode. Must be kept.
 - opentmux: npm package `AnganSamadder/opentmux` v1.5.7 (wrapper around `opencode` that auto-spawns tmux panes, streams agent output). Installed via `npm install -g opentmux`.
 - opencode-agent-tmux: companion npm plugin `opencode-agent-tmux@1.3.0`, provides Agent-Tmux integration. Both appear in `npm list -g` and `~/.config/opencode/opencode.json` plugin array `["opencode-goal-plugin", "opentmux"]`.
 - Project refs: `README.md` Optional opentmux section, `docs/setup.md` full opentmux section (48-91), `LLM.txt` Section 6.2 + prerequisite line + checklist, `CHANGELOG.md` Task 120 entry, `docs/history/milestone-14-summary.md` (historical), `tasks/archive/120-*.md` (historical), `telegram-sync.json` pointer — only active docs need cleaning.
 
 **Implementation (Task 125, NEXT_ID=125 via `find tasks -name "*.md" | grep -Eo '^[0-9]+' | sort -n | tail -1 +1`):**
+
 1. Created `tasks/backlog/125-remove-opentmux-and-opencode-agent-tmux.md` via task-generator template, `mv` to `tasks/in-progress/`, updated `**File:**` header.
 2. Global uninstall: `npm uninstall -g opentmux` (removed 6 packages) + `npm uninstall -g opencode-agent-tmux` (removed 6 packages) → `npm list -g` now shows only `corepack`, `npm`, `opencode-goal-plugin`.
 3. Global config: edited `~/.config/opencode/opencode.json` plugin array from `["opencode-goal-plugin", "opentmux"]` to `["opencode-goal-plugin"]` (verified via `cat ~/.config/opencode/opencode.json | grep plugin`). Project `opencode.json` already clean.
@@ -104,5 +106,6 @@ _(Log non-trivial architectural, design, or strategic decisions here using the f
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `9b1047b71b93bbbf630a75249254a73e269fd54f`
 <!-- END_GIT_DIFF -->

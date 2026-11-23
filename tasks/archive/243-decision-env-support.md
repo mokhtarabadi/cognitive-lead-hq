@@ -55,6 +55,7 @@ Manager order, exact: "define and use following env too and update project docs 
 
 Seat Check: Senior Programmer (server env wiring + contract tests). No UI/schema/sprint triggers; Designer/Planner/Strategist/QA/Reviewer skipped — small scoped wiring, judged via suites + lint. Autopilot: this task was executed under the manager's standing autopilot lock; replay lineage from stored rulings (fix-all on autopilot, zero-questions standing order).
 Edits: `mcp-decision-server/server.py` — `_get_api_base()` helper (DECISION_API_BASE → BRAIN_API_BASE → default const), `_get_decision_effort()` reads DECISION_REASONING_EFFORT → BRAIN_REASONING_EFFORT, `_get_api_key()` reads DECISION_API_KEY → BRAIN_API_KEY (fail-closed names both), call site uses the helper. `DECISION_MODEL` was already read with blank-fallback (pre-existing). HQ `.env` holds all 4 values (key copied programmatically from the BRAIN key; values never printed; mode 600; gitignored). `.env.example` DECISION section extended. Tests: 3 new contract tests + 2 old tests fixed for env hermeticity. Decision suite 108 passed; full suite 396 passed, zero failures, exit 0.
+
 - Live Brain QA verdict (gpt-5.6-luna, trunc 0): VERDICT QA_PASSED. Precedence, blank/whitespace fallback, fail-closed key, effort-only-without-temp all confirmed (CITE server.py:219,908,964; .env.example:23; tests :458). No vuln. M1/M2 = non-blocking coverage suggestions (all-four-env outbound test; whitespace BRAIN_API_BASE). Self-improvements S1 (task-scoped diff ownership) + S2 (auto env-matrix test) noted as future work.
 - Manager accept (exact quote): "Approved for closure."
 - Reviewer verdict (gpt-5.6-luna): PO_REVIEW_PENDING — technical approval, no blocking issues; precedence, blank fallback, fail-closed key, API-base helper, reasoning config, docs all match (CITE server.py:219,908,964 + .env.example:23); no secret in diff; closure only on exact phrases.
@@ -62,5 +63,6 @@ Edits: `mcp-decision-server/server.py` — `_get_api_base()` helper (DECISION_AP
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `3f2398d2aeea275a7308b9dc9379031b43665b9a`
 <!-- END_GIT_DIFF -->

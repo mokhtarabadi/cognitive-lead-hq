@@ -68,6 +68,7 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 **Version decision:** Manager approved v9.13.0, tag-only (no backfill of never-tagged 9.9.0/9.10.0). Matches `system-prompt.md` 9.13.0; Unreleased held new capabilities (persona/decision servers, OpenChamber, blowsh skill) → MINOR.
 
 **Edits:**
+
 - `CHANGELOG.md` — inserted `## [9.13.0] - 2026-09-10` directly below `## [Unreleased]` (single-line move, all Added/Changed/Removed entries now under release header; Unreleased left empty). No duplicate headers.
 - `docs/history/milestone-17-summary.md` — new 158-line summary drafted via delegated subagent (matched milestone-16 structure): 15 tasks (162-168, 171-178; 169/170 never issued), source 13 manager / 2 telegram / 0 orchestrator, 7 feature / 7 improvement / 1 bug.
 - 15 files `tasks/completed/` → `tasks/archive/` via `git mv` (single command, history preserved; `tasks/completed/` now empty).
@@ -80,5 +81,6 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `ee93b99deff934b273f709d86bb3725e9c166d6f`
 <!-- END_GIT_DIFF -->

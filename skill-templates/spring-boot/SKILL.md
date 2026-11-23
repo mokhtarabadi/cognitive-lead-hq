@@ -108,7 +108,6 @@ Create a single `@RestControllerAdvice` class that catches all exceptions.
 - Prefer `Mockito` for mocking; never use `PowerMock`.
 - Use `Testcontainers` for database-dependent integration tests.
 
-
 ## Strict Tooling Gate (Machine-Enforced — Forced Strict Mode)
 
 Strictest verified toolchain for this stack. Load this skill whenever the project matches the stack. Execute the gate in fail-fast order and stop on the first failure. Record the exact command, output, and exit code in the task's Verification Evidence.
@@ -124,33 +123,33 @@ Strictest verified toolchain for this stack. Load this skill whenever the projec
 
 ## Required Toolchain
 
-| Tool | Purpose | Minimum version to pin | Install / availability note |
-| --- | --- | --- | --- |
-| JDK (Temurin/Adoptium) | Runtime + compiler | **25** (LTS) | Toolchain-managed; Adoptium latest LTS = 25, latest feature = 27 (non-LTS, outside Boot 4.1 support). Reject 27. |
-| Gradle | Build, locking, verification | **9.7.1** | Runs on JVM 17–26; toolchain support for 25 from 9.1.0, for 26 from 9.4.0. |
-| Spring Boot | Framework | **4.1.1** | `org.springframework.boot` plugin; Maven 3.6.3+ / Gradle 8.14+/9.x. Reject 4.2.0-M1 (milestone) and 3.5.x (final 3.x line). |
-| Spotless | Formatting gate | **3.10.2** | Plugin id `com.diffplug.spotless`; lib is 4.10.2 (plugin numbering differs). |
-| google-java-format | Java formatter engine | **1.36.1** | Resolved by Spotless; never invoke the raw CLI (see traps). |
-| Error Prone | Compile-time bug/semantic lint | **2.50.0** | Must run on JDK 21+; last JDK-17 line is 2.42.0. Pin `error_prone_core`. |
-| NullAway | Nullness checker (Error Prone plugin) | **0.14.1** | Runs under Error Prone; JSpecify mode enabled. |
-| JSpecify | Nullness annotations | **1.0.1** | `org.jspecify:jspecify`. Boot 4 ships JSpecify annotations; `org.springframework.lang.Nullable` is gone. |
-| SpotBugs | Bytecode analysis | **4.10.4** | `com.github.spotbugs:spotbugs`. |
-| find-sec-bugs | SpotBugs security detectors | **1.14.0** | `com.h3xstream.findsecbugs:findsecbugs-plugin`. Maintained, low cadence. |
-| ArchUnit | Layer / hexagon / cycle rules | **1.5.0** | `com.tngtech.archunit:archunit-junit5`. Winner for hexagonal enforcement. |
-| Spring Modulith | Module-cycle verification (optional) | **2.1.1** | Aligns with Boot 4.1; secondary — does not enforce layer direction. |
-| osv-scanner | SCA / dependency vulnerabilities | **2.6.0** | V2 beta, OSV.dev + osv-scalibr; no NVD API key needed. |
-| gitleaks | Secret scanning | **8.30.1** | Feature-complete / security-patch-only; successor is Betterleaks (see Deprecated). |
-| JUnit | Test framework | **6.0.3** (Boot-managed) / 6.1.3 latest | Java 17 + Kotlin 2.1 baseline; single version for Platform/Jupiter/Vintage. |
-| Testcontainers | Real-dependency integration tests | **2.0.5** | Boot 4.1 manages 2.0.5; JUnit 4 support removed; classes relocated. |
-| AssertJ | Fluent assertions | **3.27.7** | Boot-managed. 4.0.0-M1 is a milestone — do not pin. |
-| jqwik | Property-based tests | **1.10.1** | `net.jqwik:jqwik`. |
-| PIT (pitest) | Mutation testing | **1.15.0** (Gradle plugin) / 1.30.0 core | `info.solidsoft.pitest` + `org.pitest:pitest-junit5-plugin:1.2.3`. |
-| JaCoCo | Coverage thresholds | **0.8.15** | Gradle built-in `jacoco` plugin; pin tool version. |
-| Flyway | Schema migration + validate | **12.4.0** | Use the Boot-managed runtime version (12.4.0), NOT latest 13.7.0. |
-| Liquibase | Schema migration + validate | **5.0.3** | Use Boot-managed 5.0.3, NOT latest 5.0.4. |
-| MapStruct | Compile-time DTO mapping | **1.6.3** | 1.7.0 is Beta only. Add `lombok-mapstruct-binding:0.2.0`. |
-| Lombok | Boilerplate (`@RequiredArgsConstructor`) | **1.18.46** | Boot-managed; latest 1.18.48. Use Boot's managed value. |
-| Mockito | Mocking | **5.23.0** | Boot-managed. PowerMock is banned (dead project). |
+| Tool                   | Purpose                                  | Minimum version to pin                   | Install / availability note                                                                                                 |
+| ---------------------- | ---------------------------------------- | ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| JDK (Temurin/Adoptium) | Runtime + compiler                       | **25** (LTS)                             | Toolchain-managed; Adoptium latest LTS = 25, latest feature = 27 (non-LTS, outside Boot 4.1 support). Reject 27.            |
+| Gradle                 | Build, locking, verification             | **9.7.1**                                | Runs on JVM 17–26; toolchain support for 25 from 9.1.0, for 26 from 9.4.0.                                                  |
+| Spring Boot            | Framework                                | **4.1.1**                                | `org.springframework.boot` plugin; Maven 3.6.3+ / Gradle 8.14+/9.x. Reject 4.2.0-M1 (milestone) and 3.5.x (final 3.x line). |
+| Spotless               | Formatting gate                          | **3.10.2**                               | Plugin id `com.diffplug.spotless`; lib is 4.10.2 (plugin numbering differs).                                                |
+| google-java-format     | Java formatter engine                    | **1.36.1**                               | Resolved by Spotless; never invoke the raw CLI (see traps).                                                                 |
+| Error Prone            | Compile-time bug/semantic lint           | **2.50.0**                               | Must run on JDK 21+; last JDK-17 line is 2.42.0. Pin `error_prone_core`.                                                    |
+| NullAway               | Nullness checker (Error Prone plugin)    | **0.14.1**                               | Runs under Error Prone; JSpecify mode enabled.                                                                              |
+| JSpecify               | Nullness annotations                     | **1.0.1**                                | `org.jspecify:jspecify`. Boot 4 ships JSpecify annotations; `org.springframework.lang.Nullable` is gone.                    |
+| SpotBugs               | Bytecode analysis                        | **4.10.4**                               | `com.github.spotbugs:spotbugs`.                                                                                             |
+| find-sec-bugs          | SpotBugs security detectors              | **1.14.0**                               | `com.h3xstream.findsecbugs:findsecbugs-plugin`. Maintained, low cadence.                                                    |
+| ArchUnit               | Layer / hexagon / cycle rules            | **1.5.0**                                | `com.tngtech.archunit:archunit-junit5`. Winner for hexagonal enforcement.                                                   |
+| Spring Modulith        | Module-cycle verification (optional)     | **2.1.1**                                | Aligns with Boot 4.1; secondary — does not enforce layer direction.                                                         |
+| osv-scanner            | SCA / dependency vulnerabilities         | **2.6.0**                                | V2 beta, OSV.dev + osv-scalibr; no NVD API key needed.                                                                      |
+| gitleaks               | Secret scanning                          | **8.30.1**                               | Feature-complete / security-patch-only; successor is Betterleaks (see Deprecated).                                          |
+| JUnit                  | Test framework                           | **6.0.3** (Boot-managed) / 6.1.3 latest  | Java 17 + Kotlin 2.1 baseline; single version for Platform/Jupiter/Vintage.                                                 |
+| Testcontainers         | Real-dependency integration tests        | **2.0.5**                                | Boot 4.1 manages 2.0.5; JUnit 4 support removed; classes relocated.                                                         |
+| AssertJ                | Fluent assertions                        | **3.27.7**                               | Boot-managed. 4.0.0-M1 is a milestone — do not pin.                                                                         |
+| jqwik                  | Property-based tests                     | **1.10.1**                               | `net.jqwik:jqwik`.                                                                                                          |
+| PIT (pitest)           | Mutation testing                         | **1.15.0** (Gradle plugin) / 1.30.0 core | `info.solidsoft.pitest` + `org.pitest:pitest-junit5-plugin:1.2.3`.                                                          |
+| JaCoCo                 | Coverage thresholds                      | **0.8.15**                               | Gradle built-in `jacoco` plugin; pin tool version.                                                                          |
+| Flyway                 | Schema migration + validate              | **12.4.0**                               | Use the Boot-managed runtime version (12.4.0), NOT latest 13.7.0.                                                           |
+| Liquibase              | Schema migration + validate              | **5.0.3**                                | Use Boot-managed 5.0.3, NOT latest 5.0.4.                                                                                   |
+| MapStruct              | Compile-time DTO mapping                 | **1.6.3**                                | 1.7.0 is Beta only. Add `lombok-mapstruct-binding:0.2.0`.                                                                   |
+| Lombok                 | Boilerplate (`@RequiredArgsConstructor`) | **1.18.46**                              | Boot-managed; latest 1.18.48. Use Boot's managed value.                                                                     |
+| Mockito                | Mocking                                  | **5.23.0**                               | Boot-managed. PowerMock is banned (dead project).                                                                           |
 
 ## Strict Baseline Config
 
@@ -279,47 +278,47 @@ resolution, add `--offline` to steps 2–9 in CI to forbid surprise remote chang
 
 ## Hallucination Traps to Block
 
-| AI failure mode | The check that catches it |
-| --- | --- |
-| Writes `javax.validation.*` / `javax.persistence.*` (pre-Boot-3 memory). | Compile fails; add ArchUnit `noClasses().should().dependOnClassesThat().resideInAPackage("javax..")`. |
-| Restores removed Boot mock annotations `@MockBean` / `@SpyBean`. | Compile fails in Boot 4; add `forbiddenapis`/ArchUnit ban on `org.springframework.boot.test.mock.mockito.*`. Replace with `@MockitoBean` / `@MockitoSpyBean`. |
-| Uses `spring-boot-starter-web` (deprecated → `spring-boot-starter-webmvc`). | `./gradlew dependencyInsight --dependency spring-boot-starter-web`; CI fails when the deprecated starter is a direct dependency. |
-| Imports Jackson 2 types (`com.fasterxml.jackson.databind.*`) under Boot 4's Jackson 3. | Compile fails; ban `com.fasterxml.jackson` via `forbiddenapis`. Boot 4 uses `tools.jackson.*`. |
-| Pins Flyway 13.7.0 / Liquibase 5.0.4 while Boot 4.1.1 manages 12.4.0 / 5.0.3. | `./gradlew dependencyInsight --dependency flyway-core`; `resolutionStrategy.failOnVersionConflict()` + lockfile. |
-| Adds `junit-platform-runner` / JUnit 4 rules (Testcontainers 1.x style). | Dependency resolution fails (module removed in JUnit 6, JUnit 4 dropped in Testcontainers 2.0); ban `org.junit.rules.*`. |
-| Field `@Autowired` injection, violating the SKILL's constructor-injection rule. | ArchUnit `noFields().should().beAnnotatedWith(Autowired.class)`. |
-| `domain/` importing Spring/JPA/adapters (hexagon inversion). | ArchUnit `onionArchitecture()` / `layeredArchitecture()` + `slices().matching("..domain.(*)..").should().beFreeOfCycles()`. |
-| Calls `Instant.now()` / `LocalDateTime.now()` in business logic instead of injected `Clock`. | ArchUnit `noClasses().that().resideInAPackage("..domain..").should().callMethod(Instant.class, "now")` and the same for `LocalDateTime`. |
-| Puts `LocalDateTime`/`java.util.Date` in API DTOs. | ArchUnit dependency rule scoped to `..adapter.inbound.dto..`; plus `@JsonFormat` only on `OffsetDateTime`. |
-| Leaves a `@Mapper` field unmapped (manual mapping creep). | MapStruct `unmappedTargetPolicy = ReportingPolicy.ERROR` fails compilation. |
-| Omits `-proc:full`; JDK 21+ emits an annotation-processing warning that `-Werror` turns into a failure. | Step 3 exits non-zero until `-proc:full` is present (do not "fix" by removing `-Werror`). |
-| Invokes `google-java-format` directly; JDK 16+ throws `IllegalAccessError` without `--add-exports jdk.compiler/...`. | Always run through Spotless (`spotlessCheck`); ban raw GJF in scripts. |
-| Uses gitleaks `detect` / `protect` (deprecated in 8.19). | CI script asserts `gitleaks git` / `gitleaks dir`; old subcommands are hidden and unsupported. |
-| Uses PMD's pre-7 CLI (`pmd -d src -R ...`). | Run `./gradlew pmdMain`; PMD 7 uses the unified `pmd check` subcommand. |
-| Enables `--enable-preview` in the release build (bytecode/runtime mismatch). | Compile the preview code in a separate source set only; `javap -verbose` minor version must be 69 (Java 25), not 65535. |
+| AI failure mode                                                                                                      | The check that catches it                                                                                                                                     |
+| -------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Writes `javax.validation.*` / `javax.persistence.*` (pre-Boot-3 memory).                                             | Compile fails; add ArchUnit `noClasses().should().dependOnClassesThat().resideInAPackage("javax..")`.                                                         |
+| Restores removed Boot mock annotations `@MockBean` / `@SpyBean`.                                                     | Compile fails in Boot 4; add `forbiddenapis`/ArchUnit ban on `org.springframework.boot.test.mock.mockito.*`. Replace with `@MockitoBean` / `@MockitoSpyBean`. |
+| Uses `spring-boot-starter-web` (deprecated → `spring-boot-starter-webmvc`).                                          | `./gradlew dependencyInsight --dependency spring-boot-starter-web`; CI fails when the deprecated starter is a direct dependency.                              |
+| Imports Jackson 2 types (`com.fasterxml.jackson.databind.*`) under Boot 4's Jackson 3.                               | Compile fails; ban `com.fasterxml.jackson` via `forbiddenapis`. Boot 4 uses `tools.jackson.*`.                                                                |
+| Pins Flyway 13.7.0 / Liquibase 5.0.4 while Boot 4.1.1 manages 12.4.0 / 5.0.3.                                        | `./gradlew dependencyInsight --dependency flyway-core`; `resolutionStrategy.failOnVersionConflict()` + lockfile.                                              |
+| Adds `junit-platform-runner` / JUnit 4 rules (Testcontainers 1.x style).                                             | Dependency resolution fails (module removed in JUnit 6, JUnit 4 dropped in Testcontainers 2.0); ban `org.junit.rules.*`.                                      |
+| Field `@Autowired` injection, violating the SKILL's constructor-injection rule.                                      | ArchUnit `noFields().should().beAnnotatedWith(Autowired.class)`.                                                                                              |
+| `domain/` importing Spring/JPA/adapters (hexagon inversion).                                                         | ArchUnit `onionArchitecture()` / `layeredArchitecture()` + `slices().matching("..domain.(*)..").should().beFreeOfCycles()`.                                   |
+| Calls `Instant.now()` / `LocalDateTime.now()` in business logic instead of injected `Clock`.                         | ArchUnit `noClasses().that().resideInAPackage("..domain..").should().callMethod(Instant.class, "now")` and the same for `LocalDateTime`.                      |
+| Puts `LocalDateTime`/`java.util.Date` in API DTOs.                                                                   | ArchUnit dependency rule scoped to `..adapter.inbound.dto..`; plus `@JsonFormat` only on `OffsetDateTime`.                                                    |
+| Leaves a `@Mapper` field unmapped (manual mapping creep).                                                            | MapStruct `unmappedTargetPolicy = ReportingPolicy.ERROR` fails compilation.                                                                                   |
+| Omits `-proc:full`; JDK 21+ emits an annotation-processing warning that `-Werror` turns into a failure.              | Step 3 exits non-zero until `-proc:full` is present (do not "fix" by removing `-Werror`).                                                                     |
+| Invokes `google-java-format` directly; JDK 16+ throws `IllegalAccessError` without `--add-exports jdk.compiler/...`. | Always run through Spotless (`spotlessCheck`); ban raw GJF in scripts.                                                                                        |
+| Uses gitleaks `detect` / `protect` (deprecated in 8.19).                                                             | CI script asserts `gitleaks git` / `gitleaks dir`; old subcommands are hidden and unsupported.                                                                |
+| Uses PMD's pre-7 CLI (`pmd -d src -R ...`).                                                                          | Run `./gradlew pmdMain`; PMD 7 uses the unified `pmd check` subcommand.                                                                                       |
+| Enables `--enable-preview` in the release build (bytecode/runtime mismatch).                                         | Compile the preview code in a separate source set only; `javap -verbose` minor version must be 69 (Java 25), not 65535.                                       |
 
 ## Evidence to Record
 
 Paste each row into the task's Verification Evidence block verbatim.
 
-| Command | Expected result | Exit code |
-| --- | --- | --- |
-| `./gradlew --version` | `Gradle 9.7.1`, `Launcher JVM: 25` | 0 |
-| `./gradlew spotlessCheck` | `BUILD SUCCESSFUL`, 0 reformatted files | 0 |
-| `./gradlew compileJava compileTestJava` | `BUILD SUCCESSFUL`, no `error:`/`warning:` lines | 0 |
-| `./gradlew test --tests '*ArchitectureTest'` | all ArchUnit rules pass; count of rules > 0 | 0 |
-| `./gradlew checkstyleMain pmdMain spotbugsMain` | `BUILD SUCCESSFUL`, 0 violations | 0 |
-| `./gradlew jacocoTestCoverageVerification` | `BUILD SUCCESSFUL` (line ≥ 0.80, branch ≥ 0.70) | 0 |
-| `./gradlew pitest` | mutation score ≥ 70%, no "no mutations found" | 0 |
-| `./gradlew flywayValidate` | `Successfully validated N migrations` | 0 |
-| `gitleaks git --redact --exit-code 1` | `no leaks found` | 0 |
-| `osv-scanner scan source --licenses -r .` | `No issues found` | 0 |
-| `curl --fail .../actuator/health/readiness` | `{"status":"UP"}` | 0 |
-| `git diff --exit-code gradle/verification-metadata.xml gradle.lockfile` | no diff after `--write-locks` | 0 |
+| Command                                                                 | Expected result                                  | Exit code |
+| ----------------------------------------------------------------------- | ------------------------------------------------ | --------- |
+| `./gradlew --version`                                                   | `Gradle 9.7.1`, `Launcher JVM: 25`               | 0         |
+| `./gradlew spotlessCheck`                                               | `BUILD SUCCESSFUL`, 0 reformatted files          | 0         |
+| `./gradlew compileJava compileTestJava`                                 | `BUILD SUCCESSFUL`, no `error:`/`warning:` lines | 0         |
+| `./gradlew test --tests '*ArchitectureTest'`                            | all ArchUnit rules pass; count of rules > 0      | 0         |
+| `./gradlew checkstyleMain pmdMain spotbugsMain`                         | `BUILD SUCCESSFUL`, 0 violations                 | 0         |
+| `./gradlew jacocoTestCoverageVerification`                              | `BUILD SUCCESSFUL` (line ≥ 0.80, branch ≥ 0.70)  | 0         |
+| `./gradlew pitest`                                                      | mutation score ≥ 70%, no "no mutations found"    | 0         |
+| `./gradlew flywayValidate`                                              | `Successfully validated N migrations`            | 0         |
+| `gitleaks git --redact --exit-code 1`                                   | `no leaks found`                                 | 0         |
+| `osv-scanner scan source --licenses -r .`                               | `No issues found`                                | 0         |
+| `curl --fail .../actuator/health/readiness`                             | `{"status":"UP"}`                                | 0         |
+| `git diff --exit-code gradle/verification-metadata.xml gradle.lockfile` | no diff after `--write-locks`                    | 0         |
 
 ## Archived / Deprecated / Superseded in 2026 — never recommend
 
-- **gitleaks** — author declares the project *feature complete*; future releases are
+- **gitleaks** — author declares the project _feature complete_; future releases are
   **security patches only**, and focus has shifted to **Betterleaks**. Keep 8.30.1 pinned for now,
   but track Betterleaks as the successor.
 - **OWASP Dependency-Check** — not archived, but rejected as the primary SCA gate: since 9.0.0 it
@@ -376,6 +375,7 @@ Paste each row into the task's Verification Evidence block verbatim.
 - **maven-pmd-plugin 3.28.0** defaults to PMD 7.17.0 — override `<pmdVersion>7.27.0</pmdVersion>`.
 
 <!-- sources -->
+
 - https://repo1.maven.org/maven2/org/springframework/boot/spring-boot-starter-parent/maven-metadata.xml
 - https://central.sonatype.com/api/internal/browse/component/versions?filter=namespace%3Aorg.springframework.boot%2Cname%3Aspring-boot-starter-parent
 - https://search.maven.org/solrsearch/select?q=g:org.springframework.boot+AND+a:spring-boot-starter-parent

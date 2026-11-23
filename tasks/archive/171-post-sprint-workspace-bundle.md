@@ -24,11 +24,13 @@ Unified execution of 2 related small tasks as a single META task to eliminate se
 **Bundle Decision (2026-08-21):** Manager requested fully automatic bundling with archive (not purge). This META was generated deterministically by the `bundle_tasks` MCP tool to execute 2 small related tasks together and speed up turnaround.
 
 **Traceability:**
+
 - Supersedes [169, 170] — see per-source verbatim blocks below
 - Archive: each source moved via `git mv` to `tasks/archive/` with `**Superseded-By:** 171-post-sprint-workspace-bundle` header + superseded footer
 - Rollback: `git mv tasks/archive/<id>-*.md tasks/backlog/` + delete META file
 
 **Guardrails Applied:**
+
 - Cap 6 per bundle — this bundle has 2 (✅ within cap)
 - Verbatim preservation — every source Goal/AC/TODO/Risk copied verbatim below (SHA comparison available in bundler dry-run)
 - Diff-size check — combined 10984 LOC (⚠️ exceeds 400 — consider split)
@@ -113,7 +115,6 @@ Clean up the MCP server layout into locked uv projects with a shared common lib 
 - **Rollback plan:** Keep server code untouched in shape (only loader import source changes); revert opencode.json commands to plain `uv run <path>`; per-server locks are additive files.
 
 ---
-
 
 ## Bundled Checklist (All-or-Nothing)
 
@@ -219,5 +220,6 @@ _(The Hands: Manually log your technical changes, file edits, and architectural 
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `a37c3cb96c6f76498bf392b7914d4e910a201f72`
 <!-- END_GIT_DIFF -->

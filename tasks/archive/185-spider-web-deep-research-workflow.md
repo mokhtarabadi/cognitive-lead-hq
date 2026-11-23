@@ -59,6 +59,7 @@ Task 186 had already built the spider-search base (steps 1–6 + loop rules) on 
 Researched convergence + credibility patterns (tianpan.co deep-research convergence analysis, 2026-04-12: information-gain thresholds, query saturation, coverage checklists, budget backstops, multi-source corroboration, source-type weighting, contradiction flagging). Ran the workflow itself to find them (plan → parallel sweeps → focused fetch).
 
 Changes to `skill-templates/blowsh/SKILL.md`:
+
 1. Step 6 extended with corroboration rules (2+ independent sources to establish a claim, primary-over-secondary weighting, explicit contradiction flagging).
 2. New step 7: ranked-options synthesis (evidence + citation numbers, trade-offs, strong/medium/weak confidence grades, exactly one recommended winner).
 3. Loop rules: explicit saturation stop-conditions (under ~10% novel facts per round, semantically repeated queries, all sub-questions answered); budget caps demoted to backstop.
@@ -68,5 +69,6 @@ Synced to global skills (SYNC_OK). CHANGELOG Unreleased entry added. No `.py`, p
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `4f5f3ead2bb73722ef6a1eefeef78f463f991157`
 <!-- END_GIT_DIFF -->

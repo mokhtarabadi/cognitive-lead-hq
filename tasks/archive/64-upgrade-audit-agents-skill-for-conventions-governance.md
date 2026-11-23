@@ -29,6 +29,7 @@ Upgrade `skill-templates/audit-agents/SKILL.md` to auto-generate and audit `docs
 The `audit-agents` skill is the central enforcement mechanism for project conventions. Now that `docs/conventions.md` contains the Universal DateTime Standard and SOLID Programming Guidelines (added in task 63), the `audit-agents` skill must be upgraded to generate, audit, and patch this file automatically.
 
 Key changes:
+
 1. **Target Audit Criteria** — Added `docs/conventions.md` path requirement and conventions content compliance checklist (DateTime rules + SOLID guidelines) to both Mode 1 and Mode 2 criteria blocks.
 2. **Mode 1 (Phase 0 Generation)** — Added a complete `docs/conventions.md` template as the 3rd core document template. The workflow now generates both `AGENTS.md` and `docs/conventions.md` on new project onboarding.
 3. **Mode 2 (Audit Mode)** — Extended to check `docs/conventions.md` alongside `AGENTS.md`. The Resolution Protocol now patches conventions.md if missing or incomplete using the template.
@@ -42,5 +43,6 @@ Key changes:
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `aec83323c9b092e72fc1ee125476e6f60adfb26a`
 <!-- END_GIT_DIFF -->

@@ -71,7 +71,7 @@ Implement the F5 fix from Task 87: replace blind `git add -A .` / `git add -A ta
 
 ### Architectural reasoning
 
-- **The staging contract shifted from "stage everything, then unstage sensitive" to "stage exactly what the agent declares".** This inverts the trust model: git-wide staging trusted the executor's environment; path-scoped staging trusts the executor's *self-reporting*, which is exactly what the Brain's review loop verifies (QA/Code Reviewer read the diff table — an empty table is a visible failure, not silent contamination).
+- **The staging contract shifted from "stage everything, then unstage sensitive" to "stage exactly what the agent declares".** This inverts the trust model: git-wide staging trusted the executor's environment; path-scoped staging trusts the executor's _self-reporting_, which is exactly what the Brain's review loop verifies (QA/Code Reviewer read the diff table — an empty table is a visible failure, not silent contamination).
 - **Default `= []` (not required param):** a missing argument produces a tool success with an empty diff table rather than a pydantic error — this matches the Orchestrator's reminder semantics ("the diff table will be empty and your work will be lost") and keeps trivial tasks (docs-only) functioning while forcing honest reporting for code tasks.
 - **Why the test passes `["feature.py"]`:** the regression test's purpose (gitignore no longer blocks staging; code change lands in the diff) is preserved by declaring the file it "modified".
 - **Remaining known risk (documented, not fixed here):** `stage_and_inject_diff` still injects the diff AFTER staging the task file, so the task file itself is committed in its pre-diff state by the feature commit and re-staged by `commit_and_clean_task` step 4 — the two-commit flow is unchanged and stays reachable.
@@ -85,5 +85,6 @@ Implement the F5 fix from Task 87: replace blind `git add -A .` / `git add -A ta
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `0eb5eebe90d314516e21a5c6f6da9a0fa0921c12`
 <!-- END_GIT_DIFF -->

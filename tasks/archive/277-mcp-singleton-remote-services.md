@@ -75,6 +75,7 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 ## Execution Log & Reasoning
 
 ### 2026-09-29 — Phase 1 planning (Brain-approved plan recorded)
+
 - Seat Check: Architect (trigger word `migration`); Designer/Programmer skipped with reasons. Single-seat valid.
 - `Brainstorm: not required — single-domain reversible infra change` (Brain concurred).
 - Discovery: 4 parallel subagents FAILED (free-tier provider restriction); ran inline instead (shell probes + signature greps). One discovery round only, per gate bound.
@@ -92,6 +93,7 @@ _(Git diff will be automatically injected here by the MCP tool. Do not edit this
 <!-- END_GIT_DIFF -->
 
 ### 2026-09-29 — Phase 4 blowsh DONE (native HTTP in own repo)
+
 - blowsh-mcp (`../blowsh-mcp`, task 10): `createServer()` factory + express stateless streamable-HTTP (`MCP_TRANSPORT=http`, default 127.0.0.1:8107); `npm run build` exit 0; Docker rebuild exit 0; container smoke health/initialize/tools-list 200.
 - Learning: container must bind `MCP_HOST=0.0.0.0`, host publish locked `-p 127.0.0.1:8107:8107`; recorded in blowsh README + Dockerfile EXPOSE.
 - Persistent `blowsh-singleton` up (restart unless-stopped, named volume); HQ `mcp.blowsh` cut to remote (backup `opencode.json.bak-20260929-081116`).

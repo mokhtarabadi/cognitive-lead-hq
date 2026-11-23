@@ -22,11 +22,13 @@ Unified execution of 2 related small tasks as a single META task to eliminate se
 **Bundle Decision (2026-08-21):** Manager requested fully automatic bundling with archive (not purge). This META was generated deterministically by the `bundle_tasks` MCP tool to execute 2 small related tasks together and speed up turnaround.
 
 **Traceability:**
+
 - Supersedes [277, 278] — see per-source verbatim blocks below
 - Archive: each source moved via `git mv` to `tasks/archive/` with `**Superseded-By:** 279-mcp-singleton-rollout` header + superseded footer
 - Rollback: `git mv tasks/archive/<id>-*.md tasks/backlog/` + delete META file
 
 **Guardrails Applied:**
+
 - Cap 6 per bundle — this bundle has 2 (✅ within cap)
 - Verbatim preservation — every source Goal/AC/TODO/Risk copied verbatim below (SHA comparison available in bundler dry-run)
 - Diff-size check — combined 190 LOC (✅ within 400)
@@ -101,7 +103,6 @@ _(No Local TODOs)_
 - **Rollback plan:** config backups before any upgrade; docs are git-diffable, revert per file; mark macOS/Windows files untested-on-Linux in docs
 
 ---
-
 
 ## Bundled Checklist (All-or-Nothing)
 
@@ -215,6 +216,7 @@ _(No Local TODOs)_
 ### Autopilot round (2026-09-29, Manager order "autopilot, everything handled inside task")
 
 Autopilot LOCKED for task 279 in this turn (recorded here per protocol). ZAC holds: no commits, no closure — file stays in `tasks/qa/`.
+
 - Q1 closed: `opencode mcp list` run from 4 cwd contexts (repo, /tmp ×2, $HOME) — 7/7 connected every time, exit 0. (One transient "No MCP servers configured" observed on first cold runs from /tmp and $HOME; all subsequent runs 7/7 — server-wake race, not config. Cross-session sharing stands: PIDs predate this session yet serve it.)
 - A5 rollback-command test: `diff` live config vs `opencode.json.bak-279-verify-*` → IDENTICAL; ran the exact restore command (`cp bak → opencode.json`, exit 0) + `opencode mcp list` after → 7/7 connected. Restore mechanism proven live with zero state change. Full stdio-revert path stays documented-only (live-revert would kill this session's servers).
 - A7 migration end-state: live global config is 7/7 `type: remote` loopback URLs (verified key-by-key) — the migrated end-state, achieved; workflow section + BROWSH_PROFILE_DIR live-match already recorded. No stdio setup remains to dry-run against.
@@ -278,6 +280,7 @@ Boxes checked on live evidence now: A1, A2, A3, A4, A8, A10 (both checklist copi
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `45f703b16334127f26177663c47c220864f20eba`
 <!-- END_GIT_DIFF -->
 
@@ -302,7 +305,6 @@ Manager order: "fix them and re-qa". Scope: everything fixable without the
 
 second host / destructive window. M1-M4 live proofs stay parked for O3.
 
-
 ### F6/V1 FIXED — client-visible project_root fallback banner
 
 - Root cause accepted: omitted project_root fell back to server cwd with a
@@ -315,7 +317,8 @@ second host / destructive window. M1-M4 live proofs stay parked for O3.
   lint 4, decision 6). When fallback fires during a call, str results get a
   `WARNING [project-isolation]` first line; decision's dict tool gets an
   additive `project_root_warning` key; the single list tool passes through
-  + stderr (documented residual). No absolute paths echoed (P7 privacy).
+  - stderr (documented residual). No absolute paths echoed (P7 privacy).
+
 - Decision nuance: flag fires only on the cwd/install-root fallthrough, NOT
   when the B1-approved DECISION_REPO_PATH personal repo serves (verified:
   repo .env sets it, so configured installs stay banner-free by design).
@@ -329,7 +332,6 @@ second host / destructive window. M1-M4 live proofs stay parked for O3.
   unset; explicit `stdio` still works. Safe: all 7 singletons are consumed
   as remote URLs (global opencode.json verified), all units pin TRANSPORT.
 
-
 - Telegram correction: telegram-mcp runner accepts ONLY stdio|http|sse
   (runner.py VALID_TRANSPORTS; invalid value = sys.exit(1)). The systemd
   `MCP_TRANSPORT=http` was already correct; the launchd plist wrongly said
@@ -337,7 +339,7 @@ second host / destructive window. M1-M4 live proofs stay parked for O3.
   pass briefly flipped the systemd unit the wrong way and reverted it
   (unit file back to `http`, verified via git diff).
 - Windows template comment now documents: HQ servers need no env (default
-  + hardcoded loopback), telegram MUST have system-level MCP_TRANSPORT=http.
+  - hardcoded loopback), telegram MUST have system-level MCP_TRANSPORT=http.
 
 ### F7 evidence embedded (reviewer attachment budget proof)
 
@@ -346,9 +348,9 @@ second host / destructive window. M1-M4 live proofs stay parked for O3.
   memory 76234db7, telegram 25f43b24 (full hashes in shell history 2026-09-29).
 - Brain plist ProgramArguments (verbatim):
 
-
   `{HOME}/.config/opencode/mcp-brain-bridge/.venv/bin/python`,
   `{HOME}/.config/opencode/mcp-brain-bridge/server.py`.
+
 - Telegram plist ProgramArguments (verbatim):
   `{HOME}/.config/opencode/mcp-telegram-server/.venv/bin/python`,
   `{HOME}/.config/opencode/mcp-telegram-server/main.py`,
@@ -363,8 +365,6 @@ second host / destructive window. M1-M4 live proofs stay parked for O3.
   store_memory and build_memory_index); concurrent writers cannot tear
   files (last-writer-wins per file). Cross-session locking remains
   unproven -> residual for O3 window.
-
-
 
 ### Still parked for O3 window (NOT fixed here)
 

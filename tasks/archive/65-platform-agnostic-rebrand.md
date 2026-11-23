@@ -12,13 +12,13 @@ Remove all hardcoded references to "AI Studio" and "Gemini" across the project s
 
 ### Replacements (2 patterns)
 
-| Old | New |
-|---|---|
-| `Google AI Studio` | `the Orchestrator platform` |
-| `AI Studio` (standalone) | `the Brain` or `the Orchestrator` (use judgment per context) |
-| `(powered by Gemini)` | remove entirely |
-| `Gemini` (as model name) | `the AI model` or contextual equivalent |
-| "upload to AI Studio" / "send to AI Studio" | "send to the Orchestrator (Brain)" |
+| Old                                         | New                                                          |
+| ------------------------------------------- | ------------------------------------------------------------ |
+| `Google AI Studio`                          | `the Orchestrator platform`                                  |
+| `AI Studio` (standalone)                    | `the Brain` or `the Orchestrator` (use judgment per context) |
+| `(powered by Gemini)`                       | remove entirely                                              |
+| `Gemini` (as model name)                    | `the AI model` or contextual equivalent                      |
+| "upload to AI Studio" / "send to AI Studio" | "send to the Orchestrator (Brain)"                           |
 
 ### Files to Modify
 
@@ -118,5 +118,6 @@ Remove all hardcoded references to "AI Studio" and "Gemini" across the project s
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `cd0f86b7d8a790cb10ffe5ed116e6133ca2e3339`
 <!-- END_GIT_DIFF -->

@@ -61,26 +61,31 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 ## Manager Decisions
 
 `**[2026-08-31] [D1] [ORCHESTRATOR-DETECTED]:** Spec-First State Gate Preceding Implementation`
+
 - **Rationale:** Enforcing that tasks introducing architectural changes or schema mutations must have verified spec artifacts (ADR, PRD, Contract, Data Model) before code implementation prevents architectural debt and ensures compliance.
 - **Alternatives considered:** Relying solely on human review or prose guidelines without automated daemon enforcement.
 - **Impact:** Automatically halts un-specified code generation; persists auditable spec artifact links in SQLite state.
 
-`**[2026-08-31] [D2] [EXECUTION-DETECTED]:** Inert-by-default gate — `spec_gate.rules` defaults to `[]` with `_default_spec_rules()` as the opt-in wiring helper`
+`**[2026-08-31] [D2] [EXECUTION-DETECTED]:** Inert-by-default gate — `spec_gate.rules`defaults to`[]`with`_default_spec_rules()` as the opt-in wiring helper`
+
 - **Rationale:** The LE-8 spec mandates `SpecGateConfig.rules = []` as the default; empty rules plus `validate_artifacts([]) → passed=True` guarantee zero behavioral change for existing engines/configs until a Manager explicitly configures rules, avoiding surprise crashes and breaking pre-existing tests.
 - **Alternatives considered:** Having `rules` default to `_default_spec_rules()` — this would fire the gate on every architectural task out of the box (including this repo's own task files) without Manager opt-in.
 - **Impact:** Existing pipelines stay green (247/247); adoption is opt-in via JSONC `spec_gate.rules` or explicit `SpecGateConfig(rules=_default_spec_rules())`.
 
 `**[2026-08-31] [D3] [EXECUTION-DETECTED]:** Gate position is step 2.5 — after Plan Approval, before `IMPLEMENTING`/preflight`
+
 - **Rationale:** Enforces spec-first ordering: the approved plan (which carries architectural/contract keywords) is available at that point, and crashing there prevents any executor/toolchain cost.
 - **Alternatives considered:** Running the gate at Brainstorm/Planning entry (the plan may not exist yet) or after implementation (defeats the fail-fast purpose).
 - **Impact:** Un-specified tasks never reach `IMPLEMENTING`; crash lands with `qa_feedback` report for audit.
 
-`**[2026-08-31] [D4] [EXECUTION-DETECTED]:** ADR rule requires `adr` with `docs/adr/**` targets only`
+`**[2026-08-31] [D4] [EXECUTION-DETECTED]:** ADR rule requires `adr`with`docs/adr/**` targets only`
+
 - **Rationale:** Dropped the initial `PRD` artifact from the architecture-decision rule so the default rule strictly matches the LE-8 spec line (ADR), avoiding an unexpected second required artifact for architecture tasks.
 - **Alternatives considered:** Keeping PRD as a co-requisite — over-broadens the default; PRD is not in the LE-8 rule line.
 - **Impact:** Default rule-shape test asserts `[SpecArtifactType.ADR]`; architecture tasks need only an ADR/architecture doc.
 
-`**[2026-08-31] [D5] [EXECUTION-DETECTED]:** Diff-scanning supported in `validate_artifacts` but the state-gate call passes `diff_text=""``
+`**[2026-08-31] [D5] [EXECUTION-DETECTED]:** Diff-scanning supported in `validate_artifacts`but the state-gate call passes`diff_text=""``
+
 - **Rationale:** At gate time (pre-implementation) the staged diff does not yet exist; the workspace scan is the honest enforcement source. Diff-path scanning remains a deterministic capability for linters/tooling and future post-implementation spec checks.
 - **Alternatives considered:** Calling the gate again post-execution with the real diff — out of scope and would defeat the fail-fast property.
 - **Impact:** `validate_artifacts` is generic; the daemon passes an empty diff, so the gate only accepts artifacts already present in the workspace (e.g., pre-committed specs).
@@ -123,5 +128,6 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `c61280a420f60cc8558b6739de4bce96c34a445a`
 <!-- END_GIT_DIFF -->

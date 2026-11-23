@@ -105,4 +105,3 @@ No HQ code beyond the bundler is affected. If META already reached `tasks/comple
 - **Registry:** `prompts/fragments/07-agent_skills_registry.md` lists `kanban-lifecycle`
 
 ---
-

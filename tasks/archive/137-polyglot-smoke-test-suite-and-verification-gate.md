@@ -88,26 +88,31 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 ## Manager Decisions
 
 **[2026-08-31] [D1] [ORCHESTRATOR-DETECTED]:** Comprehensive Multi-Stack E2E Smoke Test Gate
+
 - **Rationale:** Certifies Phase A architecture end-to-end across all 5 stack profiles, proving both happy-path progression to CLOSED and hard fail-fast gates under negative scenarios before unlocking Phase B.
 - **Alternatives considered:** Relying solely on isolated unit tests without integrated daemon lifecycle verification.
 - **Impact:** Hard verification gate preventing regressions in multi-stack ingestion, toolchain verification, and retry recovery.
 
 **[2026-08-31] [D2] [ORCHESTRATOR-DETECTED]:** Hermetic Workspace Sandboxing
+
 - **Rationale:** Every smoke test anchors the full real component stack (StateMachine, LLMRouter, QAEngine, HandsExecutor, ApprovalGateway, LoopEngineDaemon) to an isolated `tmp_path` workspace (stacks/, tasks/, loop-engine/{evidence,state}/, dummy AGENTS.md/system-prompt/conventions/loop-engine.jsonc) and patches `daemon.REPO_ROOT` per test so detection, preflight, toolchain, and evidence writes never touch the real repository.
 - **Alternatives considered:** Running against the live repo (would pollute state/evidence dirs and be order-dependent).
 - **Impact:** Deterministic, parallel-safe, zero repository side effects; the real pipeline code is exercised end-to-end.
 
 **[2026-08-31] [D3] [ORCHESTRATOR-DETECTED]:** Deterministic Toolchain Sandbox Commands
+
 - **Rationale:** Workspace stack YAMLs mirror repo defaults (detection markers/extensions/keywords, skills, model_preferences) but their preflight/toolchain commands are sandboxed to portable no-ops (`true`/`false`, fail-first marker files) so the gate passes on any CI machine without installed toolchains, while the real `PreflightRunner`/`ToolchainRunner` subprocess machinery is exercised.
 - **Alternatives considered:** Invoking real `node`/`go`/`gradlew`/`pytest` (non-portable, slow, flaky in CI).
 - **Impact:** Fast deterministic gate; real subprocess creation/timeout/evidence code paths still verified.
 
 **[2026-08-31] [D4] [ORCHESTRATOR-DETECTED]:** Scripted I/O Seams at the Process Boundary
+
 - **Rationale:** Real LLMRouter/HandsExecutor/ApprovalGateway classes run their genuine logic (prompt building, stack-context injection, semaphore, retry driver); only external I/O boundaries are scripted: `call_llm` returns deterministic per-stage responses, `_run_once` simulates the Hands agent writing the diff block, `request_approval` auto-approves. This keeps the pipeline logic under test without network/token cost.
 - **Alternatives considered:** Full mock components (would bypass the code paths being certified).
 - **Impact:** Exercises real orchestration (detection→plan→approval→preflight→execute→toolchain→QA→review→closure→retry) with deterministic outcomes.
 
 **[2026-08-31] [D5] [ORCHESTRATOR-DETECTED]:** Hard-Gate Coverage Matrix
+
 - **Rationale:** 12 mandated tests + 4 supplementary (plan-rejection → backlog, review-rejection → crashed, QA-feedback retry recovery, daemon boot-scan pending-trigger registration) = 16 new tests pushing the suite from 163 to ≥ 178, each asserting a distinct pipeline decision point.
 - **Alternatives considered:** Testing only happy paths (would miss fail-fast certification required by Phase A).
 - **Impact:** Every failure mode that can crash a task before/after QA is locked by a regression test.
@@ -137,5 +142,6 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `801fe87be7d10aaa6c34bf0c7cb25c326e661146`
 <!-- END_GIT_DIFF -->

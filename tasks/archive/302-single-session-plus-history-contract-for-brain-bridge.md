@@ -21,10 +21,12 @@ Brainstorm C3 must-task from self-judgment task 299: session roots plus session 
 ## Scope
 
 In scope:
+
 - `mcp-brain-bridge/server.py` session resolvers, `session_ledger.py`, `loop_guard.py` resolvers, 40-message bound with markers
 - Contract spec plus negative tests for bare task id, ambient bind, explicit bind
 
 Out of scope:
+
 - XML gate, attach signaling, parity matrix (separate tasks)
 - External repos untouched
 - No git add/commit/push by Hands (ZAC holds)

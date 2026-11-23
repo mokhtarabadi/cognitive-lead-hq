@@ -86,7 +86,8 @@ Created by Project Planner / Senior Programmer per Manager directive.
 **Brain planning turns:** 2 (cap reached). Turn 1 returned a discovery task because the cached tree predated `mcp-planner-server/`. Discovery ran read-only through two parallel `cognitive-discovery` subagents plus `custom_context` tree/signature/graph calls, and was fed back as `[fed-context]` with file:line anchors. Turn 2 returned the grounded plan below (verdict: plan ready, no XML until approval).
 
 **Plan (Brain-approved, awaiting admin approval):**
-1. `server.py` — new `_safe_task_path()` containment guard plus `GET /api/task` handler beside `_api_status` (1348-1361), registered in the route list (1549-1562). Supports `?id=` and `?path=`, `id` wins, neither → 400. Reuses `TASK_ID_RE` (133), `_find_task_by_id` (278, int-normalized), `_resolve_dashboard_root` (1213), `_auth_from_request` (1173), `AuthState.project_allowed` (1102). Status mapping: 400 missing param, 401 unauthenticated, 403 forbidden *and* traversal (no 404 oracle), 404 unknown id/file, 500 on unexpected error (not the blanket 200 of 1400-1401). 200 shape `{id,path,lane,title,markdown}` with `markdown` = raw text kept by `_parse_task_file` (136,168).
+
+1. `server.py` — new `_safe_task_path()` containment guard plus `GET /api/task` handler beside `_api_status` (1348-1361), registered in the route list (1549-1562). Supports `?id=` and `?path=`, `id` wins, neither → 400. Reuses `TASK_ID_RE` (133), `_find_task_by_id` (278, int-normalized), `_resolve_dashboard_root` (1213), `_auth_from_request` (1173), `AuthState.project_allowed` (1102). Status mapping: 400 missing param, 401 unauthenticated, 403 forbidden _and_ traversal (no 404 oracle), 404 unknown id/file, 500 on unexpected error (not the blanket 200 of 1400-1401). 200 shape `{id,path,lane,title,markdown}` with `markdown` = raw text kept by `_parse_task_file` (136,168).
 2. `static/index.html` — lane CSS `#lanes-grid .card.lane {max-height:calc(100vh - 280px); overflow-y:auto}` plus sticky `h3` header; new `.lane-list` wrapper since rows are currently inline-styled with no class (319).
 3. Archive drawer collapsed by default with `Archive (N)` toggle, `aria-expanded`, `localStorage` memory.
 4. Search input `#board-search` above the grid, client-only case-insensitive match on id/name/title, `query` kept outside `render()` because the grid is rebuilt on every fetch (309) and every 30 s (519).
@@ -118,28 +119,29 @@ Created by Project Planner / Senior Programmer per Manager directive.
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
-```diff
+
+````diff
 diff --git a/CHANGELOG.md b/CHANGELOG.md
 index 74e779a..b48b44e 100644
 --- a/CHANGELOG.md
 +++ b/CHANGELOG.md
 @@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
- 
+
  ### Added
- 
+
 +- **`DESIGN.md` — Graphite Desk, one contract for both UIs:** the repo had no design system, so the Planner dashboard carried scattered slate/cyan tokens with mixed radii and the Prompt Composer was raw Tailwind defaults with six rainbow preset pills. The Manager reviewed four proposals and chose **A · Graphite Desk**: near-black slate surfaces (`#0b0e14` / `#141a23` / `#1b2430`), hairline borders `#263141`, one mint accent `#5eead4` with ink `#04211d`, four state colours, an 8px grid, a fixed 4/6/8/12 radius scale, Inter for UI and JetBrains Mono for ids/paths/diffs, and no shadows outside modals. The file also fixes component specs (buttons, lanes, tabs, inputs, preset chips, diff blocks, task modal), layout widths (1200 / 960), motion (120/180ms with reduced-motion honoured) and Stitch prompts. The Planner dashboard was re-skinned onto these tokens under task 339 — gradient gauge replaced, lane chips reduced to neutral plus semantic text, hard-coded greys removed — deployed byte-identical to `~/.config/opencode/mcp-planner-server/static/` and served live by `mcp-planner`. The Prompt Composer port is task 343 so it can drop the Tailwind CDN without touching this diff.
 +
  - **Planner dashboard overhaul and a guarded task reader (Task 339):** the board is usable with 330+ tasks on it. `GET /api/task?id=<id>` / `?path=tasks/<lane>/<file>.md` returns `{id, path, lane, title, markdown}` so the new full-screen modal can render a task's whole body — todos, acceptance criteria, and `## Factual Git Diff` — with `id` winning when both params arrive. The route is deliberately not a file-read primitive: the new `_safe_task_path` accepts exactly three segments, a lane from `TASK_LANES`, a `.md` suffix, and no absolute prefix, drive colon, backslash, or `..`/`.`, then resolves and re-checks containment inside the project root; authorization reuses `AuthState.project_allowed` and the `_api_status` fallback to a session's first allowed root. Status mapping is explicit — 400 missing param, 401 no session, 403 outside grants *and* unsafe path (never 404, so the route cannot confirm whether a file exists), 404 unknown id, 500 unexpected; the `_api_status` blanket `except → 200 {"error": …}` pattern is not copied. `_task_brief` now carries `path` so cards can deep-link. The dashboard (`static/index.html`, still zero external URLs) caps each lane at `calc(100vh - 280px)` with inner scrolling and a sticky header, collapses the Archive lane behind an `Archive (N)` toggle remembered in `localStorage`, adds a client-only search input filtering by id/name/title, and opens the task modal through one delegated listener on the grid so the 30 s poll cannot drop the binding. The Markdown renderer is inline and self-contained: source is HTML-escaped first, then fences, headings, lists, task checkboxes, blockquotes, tables, and inline emphasis are added, diffs get `--success`/`--danger` line colouring, rendering stops at 2000 lines, and links are limited to same-origin or in-page targets. Docs: component `README.md` route table plus `DECISIONS.md` ADR-007. Verified: 97/97 planner tests pass (17 new: by id, by path, int-normalized id, 404, 400, eight traversal shapes at 403, route registration, 401, cross-project viewer 403, traversal over HTTP, open mode), `py_compile` and a JS parse of the inline script are clean, deployed `server.py`/`README.md`/`DECISIONS.md`/`static/index.html` are byte-identical to the repo copies, and the live unit on `127.0.0.1:8108` serves the new dashboard markup while `/api/task` answers 401 without a session and 400 with no param.
- 
+
  - **Plugin references synced to the new tool set and evidence contract (Task 341):** a graph scan over this worktree (4,766 nodes, 6,788 links) plus targeted greps found four live documents lagging behind the two plugin releases. `agents/cognitive-executor.md` now carries `compact_stats` in the Smart Compact section and in the protocol contract (no inputs, read-only, same formatter as `/magic-stats`, never a poll), and states that every `goal_set` starts a fresh empty evidence sidecar while the legacy `.opencode/goal-evidence.json` is read only until the session owns its own, which is what stopped a finished goal's failing command from gating later ones. `docs/compaction.md` documents the stats tool under Agent-callable tools and the evidence reset in the goal-plugin section; `README.md`'s plugin lane carries both. `tests/test_prompt_sync.py` pins `compact_stats` so the executor cannot drift back, and the smart-compact policy memory shard lists the third tool plus the installed commit `2e702680`. Verified: prompt-sync tests exit 0, `lint_system_prompt_sync` consistent, `prettier --check` clean.
 @@ -41,6 +43,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
- 
+
  ### Changed
- 
+
 +- **Control payloads are never trimmed (executor rule only):** a Brain `hands_*`/`hotfix` block is read whole, never sliced for context. `agents/cognitive-executor.md` gains a *Code-mode output discipline* rule in the Brain Bridge call step — the `execute` runtime returns the `return` value verbatim, only its own `maxOutputBytes` may cut it, and a cut is signalled by `truncated: true`, so the Hands returns `{status, block_count, model}` and keeps the block whole instead of printing a prefix; a `truncated` flag means re-read the exact range. The rule deliberately stays out of `docs/opencode-shell-strategy.md`: that file governs non-interactive shell behaviour, and the trimming problem lives in tool calling and code mode, not in bash. Deployed to `~/.config/opencode/agents/cognitive-executor.md` byte-identical. Verified: 103 prompt/MCP tests pass.
 +
  - **Brain consolidated onto `muse-spark-1.3-contributor` at `xhigh`, with the API key rotated to OpenCode's live credential:** the operator moved every Brain tier onto the cheap Go model, so planning, implementation, QA, and review share one route and one preset. `BRAIN_MODEL`, `BRAIN_MODEL_LOW`, and `BRAIN_MODEL_HIGH` now all read `muse-spark-1.3-contributor` in both the repo `.env` and the effective global `~/.config/opencode/.env`; `BRAIN_API_BASE` stays on the zen-proxy `/go/resp` mount and `BRAIN_REASONING_EFFORT` stays `xhigh`. `.env.example`'s preset comment drops its now-false "current production setting" label from the balanced block, since production is the economy preset. The first smoke test failed `429 GoUsageLimitError` (monthly) on `muse-spark-1.3-contributor` and on `gpt-6-luna`, which was account-level, not routing: the `BRAIN_API_KEY` in both env files belonged to a drained Go workspace. OpenCode's live credential is **not** `~/.local/share/opencode/auth.json` (that copy answers `401 Invalid credential` on the same gateway, both through the proxy and direct); it lives in the opencode V2 store at `~/.local/share/opencode/opencode.db`, table `credential` (`integration_id: opencode-go`, `active = 1`, JSON value carrying `key`). That key was copied into `BRAIN_API_KEY` in both env files and `mcp-brain` restarted. Verified: `zen-proxy` and `mcp-brain` enabled/active, `/health` 200, `/go/resp/models` serves the id, a direct gateway probe returns 200, and a `brain_turn` smoke test answered `SMOKE_OK` with `model=muse-spark-1.3-contributor`, `status=completed`, `reasoning_tokens=2216` (xhigh in effect), 25,782 total tokens.
- 
+
  ### Fixed
 diff --git a/DESIGN.md b/DESIGN.md
 new file mode 100644
@@ -308,7 +310,7 @@ index 2ead5e1..0db36be 100644
 @@ -96,6 +96,36 @@ the server returns to open local mode with no code change. Full code rollback is
  - **Superseded in part:** the `/mcp` admin-session requirement only — see
  ADR-006 below. Session auth, scoping, and the CLI remain as decided here.
- 
+
 +## [2026-10-24] ADR-007: `GET /api/task` is a guarded, lane-confined read
 +
 +- **Context:** The dashboard needs to open a task's full Markdown (todos,
@@ -340,7 +342,7 @@ index 2ead5e1..0db36be 100644
 +  dashboard falls back to the brief-only lanes.
 +
  ## [2026-10-24] ADR-006: `/mcp` is auth-free on loopback; the edge is the gate
- 
+
  - **Context:** With auth enabled, the `/mcp` guard returned 401 to every
 diff --git a/mcp-planner-server/README.md b/mcp-planner-server/README.md
 index 295a4e0..7ca6fa1 100644
@@ -368,8 +370,8 @@ index ffcd985..e82de06 100644
          "status": task.get("status") or "open",
 @@ -1321,6 +1322,125 @@ def _task_brief(task: dict) -> dict:
      }
- 
- 
+
+
 +def _safe_task_path(root: Path, rel_path: str) -> Optional[Path]:
 +    """Resolve a lane-relative task Markdown path, or ``None`` when unsafe.
 +
@@ -495,7 +497,7 @@ index ffcd985..e82de06 100644
 @@ -1443,6 +1563,27 @@ def build_app():
              return JSONResponse(payload, status_code=403)
          return JSONResponse(payload)
- 
+
 +    async def api_task(request):
 +        auth = _auth_from_request(request)
 +        payload = _api_task(
@@ -643,7 +645,7 @@ index 6dc92fd..f1172bd 100644
 @@ -131,6 +203,17 @@
      </div>
    </div>
- 
+
 +  <div class="modal-overlay hidden" id="task-modal">
 +    <div class="modal task-modal">
 +      <div class="task-modal-head">
@@ -659,13 +661,13 @@ index 6dc92fd..f1172bd 100644
      <div class="card">
        <h3>Total Tasks</h3>
 @@ -171,6 +254,7 @@
- 
+
    <div class="section">
      <h2><span class="dot"></span> Kanban Lanes</h2>
 +    <input type="search" id="board-search" class="board-search" placeholder="Filter tasks by ID or title…" autocomplete="off" aria-label="Filter tasks by ID or title">
      <div class="grid" id="lanes-grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));"></div>
    </div>
- 
+
 @@ -189,6 +273,12 @@
  (function() {
    const BASE_STATUS_URL = window.location.pathname.endsWith('/') ? window.location.href + 'api/status' : window.location.origin + '/api/status';
@@ -690,20 +692,20 @@ index 6dc92fd..f1172bd 100644
 +    taskModalBody: document.getElementById('task-modal-body'),
 +    taskModalClose: document.getElementById('task-modal-close'),
    };
- 
+
    // Jalali (Solar Hijri) calendar conversion (algorithm by M. Amin)
 @@ -274,6 +370,7 @@
        elements.statusText.textContent = `Error: ${data.error}`;
        return;
      }
 +    lastData = data;
- 
+
      const total = data.total_tasks || 0;
      const inProgress = data.in_progress || 0;
 @@ -304,26 +401,45 @@
        currentProject = data.project_root || projects[0].path;
      }
- 
+
 -    // Lanes
 +    // Lanes: capped height + sticky header, collapsible Archive, live filter.
 +    // Only the lane's own task list scrolls; the header stays pinned by CSS.
@@ -754,13 +756,13 @@ index 6dc92fd..f1172bd 100644
 +        if (lastData) render(lastData);
 +      });
 +    }
- 
+
      // Milestone tree
      const tree = data.milestone_tree || {};
 @@ -388,6 +504,164 @@
      }
    }
- 
+
 +  // ---- Task detail modal (0339) -------------------------------------------
 +  // Zero external dependencies: the Markdown source is HTML-escaped first, so
 +  // every later step only injects a known-safe tag set (no CDN, no library).
@@ -936,8 +938,8 @@ index cc7e2dd..95c638f 100644
          assert "/static" in paths
 @@ -531,6 +532,147 @@ def test_build_app_serves_dashboard_and_mcp_routes(tmp_path):
      assert app.router.lifespan_context is not None
- 
- 
+
+
 +# ---------------------------------------------------------------------------
 +# Dashboard API contract (/api/task) — task detail modal payload
 +# ---------------------------------------------------------------------------
@@ -1082,5 +1084,6 @@ index cc7e2dd..95c638f 100644
  # ---------------------------------------------------------------------------
  # Auth: password hashing, user config, and session management
  # ---------------------------------------------------------------------------
-```
+````
+
 <!-- END_GIT_DIFF -->

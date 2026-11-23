@@ -15,18 +15,18 @@ System prompt refined across multiple versions (V6.7.0-V6.11.0) with the Executi
 
 ## Files Modified
 
-| File | Change |
-|---|---|
-| `system-prompt.md` | V6.7.0–V6.11.0 upgrades — Manager Profile, Coaching Protocol, Brainstorming Schema + Tradeoffs, CRITICAL RULE 4, Anti-Lazy Rule, SOLID Mandate, DateTime Rules |
-| `user-prompts/multi-agent-brainstorming.md` | Added `<tradeoffs>` and `<conflict_resolution>` XML blocks |
-| `AGENTS.md` | Added brainstorming guardrail directive |
-| `README.md` | Manager Profile section, Key V6.7 Changes, Quick Start simplified to `webfetch` |
-| `LLM.txt` | Full rewrite: clone-based global installer, uv install, absolute paths, both MCP servers |
-| `docs/conventions.md` | Added Universal DateTime Standard and SOLID Programming Guidelines |
-| `skill-templates/brainstorm-swarm/SKILL.md` | New brainstorming skill template |
-| `skill-templates/audit-agents/SKILL.md` | conventions.md governance criteria, template, audit logic, expanded summary |
-| All 12 `skill-templates/*/SKILL.md` | DateTime governance sections added per stack |
-| `CHANGELOG.md` | [6.7.0] through [6.11.0] and [Unreleased] entries |
+| File                                        | Change                                                                                                                                                         |
+| ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `system-prompt.md`                          | V6.7.0–V6.11.0 upgrades — Manager Profile, Coaching Protocol, Brainstorming Schema + Tradeoffs, CRITICAL RULE 4, Anti-Lazy Rule, SOLID Mandate, DateTime Rules |
+| `user-prompts/multi-agent-brainstorming.md` | Added `<tradeoffs>` and `<conflict_resolution>` XML blocks                                                                                                     |
+| `AGENTS.md`                                 | Added brainstorming guardrail directive                                                                                                                        |
+| `README.md`                                 | Manager Profile section, Key V6.7 Changes, Quick Start simplified to `webfetch`                                                                                |
+| `LLM.txt`                                   | Full rewrite: clone-based global installer, uv install, absolute paths, both MCP servers                                                                       |
+| `docs/conventions.md`                       | Added Universal DateTime Standard and SOLID Programming Guidelines                                                                                             |
+| `skill-templates/brainstorm-swarm/SKILL.md` | New brainstorming skill template                                                                                                                               |
+| `skill-templates/audit-agents/SKILL.md`     | conventions.md governance criteria, template, audit logic, expanded summary                                                                                    |
+| All 12 `skill-templates/*/SKILL.md`         | DateTime governance sections added per stack                                                                                                                   |
+| `CHANGELOG.md`                              | [6.7.0] through [6.11.0] and [Unreleased] entries                                                                                                              |
 
 ## Individual Task Summaries
 

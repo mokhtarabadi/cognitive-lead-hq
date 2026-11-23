@@ -63,6 +63,7 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 ### Research Phase
 
 Fetched and analyzed three production-grade agent system prompt references:
+
 1. **disler/fixing-smartass-opus-5** — Reference points (D1/F1/R1/Q1/A1), positive/negative communication patterns, hard operational boundaries, aliases
 2. **thepromptshelf.dev agentic-ai-best-practices-2026** — Single-responsibility agents, circuit breakers on tool loops ($0.50-$2 budget caps, 5+ tool call limit), reasoning drift prevention (re-anchor every N steps), coordinator-specialist pattern
 3. **zylos.ai prompt-engineering-ai-agent-systems** — Five-layer anatomy (identity, behavioral rules, typed tool APIs, safety layers, conditional sections), instruction hierarchy (system > user > tool output), context window management (compaction, structured notes, sub-agents), plan-execute-observe-repeat with bounded iterations
@@ -77,6 +78,7 @@ Fetched and analyzed three production-grade agent system prompt references:
 ### Changes Applied
 
 **agents/cognitive-executor.md (OpenCode):**
+
 - `steps: 100` → `steps: 512`
 - Added `## Communication Patterns` — reference points, positive/negative patterns
 - Added `## Execution Discipline` — plan-execute-observe pattern, circuit breakers, reasoning drift prevention
@@ -84,14 +86,17 @@ Fetched and analyzed three production-grade agent system prompt references:
 - Added `## Hard Operational Boundaries` — scope constraints
 
 **freebuff/agents/cognitive-executor.ts (Freebuff):**
+
 - Version bump `1.2.0` → `1.3.0`
 - Added identical best practices sections adapted for Freebuff runtime (escaped backticks, TypeScript string format)
 
 **agents/cognitive-discovery.md (OpenCode):**
+
 - Added `## Execution Discipline` — minimal footprint, evidence-based reporting, circuit breakers
 - Added `## Communication Patterns` — reference points, positive patterns
 
 **freebuff/agents/cognitive-discovery.ts (Freebuff):**
+
 - Version bump `1.2.0` → `1.3.0`
 - Added identical sections adapted for Freebuff runtime
 
@@ -102,5 +107,6 @@ All existing content (ZAC rules, MCP-first context, skill loading, Kanban lifecy
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `887a894230cde7ae73c2480895dddeb79fb20bca`
 <!-- END_GIT_DIFF -->

@@ -18,15 +18,15 @@ Refactor `LLM.txt` to execute a standalone, global auto-installation that clones
 
 - [x] **Step 1:** Create `tasks/backlog/62-refactor-global-auto-installation.md` with goal, notes, local TODOs, execution log placeholder, and git diff markers.
 - [x] **Step 2:** Refactor `LLM.txt` to execute a standalone, global auto-installation:
-    - Add step to check for `git` and `uv`. If `uv` is missing, prompt user for confirmation and run `curl -LsSf https://astral.sh/uv/install.sh | sh`.
-    - Add step to clone `https://github.com/mokhtarabadi/cognitive-lead-hq.git` to `/tmp/cognitive-lead-hq`.
-    - Add step to discover `$HOME` absolute path.
-    - Add step to create global directories (`~/.config/opencode/mcp-context-server/`, `~/.config/opencode/mcp-memory-server/`, `~/.config/opencode/skills/`).
-    - Add step to copy server scripts (`mcp-context-server/server.py` and `mcp-memory-server/server.py`) and make them executable.
-    - Add step to copy all skills from `skill-templates/*` into `~/.config/opencode/skills/`.
-    - Add step to create or update `~/.config/opencode/opencode.json` using absolute paths for `uv run /ABSOLUTE_PATH/...`.
-    - Add step to remove `/tmp/cognitive-lead-hq`.
-    - Update verification checklist and agent prompt at the bottom of `LLM.txt`.
+  - Add step to check for `git` and `uv`. If `uv` is missing, prompt user for confirmation and run `curl -LsSf https://astral.sh/uv/install.sh | sh`.
+  - Add step to clone `https://github.com/mokhtarabadi/cognitive-lead-hq.git` to `/tmp/cognitive-lead-hq`.
+  - Add step to discover `$HOME` absolute path.
+  - Add step to create global directories (`~/.config/opencode/mcp-context-server/`, `~/.config/opencode/mcp-memory-server/`, `~/.config/opencode/skills/`).
+  - Add step to copy server scripts (`mcp-context-server/server.py` and `mcp-memory-server/server.py`) and make them executable.
+  - Add step to copy all skills from `skill-templates/*` into `~/.config/opencode/skills/`.
+  - Add step to create or update `~/.config/opencode/opencode.json` using absolute paths for `uv run /ABSOLUTE_PATH/...`.
+  - Add step to remove `/tmp/cognitive-lead-hq`.
+  - Update verification checklist and agent prompt at the bottom of `LLM.txt`.
 - [x] **Step 3:** Refactor `README.md` Quick Start section to give a single, direct copy-paste prompt instructing OpenCode to use `webfetch` on `https://raw.githubusercontent.com/mokhtarabadi/cognitive-lead-hq/main/LLM.txt`.
 - [x] **Step 4:** Update `CHANGELOG.md` with a new entry logging the global installer overhaul.
 - [x] **Step 5:** Move task to `tasks/in-progress/`, write execution log, stage and inject diff.
@@ -53,5 +53,6 @@ The prior `LLM.txt` assumed the user had already cloned the repo and was running
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `556d3318789a137d4be97ac6ec9c5d469b1cef83`
 <!-- END_GIT_DIFF -->

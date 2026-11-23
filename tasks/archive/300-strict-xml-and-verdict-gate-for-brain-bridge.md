@@ -21,10 +21,12 @@ Brainstorm C1 must-task from self-judgment task 299: strictness wins because the
 ## Scope
 
 In scope:
+
 - `mcp-brain-bridge/server.py` XML extractor, fence repair, semantic validators, plan-verdict and closure validators
 - Explicit reject codes plus negative tests for malformed, unclosed, nested, and repaired XML
 
 Out of scope:
+
 - Hub decomposition, attach signaling, session contract (separate tasks)
 - External repos untouched
 - No git add/commit/push by Hands (ZAC holds)

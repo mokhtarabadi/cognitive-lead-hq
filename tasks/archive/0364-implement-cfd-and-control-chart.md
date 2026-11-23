@@ -63,6 +63,7 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 ## Execution Log & Reasoning
 
 Phase 1: CFD endpoint + view, control chart endpoint + view implemented. Citations:
+
 - `_api_cfd`, `_build_cfd_series`, `_cfd_lane`: mcp-planner-server/server.py
 - `_api_control_chart`: mcp-planner-server/server.py
 - Routes: /api/cfd, /api/control-chart
@@ -72,5 +73,6 @@ Phase 1: CFD endpoint + view, control chart endpoint + view implemented. Citatio
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `06bb72ca9abf5dd8f66c3302b93b0a5d18683ca6`
 <!-- END_GIT_DIFF -->

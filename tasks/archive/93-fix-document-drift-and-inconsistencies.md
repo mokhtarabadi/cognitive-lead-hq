@@ -76,7 +76,7 @@ Resolve all four F7 findings from Task 87: (F7a) sync the README structure tree 
 
 ### Known lint false positive (flagged for Reviewer/Orchestrator)
 
-- `lint_task_file` reports 1 issue on this file: "Unclosed code block detected". Root cause: the injected Factual Git Diff contains a diff CONTEXT line ` ``` ` (space + backticks — the README tree's fence, line 110) INSIDE the ```diff block (lines 80–164). The lint server's naive fence counter (`line.strip().startswith("```")`) cannot distinguish diff-content lines from real Markdown fences, so it mis-toggles and reports an unclosed block. The file is structurally valid; the injected diff is factual and MUST NOT be edited. This is a lint-server limitation (same family as Task 87 F3's noise-wall finding) — a follow-up should make `_check_markdown_basics` fence-aware (skip lines inside ```diff blocks).
+- `lint_task_file` reports 1 issue on this file: "Unclosed code block detected". Root cause: the injected Factual Git Diff contains a diff CONTEXT line ` ``` ` (space + backticks — the README tree's fence, line 110) INSIDE the ``diff block (lines 80–164). The lint server's naive fence counter (`line.strip().startswith("``")`) cannot distinguish diff-content lines from real Markdown fences, so it mis-toggles and reports an unclosed block. The file is structurally valid; the injected diff is factual and MUST NOT be edited. This is a lint-server limitation (same family as Task 87 F3's noise-wall finding) — a follow-up should make `_check_markdown_basics` fence-aware (skip lines inside ```diff blocks).
 
 ### QA transition (first live application of F7d)
 
@@ -85,5 +85,6 @@ Resolve all four F7 findings from Task 87: (F7a) sync the README structure tree 
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `11be5cc29554b8b00b306c890985860dfb537786`
 <!-- END_GIT_DIFF -->

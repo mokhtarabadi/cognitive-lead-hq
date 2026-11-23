@@ -61,26 +61,31 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 ## Manager Decisions
 
 **[2026-08-31] [D1] [ORCHESTRATOR-DETECTED]:** Stack Profile Architecture and Separation of Concerns
+
 - **Rationale:** Separated stack execution profiles from cognitive categories (quick/deep) to keep the daemon modular and extensible.
 - **Alternatives considered:** Embedding stack-specific toolchain logic directly into `router.py` or hardcoding runner commands in `daemon.py`.
 - **Impact:** Enables loop-engine to autonomously support polyglot monorepos and new tech stacks declaratively without modifying core daemon code.
 
 **[2026-08-31] [D2] [ORCHESTRATOR-DETECTED]:** Declarative YAML Schema for Stack Profiles
+
 - **Rationale:** Pydantic-validated YAML allows new stacks without code changes; supports both YAML and JSON with safe parsing via PyYAML or fallback.
 - **Alternatives considered:** JSONC-only, TOML, or hardcoded dict in daemon.py.
 - **Impact:** Single `stacks/` directory is source of truth; linting and test coverage for invalid schemas.
 
 **[2026-08-31] [D3] [ORCHESTRATOR-DETECTED]:** Two-Tier Stack Detection Precedence
+
 - **Rationale:** Explicit `**Stack:**` header gives deterministic override; workspace marker inference + keyword fallback enables auto-detection for untagged tasks.
 - **Alternatives considered:** File-content regex only, or relying solely on marker_files.
 - **Impact:** Deterministic precedence (header > marker_files/extensions > task_keywords > generic) testable and auditable.
 
 **[2026-08-31] [D4] [ORCHESTRATOR-DETECTED]:** Preflight Toolchain Validation Before Execution
+
 - **Rationale:** Running `preflight` commands with timeouts prevents wasted LLM execution when toolchain is broken; transitions to CRASHED with diagnostics.
 - **Alternatives considered:** Skipping preflight, or running toolchain validation inside executor prompt only.
 - **Impact:** Fast-fail safety; PreflightRunner returns structured PreflightResult(passed, errors).
 
 **[2026-08-31] [D5] [ORCHESTRATOR-DETECTED]:** Default Stack Fallback to Generic
+
 - **Rationale:** `default_stack: "generic"` guarantees every task resolves to a profile; generic has empty markers and safe no-op preflight.
 - **Alternatives considered:** Failing open or requiring explicit stack on every task.
 - **Impact:** No blocking for new/unknown stacks; generic profile is always present.
@@ -102,7 +107,7 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 
 **Step 3 — Declarative YAML profiles (`stacks/`):** Created repo-root `stacks/` with 5 YAML files: generic (fallback empty), node-ts (package.json/tsconfig, .ts/.tsx/.js, skills nextjs/react-vite, preflight node/pnpm, toolchain pnpm test), kotlin-android (gradle markers, .kt/.kts, android-kotlin, preflight java/gradlew, toolchain ./gradlew test), python-fastapi (pyproject/requirements, .py, python-fastapi skill, preflight python3/uv, toolchain pytest -q), go-gin (go.mod/.go, go-gin/go-hexagonal-grpc, preflight go version, toolchain go test ./...). Added `pyyaml>=6.0` to `loop-engine/pyproject.toml` for safe YAML parsing with JSON fallback.
 
-**Step 4 — Core engine (`loop-engine/stacks.py`):** Implemented `StackProfile` (wraps config, .name/.display_name/.skills/.preflight/.toolchain/.to_dict), `StackRegistry` (repo-root-aware stacks_dir resolution, _parse_file handling .yaml via yaml.safe_load or JSON fallback, _load_all scanning sorted iterdir, ValueError wrapping with filename, get_profile/list_profiles/names/reload), `StackDetector` (regex for `**Stack:**` and plain `Stack:` header case-insensitive, ordered checks: header → marker_files existence → extensions scan (root + one-level deep, skipping .git/__pycache__/node_modules etc.) → task_keywords substring case-insensitive → generic fallback with synthetic fallback), `PreflightRunner` (dataclass PreflightResult, async run sequential shell commands via create_subprocess_shell, 30s timeout via wait_for, kill on timeout, capture stdout/stderr, non-zero → error list, empty preflight → passed=True, sync wrapper via asyncio.run). Validated via manual python checks: registry loads 5, header detection, marker/extension/keyword precedence, timeout and failure capture.
+**Step 4 — Core engine (`loop-engine/stacks.py`):** Implemented `StackProfile` (wraps config, .name/.display_name/.skills/.preflight/.toolchain/.to_dict), `StackRegistry` (repo-root-aware stacks_dir resolution, _parse_file handling .yaml via yaml.safe_load or JSON fallback, _load_all scanning sorted iterdir, ValueError wrapping with filename, get_profile/list_profiles/names/reload), `StackDetector` (regex for `**Stack:**` and plain `Stack:` header case-insensitive, ordered checks: header → marker_files existence → extensions scan (root + one-level deep, skipping .git/**pycache**/node_modules etc.) → task_keywords substring case-insensitive → generic fallback with synthetic fallback), `PreflightRunner` (dataclass PreflightResult, async run sequential shell commands via create_subprocess_shell, 30s timeout via wait_for, kill on timeout, capture stdout/stderr, non-zero → error list, empty preflight → passed=True, sync wrapper via asyncio.run). Validated via manual python checks: registry loads 5, header detection, marker/extension/keyword precedence, timeout and failure capture.
 
 **Step 5 — Daemon/executor integration:** `daemon.py` – added `from stacks import StackRegistry, StackDetector, PreflightRunner`, extended `LoopEngineDaemon.__init__` to init `self.stack_registry = StackRegistry(config.stacks_dir, REPO_ROOT)`, extended `_execute_and_qa` signature with `stack_profile=None` and `**kwargs` forwarding with TypeError fallback for legacy stubs, in `_process_task` and `_reimplement_task` inserted detection `StackDetector.detect(task_content, REPO_ROOT, StackRegistry(...), default_stack)` + `PreflightRunner(30s).run(profile, cwd=REPO_ROOT)` before execution, CRASHED with `state.set_qa_feedback` on preflight failure, passing profile to `_execute_and_qa`. `executor.py` – added `Optional[Any]` import, extended `execute(..., stack_profile=None)` to inject `## Stack Context: {name} ({display_name})` block with skills, preflight, toolchain test/build/lint; backward compatible with default None and defensive getattr.
 
@@ -119,5 +124,6 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `8371cf5ba0131c7db94a0e1fca6c38613cd32a4d`
 <!-- END_GIT_DIFF -->

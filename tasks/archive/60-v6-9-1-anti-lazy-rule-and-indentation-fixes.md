@@ -7,6 +7,7 @@
 ## Goal
 
 Apply minor improvements to `system-prompt.md`:
+
 1. Add **Deterministic Tool Orchestration (Anti-Lazy Rule)** to constraints — forces singular, deterministic MCP tool commands without "OR" fallback options
 2. Add **Isolated Closure Mandate** to execution workflow step 8 — forbids bundling closure commands with other tasks
 3. Add **Strict Tool Enforcement** wording to Code Reviewer behavior — forces `custom_context_commit_and_clean_task` without alternatives
@@ -44,5 +45,6 @@ Apply minor improvements to `system-prompt.md`:
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `1d3c48085c84a0b1c7c3a774f11f32c3d49baac8`
 <!-- END_GIT_DIFF -->

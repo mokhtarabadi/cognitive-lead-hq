@@ -19,6 +19,7 @@ Add a LICENSE file to the repository. The README already has a badge referencing
 ### Recommended License: MIT
 
 **Rationale:**
+
 - MIT is the most widely adopted permissive license for open-source documentation/framework projects.
 - It allows unrestricted reuse, modification, and distribution — ideal for a template/SOP repository.
 - It includes the standard liability and warranty disclaimer.
@@ -42,9 +43,11 @@ Add a LICENSE file to the repository. The README already has a badge referencing
 **Decision:** MIT License selected — the most widely adopted permissive license for open-source documentation and framework repositories. It permits unrestricted reuse, modification, and distribution, which aligns with the project's community-driven, PR-welcome posture.
 
 **Files created:**
+
 - `LICENSE` — Standard MIT license text with copyright holder `mokhtarabadi` (matching GitHub owner) and year 2026.
 
 **Verification:**
+
 - README badge on line 4 already references `LICENSE` — will resolve correctly now.
 - No code is shipped, only documentation, prompts, and templates — MIT is appropriate without patent grant concerns.
 

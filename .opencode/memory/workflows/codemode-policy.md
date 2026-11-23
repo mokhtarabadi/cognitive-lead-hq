@@ -1,8 +1,8 @@
 ---
-created_at: '2026-10-29T06:47:37.577473+00:00'
+created_at: "2026-10-29T06:47:37.577473+00:00"
 status: active
 tags: []
-updated_at: '2026-10-29T06:47:37.577501+00:00'
+updated_at: "2026-10-29T06:47:37.577501+00:00"
 ---
 
 # Code Mode policy (OpenCode v2, 2026-10-29)

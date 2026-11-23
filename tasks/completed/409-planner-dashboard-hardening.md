@@ -24,6 +24,7 @@ Plan approved via question tool with the answer "Approved" on 2026-11-21. The Br
 ## Fed Context
 
 [fed-context]
+
 - Live probe: `http://127.0.0.1:8108/` returns HTTP 200; systemd `mcp-planner` active. Projects: cognitive-lead-hq, apex, blowsh-mcp, hesab-ketab, dumble. All render; project switch is asynchronous so an immediate snapshot after select can be blank.
 - Browser-confirmed: hesab-ketab week plan shows `-8h left` with a full bar; board shows M01 and M03 only while `tasks/milestones/M02-planner-cockpit-and-design-system.md` exists; daily pacing is fabricated across projects.
 - `GET /api/status?project_root=<abs>` returns live lane data. `today.done` derives from `target - open_work`, not from finished tasks (`mcp-planner-server/server.py:2685-2686`, `:2722`).
@@ -35,7 +36,7 @@ Plan approved via question tool with the answer "Approved" on 2026-11-21. The Br
 - Frontend gaps: login refresh (`:1024-1035`), stale board on project switch (`:955-961`), UTC tooltip (`:461-462`), Mine only and logout state (`:128`, `:277`, `:369`, `:998-1002`), full re-render (`:645-648`), dialog a11y (`:146-184`, `:698`, `:421`), XSS escape (`:386`).
 - Docs drift: `tasks/.plan/index.json` claimed but absent (`docs/planner-mcp-plan.md:54`); SSE and light theme claimed but absent (`:59`, `index.html:1077-1081`); stale ADR references (`DECISIONS.md:195`); README calls `/mcp` admin-guarded against ADR-006 (`README.md:15-17`).
 - Living folder docs `mcp-planner-server/README.md` and `mcp-planner-server/DECISIONS.md` were read before analysis and must be updated for contract or decision changes with a dated ADR.
-[/fec-context]
+  [/fec-context]
 
 ## Execution Steps
 
@@ -183,5 +184,6 @@ All commands run from `/home/mohammad/cognitive-lead-hq` on 2026-11-21.
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `d9669bf88911a7d259ac08c7ae0e0192ce8d00e9`
 <!-- END_GIT_DIFF -->

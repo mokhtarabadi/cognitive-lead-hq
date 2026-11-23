@@ -41,19 +41,20 @@ This is a new MCP server that provides structural linting tools for Markdown fil
 **Why regex-based checks?** The existing MCP servers use only `mcp[cli]>=1.0,<2.0` as their sole dependency. Adding `markdown` or `commonmark` would introduce a heavy dependency tree. Regex covers the most critical structural rules (heading spacing, trailing whitespace, task template compliance) while keeping the server lightweight and matching the pattern of `mcp-context-server` which also uses regex for signature extraction.
 
 **Why three tools?** The tool surface mirrors how linting is used in practice:
+
 - `lint_markdown` — general-purpose Markdown linting (CHANGELOG, SKILL.md, README)
 - `lint_task_file` — task-specific structural validation (ID match, required sections, markers)
 - `lint_all_tasks` — batch validation for the archive-tasks workflow
 
 ### Files Created/Modified
 
-| File | Action | Purpose |
-|------|--------|---------|
-| `mcp-lint-server/server.py` | **Created** | New MCP server with 3 lint tools |
-| `opencode.json` | **Modified** | Added `lint` MCP server config + permissions |
-| `LLM.txt` | **Modified** | Added lint server to global setup (mkdir, copy, JSON payload) |
-| `skill-templates/task-lint/SKILL.md` | **Created** | Companion skill for the lint server |
-| `system-prompt.md` | **Modified** | Added `task-lint` to agent_skills_registry; bumped version to 7.4.0 |
+| File                                 | Action       | Purpose                                                             |
+| ------------------------------------ | ------------ | ------------------------------------------------------------------- |
+| `mcp-lint-server/server.py`          | **Created**  | New MCP server with 3 lint tools                                    |
+| `opencode.json`                      | **Modified** | Added `lint` MCP server config + permissions                        |
+| `LLM.txt`                            | **Modified** | Added lint server to global setup (mkdir, copy, JSON payload)       |
+| `skill-templates/task-lint/SKILL.md` | **Created**  | Companion skill for the lint server                                 |
+| `system-prompt.md`                   | **Modified** | Added `task-lint` to agent_skills_registry; bumped version to 7.4.0 |
 
 ### Verification
 
@@ -63,5 +64,6 @@ This is a new MCP server that provides structural linting tools for Markdown fil
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `354b1e3d21ac8214636237d3213ee11578f5b0ee`
 <!-- END_GIT_DIFF -->

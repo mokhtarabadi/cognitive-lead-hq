@@ -10,14 +10,14 @@ public board was hardened, and the Brain's XML/prompt pipeline was repaired.
 
 ## Delivered
 
-| Task | What shipped |
-| ---- | ------------ |
-| 342 | Brain extraction exact for bare/3-backtick/4-backtick fences; prompt rebuild byte-identical |
-| 340 | Planner protocol and daily pacing native in the system prompt (9.65.0) |
-| 344 | Planner + Prompt Composer on vendored Bootstrap 5.3, `DESIGN.md` Graphite Desk, live board hardening (Secure cookie, HSTS, 400 on relative root), `jalaali-js` timeline |
-| 345 | Day/week/month cockpit: `/api/plan`, capacity, 14-day chart, deadline rail, deep links |
-| 347 | Saved weekly plan state with approval, admin-only save/clear, agenda commitment + deviations |
-| 346 | Ownership field, Mine filter, NUDGE/OVERDUE signals |
+| Task | What shipped                                                                                                                                                            |
+| ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 342  | Brain extraction exact for bare/3-backtick/4-backtick fences; prompt rebuild byte-identical                                                                             |
+| 340  | Planner protocol and daily pacing native in the system prompt (9.65.0)                                                                                                  |
+| 344  | Planner + Prompt Composer on vendored Bootstrap 5.3, `DESIGN.md` Graphite Desk, live board hardening (Secure cookie, HSTS, 400 on relative root), `jalaali-js` timeline |
+| 345  | Day/week/month cockpit: `/api/plan`, capacity, 14-day chart, deadline rail, deep links                                                                                  |
+| 347  | Saved weekly plan state with approval, admin-only save/clear, agenda commitment + deviations                                                                            |
+| 346  | Ownership field, Mine filter, NUDGE/OVERDUE signals                                                                                                                     |
 
 ## Verification
 

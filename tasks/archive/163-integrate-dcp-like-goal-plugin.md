@@ -67,5 +67,6 @@ R1: Upstream slowed, recommends Sleev — documented in LLM.txt §7.7, Manager a
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `7a97bbb2947d3a04b49ddedb007d3ecd5b46dccc`
 <!-- END_GIT_DIFF -->

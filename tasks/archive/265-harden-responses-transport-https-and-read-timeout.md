@@ -129,7 +129,7 @@ tests), and re-pointed two pre-existing tests that asserted the old
 - `rtk test uv run --with pytest ... pytest tests/ -q` -> first run
   `7 failed, 679 passed` (all 7 pre-existing env-leak / old-passthrough
   expectations, none from the new logic), second run `2 failed, 684
-  passed`, final run **686 passed, exit 0**.
+passed`, final run **686 passed, exit 0**.
 
 ### ZAC
 
@@ -160,5 +160,6 @@ No `git add`/`commit`/`push`. Staging goes through
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `20a08aec1e28ab3826bd836ba98ea2d952463715`
 <!-- END_GIT_DIFF -->

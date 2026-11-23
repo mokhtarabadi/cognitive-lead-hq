@@ -69,18 +69,18 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 
 ### Implementation
 
-| Change | File | Detail |
-|--------|------|--------|
-| NEW: runtime persona loader | `loop-engine/personas.py` | Parses `<persona name="…">` blocks from `prompts/fragments/12-personas.md` (trigger/duty/behavior) and `16-brainstorming_protocol.md` (focus/output + verbatim `<brainstorming_session>` schema). CWD-independent via package-anchored `_REPO_ROOT` fallback. |
-| REWRITE: persona layer | `loop-engine/router.py` | Deleted the entire hardcoded `PERSONA_INSTRUCTIONS` dict (G3). `_build_system_context` now injects the fragment's trigger/duty/behavior VERBATIM; unknown personas raise `ValueError` instead of silently impersonating. New `STAGE_PERSONAS` map; new public `route_with_persona(name, …)` makes all 7 personas invocable (G4). |
-| G1 resolution | `router.STAGE_PERSONAS` | No invented "PO Closure" persona — closure stage reuses **Code Reviewer**, whose fragment behavior defines the PO-review/"Approved for closure" flow. |
-| G2 alignment | `loop-engine/qa_engine.py` | `decide()` regexes now accept persona-defined tokens (`QA_PASSED/QA_REJECTED`, `APPROVED_WITH_CHANGES`, `REJECTED_NEEDS_FIXES`, `PO_REVIEW_PENDING`) alongside engine shorthand; longest-alternative-first ordering keeps quoted-token reports correct. |
-| NEW: BrainstormStage | `loop-engine/brainstorm.py` | Trigger = "brainstorm" keyword or `<brainstorming_session>` marker. Six INDEPENDENT parallel calls (`asyncio.gather` + `to_thread`; no cross-contamination), then one synthesis call receiving all six analyses + the verbatim output schema with mandatory conflict documentation. |
-| Pipeline wiring | `loop-engine/daemon.py` | Phase 1.5 runs between content read and PLANNING: brainstorm → Telegram "Brainstorm Review" approval gate → reject→BACKLOG / approve→session injected into `route_plan(extra_context=…)`. Signature updated incl. QA-retry recursion path. |
+| Change                      | File                        | Detail                                                                                                                                                                                                                                                                                                                           |
+| --------------------------- | --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| NEW: runtime persona loader | `loop-engine/personas.py`   | Parses `<persona name="…">` blocks from `prompts/fragments/12-personas.md` (trigger/duty/behavior) and `16-brainstorming_protocol.md` (focus/output + verbatim `<brainstorming_session>` schema). CWD-independent via package-anchored `_REPO_ROOT` fallback.                                                                    |
+| REWRITE: persona layer      | `loop-engine/router.py`     | Deleted the entire hardcoded `PERSONA_INSTRUCTIONS` dict (G3). `_build_system_context` now injects the fragment's trigger/duty/behavior VERBATIM; unknown personas raise `ValueError` instead of silently impersonating. New `STAGE_PERSONAS` map; new public `route_with_persona(name, …)` makes all 7 personas invocable (G4). |
+| G1 resolution               | `router.STAGE_PERSONAS`     | No invented "PO Closure" persona — closure stage reuses **Code Reviewer**, whose fragment behavior defines the PO-review/"Approved for closure" flow.                                                                                                                                                                            |
+| G2 alignment                | `loop-engine/qa_engine.py`  | `decide()` regexes now accept persona-defined tokens (`QA_PASSED/QA_REJECTED`, `APPROVED_WITH_CHANGES`, `REJECTED_NEEDS_FIXES`, `PO_REVIEW_PENDING`) alongside engine shorthand; longest-alternative-first ordering keeps quoted-token reports correct.                                                                          |
+| NEW: BrainstormStage        | `loop-engine/brainstorm.py` | Trigger = "brainstorm" keyword or `<brainstorming_session>` marker. Six INDEPENDENT parallel calls (`asyncio.gather` + `to_thread`; no cross-contamination), then one synthesis call receiving all six analyses + the verbatim output schema with mandatory conflict documentation.                                              |
+| Pipeline wiring             | `loop-engine/daemon.py`     | Phase 1.5 runs between content read and PLANNING: brainstorm → Telegram "Brainstorm Review" approval gate → reject→BACKLOG / approve→session injected into `route_plan(extra_context=…)`. Signature updated incl. QA-retry recursion path.                                                                                       |
 
 ### Design decisions
 
-1. **Fragment-derived > hardcoded:** planning now legitimately asks the Software Architect for a *blueprint* (per its fragment behavior) instead of the old hardcoded demand for `<hands_implementation_task>` — implementation remains the Hands' job via executor.
+1. **Fragment-derived > hardcoded:** planning now legitimately asks the Software Architect for a _blueprint_ (per its fragment behavior) instead of the old hardcoded demand for `<hands_implementation_task>` — implementation remains the Hands' job via executor.
 2. **Parallel swarm over mega-call:** protocol-literal six independent calls preserve the skill's no-cross-contamination rule; synthesis is a separate grounded call.
 3. **Loader fallback anchoring:** fragments resolve against `workspace_root` first, then repo root — removes the CWD-dependence class (F26 family) for library use and tests.
 
@@ -93,5 +93,6 @@ Files changed: `loop-engine/{personas.py (new), brainstorm.py (new), router.py, 
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `3175b1e1aa5bd167df300dcb1671ff250a3364a1`
 <!-- END_GIT_DIFF -->

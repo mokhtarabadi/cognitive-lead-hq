@@ -59,26 +59,31 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 ## Manager Decisions
 
 **[2026-08-31] [D1] [ORCHESTRATOR-DETECTED]:** Deterministic Toolchain Verification Preceding LLM QA
+
 - **Rationale:** Executing stack toolchains (`test_cmd`, `build_cmd`, `lint_cmd`) deterministically before LLM QA fails fast on syntax/compiler/test errors without wasting LLM tokens.
 - **Alternatives considered:** Relying solely on LLM prompt evaluations of git diffs, or running toolchain verification inside `qa_engine.py` asynchronously.
 - **Impact:** Guarantees broken builds never reach QA/Review; automatically provides factual test execution evidence to QA prompts.
 
 **[2026-08-31] [D2] [ORCHESTRATOR-DETECTED]:** Separate verifier.py Module with CommandResult and ToolchainResult Dataclasses
+
 - **Rationale:** Isolating deterministic toolchain execution into `loop-engine/verifier.py` keeps daemon and QA concerns separated per SOLID SRP and enables independent testing.
 - **Alternatives considered:** Extending `PreflightRunner` in `stacks.py` or embedding toolchain logic directly in `daemon.py`.
 - **Impact:** Single-responsibility module with clear dataclass contracts; daemon imports only the runner, not parsing logic.
 
 **[2026-08-31] [D3] [ORCHESTRATOR-DETECTED]:** Fail-Fast Short-Circuit in daemon.py _execute_and_qa
+
 - **Rationale:** Running toolchain immediately after diff verification and returning FAILED without calling `qa.run_qa` saves LLM cost and maps directly to retry logic via `state.set_qa_feedback`.
 - **Alternatives considered:** Running toolchain inside QAEngine after LLM call, or crashing to CRASHED instead of FAILED.
 - **Impact:** Broken builds consume `max_qa_retries` via retry counter, enabling `_reimplement_task` to retry with factual feedback.
 
 **[2026-08-31] [D4] [ORCHESTRATOR-DETECTED]:** Toolchain Evidence Enrichment into QAEngine Prompt
+
 - **Rationale:** Forwarding `toolchain_evidence` summary to `router.route_qa` enriches LLM QA Engineer prompt with factual execution confirmation, improving verdict accuracy.
 - **Alternatives considered:** Writing evidence only to disk without LLM injection, or replacing LLM QA entirely.
 - **Impact:** QA verdicts remain LLM-driven but grounded in deterministic evidence; router can include summary in prompt context.
 
 **[2026-08-31] [D5] [ORCHESTRATOR-DETECTED]:** Structured Markdown Report and Evidence Persistence with 120s Timeout
+
 - **Rationale:** Generating `report_md` with summary table and error logs plus persisting to `toolchain_report.md` and `toolchain_result.txt` satisfies OMO evidence rule and enables audit; 120s per-command timeout balances slow Gradle vs fast pytest.
 - **Alternatives considered:** No evidence files, JSON-only reports, or global 30s timeout reusing preflight value.
 - **Impact:** Evidence dir per task; timeout via `asyncio.wait_for` + `proc.kill()` prevents hangs; generic profile with null toolchain skips gracefully.
@@ -117,5 +122,6 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `b4d89f4f49e93ecfd202f080b2cbd10613459285`
 <!-- END_GIT_DIFF -->

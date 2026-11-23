@@ -20,30 +20,30 @@ The keystone META **325** generalized every Persian/Farsi mention to non-English
 
 ## Files Modified
 
-| File | Change |
-| ---- | ------ |
-| `docs/history/milestone-23-summary.md` | new: this 31-task compaction (284–325) |
-| `tasks/archive/284-*.md` … `tasks/archive/325-*.md` | released tasks moved to archive (326) |
-| `CHANGELOG.md` | 9.62.0 release block (326); [Unreleased] entries (321–325) |
-| `prompts/fragments/01-system_version.md` | 9.61.1 → 9.62.0 (326) |
-| `prompts/fragments/24-language_policy.md` | Technical-Terms rule (325); skill-actor reword (325) |
-| `prompts/fragments/20-communication_examples.md` | non-English handoff example (325) |
-| `prompts/fragments/05-user_input_processing.md` | Orchestrator-scoped no-tool boundary (325) |
-| `prompts/fragments/11-execution_workflow.md` | Deep Research Loop routed to Hands (325) |
-| `prompts/fragments/21-self_improvement_protocol.md` | Hands actor for task-generator (325) |
-| `prompts/fragments/13-constraints.md` | non-English wording (325) |
-| `agents/cognitive-executor.md` | Technical-Terms + no-tool boundary (325) |
-| `docs/conventions.md`, `AGENTS.md`, `README.md` | non-English generalization (325) |
-| `skill-templates/telegram-issue-sync/SKILL.md` | non-English wording (325) |
-| `skill-templates/bundle-tasks/SKILL.md` | non-English wording + 2-6 floor + duplicate errors (325) |
-| `mcp-context-server/gitops.py` | Unicode docstring + locate/collision/checksum/status fixes (325) |
-| `mcp-context-server/server.py` | atomic bundle write + rollback restore + validation (325) |
-| `mcp-lint-server/server.py` | skill-verb + META-shape gates (325) |
-| `mcp-brain-bridge/*` | session-first lean refactor + budget guard (285–298, 317) |
-| `mcp-context-server/*` | singleton paths, modularization, graph, index-safe staging (286, 313–315) |
-| `system-prompt.md` | regenerated each bump through 9.62.0 (326) |
-| `tests/test_bundle_tasks.py` | 11 red-proof tests, 18 green (325) |
-| `tests/test_prompt_sync.py` | version pin 9.62.0 (326) |
+| File                                                | Change                                                                    |
+| --------------------------------------------------- | ------------------------------------------------------------------------- |
+| `docs/history/milestone-23-summary.md`              | new: this 31-task compaction (284–325)                                    |
+| `tasks/archive/284-*.md` … `tasks/archive/325-*.md` | released tasks moved to archive (326)                                     |
+| `CHANGELOG.md`                                      | 9.62.0 release block (326); [Unreleased] entries (321–325)                |
+| `prompts/fragments/01-system_version.md`            | 9.61.1 → 9.62.0 (326)                                                     |
+| `prompts/fragments/24-language_policy.md`           | Technical-Terms rule (325); skill-actor reword (325)                      |
+| `prompts/fragments/20-communication_examples.md`    | non-English handoff example (325)                                         |
+| `prompts/fragments/05-user_input_processing.md`     | Orchestrator-scoped no-tool boundary (325)                                |
+| `prompts/fragments/11-execution_workflow.md`        | Deep Research Loop routed to Hands (325)                                  |
+| `prompts/fragments/21-self_improvement_protocol.md` | Hands actor for task-generator (325)                                      |
+| `prompts/fragments/13-constraints.md`               | non-English wording (325)                                                 |
+| `agents/cognitive-executor.md`                      | Technical-Terms + no-tool boundary (325)                                  |
+| `docs/conventions.md`, `AGENTS.md`, `README.md`     | non-English generalization (325)                                          |
+| `skill-templates/telegram-issue-sync/SKILL.md`      | non-English wording (325)                                                 |
+| `skill-templates/bundle-tasks/SKILL.md`             | non-English wording + 2-6 floor + duplicate errors (325)                  |
+| `mcp-context-server/gitops.py`                      | Unicode docstring + locate/collision/checksum/status fixes (325)          |
+| `mcp-context-server/server.py`                      | atomic bundle write + rollback restore + validation (325)                 |
+| `mcp-lint-server/server.py`                         | skill-verb + META-shape gates (325)                                       |
+| `mcp-brain-bridge/*`                                | session-first lean refactor + budget guard (285–298, 317)                 |
+| `mcp-context-server/*`                              | singleton paths, modularization, graph, index-safe staging (286, 313–315) |
+| `system-prompt.md`                                  | regenerated each bump through 9.62.0 (326)                                |
+| `tests/test_bundle_tasks.py`                        | 11 red-proof tests, 18 green (325)                                        |
+| `tests/test_prompt_sync.py`                         | version pin 9.62.0 (326)                                                  |
 
 ## Test Evidence
 

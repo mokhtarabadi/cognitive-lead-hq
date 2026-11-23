@@ -126,18 +126,15 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 
 ## Gap Analysis Results
 
-
-| Gap # | External Technique | Our Current State | Impact on Hallucination | Priority | Recommended Action |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **1** | **Few-Shot Examples (Do / Not to do)** | We rely exclusively on 0-shot constraint lists and rule definitions. No explicit chat/tone examples are provided. | **High** — Concrete examples are the most effective way to eliminate "smartass" filler and ground the model's tone. | **High** | Create a new fragment (`prompts/fragments/21-communication_examples.md`) with 2-3 standard interaction pairs. |
-| **2** | **Hard Operational Boundaries (Scope)** | We have strict *architectural* guardrails (YAGNI, SOLID) but lack explicit *scope* containment constraints. | **High** — Explicitly forbidding unrequested refactors prevents the AI from hallucinating files or widening the work scope. | **High** | Add "Deliver only what was requested; do not widen work into cleanup or adjacent features" to the `<constraints>` block. |
-| **3** | **Positive/Negative Linguistic Patterns** | We have a general "Tone and Demeanor" rule (no superlatives) but no specific phrase blacklists. | **Medium** — Removes verbal fluff, analogies, and pseudo-intellectual filler, significantly improving the signal-to-noise ratio. | **Medium** | Expand the constraints block with a specific "Banned Phrases" list and a "State each fact once" brevity rule. |
-| **4** | **Reference Points (D1, O1, F1)** | We use checklists for task execution, but our conversational outputs (Brainstorming, Options) are unstructured text. | **Medium** — Anchors complex architectural discussions, making them highly traceable and reducing conversational drift. | **Medium** | Add the Reference Point system to the `<brainstorming_protocol>` and the Software Architect persona. |
-| **5** | **Shorthand Aliases (scr, eli, foc)** | We have no conversational shorthand; we rely on Prompt Composer presets for UI-based commands. | **Low** — This is a UX improvement for CLI chat interfaces, but our `tools/prompt-composer/` tool solves this better via UI buttons. | **Low** | Defer. Rely on the Prompt Composer presets instead. |
-
+| Gap # | External Technique                        | Our Current State                                                                                                    | Impact on Hallucination                                                                                                              | Priority   | Recommended Action                                                                                                       |
+| :---- | :---------------------------------------- | :------------------------------------------------------------------------------------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------- | :--------- | :----------------------------------------------------------------------------------------------------------------------- |
+| **1** | **Few-Shot Examples (Do / Not to do)**    | We rely exclusively on 0-shot constraint lists and rule definitions. No explicit chat/tone examples are provided.    | **High** — Concrete examples are the most effective way to eliminate "smartass" filler and ground the model's tone.                  | **High**   | Create a new fragment (`prompts/fragments/21-communication_examples.md`) with 2-3 standard interaction pairs.            |
+| **2** | **Hard Operational Boundaries (Scope)**   | We have strict _architectural_ guardrails (YAGNI, SOLID) but lack explicit _scope_ containment constraints.          | **High** — Explicitly forbidding unrequested refactors prevents the AI from hallucinating files or widening the work scope.          | **High**   | Add "Deliver only what was requested; do not widen work into cleanup or adjacent features" to the `<constraints>` block. |
+| **3** | **Positive/Negative Linguistic Patterns** | We have a general "Tone and Demeanor" rule (no superlatives) but no specific phrase blacklists.                      | **Medium** — Removes verbal fluff, analogies, and pseudo-intellectual filler, significantly improving the signal-to-noise ratio.     | **Medium** | Expand the constraints block with a specific "Banned Phrases" list and a "State each fact once" brevity rule.            |
+| **4** | **Reference Points (D1, O1, F1)**         | We use checklists for task execution, but our conversational outputs (Brainstorming, Options) are unstructured text. | **Medium** — Anchors complex architectural discussions, making them highly traceable and reducing conversational drift.              | **Medium** | Add the Reference Point system to the `<brainstorming_protocol>` and the Software Architect persona.                     |
+| **5** | **Shorthand Aliases (scr, eli, foc)**     | We have no conversational shorthand; we rely on Prompt Composer presets for UI-based commands.                       | **Low** — This is a UX improvement for CLI chat interfaces, but our `tools/prompt-composer/` tool solves this better via UI buttons. | **Low**    | Defer. Rely on the Prompt Composer presets instead.                                                                      |
 
 ### Top 3 Actionable Recommendations
-
 
 1. **Inject Few-Shot "Do / Not to do" Examples:** The most critical gap is the lack of concrete examples. We should create a new fragment containing 2-3 examples of a concise, technical response versus a fluffy, verbose response. This grounds the LLM's behavior far better than lists of rules.
 2. **Implement Hard Scope Boundaries:** Update the `<constraints>` block to explicitly state: "Deliver only what was requested. Do not widen work into cleanup, refactoring, or adjacent features unless instructed." This directly combats the Opus 5 tendency to over-engineer and hallucinate extra files.
@@ -185,5 +182,6 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `ba7c09fbbdb162db8741b6537d19d4fda6aad1d9`
 <!-- END_GIT_DIFF -->

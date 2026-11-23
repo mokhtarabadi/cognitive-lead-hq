@@ -91,30 +91,30 @@ Strictest verified toolchain for this stack. Load this skill whenever the projec
 
 ### Required Toolchain
 
-| Tool | Purpose | Minimum version | Activate |
-| --- | --- | --- | --- |
-| Node.js | Runtime; LTS only | 24.x Active LTS | `printf '24\n' > .nvmrc` + `"engines": { "node": ">=24.0.0" }` |
-| Corepack | Pin the package manager (`packageManager` field) | bundled in Node ≤24 (install manually on Node ≥25) | `corepack enable` + `"packageManager": "npm@11.6.0"` + `"devEngines": { "packageManager": { "name": "npm", "onFail": "error" } }` |
-| TypeScript | `tsc --noEmit` type gate + parser backend for typed lint | 6.0.3 (npm `latest` is 7.0.2 — **not** a typed-lint backend, see Discarded) | `npm i -D typescript@6.0.3` |
-| @typescript/native-preview (optional) | TS7 `tsgo` fast `--noEmit` gate alongside TS6 | 7.0.2 | `npm i -D @typescript/native-preview@^7` (run `tsgo --noEmit` only) |
-| ESLint | Core linter, flat config only (eslintrc removed in v10) | 10.0.0 (10.11.0) | `npm i -D eslint@^10 @eslint/js@^10` |
-| typescript-eslint | Type-aware rules (`strictTypeChecked` + `stylisticTypeChecked`) | 8.70.1 | `npm i -D typescript-eslint@^8` |
-| eslint-plugin-n | Node correctness (`no-process-exit`, `no-missing-import`) | 18.2.2 | `npm i -D eslint-plugin-n@^18` |
-| eslint-plugin-import-x | Fast `no-restricted-paths` per-file guard (maintained fork of frozen `eslint-plugin-import`) | 4.16.2 | `npm i -D eslint-plugin-import-x@^4` |
-| dependency-cruiser | **Primary** slice-boundary + cycle gate on the real resolved graph | 18.4.0 | `npm i -D dependency-cruiser@^18` |
-| eslint-plugin-boundaries | Secondary, in-editor boundary feedback (entity model v7) | 7.2.0 | `npm i -D eslint-plugin-boundaries@^7` |
-| Prettier | Formatting, run **separately** (never merged into ESLint) | 3.9.8 | `npm i -D prettier@^3 eslint-config-prettier@^10` |
-| knip | Unused files, exports, and dependencies | 6.37.0 | `npm i -D knip@^6` |
-| lockfile-lint | Lockfile host/integrity policy (anti-typosquat / injection) | 5.0.1 | `npm i -D lockfile-lint@^5` |
-| osv-scanner | Vulnerability scan against OSV (replaces/augments `npm audit`) | 2.5.1 | `go install github.com/google/osv-scanner/v2/cmd/osv-scanner@latest` (or the official GH Action) |
-| Prisma CLI + Client | Schema, migration, and generated type gate | prisma 7.10.0 / @prisma/client 7.10.0 (v8 is in RC — see note) | `npm i -D prisma@^7.10.0` + `npm i @prisma/client@^7.10.0 @prisma/adapter-pg@^7.10.0` |
-| @nestjs/testing | Nest DI test module builder | 12.0.4 | `npm i -D @nestjs/testing@^12.0.4` |
-| supertest | HTTP e2e assertions against the real Nest app | 7.2.2 | `npm i -D supertest@^7 @types/supertest@^7` |
-| class-validator + class-transformer | DTO contract enforcement (`whitelist`, `forbidNonWhitelisted`) | 0.15.1 / 0.5.x | `npm i class-validator@^0.15.1 class-transformer@^0.5` |
-| Vitest + @vitest/coverage-v8 | Unit/integration runner with fail-on-threshold coverage | 5.0.1 | `npm i -D vitest@^5 @vitest/coverage-v8@^5` |
-| type-coverage | Compile-time `any` budget gate | 2.30.1 | `npm i -D type-coverage@^2` |
-| oasdiff | OpenAPI breaking-change gate (Nest `@nestjs/swagger` output) | 1.11.x | `brew install oasdiff` / `curl -fsSL …/install.sh \| sh` / GH Action |
-| @nestjs/swagger | Emits `openapi.json` for the oasdiff contract gate | 12.x | `npm i @nestjs/swagger@^12` |
+| Tool                                  | Purpose                                                                                      | Minimum version                                                             | Activate                                                                                                                          |
+| ------------------------------------- | -------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| Node.js                               | Runtime; LTS only                                                                            | 24.x Active LTS                                                             | `printf '24\n' > .nvmrc` + `"engines": { "node": ">=24.0.0" }`                                                                    |
+| Corepack                              | Pin the package manager (`packageManager` field)                                             | bundled in Node ≤24 (install manually on Node ≥25)                          | `corepack enable` + `"packageManager": "npm@11.6.0"` + `"devEngines": { "packageManager": { "name": "npm", "onFail": "error" } }` |
+| TypeScript                            | `tsc --noEmit` type gate + parser backend for typed lint                                     | 6.0.3 (npm `latest` is 7.0.2 — **not** a typed-lint backend, see Discarded) | `npm i -D typescript@6.0.3`                                                                                                       |
+| @typescript/native-preview (optional) | TS7 `tsgo` fast `--noEmit` gate alongside TS6                                                | 7.0.2                                                                       | `npm i -D @typescript/native-preview@^7` (run `tsgo --noEmit` only)                                                               |
+| ESLint                                | Core linter, flat config only (eslintrc removed in v10)                                      | 10.0.0 (10.11.0)                                                            | `npm i -D eslint@^10 @eslint/js@^10`                                                                                              |
+| typescript-eslint                     | Type-aware rules (`strictTypeChecked` + `stylisticTypeChecked`)                              | 8.70.1                                                                      | `npm i -D typescript-eslint@^8`                                                                                                   |
+| eslint-plugin-n                       | Node correctness (`no-process-exit`, `no-missing-import`)                                    | 18.2.2                                                                      | `npm i -D eslint-plugin-n@^18`                                                                                                    |
+| eslint-plugin-import-x                | Fast `no-restricted-paths` per-file guard (maintained fork of frozen `eslint-plugin-import`) | 4.16.2                                                                      | `npm i -D eslint-plugin-import-x@^4`                                                                                              |
+| dependency-cruiser                    | **Primary** slice-boundary + cycle gate on the real resolved graph                           | 18.4.0                                                                      | `npm i -D dependency-cruiser@^18`                                                                                                 |
+| eslint-plugin-boundaries              | Secondary, in-editor boundary feedback (entity model v7)                                     | 7.2.0                                                                       | `npm i -D eslint-plugin-boundaries@^7`                                                                                            |
+| Prettier                              | Formatting, run **separately** (never merged into ESLint)                                    | 3.9.8                                                                       | `npm i -D prettier@^3 eslint-config-prettier@^10`                                                                                 |
+| knip                                  | Unused files, exports, and dependencies                                                      | 6.37.0                                                                      | `npm i -D knip@^6`                                                                                                                |
+| lockfile-lint                         | Lockfile host/integrity policy (anti-typosquat / injection)                                  | 5.0.1                                                                       | `npm i -D lockfile-lint@^5`                                                                                                       |
+| osv-scanner                           | Vulnerability scan against OSV (replaces/augments `npm audit`)                               | 2.5.1                                                                       | `go install github.com/google/osv-scanner/v2/cmd/osv-scanner@latest` (or the official GH Action)                                  |
+| Prisma CLI + Client                   | Schema, migration, and generated type gate                                                   | prisma 7.10.0 / @prisma/client 7.10.0 (v8 is in RC — see note)              | `npm i -D prisma@^7.10.0` + `npm i @prisma/client@^7.10.0 @prisma/adapter-pg@^7.10.0`                                             |
+| @nestjs/testing                       | Nest DI test module builder                                                                  | 12.0.4                                                                      | `npm i -D @nestjs/testing@^12.0.4`                                                                                                |
+| supertest                             | HTTP e2e assertions against the real Nest app                                                | 7.2.2                                                                       | `npm i -D supertest@^7 @types/supertest@^7`                                                                                       |
+| class-validator + class-transformer   | DTO contract enforcement (`whitelist`, `forbidNonWhitelisted`)                               | 0.15.1 / 0.5.x                                                              | `npm i class-validator@^0.15.1 class-transformer@^0.5`                                                                            |
+| Vitest + @vitest/coverage-v8          | Unit/integration runner with fail-on-threshold coverage                                      | 5.0.1                                                                       | `npm i -D vitest@^5 @vitest/coverage-v8@^5`                                                                                       |
+| type-coverage                         | Compile-time `any` budget gate                                                               | 2.30.1                                                                      | `npm i -D type-coverage@^2`                                                                                                       |
+| oasdiff                               | OpenAPI breaking-change gate (Nest `@nestjs/swagger` output)                                 | 1.11.x                                                                      | `brew install oasdiff` / `curl -fsSL …/install.sh \| sh` / GH Action                                                              |
+| @nestjs/swagger                       | Emits `openapi.json` for the oasdiff contract gate                                           | 12.x                                                                        | `npm i @nestjs/swagger@^12`                                                                                                       |
 
 **Prisma major-version note (2026).** The **stable** line is **Prisma 7.10.0** (`@prisma/client@7.10.0`);
 Prisma **8** is rolling out — the `prisma` CLI's `latest` dist-tag already points at **`8.0.0-rc.15`**
@@ -129,8 +129,9 @@ is the new config home, **env is not auto-loaded** (`import "dotenv/config"` in 
 migration, not this baseline.
 
 **Discarded / demoted (say so, do not silently use):**
+
 - **`ts-prune`** — last npm release **0.10.3 (2021)**, dormant. Superseded by **knip** (files + exports + deps in one pass).
-- **`depcheck`** — 1.4.7; its own README now says *"We strongly recommend switching to knip, a more actively maintained and feature-rich alternative."* Excluded.
+- **`depcheck`** — 1.4.7; its own README now says _"We strongly recommend switching to knip, a more actively maintained and feature-rich alternative."_ Excluded.
 - **`eslint-plugin-import`** — 2.32.0, effectively frozen and refuses modern `exports`/specifier support; use **`eslint-plugin-import-x`** (declares ESLint 8/9/10 support).
 - **`eslint-plugin-prettier`** — merging Prettier into ESLint is explicitly discouraged (slow, duplicate diagnostics). Run `prettier --check` as its own gate and let **`eslint-config-prettier`** (10.1.8) only switch off conflicting stylistic rules.
 - **TypeScript 7.0.2 as the typed-lint backend** — 7.x is npm `latest`, but `typescript-eslint@8` supports only up to **`<6.1.0`**; pointing `typescript` at 7 makes typed lint crash. Pin `typescript@6.0.3` for lint and run TS7 (`tsgo`) side-by-side for the fast type-check only.
@@ -182,10 +183,10 @@ migration, not this baseline.
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
-    "skipLibCheck": false
+    "skipLibCheck": false,
   },
   "include": ["src"],
-  "exclude": ["dist", "node_modules", "generated/prisma"]
+  "exclude": ["dist", "node_modules", "generated/prisma"],
 }
 ```
 
@@ -198,15 +199,23 @@ migration, not this baseline.
 
 ```js
 // @ts-check
-import js from '@eslint/js';
-import { defineConfig } from 'eslint/config';
-import tseslint from 'typescript-eslint';
-import node from 'eslint-plugin-n';
-import importX from 'eslint-plugin-import-x';
-import prettier from 'eslint-config-prettier';
+import js from "@eslint/js";
+import { defineConfig } from "eslint/config";
+import tseslint from "typescript-eslint";
+import node from "eslint-plugin-n";
+import importX from "eslint-plugin-import-x";
+import prettier from "eslint-config-prettier";
 
 export default defineConfig(
-  { ignores: ['dist/**', 'coverage/**', 'node_modules/**', 'generated/prisma/**', '**/*.d.ts'] },
+  {
+    ignores: [
+      "dist/**",
+      "coverage/**",
+      "node_modules/**",
+      "generated/prisma/**",
+      "**/*.d.ts",
+    ],
+  },
 
   js.configs.recommended,
 
@@ -214,35 +223,68 @@ export default defineConfig(
   ...tseslint.configs.stylisticTypeChecked,
 
   {
-    files: ['**/*.{ts,mts,cts}'],
+    files: ["**/*.{ts,mts,cts}"],
     languageOptions: {
       parserOptions: {
-        projectService: true,                    // typed linting; no tsconfig.eslint.json
+        projectService: true, // typed linting; no tsconfig.eslint.json
         tsconfigRootDir: import.meta.dirname,
       },
     },
     rules: {
-      '@typescript-eslint/no-floating-promises': ['error', { ignoreVoid: false }],
-      '@typescript-eslint/no-misused-promises': ['error', {
-        checksConditionals: true,
-        checksSpreads: true,
-        checksVoidReturn: { arguments: true, attributes: false, returns: true },
-      }],
-      '@typescript-eslint/switch-exhaustiveness-check': ['error', {
-        considerDefaultExhaustiveForUnions: true,
-        requireDefaultForNonUnion: true,
-      }],
-      '@typescript-eslint/consistent-type-imports': 'off',   // Nest DI: do NOT type-only injected classes
-      '@typescript-eslint/no-explicit-any': 'error',
-      '@typescript-eslint/explicit-function-return-type': ['error', { allowExpressions: true }],
-      'no-console': 'error',
+      "@typescript-eslint/no-floating-promises": [
+        "error",
+        { ignoreVoid: false },
+      ],
+      "@typescript-eslint/no-misused-promises": [
+        "error",
+        {
+          checksConditionals: true,
+          checksSpreads: true,
+          checksVoidReturn: {
+            arguments: true,
+            attributes: false,
+            returns: true,
+          },
+        },
+      ],
+      "@typescript-eslint/switch-exhaustiveness-check": [
+        "error",
+        {
+          considerDefaultExhaustiveForUnions: true,
+          requireDefaultForNonUnion: true,
+        },
+      ],
+      "@typescript-eslint/consistent-type-imports": "off", // Nest DI: do NOT type-only injected classes
+      "@typescript-eslint/no-explicit-any": "error",
+      "@typescript-eslint/explicit-function-return-type": [
+        "error",
+        { allowExpressions: true },
+      ],
+      "no-console": "error",
 
       /* Prisma raw-query discipline: unsafe variants are banned */
-      'no-restricted-properties': ['error',
-        { object: 'prisma', property: '$queryRawUnsafe',   message: 'Use Prisma.sql tagged $queryRaw.' },
-        { object: 'prisma', property: '$executeRawUnsafe', message: 'Use Prisma.sql tagged $executeRaw.' },
-        { object: 'this',   property: '$queryRawUnsafe',   message: 'Use Prisma.sql tagged $queryRaw.' },
-        { object: 'this',   property: '$executeRawUnsafe', message: 'Use Prisma.sql tagged $executeRaw.' },
+      "no-restricted-properties": [
+        "error",
+        {
+          object: "prisma",
+          property: "$queryRawUnsafe",
+          message: "Use Prisma.sql tagged $queryRaw.",
+        },
+        {
+          object: "prisma",
+          property: "$executeRawUnsafe",
+          message: "Use Prisma.sql tagged $executeRaw.",
+        },
+        {
+          object: "this",
+          property: "$queryRawUnsafe",
+          message: "Use Prisma.sql tagged $queryRaw.",
+        },
+        {
+          object: "this",
+          property: "$executeRawUnsafe",
+          message: "Use Prisma.sql tagged $executeRaw.",
+        },
       ],
     },
   },
@@ -250,7 +292,7 @@ export default defineConfig(
   node.configs["flat/recommended-module"],
   importX.flatConfigs.recommended,
 
-  prettier,   // LAST: turns off formatting rules that would fight Prettier
+  prettier, // LAST: turns off formatting rules that would fight Prettier
 );
 ```
 
@@ -261,51 +303,66 @@ export default defineConfig(
 module.exports = {
   forbidden: [
     {
-      name: 'no-circular',
-      severity: 'error',
-      comment: 'No dependency cycles anywhere.',
+      name: "no-circular",
+      severity: "error",
+      comment: "No dependency cycles anywhere.",
       from: {},
       to: { circular: true },
     },
     {
-      name: 'no-cross-slice-imports',
-      severity: 'error',
-      comment: 'A slice may not import another slice except through its public index.ts barrel.',
-      from: { path: '^src/slices/([^/]+)/' },
+      name: "no-cross-slice-imports",
+      severity: "error",
+      comment:
+        "A slice may not import another slice except through its public index.ts barrel.",
+      from: { path: "^src/slices/([^/]+)/" },
       to: {
-        path: '^src/slices/(?!$1)([^/]+)/',            // $1 validated on dependency-cruiser 18.4 — proven backreference, do not expand manually unless version <18.4
-        pathNot: ['^src/slices/[^/]+/index\\.ts$'],    // only the public barrel is allowed
+        path: "^src/slices/(?!$1)([^/]+)/", // $1 validated on dependency-cruiser 18.4 — proven backreference, do not expand manually unless version <18.4
+        pathNot: ["^src/slices/[^/]+/index\\.ts$"], // only the public barrel is allowed
       },
     },
     {
-      name: 'no-slice-internals-from-shared',
-      severity: 'error',
-      comment: 'Shared/platform code must never depend on a slice.',
-      from: { path: '^src/(shared|platform)/' },
-      to: { path: '^src/slices/' },
+      name: "no-slice-internals-from-shared",
+      severity: "error",
+      comment: "Shared/platform code must never depend on a slice.",
+      from: { path: "^src/(shared|platform)/" },
+      to: { path: "^src/slices/" },
     },
     {
-      name: 'no-slice-to-app-root',
-      severity: 'error',
-      comment: 'Slices must not import the composition root (main.ts / app.module.ts).',
-      from: { path: '^src/slices/' },
-      to: { path: '^src/(main|app\\.module)\\.ts$' },
+      name: "no-slice-to-app-root",
+      severity: "error",
+      comment:
+        "Slices must not import the composition root (main.ts / app.module.ts).",
+      from: { path: "^src/slices/" },
+      to: { path: "^src/(main|app\\.module)\\.ts$" },
     },
     {
-      name: 'no-orphans',
-      severity: 'error',
-      comment: 'Unreferenced modules are dead code.',
-      from: { orphan: true, pathNot: ['\\.d\\.ts$', '\\.(spec|e2e-spec)\\.ts$', '^src/main\\.ts$'] },
+      name: "no-orphans",
+      severity: "error",
+      comment: "Unreferenced modules are dead code.",
+      from: {
+        orphan: true,
+        pathNot: ["\\.d\\.ts$", "\\.(spec|e2e-spec)\\.ts$", "^src/main\\.ts$"],
+      },
       to: {},
     },
   ],
   options: {
-    tsConfig: { fileName: 'tsconfig.json' },
+    tsConfig: { fileName: "tsconfig.json" },
     tsPreCompilationDeps: true,
-    doNotFollow: { path: 'node_modules' },
-    enhancedResolveOptions: { exportsFields: ['exports'], conditionNames: ['import', 'require', 'node', 'default'] },
-    exclude: { path: ['\\.(spec|e2e-spec)\\.ts$', '\\.config\\.(ts|js|mjs|cjs)$', '^dist/', '^generated/prisma/'] },
-    includeOnly: { path: '^src/' },
+    doNotFollow: { path: "node_modules" },
+    enhancedResolveOptions: {
+      exportsFields: ["exports"],
+      conditionNames: ["import", "require", "node", "default"],
+    },
+    exclude: {
+      path: [
+        "\\.(spec|e2e-spec)\\.ts$",
+        "\\.config\\.(ts|js|mjs|cjs)$",
+        "^dist/",
+        "^generated/prisma/",
+      ],
+    },
+    includeOnly: { path: "^src/" },
   },
 };
 ```
@@ -342,30 +399,30 @@ ESLint-native alternative (in-editor, same intent) via **eslint-plugin-boundarie
   "entry": ["src/main.ts", "src/**/*.module.ts", "test/**/*.e2e-spec.ts"],
   "project": ["src/**/*.ts", "!generated/prisma/**"],
   "ignoreExportsUsedInFile": true,
-  "ignoreDependencies": ["@prisma/client", "@nestjs/testing"]
+  "ignoreDependencies": ["@prisma/client", "@nestjs/testing"],
 }
 ```
 
 `vitest.config.ts` — coverage thresholds are the gate (Vitest 5: `coverage.include` required):
 
 ```ts
-import { defineConfig } from 'vitest/config';
+import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
-    environment: 'node',
-    include: ['src/**/*.spec.ts', 'test/**/*.e2e-spec.ts'],
+    environment: "node",
+    include: ["src/**/*.spec.ts", "test/**/*.e2e-spec.ts"],
     coverage: {
-      provider: 'v8',
-      reporter: ['text', 'json-summary', 'lcov'],
-      include: ['src/slices/**/*.ts'],
-      exclude: ['src/**/*.module.ts', 'src/**/index.ts', 'generated/prisma/**'],
+      provider: "v8",
+      reporter: ["text", "json-summary", "lcov"],
+      include: ["src/slices/**/*.ts"],
+      exclude: ["src/**/*.module.ts", "src/**/index.ts", "generated/prisma/**"],
       thresholds: {
         lines: 90,
         functions: 90,
         branches: 85,
         statements: 90,
-        perFile: true,                          // every slice file, not just the aggregate
+        perFile: true, // every slice file, not just the aggregate
       },
     },
   },
@@ -375,27 +432,29 @@ export default defineConfig({
 `prisma.config.ts` (root, Prisma 7 shape) — env is NOT auto-loaded:
 
 ```ts
-import 'dotenv/config';
-import { defineConfig, env } from 'prisma/config';
+import "dotenv/config";
+import { defineConfig, env } from "prisma/config";
 
 export default defineConfig({
-  schema: 'prisma/schema.prisma',
-  migrations: { path: 'prisma/migrations', seed: 'tsx prisma/seed.ts' },
-  datasource: { url: env('DATABASE_URL') },
+  schema: "prisma/schema.prisma",
+  migrations: { path: "prisma/migrations", seed: "tsx prisma/seed.ts" },
+  datasource: { url: env("DATABASE_URL") },
 });
 ```
 
 DTO strictness — the global pipe (mass-assignment / unknown-field guard):
 
 ```ts
-app.useGlobalPipes(new ValidationPipe({
-  whitelist: true,
-  forbidNonWhitelisted: true,
-  forbidUnknownValues: true,
-  transform: true,
-  transformOptions: { enableImplicitConversion: false },
-  validationError: { target: false, value: false },
-}));
+app.useGlobalPipes(
+  new ValidationPipe({
+    whitelist: true,
+    forbidNonWhitelisted: true,
+    forbidUnknownValues: true,
+    transform: true,
+    transformOptions: { enableImplicitConversion: false },
+    validationError: { target: false, value: false },
+  }),
+);
 ```
 
 `package.json` — single gate chain + pins:
@@ -415,25 +474,25 @@ app.useGlobalPipes(new ValidationPipe({
     "deadcode": "knip --production --no-progress",
     "prisma:check": "prisma validate && prisma format --check && prisma migrate diff --exit-code --from-migrations prisma/migrations --to-schema prisma/schema.prisma && prisma generate && git diff --exit-code -- generated/prisma",
     "test": "vitest run --coverage",
-    "types": "type-coverage --at-least 99 --strict --ignore-catch"
-  }
+    "types": "type-coverage --at-least 99 --strict --ignore-catch",
+  },
 }
 ```
 
 ### Mandatory Gate Order
 
-1. `corepack enable && npm ci --ignore-scripts`  *(supply-chain: no install-time scripts)*
+1. `corepack enable && npm ci --ignore-scripts` _(supply-chain: no install-time scripts)_
 2. `npx lockfile-lint --path package-lock.json --type npm --validate-https --allowed-hosts npm --validate-integrity`
-3. `npx osv-scanner scan -L package-lock.json --format=table`  *(or `npm audit --audit-level=high`)*
+3. `npx osv-scanner scan -L package-lock.json --format=table` _(or `npm audit --audit-level=high`)_
 4. `npx tsc --noEmit`
 5. `npx eslint . --max-warnings=0`
 6. `npx depcruise src --config .dependency-cruiser.cjs`
 7. `npx knip --production --no-progress`
 8. `npx prisma validate`
 9. `npx prisma format --check`
-10. `npx prisma migrate diff --exit-code --from-migrations prisma/migrations --to-schema prisma/schema.prisma`  *(exit `2` = schema and migrations drifted)*
-11. `npx prisma generate && git diff --exit-code -- generated/prisma`  *(proves the committed client matches the schema; commit `generated/prisma` for this check)*
-12. `npx prisma migrate status`  *(needs a live DB service; exits `1` on pending/diverged/failed migrations)*
+10. `npx prisma migrate diff --exit-code --from-migrations prisma/migrations --to-schema prisma/schema.prisma` _(exit `2` = schema and migrations drifted)_
+11. `npx prisma generate && git diff --exit-code -- generated/prisma` _(proves the committed client matches the schema; commit `generated/prisma` for this check)_
+12. `npx prisma migrate status` _(needs a live DB service; exits `1` on pending/diverged/failed migrations)_
 13. `npx vitest run --coverage`
 14. `npx type-coverage --at-least 99 --strict --ignore-catch`
 15. `npx oasdiff breaking openapi.baseline.json openapi.generated.json --fail-on ERR`
@@ -475,6 +534,7 @@ Paste the exact command and its pass signal into Verification Evidence; all must
 - E2E boot proof: `npx vitest run test/app.e2e-spec.ts` exits `0` (Nest DI module compiles; all injections resolve).
 
 <!-- sources -->
+
 - https://typescript-eslint.io/getting-started/typed-linting/
 - https://typescript-eslint.io/users/configs/
 - https://typescript-eslint.io/rules/switch-exhaustiveness-check/

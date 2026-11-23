@@ -68,19 +68,20 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 
 **F1 — Inventory (repo state, verified by glob/grep/wc 2026-09-27).** Five Python servers, 8,427 LOC total. All use `from mcp.server.fastmcp import FastMCP` + stdio transport (`mcp.run(transport="stdio")`; brain-bridge uses bare `mcp.run()`, same stdio default). All five pyprojects pin `mcp[cli]>=1.0,<2.0`; uv.lock resolves **1.30.0**.
 
-| Server | LOC | Tools |
-| --- | --- | --- |
-| mcp-context-server | 1,498 | 8: get_directory_tree, read_source_files, create_tree_report, extract_signatures, stage_and_inject_diff, qa_transition, commit_and_clean_task, bundle_tasks |
-| mcp-memory-server | 388 | 6: store/read/delete/search_memory, list_namespaces, rebuild_memory_index |
-| mcp-lint-server | 704 | 4: lint_markdown, lint_task_file, lint_all_tasks, lint_system_prompt_sync |
-| mcp-decision-server (+redactor 85, +detector 149) | 1,838 | 6: extract_session_decisions, record_manager_decision, query_manager_decisions, get_sync_status, get_manager_profile, propose_profile_evolution |
-| mcp-brain-bridge (+9 modules) | 3,687 | 4: get_context_bundle, read_file, grep_files, brain_turn |
+| Server                                            | LOC   | Tools                                                                                                                                                       |
+| ------------------------------------------------- | ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| mcp-context-server                                | 1,498 | 8: get_directory_tree, read_source_files, create_tree_report, extract_signatures, stage_and_inject_diff, qa_transition, commit_and_clean_task, bundle_tasks |
+| mcp-memory-server                                 | 388   | 6: store/read/delete/search_memory, list_namespaces, rebuild_memory_index                                                                                   |
+| mcp-lint-server                                   | 704   | 4: lint_markdown, lint_task_file, lint_all_tasks, lint_system_prompt_sync                                                                                   |
+| mcp-decision-server (+redactor 85, +detector 149) | 1,838 | 6: extract_session_decisions, record_manager_decision, query_manager_decisions, get_sync_status, get_manager_profile, propose_profile_evolution             |
+| mcp-brain-bridge (+9 modules)                     | 3,687 | 4: get_context_bundle, read_file, grep_files, brain_turn                                                                                                    |
 
 Shared lib `mcp-common` (env.py, 73 lines) imported by decision + brain servers. Global install mirrors repo 1:1 (7 MCP entries incl. third-party blowsh docker + telegram upstream; `enabled: true`, per-server timeouts). Live `opencode mcp list` earlier showed 7/7 connected under opencode 2.0.18.
 
 **F2 — Web data (sources: modelcontextprotocol.io spec 2026-07-28 + changelog, py.sdk.modelcontextprotocol.io v2 whats-new + migration guide, PyPI mcp JSON, CSA agentic-MCP guide, mcp-sec-audit paper, 3 practitioner audit guides).** Spec current revision **2026-07-28** (stateless core, `server/discover`, no handshake, no server-initiated requests, `Mcp-Method`/`Mcp-Name` routing headers). Python SDK **v2.2.0** current stable; **v1.x in maintenance** (critical/security fixes only). Upstream migration rule quoted verbatim: not ready → keep upper bound `mcp>=1.28,<2`. PyPI check 2026-09-27: latest overall **2.2.0**, latest v1.x **1.30.0** — our lock is exactly latest-v1 (an earlier string-sort claiming 1.9.4 was my sort bug, corrected with tuple comparison). Security consensus: stdio-local servers need no OAuth; controls that matter for us are input validation, no secret leakage, least-privilege tools, audit logging; untrusted-content fencing is the industry's most-missed control.
 
 **F3 — Per-server verdicts: all PASS, keep as-is.**
+
 - Transport: stdio + loopback `uv run` is the correct shape for local servers per every guide ("stdio behind host auth"; our host is the local opencode process, no network listener, no auth surface). V2 spec changes target HTTP/session semantics — stdio FastMCP v1 servers are operationally unaffected, proven by 7/7 connected on opencode 2.0.18.
 - Dependencies: `mcp[cli]>=1.0,<2.0` + locked latest-v1 1.30.0 is exactly the upstream-advised posture. SDK v2 migration (`FastMCP`→`MCPServer`, constructor/run split, `mcp_types`, httpx2) is optional; no trigger today.
 - Dangerous patterns: zero hits for `shell=True`, `os.system`, `eval(`, `pickle.loads`, `exec(` across all five servers + common. `subprocess` uses are list-form only: context-server `git add/mv/diff/rev-parse/commit` (the ZAC-approved commit path), decision-server `git -C <repo>` helper and `sys.executable scripts/compile_profile.py` (both capture_output, timeouts). No tokens in code; `BRAIN_API_KEY` via env.
@@ -96,5 +97,6 @@ Shared lib `mcp-common` (env.py, 73 lines) imported by decision + brain servers.
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `81dc8c47e90a19ef5744eea0776eda673af34bab`
 <!-- END_GIT_DIFF -->

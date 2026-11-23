@@ -77,5 +77,6 @@ Kanban finalization 2026-10-01: the previously blocked `git mv tasks/qa/ → tas
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `c13aadfac38230a8e715a6c6520b02575f5a5790`
 <!-- END_GIT_DIFF -->

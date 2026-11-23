@@ -80,6 +80,7 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 Autopilot locked for issue 15. Seat Check (planning): Senior Programmer for bridge repair + tests; Software Architect for bleed-guard and checklist design. Skipped Designer/Planner/Strategist/QA/Reviewer (no UI, schema, sprint, or verdict triggers yet — QA/Reviewer judge later bridge turns). Replay lineage: Replayed from DEC-20260914-003 (2026-09-14): standing full-autopilot zero questions. Replayed from DEC-20260915-001 (2026-09-15): fix-all via Hands on autopilot.
 
 Implementation (all four plan items, cites):
+
 - A1 Bug 1: Task 240 covered the changed-hunks note; remaining `read_file` pull orders in `_strip_task_diff` omitted-note and `_TASK_ATTACH_CAP` truncation note reworded — no file tools, quote paths, Hands feeds fed-context under same task_id. CITE mcp-brain-bridge/server.py `_strip_task_diff`, `_TASK_ATTACH_CAP` note. 4 old tests updated to assert the Hands route.
 - A2 Bug 2: bleed vectors confirmed in `load_history` + `load_fed_context` (legacy fallback read foreign turns when per-project file missing). Guarded: legacy applies ONLY when resolved root IS the legacy global; project with own `tasks/` dir gets fresh `[]`/`''`. CITE mcp-brain-bridge/server.py `load_history`, `load_fed_context`. 2 new tests (no-bleed, legacy-from-bare).
 - A3 Gap 3: new `validate_closure_checklist` — QA_PASSED + PO_REVIEW_PENDING + exact approval words + non-empty diff + `extract_session_decisions` evidence. CITE mcp-brain-bridge/server.py. 2 new tests.
@@ -95,5 +96,6 @@ Implementation (all four plan items, cites):
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `ec0e29b4467e63754bfa6301fa2e9887a3e7612a`
 <!-- END_GIT_DIFF -->

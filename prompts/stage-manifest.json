@@ -78,30 +78,22 @@
       "artifact_dir": "build/stage-prompts"
     },
     "implement": {
-      "personas": [
-        "senior-programmer"
-      ],
+      "personas": ["senior-programmer"],
       "artifact": "system-prompt.implement.md",
       "artifact_dir": "build/stage-prompts"
     },
     "qa": {
-      "personas": [
-        "qa-engineer"
-      ],
+      "personas": ["qa-engineer"],
       "artifact": "system-prompt.qa.md",
       "artifact_dir": "build/stage-prompts"
     },
     "review": {
-      "personas": [
-        "code-reviewer"
-      ],
+      "personas": ["code-reviewer"],
       "artifact": "system-prompt.review.md",
       "artifact_dir": "build/stage-prompts"
     },
     "closure": {
-      "personas": [
-        "senior-programmer"
-      ],
+      "personas": ["senior-programmer"],
       "artifact": "system-prompt.closure.md",
       "artifact_dir": "build/stage-prompts"
     },

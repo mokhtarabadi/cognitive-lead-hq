@@ -14,6 +14,7 @@ Audit the repository, remove leftovers including stale docs, and self-improve sk
 User order (verbatim): "now audit project and cleanup and remove left overs , all left overs include docs. and also self improve system all skills, agents, system prompts. mcps. you as a llm try to cleanup, improve, remove left overs. create a goal and continue until finished. a task required."
 
 Constraints carried forward:
+
 - Automation stays DISABLED (Tasks 175/176): persona + manager_decisions MCP servers stay stripped from repo + global opencode.json; executor/discovery automation sections stay commented; 9 commands stay archived under archive/automation-paused-2026-09-09/commands/ with RESTORE.md; brainstorm-swarm skill restored but inert.
 - system-prompt.md is a GENERATED artifact: edit prompts/fragments/ + prompts/shared/ only, bump 01-system_version, regenerate via scripts/prompt-build/assemble_system_prompt.py, verify sync.
 - Repo is source of truth for global sync; smoke expectation is 5 MCPs connected (persona/decisions absent by design).
@@ -27,7 +28,7 @@ Constraints carried forward:
 - [x] Self-improve skills, agents, fragments, MCPs (small, safe, tested edits only)
 - [x] Regenerate system-prompt + version bump + sync verification
 - [x] Verify functionality (tests, lint, MCP list)
-- [x] Step 2: Harden mcp-context-server (workspace guard in get_directory_tree; max_depth=8 + max_entries=2000 + BANNED_DIRS={.git,.cache,__pycache__,node_modules,.venv,venv,proc,sys,dev} in generate_tree; max_files=1000 + BANNED_DIRS in collect_files; report metrics prepend in read_source_files)
+- [x] Step 2: Harden mcp-context-server (workspace guard in get_directory_tree; max_depth=8 + max_entries=2000 + BANNED_DIRS={.git,.cache,**pycache**,node_modules,.venv,venv,proc,sys,dev} in generate_tree; max_files=1000 + BANNED_DIRS in collect_files; report metrics prepend in read_source_files)
 - [x] Step 3: Regression tests in tests/test_mcp_servers.py (traversal reject, None input, depth/entry caps, banned-dirs skip) + pytest green
 - [x] Step 4: Create skill-templates/blowsh/SKILL.md (5 tools, full params, docker ref, SSRF rules)
 - [x] Step 5: Fragment 07 blowsh line + 01-system_version 9.12.0 + prettier + reassemble + byte-identity diff check
@@ -77,12 +78,14 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 ## Execution Log & Reasoning
 
 Discovery (4 parallel cognitive-discovery subagents, read-only):
+
 - D1 docs/root: `docs/loop-engine/` (5 files) stale — cite deleted `loop-engine/` + `deploy/` paths; `conventions.md:77` cites retired sentinel as live; `setup.md:50-58` lacks paused-state context; `docs/history/` is record (keep); root has no clutter; `context-reports/` gitignored runtime output; `/tmp` refs intentional.
 - D2 skills: 32/32 in sync repo↔global, zero `loop-engine|deploy|dispatch` refs; `manager-decision` presents disabled server as live; `versioning-and-release:59` pins stale `V5.3.0`; `system-prompt.md` lacks just-added `brainstorm-swarm` line (stale artifact, version pins match at 9.10.0).
 - D3 agents/prompts: executor automation inside PAUSED block, manual workflow active; executor L70 `manager-decision` matrix row live outside block (stale); fragments have zero live automation refs; archive holds 9/9 commands + RESTORE.md; RESTORE step 5 reads as live expectation.
 - D4 MCPs/configs: 6 server dirs (persona/decision disabled-but-kept ✓); both opencode.json valid with persona/decisions absent ✓; `.env.example` PAUSED block ✓; caches (`tests/__pycache__/`, `.pytest_cache/`, `.ruff_cache/`) untracked leftovers; `.gitignore` lacks pytest/ruff cache entries; `deploy-prompt-composer.yml` live (`tools/prompt-composer/index.html` exists — kept).
 
 Triage (remove/archive/keep):
+
 - ARCHIVE (git mv, history preserved): `docs/loop-engine/` → `archive/automation-paused-2026-09-09/docs-loop-engine/`.
 - REMOVE (untracked runtime only): `tests/__pycache__/`, `.pytest_cache/`, `.ruff_cache/`, 3 probe-generated `context-reports/*.md`.
 - KEEP: `docs/history/`, migration docs, `deploy-prompt-composer.yml` (live target exists), inert `brainstorm-swarm` skill, disabled-but-kept servers, `context-reports/` gitignore rule.
@@ -91,6 +94,7 @@ Triage (remove/archive/keep):
 Regeneration (fragment-edit workflow): prettier on 9 md files → `assemble_system_prompt.py` → 75,698 bytes; version 9.11.0 in fragment + artifact; `brainstorm-swarm` at system-prompt.md:133; `lint_system_prompt_sync` clean; `git status -- '*.py'` empty (zero out-of-scope changes); suite 138 passed exit 0. `opencode mcp list` re-verified at staging time (expect 5 connected, persona/decisions absent).
 
 Expansion (Orchestrator re-open order, Steps 2–8):
+
 - Hardening (`mcp-context-server/server.py`, py_compile clean): module guards `TREE_MAX_DEPTH=8`, `TREE_MAX_ENTRIES=2000`, `COLLECT_MAX_FILES=1000`, `BANNED_DIRS` (9 names) + `_is_banned_dir` (unstatable = unsafe); `get_directory_tree` mirrors the `create_tree_report` workspace confinement (non-string → root default, escapes → traversal error); `generate_tree` enforces depth/entry caps with `[Max depth reached]` / `[Truncated]` markers and skips banned dirs; `collect_files` prunes banned dirs in `dirs[:]` and caps at `max_files`; `read_source_files` prepends `📊 Report metrics` (processed/skipped/bytes/duration); `PermissionError` widened to `OSError` on unreadable dirs.
 - Tests: 7 regression tests appended to `tests/test_mcp_servers.py` (same spec-load pattern): `/` + `..` traversal reject, `None`→root default, depth cap marker, entry cap + banned skip, collect cap + `.venv` exclusion, metrics line (`2 processed, 1 skipped`). New-test run 13 passed; full suite **145 passed** exit 0.
 - Blowsh skill: `skill-templates/blowsh/SKILL.md` (5 tools with full params, Docker transport ref, cheapest-tool-first rules, SSRF rule); fragment 07 line added; `01-system_version` 9.11.0 → 9.12.0; prettier clean; reassembled 75,927 bytes, `blowsh` at system-prompt.md:134, `lint_system_prompt_sync` clean, reassembly byte-identical on rerun.
@@ -102,5 +106,6 @@ Expansion (Orchestrator re-open order, Steps 2–8):
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `cce1d5ec9394f1acf6ccf696aca2466650c3cf5f`
 <!-- END_GIT_DIFF -->

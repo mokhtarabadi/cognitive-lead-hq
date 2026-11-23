@@ -16,15 +16,15 @@ Run the five in-house MCP servers in direct-tool mode (`codemode: false`) and ke
 
 ## Decision
 
-| Server | codemode | Why |
-| --- | --- | --- |
+| Server                      | codemode  | Why                                                                                    |
+| --------------------------- | --------- | -------------------------------------------------------------------------------------- |
 | `custom_context` (16 tools) | **false** | Core exploration surface; called constantly, direct calls skip the execute indirection |
-| `project_memory` (6) | **false** | Small toolset, read-heavy, agents reason over results immediately |
-| `lint` (4) | **false** | Tiny schema, gate calls want exact typed results |
-| `brain` (1) | **false** | One conversational tool; a wrapper adds nothing |
-| `planner` (11) | **false** | Lane/status calls are the daily loop |
-| `blowsh` (5) | **false** | Five tools only; direct calls are cheaper than the wrapper hop |
-| `telegram` (147) | true | 147 schemas would flood the system prompt |
+| `project_memory` (6)        | **false** | Small toolset, read-heavy, agents reason over results immediately                      |
+| `lint` (4)                  | **false** | Tiny schema, gate calls want exact typed results                                       |
+| `brain` (1)                 | **false** | One conversational tool; a wrapper adds nothing                                        |
+| `planner` (11)              | **false** | Lane/status calls are the daily loop                                                   |
+| `blowsh` (5)                | **false** | Five tools only; direct calls are cheaper than the wrapper hop                         |
+| `telegram` (147)            | true      | 147 schemas would flood the system prompt                                              |
 
 ## Local TODOs
 
@@ -83,5 +83,6 @@ Run the five in-house MCP servers in direct-tool mode (`codemode: false`) and ke
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `5f23f2b526cc33ec81e965274376e62f5f1342e0`
 <!-- END_GIT_DIFF -->

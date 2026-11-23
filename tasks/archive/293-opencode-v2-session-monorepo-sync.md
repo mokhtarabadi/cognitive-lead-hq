@@ -63,6 +63,7 @@ Synchronize the monorepo to OpenCode V2 session-first semantics: ambient `OPENCO
 **Created (2026-10-04):** backlog file scaffolded via `task-generator` skill; NEXT_ID 293 (lanes max 292).
 
 **Implementation (2026-10-04):**
+
 - Wired ambient `OPENCODE_SESSION_ID` detection in `preflight.py` (`validate_request`: explicit `session_id` wins, else ambient env cleaned via `require_session_id`, else `None`; docstring updated). New test `test_preflight_uses_ambient_opencode_session_id`; binding tests hardened to clear the ambient var.
 - Fix (verification-driven): first RTK run showed 7 failures in `test_brain_bridge.py` — ambient `OPENCODE_SESSION_ID=ses_ef82…` from the live shell hijacked task-keyed turns (the exact risk in Risk & Rollback). Added hermetic autouse fixtures (`_no_ambient_session`) to `test_brain_bridge.py` + `test_brain_capability.py`; suite now **327 passed**. Also updated `brain_turn` `session_id` docstring in `server.py` for ambient semantics.
 - Updated prompt fragments `01` (9.52.0 → 9.53.0), `09` (2× automatic-mode chaining → active session thread), `22` (survival contract + session ID); reassembled `system-prompt.md` (98933 bytes, `assemble_system_prompt.py` exit 0); `test_prompt_sync` pin → 9.53.0.
@@ -74,5 +75,6 @@ Synchronize the monorepo to OpenCode V2 session-first semantics: ambient `OPENCO
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `e3c76f0dbd14120764cdba2bc8a76c92d8b39ecd`
 <!-- END_GIT_DIFF -->

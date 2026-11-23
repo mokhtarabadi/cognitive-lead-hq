@@ -25,6 +25,7 @@ The Living Folder Docs system ensures that architectural knowledge, design ratio
 ## 3. Touch Points & File Locations
 
 All touch points are anchored in verified repository files:
+
 - `docs/conventions.md`: Canonical definition of the Living Docs standard.
 - `prompts/fragments/13-constraints.md`: Sibling docs reading and writing constraints.
 - `prompts/fragments/09-hands_protocols.md`: Task execution phases for folder docs sync.
@@ -38,6 +39,7 @@ All touch points are anchored in verified repository files:
 ## 4. Concrete Reference Example: `todo-app` Vertical Slice
 
 ### Directory Layout
+
 ```text
 src/features/todos/
 ├── README.md
@@ -48,27 +50,33 @@ src/features/todos/
 ```
 
 ### `src/features/todos/README.md`
+
 ```markdown
 # Slice: Todos Feature
 
 ## Duties
+
 Handles todo creation, completion toggling, filtering, and persistent storage.
 
 ## Files
+
 - todo.model.ts: Domain entities and validation schemas.
 - todo.service.ts: Business logic, persistence interactions, and error handling.
 - todo.controller.ts: HTTP route handlers and request/response mapping.
 
 ## Key Risks & Invariants
+
 - Todos must belong to a verified tenant; never query across tenant boundaries.
 - Soft-deleted items must not appear in count aggregations.
 ```
 
 ### `src/features/todos/DECISIONS.md`
+
 ```markdown
 # Architectural Decisions: Todos Feature
 
 ## [2026-08-25] ADR-001: Soft Deletion via Sidecar DeletedAt Column
+
 - Context: Hard deletion caused cascade failures with audit reports.
 - Decision: All deletion marks deleted_at timestamp; queries filter deleted_at IS NULL.
 - Consequences: Existing indexes required compound update on (tenant_id, deleted_at).
@@ -76,6 +84,7 @@ Handles todo creation, completion toggling, filtering, and persistent storage.
 ```
 
 ### Code Pointer Standard (`src/features/todos/todo.service.ts`)
+
 ```typescript
 // Sibling Docs: src/features/todos/README.md | Decisions: src/features/todos/DECISIONS.md
 export class TodoService {

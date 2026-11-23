@@ -11,8 +11,8 @@ retired persona engine. The Hands calls it for every Brain turn
    attached task file contents. The prompt MUST open with a one-line
    mode statement because the Brain cannot know which emission shape is
    live: `MODE: AUTOMATIC (autopilot locked) — emit bare unfenced XML
-   only; no copy-paste relay instructions` in autopilot, `MODE: MANUAL
-   — xml-fenced blocks expected; no copy-paste task ferrying instructions (Hands invokes brain_turn directly)`
+only; no copy-paste relay instructions` in autopilot, `MODE: MANUAL
+— xml-fenced blocks expected; no copy-paste task ferrying instructions (Hands invokes brain_turn directly)`
    otherwise (a four-backtick ````xml wrapper when the body carries its
    own fenced code).
 2. **The bridge loads the system prompt** from the global install
@@ -114,40 +114,40 @@ global install that is **`~/.config/opencode/.env`**, for repo runs the
 repo-root `.env`). Real process env wins; blank counts as unset. See
 `docs/services.md` §Credentials.
 
-| Variable            | Default                                              |
-| ------------------- | ---------------------------------------------------- |
-| `BRAIN_API_BASE`    | _(Manager-owned endpoint, e.g. local proxy URL)_     |
-| `BRAIN_API_KEY`     | _(Manager-owned, never committed)_                   |
-| `BRAIN_MODEL`       | `gpt-6-astra`                   |
-| `BRAIN_REASONING_EFFORT` | `medium`                                         |
-| `BRAIN_MAX_TOKENS`  | `32768`                                              |
-| `BRAIN_SYSTEM_PROMPT` | `~/.config/opencode/system-prompt.md`              |
-| `BRAIN_SESSIONS_ROOT` | `~/.config/opencode/brain-sessions`                |
-| `OPENCODE_SESSION_ID` | _(ambient, set by OpenCode V2)_ — auto-binds the turn to the active session when `session_id` is omitted; explicit `session_id` always wins |
-| `DECISION_MODEL`    | _(falls back to `BRAIN_MODEL` default)_              |
-| `DECISION_TEMPERATURE` | `1.0`                                             |
-| `BRAIN_RISK_ROUTING_ENABLED` | `true` (routing ON; set a falsy value to disable) |
-| `BRAIN_MODEL_LOW`   | `deepseek/deepseek-v4.1-flash` for `T0` turns; **unset** = built-in default, **blank** = `BRAIN_MODEL` |
-| `BRAIN_MODEL_HIGH`  | `openai/gpt-5.6-luna` for `T1`/`T2` turns; **unset** = built-in default, **blank** = `BRAIN_MODEL` |
-| `BRAIN_STAGE_TIERS` | `plan:T2,review:T2,implement:T0,qa:T0,closure:T0`    |
-| `BRAIN_TASK_ATTACH_CAP` | `60000` — task-file attachment chars; blank/unset = default |
-| `BRAIN_TASK_DIFF_CAP` | `200000` — changed-hunks chars; blank/unset = default |
-| `BRAIN_CTX_PER_FILE_CAP` | `150000` — per `context_paths` file; blank/unset = default |
-| `BRAIN_CTX_TOTAL_CAP` | `400000` — all `context_paths` per turn; blank/unset = default |
-| `BRAIN_INPUT_BUDGET` | `1000000` — input budget ceiling (system + prompt + history), chars |
-| `BRAIN_MODEL_WINDOW_CHARS` | `200000` — utilization monitor only, never a send cap |
-| `BRAIN_CONTEXT_WINDOW_TOKENS` | `1048576` — provider window for the pre-send guard; blank/unset = default |
-| `BRAIN_BUDGET_MARGIN_TOKENS` | `8192` — safety margin for the pre-send guard; blank/unset = default |
-| `BRAIN_SEND_STORE` | off — when on, sends `store: false` (F1; probed OK on the live gateway 2026-10-21) |
-| `BRAIN_SEND_INCLUDE_ENCRYPTED` | off — when on, sends `include: ["reasoning.encrypted_content"]` (F1/F2; probed OK) |
-| `BRAIN_SEND_CACHE_KEY` | off — when on, sends a stable `prompt_cache_key` derived from the system-prompt hash (F4; probed OK) |
-| `BRAIN_SEND_TRUNCATION` | off — when on, sends `truncation: "auto"` (F3; probed OK) |
-| `BRAIN_SEND_CONTEXT_MANAGEMENT` | off — when on, sends `context_management: [{type: compaction, compact_threshold}]` (F3; probed OK, record-only) |
-| `BRAIN_USE_INSTRUCTIONS` | off — when on, the system prompt moves to top-level `instructions` instead of a `role: system` input item (F10; probed OK) |
-| `BRAIN_CHARS_PER_TOKEN` | unset — explicit chars-per-token override for the pre-send estimate; otherwise calibrated from observed `usage.input_tokens`, else `4.0` (F3) |
-| `BRAIN_COMPACTION_THRESHOLD` | `100000` — token threshold for `context_management` compaction (F3) |
-| `BRAIN_HTTP_READ_TIMEOUT` | `900` — httpx read timeout for the provider call |
-| `BRAIN_OVERALL_DEADLINE_S` | `900` — whole retry-sequence deadline; must sit at or above any proxy hop in the path and below the MCP client timeout |
+| Variable                        | Default                                                                                                                                       |
+| ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `BRAIN_API_BASE`                | _(Manager-owned endpoint, e.g. local proxy URL)_                                                                                              |
+| `BRAIN_API_KEY`                 | _(Manager-owned, never committed)_                                                                                                            |
+| `BRAIN_MODEL`                   | `gpt-6-astra`                                                                                                                                 |
+| `BRAIN_REASONING_EFFORT`        | `medium`                                                                                                                                      |
+| `BRAIN_MAX_TOKENS`              | `32768`                                                                                                                                       |
+| `BRAIN_SYSTEM_PROMPT`           | `~/.config/opencode/system-prompt.md`                                                                                                         |
+| `BRAIN_SESSIONS_ROOT`           | `~/.config/opencode/brain-sessions`                                                                                                           |
+| `OPENCODE_SESSION_ID`           | _(ambient, set by OpenCode V2)_ — auto-binds the turn to the active session when `session_id` is omitted; explicit `session_id` always wins   |
+| `DECISION_MODEL`                | _(falls back to `BRAIN_MODEL` default)_                                                                                                       |
+| `DECISION_TEMPERATURE`          | `1.0`                                                                                                                                         |
+| `BRAIN_RISK_ROUTING_ENABLED`    | `true` (routing ON; set a falsy value to disable)                                                                                             |
+| `BRAIN_MODEL_LOW`               | `deepseek/deepseek-v4.1-flash` for `T0` turns; **unset** = built-in default, **blank** = `BRAIN_MODEL`                                        |
+| `BRAIN_MODEL_HIGH`              | `openai/gpt-5.6-luna` for `T1`/`T2` turns; **unset** = built-in default, **blank** = `BRAIN_MODEL`                                            |
+| `BRAIN_STAGE_TIERS`             | `plan:T2,review:T2,implement:T0,qa:T0,closure:T0`                                                                                             |
+| `BRAIN_TASK_ATTACH_CAP`         | `60000` — task-file attachment chars; blank/unset = default                                                                                   |
+| `BRAIN_TASK_DIFF_CAP`           | `200000` — changed-hunks chars; blank/unset = default                                                                                         |
+| `BRAIN_CTX_PER_FILE_CAP`        | `150000` — per `context_paths` file; blank/unset = default                                                                                    |
+| `BRAIN_CTX_TOTAL_CAP`           | `400000` — all `context_paths` per turn; blank/unset = default                                                                                |
+| `BRAIN_INPUT_BUDGET`            | `1000000` — input budget ceiling (system + prompt + history), chars                                                                           |
+| `BRAIN_MODEL_WINDOW_CHARS`      | `200000` — utilization monitor only, never a send cap                                                                                         |
+| `BRAIN_CONTEXT_WINDOW_TOKENS`   | `1048576` — provider window for the pre-send guard; blank/unset = default                                                                     |
+| `BRAIN_BUDGET_MARGIN_TOKENS`    | `8192` — safety margin for the pre-send guard; blank/unset = default                                                                          |
+| `BRAIN_SEND_STORE`              | off — when on, sends `store: false` (F1; probed OK on the live gateway 2026-10-21)                                                            |
+| `BRAIN_SEND_INCLUDE_ENCRYPTED`  | off — when on, sends `include: ["reasoning.encrypted_content"]` (F1/F2; probed OK)                                                            |
+| `BRAIN_SEND_CACHE_KEY`          | off — when on, sends a stable `prompt_cache_key` derived from the system-prompt hash (F4; probed OK)                                          |
+| `BRAIN_SEND_TRUNCATION`         | off — when on, sends `truncation: "auto"` (F3; probed OK)                                                                                     |
+| `BRAIN_SEND_CONTEXT_MANAGEMENT` | off — when on, sends `context_management: [{type: compaction, compact_threshold}]` (F3; probed OK, record-only)                               |
+| `BRAIN_USE_INSTRUCTIONS`        | off — when on, the system prompt moves to top-level `instructions` instead of a `role: system` input item (F10; probed OK)                    |
+| `BRAIN_CHARS_PER_TOKEN`         | unset — explicit chars-per-token override for the pre-send estimate; otherwise calibrated from observed `usage.input_tokens`, else `4.0` (F3) |
+| `BRAIN_COMPACTION_THRESHOLD`    | `100000` — token threshold for `context_management` compaction (F3)                                                                           |
+| `BRAIN_HTTP_READ_TIMEOUT`       | `900` — httpx read timeout for the provider call                                                                                              |
+| `BRAIN_OVERALL_DEADLINE_S`      | `900` — whole retry-sequence deadline; must sit at or above any proxy hop in the path and below the MCP client timeout                        |
 
 The local `BRAIN_API_BASE` is `http://127.0.0.1:8081/go/resp`, served by the
 `zen-proxy` slice in this repo (`docs/zen-proxy.md`, unit
@@ -181,16 +181,19 @@ to the last 40 messages) and is never cut to fit.
 
 Task file and diff blocks keep their stable labels:
 
-```text
+````text
 [task-file:200: tasks/qa/200-x.md]
 ```markdown
 ...working content (Factual Git Diff stripped)...
-```
+````
+
 [changed-hunks:200: tasks/qa/200-x.md]
+
 ```diff
 ...verbatim hunks...
 ```
-```
+
+````
 
 Context paths render as `[path-injected: <path>]` followed by content.
 A trailing `#Lstart-end` requests inclusive 1-based lines `start`–`end`;
@@ -305,7 +308,7 @@ the outcome. Every new Manager ruling is recorded in the task file.
 
 ```bash
 rtk test uv run --project mcp-brain-bridge --with pytest pytest tests/test_brain_bridge.py -q
-```
+````
 
 Live calls need a valid `BRAIN_API_KEY` for the configured
 `BRAIN_API_BASE`; without one the server returns `error` (HTTP 401

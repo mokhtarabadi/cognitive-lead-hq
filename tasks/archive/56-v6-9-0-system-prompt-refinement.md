@@ -7,6 +7,7 @@
 ## Goal
 
 Upgrade system-prompt.md to V6.9.0 with:
+
 1. Discovery-First Mandate for Architect and UI/UX personas
 2. Environmental Checklist for UI/UX Designer
 3. Anti-Hack / Clean Architecture Mandate for Senior Programmer
@@ -60,5 +61,6 @@ Upgrade system-prompt.md to V6.9.0 with:
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `3a938e76c2d63126cf211c7dd8024daf886bdb6f`
 <!-- END_GIT_DIFF -->

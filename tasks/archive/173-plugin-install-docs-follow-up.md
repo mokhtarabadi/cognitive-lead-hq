@@ -65,5 +65,6 @@ Post-restart pipeline (manager order: QA → reviewer → auto-close, Telegram g
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `121768a07a89c997df182f4aa756e356df7c5acd`
 <!-- END_GIT_DIFF -->

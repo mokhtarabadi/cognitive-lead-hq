@@ -62,7 +62,7 @@ Root cause: Senior Programmer persona instructed fenced ```xml output for human 
 
 Assumption A1: prompt-only fix is sufficient and no lenient bridge fallback is wanted, because Manager asked for minimal simple changes and strict tests pin fail-closed.
 
-Revision 2 (dual-mode per Manager rejection): bare-only rejected. MODE is declared in 19-initialization (manual ferries by copy-paste, automatic chains brain_turn; default manual) while the bridge was mode-blind, so one shape could not serve both. New contract: manual MODE fences ```xml forced, automatic MODE bare with no fences; bridge extracts bare first then complete ```xml-fenced blocks, other fences stay docs, bare unclosed and truncated fences still strict-reject (broken XML never executes). Tests updated from strict-reject to extraction pins (8 cases); truncated-in-fence case keeps rejecting. Version 9.58.2, artifact regenerated and sync-verified. Living docs: ADRs appended in mcp-brain-bridge and fragments DECISIONS. verification-before-completion applied on the revision run: RTK 277 passed plus lint sync gates green before staging. Modified this round: prompts/fragments/06-personas.md, prompts/fragments/01-system_version.md, system-prompt.md, mcp-brain-bridge/server.py, tests/test_brain_bridge.py, docs/brain-bridge.md, CHANGELOG.md, mcp-brain-bridge/DECISIONS.md, prompts/fragments/DECISIONS.md.
+Revision 2 (dual-mode per Manager rejection): bare-only rejected. MODE is declared in 19-initialization (manual ferries by copy-paste, automatic chains brain_turn; default manual) while the bridge was mode-blind, so one shape could not serve both. New contract: manual MODE fences `xml forced, automatic MODE bare with no fences; bridge extracts bare first then complete `xml-fenced blocks, other fences stay docs, bare unclosed and truncated fences still strict-reject (broken XML never executes). Tests updated from strict-reject to extraction pins (8 cases); truncated-in-fence case keeps rejecting. Version 9.58.2, artifact regenerated and sync-verified. Living docs: ADRs appended in mcp-brain-bridge and fragments DECISIONS. verification-before-completion applied on the revision run: RTK 277 passed plus lint sync gates green before staging. Modified this round: prompts/fragments/06-personas.md, prompts/fragments/01-system_version.md, system-prompt.md, mcp-brain-bridge/server.py, tests/test_brain_bridge.py, docs/brain-bridge.md, CHANGELOG.md, mcp-brain-bridge/DECISIONS.md, prompts/fragments/DECISIONS.md.
 
 Autopilot locked for 316 at Manager order on 2026-10-12. Bridge check: brain_turn absent from Code Mode catalog (turn, brain_turn, and brain searches return no bridge path), so autopilot QA and review chaining is capability-blocked. File stays in tasks/qa/ with mode recorded here; next action needs the bridge path restored or a manual QA decision.
 
@@ -75,5 +75,6 @@ Manager accept quote for closure: Approved for closure. Closure executed via sin
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `aefc42fe8461c08ad7c6285e244a9fcc5ff0a0ec`
 <!-- END_GIT_DIFF -->

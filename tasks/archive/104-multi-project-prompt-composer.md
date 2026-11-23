@@ -129,6 +129,7 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 6. **selectPreset Update** — Added `syncDOMToState()` call so preset clicks auto-save to the active project.
 
 **Key design decisions:**
+
 - Kept single-file architecture (no build step, no external JS dependencies)
 - `TEXTAREA_IDS` array includes all 6 textareas (including `context-report` which was added in Task 107)
 - Backward-compatible: first load creates a "Default" project with empty state
@@ -139,5 +140,6 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `3ccb12dea4fe8e2e78a7eb57d0e1d9476719a266`
 <!-- END_GIT_DIFF -->

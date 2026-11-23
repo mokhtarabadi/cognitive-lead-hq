@@ -163,18 +163,18 @@ flowchart TD
 
 Edit targets:
 
-| ID | Target | Action |
-| --- | --- | --- |
-| E1 | `prompts/fragments/13-constraints.md:6` | Extend the voice rule with a positive prose model |
-| E2 | `prompts/fragments/13-constraints.md:23` | Replace the vague detail line; add principle-based tell rules |
-| E3 | `prompts/fragments/13-constraints.md:25` | Rescope clarity to the full reply; make sentence length a ceiling |
-| E4 | `prompts/fragments/02-role.md:6` | Keep the bracket, require answer-first immediately after it |
-| E5 | `prompts/fragments/20-communication_examples.md:25` | Add good-versus-bad prose pairs |
-| E6 | `agents/cognitive-executor.md:139-141` | Mirror the contract, calm the ban stack |
-| E7 | `prompts/fragments/01-system_version.md` | Bump `<system_version>` |
-| E8 | `system-prompt.md` | Regenerate from fragments |
-| E9 | `CHANGELOG.md` | Add the `[Unreleased]` entry |
-| E10 | `tests/test_prompt_sync.py` | Run only unless the version pin needs the bump |
+| ID  | Target                                              | Action                                                            |
+| --- | --------------------------------------------------- | ----------------------------------------------------------------- |
+| E1  | `prompts/fragments/13-constraints.md:6`             | Extend the voice rule with a positive prose model                 |
+| E2  | `prompts/fragments/13-constraints.md:23`            | Replace the vague detail line; add principle-based tell rules     |
+| E3  | `prompts/fragments/13-constraints.md:25`            | Rescope clarity to the full reply; make sentence length a ceiling |
+| E4  | `prompts/fragments/02-role.md:6`                    | Keep the bracket, require answer-first immediately after it       |
+| E5  | `prompts/fragments/20-communication_examples.md:25` | Add good-versus-bad prose pairs                                   |
+| E6  | `agents/cognitive-executor.md:139-141`              | Mirror the contract, calm the ban stack                           |
+| E7  | `prompts/fragments/01-system_version.md`            | Bump `<system_version>`                                           |
+| E8  | `system-prompt.md`                                  | Regenerate from fragments                                         |
+| E9  | `CHANGELOG.md`                                      | Add the `[Unreleased]` entry                                      |
+| E10 | `tests/test_prompt_sync.py`                         | Run only unless the version pin needs the bump                    |
 
 Gap decisions: G1 answer-first, address; G2 length budget (short 2-5 sentences, normal 80-180 words or max 5 bullets), address; G3 positive model, address; G4 colleague register with direct address, no humor and no flattery, address; G5 structure rule (prose for 1-2 items, flat bullets for 3-7, table only for repeated attributes), address; G6 no preamble and no recap unless asked, address; G7 principle-based tell rules, address; G8 plain term on first use plus direct address, partial, full reader matrix deferred; G9 clarity applies to the full reply with 25 words as a ceiling, address; G10 narration stays in status lines and never in the answer body, address.
 
@@ -223,5 +223,6 @@ Closed.
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `5a4cd203e3c5afd38f04dd133960422af093cd6c`
 <!-- END_GIT_DIFF -->

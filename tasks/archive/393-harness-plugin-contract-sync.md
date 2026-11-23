@@ -43,7 +43,7 @@ Scope is documentation and plugin config only. The plugin repositories (`../open
 
 - **Test command:** `grep -rn "shipped default arms it at" --include=*.md --include=*.txt --include=*.jsonc . | grep -v -E "^\./(tasks|context-reports)/|docs/history/"` — Expected: no match. Actual: no output, exit 1 (no stale "armed at 0.55" claim outside history).
 - **Test command:** `grep -rn "two layers" --include=*.md agents docs README.md LLM.txt | grep -v docs/history` — Expected: no match. Actual: no output, exit 1.
-- **Test command:** `grep -rn "todowrite\` and \`skill\`\|Skill contents omitted" --include=*.md agents docs README.md LLM.txt | grep -v -E "docs/history|CHANGELOG"` — Expected: no match. Actual: no output, exit 1 (the `skill` discard claim is gone).
+- **Test command:** `grep -rn "todowrite\` and \`skill\`\|Skill contents omitted" --include=*.md agents docs README.md LLM.txt | grep -v -E "docs/history|CHANGELOG"`— Expected: no match. Actual: no output, exit 1 (the`skill` discard claim is gone).
 - **Test command:** `grep -rn "compaction_protocol" --include=*.md agents docs README.md LLM.txt | grep -v -E "docs/history|prompts/archive"` — Expected: no match. Actual: no output, exit 1 (no live doc points at the retired fragment).
 - **Test command:** `grep -rn "warnAtTokens" .opencode/smart-compact.jsonc docs/compaction.md agents/cognitive-executor.md README.md LLM.txt | wc -l` — Expected: > 0. Actual: 11 hits across the five files.
 - **Test command:** `npx --no-install prettier --check /tmp/opencode/fmt/*.md` on the `HEAD` copies of the three Markdown files — Expected: shows whether formatting was already dirty. Actual: all three warn on `HEAD` too, exit 1, so no formatting regression was introduced and no reformat was applied.
@@ -104,5 +104,6 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `3f248799a3fad5684968beb893abee6da6e9b572`
 <!-- END_GIT_DIFF -->

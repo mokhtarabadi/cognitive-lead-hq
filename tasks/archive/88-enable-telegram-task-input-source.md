@@ -56,29 +56,31 @@ Produce: (1) one task file tasks/backlog/{NN}-hyphenated-title.md with the Varia
 
 ## Relevant Code Context
 
-| File / Location | Relevance |
-| --------------- | --------- |
-| `~/.config/opencode/skills/telegram-issue-sync/SKILL.md` | The governing SOP: 5-phase cycle (skills → fetch → approval → generation → cleanup), local state schema, verbatim RAW_TEXT rule, deterministic updater script |
-| `~/.config/opencode/skills/task-generator/SKILL.md` | Canonical task template; Variant B (telegram) section used for this file |
-| `~/.config/opencode/skills/prompt-refactor/SKILL.md` | 5-block XML refactoring protocol used for the Refactored Prompt above |
-| `tasks/backlog/87-workflow-audit-findings.md` | Audit record (F2: template/lint contract mismatch — this task intentionally includes all lint-required sections as the corrective example) |
-| `system-prompt.md` `<agent_skills_registry>` | Lists `telegram-issue-sync` and `telegram-message-export` as global workflow skills |
-| `tasks/archive/48-implement-omni-channel-pipeline.md` (archived) | Historical design intent: omni-channel task intake (Telegram included) feeding the unified task template |
-| `opencode.json` / `LLM.txt` | MCP wiring: `custom_context`, `project_memory`, `lint`, `telegram` servers |
-| Telegram evidence (fetched 2026-08-10) | `list_topics` → topic 425 "Cognitive Hq" (closed: false); `get_message_context(425)` → creation message empty, 426 "Hi" reply_to 425 |
+| File / Location                                                  | Relevance                                                                                                                                                     |
+| ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `~/.config/opencode/skills/telegram-issue-sync/SKILL.md`         | The governing SOP: 5-phase cycle (skills → fetch → approval → generation → cleanup), local state schema, verbatim RAW_TEXT rule, deterministic updater script |
+| `~/.config/opencode/skills/task-generator/SKILL.md`              | Canonical task template; Variant B (telegram) section used for this file                                                                                      |
+| `~/.config/opencode/skills/prompt-refactor/SKILL.md`             | 5-block XML refactoring protocol used for the Refactored Prompt above                                                                                         |
+| `tasks/backlog/87-workflow-audit-findings.md`                    | Audit record (F2: template/lint contract mismatch — this task intentionally includes all lint-required sections as the corrective example)                    |
+| `system-prompt.md` `<agent_skills_registry>`                     | Lists `telegram-issue-sync` and `telegram-message-export` as global workflow skills                                                                           |
+| `tasks/archive/48-implement-omni-channel-pipeline.md` (archived) | Historical design intent: omni-channel task intake (Telegram included) feeding the unified task template                                                      |
+| `opencode.json` / `LLM.txt`                                      | MCP wiring: `custom_context`, `project_memory`, `lint`, `telegram` servers                                                                                    |
+| Telegram evidence (fetched 2026-08-10)                           | `list_topics` → topic 425 "Cognitive Hq" (closed: false); `get_message_context(425)` → creation message empty, 426 "Hi" reply_to 425                          |
 
 ## AI Analysis & Opinion
 
 **Root cause of the request:** The Manager is expanding the omni-channel intake (design intent of archived Task 48) so that product/feature/bug instructions can be dropped into the "Cognitive Hq" Telegram topic from anywhere (mobile, quick notes) and automatically become tracked tasks — removing the dependency on sitting in front of the Orchestrator to capture every work item.
 
 **Recommended setup (executed in this session):**
+
 1. `telegram-sync.json` created at repo root with `config.project_name = "cognitive-lead-hq"`, `config.chat_id = -1003993323129`, `config.topic_id = 425`, `config.account = null`, `config.target_hashtags = ["bug", "feature", "improve"]`; `last_processed_message_id = 426`; `processed_ids = [425, 426]`; `sync_registry["426"]` → this task file.
 2. Messages 425 (empty topic creation) and 426 ("Hi" test) are marked processed — they carry no actionable content; future messages in the topic become the real candidates.
 3. This task file documents the setup itself, with `**Source:** telegram`, so the Brain can review and close it through the standard QA/Code-Review cycle.
 
-**Topic-name discrepancy (MUST be confirmed by Manager):** The Manager referred to the new topic as "Cognitive Edge"; the actual topic title retrieved from Telegram is "Cognitive Hq" (id 425, created 2026-08-10 20:42 UTC). This task proceeds against the *found* topic (id 425). If the Manager intended a different topic, only `telegram-sync.json`'s `topic_id` needs to change.
+**Topic-name discrepancy (MUST be confirmed by Manager):** The Manager referred to the new topic as "Cognitive Edge"; the actual topic title retrieved from Telegram is "Cognitive Hq" (id 425, created 2026-08-10 20:42 UTC). This task proceeds against the _found_ topic (id 425). If the Manager intended a different topic, only `telegram-sync.json`'s `topic_id` needs to change.
 
 **Risks:**
+
 - State file concurrency: if multiple OpenCode sessions run syncs against the same `telegram-sync.json`, the single-threaded updater script mitigates but does not lock (tie-in with Task 87 F5 cross-session contamination — recommend treating this repo as single-session for sync writes).
 - `telegram-sync.json` is currently untracked/not gitignored: decide later whether it should be committed (shared state) or ignored (local state).
 - GitHub issues are skipped for this repo's syncs (consistent with the Manager's existing pattern: messages 422–424 in the "Cando" topic also used "Not created (skipped)").
@@ -163,6 +165,7 @@ Produce: (1) one task file tasks/backlog/{NN}-hyphenated-title.md with the Varia
 - `lint_task_file tasks/backlog/88-enable-telegram-task-input-source.md` → ✅ passed (to be confirmed by the run below; expected pass given all sections present).
 
 ### Closure Execution Log1. **Cleaned memory file:** Removed stale Cando topic reference from `.opencode/memory/workflows/telegram-file-delivery.md`.
+
 2. **Ensured telegram-sync.json tracking:** Verified `.gitignore` does not contain `telegram-sync.json`; staged it for tracking.
 3. **Moved task to completed:** `git mv tasks/backlog/88-enable-telegram-task-input-source.md tasks/completed/88-enable-telegram-task-input-source.md`.
 4. **Updated status:** Changed `**Status:** open` to `**Status:** closed`.
@@ -173,5 +176,6 @@ Produce: (1) one task file tasks/backlog/{NN}-hyphenated-title.md with the Varia
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `910ae353b4789d615e8c08bbf98979f9b1918311`
 <!-- END_GIT_DIFF -->

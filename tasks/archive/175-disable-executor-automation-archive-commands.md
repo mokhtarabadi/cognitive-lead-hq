@@ -14,6 +14,7 @@ Neutralize the experimental automated orchestration inside the Cognitive Executo
 Manager order (verbatim intent): "Disable the intelligent/automated orchestration system we were building. It is not mature enough yet and is not working well enough, so I don't want it enabled for now. If Cognitive Executor Agent and Cognitive Discovery contain any of those automation rules or related configuration, you can comment them out if the file format supports comments. If comments aren't supported, back them up or move them somewhere safe, and restore the manual workflow as the active/default behavior. Keep all of these components somewhere so we can come back to them in the future. For the existing commands that were created specifically for this automation, archive them as well. Move them to a separate archive location so that when we decide to work on this feature again, we can restore them, fix them, and continue development."
 
 What was implemented (Tasks 167/168/174 — the automation system being paused):
+
 - Persona dispatch loop: executor orchestrates QA → reviewer → Telegram approval → closure via `dispatch_session_turn` (`mcp-persona-server/`, 4 modules + tests).
 - Nine slash commands in `.opencode/commands/`: `qa.md`, `reviewer.md`, `manager.md`, `brainstorm.md`, `architect.md`, `designer.md`, `programmer.md`, `planner.md`, `strategist.md` (Tasks 167 + 174).
 - Decision Learning Loop via `manager_decisions` MCP (`mcp-decision-server/`, `skill-templates/manager-decision/`).
@@ -90,5 +91,6 @@ text only. Discovery: live-clean (frontmatter `#`, body HTML comment).
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `ac53b78b2873808b8f5b538d14c0bc006e89fa3e`
 <!-- END_GIT_DIFF -->

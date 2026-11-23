@@ -29,30 +29,33 @@ You are modifying the Cognitive Lead AI HQ SOP repository. Key files: `system-pr
 
 <agentic_reasoning>
 Before implementing, you must produce a `<reasoning_log>` analyzing:
+
 1. Which fragments/files need modification for each of the 3 requirements
 2. Whether existing fragments already partially implement these behaviors (to avoid duplication)
 3. The risk of breaking the existing prompt structure (19 fragments, 70K+ assembled)
 4. How to enforce these at both the system-prompt level AND the cognitive-executor level
-</agentic_reasoning>
+   </agentic_reasoning>
 
 <execution_rules>
+
 - REQUIREMENT 1 (Goal-Oriented Tasks): In `<personas>`, the Software Architect and Senior Programmer `<behavior>` blocks must instruct Hands to: (a) load relevant skills from the registry when a task is multi-step or large, (b) treat the task as a Goal object with explicit success criteria. This is partially implemented in the Senior Programmer's "Explicit Skill Orchestration Routing" — you must EXTEND it to also mandate Goal treatment.
 - REQUIREMENT 2 (Parallel Agents): In `<personas>`, the Hands protocols and initialization must enforce parallel agent usage. The `<role>` fragment already declares parallel capability — you must add a constraint that Hands SHOULD use parallel agents for any task involving 2+ independent workstreams.
 - REQUIREMENT 3 (Input Validation): The `<user_input_processing>` fragment already has an Input Validation Gate (Step 0.5) and bilingual translation. You must STRENGTHEN it to explicitly handle the case where Manager's English is unclear — add a mandatory "clarification halt" step that stops execution and asks the Manager to rephrase, rather than guessing. Also update `agents/cognitive-executor.md` Direct Input Validation Protocol to mirror this.
 - Do NOT rewrite entire fragments — use surgical edits to the specific sections.
 - After edits, run the assembler to verify system-prompt.md reassembles correctly.
 - Update CHANGELOG.md with a 9.1.0 entry.
-</execution_rules>
+  </execution_rules>
 
 <output_format>
 Produce a hands_implementation_task XML block with:
+
 - validation_phase: read AGENTS.md and referenced files
 - context_phase: load prompt-refactor skill
 - execution_phase: numbered steps for each file edit
 - bash_phase: assembler verification command
 - documentation_phase: CHANGELOG update
 - summary_phase: lint, stage, and hand-off
-</output_format>
+  </output_format>
 
 ## Relevant Code Context
 
@@ -68,6 +71,7 @@ Produce a hands_implementation_task XML block with:
 **Root cause:** The three behaviors exist partially but are not enforced as mandatory. Skill loading is mentioned in the Senior Programmer's behavior but not in the Software Architect's. Parallel agents are declared in `<role>` but there's no constraint forcing Hands to use them. Input validation exists but lacks a "clarification halt" — it says "HALT" generically but doesn't explicitly instruct the agent to stop and ask the Manager to rephrase when English is unclear.
 
 **Recommended fix:** Three surgical edits:
+
 1. Add Goal-treatment and skill-loading to Software Architect `<behavior>` (2 lines)
 2. Add parallel-agent constraint to `<initialization>` or `<constraints>` (3 lines)
 3. Add explicit "clarification halt" to Step 4 of `<user_input_processing>` and to the cognitive-executor's Direct Input Protocol (5 lines each)
@@ -158,6 +162,7 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 10. **`LLM.txt`** — Updated Step 9 (Manager Profile) text to reference V9.1.0 and describe the three hardening enhancements.
 
 **Architectural reasoning:**
+
 - All edits are additive to existing sections — no fragments were rewritten, minimizing structural breakage risk.
 - The `system-prompt.md` assembler round-trip verified structural integrity (72630 bytes, version 9.1.0).
 - The 5 new directives are distributed across both the system prompt (Orchestrator) and the executor (Hands), enforcing the behaviors at both levels.
@@ -166,5 +171,6 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `27f09f0eca88a192c8b3391a999be5b497752c90`
 <!-- END_GIT_DIFF -->

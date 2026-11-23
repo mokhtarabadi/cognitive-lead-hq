@@ -65,5 +65,6 @@ QA (same id, diff attached): QA_PASSED — state helper never raises, one-line s
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `1c50ba08db37ab77a5dc13a27f32c37f37a5b245`
 <!-- END_GIT_DIFF -->

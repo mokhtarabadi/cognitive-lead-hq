@@ -39,11 +39,12 @@ Before proposing anything, output a <reasoning_log> that (1) inventories every m
 </agentic_reasoning>
 
 <execution_rules>
+
 - You MUST present both options (A: two prompt files manual/automatic; B: single prompt with explicit mode parameter) with trade-offs and a recommendation — the Manager chooses, you do NOT decide unilaterally.
 - You MUST NOT hand-edit system-prompt.md; change fragments and rebuild.
 - In automatic mode, NO instruction may tell any seat to ask the Manager to ferry files or XML — every handoff must name the exact brain_turn call that performs it.
 - Do NOT change Brain seat behaviors beyond mode wording.
-</execution_rules>
+  </execution_rules>
 
 <output_format>
 A brainstorm report: mode-sentence inventory (file:line each), option A vs B with trade-offs and your recommendation, the exact fragment edits for the chosen option once the Manager selects, plus rebuild and global-sync steps.
@@ -110,6 +111,7 @@ _(The Hands: Manually log your technical changes, file edits, and architectural 
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `ae6e3c4cd855beb03942ff0c48840e6bee28b3ed`
 <!-- END_GIT_DIFF -->
 

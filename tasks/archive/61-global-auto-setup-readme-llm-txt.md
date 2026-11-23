@@ -31,6 +31,7 @@ Fix three issues with the auto-setup flow:
 ### Architecture & Reasoning
 
 **Problem:** The auto-setup flow had three gaps:
+
 1. README's quick install prompt didn't mention `LLM.txt` by name — AI agents wouldn't know which file to read.
 2. `LLM.txt` installed everything project-locally (`.opencode/skills/`), but the user needed global installation.
 3. `LLM.txt` only configured the `custom_context` MCP server, not `project_memory`. And both needed absolute paths in the global config.
@@ -52,5 +53,6 @@ Fix three issues with the auto-setup flow:
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `e4f7a27df7d3a98050b0bddf35466f89770b76d4`
 <!-- END_GIT_DIFF -->

@@ -36,11 +36,13 @@ Unified execution of 2 related small tasks as a single META task to eliminate se
 **Bundle Decision (2026-08-21):** Manager requested fully automatic bundling with archive (not purge). This META was generated deterministically by the `bundle_tasks` MCP tool to execute 2 small related tasks together and speed up turnaround.
 
 **Traceability:**
+
 - Supersedes [401, 402] — see per-source verbatim blocks below
 - Archive: each source moved via `git mv` to `tasks/archive/` with `**Superseded-By:** 403-bridge-chat-completions-plus-structured-tool-call-routing` header + superseded footer
 - Rollback: `git mv tasks/archive/<id>-*.md tasks/backlog/` + delete META file
 
 **Guardrails Applied:**
+
 - Cap 6 per bundle — this bundle has 2 (✅ within cap)
 - Verbatim preservation — every source Goal/AC/TODO/Risk copied verbatim below (SHA comparison available in bundler dry-run)
 - Diff-size check — combined 1402 LOC (⚠️ exceeds 400 — consider split)
@@ -138,7 +140,6 @@ Follow-up recorded during task 401 review. The chat-completions bridge currently
 _Pending implementation._
 
 ---
-
 
 ## Bundled Checklist (All-or-Nothing)
 
@@ -240,5 +241,6 @@ _(The Hands: Manually log your technical changes, file edits, and architectural 
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `b43b1bf17eb30f02933e4c27c0f6927ac4c821a3`
 <!-- END_GIT_DIFF -->

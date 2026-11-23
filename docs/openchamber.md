@@ -8,10 +8,10 @@
 
 ## 1. Versions
 
-| Component | Version | Update command | Source of truth |
-| --- | --- | --- | --- |
-| OpenCode | 2.3.2 | `curl -fsSL https://opencode.ai/v2/install \| bash` (V2) | `opencode --version`; latest via `https://opencode.ai/update/api/latest/cli/npm` |
-| OpenChamber | 2.7.3 | `npm install -g @openchamber/web@latest` | `openchamber --version`; latest via `npm view @openchamber/web version` |
+| Component   | Version | Update command                                           | Source of truth                                                                  |
+| ----------- | ------- | -------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| OpenCode    | 2.3.2   | `curl -fsSL https://opencode.ai/v2/install \| bash` (V2) | `opencode --version`; latest via `https://opencode.ai/update/api/latest/cli/npm` |
+| OpenChamber | 2.7.3   | `npm install -g @openchamber/web@latest`                 | `openchamber --version`; latest via `npm view @openchamber/web version`          |
 
 OpenChamber and OpenCode update **separately**. OpenChamber offers OpenCode
 updates in its UI and restarts the server afterward; you can also run the V2
@@ -124,15 +124,15 @@ single-use and expire.
 
 ## 7. Environment variables (the ones that matter here)
 
-| Var | Purpose |
-| --- | --- |
-| `OPENCHAMBER_HOST` | Bind address for the web server (`0.0.0.0` for other machines). |
-| `OPENCHAMBER_UI_PASSWORD` | Browser UI password. |
-| `OPENCHAMBER_ALLOW_UNAUTHENTICATED_LAN` | Risk-acceptance flag: `true` lets OpenChamber bind a non-loopback host with **no** UI password. Keep `false` (this install) whenever a UI password is set. |
-| `OPENCHAMBER_API_ONLY` | Headless mode (`true`/`1`) — API routes only. |
-| `OPENCHAMBER_DATA_DIR` | Data dir (default `~/.config/openchamber`). |
-| `OPENCODE_BINARY` | Path to the `opencode` binary OpenChamber runs. |
-| `OPENCODE_HOST` / `OPENCODE_PORT` / `OPENCODE_SKIP_START` | External-server mode only. Not used here. |
+| Var                                                       | Purpose                                                                                                                                                    |
+| --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `OPENCHAMBER_HOST`                                        | Bind address for the web server (`0.0.0.0` for other machines).                                                                                            |
+| `OPENCHAMBER_UI_PASSWORD`                                 | Browser UI password.                                                                                                                                       |
+| `OPENCHAMBER_ALLOW_UNAUTHENTICATED_LAN`                   | Risk-acceptance flag: `true` lets OpenChamber bind a non-loopback host with **no** UI password. Keep `false` (this install) whenever a UI password is set. |
+| `OPENCHAMBER_API_ONLY`                                    | Headless mode (`true`/`1`) — API routes only.                                                                                                              |
+| `OPENCHAMBER_DATA_DIR`                                    | Data dir (default `~/.config/openchamber`).                                                                                                                |
+| `OPENCODE_BINARY`                                         | Path to the `opencode` binary OpenChamber runs.                                                                                                            |
+| `OPENCODE_HOST` / `OPENCODE_PORT` / `OPENCODE_SKIP_START` | External-server mode only. Not used here.                                                                                                                  |
 
 OpenChamber refuses a non-loopback bind without UI authentication unless
 `OPENCHAMBER_ALLOW_UNAUTHENTICATED_LAN=true` is set. That flag is an explicit
@@ -143,14 +143,14 @@ Full list: https://docs.openchamber.dev/environment/
 
 ## 8. Troubleshooting
 
-| Symptom | Check |
-| --- | --- |
-| UI does not load | `openchamber status`; open the URL it prints; confirm the port is listening (`ss -tlnp \| grep <port>`). |
-| "OpenChamber requires OpenCode 2.0.20 or newer" | Update OpenCode: `curl -fsSL https://opencode.ai/v2/install \| bash`, then restart OpenChamber. |
-| "OpenCode is restarting" never clears | OpenChamber pauses requests while the managed server starts; if stuck, `openchamber restart` and check `openchamber logs`. |
+| Symptom                                                        | Check                                                                                                                                                                                                                                                                                                                                                                                              |
+| -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| UI does not load                                               | `openchamber status`; open the URL it prints; confirm the port is listening (`ss -tlnp \| grep <port>`).                                                                                                                                                                                                                                                                                           |
+| "OpenChamber requires OpenCode 2.0.20 or newer"                | Update OpenCode: `curl -fsSL https://opencode.ai/v2/install \| bash`, then restart OpenChamber.                                                                                                                                                                                                                                                                                                    |
+| "OpenCode is restarting" never clears                          | OpenChamber pauses requests while the managed server starts; if stuck, `openchamber restart` and check `openchamber logs`.                                                                                                                                                                                                                                                                         |
 | `MODULE_NOT_FOUND`, status `activating (auto-restart)`, exit 1 | The unit pins a CLI path that no longer exists after an `@openchamber/web` upgrade. `journalctl --user -u openchamber -n 50` shows the missing path; confirm the real entry point from `node -p "require('@openchamber/web/package.json').bin.openchamber"`, fix the unit (or re-run `openchamber startup enable`), then `systemctl --user daemon-reload && systemctl --user restart openchamber`. |
-| Not starting at boot | `openchamber startup status`; re-run `openchamber startup enable`; verify `loginctl show-user <user> \| grep Linger` → `yes`. |
-| Sessions visible but tools missing | Reconnect/restart; MCP servers must be reachable on their loopback ports (`docs/services.md`). |
+| Not starting at boot                                           | `openchamber startup status`; re-run `openchamber startup enable`; verify `loginctl show-user <user> \| grep Linger` → `yes`.                                                                                                                                                                                                                                                                      |
+| Sessions visible but tools missing                             | Reconnect/restart; MCP servers must be reachable on their loopback ports (`docs/services.md`).                                                                                                                                                                                                                                                                                                     |
 
 ## 9. Relationship to the MCP servers
 
@@ -249,13 +249,13 @@ chmod +x ~/chrome-wrapper.sh
 
 ### 10.5 Troubleshooting (all 2026-10-28, live)
 
-| Symptom | Cause → fix |
-| --- | --- |
-| `drivable:false`, "No OpenChamber client connected" | No provider → install this extension (or use the desktop app). |
-| "Chrome or Chromium was not found" | Set `chromePath` in `config.json`, restart extension. |
-| "Chrome exited during startup (SIGTRAP)" | Sandbox blocked → wrapper script with `--no-sandbox` (§10.2). |
-| `502` / blocked page on `127.0.0.1:PORT` | Dev server down, or origin missing from `allowedOrigins`. |
-| `apt chromium` eating the VPS | It's the snap stub → remove per §10.6, install headless-shell (§10.2). |
+| Symptom                                             | Cause → fix                                                            |
+| --------------------------------------------------- | ---------------------------------------------------------------------- |
+| `drivable:false`, "No OpenChamber client connected" | No provider → install this extension (or use the desktop app).         |
+| "Chrome or Chromium was not found"                  | Set `chromePath` in `config.json`, restart extension.                  |
+| "Chrome exited during startup (SIGTRAP)"            | Sandbox blocked → wrapper script with `--no-sandbox` (§10.2).          |
+| `502` / blocked page on `127.0.0.1:PORT`            | Dev server down, or origin missing from `allowedOrigins`.              |
+| `apt chromium` eating the VPS                       | It's the snap stub → remove per §10.6, install headless-shell (§10.2). |
 
 ### 10.6 Removing the snap stack (if §10.2's trap already bit)
 
@@ -293,12 +293,12 @@ exposes, so instructions never name a tool the agent cannot call.
 
 **Exposed in this session:**
 
-| Tool | Purpose |
-| ---- | ------- |
+| Tool                 | Purpose                                                                                                                                                                   |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `openchamber_render` | Draw an HTML page or a `ui` form inline in the chat; call as `action: "render.page"` with `parameters` as an object, never a JSON string; `awaitAnswer` collects a choice |
-| `openchamber_secret` | Request a secret on a private card and return only its file path |
-| `openchamber_notify` | Send a notification outside the chat |
-| `openchamber_web` | OpenChamber's browser panel: open a page, snapshot it, click and type |
+| `openchamber_secret` | Request a secret on a private card and return only its file path                                                                                                          |
+| `openchamber_notify` | Send a notification outside the chat                                                                                                                                      |
+| `openchamber_web`    | OpenChamber's browser panel: open a page, snapshot it, click and type                                                                                                     |
 
 **Exposed `opencode` namespace:** `models`, `worktree_create`,
 `worktree_list`, `worktree_remove`, `session_move`, `session_rename`,

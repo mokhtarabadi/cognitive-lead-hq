@@ -77,6 +77,7 @@ Seat Check (implementation): domains are prompt-contract Kanban wording plus tas
 Replay lineage (each decided item below carries it): Replayed from DEC-20260914-003 (2026-09-14): standing full-autopilot zero questions. Replayed from DEC-20260915-001 (2026-09-15): fix-all via Hands on autopilot. Replayed from DEC-20260913-003 (2026-09-13): no-ferry rule, call Brain directly.
 
 Reconciliation verdicts (grep-verified, CITE file:line):
+
 - F1 missing docs / F5 DESIGN spec / F6 a11y / F7 visual diff: ABSENT per Absent-File Policy (DESIGN.md, docs/architecture.md, docs/data_model.md confirmed missing; AGENTS.md 132 lines and docs/conventions.md 191 lines exist). No creation overnight. Morning scope decision.
 - F8 XML truncation: VERIFIED closed. CITE mcp-brain-bridge/server.py:1357 brain_turn plus include_bundle handling plus status values.
 - F9 validator: VERIFIED closed. CITE lint entry points (lint_task_file) plus detector precision bar.
@@ -114,6 +115,7 @@ Deferred-T2 list (NEVER executed overnight): no git add, commit, or push; no com
 Bridge QA verdict: VERDICT QA_PASSED (lean inline scope, CHANGELOG-only, Lite docs, no vuln, no test needed). Bridge reviewer verdict: APPROVED, state PO_REVIEW_PENDING. Technical approval only. Closure needs explicit Manager words Approved for closure or Close task. File stays in tasks/qa. No commit made. Morning verdict: safe sweep done, 9 items wait for approval.
 
 Fix-loop verdicts (each fixed one by one with proof, test command below):
+
 - X1 XML tolerance: FIXED. CITE mcp-brain-bridge/server.py _XML_RE (attrs/whitespace/case) + _extract_unclosed_tail (line-start truncation surfacing). Superseded two behavior-lock tests with justification; 8 new tests.
 - X2 Q1 dual wording: FIXED. CITE agents/cognitive-executor.md Seat Check pointer now names prompts/fragments/06-personas.md as the only roster.
 - X3 queue cap: FIXED. CITE agents/cognitive-executor.md QA/Review Phase Queue Cap (max 3, mirrors WIP).
@@ -126,6 +128,7 @@ Fix-loop verdicts (each fixed one by one with proof, test command below):
 - Deferred with rationale (not derivable without Manager content calls): G2 schema hardening, G6 spec creation (DESIGN/architecture/data_model — Absent-File Policy forbids inventing), F16 WIP automation (manual counts verified, tooling is new scope).
 
 QA-hotfix execution (Brain QA_REJECTED verdict executed in-file, no new task number):
+
 - Step 1 tests first: M1 prose-cut failed pre-fix as required; M2 plain-prose, M3 outer-gitignore, M4 git-file, V2 uppercase-attrs passed pre-fix as behavior locks.
 - Step 2 bridge harden: CITE mcp-brain-bridge/server.py `_extract_unclosed_tail` (prose-cut loop + lowercase name) with verbose docstring; comment + docstring updated.
 - Step 3 boundary harden: CITE mcp-context-server/server.py `is_ignored` explicit `.git` dir-or-file sentinel; walk still never reads above repo root.
@@ -134,11 +137,13 @@ QA-hotfix execution (Brain QA_REJECTED verdict executed in-file, no new task num
 - Hotfix bash-path adaptation: the XML named `mcp-brain-bridge/tests/` and `mcp-context-server/tests/` paths that do not exist in repo truth; ran the repo-truth equivalents `tests/test_brain_bridge.py`, `tests/test_mcp_servers.py`, `tests/test_loop_guard.py` instead (logged, not a rule violation — same suites, true paths).
 
 Re-QA + review (bridge diff-attach failed 3x, inline-evidence turns authorized):
+
 - Re-QA verdict: VERDICT QA_PASSED (loop 2). All M/V points judged fixed on inline evidence; no new vuln; 226 passed exit 0 + lint + staged + ZAC confirmed.
 - Reviewer verdict: APPROVED, state PO_REVIEW_PENDING. Residual R1 (hidden change without seen diff) rated Low. Technical approval only — closure needs the exact words "Approved for closure" or "Close task".
 - File stays in tasks/qa/. No commit. Bridge-limitation note: include_diff=True attached nothing on 3 turns (task file unresolvable server-side); future QA turns should paste hunks inline or fix the resolver.
 
 Why-fix (Manager order: find why diffs never attached, fix in current task):
+
 - Root cause A (primary): attach gated on `include_bundle and include_diff` — every lean retry (`include_bundle=false`, the documented EMPTY_OUTPUT_RETRY shape) silently carried zero hunks. CITE mcp-brain-bridge/server.py (pre-fix line 1525).
 - Root cause B (secondary): `_resolve_task_file` ignored `project_root`, so a server running from another install never found the file and warned instead of attaching.
 - Fix: `project_root` threaded through `_resolve_task_file`, `_build_task_attach`, `build_diff_attach`, `_failsafe_qa_attach`, `_task_state_note`, `_empty_output_hint`; gates decoupled (`include_diff and task_id` attaches, `not include_diff and task_id` notes state); loud stderr reasons for unresolvable file vs empty diff block + no-hunks warning; docstrings updated.
@@ -152,5 +157,6 @@ Why-fix (Manager order: find why diffs never attached, fix in current task):
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `bcfee926a79544019f29a40e1d7e3589bb47d43f`
 <!-- END_GIT_DIFF -->

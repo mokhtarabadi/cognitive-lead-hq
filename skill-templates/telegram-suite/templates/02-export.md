@@ -65,8 +65,8 @@ When the archive is delivered to a chat through the Telegram MCP, the caption an
 ```html
 <b>Export archive</b>
 
-<code>export-{timestamp}.zip</code> — {count} messages, {media_count} media files.
+<code>export-{timestamp}.zip</code> — {count} messages, {media_count} media
+files.
 ```
 
 ---
-

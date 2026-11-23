@@ -31,8 +31,8 @@
 ## Action items
 
 | Action | Owner | Due | Task link |
-|---|---|---|---|
-|  |  |  |  |
+| ------ | ----- | --- | --------- |
+|        |       |     |           |
 
 ## Follow-up
 

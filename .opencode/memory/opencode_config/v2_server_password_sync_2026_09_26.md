@@ -1,8 +1,8 @@
 ---
-created_at: '2026-09-26T06:49:52.094220+00:00'
+created_at: "2026-09-26T06:49:52.094220+00:00"
 status: active
 tags: []
-updated_at: '2026-10-01T00:00:00.000000+00:00'
+updated_at: "2026-10-01T00:00:00.000000+00:00"
 ---
 
 # V2 server auth — managed mode only (updated 2026-10-01)

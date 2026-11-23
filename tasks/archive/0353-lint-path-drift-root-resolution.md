@@ -95,5 +95,6 @@ Worse than the report: `lint_all_tasks` passes `str(md_file)` (absolute) for eve
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `9381a7a1d931db8019fce6e40a9dac923bd774a8`
 <!-- END_GIT_DIFF -->

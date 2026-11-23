@@ -83,11 +83,11 @@ Loaded `archive-tasks`, `versioning-and-release`, `project-memory`, `verificatio
 4. **Push script** `/tmp/cognitive-lead-push-release.sh` written and `chmod +x` (mode 755), syntax-checked with `bash -n`. It starts with `set -euo pipefail`, resolves the repo root, sets `VERSION="v9.41.0"`, refuses a dirty tree, requires `gh auth status`, pushes the branch, creates the annotated tag only if missing, pushes tags, then creates or verifies the GitHub Release and prints the remote tag and release URL.
 5. **Stale Memory Report (read-only — nothing deleted, Manager approval required):**
 
-   | Namespace / Key | Reason flagged | Evidence |
-   | --------------- | -------------- | -------- |
-   | `opencode_config/plugin_policy_dcp_only_2026_09_08` | Claims the goal plugin was removed from all four configs (dcp-only). Live config contradicts it. | `tui.json` (repo and global) carries `plugin: ["@prevalentware/opencode-goal-plugin", "@tarquinen/opencode-dcp@latest"]`, and the goal plugin is active in this session. |
+   | Namespace / Key                                                | Reason flagged                                                                                                          | Evidence                                                                                                                                                                                            |
+   | -------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+   | `opencode_config/plugin_policy_dcp_only_2026_09_08`            | Claims the goal plugin was removed from all four configs (dcp-only). Live config contradicts it.                        | `tui.json` (repo and global) carries `plugin: ["@prevalentware/opencode-goal-plugin", "@tarquinen/opencode-dcp@latest"]`, and the goal plugin is active in this session.                            |
    | `workflows/global-install-upgrade` (embedded 2026-09-09 claim) | One embedded claim says the persona and manager_decisions MCP servers were DISABLED in repo and global `opencode.json`. | The global config currently enables 7 servers including `manager_decisions` and `brain`; `opencode mcp list` reports 7/7 connected. The rest of this workflow memory is current and was used as-is. |
-   | `opencode_config/global_goal_plugin_upgrade_2026_08_27` | Overlaps `plugin_policy_dcp_only_2026_09_08` on the same topic (goal plugin presence) with conflicting conclusions. | Both cover the goal plugin; the 2026-08-27 entry matches live config, the 2026-09-08 entry does not. Flagged as a duplicate-topic pair, not individually stale. |
+   | `opencode_config/global_goal_plugin_upgrade_2026_08_27`        | Overlaps `plugin_policy_dcp_only_2026_09_08` on the same topic (goal plugin presence) with conflicting conclusions.     | Both cover the goal plugin; the 2026-08-27 entry matches live config, the 2026-09-08 entry does not. Flagged as a duplicate-topic pair, not individually stale.                                     |
 
    No memory was deleted or edited. All three require explicit Manager approval before any `delete_memory` call.
 
@@ -114,5 +114,6 @@ No `git add`, `git commit`, `git push`, `git tag`, or `gh release create` was ru
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `99077554e8c1d9aec99391d28f2dc3d76b21468e`
 <!-- END_GIT_DIFF -->

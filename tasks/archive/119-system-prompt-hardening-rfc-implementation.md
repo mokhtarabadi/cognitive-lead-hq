@@ -135,6 +135,7 @@ Fragment files written by the Write tool have trailing `\n` after closing tags, 
 ### Step 12: audit-agents Skill Update (QA Iteration)
 
 Updated `skill-templates/audit-agents/SKILL.md` with RFC-001 governance criteria:
+
 - conventions.md compliance: expanded with Financial Ledger Standard + Defensive Shell Protocol requirements
 - Mode 2 (Conventions): added Buffer Isolation, DSP, and Financial Ledger audit criteria
 - AGENTS.md template guardrails: added 3 new Don't/Do pairs (DSP, Financial Ledger, Buffer Isolation)
@@ -143,5 +144,6 @@ Updated `skill-templates/audit-agents/SKILL.md` with RFC-001 governance criteria
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `611cdceabe10c4ceb758e9929f0cd542cfef6f1e`
 <!-- END_GIT_DIFF -->

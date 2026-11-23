@@ -1,11 +1,13 @@
 ---
 tags: [skills, opencode, openchamber]
 ---
+
 # Skills load from ONE writable global root
 
 OpenCode V2 / OpenChamber merge skills from several sources; V2 precedence runs built-ins -> Claude-compatible -> agent-compatible -> global OpenCode -> project -> explicit. On a clean V2 machine there is exactly **one writable global root**: `~/.config/opencode/skills`. The former `~/.agents/skills` root was a Freebuff-era artifact and was **removed 2026-11-13** (Task 399) together with the rest of the Freebuff footprint. Do not recreate it.
 
 Roots to check after any skill change:
+
 - `~/.config/opencode/skills` — the only global root to sync (24 skill dirs).
 - `<project>/.opencode/skills` — overrides the global copies; clean it in the project itself.
 - `~/.config/openchamber/run/instances/<id>/skills` — holds only `openchamber-extensions`; leave it alone.

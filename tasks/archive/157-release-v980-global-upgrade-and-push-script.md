@@ -14,6 +14,7 @@ Release v9.8.0: global installation upgrade (MCP, skills, agents, system-prompt)
 Manager requested: load memory about release and global upgrade then follow them, create a script in /tmp folder it push all things, tags, releases using gh and release then i run it manually, you make release and create script for me also add this workflow to release workflow in memory in next time i tell create release you create the script too, and upgrade our global installation following memory and skills, create a release task, and auto close for approve it too.
 
 Requirements:
+
 - Follow `release/release-workflow` and `workflows/global-install-upgrade` memories (load versioning-and-release, project-memory, verification-before-completion, task-lint skills; SemVer; Keep a Changelog Parse-Then-Append; system-prompt sync; verification gates; ZAC-safe staging).
 - Determine version via SemVer (MINOR bump 9.7.0 → 9.8.0 for new workflow capability: release push script + global sync hardening).
 - Create `/tmp` push script (set -euo pipefail, push commits + tags + gh release create, manager runs manually).
@@ -75,27 +76,34 @@ _(Log non-trivial architectural, design, or strategic decisions here using the f
 **Memory & Skills Loaded:** `release/release-workflow`, `workflows/global-install-upgrade`, `opencode_config/global_goal_plugin_upgrade_2026_08_27`; skills `versioning-and-release`, `project-memory`, `verification-before-completion`, `task-lint` per release memory. SemVer decision: MINOR 9.7.0 → 9.8.0 (new workflow capability: push script + global sync). Keep a Changelog Parse-Then-Append applied.
 
 **Global Upgrade (per workflows/global-install-upgrade):**
+
 - Audit drift: `mcp-context-server/server.py` (qa_transition tool), `system-prompt.md` (9.7→9.8), `agents/cognitive-executor.md`, skills `audit-agents`/`bundle-tasks`/`task-generator` drifted; `mcp-memory/lint`, `agents/cognitive-discovery`, `shell-strategy`, `tui.json`, goal plugin parity already synced.
 - Copy: `cp mcp-context-server/server.py ~/.config/opencode/... && chmod +x`, `cp system-prompt.md`, `cp agents/cognitive-executor.md` + discovery, `cp skill-templates/*/SKILL.md` (all 30 skills synced). Re-verify: all synced ✓ except expected `opencode.json` relative vs absolute (repo uses relative `mcp-*-server/server.py`, global uses absolute `$HOME/.config/opencode/...` by design) and `audit-agents` `.bak` artefact (excluded). `tui.json` synced, both plugins `@prevalentware/opencode-goal-plugin` ✓. Post-version-bump re-copied `system-prompt.md` 9.8.0 to global; verified `diff -q` ✓.
 
 **Version Bump:**
+
 - `prompts/fragments/01-system_version.md`: 9.7.0 → 9.8.0
 - `python3 scripts/prompt-build/assemble_system_prompt.py` → 75689 bytes → `system-prompt.md` now `<system_version>9.8.0</system_version>`, sync verified via global copy.
 
 **CHANGELOG:**
+
 - Parse-Then-Append: inserted `## [9.8.0] - 2026-09-03` below `[Unreleased]` (kept empty), categories `Added` + `Changed` in canonical order, no duplicate headers.
 
 **Push Script (`/tmp/cognitive-lead-push-release.sh`):**
+
 - `set -euo pipefail`, repo root via `git rev-parse --show-toplevel`, `VERSION="v9.8.0"`, checks `git diff --quiet` + `gh auth status`, `git tag -a v9.8.0` if missing, `git push origin <branch>` + `git push --tags`, `gh release view` idempotent check → `gh release create v9.8.0 --generate-notes`, verification `git ls-remote --tags` + `gh release view --json url`. `chmod +x`, `bash -n` syntax ok. ZAC: script is generated but not executed by Hands; Manager runs manually.
 
 **Memory Update:**
+
 - `release/release-workflow` stored with new `Push-script generation (since v9.8.0 — Task 157)` section mandating `/tmp/cognitive-lead-push-release.sh` creation on every future release (set -euo pipefail, tag/push/gh release, chmod +x, ZAC note). Verified `rebuild_memory_index` updates `.opencode/memory/index.md`.
 
 **Verification:**
+
 - `python3 -m py_compile` on 4 files → 0, `assemble_system_prompt.py` → 75689 bytes, selected MCP imports 3 passed, `loop-engine/test_verifier.py` 26 passed, `bash -n` script ok, `diff -q system-prompt.md ~/.config/...` synced. Full `tests/` suite has 2 pre-existing failures (bundle_tasks.py missing after Task 155 retirement, test_system_prompt_split_assemble_round_trip missing pydantic) unrelated to this change; targeted gates pass.
 
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `33aabbf07784f267515bfd7c57ddefc8ab50355f`
 <!-- END_GIT_DIFF -->

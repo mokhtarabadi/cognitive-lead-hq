@@ -54,6 +54,7 @@ Build a manager-decision skill that extracts per-session manager decisions into 
 Learning half of msg 587's execution half: append-only decision records (verbatim quote + rationale + session linkage) with human review gate before sample/identity promotion. Privacy redaction required.
 
 ---
+
 Migrated from Telegram (msg 588, topic 458 Cognitive Lead, continuation of 587). See local task file for details.
 
 Comment 1 (owner, verbatim):
@@ -72,13 +73,13 @@ Provenance: 11 raw records `DEC-20260914-003` to `013` in `mokhtarabadi/manager-
 
 ### Findings (Brain + Hands agree)
 
-| # | Problem | Evidence this session | Proposed fix |
-|---|---|---|---|
-| F1 | Reconstructed quotes in verbatim fields | No transcript file existed, so 7 of 11 quotes were rebuilt from compressed summaries, flagged in-record | Add a `fidelity` field (`verbatim` vs `reconstructed`); require a verbatim paste before any record can be promoted |
-| F2 | Autopilot rulings lose their type | Valid categories exclude `autopilot-cycle`; 003/012 stored as generic `process` | Extend the category set or add a `mode` field (`autopilot` vs `manual`) |
-| F3 | Goal-session id in `session_id` | Stored `ses_f60dc35...` (a goal session), breaking the task-id lineage convention | Split into `session_id` + `goal_ref`, migrate old rows |
-| F4 | Duplicate check is manual | Always-English duplicate caught by luck (already `DEC-20260914-001`) | Fingerprint hash + auto-search before save |
-| F5 | Standing rules mixed with episode notes | 003/009/011 (standing) sit beside 006/010 (one-offs) with no signal | Tag `standing` vs `episode`, store apart; standing orders get owner + expiry |
+| #   | Problem                                 | Evidence this session                                                                                   | Proposed fix                                                                                                       |
+| --- | --------------------------------------- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| F1  | Reconstructed quotes in verbatim fields | No transcript file existed, so 7 of 11 quotes were rebuilt from compressed summaries, flagged in-record | Add a `fidelity` field (`verbatim` vs `reconstructed`); require a verbatim paste before any record can be promoted |
+| F2  | Autopilot rulings lose their type       | Valid categories exclude `autopilot-cycle`; 003/012 stored as generic `process`                         | Extend the category set or add a `mode` field (`autopilot` vs `manual`)                                            |
+| F3  | Goal-session id in `session_id`         | Stored `ses_f60dc35...` (a goal session), breaking the task-id lineage convention                       | Split into `session_id` + `goal_ref`, migrate old rows                                                             |
+| F4  | Duplicate check is manual               | Always-English duplicate caught by luck (already `DEC-20260914-001`)                                    | Fingerprint hash + auto-search before save                                                                         |
+| F5  | Standing rules mixed with episode notes | 003/009/011 (standing) sit beside 006/010 (one-offs) with no signal                                     | Tag `standing` vs `episode`, store apart; standing orders get owner + expiry                                       |
 
 ### Hands-only extras (apex-specific)
 
@@ -153,5 +154,6 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `68f7286d105e7426ae8481f344095c077e86f9b0`
 <!-- END_GIT_DIFF -->

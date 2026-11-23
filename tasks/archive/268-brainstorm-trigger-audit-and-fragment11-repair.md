@@ -22,10 +22,10 @@ fragment that says it is. Two deliverables, both prompt-level:
 
 - Authorization: "Task A1 and A2 and plan and implement then full automatically".
 - The current system prompt contradicts itself. Fragment 11 says the
-  Orchestrator *automatically* invokes the brainstorming loop as step 2.
+  Orchestrator _automatically_ invokes the brainstorming loop as step 2.
   Fragment 12 says the loop fires on a trigger. These are opposite policies.
 - Fragment 11 also names a panel that no longer exists: `Architect, Security,
-  PM, Strategist, Critical Thinker`. Fragment 12 declares the panel to be
+PM, Strategist, Critical Thinker`. Fragment 12 declares the panel to be
   exactly the seven `<personas>` seats.
 - The earlier audit missed this. Task 180's verification grep searched
   snake_case identifiers only, so the display name `Critical Thinker` survived.
@@ -141,5 +141,6 @@ The reviewer returned technical approval plus `PO_REVIEW_PENDING`. The stored st
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `7142d2edba98d4d296d3f9a126891b465788723f`
 <!-- END_GIT_DIFF -->

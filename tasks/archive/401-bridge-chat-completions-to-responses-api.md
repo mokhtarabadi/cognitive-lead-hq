@@ -94,15 +94,16 @@ Architectural decision: Add a clean adapter / translation layer between high-lev
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
-```diff
+
+````diff
 diff --git a/CHANGELOG.md b/CHANGELOG.md
 index d7e25eb..e363d32 100644
 --- a/CHANGELOG.md
 +++ b/CHANGELOG.md
 @@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
- 
+
  ## [Unreleased]
- 
+
 +### Added
 +
 +- **Bridge chat completions to responses API in mcp-brain-bridge (task 401):** added `BRAIN_UPSTREAM_MODE` (`responses` by default, `chat_completions` optional) allowing the Brain to talk to standard OpenAI-compatible `/chat/completions` providers (such as MiniMax Flash or custom OpenAI chat proxies). Implemented bidirectional payload mapping: translates `instructions` + `input` into role-tagged `messages`, converts `max_output_tokens` to `max_tokens`, maps `reasoning.effort` to `reasoning_effort`, and transforms `/chat/completions` output back into the Responses API shape (`choices[0].message.content` into `output` message blocks, usage tokens mapped) without regressing existing Responses API functionality. Added offline unit tests in `tests/test_brain_bridge.py`.
@@ -112,7 +113,7 @@ index d7e25eb..e363d32 100644
 +- **Chat Completions bridge contract hardening (task 401 hotfix):** resolved QA findings F1–F3 and Code Reviewer recommendations R1–R4, round 2 findings F1–F2, and round 3 findings F1–F2. Omitted usage counters now stay omitted rather than injecting `None` (protecting downstream financial/quota math from null arithmetic). Mapped `finish_reason` to status and incomplete reason (`stop`/`tool_calls` -> `completed`, `length`/`content_filter`/unknown -> `incomplete`). Transformed upstream error bodies into `status: failed`. Preserved `tools`, `tool_choice`, `parallel_tool_calls`, tool calls, and `reasoning_content` across both request and response translation boundaries. Handled plain string `input` values and logged explicit warnings when unsupported Responses-only fields are dropped. Carried assistant `function_call` and `function_call_output` items across as `assistant` tool-call and `tool` result messages with JSON string arguments. Narrowed dispatch status handling so only unrecognised statuses abort while incomplete responses are annotated. Updated `_record_brain_use` docstring to document the `last_usage` store and dynamic return shape. Recorded backlog follow-up task 402 for future structured tool call routing. Added coverage for non-200 provider error handling, plain string input, dropped fields, and multi-turn tool chain items in `chat_completions` mode.
 +
  ### Changed
- 
+
  - **blowsh docs rewritten against the local source as the shipped contract (task 400):** the third-round note below recorded the queue budget and search deadline as "uncommitted work … ignored today", which was true of the published `2.6.2` image but is superseded: the Manager ruled the local checkout is the version to document and the remote image is building in CI/CD. The docs now describe that source with no version caveat. `LLM.txt` Step 7.6 carries a full environment table (15 knobs, code defaults from `browshManager.ts`, `server.ts` and `.env.example`) and states the ladder as an invariant with its upstream citations (`browshManager.ts:71-79`, `.env.example:38,44`): `SEARCH_DEADLINE_MS >= BROWSH_QUEUE_TIMEOUT_MS + BROWSH_REQUEST_TIMEOUT_MS` and `BROWSH_QUEUE_TIMEOUT_MS >= 2 x BROWSH_REQUEST_TIMEOUT_MS`, satisfied by the shipped values (900000 >= 780000, 600000 >= 360000 with a 240000 margin). The `blowsh` MCP client cap rose 600000 -> 960000 in `LLM.txt` and the live config, because at 600000 a full-length search was cut by the transport 300s before its own `SEARCH_DEADLINE_MS` could fire; 960000 > 900000. The docs now also state what that cap does *not* cover: `fetch_web_batch` is serial over up to 10 URLs (`src/tools/fetchWebBatch.ts:33-35`) with a **per-item** budget, so its worst case is `10 x deadline_ms` and a large batch will still exceed the client cap. `skill-templates/blowsh/SKILL.md` `deadline_ms` range corrected to `500–1800000` (was `500–600000`), and the stale "600s blowsh" / "600s LLM bridges" figures replaced with 960s and 1200s.
 diff --git a/mcp-brain-bridge/DECISIONS.md b/mcp-brain-bridge/DECISIONS.md
 index 5b8f234..9b1355e 100644
@@ -120,7 +121,7 @@ index 5b8f234..9b1355e 100644
 +++ b/mcp-brain-bridge/DECISIONS.md
 @@ -1,5 +1,21 @@
  # Architectural Decisions: mcp-brain-bridge
- 
+
 +## [2026-11-14] ADR-014: Chat Completions Ingress and Protocol Bridge
 +
 +- **Context:** `mcp-brain-bridge` historically spoke only OpenAI Responses API (`/responses`), making chat-completions-only models (such as MiniMax Flash or custom OpenAI chat proxies) inaccessible without an external translation daemon.
@@ -138,7 +139,7 @@ index 5b8f234..9b1355e 100644
 +- **Rollback:** Unset `BRAIN_UPSTREAM_MODE` (defaults to `responses`) or revert the converter helpers.
 +
  ## [2026-11-07] ADR-013: per-turn Brain-output persistence with address
- 
+
  - **Context:** truncated `brain_turn` payloads left the Hands no way to recover the tail — the inline result was the only copy, so a cut XML block or verdict forced a full re-emit turn.
 diff --git a/mcp-brain-bridge/README.md b/mcp-brain-bridge/README.md
 index 457348f..b351fef 100644
@@ -147,7 +148,7 @@ index 457348f..b351fef 100644
 @@ -31,6 +31,23 @@ Brain Bridge MCP daemon: single-tool (`brain_turn`) automation path for planning
    ships behind a `BRAIN_SEND_*` / `BRAIN_USE_INSTRUCTIONS` switch
    defaulting to off, so default wire bytes never change silently.
- 
+
 +## Upstream Modes & Chat Completions Protocol Bridge
 +
 +`BRAIN_UPSTREAM_MODE` controls whether the bridge emits OpenAI Responses API requests or Chat Completions requests:
@@ -166,7 +167,7 @@ index 457348f..b351fef 100644
 +- Only an unrecognised status aborts while `status=incomplete` is annotated with `[upstream incomplete: <reason>]` and returned; `_record_brain_use` guards against null tokens in quota arithmetic.
 +
  ## Stage-Scoped System Prompts
- 
+
  `brain_turn(stage=...)` selects the system prompt the Brain receives. The routing table is `prompts/stage-manifest.json` in the repository — the same file the assembler uses to generate the artifacts — so a stage is declared once and both sides agree on it. `resolve_stage_prompt_path(stage)` is pure and side-effect free: it returns the artifact path for a known stage and `None` for an unknown or empty stage.
 diff --git a/mcp-brain-bridge/server.py b/mcp-brain-bridge/server.py
 index cec9a5b..7584676 100644
@@ -183,7 +184,7 @@ index cec9a5b..7584676 100644
 @@ -99,6 +100,8 @@ _loaded_from = _load_env_files()
  if _loaded_from is not None:
      print(f"brain-bridge: loaded env from {_loaded_from}", file=sys.stderr)
- 
+
 +logger = logging.getLogger(__name__)
 +
  # Shared per-project sessions resolver lives in loop_guard (stdlib-only,
@@ -191,14 +192,14 @@ index cec9a5b..7584676 100644
  # fails to load when run from an installed package without the sibling.
 @@ -3085,15 +3088,33 @@ def _usage_month_key() -> str:
      return _time.strftime("%Y-%m", _time.gmtime())
- 
- 
+
+
 -def _record_brain_use(model: Optional[str] = None) -> Optional[dict]:
 +def _record_brain_use(
 +    model: Optional[str] = None, usage: Optional[dict] = None
 +) -> Optional[dict]:
      """Increment this UTC month's turn counter; return usage summary.
- 
+
 -    Returns ``{"count", "cap", "warn_at", "warn", "model"}`` or ``None``
 +    Returns ``{"count", "cap", "warn_at", "warn", "model"}`` plus one key per
 +    usage counter actually reported by the upstream (``input_tokens``,
@@ -254,7 +255,7 @@ index cec9a5b..7584676 100644
 +        return result_dict
      except Exception:
          return None
- 
+
 @@ -4814,16 +4844,38 @@ def brain_turn(
              project_root=project_root,
          )
@@ -320,8 +321,8 @@ index cec9a5b..7584676 100644
          # never qualify as a "partial" truncation (Task 259 stays terminal).
 @@ -5081,14 +5144,442 @@ def brain_turn(
      return result
- 
- 
+
+
 -def _responses_url() -> str:
 -    """Responses endpoint; override via ``BRAIN_API_BASE``."""
 +def _upstream_mode() -> str:
@@ -351,8 +352,8 @@ index cec9a5b..7584676 100644
 +    if mode == "chat_completions":
 +        return base.rstrip("/") + "/chat/completions"
      return base.rstrip("/") + "/responses"
- 
- 
+
+
 +def _responses_url() -> str:
 +    """Responses endpoint; override via ``BRAIN_API_BASE``."""
 +    return _upstream_url()
@@ -762,7 +763,7 @@ index cec9a5b..7584676 100644
 +
  def _get_reasoning_effort() -> str:
      """Reasoning effort; override via ``BRAIN_REASONING_EFFORT``.
- 
+
 @@ -5627,6 +6118,11 @@ def parse_responses_text(data: dict) -> str:
              text = item.get("text")
              if isinstance(text, str) and text:
@@ -773,16 +774,16 @@ index cec9a5b..7584676 100644
 +            if isinstance(name, str):
 +                parts.append(f"{name}({args or ''})")
      return "\n".join(parts)
- 
- 
+
+
 diff --git a/tests/test_brain_bridge.py b/tests/test_brain_bridge.py
 index a5876f0..99789d6 100644
 --- a/tests/test_brain_bridge.py
 +++ b/tests/test_brain_bridge.py
 @@ -2675,7 +2675,8 @@ def test_budget_window_and_margin_read_env_overrides(monkeypatch):
      assert "100000" in bridge._over_budget_hint(90000, 9001)
- 
- 
+
+
 -def test_pure_budget_fits_exact_boundary():
 +def test_pure_budget_fits_exact_boundary(monkeypatch):
 +    monkeypatch.delenv("BRAIN_CONTEXT_WINDOW_TOKENS", raising=False)
@@ -1348,5 +1349,6 @@ index a5876f0..99789d6 100644
 +    assert "upstream incomplete: content_filter" in res["output"]
 +    assert "cut mid-sentence" in res["output"]
 +    assert "status=incomplete" not in res["output"]
-```
+````
+
 <!-- END_GIT_DIFF -->

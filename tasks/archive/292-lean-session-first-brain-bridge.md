@@ -66,6 +66,7 @@ Refactor `mcp-brain-bridge` into a lean (~600 LOC), session-first gateway that p
 **Brainstorm:** not required — single-domain backend refactor with an explicit Orchestrator blueprint; no cross-disciplinary ambiguity. Approved plan = the `<hands_implementation_task>` XML micro-task checklist; executing from it.
 
 **Implementation (2026-10-04):**
+
 - Refactored `preflight.py` to allow concurrent `session_id` and `task_id` (`binding="session"`, `history_key` → `session_id`, mutual-exclusion raise removed; module + property docstrings updated).
 - Pruned dead file tools (`read_file`, `grep_files`, `get_context_bundle` wrappers + `_read_file_impl` / `_grep_files_impl` + read/grep guardrail consts) and the multipart slicing allocator (`_allocate_attachments`, `_render_attachment`, `_marker_room`, `_open_overhead`, `_validate_attachment_resume`, `_attachment_priority`, priority tuples, marker-room consts) from `server.py`; restored `_fence_guard` + `_qa_like_prompt` live helpers the block cut had taken. New `_render_direct` renders every attachment whole with per-candidate caps + shared context-path total cap, inline truncation notes, zero part markers. Expanded `_INPUT_BUDGET` to 1,000,000 characters. Removed the `history.pop(1)` middle-turn drop loop (history bounded at load by `_HISTORY_LIMIT = 40`). `brain_turn`: `attachment_resume` parameter + resume block removed; session-first scope line; history always ships whole.
 - Assumption A1: kept `_build_context_bundle` / `_build_structural_pack` / `_latest_report_path` (the bundle still auto-attaches on `include_bundle`; only the tool wrapper was dead). Assumption A2: kept `_resolve_under_root` / `_explicit_root` / `_workspace_root` / `_ALLOWED_READ_SUFFIXES` / `_READ_MAX_BYTES` (live paths: `_path_candidates`, one-off root pinning, task resolution).
@@ -76,5 +77,6 @@ Refactor `mcp-brain-bridge` into a lean (~600 LOC), session-first gateway that p
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `6aa2f1c00ad22d6aa055ddfed48c2c7ef28ccfdf`
 <!-- END_GIT_DIFF -->

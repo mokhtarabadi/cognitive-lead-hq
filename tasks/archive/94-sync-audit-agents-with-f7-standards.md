@@ -73,5 +73,6 @@ Sync `skill-templates/audit-agents/SKILL.md` with the F7 standards introduced in
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `40ff64f5114de5edba1d7dc09cf2635273b2ddb3`
 <!-- END_GIT_DIFF -->

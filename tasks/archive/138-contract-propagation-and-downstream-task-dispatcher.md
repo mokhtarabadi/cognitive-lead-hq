@@ -67,6 +67,7 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 ## Manager Decisions
 
 **[2026-08-31] [D1] [ORCHESTRATOR-DETECTED]:** Declarative Contract Propagation Rules
+
 - **Rationale:** Mapping contract file mutations (e.g. `packages/shared-schema/**`, `openapi/**`) to downstream task generators in `LoopEngineConfig` ensures all dependent platform consumers are updated automatically without manual coordination.
 - **Alternatives considered:** Manual task creation or embedding hardcoded SDK regeneration logic directly into `daemon.py`.
 - **Impact:** Eliminates contract drift across multi-service monorepos; downstream tasks enter the backlog with explicit causal linking (`**Triggered-By:** Task <id>`).
@@ -105,5 +106,6 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `c49daf6431ff2056967fd0b4452ba32cba1d4dd8`
 <!-- END_GIT_DIFF -->

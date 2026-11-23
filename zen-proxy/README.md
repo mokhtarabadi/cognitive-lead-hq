@@ -21,15 +21,15 @@ Every failure answers with a parseable JSON error, never with a dropped
 socket. This matters because the Brain Bridge reads the body to decide
 whether to retry or to give up.
 
-| Case | Status | Error type |
-| --- | --- | --- |
-| upstream did not answer inside the timeout | 504 | `GatewayTimeout` |
-| upstream unreachable (egress, TLS, DNS) | 502 | `BadGatewayError` |
-| request body over the cap | 413 | `PayloadTooLarge` |
-| malformed or short request body | 400 | `BadRequest` |
-| model owned by another mount | 404 | `ModelNotServedHere` |
-| path matches no configured mount | 404 | `UnknownRoute` |
-| stream ended without its terminal event | 200 + in-band event | `UpstreamStreamTruncated` |
+| Case                                       | Status              | Error type                |
+| ------------------------------------------ | ------------------- | ------------------------- |
+| upstream did not answer inside the timeout | 504                 | `GatewayTimeout`          |
+| upstream unreachable (egress, TLS, DNS)    | 502                 | `BadGatewayError`         |
+| request body over the cap                  | 413                 | `PayloadTooLarge`         |
+| malformed or short request body            | 400                 | `BadRequest`              |
+| model owned by another mount               | 404                 | `ModelNotServedHere`      |
+| path matches no configured mount           | 404                 | `UnknownRoute`            |
+| stream ended without its terminal event    | 200 + in-band event | `UpstreamStreamTruncated` |
 
 The last row is the one that cannot use a status: the status line is
 already on the wire, so the failure is reported inside the stream itself.
@@ -50,12 +50,12 @@ the response body are never written to the log.
 
 ## Routes (loopback `127.0.0.1:8081`)
 
-| Mount | Upstream | Serves |
-| --- | --- | --- |
-| `/zen/chat` | `opencode.ai/zen/v1` | free chat models |
-| `/zen/resp` | `opencode.ai/zen/v1` | free Responses models |
-| `/go/chat` | `opencode.ai/zen/go/v1` | Go subscription, chat completions |
-| `/go/resp` | `opencode.ai/zen/go/v1` | Go subscription, Responses API |
+| Mount       | Upstream                | Serves                            |
+| ----------- | ----------------------- | --------------------------------- |
+| `/zen/chat` | `opencode.ai/zen/v1`    | free chat models                  |
+| `/zen/resp` | `opencode.ai/zen/v1`    | free Responses models             |
+| `/go/chat`  | `opencode.ai/zen/go/v1` | Go subscription, chat completions |
+| `/go/resp`  | `opencode.ai/zen/go/v1` | Go subscription, Responses API    |
 
 `GET /health` answers `{"status":"ok","mounts":{...},"dormant":[...],"degraded":bool}` and is the liveness probe.
 
@@ -77,12 +77,12 @@ the response body are never written to the log.
 
 ## Configuration
 
-| Variable | Default | Meaning |
-| --- | --- | --- |
-| `ZEN_PROXY_UPSTREAM_TIMEOUT` | `900` | upstream socket timeout, seconds; also the silence wall of a stream |
-| `ZEN_PROXY_MAX_BODY_BYTES` | `33554432` | hard cap on an inbound request body |
-| `ZEN_PROXY_DRAIN_TIMEOUT_S` | `30` | how long a `SIGTERM` waits for in-flight requests |
-| `ZEN_PROXY_AUDIT` | `0` | `1` writes prompts and responses to `~/.local/share/zen-proxy/audit-logs/` |
+| Variable                     | Default    | Meaning                                                                    |
+| ---------------------------- | ---------- | -------------------------------------------------------------------------- |
+| `ZEN_PROXY_UPSTREAM_TIMEOUT` | `900`      | upstream socket timeout, seconds; also the silence wall of a stream        |
+| `ZEN_PROXY_MAX_BODY_BYTES`   | `33554432` | hard cap on an inbound request body                                        |
+| `ZEN_PROXY_DRAIN_TIMEOUT_S`  | `30`       | how long a `SIGTERM` waits for in-flight requests                          |
+| `ZEN_PROXY_AUDIT`            | `0`        | `1` writes prompts and responses to `~/.local/share/zen-proxy/audit-logs/` |
 
 A malformed value stops the process with a readable message and exit code
 2 instead of starting with a substituted default.
@@ -95,8 +95,7 @@ A malformed value stops the process with a readable message and exit code
   wrong mount gets `404 ModelNotServedHere` naming the correct route instead
   of an opaque upstream 400.
 - **Timeout ordering.** `ZEN_PROXY_UPSTREAM_TIMEOUT` (default 900s) must sit
-  at or below the caller's own deadline (`BRAIN_OVERALL_DEADLINE_S`, also
-  900) and below the MCP client's execution timeout. A hidden 300s here is
+  at or below the caller's own deadline (`BRAIN_OVERALL_DEADLINE_S`, also 900) and below the MCP client's execution timeout. A hidden 300s here is
   what silently killed long reasoning turns before 2026-10-22.
 - **Never truncate a replayed item id** in a caller; that rule lives in the
   bridge, but it exists because of this gateway's strict input validation.

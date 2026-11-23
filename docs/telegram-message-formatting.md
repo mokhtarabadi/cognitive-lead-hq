@@ -9,17 +9,17 @@
 
 ## 0. Executive summary
 
-| Concern                    | Verdict                                                       | Action for the server team                                  |
-| -------------------------- | ------------------------------------------------------------- | ----------------------------------------------------------- |
-| Message length             | Hard limit is **4096 chars**; 4097 fails with an opaque `GEN-ERR-184` | Return a descriptive error instead of a generic one   |
-| Markdown ` ``` ` fences    | **Consumed** — the code block markers vanish                   | Fix the Markdown entity parser, or document HTML-only     |
-| Markdown `*bold*`          | **Not applied** — asterisks survive as literal text            | Same                                                        |
-| Markdown inline `` `code` `` | **Consumed** — backticks vanish                              | Same                                                        |
-| HTML `<b> <code> <pre>`    | **Fully preserved**                                            | Keep as-is; recommend it as the default                     |
-| HTML entities (`&lt;` `&gt;` `&amp;`) | **Decoded correctly**                              | Keep as-is                                                  |
-| Persian ZWNJ (U+200C)       | **Lost on read** — affects every message, including ones the account owner typed on their own phone | Fix the read-path JSON encoding; until then, avoid ZWNJ in authored text |
-| Forum topics                | `send_message` has **no `topic_id`**                           | Add `topic_id` to `send_message`                            |
-| Deletion                    | `delete_message` works and is clean                            | Keep                                                        |
+| Concern                               | Verdict                                                                                             | Action for the server team                                               |
+| ------------------------------------- | --------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| Message length                        | Hard limit is **4096 chars**; 4097 fails with an opaque `GEN-ERR-184`                               | Return a descriptive error instead of a generic one                      |
+| Markdown ` ``` ` fences               | **Consumed** — the code block markers vanish                                                        | Fix the Markdown entity parser, or document HTML-only                    |
+| Markdown `*bold*`                     | **Not applied** — asterisks survive as literal text                                                 | Same                                                                     |
+| Markdown inline `` `code` ``          | **Consumed** — backticks vanish                                                                     | Same                                                                     |
+| HTML `<b> <code> <pre>`               | **Fully preserved**                                                                                 | Keep as-is; recommend it as the default                                  |
+| HTML entities (`&lt;` `&gt;` `&amp;`) | **Decoded correctly**                                                                               | Keep as-is                                                               |
+| Persian ZWNJ (U+200C)                 | **Lost on read** — affects every message, including ones the account owner typed on their own phone | Fix the read-path JSON encoding; until then, avoid ZWNJ in authored text |
+| Forum topics                          | `send_message` has **no `topic_id`**                                                                | Add `topic_id` to `send_message`                                         |
+| Deletion                              | `delete_message` works and is clean                                                                 | Keep                                                                     |
 
 ---
 
@@ -27,13 +27,13 @@
 
 Proven by sending messages of exact known length to the Apex topic and reading back the result.
 
-| Payload length | Result                                           |
-| -------------- | ------------------------------------------------ |
-| 4096 chars     | **sent successfully**                             |
-| 4097 chars     | fails: `An error occurred (code: GEN-ERR-184)`    |
-| 4200 chars     | fails: `An error occurred (code: GEN-ERR-184)`    |
+| Payload length             | Result                                         |
+| -------------------------- | ---------------------------------------------- |
+| 4096 chars                 | **sent successfully**                          |
+| 4097 chars                 | fails: `An error occurred (code: GEN-ERR-184)` |
+| 4200 chars                 | fails: `An error occurred (code: GEN-ERR-184)` |
 | 4665 chars (a real report) | fails: `An error occurred (code: GEN-ERR-184)` |
-| 3000 chars     | sent successfully                                 |
+| 3000 chars                 | sent successfully                              |
 
 **Rules**
 
@@ -52,11 +52,11 @@ All three findings were produced by sending a probe, reading the message back, a
 
 Probe sent:
 
-```
+````
 PROBE-A ```bash
 curl -X POST https://x/y
 ``` می‌کند
-```
+````
 
 Read back:
 
@@ -79,7 +79,8 @@ Probe sent:
 ```html
 <b>BOLD</b> inline <code>IDENT</code>
 
-<pre>curl -u '&lt;admin&gt;:&lt;pass&gt;' \
+<pre>
+curl -u '&lt;admin&gt;:&lt;pass&gt;' \
   --data 'x=1'</pre>
 
 <pre>SELECT 1;</pre>
@@ -139,7 +140,7 @@ The ZWNJ is absent from the returned payload. The same holds for `send_message`,
 
 Either way there is a **safe authoring rule that works under both hypotheses:** write Persian without ZWNJ, using a regular space where the half-space belongs, and never rely on a ZWNJ surviving a round-trip.
 
-**Action for the server team:** check the JSON encoding on the message-read path. A common cause is the response being serialized with `ensure_ascii=True` plus a normalization step that drops characters in the Unicode "format" category (U+200C is `Cf`, i.e. *Format*, and many normalizers strip `Cf` characters along with the zero-width space U+200B and the BOM). The fix is to preserve `Cf` characters, or at minimum to preserve U+200C explicitly.
+**Action for the server team:** check the JSON encoding on the message-read path. A common cause is the response being serialized with `ensure_ascii=True` plus a normalization step that drops characters in the Unicode "format" category (U+200C is `Cf`, i.e. _Format_, and many normalizers strip `Cf` characters along with the zero-width space U+200B and the BOM). The fix is to preserve `Cf` characters, or at minimum to preserve U+200C explicitly.
 
 ---
 
@@ -184,7 +185,8 @@ Two read tools exist and they behave differently:
 ```html
 <b>Heading</b> and <code>inline_identifier</code>
 
-<pre>curl -X POST "https://example.com/api" \
+<pre>
+curl -X POST "https://example.com/api" \
   --data 'key=value'</pre>
 
 <b>Second heading</b>
@@ -227,44 +229,69 @@ Each item below is a standalone, self-verifying probe. Run them against a scratc
 
 ```js
 // 4096 -> "Replied to message N."   4097 -> "GEN-ERR-184"
-await reply_to_message({chat_id, message_id, account, text: "L" + "x".repeat(4095)});
-await reply_to_message({chat_id, message_id, account, text: "L" + "x".repeat(4096)});
+await reply_to_message({
+  chat_id,
+  message_id,
+  account,
+  text: "L" + "x".repeat(4095),
+});
+await reply_to_message({
+  chat_id,
+  message_id,
+  account,
+  text: "L" + "x".repeat(4096),
+});
 ```
 
 **B. Markdown fences are consumed**
 
-```js
-await reply_to_message({chat_id, message_id, account, parse_mode: "Markdown",
-  text: "PROBE ```bash\ncurl -X POST https://x/y\n``` end"});
+````js
+await reply_to_message({
+  chat_id,
+  message_id,
+  account,
+  parse_mode: "Markdown",
+  text: "PROBE ```bash\ncurl -X POST https://x/y\n``` end",
+});
 // read back -> the ``` markers are gone
-```
+````
 
 **C. HTML is preserved**
 
 ```js
-await reply_to_message({chat_id, message_id, account, parse_mode: "HTML",
-  text: "<b>B</b> <code>C</code> <pre>x &lt; y</pre>"});
+await reply_to_message({
+  chat_id,
+  message_id,
+  account,
+  parse_mode: "HTML",
+  text: "<b>B</b> <code>C</code> <pre>x &lt; y</pre>",
+});
 // read back -> "B C x < y" with the block intact
 ```
 
 **D. ZWNJ is lost (read-path)**
 
 ```js
-await reply_to_message({chat_id, message_id, account, text: "SENTINEL_A\u200cSENTINEL_B"});
+await reply_to_message({
+  chat_id,
+  message_id,
+  account,
+  text: "SENTINEL_A\u200cSENTINEL_B",
+});
 // read back -> "SENTINEL_ASENTINEL_B"
 ```
 
 **E. `send_message` ignores the topic**
 
 ```js
-await send_message({chat_id, message: "TOPIC_PROBE", account});
+await send_message({ chat_id, message: "TOPIC_PROBE", account });
 // lands in General, not in the topic
 ```
 
 **F. Cleanup**
 
 ```js
-await delete_message({chat_id, message_id, account});
+await delete_message({ chat_id, message_id, account });
 ```
 
 ---
@@ -285,14 +312,14 @@ await delete_message({chat_id, message_id, account});
 
 These are the rules an agent must follow when it authors a Telegram message. They restate the findings above in the form of an action list, and they are the source of the [`telegram-suite` skill (Part 1)](../skill-templates/telegram-suite/SKILL.md).
 
-| # | Rule                                                                        | Why                                                                        |
-| - | --------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| 1 | Always send with `parse_mode: "HTML"`.                                     | Markdown mode strips fences and backticks without creating entities (§2.1). |
-| 2 | Escape `&` → `&amp;`, `<` → `&lt;`, `>` → `&gt;` inside `<pre>` and `<code>`. | Raw `<` breaks the HTML parse and aborts the whole message (§2.2).        |
-| 3 | Use `<b>` for headings, `<code>` for inline identifiers, `<pre>` for code.  | Those three are the only elements proven to survive the round-trip (§2.2). |
-| 4 | Never use ` ``` ` fences or `*bold*` Markdown syntax.                       | Both are consumed or left literal (§2.1).                                 |
-| 5 | Write Persian without U+200C ZWNJ — use a normal space instead.            | ZWNJ is lost on the read path for every message (§3).                      |
-| 6 | Keep each message under ~3800 characters; split longer payloads into parts, each a reply to the same parent id. | The hard limit is 4096 and the failure is an opaque `GEN-ERR-184` (§1). |
-| 7 | Post into a forum topic with `reply_to_message` anchored to a message inside that topic. | `send_message` has no `topic_id` and lands in General (§4).         |
-| 8 | Verify a formatted send by reading it back and checking the `&lt;`/`&gt;` round-trip. | `get_history` resolves entities to plain text, so a text diff cannot prove formatting (§6). |
-| 9 | Delete every probe message after reading it back.                           | Keeps the group clean; message ids are not reused (§5).                    |
+| #   | Rule                                                                                                            | Why                                                                                         |
+| --- | --------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| 1   | Always send with `parse_mode: "HTML"`.                                                                          | Markdown mode strips fences and backticks without creating entities (§2.1).                 |
+| 2   | Escape `&` → `&amp;`, `<` → `&lt;`, `>` → `&gt;` inside `<pre>` and `<code>`.                                   | Raw `<` breaks the HTML parse and aborts the whole message (§2.2).                          |
+| 3   | Use `<b>` for headings, `<code>` for inline identifiers, `<pre>` for code.                                      | Those three are the only elements proven to survive the round-trip (§2.2).                  |
+| 4   | Never use ` ``` ` fences or `*bold*` Markdown syntax.                                                           | Both are consumed or left literal (§2.1).                                                   |
+| 5   | Write Persian without U+200C ZWNJ — use a normal space instead.                                                 | ZWNJ is lost on the read path for every message (§3).                                       |
+| 6   | Keep each message under ~3800 characters; split longer payloads into parts, each a reply to the same parent id. | The hard limit is 4096 and the failure is an opaque `GEN-ERR-184` (§1).                     |
+| 7   | Post into a forum topic with `reply_to_message` anchored to a message inside that topic.                        | `send_message` has no `topic_id` and lands in General (§4).                                 |
+| 8   | Verify a formatted send by reading it back and checking the `&lt;`/`&gt;` round-trip.                           | `get_history` resolves entities to plain text, so a text diff cannot prove formatting (§6). |
+| 9   | Delete every probe message after reading it back.                                                               | Keeps the group clean; message ids are not reused (§5).                                     |

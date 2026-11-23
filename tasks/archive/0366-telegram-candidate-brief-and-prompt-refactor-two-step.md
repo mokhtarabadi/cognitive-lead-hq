@@ -81,15 +81,17 @@ Closure 2026-11-02: moved tasks/qa → tasks/completed, Status closed, File head
 ### Discovery-fed context
 
 [fed-context]
+
 - `skill-templates/telegram-issue-sync/SKILL.md` Phase 2 L92-98: candidate approval asks Manager to provide message IDs; per-candidate fields are Message ID + 200-char snippet + type + reply parent.
 - Official Telegram apps never render internal numeric ID; Manager cannot join snippet to ID in-app, transcription error risks wrong sync anchor.
 - `skill-templates/prompt-refactor/SKILL.md` L55-64: workflow ends at Deliver (output final prompt in code block); no Execute second pass exists in skill or callers (`05-user_input_processing.md:31`, executor matrix row).
 - Memories applied: `telegram-sync/message-formatting-contract` (HTML formatting rules for any Telegram-facing text), `workflows/approval_gates_use_question_tool` (approval gates must use question tool).
 - Absent-File Policy: `docs/architecture.md` and `docs/data_model.md` do not exist; skipped gracefully.
-[/fed-context]
+  [/fed-context]
 
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `13de1b59a7738d5699020f52ae9afe6d896e1214`
 <!-- END_GIT_DIFF -->

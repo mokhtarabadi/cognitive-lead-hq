@@ -56,5 +56,6 @@ Let `brain_turn(context_paths=[...])` inject source-code files (not just docs/re
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `7b2af3c500c1a6219c7a071bf622eff3f63d1116`
 <!-- END_GIT_DIFF -->

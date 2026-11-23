@@ -17,57 +17,57 @@ Milestone 18 spans the Brain-bridge era through release v9.31.0. Core work: unif
 
 ## Files Modified
 
-| File         | Change      |
-| ------------ | ----------- |
-| CHANGELOG.md | release entries v9.13.0 through v9.31.0 |
-| system-prompt.md | regenerated builds up to 9.31.0 |
-| prompts/fragments/ | version bumps plus persona, protocol, and constraint edits |
-| agents/cognitive-executor.md | autonomy, planning gate, goal lifecycle, bridge wiring |
-| mcp-brain-bridge/ | new bridge server plus loop guard and replay harness |
-| mcp-decision-server/ | deterministic extraction plus alternatives search |
-| skill-templates/ | blowsh research workflow, fintech skill updates, deletions of superseded skills |
-| docs/ | brain-bridge runbook, setup, shell strategy, history summaries |
-| scripts/qa-rules-gate/ | created then removed as leftover |
-| tests/ | bridge, decision, guard, replay, attach suites |
-| user-prompts/ | moved out to private repo |
-| opencode.json | bridge and decision wiring plus permission denies |
-| LLM.txt | setup, plugin, and model-pin docs |
-| README.md | bridge reality plus modes and skill counts |
+| File                         | Change                                                                          |
+| ---------------------------- | ------------------------------------------------------------------------------- |
+| CHANGELOG.md                 | release entries v9.13.0 through v9.31.0                                         |
+| system-prompt.md             | regenerated builds up to 9.31.0                                                 |
+| prompts/fragments/           | version bumps plus persona, protocol, and constraint edits                      |
+| agents/cognitive-executor.md | autonomy, planning gate, goal lifecycle, bridge wiring                          |
+| mcp-brain-bridge/            | new bridge server plus loop guard and replay harness                            |
+| mcp-decision-server/         | deterministic extraction plus alternatives search                               |
+| skill-templates/             | blowsh research workflow, fintech skill updates, deletions of superseded skills |
+| docs/                        | brain-bridge runbook, setup, shell strategy, history summaries                  |
+| scripts/qa-rules-gate/       | created then removed as leftover                                                |
+| tests/                       | bridge, decision, guard, replay, attach suites                                  |
+| user-prompts/                | moved out to private repo                                                       |
+| opencode.json                | bridge and decision wiring plus permission denies                               |
+| LLM.txt                      | setup, plugin, and model-pin docs                                               |
+| README.md                    | bridge reality plus modes and skill counts                                      |
 
 ## Criteria Met
 
-| Task | Acceptance Criteria | Status |
-| ---- | ------------------- | ------ |
-| 150 | RTK practices documented with evidence | ✅ Met |
-| 179 | v9.13.0 cut plus milestone-17 archived | ✅ Met |
-| 180 | dual-channel plus brainstorm fixes | ✅ Met |
-| 181 | execution autonomy plus number discipline | ✅ Met |
-| 182 | self-driving QA and reviewer loops | ✅ Met |
-| 183 | always-English output | ✅ Met |
-| 184 | goal lifecycle | ✅ Met |
-| 185 | spider synthesis plus saturation | ✅ Met |
-| 186 | spider-search workflow | ✅ Met |
-| 187 | persona auto-load | ✅ Met |
-| 188 | voice-to-text normalization | ✅ Met |
-| 189 | user-prompts extracted private | ✅ Met |
-| 190 | unified Brain bridge live | ✅ Met |
-| 191 | deterministic extraction | ✅ Met |
-| 192 | alternatives search | ✅ Met |
-| 193 | file-pull discoverability | ✅ Met |
-| 194 | compaction plus traceability | ✅ Met |
-| 195 | machine verdicts plus rules gate | ✅ Met |
-| 196 | loop guard | ✅ Met |
-| 197 | replay harness | ✅ Met |
-| 198 | error taxonomy | ✅ Met |
-| 199 | persona and fintech research | ✅ Met |
-| 200 | full task-file attach | ✅ Met |
-| 201 | QA hunks plus modes doc | ✅ Met |
-| 202 | planning gate | ✅ Met |
-| 203 | self-judgment run | ✅ Met |
-| 204 | self-judgment fixes | ✅ Met |
-| 205 | nine-note cleanup | ✅ Met |
-| 206 | systemd unit env docs | ✅ Met |
-| 207 | v9.31.0 plus push script | ✅ Met |
+| Task | Acceptance Criteria                       | Status |
+| ---- | ----------------------------------------- | ------ |
+| 150  | RTK practices documented with evidence    | ✅ Met |
+| 179  | v9.13.0 cut plus milestone-17 archived    | ✅ Met |
+| 180  | dual-channel plus brainstorm fixes        | ✅ Met |
+| 181  | execution autonomy plus number discipline | ✅ Met |
+| 182  | self-driving QA and reviewer loops        | ✅ Met |
+| 183  | always-English output                     | ✅ Met |
+| 184  | goal lifecycle                            | ✅ Met |
+| 185  | spider synthesis plus saturation          | ✅ Met |
+| 186  | spider-search workflow                    | ✅ Met |
+| 187  | persona auto-load                         | ✅ Met |
+| 188  | voice-to-text normalization               | ✅ Met |
+| 189  | user-prompts extracted private            | ✅ Met |
+| 190  | unified Brain bridge live                 | ✅ Met |
+| 191  | deterministic extraction                  | ✅ Met |
+| 192  | alternatives search                       | ✅ Met |
+| 193  | file-pull discoverability                 | ✅ Met |
+| 194  | compaction plus traceability              | ✅ Met |
+| 195  | machine verdicts plus rules gate          | ✅ Met |
+| 196  | loop guard                                | ✅ Met |
+| 197  | replay harness                            | ✅ Met |
+| 198  | error taxonomy                            | ✅ Met |
+| 199  | persona and fintech research              | ✅ Met |
+| 200  | full task-file attach                     | ✅ Met |
+| 201  | QA hunks plus modes doc                   | ✅ Met |
+| 202  | planning gate                             | ✅ Met |
+| 203  | self-judgment run                         | ✅ Met |
+| 204  | self-judgment fixes                       | ✅ Met |
+| 205  | nine-note cleanup                         | ✅ Met |
+| 206  | systemd unit env docs                     | ✅ Met |
+| 207  | v9.31.0 plus push script                  | ✅ Met |
 
 ## Individual Task Summaries
 

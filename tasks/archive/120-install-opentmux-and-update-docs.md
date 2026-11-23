@@ -38,12 +38,13 @@ Before implementing, analyze: What does opentmux do? How does it integrate with 
 </agentic_reasoning>
 
 <execution_rules>
+
 - You MUST read the opentmux repository README to understand its purpose and installation
 - You MUST add installation instructions to docs/setup.md or a dedicated guide
 - You MUST update AGENTS.md if the tool affects agent workflows
 - You MUST verify the installation works in the current environment
 - Do NOT modify existing system-prompt.md unless the tool affects agent behavior
-</execution_rules>
+  </execution_rules>
 
 <output_format>
 Return: installation steps, documentation changes made, verification results.
@@ -58,6 +59,7 @@ Return: installation steps, documentation changes made, verification results.
 ## AI Analysis & Opinion
 
 opentmux appears to be a terminal multiplexer tool. Integration should focus on:
+
 1. Reading the GitHub README to understand exact purpose and installation
 2. Adding installation commands to docs/setup.md
 3. Updating README.md with the new tool reference
@@ -105,11 +107,13 @@ The task is NOT done unless ALL of the following are true:
 ## Execution Log & Reasoning
 
 **Discovery:**
+
 - Fetched opentmux GitHub README: npm package wrapping OpenCode with tmux integration
 - Installation: `npm install -g opentmux` (v1.5.7)
 - Tool wraps `opencode` with auto tmux pane spawning for agent execution
 
 **Implementation:**
+
 1. Installed opentmux globally via npm — success, v1.5.7
 2. Verified with `opentmux --help` — shows OpenCode CLI help (opentmux is a wrapper)
 3. Created `docs/setup.md` — comprehensive setup guide covering opentmux, MCP servers, and dev tools
@@ -117,11 +121,13 @@ The task is NOT done unless ALL of the following are true:
 5. Updated `CHANGELOG.md` — added entry under `[Unreleased] > Added`
 
 **Architecture Notes:**
+
 - opentmux is a tmux wrapper around OpenCode — it auto-configures shell integration
 - No AGENTS.md changes needed — the tool doesn't affect agent workflows
 - No system-prompt.md changes needed — opentmux is infrastructure, not agent behavior
 
 **QA Iteration — LLM.txt Updates:**
+
 1. Added **Node.js (v20+ LTS)** and **npm** to Section 1 prerequisites with installation instructions for Debian/Ubuntu and macOS
 2. Added **Section 6.2** with `npm install -g opentmux` global installation and usage instructions
 3. Added verification checklist items for `node --version`, `npm --version`, and `opentmux --version` to Section 10
@@ -130,5 +136,6 @@ The task is NOT done unless ALL of the following are true:
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `2cd62929d39d711776e37295fae5c2c95b377427`
 <!-- END_GIT_DIFF -->

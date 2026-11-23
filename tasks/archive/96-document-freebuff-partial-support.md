@@ -133,5 +133,6 @@ No new CHANGELOG bullet was created (Step 7) — the existing `## [Unreleased]` 
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `3da0138bdf9b06620eae534049bde01ddbf7b310`
 <!-- END_GIT_DIFF -->

@@ -62,11 +62,13 @@ Prepare release v8.4.6: consolidate the pending `[Unreleased]` CHANGELOG entry i
 **Release workflow memory stored:** namespace `release`, key `release-workflow`, `overwrite=true`. Actual memory file path: `.opencode/memory/release/release-workflow.md` (confirmed by the project_memory MCP server on store and verified via `read_memory` — content matches the canonical text byte-for-byte, including frontmatter `status: active`). No prior release-workflow memory existed (search returned no matches), so no supersession was required. The memory captures: SemVer decision rules, Keep a Changelog / Parse-Then-Append rules, the empty-`[Unreleased]` rule, prompt-source rules (generated `system-prompt.md`, never hand-edit, sync verification), verification gates, ZAC-safe commit rules (no tag/push by Hands; publication is a separate manual Manager step), and the memory-rule pointer (`release/release-workflow`).
 
 **CHANGELOG consolidation actions:**
+
 1. Moved the `[Unreleased]` `### Fixed` bullet (Freebuff free-tier spawn status docs hotfix, 2026-08-13) into the existing `[8.4.6] - 2026-08-16` section under `### Fixed`, appending it after the QA Fix Round 4 bullet. Verified via `grep -c` that the entry appears exactly once (moved, NOT duplicated) and no historical wording was deleted.
 2. Left `## [Unreleased]` header present but empty (Keep a Changelog rule: `[Unreleased]` MUST be empty after a release — this is now satisfied).
 3. Added the release-preparation entry under `[8.4.6]` `### Changed` (category already existed — appended, no duplicate category header): "Release v8.4.6 preparation — consolidated the [Unreleased] docs hotfix under [8.4.6], stored persistent release workflow memory at release/release-workflow, and verified release gates. system-prompt.md version unchanged." (The `system-prompt.md version unchanged` statement is correct: this task edited no prompt source, and `lint_system_prompt_sync` confirms the generated file is in sync at 8.4.6.)
 
 **Release verification results:**
+
 - `lint_markdown` on CHANGELOG.md: ✅ passed.
 - `python3 -m py_compile` (splitter, assembler, lint server): exit 0.
 - Full pytest suite: 45 passed, exit 0.
@@ -77,5 +79,6 @@ Prepare release v8.4.6: consolidate the pending `[Unreleased]` CHANGELOG entry i
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `44a4610db87514f11430bff958eb875f14f69c3c`
 <!-- END_GIT_DIFF -->

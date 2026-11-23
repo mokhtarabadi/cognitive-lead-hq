@@ -35,7 +35,7 @@ policy.
 - **F3 — stale subagent syntax in the root rules.**
   `AGENTS.md:63` names `@explore` / `@general`. OpenCode 2 calls subagents
   through the `subagent` tool with `agent: "explore" | "general" |
-  "cognitive-discovery"`; the `@name` form is not a callable syntax and the
+"cognitive-discovery"`; the `@name` form is not a callable syntax and the
   line omits `cognitive-discovery`.
 - **F4 — the model gate that explains the whole drift.**
   OpenCode docs (https://opencode.ai/docs/tools, fetched 2026-11-11): "OpenCode
@@ -100,7 +100,7 @@ policy.
 - Exact-pin note: the recorded command uses `mcp==1.30.0` rather than `mcp[cli]>=1.0,<2.0`. `rtk test` joins its arguments without quoting, so a `<` inside a version spec is misparsed as input redirection (documented in `docs/opencode-shell-strategy.md` §8). The exact pin keeps the wrapper safe and the exit code honest.
 - New regression file alone: `uv run --with pytest pytest tests/test_tool_catalog_truth.py -q` → `5 passed`, exit 0.
 - Legacy gate files after the V2 rewrite: `tests/test_agent_tool_gate.py` + `tests/test_prompt_sync.py` + the new file → `49 passed`, exit 0.
-- Purge greps: `grep -rn "apply_patch" skill-templates/ AGENTS.md README.md` → 0 hits; `` grep -rn '`bash` tool' skill-templates/ `` → 0 hits; `grep -rn "@explore" AGENTS.md README.md skill-templates/ prompts/fragments/` (DECISIONS excluded) → 0 hits.
+- Purge greps: `grep -rn "apply_patch" skill-templates/ AGENTS.md README.md` → 0 hits; ``grep -rn '`bash` tool' skill-templates/`` → 0 hits; `grep -rn "@explore" AGENTS.md README.md skill-templates/ prompts/fragments/` (DECISIONS excluded) → 0 hits.
 - Permission probe (P5): `git add -n .` → `permission.rejected: Permission denied: shell`. The ZAC deny is enforced by the permission layer, not only by prose. The probe is a non-mutating dry run and it never executed.
 
 > Verification runner rule: the first verification run MUST use the `rtk test`
@@ -132,7 +132,7 @@ plan, then the revised plan after research exposed the V1/V2 permission schema
 split. The Senior Programmer emitted the implementation XML from that approval.
 
 **Assumption A1:** "fix our bugs, gaps, missing, extra things across entire
-project system" was read as *tool-related* drift across the project, not a
+project system" was read as _tool-related_ drift across the project, not a
 general refactor. Every fix below is a tool reference, an agent permission
 rule, or a doc describing them.
 
@@ -254,7 +254,7 @@ Code Reviewer re-reviewed the postfix and returned **PO_REVIEW_PENDING**
   identity and no retired section name.
 - R1 (read conflict, no runtime effect): one live CHANGELOG slice in the reviewer
   feed read as stale. Confirmed on disk: `grep -n "Your Tool Surface"
-  CHANGELOG.md` → 1 hit; `grep -c "Tool Catalog Truth" CHANGELOG.md` → 0.
+CHANGELOG.md` → 1 hit; `grep -c "Tool Catalog Truth" CHANGELOG.md` → 0.
 - R2: I3 remains a follow-up by agreement; no scope widening.
 
 **Status:** `PO_REVIEW_PENDING` — awaiting the Manager's explicit
@@ -304,5 +304,6 @@ the edit-instruction audit closed F1 and F2.
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `f512ad24eabfa62de0bc3ffec73663cad16b51a9`
 <!-- END_GIT_DIFF -->

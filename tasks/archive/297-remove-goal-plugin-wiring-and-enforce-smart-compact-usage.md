@@ -17,6 +17,7 @@ Direct Manager order (translated from Persian): "Define a new task in the curren
 ## Scope
 
 In scope:
+
 - Goal-plugin and Session Goals wiring: agents/cognitive-executor.md Goal Lifecycle section, prompts fragments mirroring it, README.md and LLM.txt Session Goals lines, .opencode/memory Session Goals lines, opencode.json goal entries if any, docs mentions
 - Generic English word goal meaning objective (task Goal headings, alignment prose) stays untouched
 - docs/history, tasks/archive, CHANGELOG history lines stay immutable
@@ -25,6 +26,7 @@ In scope:
 - system-prompt.md rebuilt from fragments, never hand-edited
 
 Out of scope:
+
 - External repos stay untouched, changes land only in cognitive-lead-hq
 - No git add/commit/push by Hands (ZAC holds)
 
@@ -82,5 +84,6 @@ Out of scope:
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `83742b726f930e4dd35af0b5519f1b76974274af`
 <!-- END_GIT_DIFF -->

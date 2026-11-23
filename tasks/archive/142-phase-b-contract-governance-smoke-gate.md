@@ -45,16 +45,19 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 ## Manager Decisions
 
 **[2026-08-31] [D1] [ORCHESTRATOR-DETECTED]:** Comprehensive Phase B Contract Governance Smoke Gate
+
 - **Rationale:** Certifies the entire Phase B architecture end-to-end, proving contract propagation, type-drift interception, spec-first gating, and blast-radius scoping work harmoniously before unlocking Phase C.
 - **Alternatives considered:** Relying on unit tests without integrated daemon lifecycle verification.
 - **Impact:** Hard verification gate certifying that monorepo contract governance operates without regressions or infinite cascades.
 
 **[2026-09-01] [D2] [EXECUTION-DETECTED]:** Hermetic Phase B workspace replication
+
 - **Rationale:** Mirrored `test_polyglot_smoke.py` hermetic pattern (tmp_path, daemon.REPO_ROOT patch, scripted I/O seams with ScriptedRouter/FakeHandsExecutor/AutoApproveGateway) but with contract monorepo fixture (packages/shared-schema + services/api + apps/web + docs/adr) and LoopEngineConfig with contract_rules/spec_gate/blast_radius enabled to certify Phase B without touching real repo.
 - **Alternatives considered:** Reusing polyglot workspace as-is — rejected: contract propagation requires shared-schema layout, sentinel requires consumer path, spec gate requires ADR layout.
 - **Impact:** 14 deterministic smoke tests covering 8 core Phase B scenarios + 6 extra edge cases; full suite 285 passing.
 
 **[2026-09-01] [D3] [EXECUTION-DETECTED]:** 14-test gate for >=285 certification bar
+
 - **Rationale:** Baseline 271 + 8 core Phase B tests = 279 (<285 gate in bash_phase). Added 6 extra tests (rule matching, sentinel allowed, spec multiple rules, blast root fallback, sequential IDs, state registration) to reach 285 (271+14) and satisfy `verification-before-completion` strict >271 and bash_phase >=285.
 - **Alternatives considered:** Keeping 8 tests and lowering gate to 279 — rejected: spec's bash_phase explicitly requires >=285.
 - **Impact:** Meets both verification-before-completion and Hard Gate; no regressions.
@@ -87,5 +90,6 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `af57f1f4eb0349c4f779b706f0b6300074ba3f16`
 <!-- END_GIT_DIFF -->

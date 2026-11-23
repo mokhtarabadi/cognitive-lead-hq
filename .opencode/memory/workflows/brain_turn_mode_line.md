@@ -1,8 +1,8 @@
 ---
-created_at: '2026-10-16T20:22:33.519163+00:00'
+created_at: "2026-10-16T20:22:33.519163+00:00"
 status: active
 tags: []
-updated_at: '2026-10-16T20:22:33.519174+00:00'
+updated_at: "2026-10-16T20:22:33.519174+00:00"
 ---
 
 # Brain calls MUST carry a mode line (Manager order 2026-10-16)

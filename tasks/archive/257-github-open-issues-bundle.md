@@ -22,11 +22,13 @@ Unified execution of 4 related small tasks as a single META task to eliminate se
 **Bundle Decision (2026-08-21):** Manager requested fully automatic bundling with archive (not purge). This META was generated deterministically by the `bundle_tasks` MCP tool to execute 4 small related tasks together and speed up turnaround.
 
 **Traceability:**
+
 - Supersedes [253, 254, 255, 256] — see per-source verbatim blocks below
 - Archive: each source moved via `git mv` to `tasks/archive/` with `**Superseded-By:** 257-github-open-issues-bundle` header + superseded footer
 - Rollback: `git mv tasks/archive/<id>-*.md tasks/backlog/` + delete META file
 
 **Guardrails Applied:**
+
 - Cap 6 per bundle — this bundle has 4 (✅ within cap)
 - Verbatim preservation — every source Goal/AC/TODO/Risk copied verbatim below (SHA comparison available in bundler dry-run)
 - Diff-size check — combined 283 LOC (✅ within 400)
@@ -190,7 +192,6 @@ Synced from GitHub issue 19 verbatim body plus title. Implementation must resolv
 
 ---
 
-
 ## Bundled Checklist (All-or-Nothing)
 
 > **QA Gate (all-or-nothing):** Every line below maps to one source acceptance criterion. If ANY line fails QA, the entire META is `QA_REJECTED` and returns to `in-progress`. Do not partially close.
@@ -285,6 +286,7 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 Planning gate (2026-09-18): Seat Check → Software Architect (trigger 'contract'; Designer/Programmer skipped, no whole-word hits). Brain planning turn 1 returned a discovery task; discovery executed via 4 parallel workers (bridge, capability, ledger, lint) plus tree report, source bundle, and read-only gh api inventory (open issues exactly 16–19, zero comments). Fed context back under same task_id 257; Brain planning turn 2 returned the Architect implementation plan (REPORT, no XML). Selected path: P1 request preflight → P3 capability preflight → P2 transport learning → P5/P7 ledger + decisions → P4/P6 lint carve-out + analysis lifecycle. Standing order cited: FULL AUTOMATIC MODE (zero questions) plus supervised plan-approval gate — plan presented, implementation waits for explicit approval word. Context reports: context-reports/task-257-context.md, context-reports/tree_report_20260918_154342_3f24f328.md, context-reports/context_report_20260918_154342_19b2e371.md (not read by Hands, handed to Brain via context_paths).
 
 Implementation (2026-09-18, Brain plan order P1→P3→P2→P5/P7→P4/P6, TDD RED→GREEN per workstream):
+
 - WS1 preflight (issue 18): new `mcp-brain-bridge/preflight.py` (stdlib-only, 23 tests in `tests/test_brain_preflight.py`); `brain_turn` gains keyword-only `session_id`/`stage`/`kanban_path`/`required_tools`; explicit `project_root` without `tasks/` raises (never falls back — the silent fallback WAS the Cando-828 bug); 4 existing tests re-seamed to explicit `project_root` with intent preserved.
 - WS2 capability (issue 16): new `mcp-brain-bridge/capability.py` (3-status manifest grounded in `opencode.json`; `question` resolves to UNAVAILABLE_REQUIRED (internal registry KNOWN_UNAVAILABLE); stage-implied requirements; blocked work returns non-verdict REPORT relay block, zero transport) + minimal `session_ledger.append_event` (21 tests in `tests/test_brain_capability.py`); handoff reconciled in `agents/cognitive-executor.md`, `prompts/fragments/09-hands_protocols.md:66`, `skill-templates/telegram-issue-sync/SKILL.md:79`; shipped prompt rebuilt 9.40.0→9.41.0, byte-compare verified in-sync.
 - WS3 transport learning (issue 17): new `mcp-brain-bridge/transport_learning.py` (`unsupported_parameter` 400 classifier, protected keys model/input, one corrected retry, saga-scoped memory, repeat → marked `TransportEscalationError`, never a verdict; 16 tests in `tests/test_brain_transport_learning.py`).
@@ -321,8 +323,8 @@ Execute these steps in exact order. After completing each step, change that step
 - [ ] **Step 2:** In `agents/cognitive-executor.md`, change only the leading number on the Auto-Save Criteria heading from `4.` to `3.`. Do not modify the heading text, bullets, surrounding capability-preflight text, or any other line. Mark Step 2 complete.
 
 - [x] **Step 3:** Verify the corrected numbered sequence with a targeted text inspection. Then run exactly:
-  `rtk test python3 -m pytest tests/test_prompt_sync.py -q`
-  Record the exact command, expected result, actual result, and exit code in `## Verification Evidence`. If the command fails, inspect the failure, make only a necessary scoped repair, and retry no more than two additional times. Mark Step 3 complete only after a passing exit code is observed.
+      `rtk test python3 -m pytest tests/test_prompt_sync.py -q`
+      Record the exact command, expected result, actual result, and exit code in `## Verification Evidence`. If the command fails, inspect the failure, make only a necessary scoped repair, and retry no more than two additional times. Mark Step 3 complete only after a passing exit code is observed.
 
 - [x] **Step 4:** Update `## Execution Log & Reasoning` with the correction and its scope. Confirm that the existing `CHANGELOG.md` META entry remains accurate and do not add a duplicate entry. Review every `## Acceptance Criteria` and `## Definition of Done` checkbox against the recorded evidence. Call `lint_task_file` on `tasks/qa/257-github-open-issues-bundle.md`. If lint passes, call `custom_context_stage_and_inject_diff` for the active task file with modified files limited to:
   - `agents/cognitive-executor.md`
@@ -333,5 +335,6 @@ Execute these steps in exact order. After completing each step, change that step
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `d494f209ff14460e3042c49478c155ea40842db3`
 <!-- END_GIT_DIFF -->

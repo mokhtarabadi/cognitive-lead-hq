@@ -77,5 +77,6 @@ ZAC holds: no `git add`, `git commit`, `git checkout`, or `git push`.
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `f68292fdb07b828aecca3187e71f5fe21fb15eb8`
 <!-- END_GIT_DIFF -->

@@ -106,5 +106,6 @@ Tests were written alongside the edits; the end-to-end one-off test failed first
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `2fdda043c8f90544cde88883b96dda0b863a113c`
 <!-- END_GIT_DIFF -->

@@ -4,16 +4,16 @@ One supervised instance of each MCP server, shared across all sessions and proje
 
 ## Port map (127.0.0.1 only)
 
-| Server    | Port | Unit / job                |
-| --------- | ---- | ------------------------- |
-| lint      | 8101 | mcp-lint                  |
-| context   | 8102 | mcp-context               |
-| memory    | 8103 | mcp-memory                |
-| decisions | 8104 | mcp-decision              |
-| brain     | 8105 | mcp-brain                 |
-| telegram  | 8106 | mcp-telegram              |
-| blowsh    | 8107 | blowsh-singleton (Docker) |
-| planner   | 8108 | mcp-planner               |
+| Server    | Port | Unit / job                                     |
+| --------- | ---- | ---------------------------------------------- |
+| lint      | 8101 | mcp-lint                                       |
+| context   | 8102 | mcp-context                                    |
+| memory    | 8103 | mcp-memory                                     |
+| decisions | 8104 | mcp-decision                                   |
+| brain     | 8105 | mcp-brain                                      |
+| telegram  | 8106 | mcp-telegram                                   |
+| blowsh    | 8107 | blowsh-singleton (Docker)                      |
+| planner   | 8108 | mcp-planner                                    |
 | zen-proxy | 8081 | zen-proxy (not MCP — the Brain's provider hop) |
 
 `planner` is the capacity-aware, QA-gated planning layer over `tasks/`
@@ -27,8 +27,8 @@ to the nearest ancestor of its working directory that holds `tasks/`.
 Code Mode keeps a server's tool schemas out of the system prompt, but it
 adds one `execute` hop per call. Code Mode applies uniformly to all seven servers:
 
-| Servers | `codemode` | Why |
-| --- | --- | --- |
+| Servers                                                                                          | `codemode`       | Why                                                                                                                     |
+| ------------------------------------------------------------------------------------------------ | ---------------- | ----------------------------------------------------------------------------------------------------------------------- |
 | all seven (`custom_context`, `project_memory`, `lint`, `brain`, `planner`, `blowsh`, `telegram`) | `true` (default) | Manager decision 2026-11-06: every server's tools route through `execute`, keeping all schemas out of the system prompt |
 
 Setting `codemode: false` would put each tool in the native tool list
@@ -113,7 +113,7 @@ Rules that make the exposure safe:
    `HttpOnly` + `SameSite=Lax`, so keep the hostname HTTPS-only in
    Cloudflare (no plain-HTTP origin rule).
 5. Verify from outside: `curl -s -o /dev/null -w '%{http_code}\n'
-   https://planner.example.com/mcp` must print `404`, while `/` prints
+https://planner.example.com/mcp` must print `404`, while `/` prints
    `200` and shows the login modal.
 
 `zen-proxy` is listed here because it is provisioned and supervised the same

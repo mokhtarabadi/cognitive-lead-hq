@@ -67,27 +67,28 @@ Added a dedicated branch for tag-only queries: when `search_query` is empty AND 
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
-```diff
+
+````diff
 diff --git a/CHANGELOG.md b/CHANGELOG.md
 index 72f094a..5ea9d17 100644
 --- a/CHANGELOG.md
 +++ b/CHANGELOG.md
 @@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
- 
+
  ### Added
- 
+
 +- **P1 Quality Improvements (V8.0.0 Phase 5)** — Added `tests/test_mcp_servers.py` for basic MCP server import and logic validation. Enhanced `mcp-memory-server` with YAML frontmatter support (`pyyaml`) for metadata tracking and improved `search_memory` with tag filtering and ranking. Created `docs/system-prompt-modularization.md` design document for V9.0.0 planning. Documented tree-sitter regex fallback for Swift, Ruby, PHP, and C# in `code-search` skill. System prompt version bumped to 7.5.0.
  - **New Lint MCP Server & Skill (V8.0.0 Phase 3)** — Created `mcp-lint-server/server.py` providing `lint_markdown`, `lint_task_file`, and `lint_all_tasks` tools for structural validation. Registered server in `opencode.json` and `LLM.txt` global configs. Created `task-lint` skill template. Added `task-lint` to `<agent_skills_registry>` in `system-prompt.md`. System prompt version bumped to 7.4.0.
- 
+
  ### Changed
 @@ -18,6 +19,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
- 
+
  ### Fixed
- 
+
 +- **Fixed search_memory tag-only query edge case** — When querying with only `tag:xxx` (no additional search terms), the function now correctly returns all files matching the tag filter instead of returning zero results. Previously, the fallback content matching would search for the literal string "tag:xxx" in file content, which would never match.
  - **P0 Consistency & Safety Fixes (V8.0.0 Phase 2)** — Resolved AGENTS.md documentation-only contradiction by adding explicit exceptions for MCP servers and tooling. Hardened `stage_and_inject_diff` to exclude sensitive files (`.env`, `.pem`, etc.) from blind `git add .`. Hardened `commit_and_clean_task` with empty-staged checks and push-history amend warnings. Fixed version sync rules in `versioning-and-release` skill. Resolved `DESIGN.md` path conflict (root vs `.stitch/`). Converted `archive-tasks` to use `git mv` for history preservation. Secured memory deletion by changing `delete_memory` permission to `ask` in `opencode.json` and `LLM.txt`, and adding a Safety Gate to the `project-memory` skill.
  - **MCP servers crash on startup with MCP SDK 2.0** — Pinned `mcp[cli]>=1.0,<2.0` in the `# /// script` dependency headers of `mcp-context-server/server.py` and `mcp-memory-server/server.py`. PyPI's latest `mcp` (2.0.0) removed `mcp.server.fastmcp`, causing `ModuleNotFoundError` on boot and disabling both `custom_context` and `project_memory` tools.
- 
+
 diff --git a/docs/system-prompt-modularization.md b/docs/system-prompt-modularization.md
 new file mode 100644
 index 0000000..9f2d5af
@@ -330,7 +331,7 @@ index 3b86892..811594d 100755
 +#     "pyyaml",
  # ]
  # ///
- 
+
  import os
  import re
  import tempfile
@@ -340,12 +341,12 @@ index 3b86892..811594d 100755
 +
 +import yaml
  from mcp.server.fastmcp import FastMCP
- 
+
  MEMORY_DIR = Path(".opencode/memory")
 @@ -48,6 +52,16 @@ def store_memory(namespace: str, key: str, content: str, overwrite: bool = True)
          if file_path.exists() and not overwrite:
              return f"Error: Memory '{key}' in namespace '{namespace}' already exists and overwrite is False."
- 
+
 +        # Prepend YAML frontmatter if not present
 +        if not content.strip().startswith("---"):
 +            frontmatter = {
@@ -360,7 +361,7 @@ index 3b86892..811594d 100755
          try:
              with os.fdopen(fd, 'w', encoding='utf-8') as f:
 @@ -97,7 +111,11 @@ def delete_memory(namespace: str, key: str) -> str:
- 
+
  @mcp.tool()
  def search_memory(query: str, namespace: Optional[str] = None) -> str:
 -    """Performs a full-text search across memories. If namespace is provided, limits search to that slice."""
@@ -371,11 +372,11 @@ index 3b86892..811594d 100755
 +    """
      if not MEMORY_DIR.exists():
          return "No memories recorded yet."
- 
+
 @@ -109,22 +127,68 @@ def search_memory(query: str, namespace: Optional[str] = None) -> str:
      if not target_dir.exists():
          return f"Namespace '{namespace}' does not exist."
- 
+
 +    # Parse tag filter from query
 +    tag_filter = None
 +    search_query = query
@@ -431,17 +432,17 @@ index 3b86892..811594d 100755
 +
          except Exception:
              continue
- 
+
      if not results:
          return f"No memories found matching '{query}'."
- 
+
 -    return "### Search Results\n\n" + "\n---\n".join(results)
 +    # Sort by rank (0 = key match first, 1 = content match)
 +    results.sort(key=lambda x: x[0])
 +    ranked_results = [r[1] for r in results]
 +
 +    return "### Search Results\n\n" + "\n---\n".join(ranked_results)
- 
+
  @mcp.tool()
  def list_namespaces() -> str:
 diff --git a/skill-templates/code-search/SKILL.md b/skill-templates/code-search/SKILL.md
@@ -449,13 +450,13 @@ index 8a77196..cc3c520 100644
 --- a/skill-templates/code-search/SKILL.md
 +++ b/skill-templates/code-search/SKILL.md
 @@ -66,6 +66,8 @@ For repositories with many files, extracting signatures first lets you decide wh
- 
+
  For languages not listed above, the tool gracefully falls back to regex-based extraction (class/function/def/interface patterns).
- 
+
 +**Regex Fallback Languages:** Swift, Ruby, PHP, and C# are mapped in the extension table but do NOT have tree-sitter queries configured in the MCP server. They use regex-based extraction which is less accurate. Tree-sitter support for these languages is planned for a future release.
 +
  ### What Signatures Include
- 
+
  - **Function/method signatures:** name, parameters (including type annotations), return type, decorators if on the same line
 diff --git a/system-prompt.md b/system-prompt.md
 index cb453b7..0382cdc 100644
@@ -464,7 +465,7 @@ index cb453b7..0382cdc 100644
 @@ -1,4 +1,4 @@
 -<system_version>7.4.2</system_version>
 +<system_version>7.5.1</system_version>
- 
+
  <role>
  You are the Cognitive Lead AI running inside the Orchestrator platform, acting as an elite software agency orchestrator.
 diff --git a/tests/test_mcp_servers.py b/tests/test_mcp_servers.py
@@ -626,5 +627,6 @@ index 0000000..ba3fbb1
 +    assert any("Acceptance Criteria" in i for i in issues), (
 +        "Missing section detection for Acceptance Criteria"
 +    )
-```
+````
+
 <!-- END_GIT_DIFF -->

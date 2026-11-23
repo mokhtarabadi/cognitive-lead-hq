@@ -17,45 +17,45 @@ Prompt-contract milestone plus a full V2 platform migration. Tasks 268–271 eac
 
 ## Files Modified
 
-| File | Change |
-| ---- | ------ |
-| `docs/history/milestone-20-summary.md` | new: 33-task compaction (266) |
-| `docs/manager-decisions.md` | new: six-tool contract + drift table (267) |
-| `docs/setup.md` | cross-link to manager-decisions (267) |
-| `README.md` | doc links (267); V2 wording + plugins/cli.json (272) |
-| `docs/openchamber-tailscale.md` | V2 version + password-sync section + 401 rows (272) |
-| `LLM.txt` | V2 install subsection + password runbook (272) |
-| `prompts/fragments/01-system_version.md` | 9.41.0 → 9.42.0 (268) → 9.43.0 (269) → 9.44.0 → 9.45.0 (270) → 9.46.0 (271) |
-| `prompts/fragments/02-role.md` | answer-first after persona bracket (269) |
-| `prompts/fragments/07-agent_skills_registry.md` | strict-gate suffix on 13 stack lines (270) |
-| `prompts/fragments/09-hands_protocols.md` | strict tooling gate + fallback/skip schema (270); executable-handoff contract (271) |
-| `prompts/fragments/11-execution_workflow.md` | conditional brainstorm step, seven seats, blowsh pointer (268) |
-| `prompts/fragments/12-brainstorming_protocol.md` | `<auditability>` one-line rule (268) |
-| `prompts/fragments/13-constraints.md` | positive output-style contract + tell rules (269) |
-| `prompts/fragments/20-communication_examples.md` | prose good-versus-bad pairs (269) |
-| `system-prompt.md` | regenerated each bump 9.42.0 → 9.46.0 |
-| `agents/cognitive-executor.md` | brainstorm audit line (268); style mirror (269) |
-| `skill-templates/<13 stacks>/SKILL.md` | new Strict Tooling Gate sections (270) |
-| `skill-templates/testing-strategy/SKILL.md` | stacks pointer repointed to skill gate (270) |
-| `skill-templates/verification-before-completion/SKILL.md` | mandatory gate section (270) |
-| `stacks/` (5 YAMLs) | deleted, toolchain carried into skills (270) |
-| `opencode.json` (repo + global) | dual-key V1/V2 compat (272) |
-| `~/.config/opencode/cli.json` | new: V2 native global client config (272) |
-| `tests/test_prompt_sync.py` | version pins 9.42.0 → 9.46.0 + regression gates (268–271) |
-| `tests/test_skill_registry.py` | stacks read/assertion dropped (270) |
-| `CHANGELOG.md` | per-task Parse-Then-Append entries (all) |
+| File                                                      | Change                                                                              |
+| --------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `docs/history/milestone-20-summary.md`                    | new: 33-task compaction (266)                                                       |
+| `docs/manager-decisions.md`                               | new: six-tool contract + drift table (267)                                          |
+| `docs/setup.md`                                           | cross-link to manager-decisions (267)                                               |
+| `README.md`                                               | doc links (267); V2 wording + plugins/cli.json (272)                                |
+| `docs/openchamber-tailscale.md`                           | V2 version + password-sync section + 401 rows (272)                                 |
+| `LLM.txt`                                                 | V2 install subsection + password runbook (272)                                      |
+| `prompts/fragments/01-system_version.md`                  | 9.41.0 → 9.42.0 (268) → 9.43.0 (269) → 9.44.0 → 9.45.0 (270) → 9.46.0 (271)         |
+| `prompts/fragments/02-role.md`                            | answer-first after persona bracket (269)                                            |
+| `prompts/fragments/07-agent_skills_registry.md`           | strict-gate suffix on 13 stack lines (270)                                          |
+| `prompts/fragments/09-hands_protocols.md`                 | strict tooling gate + fallback/skip schema (270); executable-handoff contract (271) |
+| `prompts/fragments/11-execution_workflow.md`              | conditional brainstorm step, seven seats, blowsh pointer (268)                      |
+| `prompts/fragments/12-brainstorming_protocol.md`          | `<auditability>` one-line rule (268)                                                |
+| `prompts/fragments/13-constraints.md`                     | positive output-style contract + tell rules (269)                                   |
+| `prompts/fragments/20-communication_examples.md`          | prose good-versus-bad pairs (269)                                                   |
+| `system-prompt.md`                                        | regenerated each bump 9.42.0 → 9.46.0                                               |
+| `agents/cognitive-executor.md`                            | brainstorm audit line (268); style mirror (269)                                     |
+| `skill-templates/<13 stacks>/SKILL.md`                    | new Strict Tooling Gate sections (270)                                              |
+| `skill-templates/testing-strategy/SKILL.md`               | stacks pointer repointed to skill gate (270)                                        |
+| `skill-templates/verification-before-completion/SKILL.md` | mandatory gate section (270)                                                        |
+| `stacks/` (5 YAMLs)                                       | deleted, toolchain carried into skills (270)                                        |
+| `opencode.json` (repo + global)                           | dual-key V1/V2 compat (272)                                                         |
+| `~/.config/opencode/cli.json`                             | new: V2 native global client config (272)                                           |
+| `tests/test_prompt_sync.py`                               | version pins 9.42.0 → 9.46.0 + regression gates (268–271)                           |
+| `tests/test_skill_registry.py`                            | stacks read/assertion dropped (270)                                                 |
+| `CHANGELOG.md`                                            | per-task Parse-Then-Append entries (all)                                            |
 
 ## Criteria Met
 
-| Task | Acceptance Criteria | Status |
-| ---- | ------------------- | ------ |
-| 266 | Archive first + completed/ empty; Unreleased empty under 9.41.0; suite + sync + prompt gates; task lint; push script strict + executable; MCP-staged, no commit; Manager handoff | ✅ Met (7/7) |
-| 267 | Six tools with signatures/effects/failures; file:line cites + BRAIN_MODEL correction; drift reported-not-fixed, zero source edits; enum/store/field contracts; README + setup links; Unreleased entry; suite + sync + lint green | ✅ Met (7/7) |
-| 268 | Fragment-11 seven seats + conditional; zero old-panel hits; user-prompts → blowsh; protocol audit line; executor mirror; 9.42.0 + byte-identical regen; Unreleased; suite + lint green | ✅ Met (8/8) |
-| 269 | Plan approved pre-edit; G1–G10 addressed/deferred; positive model; length budgets; structure rule; principle-based tells; open/close rules; C1 raised; 9.43.0 regen + pin; Unreleased | ✅ Met (10/10) |
-| 270 | 13 skills with exact strict sections; strict configs; completion gate; toolchain preserved; stacks/ deleted + test/pointer fixed; registry-consistent; framework enforcement; Unreleased; suite + lint; grep proofs | ✅ Met (10/10) |
-| 271 | Complete XML contract; placeholder/omission/vagueness bans; regression proof; prompt sync; targeted + lint green; CHANGELOG | ✅ Met (6/6 AC; Local TODO section left unchecked — sealed as-is) |
-| 272 | Opencode ≥ 2.0.15 (2.0.18); OpenChamber ≥ 2.0.0 (2.0.2) + sessions; no V1-only refs; 7/7 MCP + plugins load; lint + tests green; global install migrated | ✅ Met (6/6) |
+| Task | Acceptance Criteria                                                                                                                                                                                                              | Status                                                            |
+| ---- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| 266  | Archive first + completed/ empty; Unreleased empty under 9.41.0; suite + sync + prompt gates; task lint; push script strict + executable; MCP-staged, no commit; Manager handoff                                                 | ✅ Met (7/7)                                                      |
+| 267  | Six tools with signatures/effects/failures; file:line cites + BRAIN_MODEL correction; drift reported-not-fixed, zero source edits; enum/store/field contracts; README + setup links; Unreleased entry; suite + sync + lint green | ✅ Met (7/7)                                                      |
+| 268  | Fragment-11 seven seats + conditional; zero old-panel hits; user-prompts → blowsh; protocol audit line; executor mirror; 9.42.0 + byte-identical regen; Unreleased; suite + lint green                                           | ✅ Met (8/8)                                                      |
+| 269  | Plan approved pre-edit; G1–G10 addressed/deferred; positive model; length budgets; structure rule; principle-based tells; open/close rules; C1 raised; 9.43.0 regen + pin; Unreleased                                            | ✅ Met (10/10)                                                    |
+| 270  | 13 skills with exact strict sections; strict configs; completion gate; toolchain preserved; stacks/ deleted + test/pointer fixed; registry-consistent; framework enforcement; Unreleased; suite + lint; grep proofs              | ✅ Met (10/10)                                                    |
+| 271  | Complete XML contract; placeholder/omission/vagueness bans; regression proof; prompt sync; targeted + lint green; CHANGELOG                                                                                                      | ✅ Met (6/6 AC; Local TODO section left unchecked — sealed as-is) |
+| 272  | Opencode ≥ 2.0.15 (2.0.18); OpenChamber ≥ 2.0.0 (2.0.2) + sessions; no V1-only refs; 7/7 MCP + plugins load; lint + tests green; global install migrated                                                                         | ✅ Met (6/6)                                                      |
 
 ## Individual Task Summaries
 

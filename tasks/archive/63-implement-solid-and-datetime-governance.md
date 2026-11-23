@@ -60,5 +60,6 @@ This task introduces two foundational governance layers across the entire Cognit
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `a3d1ae20b41a447977cd3cfa5d4c8d1b0aa868ef`
 <!-- END_GIT_DIFF -->

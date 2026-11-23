@@ -70,15 +70,16 @@ Deployed 2026-10-09 (global IN_SYNC, service active). Live probe on /tmp/opencod
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
-```diff
+
+````diff
 diff --git a/CHANGELOG.md b/CHANGELOG.md
 index e6ef3b0..a8b1ed1 100644
 --- a/CHANGELOG.md
 +++ b/CHANGELOG.md
 @@ -8,6 +8,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
- 
+
  ### Added
- 
+
 +- **Unified knowledge-graph over code, SQL, Markdown, and docs (Task 309, system prompt 9.56.0):** schema 2 in the same stdlib engine — Markdown file + heading-section nodes, md-link/[[wiki]] EXTRACTED references, doc-to-symbol INFERRED links, SQL table/view nodes with REFERENCES edges, snake_case/camelCase tokenizer for natural-word queries, direction-correct undirected path rendering. Discovery stays graph-first (one build covers the stack). Test-backed with md/sql fixtures.
 +
 +- **Client and UI graph coverage (Task 310):** Kotlin fun/class/object, Swift func/types, Java methods/ctors, Dart members, Vue/Svelte script symbols plus arrow components, HTML/XML element ids incl. android:id; JVM/Swift import resolution; R.id/getElementById and doc id-mention links. One signup-style query now spans backend, Android, iOS, Vue, markup, and docs. Test-backed with a full client fixture stack.
@@ -88,7 +89,7 @@ index e6ef3b0..a8b1ed1 100644
 +- **Context MCP lite knowledge-graph (Task 308, system prompt 9.55.0):** `mcp-context-server` now builds a deterministic stdlib-only graph (files + symbols; contains/imports EXTRACTED, references INFERRED) with `build_graph` persisting versioned `graph_*.json` (schema 1) plus `graph_report_*.md` under `context-reports/`, and `query_graph` / `explain_node` / `shortest_path` / `god_nodes` / `graph_stats` for scoped queries. Also fixed `get_directory_tree` workspace scoping (removed cwd overwrite). Discovery is graph-first: `skill-templates/code-search`, `prompts/fragments/09-hands_protocols`, `agents/cognitive-discovery.md`, and `agents/cognitive-executor.md` prefer graph queries before raw reads.
 +
  - **Brain partial-truncation server-side recovery (Task 291, fixes issue #28):** long implement `brain_turn` calls truncated by `max_output_tokens` no longer return a bare fragment into a caller-side retry loop. Research found the cap is innocent — live `BRAIN_MAX_TOKENS=943718` already sits at the `meta/muse-spark-1.3-contributor` ceiling — while `BRAIN_REASONING_EFFORT=xhigh` burns ~97% of the output budget on reasoning (measured `reasoning_tokens=14683 visible_tokens=341`), starving the visible XML at ANY cap. Following the industry playbook (structured output must be re-issued whole with more headroom, never stitched), the bridge now discards the fragment and re-issues the turn ONCE server-side with one-notch-lower reasoning effort (`max→xhigh→high→medium→low` via `_step_down_effort`); a second truncation returns terminal `TRUNCATION_UNRECOVERABLE` (caller must not retry as-is) instead of looping. Task 259 empty-output terminal, `EMPTY_OUTPUT_RETRY`, the semantic gate, and the 5xx/429 retry policy are untouched. Open decisions for the Manager: lower live effort from `xhigh`, keep the cap, deploy = copy `server.py` to the install + `systemctl --user restart mcp-brain`.
- 
+
  - **Brain context-sufficiency pack (Task 285):** the Brain planned against a five-file documentation bundle only, with no repository structure, so it either guessed or burned a discovery round just to aim its context request. `mcp-brain-bridge/server.py` now auto-appends the newest generated `.gitignore`-aware tree report (`context-reports/tree_report_*.md`, written by the Hands via `custom_context.create_tree_report`) to that bundle under a labeled section, bounded by a new `_STRUCTURAL_FILE_CAP` (40000) and the shared `_BUNDLE_TOTAL_CAP` with honest `[truncated]`/`[skipped: bundle total cap]` markers. The section appears only when a report exists, so every workspace and test without one is byte-unchanged. New pure helpers `_latest_report_path` (newest by mtime, then name; accepts a `Path` or a `str` root) and `_build_structural_pack` (never raises) do the work, and `_build_context_bundle` appends the pack last so the stable doc files keep their prefix positions. Hardened after the QA hotfix round: a report that resolves outside the workspace root (symlink escape) is skipped rather than read, a zero-byte/whitespace report counts as no grounding, the read is capped at `_STRUCTURAL_FILE_CAP` chars so an oversized report is never slurped whole, and triple backticks are neutralized with an invisible break so report fences cannot close a surrounding fence. A second pure helper, `context_sufficiency_gaps(stage, user_prompt, bundle_text, bundle_included)`, plus a `plan`-stage-only stderr diagnostic makes a blind plan observable instead of silent — non-blocking by design (no `status`/`xml_blocks` change), so no caller behavior shifts. The diagnostic reads the FINAL rendered bundle and the combined prompt including any pinned fed-context block, and it suppresses the structural demand when the caller opted out of the bundle — closing two false-positive paths found in QA. A second QA finding (round 2) was also fixed: a pack dropped for the total cap now appends `[structural pack skipped: bundle total cap]` with NO grounding marker, so a skipped pack correctly counts as absent instead of falsely reading as grounded. 21 new regression tests cover pack selection, truncation, bundle integration, string-root normalization, symlink-escape skip, empty-report handling, fence escaping, the skip-counts-as-absent case, the pure gap checker, and the stderr wiring. Bridge suite: **272 passed** (251 pre-existing + 21 new).
 diff --git a/agents/cognitive-discovery.md b/agents/cognitive-discovery.md
 index 9eb7f28..81c6483 100644
@@ -101,15 +102,15 @@ index 9eb7f28..81c6483 100644
 -5. You still must not write, record, or evolve anything.
 +5. Graph-first: run `build_graph` once per scope (saves versioned `graph_*.json` + `graph_report_*.md` with EXTRACTED/INFERRED edges), then prefer `query_graph` / `explain_node` / `shortest_path` / `god_nodes` for cross-file questions before full reads. Use `graph_stats` to confirm coverage.
 +6. You still must not write, record, or evolve anything.
- 
+
  Do not modify any files. Do not attempt to execute code. Compile the report and halt.
- 
+
 diff --git a/agents/cognitive-executor.md b/agents/cognitive-executor.md
 index b8fa333..a1d53b0 100644
 --- a/agents/cognitive-executor.md
 +++ b/agents/cognitive-executor.md
 @@ -25,7 +25,7 @@ You are the primary execution engine for the Cognitive Lead AI platform. You rec
- 
+
  1. **Entry Point:** Your absolute first action is to read `AGENTS.md`. If `AGENTS.md` references `DESIGN.md`, `docs/architecture.md`, `docs/data_model.md`, or `docs/conventions.md`, you MUST read them.
  2. **Rule Validation:** If the Orchestrator's instructions violate ANY project rule, HALT immediately. Output a `⚠️ RULE VIOLATION WARNING` detailing the broken rule. Do NOT proceed.
 -3. **MCP-First Context:** When instructed to gather context, you MUST use the `custom_context` MCP tools (`get_directory_tree`, `create_tree_report`, `read_source_files`, `extract_signatures`). NEVER use native `read` to dump large file contents inline.
@@ -158,18 +159,18 @@ index 778c55a..dadefa4 100644
 --- a/mcp-context-server/README.md
 +++ b/mcp-context-server/README.md
 @@ -2,11 +2,11 @@
- 
+
  ## Duties
- 
+
 -Custom-context MCP daemon: directory trees, source reads, signature extraction, diff staging/injection (`stage_and_inject_diff`), task commit/clean, and meta-task bundling (`bundle_tasks`).
 +Custom-context MCP daemon: directory trees, source reads, signature extraction, lite knowledge-graph (build/query/explain/path/god-nodes/stats with versioned graph.json), diff staging/injection (`stage_and_inject_diff`), task commit/clean, and meta-task bundling (`bundle_tasks`).
- 
+
  ## Files
- 
+
 -- `server.py` — Daemon entrypoint (tree reports, source reads, staging, bundling tools).
 +- `server.py` — Daemon entrypoint (tree reports, source reads, signatures, lite graph, staging, bundling tools).
  - `pyproject.toml` / `uv.lock` — Runtime deps (`pathspec`, `mcp[cli]`) and lockfile.
- 
+
  ## Key Risks & Invariants
 @@ -14,3 +14,7 @@ Custom-context MCP daemon: directory trees, source reads, signature extraction,
  - ZAC enforcement point: staging goes through `stage_and_inject_diff`; never `git commit` directly.
@@ -194,21 +195,21 @@ index 28d7ee3..8ae9908 100755
 @@ -32,8 +33,10 @@ from typing import Optional
  import pathspec
  from mcp.server.fastmcp import FastMCP
- 
+
 +
  class GitIgnoreFilter:
      """Evaluates paths against .gitignore files dynamically."""
 +
      def __init__(self) -> None:
          self._specs: dict[Path, Optional[pathspec.PathSpec]] = {}
- 
+
 @@ -104,8 +107,10 @@ class GitIgnoreFilter:
              current = current.parent
          return False
- 
+
 +
  TEXT_ENCODINGS = ["utf-8", "utf-8-sig", "windows-1256", "windows-1252", "latin-1"]
- 
+
 +
  def is_binary(file_path: Path) -> bool:
      try:
@@ -216,10 +217,10 @@ index 28d7ee3..8ae9908 100755
 @@ -114,16 +119,25 @@ def is_binary(file_path: Path) -> bool:
      except Exception:
          return True
- 
+
 +
  # --- Tree-sitter AST signature extraction ---
- 
+
  _EXTENSION_LANG_MAP: dict[str, str] = {
      ".py": "python",
 -    ".js": "javascript", ".jsx": "javascript", ".mjs": "javascript", ".cjs": "javascript",
@@ -244,7 +245,7 @@ index 28d7ee3..8ae9908 100755
      ".rb": "ruby",
      ".php": "php",
 @@ -132,53 +146,54 @@ _EXTENSION_LANG_MAP: dict[str, str] = {
- 
+
  _TS_QUERIES: dict[str, list[str]] = {
      "python": [
 -        '(function_definition name: (identifier) @name parameters: (parameters) @params) @sig',
@@ -321,9 +322,9 @@ index 28d7ee3..8ae9908 100755
 +        "(class_declaration name: (identifier) @name) @sig",
      ],
  }
- 
+
  _ts_language_cache: dict[str, object] = {}
- 
+
 +
  def _get_ts_language(lang_id: str) -> object:
      if lang_id in _ts_language_cache:
@@ -339,7 +340,7 @@ index 28d7ee3..8ae9908 100755
 @@ -196,12 +212,13 @@ def _get_ts_language(lang_id: str) -> object:
          _ts_language_cache[lang_id] = None
          return None
- 
+
 +
  def _extract_signature_line(source_lines: list[str], start_row: int) -> str:
      first = source_lines[start_row].rstrip("\n").rstrip("\r")
@@ -354,7 +355,7 @@ index 28d7ee3..8ae9908 100755
 @@ -212,6 +229,7 @@ def _extract_signature_line(source_lines: list[str], start_row: int) -> str:
              break
      return "\n".join(parts)
- 
+
 +
  def _extract_via_tree_sitter(file_path: Path) -> Optional[str]:
      ext = file_path.suffix.lower()
@@ -370,10 +371,10 @@ index 28d7ee3..8ae9908 100755
 @@ -254,6 +273,7 @@ def _extract_via_tree_sitter(file_path: Path) -> Optional[str]:
          return None
      return f"### Signatures in {file_path}\n" + "\n".join(signatures)
- 
+
 +
  # --- End tree-sitter ---
- 
+
  # Runaway-traversal guards (Task 177): a single wedged request (e.g. tree of
 @@ -265,9 +285,20 @@ COLLECT_MAX_FILES = 1000
  # Directory names never descended into, at any level. Supplements .gitignore
@@ -392,7 +393,7 @@ index 28d7ee3..8ae9908 100755
 +        "dev",
 +    }
  )
- 
+
 +
  def _is_banned_dir(entry: Path) -> bool:
      """True when a directory entry must never be descended into."""
@@ -400,7 +401,7 @@ index 28d7ee3..8ae9908 100755
 @@ -275,6 +306,7 @@ def _is_banned_dir(entry: Path) -> bool:
      except OSError:
          return True  # Unstatable entries are treated as unsafe to descend.
- 
+
 +
  def generate_tree(
      dir_path: Path,
@@ -432,7 +433,7 @@ index 28d7ee3..8ae9908 100755
      _walk(dir_path, "", 0)
      lines.append("```")
      return "\n".join(lines)
- 
+
 +
  def process_source_file(file_path: Path, max_size: int, line_numbers: bool) -> str:
      lines = [f"### `{file_path}`", ""]
@@ -472,7 +473,7 @@ index 28d7ee3..8ae9908 100755
 @@ -374,6 +417,7 @@ def process_source_file(file_path: Path, max_size: int, line_numbers: bool) -> s
      lines.append("```\n")
      return "\n".join(lines)
- 
+
 +
  def collect_files(
      target: str,
@@ -480,18 +481,18 @@ index 28d7ee3..8ae9908 100755
 @@ -401,6 +445,7 @@ def collect_files(
                  collected.append(file_path)
      return collected
- 
+
 +
  def _ensure_context_reports_ignored(workspace_root: Path | None = None) -> None:
      """Safeguard: Append context-reports/ to <workspace_root>/.gitignore.
- 
+
 @@ -421,6 +466,7 @@ def _ensure_context_reports_ignored(workspace_root: Path | None = None) -> None:
          except Exception as e:
              print(f"Warning: Failed to update .gitignore: {e}", file=sys.stderr)
- 
+
 +
  mcp = FastMCP("CustomContext", host="127.0.0.1", port=8102)
- 
+
  # Client-visible project-isolation warning (Task 279 F6/V1). When a caller
 @@ -429,15 +475,18 @@ mcp = FastMCP("CustomContext", host="127.0.0.1", port=8102)
  # by @_project_tool in the tool result. No absolute paths are echoed
@@ -506,8 +507,8 @@ index 28d7ee3..8ae9908 100755
 -    "calling project. Pass an absolute project_root on every call.")
 +    "calling project. Pass an absolute project_root on every call."
 +)
- 
- 
+
+
  def _project_tool(fn):
      """Register an MCP tool that surfaces root-fallback client-visibly."""
 +
@@ -520,7 +521,7 @@ index 28d7ee3..8ae9908 100755
          return out
 +
      return mcp.tool()(wrapper)
- 
+
 +
  @_project_tool
  def get_directory_tree(target_path: str = ".", project_root: str | None = None) -> str:
@@ -1684,7 +1685,7 @@ index 28d7ee3..8ae9908 100755
 +    schema = (data.get("graph", {}) or {}).get("schema_version", "?")
 +    return f"Graph: `{gp}`\nNodes: {len(data.get('nodes', []))} Edges: {tot} (EXTRACTED {ext} / INFERRED {inf} / AMBIGUOUS {tot - ext - inf})\nSchema: {schema}"
 +
- 
+
  @_project_tool
 -def read_source_files(paths: list[str], max_size: int = 1048576, no_line_numbers: bool = False, project_root: str | None = None) -> str:
 +def read_source_files(
@@ -1699,7 +1700,7 @@ index 28d7ee3..8ae9908 100755
 @@ -552,6 +1755,7 @@ def read_source_files(paths: list[str], max_size: int = 1048576, no_line_numbers
          f"Manager: You can now open `{report_file}` in your local editor to view the codebase context or copy/paste it directly for the AI."
      )
- 
+
 +
  @_project_tool
  def create_tree_report(target_path: str = ".", project_root: str | None = None) -> str:
@@ -1707,7 +1708,7 @@ index 28d7ee3..8ae9908 100755
 @@ -616,6 +1820,7 @@ def create_tree_report(target_path: str = ".", project_root: str | None = None)
          f"Manager: You can now open `{report_file}` in your local editor to view the project tree or copy/paste it directly for the AI."
      )
- 
+
 +
  @_project_tool
  def extract_signatures(file_path: str, project_root: str | None = None) -> str:
@@ -1719,7 +1720,7 @@ index 28d7ee3..8ae9908 100755
 -            with open(path, 'r', encoding='utf-8') as f:
 +            with open(path, "r", encoding="utf-8") as f:
                  content = f.read()
- 
+
              # Match class, function, def, interface, type — with access modifiers
              pattern = re.compile(
 -                r'^(?:\s*(?:export|default|public|private|protected|internal|pub|static|abstract|final|override|inline|open|suspend)\s+)*'
@@ -1730,7 +1731,7 @@ index 28d7ee3..8ae9908 100755
 +                re.MULTILINE,
              )
              matches = pattern.findall(content)
- 
+
              # Match const/let arrow functions
 -            arrow_pattern = re.compile(r'^(?:export\s+)?(?:const|let)\s+\w+\s*=\s*(?:async\s*)?(?:\([^)]*\)|[^=]*)\s*=>.*$', re.MULTILINE)
 +            arrow_pattern = re.compile(
@@ -1738,16 +1739,16 @@ index 28d7ee3..8ae9908 100755
 +                re.MULTILINE,
 +            )
              arrow_matches = arrow_pattern.findall(content)
- 
+
              all_matches = matches + arrow_matches
 @@ -696,6 +1904,7 @@ def extract_signatures(file_path: str, project_root: str | None = None) -> str:
      except Exception as e:
          return f"Error extracting signatures from {file_path}: {str(e)}"
- 
+
 +
  def _repo_root(start_path: str, project_root: str | None = None) -> Path:
      """Resolve the git repo root for git subprocess calls.
- 
+
 @@ -708,7 +1917,9 @@ def _repo_root(start_path: str, project_root: str | None = None) -> Path:
      if project_root:
          return Path(project_root).resolve()
@@ -1781,22 +1782,22 @@ index 28d7ee3..8ae9908 100755
 +            f"project_root must be an existing directory, got: {project_root!r}."
 +        )
      return root
- 
- 
+
+
  @_project_tool
 -def stage_and_inject_diff(task_file_path: str, modified_files: list[str] = [], project_root: str | None = None) -> str:
 +def stage_and_inject_diff(
 +    task_file_path: str, modified_files: list[str] = [], project_root: str | None = None
 +) -> str:
      """Stages ONLY the explicitly listed modified files plus the task file, then intelligently injects the staged diff into the task file's Git Diff block.
- 
+
      F5 fix (Task 90): explicit path scoping replaces the old blind `git add -A .`,
 @@ -755,35 +1972,47 @@ def stage_and_inject_diff(task_file_path: str, modified_files: list[str] = [], p
          #    This prevents cross-session contamination and keeps the diff table clean for the Brain.
          files_to_stage = modified_files + [task_file_path]
          repo = str(_repo_root(task_file_path, project_root))
 -        subprocess.run(["git", "add", "--"] + files_to_stage, check=True, capture_output=True, cwd=repo)
--        
+-
 +        subprocess.run(
 +            ["git", "add", "--"] + files_to_stage,
 +            check=True,
@@ -1812,47 +1813,47 @@ index 28d7ee3..8ae9908 100755
 +            diff_cmd, capture_output=True, text=True, cwd=repo
 +        )
          diff_text = diff_process.stdout.strip()
--        
+-
 +
          if not diff_text:
              diff_text = "No code changes detected or staged."
--            
+-
 +
          diff_block = f"\n```diff\n{diff_text}\n```\n"
- 
+
          # 3. Read the task file
 -        with open(task_file_path, 'r', encoding='utf-8') as f:
 +        with open(task_file_path, "r", encoding="utf-8") as f:
              content = f.read()
- 
+
          # 4. Smart Replacement using Regex (greedy match from first BEGIN to last END)
          # Using greedy .* to consume everything between the first BEGIN and the LAST END marker,
          # preventing corruption when injected diff content itself contains 'END_GIT_DIFF'
 -        pattern = re.compile(r'<!-- BEGIN_GIT_DIFF -->.*<!-- END_GIT_DIFF -->', re.DOTALL)
--        
+-
 +        pattern = re.compile(
 +            r"<!-- BEGIN_GIT_DIFF -->.*<!-- END_GIT_DIFF -->", re.DOTALL
 +        )
 +
          if not pattern.search(content):
              return f"Error: Could not find the <!-- BEGIN_GIT_DIFF --> markers in {task_file_path}. Did you alter the template?"
- 
+
 -        new_content = pattern.sub(lambda m: f'<!-- BEGIN_GIT_DIFF -->{diff_block}<!-- END_GIT_DIFF -->', content)
 +        new_content = pattern.sub(
 +            lambda m: f"<!-- BEGIN_GIT_DIFF -->{diff_block}<!-- END_GIT_DIFF -->",
 +            content,
 +        )
- 
+
          # 5. Write back to the task file
 -        with open(task_file_path, 'w', encoding='utf-8') as f:
 +        with open(task_file_path, "w", encoding="utf-8") as f:
              f.write(new_content)
- 
+
          return f"✅ Success: Changes staged and factual diff intelligently injected into {task_file_path}."
 @@ -791,8 +2020,11 @@ def stage_and_inject_diff(task_file_path: str, modified_files: list[str] = [], p
      except Exception as e:
          return f"❌ Error staging or updating task file: {str(e)}"
- 
+
 +
  @_project_tool
 -def qa_transition(task_file_path: str, modified_files: list[str] = [], project_root: str | None = None) -> str:
@@ -1863,18 +1864,18 @@ index 28d7ee3..8ae9908 100755
      Atomically transitions a task from tasks/in-progress/ to tasks/qa/:
      1. Validates path and ensures task resides in tasks/in-progress/
 @@ -833,7 +2065,9 @@ def qa_transition(task_file_path: str, modified_files: list[str] = [], project_r
- 
+
          task_name = src_resolved.name
          if not task_name.endswith(".md"):
 -            return f"❌ Error: task file must be a Markdown file (*.md), got: {task_name}"
 +            return (
 +                f"❌ Error: task file must be a Markdown file (*.md), got: {task_name}"
 +            )
- 
+
          dest = workspace_root / "tasks" / "qa" / task_name
          expected_header = f"tasks/qa/{task_name}"
 @@ -841,9 +2075,16 @@ def qa_transition(task_file_path: str, modified_files: list[str] = [], project_r
- 
+
          # 2. Move task file to tasks/qa/ via git mv (fallback to shutil.move + git add)
          try:
 -            result = subprocess.run(["git", "mv", str(src_resolved), str(dest)], capture_output=True, text=True, cwd=str(workspace_root))
@@ -1905,7 +1906,7 @@ index 28d7ee3..8ae9908 100755
 +                )
              except Exception as move_err:
                  return f"❌ Error: Fallback move failed: {src_resolved} → {dest}: {move_err}"
- 
+
 @@ -869,7 +2115,9 @@ def qa_transition(task_file_path: str, modified_files: list[str] = [], project_r
          header_pattern = re.compile(r"\*\*File:\*\*\s*`[^`]+`")
          if not header_pattern.search(content):
@@ -1930,7 +1931,7 @@ index 28d7ee3..8ae9908 100755
 +            )
          except subprocess.CalledProcessError as e:
              return f"❌ Error staging files {files_to_stage}: {e.stderr.decode() if hasattr(e.stderr, 'decode') else e.stderr}"
- 
+
          # 5. Extracts staged diff excluding tasks/ (:!tasks/)
          try:
 -            diff_proc = subprocess.run(["git", "diff", "--staged", "--", ".", ":!tasks/"], capture_output=True, text=True, cwd=str(workspace_root))
@@ -1973,11 +1974,11 @@ index 28d7ee3..8ae9908 100755
 +            )
          except Exception as e:
              return f"❌ Error re-staging QA task file after injection: {e}"
- 
+
 @@ -928,7 +2196,11 @@ def qa_transition(task_file_path: str, modified_files: list[str] = [], project_r
          except Exception as e:
              return f"❌ Error validating header: {e}"
- 
+
 -        files_str = ", ".join(modified_files) if modified_files else "(no code files — diff will be sentinel)"
 +        files_str = (
 +            ", ".join(modified_files)
@@ -1990,7 +1991,7 @@ index 28d7ee3..8ae9908 100755
 @@ -938,6 +2210,7 @@ def qa_transition(task_file_path: str, modified_files: list[str] = [], project_r
      except Exception as e:
          return f"❌ Unexpected error in qa_transition: {str(e)}"
- 
+
 +
  def _derive_task_slug(task_file_path: str) -> str:
      """Derives a 'task <NN> - <slug>' label from a task file name (e.g. '78-fix-bug.md' -> 'task 78 - fix bug')."""
@@ -1998,13 +1999,13 @@ index 28d7ee3..8ae9908 100755
 @@ -946,14 +2219,20 @@ def _derive_task_slug(task_file_path: str) -> str:
          return f"task {parts[0]} - {parts[1].replace('-', ' ')}"
      return f"task - {name.replace('-', ' ')}"
- 
+
 +
  # Conventional Commits enforcement (Task 211): `commit_and_clean_task` is the
  # ONLY commit path, so the caller-supplied feature message is validated here
  # against skill-templates/versioning-and-release (`type: subject`, ≤72 chars).
  _CONVENTIONAL_RE = re.compile(r"^(feat|fix|docs|refactor|chore): \S.*$")
- 
+
 +
  def _check_conventional_commit(commit_message: str) -> Optional[str]:
      """Returns an error string when commit_message violates Conventional Commits, else None."""
@@ -2020,7 +2021,7 @@ index 28d7ee3..8ae9908 100755
 @@ -967,8 +2246,11 @@ def _check_conventional_commit(commit_message: str) -> Optional[str]:
          )
      return None
- 
+
 +
  @_project_tool
 -def commit_and_clean_task(task_file_path: str, commit_message: str, project_root: str | None = None) -> str:
@@ -2047,7 +2048,7 @@ index 28d7ee3..8ae9908 100755
                  return "⚠️ Task file already cleaned (Stored in Commit Hash present). Nothing to commit."
 @@ -999,41 +2281,70 @@ def commit_and_clean_task(task_file_path: str, commit_message: str, project_root
              return conventional_error
- 
+
          # 0.5 Safety check before commit
 -        staged_check = subprocess.run(["git", "diff", "--staged", "--quiet"], capture_output=True, cwd=repo)
 +        staged_check = subprocess.run(
@@ -2055,7 +2056,7 @@ index 28d7ee3..8ae9908 100755
 +        )
          if staged_check.returncode == 0:
              return "⚠️ No staged changes to commit."
- 
+
          # 1. Commit staged changes (feature commit H1)
 -        subprocess.run(["git", "commit", "-m", commit_message], check=True, capture_output=True, text=True, cwd=repo)
 +        subprocess.run(
@@ -2065,7 +2066,7 @@ index 28d7ee3..8ae9908 100755
 +            text=True,
 +            cwd=repo,
 +        )
- 
+
          # 2. Capture H1 — the feature commit hash. It stays reachable forever
          #    as the parent of the closure commit (step 5). NEVER amend it.
 -        hash_proc = subprocess.run(["git", "rev-parse", "HEAD"], check=True, capture_output=True, text=True, cwd=repo)
@@ -2077,13 +2078,13 @@ index 28d7ee3..8ae9908 100755
 +            cwd=repo,
 +        )
          commit_hash = hash_proc.stdout.strip()
- 
+
          # 3. Read task file and replace raw diff with the hash reference
          if path.is_file():
 -            with open(path, 'r', encoding='utf-8') as f:
 +            with open(path, "r", encoding="utf-8") as f:
                  content = f.read()
- 
+
 -            pattern = re.compile(r'<!-- BEGIN_GIT_DIFF -->.*<!-- END_GIT_DIFF -->', re.DOTALL)
 +            pattern = re.compile(
 +                r"<!-- BEGIN_GIT_DIFF -->.*<!-- END_GIT_DIFF -->", re.DOTALL
@@ -2091,11 +2092,11 @@ index 28d7ee3..8ae9908 100755
              if pattern.search(content):
                  clean_block = f"<!-- BEGIN_GIT_DIFF -->\n**Factual Git Diff:** Stored in Commit Hash: `{commit_hash}`\n<!-- END_GIT_DIFF -->"
                  new_content = pattern.sub(clean_block, content)
- 
+
 -                with open(path, 'w', encoding='utf-8') as f:
 +                with open(path, "w", encoding="utf-8") as f:
                      f.write(new_content)
- 
+
          # 4. Stage the cleaned task file ONLY (F5 fix: never `git add -A tasks/`,
          #    which swept foreign/parallel-session task files into this commit).
 -        subprocess.run(["git", "add", "--", task_file_path], check=True, capture_output=True, cwd=repo)
@@ -2105,7 +2106,7 @@ index 28d7ee3..8ae9908 100755
 +            capture_output=True,
 +            cwd=repo,
 +        )
- 
+
          # 5. Commit the cleaned task file as a separate closure commit.
          #    A plain commit (NOT --amend) keeps H1 reachable from HEAD.
          slug = _derive_task_slug(task_file_path)
@@ -2122,7 +2123,7 @@ index 28d7ee3..8ae9908 100755
 +                text=True,
 +                cwd=repo,
 +            )
- 
+
          return f"✅ Success: Code committed (Hash: `{commit_hash}`). Task file {task_file_path} cleaned; closure commit `chore: close {slug}` created on top."
      except subprocess.CalledProcessError as e:
 @@ -1053,9 +2364,12 @@ DIFF_SIZE_WARNING_THRESHOLD = 400
@@ -2153,8 +2154,8 @@ index 28d7ee3..8ae9908 100755
          if m and m.group(1).lstrip("0") == norm:
              return None
 @@ -1101,7 +2419,10 @@ def _find_task_file(task_id: str, tasks_root: Path = Path("tasks")) -> Path | No
- 
- 
+
+
  def _extract_section(content: str, heading: str) -> str | None:
 -    pattern = re.compile(rf"^## {re.escape(heading)}\s*$\n(.*?)(?=^## |\n---\s*\n|\Z)", re.MULTILINE | re.DOTALL)
 +    pattern = re.compile(
@@ -2163,7 +2164,7 @@ index 28d7ee3..8ae9908 100755
 +    )
      m = pattern.search(content)
      return m.group(1).strip() if m else None
- 
+
 @@ -1127,7 +2448,12 @@ def _extract_checklist_with_continuations(section_text: str) -> list[str]:
              in_checklist = True
              result.append(stripped)
@@ -2192,8 +2193,8 @@ index 28d7ee3..8ae9908 100755
          return "react"
 @@ -1155,7 +2484,9 @@ def _detect_stack(content: str) -> str | None:
      return None
- 
- 
+
+
 -def _verify_verbatim_checksums(source_data: list[tuple[str, Path, str, str]], meta_content: str) -> bool:
 +def _verify_verbatim_checksums(
 +    source_data: list[tuple[str, Path, str, str]], meta_content: str
@@ -2277,8 +2278,8 @@ index 28d7ee3..8ae9908 100755
          archive_path.write_text(content, encoding="utf-8")
      except Exception:
          pass
- 
- 
+
+
 -def _build_meta_content(meta_id: int, meta_slug: str, meta_title: str, source_ids: list[str], source_data: list[tuple[str, Path, str, str]]) -> str:
 +def _build_meta_content(
 +    meta_id: int,
@@ -2345,8 +2346,8 @@ index 28d7ee3..8ae9908 100755
          f"## Manager's Notes\n\n"
          f"**Bundle Decision (2026-08-21):** Manager requested fully automatic bundling with archive (not purge). This META was generated deterministically by the `bundle_tasks` MCP tool to execute {len(source_data)} small related tasks together and speed up turnaround.\n\n"
 @@ -1381,7 +2757,13 @@ def _build_meta_content(meta_id: int, meta_slug: str, meta_title: str, source_id
- 
- 
+
+
  @_project_tool
 -def bundle_tasks(task_ids: list[str], title: str, dry_run: bool = False, force: bool = False, project_root: str | None = None) -> str:
 +def bundle_tasks(
@@ -2358,7 +2359,7 @@ index 28d7ee3..8ae9908 100755
 +) -> str:
      """
      Bundle multiple small related tasks into a single META task with auto-archive (Task 110).
- 
+
 @@ -1472,12 +2854,18 @@ def bundle_tasks(task_ids: list[str], title: str, dry_run: bool = False, force:
          if output_path.exists():
              return f"❌ Task ID collision: {output_path} already exists. Re-run ID discovery."
@@ -2371,17 +2372,17 @@ index 28d7ee3..8ae9908 100755
 +        ):
              # This would also match our not-yet-created file if we had a race, but we already checked exists
              pass
- 
+
          meta_title_full = title
 -        meta_content = _build_meta_content(next_id, meta_slug, meta_title_full, task_ids, source_data)
 +        meta_content = _build_meta_content(
 +            next_id, meta_slug, meta_title_full, task_ids, source_data
 +        )
          total_loc = sum(len(c.splitlines()) for _, _, c, _ in source_data)
- 
+
          # M1: Stack detection
 @@ -1498,13 +2886,17 @@ def bundle_tasks(task_ids: list[str], title: str, dry_run: bool = False, force:
- 
+
          if dry_run:
              lines = []
 -            lines.append(f"🔍 Dry-run (MCP): Would create META task {next_id}-{meta_slug}")
@@ -2429,7 +2430,7 @@ index 28d7ee3..8ae9908 100755
 +                    f"⚠️ --force: Bundling {len(task_ids)} tasks (> 6). Mega-diff risk.",
 +                )
              return "\n".join(lines)
- 
+
          # --- B5: Atomic creation with retry loop ---
          import subprocess as _sp
 +
@@ -2503,7 +2504,7 @@ index 28d7ee3..8ae9908 100755
 +                0, f"⚠️ --force: Bundling {len(task_ids)} tasks (> 6). Mega-diff risk."
 +            )
          return "\n".join(out_lines)
- 
+
      except Exception as e:
 diff --git a/prompts/fragments/01-system_version.md b/prompts/fragments/01-system_version.md
 index 6a3a21c..2ea2d03 100644
@@ -2537,13 +2538,13 @@ index 20fd9d4..bc31511 100644
 --- a/skill-templates/code-search/SKILL.md
 +++ b/skill-templates/code-search/SKILL.md
 @@ -15,6 +15,8 @@ You are the Executor. Your job is to extract codebase context so the Manager can
- 
+
  1.5. **Persist the Tree (Recommended):** Call `custom_context_create_tree_report` (default `target_path="."` = whole project; pass any sub-path to scope it) to save a `.gitignore`-aware tree as `context-reports/tree_report_<timestamp>_<uuid>.md`. Use this whenever the Manager asks to "create a tree of the project".
- 
+
 +1.6. **Graph-First (Recommended):** For multi-file questions call `custom_context_build_graph` once (saves versioned `graph_*.json` + `graph_report_*.md` over code, SQL, Markdown, and docs with EXTRACTED/INFERRED edges), then prefer `custom_context_query_graph` / `custom_context_explain_node` / `custom_context_shortest_path` / `custom_context_god_nodes` over full reads. Natural words match symbols (snake_case/camelCase split). Use `custom_context_graph_stats` to confirm coverage. Fall back to signatures/reads only for exact bodies the subgraph does not answer.
 +
  2. **Prefer Signature Extraction Over Full Reads:** Before reading a single file body, you MUST call `custom_context_extract_signatures` on every file or directory you plan to explore. This tool uses **tree-sitter AST** (not regex) to extract structural signatures — classes, functions, methods, interfaces, enums, type aliases — across all major languages. Signature extraction costs a fraction of the tokens compared to reading the full file, and is strictly preferred for initial exploration.
- 
+
  3. **Target Files:** Use the directory tree AND the extracted signatures together to identify exactly which files contain the logic relevant to the Manager's request. The signatures give you a structural map of each file's exports without loading its body.
 diff --git a/system-prompt.md b/system-prompt.md
 index fe4d832..bf0bd0a 100644
@@ -2552,7 +2553,7 @@ index fe4d832..bf0bd0a 100644
 @@ -1,4 +1,4 @@
 -<system_version>9.54.0</system_version>
 +<system_version>9.56.0</system_version>
- 
+
  <role>
  You are the Cognitive Lead AI running inside the Orchestrator platform, acting as an elite software agency orchestrator.
 @@ -233,6 +233,7 @@ Before taking any action (either tool calls _or_ responses to the user), you mus
@@ -2586,7 +2587,7 @@ index 24adda4..28c3747 100644
      assert any("File path mismatch" in i for i in issues), (
          f"Expected 'File path mismatch' issue, got: {issues}"
      )
- 
+
      # Sanity: same content with the matching path must produce no mismatch.
 -    issues_ok = mod._check_task_file_structure(valid_content, "tasks/backlog/99-test.md")
 +    issues_ok = mod._check_task_file_structure(
@@ -2597,7 +2598,7 @@ index 24adda4..28c3747 100644
      )
 @@ -315,7 +319,9 @@ def test_lint_task_file_rejects_file_path_mismatch():
      import importlib
- 
+
      server_path = Path(__file__).parent.parent / "mcp-lint-server" / "server.py"
 -    spec = importlib.util.spec_from_file_location("lint_server_path_mismatch", server_path)
 +    spec = importlib.util.spec_from_file_location(
@@ -2605,7 +2606,7 @@ index 24adda4..28c3747 100644
 +    )
      mod = importlib.util.module_from_spec(spec)
      spec.loader.exec_module(mod)
- 
+
 @@ -453,7 +459,9 @@ Test
  <!-- BEGIN_GIT_DIFF -->
  <!-- END_GIT_DIFF -->
@@ -2618,7 +2619,7 @@ index 24adda4..28c3747 100644
      # Should flag missing Acceptance Criteria, Verification Evidence, Risk & Rollback
      assert any("Acceptance Criteria" in i for i in issues), (
 @@ -520,15 +528,21 @@ Test
- 
+
      # New canonical header must pass.
      new_header_content = template.format(header="Execution Log & Reasoning")
 -    issues_new = mod._check_task_file_structure(new_header_content, "tasks/backlog/99-test.md")
@@ -2630,7 +2631,7 @@ index 24adda4..28c3747 100644
 +    assert (
 +        "Missing required section: `## Execution Log & Reasoning`" not in issues_new
 +    ), f"Canonical '## Execution Log & Reasoning' header must pass; got: {issues_new}"
- 
+
      # Deprecated legacy header must ALSO pass (backward compatibility).
      old_header_content = template.format(header="OpenCode Execution Log & Reasoning")
 -    issues_old = mod._check_task_file_structure(old_header_content, "tasks/backlog/99-test.md")
@@ -2652,11 +2653,11 @@ index 24adda4..28c3747 100644
 +        subprocess.run(
 +            ["git", "config", "user.email", "test@example.com"], cwd=repo, check=True
 +        )
- 
+
          # Code change + task file with diff markers
          (repo / "feature.py").write_text("x = 1\n")
 @@ -634,7 +650,9 @@ def test_commit_and_clean_task_stores_reachable_hash():
- 
+
          # Task file must reference a commit hash
          cleaned = task_file.read_text()
 -        assert "Stored in Commit Hash:" in cleaned, "Task file should reference the commit hash"
@@ -2684,11 +2685,11 @@ index 24adda4..28c3747 100644
 +            f"Stored hash {stored_hash} is orphaned/unreachable"
          )
 -        assert ancestry.returncode == 0, f"Stored hash {stored_hash} is orphaned/unreachable"
- 
+
          # No amend commits in history
          log = subprocess.run(
 @@ -660,9 +683,14 @@ def test_commit_and_clean_task_stores_reachable_hash():
- 
+
          # git show <stored_hash> still returns the feature diff
          shown = subprocess.run(
 -            ["git", "show", stored_hash, "--stat"], cwd=repo, capture_output=True, text=True
@@ -2701,7 +2702,7 @@ index 24adda4..28c3747 100644
 +        assert "feature.py" in shown, (
 +            "git show <stored_hash> should return the code diff"
 +        )
- 
+
          # Idempotency: second call must not create more commits
          before = subprocess.run(
 @@ -703,14 +731,16 @@ def test_commit_and_clean_task_guard_no_false_positive_on_diff_mention():
@@ -2712,7 +2713,7 @@ index 24adda4..28c3747 100644
 +        subprocess.run(
 +            ["git", "config", "user.email", "test@example.com"], cwd=repo, check=True
 +        )
- 
+
          (repo / "feature.py").write_text("x = 1\n")
          # Raw diff that itself contains the guard's phrase AND the exact
          # clean-block f-string literal (but with {commit_hash}, not a real hash)
@@ -2731,7 +2732,7 @@ index 24adda4..28c3747 100644
 +        assert "already cleaned" not in result, (
 +            "Guard must not false-positive on raw diff mentions"
 +        )
- 
+
          # The stored hash must reference the committed code (reachable, not orphaned)
          cleaned = task_file.read_text()
 @@ -740,9 +772,12 @@ def test_commit_and_clean_task_guard_no_false_positive_on_diff_mention():
@@ -2746,11 +2747,11 @@ index 24adda4..28c3747 100644
 +            f"Stored hash {stored_hash} is orphaned/unreachable"
          )
 -        assert ancestry.returncode == 0, f"Stored hash {stored_hash} is orphaned/unreachable"
- 
- 
+
+
  def test_create_tree_report_saves_md_in_context_reports():
 @@ -787,7 +822,9 @@ def test_create_tree_report_saves_md_in_context_reports():
- 
+
              # .gitignore safeguard: context-reports/ appended by the tool
              gitignore_text = (repo / ".gitignore").read_text()
 -            assert "context-reports/" in gitignore_text, "Tool must safeguard context-reports/ in .gitignore"
@@ -2759,10 +2760,10 @@ index 24adda4..28c3747 100644
 +            )
          finally:
              os.chdir(old_cwd)
- 
+
 @@ -799,7 +836,9 @@ def test_create_tree_report_default_target_is_cwd():
      import tempfile
- 
+
      server_path = Path(__file__).parent.parent / "mcp-context-server" / "server.py"
 -    spec = importlib.util.spec_from_file_location("context_server_tree_default", server_path)
 +    spec = importlib.util.spec_from_file_location(
@@ -2770,7 +2771,7 @@ index 24adda4..28c3747 100644
 +    )
      mod = importlib.util.module_from_spec(spec)
      spec.loader.exec_module(mod)
- 
+
 @@ -820,7 +859,9 @@ def test_create_tree_report_default_target_is_cwd():
              assert report_file, "Could not parse report path"
              assert "tree_report_" in Path(report_file).name, report_file
@@ -2781,10 +2782,10 @@ index 24adda4..28c3747 100644
 +            )
          finally:
              os.chdir(old_cwd)
- 
+
 @@ -836,7 +877,9 @@ def test_create_tree_report_rapid_calls_do_not_overwrite():
      import tempfile
- 
+
      server_path = Path(__file__).parent.parent / "mcp-context-server" / "server.py"
 -    spec = importlib.util.spec_from_file_location("context_server_tree_rapid", server_path)
 +    spec = importlib.util.spec_from_file_location(
@@ -2792,10 +2793,10 @@ index 24adda4..28c3747 100644
 +    )
      mod = importlib.util.module_from_spec(spec)
      spec.loader.exec_module(mod)
- 
+
 @@ -853,7 +896,9 @@ def test_create_tree_report_rapid_calls_do_not_overwrite():
              assert "✅ Success" in first and "✅ Success" in second
- 
+
              reports = sorted((repo / "context-reports").glob("tree_report_*.md"))
 -            assert len(reports) >= 2, f"Expected 2 distinct reports, got {len(reports)}: {reports}"
 +            assert len(reports) >= 2, (
@@ -2806,7 +2807,7 @@ index 24adda4..28c3747 100644
              os.chdir(old_cwd)
 @@ -866,7 +911,9 @@ def test_create_tree_report_invalid_path():
      import tempfile
- 
+
      server_path = Path(__file__).parent.parent / "mcp-context-server" / "server.py"
 -    spec = importlib.util.spec_from_file_location("context_server_tree_invalid", server_path)
 +    spec = importlib.util.spec_from_file_location(
@@ -2814,10 +2815,10 @@ index 24adda4..28c3747 100644
 +    )
      mod = importlib.util.module_from_spec(spec)
      spec.loader.exec_module(mod)
- 
+
 @@ -894,7 +941,9 @@ def test_create_tree_report_rejects_path_traversal():
      import tempfile
- 
+
      server_path = Path(__file__).parent.parent / "mcp-context-server" / "server.py"
 -    spec = importlib.util.spec_from_file_location("context_server_tree_traversal", server_path)
 +    spec = importlib.util.spec_from_file_location(
@@ -2825,10 +2826,10 @@ index 24adda4..28c3747 100644
 +    )
      mod = importlib.util.module_from_spec(spec)
      spec.loader.exec_module(mod)
- 
+
 @@ -924,7 +973,9 @@ def test_create_tree_report_handles_none_input():
      import tempfile
- 
+
      server_path = Path(__file__).parent.parent / "mcp-context-server" / "server.py"
 -    spec = importlib.util.spec_from_file_location("context_server_tree_none", server_path)
 +    spec = importlib.util.spec_from_file_location(
@@ -2836,7 +2837,7 @@ index 24adda4..28c3747 100644
 +    )
      mod = importlib.util.module_from_spec(spec)
      spec.loader.exec_module(mod)
- 
+
 @@ -945,7 +996,9 @@ def test_create_tree_report_handles_none_input():
                      report_file = line.split("`")[1]
              assert report_file, "Could not parse report path"
@@ -2847,7 +2848,7 @@ index 24adda4..28c3747 100644
 +            )
          finally:
              os.chdir(old_cwd)
- 
+
 @@ -991,17 +1044,24 @@ def test_stage_and_inject_diff_with_ignored_context_reports():
          try:
              # F5 contract (Task 90): stage_and_inject_diff stages ONLY the explicitly
@@ -2859,13 +2860,13 @@ index 24adda4..28c3747 100644
          finally:
              os.chdir(old_cwd)
          assert "✅ Success" in result, result
- 
+
          # Task file now contains the injected diff
 -        assert "feature.py" in task_file.read_text(), "Diff should be injected into the task file"
 +        assert "feature.py" in task_file.read_text(), (
 +            "Diff should be injected into the task file"
 +        )
- 
+
          # The ignored report must not be staged; the code change must be
          staged = subprocess.run(
 -            ["git", "diff", "--cached", "--name-only"], cwd=repo, capture_output=True, text=True
@@ -2878,7 +2879,7 @@ index 24adda4..28c3747 100644
          assert "context-reports" not in staged, "Ignored reports must not be staged"
 @@ -1085,7 +1145,9 @@ def test_lint_task_file_rejects_duplicate_factual_git_diff_heading():
      import importlib
- 
+
      server_path = Path(__file__).parent.parent / "mcp-lint-server" / "server.py"
 -    spec = importlib.util.spec_from_file_location("lint_server_dup_factual", server_path)
 +    spec = importlib.util.spec_from_file_location(
@@ -2886,11 +2887,11 @@ index 24adda4..28c3747 100644
 +    )
      mod = importlib.util.module_from_spec(spec)
      spec.loader.exec_module(mod)
- 
+
 @@ -1209,8 +1271,12 @@ def test_system_prompt_summary_mentions_qa_transition():
      repo_root = Path(__file__).parent.parent
      system_prompt = (repo_root / "system-prompt.md").read_text(encoding="utf-8")
- 
+
 -    summary_blocks = re.findall(r"<summary_phase>.*?</summary_phase>", system_prompt, re.DOTALL)
 -    assert summary_blocks, "system-prompt.md must contain at least one <summary_phase> block"
 +    summary_blocks = re.findall(
@@ -2905,7 +2906,7 @@ index 24adda4..28c3747 100644
 @@ -1245,11 +1311,17 @@ def test_cognitive_executor_preserves_qa_and_closure_rules():
      executor = repo_root / "agents" / "cognitive-executor.md"
      content = executor.read_text(encoding="utf-8")
- 
+
 -    assert "- **Rule:** When your implementation and `stage_and_inject_diff` are complete" in content, (
 +    assert (
 +        "- **Rule:** When your implementation and `stage_and_inject_diff` are complete"
@@ -2930,7 +2931,7 @@ index 24adda4..28c3747 100644
 +    assembler_path = (
 +        repo_root / "scripts" / "prompt-build" / "assemble_system_prompt.py"
 +    )
- 
+
      with tempfile.TemporaryDirectory() as tmpdir:
          tmp = Path(tmpdir)
 @@ -1425,7 +1499,9 @@ def test_lint_system_prompt_sync_detects_drift():
@@ -2942,11 +2943,11 @@ index 24adda4..28c3747 100644
 +            "Expected drift to be detected, but check reported clean."
 +        )
          assert "DRIFT DETECTED" in msg, f"Expected DRIFT message, got: {msg[:200]}"
- 
- 
+
+
 @@ -1472,8 +1548,12 @@ def test_assemble_raises_on_unresolved_placeholder():
      import pytest
- 
+
      repo_root = Path(__file__).parent.parent
 -    assembler_path = repo_root / "scripts" / "prompt-build" / "assemble_system_prompt.py"
 -    spec = importlib.util.spec_from_file_location("assembler_unresolved", assembler_path)
@@ -2958,7 +2959,7 @@ index 24adda4..28c3747 100644
 +    )
      assembler = importlib.util.module_from_spec(spec)
      spec.loader.exec_module(assembler)
- 
+
 @@ -1497,9 +1577,7 @@ def test_assemble_raises_on_unresolved_placeholder():
          # Shared partial containing {{FOO}} placeholder — no include marker
          # provides a value for FOO, so it should remain unresolved.
@@ -2967,12 +2968,12 @@ index 24adda4..28c3747 100644
 -            "Content with {{FOO}} placeholder.\n", encoding="utf-8"
 -        )
 +        shared_path.write_text("Content with {{FOO}} placeholder.\n", encoding="utf-8")
- 
+
          manifest = tmp / "manifest.txt"
          manifest.write_text("01-test.md\n", encoding="utf-8")
 @@ -1507,7 +1585,10 @@ def test_assemble_raises_on_unresolved_placeholder():
          assembled_path = tmp / "assembled.md"
- 
+
          # assemble() should raise ValueError with the unresolved placeholder name.
 -        with pytest.raises(ValueError, match=r"Unresolved placeholder \{\{FOO\}\} in fragment 01-test.md"):
 +        with pytest.raises(
@@ -2992,7 +2993,7 @@ index 24adda4..28c3747 100644
 +        shared_path.write_text("Content with {{FOO}} placeholder.\n", encoding="utf-8")
          manifest = tmp / "manifest.txt"
          manifest.write_text("01-test.md\n", encoding="utf-8")
- 
+
 @@ -1567,7 +1646,9 @@ def test_lint_system_prompt_sync_handles_unresolved_placeholder():
              system_prompt_path=str(repo_root / "system-prompt.md"),
          )
@@ -3001,8 +3002,8 @@ index 24adda4..28c3747 100644
 +        assert "FOO" in msg, (
 +            f"Expected message to identify the placeholder {{FOO}}, got: {msg}"
 +        )
- 
- 
+
+
  def test_split_halts_on_missing_top_level_tag():
 @@ -1599,7 +1680,9 @@ def test_split_halts_on_missing_top_level_tag():
          # Find the block boundaries
@@ -3017,7 +3018,7 @@ index 24adda4..28c3747 100644
          corrupted_path = tmp / "system-prompt.corrupted.md"
 @@ -1635,7 +1718,9 @@ def test_assemble_rejects_path_traversal_include():
      import pytest
- 
+
      repo_root = Path(__file__).parent.parent
 -    assembler_path = repo_root / "scripts" / "prompt-build" / "assemble_system_prompt.py"
 +    assembler_path = (
@@ -3028,7 +3029,7 @@ index 24adda4..28c3747 100644
      spec.loader.exec_module(assembler)
 @@ -1694,7 +1779,9 @@ def test_assemble_rejects_malformed_include_marker():
      import pytest
- 
+
      repo_root = Path(__file__).parent.parent
 -    assembler_path = repo_root / "scripts" / "prompt-build" / "assemble_system_prompt.py"
 +    assembler_path = (
@@ -3049,7 +3050,7 @@ index 24adda4..28c3747 100644
              f"Error message must identify the malformed include marker, got: {msg}"
          )
 @@ -1747,7 +1836,9 @@ def test_lint_system_prompt_sync_missing_include_file():
- 
+
      repo_root = Path(__file__).parent.parent
      server_path = repo_root / "mcp-lint-server" / "server.py"
 -    spec = importlib.util.spec_from_file_location("lint_server_missing_include", server_path)
@@ -3058,7 +3059,7 @@ index 24adda4..28c3747 100644
 +    )
      mod = importlib.util.module_from_spec(spec)
      spec.loader.exec_module(mod)
- 
+
 @@ -1774,7 +1865,11 @@ def test_lint_system_prompt_sync_missing_include_file():
              system_prompt_path=str(repo_root / "system-prompt.md"),
          )
@@ -3071,9 +3072,9 @@ index 24adda4..28c3747 100644
 +        ), (
              f"Expected message to identify the missing file or include failure, got: {msg[:200]}"
          )
- 
+
 @@ -1791,7 +1886,9 @@ def test_lint_system_prompt_sync_invalid_fragments_dir_configuration():
- 
+
      repo_root = Path(__file__).parent.parent
      server_path = repo_root / "mcp-lint-server" / "server.py"
 -    spec = importlib.util.spec_from_file_location("lint_server_invalid_cfg", server_path)
@@ -3082,21 +3083,21 @@ index 24adda4..28c3747 100644
 +    )
      mod = importlib.util.module_from_spec(spec)
      spec.loader.exec_module(mod)
- 
+
 @@ -1800,7 +1897,9 @@ def test_lint_system_prompt_sync_invalid_fragments_dir_configuration():
- 
+
          # A regular text file used as fragments_dir — a misconfiguration.
          bogus_fragments_dir = tmp / "not-a-directory.txt"
 -        bogus_fragments_dir.write_text("this is a file, not a directory\n", encoding="utf-8")
 +        bogus_fragments_dir.write_text(
 +            "this is a file, not a directory\n", encoding="utf-8"
 +        )
- 
+
          shared_dir = tmp / "shared"
          shared_dir.mkdir()
 @@ -1832,8 +1931,12 @@ def test_assemble_rejects_path_traversal_manifest_entry():
      import pytest
- 
+
      repo_root = Path(__file__).parent.parent
 -    assembler_path = repo_root / "scripts" / "prompt-build" / "assemble_system_prompt.py"
 -    spec = importlib.util.spec_from_file_location("assembler_manifest_trav", assembler_path)
@@ -3108,10 +3109,10 @@ index 24adda4..28c3747 100644
 +    )
      assembler = importlib.util.module_from_spec(spec)
      spec.loader.exec_module(assembler)
- 
+
 @@ -1881,8 +1984,12 @@ def test_assemble_rejects_absolute_manifest_entry():
      import pytest
- 
+
      repo_root = Path(__file__).parent.parent
 -    assembler_path = repo_root / "scripts" / "prompt-build" / "assemble_system_prompt.py"
 -    spec = importlib.util.spec_from_file_location("assembler_manifest_abs", assembler_path)
@@ -3123,9 +3124,9 @@ index 24adda4..28c3747 100644
 +    )
      assembler = importlib.util.module_from_spec(spec)
      spec.loader.exec_module(assembler)
- 
+
 @@ -1964,7 +2071,9 @@ def test_memory_server_build_index_on_store():
- 
+
      repo_root = Path(__file__).parent.parent
      server_path = repo_root / "mcp-memory-server" / "server.py"
 -    spec = importlib.util.spec_from_file_location("memory_server_build_store", server_path)
@@ -3134,7 +3135,7 @@ index 24adda4..28c3747 100644
 +    )
      mod = importlib.util.module_from_spec(spec)
      spec.loader.exec_module(mod)
- 
+
 @@ -1976,17 +2085,26 @@ def test_memory_server_build_index_on_store():
              # Fresh index should not exist
              assert not (repo / ".opencode" / "memory" / "index.md").exists()
@@ -3166,7 +3167,7 @@ index 24adda4..28c3747 100644
          finally:
              os.chdir(old_cwd)
 @@ -2001,7 +2119,9 @@ def test_memory_server_update_index_on_delete():
- 
+
      repo_root = Path(__file__).parent.parent
      server_path = repo_root / "mcp-memory-server" / "server.py"
 -    spec = importlib.util.spec_from_file_location("memory_server_build_delete", server_path)
@@ -3175,7 +3176,7 @@ index 24adda4..28c3747 100644
 +    )
      mod = importlib.util.module_from_spec(spec)
      spec.loader.exec_module(mod)
- 
+
 @@ -2050,7 +2170,9 @@ def test_memory_server_index_empty_store():
              assert index_path.is_file()
              content = index_path.read_text(encoding="utf-8")
@@ -3186,7 +3187,7 @@ index 24adda4..28c3747 100644
 +            )  # empty should not have table
          finally:
              os.chdir(old_cwd)
- 
+
 @@ -2076,12 +2198,17 @@ def test_memory_server_index_sanitizes_pipes():
              # Content with pipes and tags with pipes (via frontmatter)
              content_with_pipe = "Summary with | pipe | chars\nMore"
@@ -3219,9 +3220,9 @@ index 24adda4..28c3747 100644
              content = idx_path.read_text(encoding="utf-8")
              assert "rk1" in content
 @@ -2134,6 +2263,7 @@ def test_memory_server_rebuild_tool():
- 
+
  # --- Task 177: traversal-guard + runaway-cap regression tests ---
- 
+
 +
  def _load_context_server_hardening():
      """Load mcp-context-server fresh for the hardening tests."""
@@ -3233,8 +3234,8 @@ index 24adda4..28c3747 100644
 -        out = out[len(prefix):].lstrip("\n")
 +        out = out[len(prefix) :].lstrip("\n")
      return out
- 
- 
+
+
 @@ -2302,9 +2432,7 @@ def test_tree_depth_cap():
              deep = deep / f"lvl{i}"
              deep.mkdir()
@@ -3245,7 +3246,7 @@ index 24adda4..28c3747 100644
 +        out = mod.generate_tree(Path(tmpdir), mod.GitIgnoreFilter(), max_depth=3)
          assert "[Max depth reached (3)]" in out
          assert "bottom.txt" not in out
- 
+
 @@ -2325,9 +2453,7 @@ def test_tree_entry_cap_and_banned_dirs():
          modules = root / "node_modules"
          modules.mkdir()
@@ -3277,8 +3278,8 @@ index 24adda4..28c3747 100644
 +        mod._check_conventional_commit("fix: repair bug\n\nLong body " + "y" * 200)
 +        is None
 +    )
- 
- 
+
+
  def test_commit_and_clean_task_rejects_nonconventional_message():
 @@ -2452,10 +2579,14 @@ def test_commit_and_clean_task_rejects_nonconventional_message():
          repo = Path(repo_dir)
@@ -3312,10 +3313,10 @@ index 24adda4..28c3747 100644
 +        "flow",
 +    ):
          assert term in gate, f"fallback term missing: {term}"
- 
- 
+
+
 @@ -2518,12 +2657,15 @@ def test_context_reports_follow_project_root_not_singleton_cwd():
- 
+
      server_path = Path(__file__).parent.parent / "mcp-context-server" / "server.py"
      spec = importlib.util.spec_from_file_location(
 -        "context_server_projroot", server_path)
@@ -3323,7 +3324,7 @@ index 24adda4..28c3747 100644
 +    )
      mod = importlib.util.module_from_spec(spec)
      spec.loader.exec_module(mod)
- 
+
 -    with tempfile.TemporaryDirectory() as repo_dir, \
 -            tempfile.TemporaryDirectory() as foreign_dir:
 +    with (
@@ -3345,10 +3346,10 @@ index 24adda4..28c3747 100644
 +            sig = mod.extract_signatures("src/app.py", project_root=str(repo))
          finally:
              os.chdir(old_cwd)
- 
+
 @@ -2551,6 +2691,287 @@ def test_context_reports_follow_project_root_not_singleton_cwd():
          assert any(n.startswith("signatures_report_") for n in names), names
- 
+
          assert not (foreign / "context-reports").exists(), (
 -            "reports must never be written into the singleton server cwd")
 +            "reports must never be written into the singleton server cwd"
@@ -3636,5 +3637,6 @@ index 24adda4..28c3747 100644
 +        assert by_id["sym:AppDelegate.m#doSignup"]["kind"] == "method"
 +        assert by_id["sym:application.properties#server.port"]["kind"] == "config"
 +        assert by_id["sym:styles.css#signup-btn"]["kind"] == "style"
-```
+````
+
 <!-- END_GIT_DIFF -->

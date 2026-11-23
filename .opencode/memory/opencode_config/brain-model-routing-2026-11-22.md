@@ -1,8 +1,8 @@
 ---
-created_at: '2026-11-22T14:39:21.265443+00:00'
+created_at: "2026-11-22T14:39:21.265443+00:00"
 status: active
 tags: []
-updated_at: '2026-11-22T14:39:21.265471+00:00'
+updated_at: "2026-11-22T14:39:21.265471+00:00"
 ---
 
 # Brain on zen-proxy chat mount with DeepSeek V4.1 Flash (Manager order 2026-11-22)

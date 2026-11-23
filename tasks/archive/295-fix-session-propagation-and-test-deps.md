@@ -67,5 +67,6 @@ Mandate explicit `session_id` argument passing in `agents/cognitive-executor.md`
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `960f511dbc4d29a4d65b8009e618210602bcfa99`
 <!-- END_GIT_DIFF -->

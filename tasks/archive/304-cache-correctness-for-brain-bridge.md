@@ -21,10 +21,12 @@ Brainstorm C5 must-task from self-judgment task 299: correctness wins over cache
 ## Scope
 
 In scope:
+
 - `mcp-brain-bridge/server.py` cache-split hashing, static prefix cache, eviction paths
 - Collision plus staleness tests across prompt and env change, safe-off default
 
 Out of scope:
+
 - XML gate, attach signaling, session contract (separate tasks)
 - External repos untouched
 - No git add/commit/push by Hands (ZAC holds)

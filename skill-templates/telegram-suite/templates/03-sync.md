@@ -261,4 +261,4 @@ For each generated task, invoke `brain_turn` directly under the active session t
 | Codebase search misses context  | Three-pass search strategy (grep → glob → read) with fallback: if grep yields 0 results, broaden the search terms                                                                  |
 | State file has concurrent edits | Single-threaded Python updater script with atomic `json.dump` write                                                                                                                |
 | GitHub issue creation fails     | `GH_URL` gracefully defaults to `"Failed to create"`; the task file and Telegram reply still complete                                                                              |
-| Telegram reply renders broken   | The reply is sent with `parse_mode: "HTML"` and the Part 1 rules (escaping, no fences, no ZWNJ, length budget, topic anchoring)                                 |
+| Telegram reply renders broken   | The reply is sent with `parse_mode: "HTML"` and the Part 1 rules (escaping, no fences, no ZWNJ, length budget, topic anchoring)                                                    |

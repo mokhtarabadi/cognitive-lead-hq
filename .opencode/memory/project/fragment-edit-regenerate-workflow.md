@@ -1,8 +1,8 @@
 ---
-created_at: '2026-08-30T10:50:00.000000+00:00'
+created_at: "2026-08-30T10:50:00.000000+00:00"
 status: active
 tags: []
-updated_at: '2026-08-30T10:50:00.000000+00:00'
+updated_at: "2026-08-30T10:50:00.000000+00:00"
 ---
 
 # Fragment-Edit → Regenerate Workflow (Task 129, 2026-08-30)

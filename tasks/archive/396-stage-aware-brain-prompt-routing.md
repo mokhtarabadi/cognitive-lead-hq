@@ -116,15 +116,15 @@ The task is NOT done unless ALL of the following are true:
 
 **Normative stage-to-prompt-file mapping (from the Brain plan):**
 
-| stage | repo artifact | global install artifact | persona slice carried |
-| ----- | ------------- | ------------------------- | --------------------- |
-| plan | `system-prompt.plan.md` | `~/.config/opencode/system-prompt.plan.md` | Software Architect, UI/UX Designer, Senior Programmer, Project Planner, Sprint Strategist |
-| implement | `system-prompt.implement.md` | `~/.config/opencode/system-prompt.implement.md` | Senior Programmer only |
-| qa | `system-prompt.qa.md` | `~/.config/opencode/system-prompt.qa.md` | QA Engineer only |
-| review | `system-prompt.review.md` | `~/.config/opencode/system-prompt.review.md` | Code Reviewer only |
-| closure | `system-prompt.closure.md` | `~/.config/opencode/system-prompt.closure.md` | Senior Programmer (see deviation D1) |
-| brainstorm | `system-prompt.brainstorm.md` | `~/.config/opencode/system-prompt.brainstorm.md` | all seven |
-| missing / unknown / None | `system-prompt.md` | `~/.config/opencode/system-prompt.md` | all seven, current behavior unchanged |
+| stage                    | repo artifact                 | global install artifact                          | persona slice carried                                                                     |
+| ------------------------ | ----------------------------- | ------------------------------------------------ | ----------------------------------------------------------------------------------------- |
+| plan                     | `system-prompt.plan.md`       | `~/.config/opencode/system-prompt.plan.md`       | Software Architect, UI/UX Designer, Senior Programmer, Project Planner, Sprint Strategist |
+| implement                | `system-prompt.implement.md`  | `~/.config/opencode/system-prompt.implement.md`  | Senior Programmer only                                                                    |
+| qa                       | `system-prompt.qa.md`         | `~/.config/opencode/system-prompt.qa.md`         | QA Engineer only                                                                          |
+| review                   | `system-prompt.review.md`     | `~/.config/opencode/system-prompt.review.md`     | Code Reviewer only                                                                        |
+| closure                  | `system-prompt.closure.md`    | `~/.config/opencode/system-prompt.closure.md`    | Senior Programmer (see deviation D1)                                                      |
+| brainstorm               | `system-prompt.brainstorm.md` | `~/.config/opencode/system-prompt.brainstorm.md` | all seven                                                                                 |
+| missing / unknown / None | `system-prompt.md`            | `~/.config/opencode/system-prompt.md`            | all seven, current behavior unchanged                                                     |
 
 **Deviation D2 (HAND-OWNED, with citation):** the Brain plan proposed that `preflight.py` degrade an unknown stage string to `None` with a stderr warning. That conflicts with the existing tested contract in `tests/test_brain_bridge.py` (unknown stage MUST raise `PreflightError`), and a silently-typo'd stage is worse than a loud rejection. The implementation keeps the loud rejection for an unknown stage string, and adds `brainstorm` to `ALLOWED_STAGES`. "Degrades to the full prompt, never an empty prompt" is implemented where it matters: a KNOWN stage whose stage artifact is missing on disk falls back to the full prompt.
 
@@ -132,15 +132,15 @@ The task is NOT done unless ALL of the following are true:
 
 **Stage-to-persona contract (binding for implementation and review):**
 
-| stage | persona slices carried | artifact file |
-| ----- | ---------------------- | ------------- |
-| plan | software-architect, ui-ux-designer, senior-programmer, project-planner, sprint-strategist | `system-prompt.plan.md` |
-| implement | senior-programmer | `system-prompt.implement.md` |
-| qa | qa-engineer | `system-prompt.qa.md` |
-| review | code-reviewer | `system-prompt.review.md` |
-| closure | senior-programmer | `system-prompt.closure.md` |
-| brainstorm | all seven | `system-prompt.brainstorm.md` |
-| none / unknown | all seven (full prompt) | `system-prompt.md` |
+| stage          | persona slices carried                                                                    | artifact file                 |
+| -------------- | ----------------------------------------------------------------------------------------- | ----------------------------- |
+| plan           | software-architect, ui-ux-designer, senior-programmer, project-planner, sprint-strategist | `system-prompt.plan.md`       |
+| implement      | senior-programmer                                                                         | `system-prompt.implement.md`  |
+| qa             | qa-engineer                                                                               | `system-prompt.qa.md`         |
+| review         | code-reviewer                                                                             | `system-prompt.review.md`     |
+| closure        | senior-programmer                                                                         | `system-prompt.closure.md`    |
+| brainstorm     | all seven                                                                                 | `system-prompt.brainstorm.md` |
+| none / unknown | all seven (full prompt)                                                                   | `system-prompt.md`            |
 
 Stage artifacts are generated into `build/stage-prompts/` and installed to `~/.config/opencode/system-prompt.<stage>.md`. The full prompt stays the committed `system-prompt.md` at the repo root.
 
@@ -204,5 +204,6 @@ _(The Hands: Manually log your technical changes, file edits, and architectural 
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `e681d0154313d5bbb8bf4c547951c11a3d616b6e`
 <!-- END_GIT_DIFF -->

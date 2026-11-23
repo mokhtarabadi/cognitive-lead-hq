@@ -1,8 +1,8 @@
 ---
-created_at: '2026-10-15T05:38:49.927703+00:00'
+created_at: "2026-10-15T05:38:49.927703+00:00"
 status: active
 tags: []
-updated_at: '2026-11-13T00:00:00.000000+00:00'
+updated_at: "2026-11-13T00:00:00.000000+00:00"
 ---
 
 # Upstream Upgrade Dependency Sync (Manager standing rule 2026-10-15, extended 2026-11-13)

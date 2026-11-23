@@ -61,7 +61,7 @@ _(Log non-trivial architectural, design, or strategic decisions here using the f
 
 **Step 1 — Coach Intent Audit Retarget (founder-coaching-chat.md):** Added `<intent_fidelity_audit>` block (Sole Source of Truth `## Original Message (Persian)` / `## English Translation` fallback `## Goal`/`## Manager's Notes`, FORBIDDEN `## Manager Decisions` retired per Task 151, Hallucination Check with verbatim drift). Updated `### Mode 1` trigger from `<manager_decisions>` to intent audit excerpts and added Intent Audit callout; expanded `### Mode 2` with Intent Fidelity Audit pre-check and framework application.
 
-**Step 2 — Standardize 10 Prompts (user-prompts/*.md):** Enforced uniform manual-mode wrapper `# Reusable Prompt: [Title] — [Purpose]` + `**How to use:** Copy the block below...` + `--- COPY BELOW THIS LINE ---` across all 10 files. Rewrote `agile-pm-state-manager.md`, `persian-to-english-dictation.md`, `voice-to-text-enhancer.md` (bare XML) with header + clean tags; normalized `cold-start-context.md` (bilingual English/Farsi preserved under fence), `session-compactor.md`, `perplexity-deep-research.md` (already fenced, header normalized), `multi-agent-brainstorming.md` (header normalized, XML intact), `input-validation-test.md` (header normalized), `daily-english-coach-chat.md` / `founder-coaching-chat.md` (usage blockquote replaced with uniform fence, content preserved).
+**Step 2 — Standardize 10 Prompts (user-prompts/\*.md):** Enforced uniform manual-mode wrapper `# Reusable Prompt: [Title] — [Purpose]` + `**How to use:** Copy the block below...` + `--- COPY BELOW THIS LINE ---` across all 10 files. Rewrote `agile-pm-state-manager.md`, `persian-to-english-dictation.md`, `voice-to-text-enhancer.md` (bare XML) with header + clean tags; normalized `cold-start-context.md` (bilingual English/Farsi preserved under fence), `session-compactor.md`, `perplexity-deep-research.md` (already fenced, header normalized), `multi-agent-brainstorming.md` (header normalized, XML intact), `input-validation-test.md` (header normalized), `daily-english-coach-chat.md` / `founder-coaching-chat.md` (usage blockquote replaced with uniform fence, content preserved).
 
 **Step 3 — README Pure-MCP & Manual Mode (README.md):** Removed `scripts/bundle-tasks.py` from Repository Structure tree (kept `scripts/prompt-build/`); rewrote Available Tools `bundle_tasks` bullet to pure-MCP with `custom_context_qa_transition` / `custom_context_commit_and_clean_task`; replaced Meta-Task Bundling CLI vs MCP table with Pure MCP table (legacy CLI deprecated note, no `scripts/bundle-tasks.py` exact path); added `### Manual Mode Workflow (Pure-MCP Human-in-the-Loop)` 6-step cycle (raw thought → blueprint → copy impl block → Hands qa_transition → QA paste → commit_and_clean); replaced `bundle-tasks` skill registry row CLI reference with pure-MCP.
 
@@ -72,5 +72,6 @@ _(Log non-trivial architectural, design, or strategic decisions here using the f
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `eac9fdef0972f74c2c8169e62c491b332ff0361b`
 <!-- END_GIT_DIFF -->

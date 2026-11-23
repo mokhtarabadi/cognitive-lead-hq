@@ -30,7 +30,7 @@ You are a Principal Systems Auditor specializing in local orchestration daemons 
 </role>
 
 <system_context>
-Repository: cognitive-lead-hq. Audit target: the `loop-engine/` Python package — daemon.py, watcher.py, router.py, executor.py, gateway.py, qa_engine.py, state.py, models.py, loop-engine.jsonc, pyproject.toml, test_*.py — plus docs/loop-engine/* (README, setup, configuration, multi-project) and .env.example. The engine has NEVER run against real workloads; it was implemented under completed Task 101 and deferred since.
+Repository: cognitive-lead-hq. Audit target: the `loop-engine/` Python package — daemon.py, watcher.py, router.py, executor.py, gateway.py, qa_engine.py, state.py, models.py, loop-engine.jsonc, pyproject.toml, test__.py — plus docs/loop-engine/_ (README, setup, configuration, multi-project) and .env.example. The engine has NEVER run against real workloads; it was implemented under completed Task 101 and deferred since.
 </system_context>
 
 <agentic_reasoning>
@@ -38,13 +38,14 @@ Before each audit phase, output a <reasoning_log> covering: (1) logical dependen
 </agentic_reasoning>
 
 <execution_rules>
+
 - You MUST trace the complete task lifecycle: watcher detection → router category/provider selection → executor invocation → gateway approval gate → qa_engine evidence review → state machine transitions (start → finish), and map every point where admin intervention is required.
 - You MUST evaluate provider extensibility: can a new LLM provider be added without touching core logic? Verify against models.py ProviderConcurrency and router.py.
 - You MUST cross-validate loop-engine.jsonc against the Pydantic schema in models.py (unknown keys, missing defaults, wrong types) and verify docs/examples match actual behavior.
 - You MUST run the existing test suite FIRST as a baseline (`pytest loop-engine/ -v`), record results, and add characterization tests BEFORE changing any behavior.
 - You MUST NOT rewrite the architecture. Minimal, surgical fixes only; every fix needs a failing test or concrete defect citation.
 - You MUST NOT declare completion without exit-code-0 verification evidence.
-</execution_rules>
+  </execution_rules>
 
 <output_format>
 Deliver an audit report with: (1) Findings table — ID / severity / file:line / description / applied fix; (2) lifecycle map incl. admin intervention points; (3) provider extensibility verdict; (4) config/JSON/examples verdicts; (5) list of applied fixes with diffs; (6) residual risks accepted without fix.
@@ -118,18 +119,18 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 
 ### Audit Findings & Fixes Applied
 
-| ID | Severity | Location | Finding | Fix |
-|----|----------|----------|---------|-----|
-| F1 | High | `pyproject.toml` | hatchling build fails ("Unable to determine which files to ship") | `[tool.hatch.build.targets.wheel] bypass-selection = true` |
-| F4 | Medium | `daemon.load_config` | naive `//` stripping corrupts string values containing URLs | quote-aware `strip_jsonc()` scanner |
-| F8 | Critical | `daemon.main` + `watcher` callback | `asyncio.ensure_future` called from watchdog's background thread → `RuntimeError: no running event loop`; filesystem-detected tasks NEVER entered the pipeline | capture running loop; `run_coroutine_threadsafe` |
-| F12 | High | `router.call_llm` | LLM failures returned as `"[LLM ERROR] …"` strings that flowed downstream as approvable plans/reports | raises `RuntimeError`; pipeline crash-guard converts to `CRASHED`; also passes `reasoning_effort` (was dead config) |
-| F16 | High | `daemon._process_task` | executor statuses `timeout`/`error`/`transport_error` fell through to QA as successes; `no_progress`/`idle_stuck`/`budget_exceeded` were dead strings never produced by executor | explicit `EXEC_OK`/`EXEC_BLOCKED` classification; everything else crashes |
-| F17 | Critical | `gateway.py` | `handle_callback` had NO caller — no Telegram update polling existed anywhere, so every Approve/Reject button silently timed out (1 h) to REJECTED. The engine could never pass plan approval | `_poll_loop()` polls `get_updates` while approvals pending, dispatches callbacks, answers queries |
-| F19 | Low | `gateway.request_approval` | `parse_mode="Markdown"` on LLM content breaks entity parsing → whole approval request fails | parse_mode removed |
-| F20 | Low | `qa_engine` docstring | evidence dir documented as `<task-id>-<slug>`, code uses `<task-id>` | docstring aligned |
-| F22 | Medium | `qa_engine.run_qa/run_review` | `"PASSED" in text` false-positives when a FAILED report quotes criteria containing "approved" | first-occurrence regex `decide()` (`PASSED\|APPROVED\|READY_FOR_CLOSURE` vs `FAILED\|REJECTED\|NEEDS_WORK`) |
-| F26 | Critical | `daemon` + docs | setup.md's documented launch (`cd loop-engine && python daemon.py`) resolved every relative path against the wrong CWD → silent fallback to default config with `chat_id=0` | `REPO_ROOT` anchoring: `os.chdir(REPO_ROOT)` at startup + config path resolution |
+| ID  | Severity | Location                           | Finding                                                                                                                                                                                       | Fix                                                                                                                 |
+| --- | -------- | ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| F1  | High     | `pyproject.toml`                   | hatchling build fails ("Unable to determine which files to ship")                                                                                                                             | `[tool.hatch.build.targets.wheel] bypass-selection = true`                                                          |
+| F4  | Medium   | `daemon.load_config`               | naive `//` stripping corrupts string values containing URLs                                                                                                                                   | quote-aware `strip_jsonc()` scanner                                                                                 |
+| F8  | Critical | `daemon.main` + `watcher` callback | `asyncio.ensure_future` called from watchdog's background thread → `RuntimeError: no running event loop`; filesystem-detected tasks NEVER entered the pipeline                                | capture running loop; `run_coroutine_threadsafe`                                                                    |
+| F12 | High     | `router.call_llm`                  | LLM failures returned as `"[LLM ERROR] …"` strings that flowed downstream as approvable plans/reports                                                                                         | raises `RuntimeError`; pipeline crash-guard converts to `CRASHED`; also passes `reasoning_effort` (was dead config) |
+| F16 | High     | `daemon._process_task`             | executor statuses `timeout`/`error`/`transport_error` fell through to QA as successes; `no_progress`/`idle_stuck`/`budget_exceeded` were dead strings never produced by executor              | explicit `EXEC_OK`/`EXEC_BLOCKED` classification; everything else crashes                                           |
+| F17 | Critical | `gateway.py`                       | `handle_callback` had NO caller — no Telegram update polling existed anywhere, so every Approve/Reject button silently timed out (1 h) to REJECTED. The engine could never pass plan approval | `_poll_loop()` polls `get_updates` while approvals pending, dispatches callbacks, answers queries                   |
+| F19 | Low      | `gateway.request_approval`         | `parse_mode="Markdown"` on LLM content breaks entity parsing → whole approval request fails                                                                                                   | parse_mode removed                                                                                                  |
+| F20 | Low      | `qa_engine` docstring              | evidence dir documented as `<task-id>-<slug>`, code uses `<task-id>`                                                                                                                          | docstring aligned                                                                                                   |
+| F22 | Medium   | `qa_engine.run_qa/run_review`      | `"PASSED" in text` false-positives when a FAILED report quotes criteria containing "approved"                                                                                                 | first-occurrence regex `decide()` (`PASSED\|APPROVED\|READY_FOR_CLOSURE` vs `FAILED\|REJECTED\|NEEDS_WORK`)         |
+| F26 | Critical | `daemon` + docs                    | setup.md's documented launch (`cd loop-engine && python daemon.py`) resolved every relative path against the wrong CWD → silent fallback to default config with `chat_id=0`                   | `REPO_ROOT` anchoring: `os.chdir(REPO_ROOT)` at startup + config path resolution                                    |
 
 ### Lifecycle Trace (audited, post-fix)
 
@@ -158,5 +159,6 @@ Adding a provider = add `"provider/model"` strings to any category + export `{PR
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `a8cc649b6bd59cf56a8b8f34adf5a5078cb05844`
 <!-- END_GIT_DIFF -->

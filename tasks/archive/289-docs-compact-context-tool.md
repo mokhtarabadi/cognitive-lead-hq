@@ -68,5 +68,6 @@ Manager pushed the plugin and restarted; the live smoke test passed (`compact_co
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `ae321f9ebe8b412a649c84dd43a8abb1640333b4`
 <!-- END_GIT_DIFF -->

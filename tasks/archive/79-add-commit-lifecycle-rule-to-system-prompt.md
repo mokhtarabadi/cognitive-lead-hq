@@ -49,6 +49,7 @@ Add a `<commit_lifecycle_rule>` bullet point to the `<constraints>` section of `
 ### Execution Summary
 
 **Files modified:**
+
 - `system-prompt.md` — `<system_version>` bumped from `8.0.0` to `8.0.1` (PATCH); new `<commit_lifecycle_rule>` bullet added to `<constraints>` section
 - `CHANGELOG.md` — new `### Changed` entry under `[Unreleased]`
 
@@ -74,5 +75,6 @@ The new rule follows the existing `<constraints>` bullet-point style (`- **Bold:
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `490cc601e4be2d35fcfad6b93fb718199e93bca1`
 <!-- END_GIT_DIFF -->

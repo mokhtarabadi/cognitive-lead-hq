@@ -67,6 +67,7 @@ Switched BRAIN to DeepSeek V4.1 Flash 1017 over /go/chat (chat completions) with
 ## Execution Log & Reasoning
 
 Implementation completed 2026-11-22. Changes:
+
 - .env: BRAIN_API_BASE=/go/chat, BRAIN_UPSTREAM_MODE=chat_completions, BRAIN_MODEL=deepseek-v4.1-flash (all tiers), BRAIN_REASONING_EFFORT=max, BRAIN_MAX_TOKENS=131072.
 - mcp-brain-bridge/server.py: _convert_chat_completions_to_responses_data now passes through input_tokens_details (cached_tokens/prompt_cache_hit_tokens) and output_tokens_details (reasoning_tokens etc.); added warning branch for dropped input item types.
 - Memory updated: brain-model-routing + brain-deepseek-fixes.
@@ -83,5 +84,6 @@ Implementation completed 2026-11-22. Changes:
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `97c70975866874d0d04d6096d5ea3f6323665bca`
 <!-- END_GIT_DIFF -->

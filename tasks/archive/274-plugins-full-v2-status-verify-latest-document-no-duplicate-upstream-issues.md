@@ -76,5 +76,6 @@ Seat Check: single domain (docs + plugin audit) → Code Reviewer seat not neede
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `41e90839def94202fb1481699cdda434da80faf5`
 <!-- END_GIT_DIFF -->

@@ -57,11 +57,13 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
 ## Execution Log & Reasoning
 
 Seat Check: Senior Programmer (bridge prompt wording + regression test; no UI/schema/sprint triggers — Designer/Architect/Planner/Strategist skipped with reason). Replayed from DEC-20260914-003 (standing autopilot) + DEC-20260915-001 (fix-all). Edit: `_build_changed_hunks` truncation note + docstring — wording only, no logic touched (`rel` still used in the return block). CITE: mcp-brain-bridge/server.py truncation note; tests/test_brain_diff_attach.py new test.
+
 - Full-context QA turn flaked EMPTY (transport, not counted as rejection); lean retry: VERDICT QA_PASSED (F1-F4 wording/pull-path/test/suite, minor note: no negative check for old phrase — non-blocking).
 - Reviewer: PO_REVIEW_PENDING (technical approval, no blocking issue; R1 low: clearer visible-scope phrase in a future edit). Closure needs exact words "Approved for closure" or "Close task". File stays in tasks/qa. No commit.
 
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
+
 **Factual Git Diff:** Stored in Commit Hash: `4264c4ad24ed22f71a360ea8d929b7879245bcdb`
 <!-- END_GIT_DIFF -->

@@ -63,7 +63,6 @@ Ported from the Go hexagonal blueprint. Same rules, Python idioms:
 | Service      | Unit        | Pytest                     | `test_user_service.py` |
 | Route / View | Integration | Pytest + httpx AsyncClient | `test_users.py`        |
 
-
 ## Strict Tooling Gate (Machine-Enforced — Forced Strict Mode)
 
 Strictest verified toolchain for this stack. Load this skill whenever the project matches the stack. Execute the gate in fail-fast order and stop on the first failure. Record the exact command, output, and exit code in the task's Verification Evidence.
@@ -75,24 +74,24 @@ Strictest verified toolchain for this stack. Load this skill whenever the projec
 
 ## Required Toolchain
 
-| Tool                                       | Purpose                                          | Minimum version to pin | Install / availability note                                    |
-| ------------------------------------------ | ------------------------------------------------ | ---------------------- | -------------------------------------------------------------- |
-| `python`                                   | Runtime + toolchain pin                          | **3.14.7**             | `.python-version` = `3.14`; `requires-python = ">=3.14"`       |
-| `uv`                                       | Env, lockfile, build, native audit               | **0.12.17**            | standalone installer (`astral.sh/uv`); `uv self update`        |
-| `ruff`                                     | Format + lint + import sort + bandit subset      | **0.16.8**             | `uv add --dev ruff==0.16.8` (single binary, 900+ rules)        |
-| `basedpyright`                             | Primary strict type checker                      | **1.40.1**             | `uv add --dev basedpyright==1.40.1` (PyPI wrapper, no Node)    |
-| `mypy`                                     | Secondary checker (Pydantic plugin support)      | **2.3.1**              | `uv add --dev mypy==2.3.1`                                     |
-| `semgrep`                                  | SAST / security scanning (cross-file)            | **1.177.0**            | `uv add --dev semgrep==1.177.0` (or `uvx semgrep`)             |
-| `pip-audit`                                | Vulnerability audit fallback                     | **2.10.1**             | `uvx pip-audit` (only when `uv audit` unavailable)             |
-| `deptry`                                   | Unused / missing / transitive dependency hygiene | **0.25.1**             | `uv add --dev deptry==0.25.1` (org moved to `osprey-oss`)      |
-| `vulture`                                  | Dead-code detection                              | **2.16**               | `uv add --dev vulture==2.16`                                   |
-| `import-linter`                            | Architecture / import-boundary enforcement       | **2.15**               | `uv add --dev import-linter==2.15`                             |
-| `pytest`                                   | Test runner                                      | **9.1.1**              | `uv add --dev pytest==9.1.1`                                   |
-| `pytest-cov` / `coverage`                  | Coverage + threshold gate                        | **7.1.0 / 7.16.1**     | `uv add --dev pytest-cov==7.1.0`                               |
-| `pytest-randomly` / `pytest-xdist`         | Order shuffling + parallel flake surfacing       | **5.0.0 / 3.8.0**      | `uv add --dev pytest-randomly==5.0.0 pytest-xdist==3.8.0`     |
-| `openapi-spec-validator`                   | Route / OpenAPI-map integrity                    | **0.9.0**              | `uv add --dev openapi-spec-validator==0.9.0`                   |
-| `alembic`                                  | Migration drift check                            | **1.20.0**             | `uv add --dev alembic==1.20.0`                                 |
-| `pydantic` / `pydantic-settings` / `fastapi` | Runtime contracts (DTOs, config, routes)      | **2.13.5 / 2.15.0 / 0.141.1** | `uv add pydantic==2.13.5 pydantic-settings==2.15.0 fastapi==0.141.1` |
+| Tool                                         | Purpose                                          | Minimum version to pin        | Install / availability note                                          |
+| -------------------------------------------- | ------------------------------------------------ | ----------------------------- | -------------------------------------------------------------------- |
+| `python`                                     | Runtime + toolchain pin                          | **3.14.7**                    | `.python-version` = `3.14`; `requires-python = ">=3.14"`             |
+| `uv`                                         | Env, lockfile, build, native audit               | **0.12.17**                   | standalone installer (`astral.sh/uv`); `uv self update`              |
+| `ruff`                                       | Format + lint + import sort + bandit subset      | **0.16.8**                    | `uv add --dev ruff==0.16.8` (single binary, 900+ rules)              |
+| `basedpyright`                               | Primary strict type checker                      | **1.40.1**                    | `uv add --dev basedpyright==1.40.1` (PyPI wrapper, no Node)          |
+| `mypy`                                       | Secondary checker (Pydantic plugin support)      | **2.3.1**                     | `uv add --dev mypy==2.3.1`                                           |
+| `semgrep`                                    | SAST / security scanning (cross-file)            | **1.177.0**                   | `uv add --dev semgrep==1.177.0` (or `uvx semgrep`)                   |
+| `pip-audit`                                  | Vulnerability audit fallback                     | **2.10.1**                    | `uvx pip-audit` (only when `uv audit` unavailable)                   |
+| `deptry`                                     | Unused / missing / transitive dependency hygiene | **0.25.1**                    | `uv add --dev deptry==0.25.1` (org moved to `osprey-oss`)            |
+| `vulture`                                    | Dead-code detection                              | **2.16**                      | `uv add --dev vulture==2.16`                                         |
+| `import-linter`                              | Architecture / import-boundary enforcement       | **2.15**                      | `uv add --dev import-linter==2.15`                                   |
+| `pytest`                                     | Test runner                                      | **9.1.1**                     | `uv add --dev pytest==9.1.1`                                         |
+| `pytest-cov` / `coverage`                    | Coverage + threshold gate                        | **7.1.0 / 7.16.1**            | `uv add --dev pytest-cov==7.1.0`                                     |
+| `pytest-randomly` / `pytest-xdist`           | Order shuffling + parallel flake surfacing       | **5.0.0 / 3.8.0**             | `uv add --dev pytest-randomly==5.0.0 pytest-xdist==3.8.0`            |
+| `openapi-spec-validator`                     | Route / OpenAPI-map integrity                    | **0.9.0**                     | `uv add --dev openapi-spec-validator==0.9.0`                         |
+| `alembic`                                    | Migration drift check                            | **1.20.0**                    | `uv add --dev alembic==1.20.0`                                       |
+| `pydantic` / `pydantic-settings` / `fastapi` | Runtime contracts (DTOs, config, routes)         | **2.13.5 / 2.15.0 / 0.141.1** | `uv add pydantic==2.13.5 pydantic-settings==2.15.0 fastapi==0.141.1` |
 
 **Type-checker verdict (2026).** Winner = **basedpyright** (strictest defaults: `typeCheckingMode = "all"`,
 `pythonPlatform = "All"`, and **exit code 3 on invalid config**, so a mistyped key can never silently
@@ -110,7 +109,7 @@ maintained but redundant. **pylint 4.0.8** rejected for this stack (ruff's `PL` 
 second config surface for no extra signal here).
 
 **Security verdict.** Winner = **semgrep** (cross-file, custom `semgrep.yaml`, SARIF). **Bandit 1.9.4** is
-deliberately *not* a required tool because ruff's `S` rules re-implement flake8-bandit; keep it only as an
+deliberately _not_ a required tool because ruff's `S` rules re-implement flake8-bandit; keep it only as an
 optional belt-and-suspenders step (`-lll`).
 
 ## Strict Baseline Config
@@ -284,54 +283,55 @@ Run in this exact order; every step must exit `0` or the gate fails:
 
 ## Hallucination Traps to Block
 
-| #  | AI failure mode (stack-specific)                                                             | Check that catches it                                                        |
-| -- | -------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| 1  | `datetime.now()` / `datetime.utcnow()` in domain code (naive datetimes)                       | ruff `DTZ005` / `DTZ003`; `Clock` port + import-linter `forbidden` on core    |
-| 2  | `@app.on_event("startup")` instead of `lifespan`                                              | `filterwarnings = ["error"]` (FastAPI emits `FastAPIDeprecationWarning`)      |
-| 3  | `from pydantic import BaseSettings` / `validator` / `.dict()` (V1 API)                         | basedpyright `reportAttributeAccessIssue`; `filterwarnings=error`; ruff `UP`  |
-| 4  | `core/` importing FastAPI/SQLAlchemy/Pydantic (hexagon broken)                                | `lint-imports` forbidden contract (compile-time, before tests)                |
-| 5  | Unused `# type: ignore` left behind after a refactor                                           | basedpyright `reportUnnecessaryTypeIgnoreComment`; mypy `warn_unused_ignores`; ruff `RUF100` |
-| 6  | `Any` leakage from untyped deps or `**kwargs`                                                  | basedpyright `reportAny`/`reportUnknown*` (`typeCheckingMode="all"`); mypy `disallow_any_explicit` |
-| 7  | Returning SQLAlchemy models directly from endpoints                                            | `response_model=` + basedpyright arg-type; add a test asserting the schema type |
-| 8  | Duplicate / missing `operation_id` (client-codegen breakage)                                   | gate step 12 (uniqueness assert + `openapi-spec-validator`)                    |
-| 9  | Hallucinated FastAPI/Starlette kwargs (`response_model` on wrong decorator, bogus params)      | basedpyright `reportCallIssue`; pydantic mypy plugin (`call-arg`)               |
-| 10 | Missing/misspelled env var or `extra` field silently accepted                                  | `SettingsConfigDict(extra="forbid")` + gate step 13                            |
-| 11 | Stale `uv.lock` / version guessed from memory                                                  | `uv lock --check` + `uv sync --locked` (fails on drift)                        |
-| 12 | A known-vulnerable or yanked/malware locked dependency                                         | `uv audit` (OSV + adverse-status) and `audit.malware-check = true`             |
-| 13 | Unused or shadow dependency (`psycopg2` added but `asyncpg` used, or vice versa)               | `deptry` (DEP001 missing, DEP002 unused, DEP003 transitive, DEP004 dev)        |
-| 14 | Dead branch / unreachable function kept "for later"                                            | `vulture --min-confidence 100`                                                 |
-| 15 | Sync `psycopg2`/`requests` call inside `async def` (blocks the loop)                           | ruff `ASYNC` rules; `deptry` flags undeclared driver                           |
-| 16 | Model change committed without an Alembic migration                                            | `alembic check` (non-zero when new upgrade ops exist)                           |
-| 17 | `--strict-markers` / `--strict-config` written into pytest `addopts` (silently ignored in pytest 9) | Use `strict = true` config key; keep flags out of `addopts`              |
-| 18 | `# noqa` written with a rule ID that no longer fires                                           | ruff `RUF100`                                                                  |
-| 19 | Coverage threshold set in the wrong place (`[tool.coverage] fail_under` vs `--cov-fail-under`) | Gate uses `--cov-fail-under=90`; `[tool.coverage.report] fail_under` mirrors it |
-| 20 | Pydantic `AwareDatetime` omitted on a datetime field                                          | basedpyright type mismatch on assignment; mypy strict + pydantic plugin        |
+| #   | AI failure mode (stack-specific)                                                                    | Check that catches it                                                                              |
+| --- | --------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| 1   | `datetime.now()` / `datetime.utcnow()` in domain code (naive datetimes)                             | ruff `DTZ005` / `DTZ003`; `Clock` port + import-linter `forbidden` on core                         |
+| 2   | `@app.on_event("startup")` instead of `lifespan`                                                    | `filterwarnings = ["error"]` (FastAPI emits `FastAPIDeprecationWarning`)                           |
+| 3   | `from pydantic import BaseSettings` / `validator` / `.dict()` (V1 API)                              | basedpyright `reportAttributeAccessIssue`; `filterwarnings=error`; ruff `UP`                       |
+| 4   | `core/` importing FastAPI/SQLAlchemy/Pydantic (hexagon broken)                                      | `lint-imports` forbidden contract (compile-time, before tests)                                     |
+| 5   | Unused `# type: ignore` left behind after a refactor                                                | basedpyright `reportUnnecessaryTypeIgnoreComment`; mypy `warn_unused_ignores`; ruff `RUF100`       |
+| 6   | `Any` leakage from untyped deps or `**kwargs`                                                       | basedpyright `reportAny`/`reportUnknown*` (`typeCheckingMode="all"`); mypy `disallow_any_explicit` |
+| 7   | Returning SQLAlchemy models directly from endpoints                                                 | `response_model=` + basedpyright arg-type; add a test asserting the schema type                    |
+| 8   | Duplicate / missing `operation_id` (client-codegen breakage)                                        | gate step 12 (uniqueness assert + `openapi-spec-validator`)                                        |
+| 9   | Hallucinated FastAPI/Starlette kwargs (`response_model` on wrong decorator, bogus params)           | basedpyright `reportCallIssue`; pydantic mypy plugin (`call-arg`)                                  |
+| 10  | Missing/misspelled env var or `extra` field silently accepted                                       | `SettingsConfigDict(extra="forbid")` + gate step 13                                                |
+| 11  | Stale `uv.lock` / version guessed from memory                                                       | `uv lock --check` + `uv sync --locked` (fails on drift)                                            |
+| 12  | A known-vulnerable or yanked/malware locked dependency                                              | `uv audit` (OSV + adverse-status) and `audit.malware-check = true`                                 |
+| 13  | Unused or shadow dependency (`psycopg2` added but `asyncpg` used, or vice versa)                    | `deptry` (DEP001 missing, DEP002 unused, DEP003 transitive, DEP004 dev)                            |
+| 14  | Dead branch / unreachable function kept "for later"                                                 | `vulture --min-confidence 100`                                                                     |
+| 15  | Sync `psycopg2`/`requests` call inside `async def` (blocks the loop)                                | ruff `ASYNC` rules; `deptry` flags undeclared driver                                               |
+| 16  | Model change committed without an Alembic migration                                                 | `alembic check` (non-zero when new upgrade ops exist)                                              |
+| 17  | `--strict-markers` / `--strict-config` written into pytest `addopts` (silently ignored in pytest 9) | Use `strict = true` config key; keep flags out of `addopts`                                        |
+| 18  | `# noqa` written with a rule ID that no longer fires                                                | ruff `RUF100`                                                                                      |
+| 19  | Coverage threshold set in the wrong place (`[tool.coverage] fail_under` vs `--cov-fail-under`)      | Gate uses `--cov-fail-under=90`; `[tool.coverage.report] fail_under` mirrors it                    |
+| 20  | Pydantic `AwareDatetime` omitted on a datetime field                                                | basedpyright type mismatch on assignment; mypy strict + pydantic plugin                            |
 
 ## Evidence to Record
 
 Paste into the task's Verification Evidence block:
 
-| Exact command | Expected result | Exit code |
-| --- | --- | --- |
-| `uv --version` | `uv 0.12.17` or newer | `0` |
-| `uv lock --check` | no output / "lockfile is up-to-date" | `0` |
-| `uv sync --locked` | `Resolved …` + `Audited …` | `0` |
-| `uv run ruff format --check .` | `N files already formatted` | `0` |
-| `uv run ruff check .` | `All checks passed!` | `0` |
-| `uv run basedpyright` | `0 errors, 0 warnings, 0 notes` | `0` |
-| `uv run mypy app core adapters -n auto` | `Success: no issues found in N source files` | `0` |
-| `uv run lint-imports` | `Contracts: N kept, 0 broken.` | `0` |
-| `uv run deptry .` | `Success! No dependency issues found.` | `0` |
-| `uv run vulture` | no output (with `whitelist.py` scanned) | `0` |
-| `uv run semgrep scan --config p/python --config semgrep.yaml --error .` | `Ran N rules … 0 findings` | `0` |
-| `uv audit` | `No known vulnerabilities found` | `0` |
-| OpenAPI one-liner (gate step 12) | `openapi OK: N paths` | `0` |
-| `uv run python -c "from app.core.config import Settings; Settings()"` | `settings OK` | `0` |
-| `uv run alembic check` | `No new upgrade operations detected.` | `0` |
-| `uv run pytest` | `N passed` and `Required test coverage of 90% reached` | `0` |
+| Exact command                                                                                  | Expected result                                                                 | Exit code      |
+| ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- | -------------- |
+| `uv --version`                                                                                 | `uv 0.12.17` or newer                                                           | `0`            |
+| `uv lock --check`                                                                              | no output / "lockfile is up-to-date"                                            | `0`            |
+| `uv sync --locked`                                                                             | `Resolved …` + `Audited …`                                                      | `0`            |
+| `uv run ruff format --check .`                                                                 | `N files already formatted`                                                     | `0`            |
+| `uv run ruff check .`                                                                          | `All checks passed!`                                                            | `0`            |
+| `uv run basedpyright`                                                                          | `0 errors, 0 warnings, 0 notes`                                                 | `0`            |
+| `uv run mypy app core adapters -n auto`                                                        | `Success: no issues found in N source files`                                    | `0`            |
+| `uv run lint-imports`                                                                          | `Contracts: N kept, 0 broken.`                                                  | `0`            |
+| `uv run deptry .`                                                                              | `Success! No dependency issues found.`                                          | `0`            |
+| `uv run vulture`                                                                               | no output (with `whitelist.py` scanned)                                         | `0`            |
+| `uv run semgrep scan --config p/python --config semgrep.yaml --error .`                        | `Ran N rules … 0 findings`                                                      | `0`            |
+| `uv audit`                                                                                     | `No known vulnerabilities found`                                                | `0`            |
+| OpenAPI one-liner (gate step 12)                                                               | `openapi OK: N paths`                                                           | `0`            |
+| `uv run python -c "from app.core.config import Settings; Settings()"`                          | `settings OK`                                                                   | `0`            |
+| `uv run alembic check`                                                                         | `No new upgrade operations detected.`                                           | `0`            |
+| `uv run pytest`                                                                                | `N passed` and `Required test coverage of 90% reached`                          | `0`            |
 | Negative control: `uv run python -c "from datetime import datetime; print(datetime.utcnow())"` | ruff/pre-commit rejects the line; if run raw, Python emits `DeprecationWarning` | `1` under gate |
 
 <!-- sources -->
+
 - https://pypi.org/pypi/ruff/json, https://pypi.org/pypi/basedpyright/json, https://pypi.org/pypi/mypy/json, https://pypi.org/pypi/ty/json, https://pypi.org/pypi/pyright/json, https://pypi.org/pypi/uv/json, https://pypi.org/pypi/semgrep/json, https://pypi.org/pypi/bandit/json, https://pypi.org/pypi/pip-audit/json, https://pypi.org/pypi/deptry/json, https://pypi.org/pypi/vulture/json, https://pypi.org/pypi/import-linter/json, https://pypi.org/pypi/pytest/json, https://pypi.org/pypi/pytest-cov/json, https://pypi.org/pypi/coverage/json, https://pypi.org/pypi/openapi-spec-validator/json, https://pypi.org/pypi/schemathesis/json, https://pypi.org/pypi/pre-commit/json, https://pypi.org/pypi/pydantic/json, https://pypi.org/pypi/pydantic-settings/json, https://pypi.org/pypi/fastapi/json, https://pypi.org/pypi/alembic/json
 - https://api.github.com/repos/astral-sh/ruff, https://api.github.com/repos/astral-sh/ty, https://api.github.com/repos/python/mypy, https://api.github.com/repos/microsoft/pyright, https://api.github.com/repos/DetachHead/basedpyright, https://api.github.com/repos/PyCQA/bandit, https://api.github.com/repos/semgrep/semgrep, https://api.github.com/repos/pypa/pip-audit, https://api.github.com/repos/astral-sh/uv, https://api.github.com/repos/pytest-dev/pytest, https://api.github.com/repos/jendrikseipp/vulture, https://api.github.com/repos/seddonym/import-linter, https://api.github.com/repos/google/pytype, https://api.github.com/repos/facebook/pyre-check, https://api.github.com/repos/psf/black, https://api.github.com/repos/PyCQA/flake8
 - https://docs.astral.sh/ruff/linter, https://docs.astral.sh/ruff/tutorial, https://docs.astral.sh/ruff/editors/setup, https://docs.astral.sh/ruff/settings
