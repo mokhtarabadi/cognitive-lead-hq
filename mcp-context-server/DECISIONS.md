@@ -1,5 +1,12 @@
 # Architectural Decisions: mcp-context-server
 
+## [2026-11-23] ADR-015: Agent-addressed return text for the report tools
+
+- **Context:** `read_source_files` and `create_tree_report` ended their success text with "Manager: You can now open ... or copy/paste it directly for the AI". Both consumers are autonomous agents that read the generated report with their own file tools; there is no human in the loop and no clipboard step. The wording misdescribed the real contract and instructed the consumer to do something it cannot do.
+- **Decision:** Replace only the trailing paragraph with an agent-addressed pointer: `Context report written to <report>. Read it with your file tools to review the compiled codebase context.` and `Tree report written to <report>. Read it with your file tools to review the project tree.` Emoji prefixes, the metrics line, the report paths, the `\n\n` separator, and the tool signatures are unchanged. No shared helper is extracted: two call sites with different nouns do not satisfy the three-implementation rule, and a helper would exist only for the test's convenience.
+- **Consequences:** Tool output now matches its real consumer, and the two retired sentinels are pinned repo-wide by `tests/test_agent_facing_tool_outputs.py` alongside a per-function pointer assertion. The deployed singleton keeps the old wording until a separate redeploy, which is out of scope here.
+- **Rollback:** Restore the two trailing f-string lines in `server.py` and delete `tests/test_agent_facing_tool_outputs.py`; no data or schema change.
+
 ## [2026-11-02] ADR-014: Shared Regex Signature Fallback for Tree-sitter-less Envs
 
 - **Context:** The oversize `read_source_files` path called `_extract_via_tree_sitter` only, so minimal installs carrying just the pinned runtime deps (no tree-sitter grammar packages) produced "No signatures extracted" instead of structural evidence. The module docstring already promised "regex fallback", and an equivalent fallback lived inline in `server._signature_block` where the oversize path could not reach it (server imports fsutil, not vice versa).

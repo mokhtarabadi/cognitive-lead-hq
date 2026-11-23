@@ -763,7 +763,8 @@ def read_source_files(
         f"{skipped} skipped, {total_bytes} bytes read in {duration_s:.2f}s "
         f"(tree depth cap {TREE_MAX_DEPTH}, collect cap {COLLECT_MAX_FILES}).\n"
         f"📁 Generated Report: `{report_file}`\n\n"
-        f"Manager: You can now open `{report_file}` in your local editor to view the codebase context or copy/paste it directly for the AI."
+        f"Context report written to `{report_file}`. "
+        f"Read it with your file tools to review the compiled codebase context."
     )
 
 
@@ -774,7 +775,7 @@ def create_tree_report(
     max_depth: int = 3,
     max_entries: int = TREE_MAX_ENTRIES,
 ) -> str:
-    """Creates a .gitignore-aware directory tree of a path or the entire project and saves it as a Markdown file under context-reports/ (named tree_report_<timestamp>_<uuid>.md). Use when the Manager asks to 'create a tree of the project' or 'create a tree of <path>'. Security: target_path is resolved against the workspace root and rejected if it escapes the project (path traversal prevention). project_root: absolute path to the calling project's repository root. Used to scope file resolution to that project. If omitted, falls back to the server working directory for backward compatibility."""
+    """Creates a .gitignore-aware directory tree of a path or the entire project and saves it as a Markdown file under context-reports/ (named tree_report_<timestamp>_<uuid>.md). Use when the caller asks to 'create a tree of the project' or 'create a tree of <path>'. Security: target_path is resolved against the workspace root and rejected if it escapes the project (path traversal prevention). project_root: absolute path to the calling project's repository root. Used to scope file resolution to that project. If omitted, falls back to the server working directory for backward compatibility."""
     # Security: Coerce None or invalid types back to the whole-project default
     # so a malformed tool invocation degrades gracefully instead of crashing.
     if not isinstance(target_path, str):
@@ -838,7 +839,8 @@ def create_tree_report(
     return (
         f"✅ Success: Directory tree saved for `{tree_path}`.\n"
         f"📁 Generated Report: `{report_file}`\n\n"
-        f"Manager: You can now open `{report_file}` in your local editor to view the project tree or copy/paste it directly for the AI."
+        f"Tree report written to `{report_file}`. "
+        f"Read it with your file tools to review the project tree."
     )
 
 
