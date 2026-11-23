@@ -16,6 +16,10 @@ Offline-only verification suite for the HQ platform: Brain Bridge turns, capabil
 - `test_zen_proxy.py` — the zen-proxy slice: failure contract, body limits, stream termination, request log, allowlist refresher.
 - `golden/` — Golden fixtures for deterministic comparisons.
 
+## Test isolation & fixture re-anchoring
+
+Offline tests must own every path they write. Use the pytest `tmp_path` fixture for scratch files instead of a repo-root fixed path (a shared `.tmp-validate-check.json` caused an in-suite-only race). Planner tests point `PLANNER_USERS_CONFIG` at a non-existent temp path for open local mode; deleting the env var falls back to the real home auth config and returns 401. Prompt-structure fixtures re-anchor to contract strings verified present in HEAD; when the assembled prompt's validation_phase blocks change, update the splitter's regex/count together with the byte-identity gate. See `DECISIONS.md` ADR-006.
+
 ## Key Risks & Invariants
 
 - Offline only: live LLM HTTP paths are never touched in tests.

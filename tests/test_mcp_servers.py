@@ -1423,17 +1423,26 @@ def test_cognitive_executor_preserves_qa_and_closure_rules():
     to tasks/qa/, and the Closure Sequence "Rule" bullet that requires explicit
     Manager authorization. Both bullets are mandatory ZAC/Kanban safeguards and
     must remain present in the OpenCode executor definition.
+
+    The QA git-mv Rule prose was legitimately reworded (it is now keyed to
+    lint_task_file / custom_context_qa_transition), so the exact sentence is no
+    longer a stable anchor. The real guard is the ZAC deny surface that keeps the
+    four git mutations permission-blocked plus the explicit hunk-level
+    re-staging carve-out — assert those invariants instead of stale prose.
     """
     repo_root = Path(__file__).parent.parent
     executor = repo_root / "agents" / "cognitive-executor.md"
     content = executor.read_text(encoding="utf-8")
 
-    assert (
-        "- **Rule:** When your implementation and `stage_and_inject_diff` are complete"
-        in content
-    ), (
-        "agents/cognitive-executor.md must preserve the QA/Review Phase Rule bullet "
-        "authorizing the git mv from tasks/in-progress/ to tasks/qa/."
+    for resource in ("git add*", "git checkout*", "git commit*", "git push*"):
+        needle = f'resource: "{resource}"'
+        assert content.count(needle) == 1, (
+            "agents/cognitive-executor.md must deny ZAC resource "
+            f"{needle!r} exactly once (found {content.count(needle)})."
+        )
+    assert "kept only for hunk-level re-staging" in content, (
+        "agents/cognitive-executor.md must preserve the hunk-level re-staging "
+        "carve-out for custom_context_stage_and_inject_diff."
     )
     assert (
         '- **Rule:** Only when the Manager explicitly says "Approved for closure" or "Close task"'
@@ -1600,8 +1609,8 @@ def test_lint_system_prompt_sync_detects_drift():
         fpath = frag_dir / "03-system_context.md"
         original = fpath.read_text(encoding="utf-8")
         mutated = original.replace(
-            "post-2025 facts as unverified",
-            "post-2025 facts as ABSOLUTELY VERIFIED (mutated)",
+            "cannot verify against current sources as unverified",
+            "cannot verify against current sources as VERIFIED (mutated)",
         )
         assert mutated != original, (
             "drift-guard fixture is stale: mutation target missing from "

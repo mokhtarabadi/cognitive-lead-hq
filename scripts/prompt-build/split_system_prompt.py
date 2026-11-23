@@ -222,7 +222,7 @@ def _find_block_ranges(lines: List[str]) -> List[Tuple[str, int, int]]:
 # artifact — the splitter must accept both the pre-normalization (indented)
 # and post-normalization (column-0) forms to keep the round-trip lossless.
 _VP_BLOCK_RE = re.compile(
-    r"(  <validation_phase>\n.*?\n\s*</validation_phase>)",
+    r"(<validation_phase>\n.*?\n\s*</validation_phase>)",
     re.DOTALL,
 )
 # Extracts the phase name from the final line of a block, e.g. "Context" or
@@ -250,9 +250,9 @@ def _extract_and_verify_validation_phases(
             validation_phase block replaced by an include marker.
     """
     blocks = _VP_BLOCK_RE.findall(hands_block)
-    if len(blocks) != 3:
+    if len(blocks) != 5:
         _halt(
-            f"Expected exactly 3 <validation_phase> blocks inside "
+            f"Expected exactly 5 <validation_phase> blocks inside "
             f"<hands_protocols>, found {len(blocks)}."
         )
 
@@ -267,7 +267,7 @@ def _extract_and_verify_validation_phases(
         )
 
     normalized = [_normalize(b) for b in blocks]
-    if not (normalized[0] == normalized[1] == normalized[2]):
+    if not all(block == normalized[0] for block in normalized):
         _halt(
             "<validation_phase> blocks are NOT identical apart from the phase name. "
             "Halting rather than guessing."

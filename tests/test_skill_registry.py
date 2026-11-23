@@ -114,7 +114,7 @@ def test_opencode_init_skill_contract():
     assert (refs / "examples" / "golden-opencode.json").is_file()
 
 
-def test_validate_opencode_script():
+def test_validate_opencode_script(tmp_path):
     import json
     import subprocess
 
@@ -139,7 +139,7 @@ def test_validate_opencode_script():
     )
 
     def run(cfg):
-        p = ROOT / ".tmp-validate-check.json"
+        p = tmp_path / "validate-check.json"
         p.write_text(json.dumps(cfg), encoding="utf-8")
         try:
             r = subprocess.run(
@@ -170,7 +170,7 @@ def test_validate_opencode_script():
     assert code == 1 and "placeholder" in out
 
 
-def _run_validator(cfg=None, raw=None):
+def _run_validator(path, cfg=None, raw=None):
     import json
     import subprocess
 
@@ -183,7 +183,7 @@ def _run_validator(cfg=None, raw=None):
         / "scripts"
         / "validate-opencode.py"
     )
-    p = ROOT / ".tmp-validate-check.json"
+    p = path
     p.write_text(raw if raw is not None else json.dumps(cfg), encoding="utf-8")
     try:
         r = subprocess.run(
@@ -213,43 +213,46 @@ def _fresh_golden():
     return json.loads(golden.read_text(encoding="utf-8"))
 
 
-def test_validate_lsp_v2_keys_rejected():
+def test_validate_lsp_v2_keys_rejected(tmp_path):
+    p = tmp_path / "validate-check.json"
     for bad_lsp in ({"enabled": True}, {"extensions": ["py"]}, {"python": True}):
         cfg = _fresh_golden()
         cfg["lsp"] = bad_lsp
-        code, out = _run_validator(cfg)
+        code, out = _run_validator(p, cfg)
         assert code == 1 and "lsp" in out.lower()
 
 
-def test_validate_lsp_wrapper_rejected():
+def test_validate_lsp_wrapper_rejected(tmp_path):
+    p = tmp_path / "validate-check.json"
     cfg = _fresh_golden()
     cfg["lsp"] = {
         "language-server": {
             "typescript": {"command": ["typescript-language-server", "--stdio"]}
         }
     }
-    code, out = _run_validator(cfg)
+    code, out = _run_validator(p, cfg)
     assert code == 1 and "language-server" in out
     cfg = _fresh_golden()
     cfg["lsp"] = {"pyright": {"command": ["pyright"], "environment": {"K": "{env:K}"}}}
-    code, out = _run_validator(cfg)
+    code, out = _run_validator(p, cfg)
     assert code == 1 and "env" in out
 
 
-def test_validate_lsp_null_empty_and_valid():
+def test_validate_lsp_null_empty_and_valid(tmp_path):
+    p = tmp_path / "validate-check.json"
     cfg = _fresh_golden()
     cfg["lsp"] = {"py": None}
-    assert _run_validator(cfg)[0] == 1
+    assert _run_validator(p, cfg)[0] == 1
     cfg = _fresh_golden()
     cfg["lsp"] = {"py": {"command": []}}
-    code, out = _run_validator(cfg)
+    code, out = _run_validator(p, cfg)
     assert code == 1 and "command" in out.lower()
     cfg = _fresh_golden()
     cfg["lsp"] = {"py": {}}
-    assert _run_validator(cfg)[0] == 1
+    assert _run_validator(p, cfg)[0] == 1
     cfg = _fresh_golden()
     cfg["lsp"] = {"pyright": {"command": ["pyright"]}}
-    assert _run_validator(cfg) == (0, "")
+    assert _run_validator(p, cfg) == (0, "")
     cfg = _fresh_golden()
     cfg["lsp"] = {
         "pyright": {
@@ -258,48 +261,51 @@ def test_validate_lsp_null_empty_and_valid():
             "env": {"KEY": "{env:KEY}"},
         }
     }
-    assert _run_validator(cfg) == (0, "")
+    assert _run_validator(p, cfg) == (0, "")
     cfg = _fresh_golden()
     cfg["lsp"] = {"pyright": {"disabled": True}}
-    assert _run_validator(cfg) == (0, "")
+    assert _run_validator(p, cfg) == (0, "")
     cfg = _fresh_golden()
     cfg["lsp"] = True
-    assert _run_validator(cfg) == (0, "")
+    assert _run_validator(p, cfg) == (0, "")
     cfg = _fresh_golden()
     cfg["lsp"] = None
-    assert _run_validator(cfg) == (0, "")
+    assert _run_validator(p, cfg) == (0, "")
     cfg = _fresh_golden()
     cfg["lsp"] = {}
-    assert _run_validator(cfg) == (0, "")
+    assert _run_validator(p, cfg) == (0, "")
 
 
-def test_validate_formatter_named_map():
+def test_validate_formatter_named_map(tmp_path):
+    p = tmp_path / "validate-check.json"
     cfg = _fresh_golden()
     cfg["formatter"] = {"command": ["mvn"], "extensions": [".java"]}
-    code, out = _run_validator(cfg)
+    code, out = _run_validator(p, cfg)
     assert code == 1 and "named map" in out
     cfg = _fresh_golden()
     cfg["formatter"] = {
         "spotless-java": {"command": ["mvn", "spotless:apply"], "extensions": [".java"]}
     }
-    assert _run_validator(cfg) == (0, "")
+    assert _run_validator(p, cfg) == (0, "")
     cfg = _fresh_golden()
     cfg["formatter"] = False
-    assert _run_validator(cfg) == (0, "")
+    assert _run_validator(p, cfg) == (0, "")
 
 
-def test_validate_plugin_env_secret_rules():
+def test_validate_plugin_env_secret_rules(tmp_path):
+    p = tmp_path / "validate-check.json"
     cfg = _fresh_golden()
     cfg["plugin"] = ["my-plugin"]
-    code, out = _run_validator(cfg)
+    code, out = _run_validator(p, cfg)
     assert code == 1 and "plugin" in out and "global-only" in out
     cfg = _fresh_golden()
     cfg["plugin"] = [{"source": "my-plugin", "environment": {"KEY": "{env:KEY}"}}]
-    code, out = _run_validator(cfg)
+    code, out = _run_validator(p, cfg)
     assert code == 1 and "plugin" in out
 
 
-def test_validate_invented_values_expanded():
+def test_validate_invented_values_expanded(tmp_path):
+    p = tmp_path / "validate-check.json"
     for bad in (
         "foo-srv",
         "dummy",
@@ -313,21 +319,22 @@ def test_validate_invented_values_expanded():
     ):
         cfg = _fresh_golden()
         cfg["default_agent"] = bad
-        assert _run_validator(cfg)[0] == 1, bad
+        assert _run_validator(p, cfg)[0] == 1, bad
     cfg = _fresh_golden()
     cfg["default_agent"] = "general"
-    assert _run_validator(cfg) == (0, "")
+    assert _run_validator(p, cfg) == (0, "")
     for field in ("instructions", "formatter", "theme", "agents_dir"):
         cfg = _fresh_golden()
         cfg[field] = "dummy-value"
-        code, out = _run_validator(cfg)
+        code, out = _run_validator(p, cfg)
         assert code == 1 and field in out, field
     cfg = _fresh_golden()
     cfg["instructions"] = ["AGENTS.md", "docs/samples.md"]
-    assert _run_validator(cfg) == (0, "")
+    assert _run_validator(p, cfg) == (0, "")
 
 
-def test_validate_mcp_rejected_global_only():
+def test_validate_mcp_rejected_global_only(tmp_path):
+    p = tmp_path / "validate-check.json"
     cfg = _fresh_golden()
     cfg["mcp"] = {
         "srv": {
@@ -336,20 +343,22 @@ def test_validate_mcp_rejected_global_only():
             "environment": {"KEY": "{env:KEY}"},
         }
     }
-    code, out = _run_validator(cfg)
+    code, out = _run_validator(p, cfg)
     assert code == 1 and "global-only" in out
 
 
-def test_validate_partial_zac_rejected():
+def test_validate_partial_zac_rejected(tmp_path):
+    p = tmp_path / "validate-check.json"
     cfg = _fresh_golden()
     del cfg["permission"]["shell"]["git commit"]
-    code, out = _run_validator(cfg)
+    code, out = _run_validator(p, cfg)
     assert code == 1 and "git commit" in out
 
 
-def test_validate_malformed_inputs_fail_closed():
+def test_validate_malformed_inputs_fail_closed(tmp_path):
     import subprocess
 
+    p = tmp_path / "validate-check.json"
     script = (
         ROOT
         / "skill-templates"
@@ -360,34 +369,35 @@ def test_validate_malformed_inputs_fail_closed():
         / "validate-opencode.py"
     )
     r = subprocess.run(
-        ["python3", str(script), str(ROOT / ".tmp-does-not-exist.json")],
+        ["python3", str(script), str(tmp_path / "does-not-exist.json")],
         capture_output=True,
         text=True,
         timeout=30,
     )
     assert r.returncode == 1
-    assert _run_validator(raw="")[0] == 1
-    assert _run_validator(raw="[]")[0] == 1
+    assert _run_validator(p, raw="")[0] == 1
+    assert _run_validator(p, raw="[]")[0] == 1
     cfg = _fresh_golden()
     cfg["default_agent"] = ""
-    code, out = _run_validator(cfg)
+    code, out = _run_validator(p, cfg)
     assert code == 1 and "default_agent" in out
 
 
-def test_validate_opencode_positives():
+def test_validate_opencode_positives(tmp_path):
+    p = tmp_path / "validate-check.json"
     cfg = _fresh_golden()
-    assert _run_validator(cfg) == (0, "")
+    assert _run_validator(p, cfg) == (0, "")
     cfg = _fresh_golden()
     del cfg["$schema"]
-    assert _run_validator(cfg) == (0, "")
+    assert _run_validator(p, cfg) == (0, "")
     cfg = _fresh_golden()
     cfg["lsp"] = {"pyright": {"command": ["pyright"]}}
-    assert _run_validator(cfg) == (0, "")
+    assert _run_validator(p, cfg) == (0, "")
     cfg = _fresh_golden()
     cfg["formatter"] = {
         "spotless-java": {"command": ["mvn", "spotless:apply"], "extensions": [".java"]}
     }
-    assert _run_validator(cfg) == (0, "")
+    assert _run_validator(p, cfg) == (0, "")
 
 
 def test_telegram_message_format_skill_contract():

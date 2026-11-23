@@ -29,7 +29,14 @@ def _isolated_registry(tmp_path, monkeypatch):
     monkeypatch.setenv(
         "PLANNER_PROJECTS_REGISTRY", str(tmp_path / "planner-projects.json")
     )
-    monkeypatch.delenv("PLANNER_USERS_CONFIG", raising=False)
+    # Point at a non-existent file so _load_user_config falls back to open
+    # local mode (documented no-auth behavior on missing config). Deleting
+    # the env var instead falls back to the real home
+    # config (~/.config/opencode/planner-users.json), which has auth_enabled:
+    # true, so every request came back 401 instead of the asserted 400/404.
+    monkeypatch.setenv(
+        "PLANNER_USERS_CONFIG", str(tmp_path / "planner-users-none.json")
+    )
     monkeypatch.delenv("PLANNER_PROJECT_ROOT", raising=False)
     monkeypatch.delenv("PLANNER_TRUSTED_PROXIES", raising=False)
 
