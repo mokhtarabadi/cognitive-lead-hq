@@ -63,3 +63,15 @@ Measured artifact sizes: full 95428 bytes; plan 89690; implement 80991; qa 80140
 ## Plan-Turn Sufficiency Grounding
 
 The bridge builds its plan-turn sufficiency diagnostic from the user prompt and the rendered `fed` and `paths` slots. A non-empty server-rendered `paths` slot grounds the `no fed-context block` diagnostic through the caller-provided `has_server_paths` flag; a literal `[path-injected:]` string in user text does not count as server-rendered path context. The existing `[fed-context]` and `[pinned-fed-context]` markers remain supported by the Hands-fed context contract. This change affects the sufficiency diagnostic only and does not change the request payload or context-path limits.
+
+Multi-project root resolution: when more than one project is active, every brain_turn call MUST pass project_root for the project that turn belongs to, or launch that project with BRAIN_PROJECT_ROOT set to that project's absolute path. Resolution order: the project_root parameter wins, then BRAIN_PROJECT_ROOT, then BRAIN_WORKSPACE_ROOT, then the bridge install directory. Reaching the install-directory fallback is a defect signal, not a feature — the bridge is a singleton on port 8105 and its install directory is shared by every project.
+
+Resolution contract: see docs/brain-bridge.md, section Multi-Project Root Resolution.
+
+## Oversized Output Path
+
+Results above BRAIN_OUTPUT_INLINE_MAX arrive as pointers: the output field begins with the brain-output marker naming the artifact path (output_address), extracted XML moves to the same artifact under xml_blocks with block_count and an xml pointer line inline, and small results stay byte-identical. When no artifact address exists, nothing is stubbed. Full text under full_output, extracted blocks under xml_blocks.
+
+## Sprint and Planner Stages
+
+sprint and planner are first-class stages alongside plan, implement, qa, review, closure, and brainstorm, present in the preflight enum, the routing manifest, and the stage tiers. Manager-term aliases (code review, planning) map to review and plan; the manifest description records the map. A regression test rejects any invalid stage literal in prompt-facing Markdown.

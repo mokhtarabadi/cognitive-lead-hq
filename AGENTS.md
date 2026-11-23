@@ -131,6 +131,10 @@ You MUST follow these skill loading rules in every session:
 
 At the start of every task, you MUST call `search_memory` or `list_namespaces` to load any hidden project quirks relevant to your domain before implementing. Before any `brain_turn` planning or verdict request, produce the graph, a capped directory tree at depth 3 or deeper, and a verified `context_paths` manifest, then record one `Context-Map:` line beside the mode line.
 
+## 🛑 BRAIN BRIDGE
+
+- Multi-project root resolution: always pass `project_root` (or set `BRAIN_PROJECT_ROOT` per project launch) when more than one project is active; a bridge log line about falling back to the install dir is a defect report, not a warning to ignore.
+
 ## 🛑 MANDATORY END-OF-TASK SEQUENCE
 
 > Session note: closing a task file does not close the Brain thread — history persists across tasks under the active session ID until the session ends.

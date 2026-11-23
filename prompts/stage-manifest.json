@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "description": "Stage-to-persona routing table for the Brain prompt pipeline. Single source of truth for the assembler (scripts/prompt-build/assemble_system_prompt.py) and the bridge (mcp-brain-bridge/server.py). The full prompt stays the committed fallback for a missing or unknown stage.",
+  "description": "Stage-to-persona routing table for the Brain prompt pipeline. Single source of truth for the assembler (scripts/prompt-build/assemble_system_prompt.py) and the bridge (mcp-brain-bridge/server.py). The full prompt stays the committed fallback for a missing or unknown stage. Manager-term aliases: \"code review\" routes to the review stage; \"planning\" routes to the plan stage; sprint scope work uses the sprint stage; Kanban file-state work uses the planner stage.",
   "common_fragments": [
     "01-system_version.md",
     "02-role.md",
@@ -95,6 +95,16 @@
     "closure": {
       "personas": ["senior-programmer"],
       "artifact": "system-prompt.closure.md",
+      "artifact_dir": "build/stage-prompts"
+    },
+    "sprint": {
+      "personas": ["sprint-strategist"],
+      "artifact": "system-prompt.sprint.md",
+      "artifact_dir": "build/stage-prompts"
+    },
+    "planner": {
+      "personas": ["project-planner"],
+      "artifact": "system-prompt.planner.md",
       "artifact_dir": "build/stage-prompts"
     },
     "brainstorm": {

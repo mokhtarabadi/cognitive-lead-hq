@@ -608,6 +608,9 @@ needs no extra machinery.
      result carries `truncated: true`, the remainder is also recoverable
      from its `output_address` via native `read` or shell; the artifact at
      that path holds `xml_blocks` plus the full raw output.
+
+     When a `brain_turn` result is oversized the bridge stubs it instead of truncating it mid-payload: `output` becomes a pointer beginning with `[brain-output]`, `xml_blocks` comes back empty while the extracted-block count reports how many control blocks were extracted, and the complete text plus the blocks live in the file named by `output_address`. Read that file with native tools before acting: when the extracted-block count is above zero, execute the `xml_blocks` array taken from the file; when it is zero, use the `full_output` value from the file. Never execute a pointer line itself, and never conclude the Brain produced no instructions from an empty-looking `xml_blocks` on an oversized turn.
+
 3. **Relay** — any admin question inside `output` goes to the Manager
    verbatim. Feed the answer back as the next `brain_turn` user prompt.
    Never answer for the Manager.

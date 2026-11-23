@@ -24,7 +24,16 @@ from typing import Mapping, Optional
 #: ``brainstorm`` joins the set for the multi-agent consult turn; it
 #: carries no approval-sensitive tool requirement (see capability), so
 #: admitting it here changes routing only — never the gate.
-ALLOWED_STAGES = ("plan", "implement", "qa", "review", "closure", "brainstorm")
+ALLOWED_STAGES = (
+    "plan",
+    "implement",
+    "qa",
+    "review",
+    "closure",
+    "sprint",
+    "planner",
+    "brainstorm",
+)
 
 #: Bare task numbers only (digits), mirroring
 #: ``server._TASK_NUMBER_RE`` — suffixed variants fork history.

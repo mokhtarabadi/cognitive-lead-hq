@@ -152,6 +152,8 @@ execution, so the command never runs:
 | `git commit`, `git commit *`     | committing (closure goes through `commit_and_clean_task` only) |
 | `git push`, `git push *`         | pushing (the Manager pushes)                                   |
 
+Multi-project root resolution: always pass `project_root` (or set `BRAIN_PROJECT_ROOT` per project launch) when more than one project is active; a bridge log line about falling back to the install dir is a defect report, not a warning to ignore.
+
 ## 8. Token-trimming practices (verified spike)
 
 Measured 2026-09-12 with RTK 0.49.0 (x86_64 musl binary, installed at

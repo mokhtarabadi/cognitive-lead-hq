@@ -2077,6 +2077,8 @@ _DEFAULT_STAGE_TIERS: dict[str, str] = {
     "implement": "T0",
     "qa": "T0",
     "closure": "T0",
+    "sprint": "T2",
+    "planner": "T0",
 }
 
 
@@ -3018,6 +3020,66 @@ def _input_budget_cap() -> int:
 def _model_window_chars() -> int:
     """Configured model-window estimate (chars), utilization monitor only."""
     return _env_positive_int("BRAIN_MODEL_WINDOW_CHARS", _MODEL_WINDOW_CHARS)
+
+
+#: Default inline cap (chars) for the brain_turn result payload (output +
+#: xml_blocks). The local agent cuts tool results past roughly 2000 lines
+#: or 50KB, so an oversized inline payload silently loses its tail —
+#: this default keeps the common turn whole and stubs only genuinely
+#: huge ones. Override via BRAIN_OUTPUT_INLINE_MAX: blank/unset =
+#: default, malformed or non-positive fails loud (shared reader).
+_OUTPUT_INLINE_MAX_DEFAULT = 50000
+
+
+def _output_inline_cap() -> int:
+    """Configured inline-output cap (chars) for the turn result."""
+    return _env_positive_int("BRAIN_OUTPUT_INLINE_MAX", _OUTPUT_INLINE_MAX_DEFAULT)
+
+
+def _shape_oversized_result(result: dict) -> None:
+    """Stub oversized inline fields in place; no-op when small or unaddressed.
+
+    Why this exists: the local transport truncates big tool results
+    mid-payload, so a large Brain REPORT lost its tail and an extracted
+    XML block could arrive cut in half. The per-turn artifact under
+    brain_outputs already holds the complete output plus xml_blocks, so
+    an oversized result keeps its small control fields (status,
+    output_address, block_count) inline and replaces the bulky strings
+    with pointer lines the Hands reads with native file tools. Small
+    results are untouched and byte-identical to the old contract —
+    every existing caller and test keeps working unchanged. When
+    persistence degraded and no address exists, stubbing would destroy
+    the only copy of the text, so inline output stays.
+    """
+    cap = _output_inline_cap()
+    output_text = result.get("output") or ""
+    blocks = result.get("xml_blocks") or []
+    # Measure against the same bytes the artifact counted for this turn.
+    inline_chars = len(output_text) + len(json.dumps(blocks, ensure_ascii=False))
+    address = result.get("output_address")
+    if inline_chars <= cap or not address:
+        return
+    # Pointer stub replaces the inline full text (marker is contract,
+    # matching the [brain-output] / [xml] prefix tests and docs).
+    result["output"] = (
+        "[brain-output] Full Brain output written to "
+        + str(address)
+        + ". Read it with native file tools; the inline copy is "
+        + "omitted to avoid transport truncation."
+    )
+    if blocks:
+        # Extracted XML moves to the artifact; block_count keeps the
+        # extractor contract visible so the Hands goes to read it.
+        result["block_count"] = len(blocks)
+        result["xml"] = (
+            "[xml] Extracted XML saved at "
+            + str(address)
+            + " under key 'xml_blocks'. Read the XML with native file "
+            + "tools and execute only the extracted blocks."
+        )
+        result["xml_blocks"] = []
+    else:
+        result["block_count"] = 0
 
 
 def _append_context_ledger(
@@ -5171,6 +5233,7 @@ def brain_turn(
         debug["fenced_blocks"] = len(fence_drops)
         debug["snippets"] = fence_drops
     result["debug"] = debug
+    _shape_oversized_result(result)
     return result
 
 

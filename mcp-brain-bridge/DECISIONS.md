@@ -139,3 +139,24 @@
 **Consequences:** Budget math can see cache hits and reasoning spend. Non-int values pass through untouched.
 
 **Rollback:** Revert the details block in `server.py`; usage reverts to prompt/completion/total only.
+
+## 2026-11-23 — Multi-project root resolution is a documented contract
+
+- **Context:** The singleton bridge fell back to its install dir while the Manager worked in a different project, so two projects shared one sessions root; the gap was procedural, not missing code.
+- **Decision:** Three locked items — D1 no new resolver helper, because root resolution already supports the parameter and both env vars; D2 `BRAIN_PROJECT_ROOT` is never set in the shared global `~/.config/opencode/.env`, because a global value pins every project to one root and reproduces the same contamination mirrored; D3 the resolution order sentence in `docs/brain-bridge.md` is canonical and every other file mirrors it.
+- **Consequences:** Cross-project leakage becomes a reviewable documentation defect with a named signal.
+- **Rollback strategy:** Revert the doc edits; no runtime state is touched.
+
+## 2026-11-23 — brain_turn oversized results are addressed, not inlined
+
+- **Context:** OpenCode truncates tool results past roughly 2000 lines or 50KB, silently cutting large Brain payloads mid-document.
+- **Decision:** Stub inline output and xml_blocks above BRAIN_OUTPUT_INLINE_MAX and point to the existing per-turn artifact; keep small results byte-identical; never stub when the artifact address is missing; the brain-output and xml marker prefixes are contract strings.
+- **Consequences:** Big reports never lose their tail; callers must read output_address on stubbed turns; block_count becomes a new small inline field.
+- **Rollback strategy:** Delete the cap constant, the reader, the shaper, its call site, and its tests; inline behavior returns byte-identical with no state left behind.
+
+## 2026-11-23 — sprint and planner become first-class stages
+
+- **Context:** Manager-stage audit vocabulary did not match the routing table: code review was never a stage value, and the sprint and planner seats had no dedicated artifact.
+- **Decision:** Add sprint and planner to ALLOWED_STAGES, the routing manifest, and the stage tiers; document aliases (code review maps to review, planning maps to plan); regression-test every stage literal in prompt-facing Markdown against the admitted set.
+- **Consequences:** Two persona-scoped artifacts join the six existing ones; stage drift becomes test-enforced instead of prose-enforced.
+- **Rollback strategy:** Revert the enum line, the two manifest objects, the two tier lines, the added tests, and the docs sentences; no runtime state is touched.

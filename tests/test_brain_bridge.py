@@ -31,6 +31,98 @@ def _no_ambient_session(monkeypatch):
     monkeypatch.delenv("OPENCODE_SESSION_ID", raising=False)
 
 
+def test_oversized_brain_result_is_stubbed_to_its_artifact(monkeypatch):
+    """Over-cap payloads come back as pointers, not inline text.
+
+    Why: the local transport truncates big tool results mid-payload;
+    pointers keep status and control metadata small while the complete
+    artifact stays on disk at output_address.
+    """
+    monkeypatch.delenv("BRAIN_OUTPUT_INLINE_MAX", raising=False)
+    big = "x" * (bridge._OUTPUT_INLINE_MAX_DEFAULT + 1)
+    blocks = ["<hotfix>a</hotfix>", "<hotfix>b</hotfix>", "<hotfix>c</hotfix>"]
+    result = {
+        "status": "XML_EXTRACTED",
+        "output": big,
+        "xml_blocks": blocks,
+        "output_address": "tasks/.sessions/demo/brain_outputs/r1_demo.json",
+    }
+    bridge._shape_oversized_result(result)
+    assert result["status"] == "XML_EXTRACTED"
+    assert result["output"].startswith("[brain-output]")
+    assert result["xml_blocks"] == []
+    assert result["block_count"] == 3
+    assert result["xml"].startswith("[xml]")
+    assert result["output_address"].endswith("r1_demo.json")
+
+
+def test_small_brain_result_stays_inline_unchanged(monkeypatch):
+    """Small results keep the old byte-identical inline contract."""
+    monkeypatch.delenv("BRAIN_OUTPUT_INLINE_MAX", raising=False)
+    result = {
+        "status": "REPORT",
+        "output": "ok",
+        "xml_blocks": [],
+        "output_address": "tasks/.sessions/demo/brain_outputs/r2_demo.json",
+    }
+    bridge._shape_oversized_result(result)
+    assert result["output"] == "ok"
+    assert "block_count" not in result
+    assert "xml" not in result
+
+
+def test_large_result_without_artifact_keeps_inline_text(monkeypatch):
+    """No stub when persistence degraded: the inline text is the only copy."""
+    monkeypatch.delenv("BRAIN_OUTPUT_INLINE_MAX", raising=False)
+    big = "y" * (bridge._OUTPUT_INLINE_MAX_DEFAULT + 1)
+    result = {"status": "REPORT", "output": big, "xml_blocks": []}
+    bridge._shape_oversized_result(result)
+    assert result["output"] == big
+
+
+def test_output_inline_cap_env_contract(monkeypatch):
+    """Cap is env-tunable: blank/unset = default, malformed fails loud."""
+    monkeypatch.setenv("BRAIN_OUTPUT_INLINE_MAX", "1000")
+    assert bridge._output_inline_cap() == 1000
+    monkeypatch.setenv("BRAIN_OUTPUT_INLINE_MAX", "")
+    assert bridge._output_inline_cap() == bridge._OUTPUT_INLINE_MAX_DEFAULT
+    monkeypatch.setenv("BRAIN_OUTPUT_INLINE_MAX", "abc")
+    with pytest.raises(ValueError):
+        bridge._output_inline_cap()
+
+
+def test_oversized_report_without_xml_sets_zero_block_count(monkeypatch):
+    """Large REPORT with no blocks still points to the artifact."""
+    monkeypatch.delenv("BRAIN_OUTPUT_INLINE_MAX", raising=False)
+    big = "z" * (bridge._OUTPUT_INLINE_MAX_DEFAULT + 1)
+    result = {
+        "status": "REPORT",
+        "output": big,
+        "xml_blocks": [],
+        "output_address": "tasks/.sessions/demo/brain_outputs/r3_demo.json",
+    }
+    bridge._shape_oversized_result(result)
+    assert result["output"].startswith("[brain-output]")
+    assert result["block_count"] == 0
+    assert "xml" not in result
+
+
+def test_small_result_with_xml_keeps_blocks_inline(monkeypatch):
+    """Under-cap payloads keep extracted xml_blocks byte-identical."""
+    monkeypatch.delenv("BRAIN_OUTPUT_INLINE_MAX", raising=False)
+    blocks = ["<hands_implementation_task>small</hands_implementation_task>"]
+    result = {
+        "status": "XML_EXTRACTED",
+        "output": "short",
+        "xml_blocks": blocks,
+        "output_address": "tasks/.sessions/demo/brain_outputs/r4_demo.json",
+    }
+    bridge._shape_oversized_result(result)
+    assert result["xml_blocks"] == blocks
+    assert "block_count" not in result
+    assert result["output"] == "short"
+
+
 def test_extract_single_implementation_block():
     out = 'Think <hands_implementation_task>{"a": 1}</hands_implementation_task> tail'
     blocks = bridge.extract_xml_blocks(out)
@@ -5937,10 +6029,12 @@ def test_unsupported_input_items_are_dropped_with_exactly_one_warning():
 def test_non_dict_input_items_are_reported_not_crashing():
     """A bare string item must hit the logging guard, never an AttributeError."""
     with mock.patch.object(bridge.logger, "warning") as warning_spy:
-        chat_body = bridge._convert_responses_to_chat_completions_body({
-            "model": "deepseek-v4.1-flash",
-            "input": [{"role": "user", "content": "keep me"}, "stray-item"],
-        })
+        chat_body = bridge._convert_responses_to_chat_completions_body(
+            {
+                "model": "deepseek-v4.1-flash",
+                "input": [{"role": "user", "content": "keep me"}, "stray-item"],
+            }
+        )
     assert warning_spy.call_count == 1
     assert warning_spy.call_args.args[1] == "str"
     assert len(chat_body["messages"]) >= 1

@@ -39,7 +39,16 @@ import server as bridge
 MANIFEST = REPO / "prompts" / "stage-manifest.json"
 
 #: Contract stage set (the task's stage-to-persona table).
-CONTRACT_STAGES = ("plan", "implement", "qa", "review", "closure", "brainstorm")
+CONTRACT_STAGES = (
+    "plan",
+    "implement",
+    "qa",
+    "review",
+    "sprint",
+    "planner",
+    "closure",
+    "brainstorm",
+)
 
 #: Persona slugs per stage, per the same contract table.
 CONTRACT_PERSONAS = {
@@ -53,6 +62,8 @@ CONTRACT_PERSONAS = {
     "implement": ("senior-programmer",),
     "qa": ("qa-engineer",),
     "review": ("code-reviewer",),
+    "sprint": ("sprint-strategist",),
+    "planner": ("project-planner",),
     "closure": ("senior-programmer",),
     "brainstorm": (
         "software-architect",
@@ -662,3 +673,92 @@ def test_brain_turn_serves_the_stage_scoped_prompt(fake_bridge_root, monkeypatch
     # The stage artifact is served; the full prompt is not.
     assert "STAGE QA PROMPT" in body
     assert "FULL PROMPT" not in body
+
+
+def test_brain_turn_returns_pointer_for_oversized_model_output(
+    fake_bridge_root, monkeypatch
+):
+    """brain_turn must actually stub oversized replies, not just expose the helper.
+
+    Why: a shaper wired after the result is assembled proves the
+    integration; a helper unit test alone would pass on dead code.
+    A 30-char model reply with a 10-char cap forces the stub path.
+    """
+    _write_manifest(fake_bridge_root)
+    _write_artifact(fake_bridge_root, "qa", "STAGE QA PROMPT")
+    full = fake_bridge_root / "system-prompt.md"
+    full.write_text("FULL PROMPT", encoding="utf-8")
+    monkeypatch.delenv("BRAIN_SYSTEM_PROMPT", raising=False)
+    monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(fake_bridge_root / "sessions"))
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    monkeypatch.setenv("BRAIN_OUTPUT_INLINE_MAX", "10")
+    holder = {}
+    _stub_httpx(monkeypatch, _ok_payload("y" * 30), holder)
+    result = bridge.brain_turn(
+        "adversarial QA please", stage="qa", include_bundle=False
+    )
+    assert result["status"] in ("REPORT", "XML_EXTRACTED")
+    assert result["output"].startswith("[brain-output]")
+    assert result["output_address"]
+    path = Path(result["output_address"])
+    if not path.is_absolute():
+        path = Path.cwd() / path
+    artifact_text = path.read_text(encoding="utf-8", errors="replace")
+    assert "y" * 30 in artifact_text
+
+
+def test_preflight_stage_gate_admits_sprint_and_planner(tmp_path):
+    """sprint and planner pass the request preflight like other real stages."""
+    assert "sprint" in preflight.ALLOWED_STAGES
+    assert "planner" in preflight.ALLOWED_STAGES
+    for stage in ("sprint", "planner"):
+        proj = tmp_path / "proj"
+        (proj / "tasks").mkdir(parents=True, exist_ok=True)
+        req = preflight.validate_request(
+            task_id="1", project_root=str(proj), stage=stage
+        )
+        assert req.stage == stage
+    with pytest.raises(preflight.PreflightError, match="stage"):
+        preflight.validate_request(task_id="1", project_root=str(proj), stage="bogus")
+
+
+def test_sprint_and_planner_stages_route_their_seats():
+    """Sprint and planner carry dedicated artifacts and single-seat rosters.
+
+    Why: the Manager's stage audit named both seats and the approved
+    fix made them first-class instead of aliases; a missing roster
+    entry would silently fall back to the full prompt.
+    """
+    manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
+    stages = manifest["stages"]
+    assert stages["sprint"]["personas"] == ["sprint-strategist"]
+    assert stages["planner"]["personas"] == ["project-planner"]
+    assert stages["sprint"]["artifact"] == "system-prompt.sprint.md"
+    assert stages["planner"]["artifact"] == "system-prompt.planner.md"
+    assert set(CONTRACT_STAGES) == set(preflight.ALLOWED_STAGES)
+
+
+def test_stage_alias_map_lists_manager_terms():
+    """The manifest documents the Manager's vocabulary aliases."""
+    manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
+    description = manifest["description"]
+    assert "code review" in description
+    assert "planning" in description
+
+
+def test_no_invalid_stage_literals_in_prompt_surfaces():
+    """Every stage="..." literal in prompt-facing Markdown names an admitted stage.
+
+    Why: a literal like stage="code review" teaches the Hands an enum
+    the preflight rejects — exactly how one re-review turn lost its
+    routing. The set is imported from preflight, mirroring how
+    tests/test_brain_bridge.py imports it (copy that idiom).
+    """
+    offenders = []
+    for root in ("prompts/fragments", "agents", "docs"):
+        for path in (REPO / root).rglob("*.md"):
+            text = path.read_text(encoding="utf-8", errors="replace")
+            for literal in re.findall(r'stage="([^"]+)"', text):
+                if literal not in preflight.ALLOWED_STAGES:
+                    offenders.append(path.as_posix() + ' -> stage="' + literal + '"')
+    assert not offenders, "invalid stage literals: " + ", ".join(offenders)
