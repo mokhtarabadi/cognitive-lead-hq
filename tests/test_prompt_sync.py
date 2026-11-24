@@ -48,7 +48,7 @@ def test_shipped_version_is_expected_minor_bump():
     shipped = re.search(
         r"<system_version>(.*?)</system_version>", _read(SHIPPED)
     ).group(1)
-    assert shipped == "9.93.0"
+    assert shipped == "9.94.0"
 
 
 def test_shipped_prompt_documents_context_path_line_ranges():
@@ -348,7 +348,9 @@ def test_executor_contains_full_dto_mandate():
     assert "No-Manual-DTO Mandate (full rule text, owned by Hands)" in executor
     assert "Hand-written duplicates create silent type drift" in executor
     assert "If NO source-of-truth contract exists" in executor
-    assert "Type Drift Sentinel" in executor
+    assert (
+        "manual review MUST reject a diff that hand-copies a governed type" in executor
+    )
     conventions = (REPO / "docs" / "conventions.md").read_text(encoding="utf-8")
     assert "agents/cognitive-executor.md" in conventions
     assert (
@@ -371,9 +373,9 @@ def test_executor_contains_full_dto_mandate():
     )
 
 
-def test_shipped_prompt_version_is_9_93_0():
+def test_shipped_prompt_version_is_9_94_0():
     prompt = _read_shipped_prompt_for_approval_contract()
-    assert "9.93.0" in prompt
+    assert "9.94.0" in prompt
 
 
 def test_openui_validity_gate_in_executor_and_fragment():
@@ -1073,3 +1075,47 @@ def test_prettierignore_covers_guard_arms() -> None:
     missing = [entry for entry in armed if not any(entry in line for line in ignored)]
     assert armed, "could not parse the exclusion arm from scripts/format-guard.sh"
     assert not missing, f"ignore file covers no entry for: {missing}"
+
+
+def test_concision_contract_mirrored_in_all_surfaces():
+    """Pin the full canonical concision body across every shipped surface.
+
+    AC1 and AC2 claim one identical rule in the fragment, the assembled
+    prompt, and both cognitive agents. An opening-clause needle passes after
+    a partial body edit, so this test lifts the complete sentence set from
+    the canonical bullet, strips the fragment-only closing sentence, and
+    demands exactly one occurrence of the full string on every surface.
+    The fragments-tree scan still rejects a fifth copy anywhere.
+    """
+    marker = "- **Manager-Facing Concision Contract:** "
+    fragment = (REPO / "prompts/fragments/13-constraints.md").read_text(
+        encoding="utf-8"
+    )
+    line = next(l for l in fragment.splitlines() if l.startswith(marker))
+    body = line[len(marker) :]
+    tail = (
+        " It replaces every earlier length budget in this prompt and in "
+        "both cognitive agents."
+    )
+    assert body.endswith(tail), "canonical body lost its fragment-only tail"
+    shared = body[: -len(tail)]
+    assert shared.startswith("Every user-facing response MUST answer first")
+    assert len(shared) > 400, "canonical body extraction failed"
+
+    surfaces = (
+        "prompts/fragments/13-constraints.md",
+        "system-prompt.md",
+        "agents/cognitive-executor.md",
+        "agents/cognitive-discovery.md",
+    )
+    for surface in surfaces:
+        text = (REPO / surface).read_text(encoding="utf-8")
+        assert text.count(shared) == 1, f"full-copy drift in {surface}"
+
+    needle = "Every user-facing response MUST answer first"
+    hits = sorted(
+        path.name
+        for path in (REPO / "prompts" / "fragments").rglob("*.md")
+        if needle in path.read_text(encoding="utf-8")
+    )
+    assert hits == ["13-constraints.md"], f"unexpected concision copies: {hits}"

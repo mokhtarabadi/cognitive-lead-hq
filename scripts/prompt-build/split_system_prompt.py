@@ -484,8 +484,9 @@ def split_system_prompt(
 ) -> List[str]:
     """Split system-prompt.md into per-tag fragment files.
 
-    Reads the monolithic system-prompt.md, extracts the 20 top-level XML tags in
-    document order as verbatim fragment files, extracts the duplicated
+    Reads the monolithic system-prompt.md, extracts the 19 top-level XML tags plus
+    one trailing tail fragment (20 fragments total) in document order as verbatim
+    fragment files, extracts the duplicated
     <validation_phase> block into a shared partial with include markers, and
     writes a manifest listing the fragment filenames in assembly order.
 
@@ -514,7 +515,7 @@ def split_system_prompt(
     content = src.read_text(encoding="utf-8")
     lines = content.split("\n")
 
-    # --- 1. Locate the 20 top-level block ranges ---
+    # --- 1. Locate the 19 top-level block ranges (plus one tail fragment) ---
     ranges = _find_block_ranges(lines)
     if len(ranges) != len(TOP_LEVEL_TAGS):
         _halt(

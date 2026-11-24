@@ -231,3 +231,12 @@ Context: Approved plan phase P6 under finding W17 directed stripping model-unver
 Decision: Strip the embedding internals (model name, dimensions, chunk constants, RRF k, collection name, line-order anchor), keep every tool name and the `create_tree_report` capability, and add a one-line rationale for `query_graph`. Scope the fragments README invariant so it claims only what is true of the validation phase, with finalization owned by the executor.
 Consequences: The discovery agent carries no constant the model cannot verify. Worked examples are validation-complete but their summary is illustrative; the executor's finalization sequence supplies the transition. Four residuals (I27-I30) registered as follow-up documentation debt.
 Rollback: Restore the prior `custom_context.*` bullet from git history and the prior README invariant.
+
+## Canonical user-facing response rule in both agents
+
+Date: 2026-11-23
+Status: accepted
+Context: The executor carried two competing numeric length budgets and a duplicated answer-first clause, while the discovery agent ended with a softer wording; both diverged from the shipped prompt contract.
+Decision: Both agent contracts now carry the Manager-Facing Concision Contract verbatim, with the executor's duplicate bullets retired and its Output Contract phrase aligned; the retired Type Drift Sentinel sentence now assigns the gate to manual review.
+Consequences: One user-facing response rule across prompt, executor, and discovery agent; internal channels and frozen pipeline strings stay comprehensive and unchanged.
+Rollback: Restore the prior bullets and final sentence from git history, decrement the version marker to 9.93.0, regenerate the prompt, and re-run both lints.

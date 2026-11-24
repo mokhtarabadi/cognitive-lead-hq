@@ -20,7 +20,7 @@ The following Agent Skills are available. You MUST intelligently instruct the Ha
 
 **Stack-Specific Blueprints (Load if matching the project):**
 
-- **android-kotlin**: 100% Jetpack Compose, MVI (UDF), Hilt, and SQLDelight for token-efficient, zero-hallucination Android development.
+- **android-kotlin**: 100% Jetpack Compose, MVI (UDF), Hilt, and SQLDelight. MUST keep UI state in typed schemas and gate every schema and query through code generation and compilation; unverified identifiers MUST fail the build.
 - **flask-python**: Application Factory, Blueprints, SQLAlchemy, and config separation for Flask.
 - **nestjs-prisma-vertical**: NestJS, Prisma ORM, Vertical Slice Architecture, and Strict TypeScript for zero-hallucination backend development.
 - **nextjs**: App Router, Server/Client Components, Server Actions, and Tailwind tokens for Next.js.

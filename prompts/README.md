@@ -16,7 +16,7 @@ prompts/
 │   ├── 03-system_context.md
 │   ├── 04-ai_objective.md
 │   ├── 05-user_input_processing.md
-│   ├── 06-personas.md
+│   ├── 06-personas-catalog.md
 │   ├── 07-agent_skills_registry.md
 │   ├── 08-agentic_reasoning.md
 │   ├── 09-hands_protocols.md     # Contains <!--INCLUDE:--> markers
@@ -57,6 +57,7 @@ prompts/
    ```bash
    # In OpenCode, the lint MCP server exposes this tool automatically
    # (covered by the "lint_*": "allow" permission rule in opencode.json):
+   # TODO: verification command tracked separately.
    ```
 
    Or verify manually against a temp path:
@@ -74,8 +75,8 @@ prompts/
 ## How It Works
 
 - **`scripts/prompt-build/split_system_prompt.py`** — the disassembler. Reads
-  `system-prompt.md` and splits it into the 19 top-level tags (V9.0.0). The
-  `<validation_phase>` block (duplicated 3× inside the `hands_protocols`
+  `system-prompt.md` and splits it into the 19 top-level tags plus one tail fragment (V9.94.0). The
+  `<validation_phase>` block (duplicated 5× inside the `hands_protocols`
   templates) is extracted to `prompts/shared/validation-phase.md` and each
   occurrence is replaced with an `<!--INCLUDE:...-->` marker.
 

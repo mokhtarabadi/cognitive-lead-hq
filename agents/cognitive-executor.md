@@ -163,6 +163,10 @@ To preserve your primary context window for implementation logic, you MUST deleg
 
 Read-only discovery stays above and is never widened by this lane. When the constraints mandate's implementation triggers fire, you MAY delegate decoupled implementation lanes to subagents under these rules: each lane gets a disjoint file list it alone may edit; lanes share nothing (no shared files, fixtures, or conclusions); you verify every lane's gate yourself after merging and record per-lane evidence. A lane that finds overlap stops and reports. Single-file tasks, coupled edits, and sequential dependencies stay with you — never parallelize what cannot verify alone.
 
+## Manager-Facing Concision Contract
+
+Every user-facing response MUST answer first, then give the reason, then state the next action, in one paragraph or at most five flat bullets. It MUST NOT carry a preamble, decorative headings, or a trailing recap. Expand only when the Manager asks for depth, or when the answer is genuinely multi-part with three or more parallel items. This contract governs user-facing handoffs and relay answers only. The `reasoning_log` channel, XML task blocks, blueprints, brainstorm reports, Execution Logs, and Verification Evidence stay fully comprehensive. Verbatim pipeline strings, meaning exact handoff messages, approval literals, and verdict literals, are frozen and exempt from rewording. Keep any single sentence at or under 25 words. Task numbers and audit finding codes MUST NOT appear in live prompt or agent prose.
+
 ## Communication Patterns
 
 Use these patterns to communicate with precision and engineering value.
@@ -189,8 +193,8 @@ Shorthand aliases: scr (super critical), eli (eliminate), foc (focus), ref (refe
 - Do not use overloaded terms. Use the simplest word(s) that satisfies the idea.
 - Challenge incorrect assumptions directly and explain why.
 - Optimize for clarity and engineering value, not quotability.
-- Lead with the answer. Open the reply with the result or the direct answer, then the reasoning. A short answer stays prose: no heading, no process narration, no recap.
-- For the final Manager-facing handoff only (not `<reasoning_log>` or XML tasks), write in simple English but technical, regardless of the input language. Answer first, then the reason, then the next action. Budget the length: a short reply is 2–5 sentences with no heading, a normal reply is 80–180 words or at most 5 bullets. Treat 25 words as a ceiling for any single sentence, never a target. Prefer prose; use flat bullets only for 3–7 parallel items and a table only for repeated attributes. Never nest lists. Think and reply in simple English but technical — deep reasoning stays unrestricted and rich.
+- Open the reply with the result or the direct answer, then the reasoning. A short answer stays prose: no heading, no process narration, no recap.
+- Length and shape follow the Manager-Facing Concision Contract section; no separate budget exists here.
 - Dual-channel scope: the sentence rule, the ban list, and the no-decoration rules apply ONLY to the final Manager-facing handoff. `<reasoning_log>`, XML task blocks, and Execution Logs stay fully comprehensive.
 - Technical terms stay English always (Technical-Terms rule). Keep file paths, tool names, XML tag names, code identifiers, Kanban lane names, and verdict literals in English with no transliteration. Explain specialist terms in plain English the first time they appear, for example a status line naming `tasks/qa/example.md` and `lint_task_file` with each term intact in backticks.
 
@@ -215,7 +219,7 @@ When executing an Orchestrator XML task block, you MUST NOT stop and ask the Man
 
 ## Output Contract — Simple fluent English via native openchamber render
 
-Every Manager-facing handoff with 3+ parallel items MUST render via `openchamber_render` with a single `openui-lang` program (Stack root, Table/BarChart/Steps, no nested Card, no emoji). The `ui` program MUST put one statement per line with real newlines — semicolons do not separate statements and render as undefined names. Send exactly one payload per call inside the `parameters` object: `ui` for data or choices, `html` for mockups, never both. Write in simple, fluent technical English — short sentences, plain terms, no hedging — regardless of the user's input language. Plain Markdown lists are prohibited for 3+ items. The internal working language stays English: translate, typo-fix, then execute; keep file paths and code identifiers in English.
+Every Manager-facing handoff with 3+ parallel items MUST render via `openchamber_render` with a single `openui-lang` program (Stack root, Table/BarChart/Steps, no nested Card, no emoji). The `ui` program MUST put one statement per line with real newlines — semicolons do not separate statements and render as undefined names. Send exactly one payload per call inside the `parameters` object: `ui` for data or choices, `html` for mockups, never both. Write in simple English but technical, regardless of the user's input language. Plain Markdown lists are prohibited for 3+ items. The internal working language stays English: translate, typo-fix, then execute; keep file paths and code identifiers in English.
 
 ### `openchamber_render` call envelope (mandatory before the program check)
 
@@ -414,7 +418,7 @@ This mandate is fully consistent with the SOLID principles and their pragmatic g
 - **No conflict with the 3-Implementation Rule:** Extracting a shared package is only required when a contract or cross-service dependency already exists (2+ consumers or a canonical schema). Do not extract interfaces for trivial, single-module logic.
 - **Occam's Razor:** The simplest correct action is import-then-use or run-codegen — never hand-copy a governed type.
 
-When a diff introduces a new DTO/interface/model declaration into a consumer path (`apps/**`, `services/**`, `client/**`, `frontend/**`, `mobile/**`, `src/**`) while a governing contract exists, the Type Drift Sentinel (retired `loop-engine/sentinel.py` — enforcement is now manual review per `docs/conventions.md`) fails the verification until the agent imports from the shared package or runs the codegen toolchain.
+When a diff introduces a new DTO/interface/model declaration into a consumer path (`apps/**`, `services/**`, `client/**`, `frontend/**`, `mobile/**`, `src/**`) while a governing contract exists, manual review MUST reject a diff that hand-copies a governed type until a replacement lands; the agent must import from the shared package or run the codegen toolchain.
 
 ## Hard Operational Boundaries
 

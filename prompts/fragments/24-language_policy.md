@@ -23,7 +23,7 @@ Every user-facing prompt artifact assembled from these fragments plus any quoted
 
 ## Technical Terms Stay English (Technical-Terms rule)
 
-All technical terms stay in English with no transliteration. Keep in English: file paths such as `tasks/qa/example.md`, tool names such as `brain_turn` `lint_task_file` `custom_context_stage_and_inject_diff`, XML tag names such as `hands_implementation_task` `reasoning_log`, code identifiers and branch names, commit types `feat` `fix` `docs` `refactor` `chore`, Kanban lane names `backlog` `in-progress` `qa` `completed` `archive`, verdict literals `QA_PASSED` `QA_REJECTED` `APPROVED` `PO_REVIEW_PENDING`, plus test commands and exit codes. Match approval phrases as English literals only — see the Approval Literals Guard section below. Explain specialist terms in plain English the first time they appear.
+All technical terms stay in English with no transliteration. Keep in English: file paths such as `tasks/qa/example.md`, tool names such as `brain_turn` `lint_task_file` `custom_context_stage_and_inject_diff`, XML tag names such as `hands_implementation_task` `reasoning_log`, code identifiers and branch names, commit types `feat` `fix` `docs` `refactor` `chore`, Kanban lane names `backlog` `in-progress` `qa` `completed` `archive`, verdict literals `QA_PASSED` `QA_REJECTED` `APPROVED` `PO_REVIEW_PENDING`, plus test commands and exit codes. Approval phrases MUST match as English literals only, per the named authority in the constraints fragment §Approval Literals Guard. Explain specialist terms in plain English the first time they appear.
 
 ## Manager-Facing Output (English always)
 
