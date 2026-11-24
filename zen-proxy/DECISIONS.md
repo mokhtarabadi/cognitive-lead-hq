@@ -134,3 +134,10 @@ crouton-alpha-free kept as a documented exception.
 journal. No new env knobs. Install/restart remain Manager actions.
 
 **Rollback:** Revert the commit; allowlists restore to prior literals.
+
+## [2026-11-24] ADR-002 addendum: caller read timeout joins the ladder
+
+- **Context:** The deployed Brain client used a 600-second execution cap while the proxy and Bridge defaulted to 900 seconds. The caller could disappear before the proxy returned a structured timeout, and the Bridge read timeout could still fire first.
+- **Decision:** Keep the proxy at 900 seconds and document the full deployed order: proxy 900 ≤ Bridge read 960 ≤ Bridge overall 1200 ≤ MCP client 1500 seconds. The proxy owns no new setting beyond its existing `ZEN_PROXY_UPSTREAM_TIMEOUT`.
+- **Consequences:** The proxy has time to emit its own 504 before the Bridge read timeout, and the MCP client has time to receive the Bridge result. No proxy code or default changes.
+- **Rollback:** Restore the previous caller settings; the proxy default remains 900 seconds.

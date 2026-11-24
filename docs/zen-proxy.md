@@ -78,12 +78,12 @@ for this proxy.
 Read from the single global `~/.config/opencode/.env` via the unit's
 `EnvironmentFile`.
 
-| Variable                     | Default    | Meaning                                                                                                                                                                                                                                                                                                                                                                      |
-| ---------------------------- | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ZEN_PROXY_UPSTREAM_TIMEOUT` | `900`      | Upstream socket timeout, seconds; also the silence wall of a stream. Upper bound: it must stay at or below the caller's overall deadline (`BRAIN_OVERALL_DEADLINE_S`, also `900`) and below the MCP client execution timeout (`1200000` ms). Raising it above `900` without raising the caller's deadline only moves the failure from a `504` here to a caller-side timeout. |
-| `ZEN_PROXY_MAX_BODY_BYTES`   | `33554432` | Hard cap on an inbound request body                                                                                                                                                                                                                                                                                                                                          |
-| `ZEN_PROXY_DRAIN_TIMEOUT_S`  | `30`       | How long a `SIGTERM` waits for in-flight requests                                                                                                                                                                                                                                                                                                                            |
-| `ZEN_PROXY_AUDIT`            | `0`        | `1` writes prompts + responses to `~/.local/share/zen-proxy/audit-logs/`                                                                                                                                                                                                                                                                                                     |
+| Variable                     | Default    | Meaning                                                                                                                                                                                                                                                                                                                                                                                                 |
+| ---------------------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ZEN_PROXY_UPSTREAM_TIMEOUT` | `900`      | Upstream socket timeout, seconds; also the silence wall of a stream. It must stay at or below the caller's read timeout (`BRAIN_HTTP_READ_TIMEOUT`, deployed `960`), overall deadline (`BRAIN_OVERALL_DEADLINE_S`, deployed `1200`), and MCP client execution timeout (`1500000` ms). Raising it without raising the caller's limits only moves the failure from a `504` here to a caller-side timeout. |
+| `ZEN_PROXY_MAX_BODY_BYTES`   | `33554432` | Hard cap on an inbound request body                                                                                                                                                                                                                                                                                                                                                                     |
+| `ZEN_PROXY_DRAIN_TIMEOUT_S`  | `30`       | How long a `SIGTERM` waits for in-flight requests                                                                                                                                                                                                                                                                                                                                                       |
+| `ZEN_PROXY_AUDIT`            | `0`        | `1` writes prompts + responses to `~/.local/share/zen-proxy/audit-logs/`                                                                                                                                                                                                                                                                                                                                |
 
 No API key of its own: the caller's `Authorization` header passes through.
 The session id is minted per request when the caller sends none; there is no
@@ -94,8 +94,8 @@ starting with a substituted default.
 ### Timeout ordering (binding)
 
 ```
-zen-proxy upstream timeout  ≤  caller overall deadline  ≤  MCP client execution
-       900s (default)             900s (brain default)        1200s
+zen-proxy upstream timeout  ≤  Brain read  ≤  Brain overall  ≤  MCP client execution
+       900s (proxy)             960s (read)            1200s (overall)        1500s
 ```
 
 A hidden 300s here is what killed long reasoning turns before 2026-10-22: a

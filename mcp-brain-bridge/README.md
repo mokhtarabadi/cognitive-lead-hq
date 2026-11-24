@@ -52,6 +52,18 @@ In `chat_completions` mode:
 - Only an unrecognised status aborts while `status=incomplete` is annotated with `[upstream incomplete: <reason>]` and returned; `_record_brain_use` guards against null tokens in quota arithmetic.
 - Structured tool calls (additive, both modes): `brain_turn` returns `tool_calls`, one entry per `function_call` item with `call_id`, `name`, `arguments` (parsed dict), `arguments_raw` (original string), and `source` (`responses` or `chat_completions`). A tool-call-only answer is detectable as a non-empty list without parsing prose; prose-only answers yield `[]`. The text channel above is unchanged.
 
+## Deployed Runtime Configuration
+
+The current deployment keeps `qwen3.8-flash` on the Chat Completions mount
+(`BRAIN_API_BASE=http://127.0.0.1:8081/go/chat`,
+`BRAIN_UPSTREAM_MODE=chat_completions`) with `BRAIN_REASONING_EFFORT=medium`.
+The binding timeout ladder is `ZEN_PROXY_UPSTREAM_TIMEOUT=900s` ≤
+`BRAIN_HTTP_READ_TIMEOUT=960s` ≤ `BRAIN_OVERALL_DEADLINE_S=1200s` ≤ the MCP
+client execution timeout (`1500000ms`). Code defaults remain 600s read and
+900s overall; the deployed values are explicit operator settings. The overall
+deadline is checked between attempts, so the read timeout remains the
+in-flight hard stop.
+
 ## Stage-Scoped System Prompts
 
 `brain_turn(stage=...)` selects the system prompt the Brain receives. The routing table is `prompts/stage-manifest.json` in the repository — the same file the assembler uses to generate the artifacts — so a stage is declared once and both sides agree on it. `resolve_stage_prompt_path(stage)` is pure and side-effect free: it returns the artifact path for a known stage and `None` for an unknown or empty stage.

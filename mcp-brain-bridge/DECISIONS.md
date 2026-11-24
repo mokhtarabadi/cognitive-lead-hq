@@ -169,3 +169,10 @@
 - **Decision:** Compare the artifact version with the current source version. Skip a stale artifact with one stderr note and continue to the next candidate, ending at the full prompt. Explicit path and environment overrides remain ungated.
 - **Consequences:** Stage scoping is preserved while artifacts are fresh, and a release omission degrades safely instead of breaking the only automation path. The running singleton needs a Manager restart to load the new loader.
 - **Rollback:** Remove the version helpers and candidate-loop guard, then restart the singleton through the Manager-owned process.
+
+## [2026-11-24] ADR-017: Deployed Qwen effort and timeout ladder
+
+- **Context:** The deployed Bridge used `qwen3.8-flash` with `BRAIN_REASONING_EFFORT=max`, although the live Qwen Flash catalogue advertises `low`, `medium`, and `xhigh`. The MCP client allowed 600 seconds while Brain and Zen defaulted to 900 seconds, so the transport could cut off a legitimate turn before the server reported its own result.
+- **Decision:** Keep Qwen on `/go/chat` with `chat_completions`, set effort to `medium`, and make the deployed ladder explicit: Zen upstream 900 seconds, Brain read 960 seconds, Brain overall 1200 seconds, MCP client execution 1500000 milliseconds. Code defaults remain unchanged.
+- **Consequences:** Normal turns spend less time reasoning, and the client outlives every server-side timeout. The overall deadline is still checked between attempts, so the read timeout remains the in-flight hard stop. The repository `opencode.json` intentionally carries no MCP section; the global file owns the server timeout.
+- **Rollback:** Restore the previous `.env` values and the global Brain execution timeout, then restart the affected services.

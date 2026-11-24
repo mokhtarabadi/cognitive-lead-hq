@@ -94,9 +94,11 @@ A malformed value stops the process with a readable message and exit code
 - **Allowlists gate both `GET /models` and `POST`.** A model posted to the
   wrong mount gets `404 ModelNotServedHere` naming the correct route instead
   of an opaque upstream 400.
-- **Timeout ordering.** `ZEN_PROXY_UPSTREAM_TIMEOUT` (default 900s) must sit
-  at or below the caller's own deadline (`BRAIN_OVERALL_DEADLINE_S`, also 900) and below the MCP client's execution timeout. A hidden 300s here is
-  what silently killed long reasoning turns before 2026-10-22.
+- **Timeout ordering.** `ZEN_PROXY_UPSTREAM_TIMEOUT` (900s) must sit at or
+  below the caller's read timeout (`BRAIN_HTTP_READ_TIMEOUT`, 960s), overall
+  deadline (`BRAIN_OVERALL_DEADLINE_S`, 1200s), and MCP client execution
+  timeout (1500000ms). A hidden 300s here is what silently killed long
+  reasoning turns before 2026-10-22.
 - **Never truncate a replayed item id** in a caller; that rule lives in the
   bridge, but it exists because of this gateway's strict input validation.
 - **A stream must prove its own completion.** A relay that ends without the
