@@ -40,6 +40,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - **Prompt and workflow hardening META 417 (tasks 414/415/416):** reconciled the manual/automatic topology across both DECISIONS files, `docs/architecture.md` and the executor (superseded-note, single finalization sequence, one mode template per autonomy level, no escape-hatch OR); consolidated approval literals and ZAC into single normative blocks with per-surface actors; rebound the brainstorm panel to the Personas Roster with the multi-label carve-out; added the mandatory Context Map Before Brain Calls contract (turn classes A/B/C, audit line, forbidden shapes) to the executor, discovery agent, READMEs, `AGENTS.md` and the governance audit template; added the direct-input plan gate and Brain context-before-plan rule; removed the Template Preservation rule, the duplicate QA/review invocation, the duplicate Strict Tooling Gate sentences and the phantom `@google/design.md` lint command; verified no fragment path and no roster pointer reaches the assembled prompt (the roster is inline) and the Browser-facing prompt carries no fragment-file references. `01-system_version.md` bumped 9.90.1 to 9.92.0 (phases 1B and 2 consolidated into one cycle), `system-prompt.md` regenerated, prompt-sync suite 66 passed (44 existing + 22 new regression assertions: 14 plan-round plus 8 QA-round).
 
+## [9.94.1] - 2026-11-24
+
+### Added
+
+- **Stage-prompt freshness gate:** `assemble_system_prompt.py --check` regenerates the full prompt and all eight stage artifacts into a temporary tree, compares exact bytes, and exits 1 on any missing or stale artifact. Regression tests cover fresh, stale-stage, and stale-full cases. The release script now regenerates full and stage prompts, runs the gate before deployment, deploys all eight stage artifacts, and verifies each byte-identical. The versioning skill carries a conditional, project-agnostic rule for repositories that generate stage-scoped prompts.
+
+### Fixed
+
+- **Stale stage prompts no longer override current rules:** the Brain loader compares each stage artifact's `<system_version>` with the current source and falls back to the full prompt with a stderr note on mismatch. Explicit prompt overrides remain ungated. The running singleton requires a Manager restart to load the changed loader.
+- **Handoff-language regression test:** the test now verifies the always-English technical-output behavior inside the Output Contract section instead of pinning one retired sentence.
+
+Changed files: `mcp-brain-bridge/server.py`, `scripts/prompt-build/assemble_system_prompt.py`, `scripts/release-9.66.0.sh`, `tests/test_input_validation_pipeline.py`, `tests/test_stage_prompts.py`, `tests/test_prompt_sync.py`, `prompts/fragments/01-system_version.md`, `system-prompt.md`, `CHANGELOG.md`, `prompts/README.md`, `scripts/README.md`, `mcp-brain-bridge/README.md`, `skill-templates/versioning-and-release/SKILL.md`, `prompts/DECISIONS.md`, `scripts/DECISIONS.md`, `mcp-brain-bridge/DECISIONS.md`, `skill-templates/DECISIONS.md`, `tests/README.md`, `tests/DECISIONS.md`, `.opencode/memory/release/stage-prompts-regenerate-every-release.md`, `.opencode/memory/index.md`. Task 422. No commit from Hands.
+
 ## [9.90.0] - 2026-11-20
 
 ### Added

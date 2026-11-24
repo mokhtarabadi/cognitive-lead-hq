@@ -63,6 +63,7 @@ import argparse
 import json
 import re
 import sys
+import tempfile
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
@@ -994,6 +995,85 @@ def assemble_stages(
     ]
 
 
+def check_freshness(
+    output_path: str = "system-prompt.md",
+    fragments_dir: str = "prompts/fragments",
+    shared_dir: str = "prompts/shared",
+    manifest_path: str = "prompts/manifest.txt",
+    stage_manifest_path: Optional[str] = None,
+    artifact_dir: Optional[str] = None,
+) -> int:
+    """Fail when the shipped full prompt or any stage artifact is not current.
+
+    Regeneration is the only honest definition of fresh: a version string can
+    agree while a fragment edit went unpropagated. Everything is rebuilt into
+    a throwaway directory and compared byte-for-byte against the shipped set,
+    so a check never rewrites the tree it audits.
+
+    Returns the number of stale or missing artifacts, 0 when everything is
+    current. The release workflow treats non-zero as a hard gate.
+    """
+    offenders: List[str] = []
+    prompts_dir = Path(fragments_dir).parent
+    manifest_file = resolve_stage_manifest_path(prompts_dir, stage_manifest_path)
+    if manifest_file is None:
+        raise FileNotFoundError(
+            "No stage manifest found; the freshness gate needs the routing manifest."
+        )
+    stage_manifest = load_stage_manifest(manifest_file)
+    declared = list((stage_manifest.get("stages") or {}).keys())
+
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_dir = Path(tmp)
+        rebuilt_full = tmp_dir / "system-prompt.md"
+        assemble(
+            output_path=str(rebuilt_full),
+            fragments_dir=fragments_dir,
+            shared_dir=shared_dir,
+            manifest_path=manifest_path,
+            stage_manifest_path=str(manifest_file),
+        )
+        shipped_full = Path(output_path)
+        if not shipped_full.is_file():
+            offenders.append(f"missing full prompt: {output_path}")
+        elif shipped_full.read_bytes() != rebuilt_full.read_bytes():
+            offenders.append(
+                f"stale full prompt: {output_path} (regenerate: "
+                "assemble_system_prompt.py)"
+            )
+
+        built = assemble_stages(
+            stages=declared,
+            fragments_dir=fragments_dir,
+            shared_dir=shared_dir,
+            manifest_path=manifest_path,
+            stage_manifest_path=str(manifest_file),
+            artifact_dir=str(tmp_dir / "stages"),
+        )
+        expected_by_dir: Dict[Path, set[str]] = {}
+        for stage, (rebuilt_path, _rebuilt_text) in zip(declared, built):
+            shipped_path = stage_artifact_path(stage, stage_manifest, artifact_dir)
+            if shipped_path is None or not Path(shipped_path).is_file():
+                offenders.append(f"missing stage artifact: {stage} -> {shipped_path}")
+                continue
+            expected_by_dir.setdefault(Path(shipped_path).parent, set()).add(
+                Path(shipped_path).name
+            )
+            if Path(shipped_path).read_bytes() != rebuilt_path.read_bytes():
+                offenders.append(f"stale stage artifact: {stage} -> {shipped_path}")
+
+        for directory, expected_names in expected_by_dir.items():
+            actual_names = {path.name for path in directory.glob("system-prompt.*.md")}
+            for name in sorted(actual_names - expected_names):
+                offenders.append(f"unexpected stage artifact: {directory / name}")
+
+    for line in offenders:
+        print(f"CHECK FAILED: {line}", file=sys.stderr)
+    if not offenders:
+        print(f"check: full prompt and {len(declared)} stage artifacts are current")
+    return len(offenders)
+
+
 # ---------------------------------------------------------------------------
 # CLI entry point
 # ---------------------------------------------------------------------------
@@ -1039,6 +1119,12 @@ def main() -> None:
         "directory (default: build/stage-prompts).",
     )
     parser.add_argument(
+        "--check",
+        action="store_true",
+        help="Verify the shipped full prompt and every declared stage artifact "
+        "are current; write nothing and exit 1 on drift.",
+    )
+    parser.add_argument(
         "--stage",
         metavar="KEY",
         help="Emit only the artifact of the given stage key (e.g. qa).",
@@ -1059,6 +1145,20 @@ def main() -> None:
 
     if args.stage and args.stages:
         parser.error("--stage and --stages are mutually exclusive.")
+    if args.check and (args.stage or args.stages):
+        parser.error("--check cannot combine with --stages/--stage.")
+
+    if args.check:
+        raise SystemExit(
+            check_freshness(
+                output_path=args.output,
+                fragments_dir=args.fragments_dir,
+                shared_dir=args.shared_dir,
+                manifest_path=args.manifest,
+                stage_manifest_path=args.stage_manifest,
+                artifact_dir=args.stage_dir,
+            )
+        )
 
     # Stage mode: build the per-stage artifacts. The full prompt keeps its
     # own invocation (no flags) so the committed artifact stays untouched.

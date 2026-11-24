@@ -22,6 +22,7 @@ the bridge lane stays verifiable on its own.
 
 import json
 import re
+import subprocess
 import sys
 import types
 from pathlib import Path
@@ -37,6 +38,9 @@ import server as bridge
 
 #: The stage manifest the prompt lane writes (the shared routing table).
 MANIFEST = REPO / "prompts" / "stage-manifest.json"
+
+#: The real assembler exercised by the hermetic freshness-gate tests.
+ASSEMBLER = REPO / "scripts" / "prompt-build" / "assemble_system_prompt.py"
 
 #: Contract stage set (the task's stage-to-persona table).
 CONTRACT_STAGES = (
@@ -762,3 +766,188 @@ def test_no_invalid_stage_literals_in_prompt_surfaces():
                 if literal not in preflight.ALLOWED_STAGES:
                     offenders.append(path.as_posix() + ' -> stage="' + literal + '"')
     assert not offenders, "invalid stage literals: " + ", ".join(offenders)
+
+
+def _seed_current_version(root, version="9.94.1"):
+    """Give a throwaway bridge root the version the guard must expect.
+
+    The guard reads the source fragment first, so seeding it keeps the test
+    about artifact staleness instead of about missing sources.
+    """
+    frag_dir = root / "prompts" / "fragments"
+    frag_dir.mkdir(parents=True, exist_ok=True)
+    (frag_dir / "01-system_version.md").write_text(
+        f"<system_version>{version}</system_version>\n", encoding="utf-8"
+    )
+    (root / "system-prompt.md").write_text(
+        f"<system_version>{version}</system_version> full prompt body\n",
+        encoding="utf-8",
+    )
+
+
+def test_stale_stage_artifact_falls_back_to_the_full_prompt(fake_bridge_root):
+    """A stage artifact from an older release must never be served.
+
+    This is the release bug in miniature: the loader accepted any existing
+    artifact on `is_file()` alone, so a stale one silently overrode the
+    current rules with retired ones for every stage-scoped turn.
+    """
+    root = fake_bridge_root
+    _write_manifest(root)
+    _seed_current_version(root, "9.94.1")
+    stale = (
+        "<system_version>9.93.0</system_version>\n"
+        "STALE RULES FROM THE PREVIOUS RELEASE\n"
+    )
+    _write_artifact(root, "qa", stale)
+    full = (root / "system-prompt.md").read_text(encoding="utf-8")
+
+    served = bridge.load_system_prompt(stage="qa")
+
+    assert served == full, "a stale stage artifact was served"
+    assert "STALE RULES" not in served
+
+
+def test_current_stage_artifact_is_still_served(fake_bridge_root):
+    """The guard must not cost stage scoping when artifacts are fresh."""
+    root = fake_bridge_root
+    _write_manifest(root)
+    _seed_current_version(root, "9.94.1")
+    fresh = "<system_version>9.94.1</system_version>\nCURRENT STAGE RULES\n"
+    _write_artifact(root, "qa", fresh)
+
+    served = bridge.load_system_prompt(stage="qa")
+
+    assert "CURRENT STAGE RULES" in served, "the freshness guard broke scoping"
+
+
+def test_explicit_prompt_path_override_bypasses_the_freshness_guard(fake_bridge_root):
+    """An operator override is intentional and outranks the guard.
+
+    Resolution order stays explicit path first; gating it would make the
+    documented escape hatch unusable during an emergency deploy.
+    """
+    root = fake_bridge_root
+    _write_manifest(root)
+    _seed_current_version(root, "9.94.1")
+    override = root / "custom.md"
+    override.write_text(
+        "<system_version>0.0.0</system_version>\nOVERRIDDEN BODY\n", encoding="utf-8"
+    )
+
+    served = bridge.load_system_prompt(explicit_path=str(override), stage="qa")
+
+    assert "OVERRIDDEN BODY" in served
+
+
+def test_explicit_stage_artifact_override_is_never_gated(fake_bridge_root):
+    """An explicit path wins even when it names a stale stage artifact.
+
+    Operator intent outranks automatic freshness: an emergency override may
+    deliberately pin an older prompt while a release is being repaired.
+    """
+    root = fake_bridge_root
+    _write_manifest(root)
+    _seed_current_version(root, "9.94.1")
+    stale = "<system_version>9.93.0</system_version>\nPINNED OVERRIDE\n"
+    override = _write_artifact(root, "qa", stale)
+
+    served = bridge.load_system_prompt(explicit_path=str(override), stage="qa")
+
+    assert "PINNED OVERRIDE" in served
+
+
+def _run_assembler(args, cwd=REPO):
+    """Invoke the real assembler as a subprocess from the repo root."""
+    return subprocess.run(
+        [sys.executable, str(ASSEMBLER), *args],
+        capture_output=True,
+        text=True,
+        cwd=str(cwd),
+    )
+
+
+def _build_into(tmp_path):
+    """Generate the full prompt and every stage artifact into one temp tree.
+
+    Hermetic by design: the shipped `build/` tree is never required for the
+    gate tests, so a missing build directory can never read as a green check.
+    """
+    full = tmp_path / "system-prompt.md"
+    stages = tmp_path / "stages"
+    proc = _run_assembler(["--output", str(full)])
+    assert proc.returncode == 0, proc.stderr[-2000:]
+    proc = _run_assembler(["--stages", "--stage-dir", str(stages)])
+    assert proc.returncode == 0, proc.stderr[-2000:]
+    return full, stages
+
+
+def test_assembler_check_passes_on_freshly_generated_artifacts(tmp_path):
+    """--check is the release gate: fresh bytes must exit 0 and write nothing."""
+    full, stages = _build_into(tmp_path)
+    before = sorted(p.name for p in stages.glob("system-prompt.*.md"))
+
+    proc = _run_assembler(
+        ["--check", "--output", str(full), "--stage-dir", str(stages)]
+    )
+
+    assert proc.returncode == 0, proc.stderr[-2000:]
+    after = sorted(p.name for p in stages.glob("system-prompt.*.md"))
+    assert before == after, "--check must not rewrite artifacts"
+
+
+def test_assembler_check_reports_a_stale_stage_artifact(tmp_path):
+    """One mutated stage artifact must fail the gate and name the stage."""
+    full, stages = _build_into(tmp_path)
+    victim = stages / "system-prompt.qa.md"
+    victim.write_text(
+        victim.read_text(encoding="utf-8") + "\nDRIFT\n", encoding="utf-8"
+    )
+
+    proc = _run_assembler(
+        ["--check", "--output", str(full), "--stage-dir", str(stages)]
+    )
+
+    assert proc.returncode == 1, (proc.returncode, proc.stdout[-2000:])
+    assert "qa" in (proc.stderr + proc.stdout)
+
+
+def test_assembler_check_reports_a_stale_full_prompt(tmp_path):
+    """The full prompt is gated too, so an unpropagated fragment edit fails."""
+    full, stages = _build_into(tmp_path)
+    full.write_text(full.read_text(encoding="utf-8") + "\nDRIFT\n", encoding="utf-8")
+
+    proc = _run_assembler(
+        ["--check", "--output", str(full), "--stage-dir", str(stages)]
+    )
+
+    assert proc.returncode == 1, (proc.returncode, proc.stderr[-2000:])
+    assert "system-prompt" in (proc.stderr + proc.stdout)
+
+
+def test_assembler_check_rejects_unexpected_stage_artifact(tmp_path):
+    """An orphan stage file must fail the exact filename-set gate."""
+    full, stages = _build_into(tmp_path)
+    (stages / "system-prompt.orphan.md").write_text(
+        "<system_version>9.94.1</system_version>\nORPHAN\n", encoding="utf-8"
+    )
+
+    proc = _run_assembler(
+        ["--check", "--output", str(full), "--stage-dir", str(stages)]
+    )
+
+    assert proc.returncode == 1, (proc.returncode, proc.stderr[-2000:])
+    assert "orphan" in (proc.stderr + proc.stdout)
+
+
+def test_release_script_generates_and_checks_stage_prompts_before_deploy():
+    """The release workflow must regenerate and verify every stage artifact.
+
+    Order is the whole point: a deploy before the check can ship stale stage
+    prompts, which is the defect this task closes.
+    """
+    script = (REPO / "scripts" / "release-9.66.0.sh").read_text(encoding="utf-8")
+    stages = script.index("--stages")
+    check = script.index("--check")
+    deploy = script.index("cp system-prompt.md")
+    assert stages < check < deploy, (stages, check, deploy)

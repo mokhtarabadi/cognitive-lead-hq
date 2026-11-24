@@ -29,6 +29,7 @@
 | quirks | full_output_verification_rule | Never trust truncated command output. Head tail cuts hide status lines and cause false alarms. Always re-run with ful... |  |
 | quirks | skill-tool-output-discarded-by-smart-compact | # Skill output must never be discarded or pruned | skills, smart-compact, opencode |
 | release | release-workflow | Release workflow for cognitive-lead-hq. |  |
+| release | stage-prompts-regenerate-every-release | Every release that changes prompt fragments must regenerate both the full prompt and all stage prompts before global ... | release, prompts, stage-artifacts |
 | telegram-sync | message-formatting-contract | # Telegram Message Formatting Contract (Manager rule, 2026-10-21) |  |
 | telegram-sync | topic-scoped-sync-workflow | # Telegram Sync Workflow Constraints (Cognitive Lead HQ) |  |
 | workflows | approval_gates_use_question_tool | # Approval gates must use the question tool (Manager standing rule 2026-09-27) |  |

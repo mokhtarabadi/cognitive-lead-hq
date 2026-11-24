@@ -20,3 +20,12 @@
 - **Decision:** `scripts/format-guard.sh` dispatches prettier, ruff and shfmt on `write`/`edit`/`patch` and skips five byte-sensitive path classes. Prettier reads those five from `.prettierignore`. The guard cannot read that file portably in Bash, so it carries the same five classes in one `case` arm, and two assertions in `tests/test_prompt_sync.py` pin the lists against each other in both directions. The guard derives the repo root from its own location, normalizes a repo-relative `$FILE`, refuses any path that resolves outside the repo, and fails loud with a named stderr message when a dispatcher is missing.
 - **Consequences:** Gate and auto-formatter cannot disagree without a red test. `prompts/fragments/*`, `prompts/shared/*`, `system-prompt.md`, `build/stage-prompts/*` and `tasks/*` are excluded from both, so their formatting is a review concern rather than a build gate. Install semantics stay asymmetric by necessity: `npx --no-install` never fetches, `uvx` does. One limitation is recorded rather than fixed: `opencode.json` invokes `bash scripts/format-guard.sh` by a repo-relative path, so the guard runs only while the formatter's working directory is the repo root.
 - **Rollback:** Delete `.prettierignore`, delete this entry, restore the single `ruff-format` entry in `opencode.json`, delete the guard, and drop the parity assertions.
+
+<!-- provenance: tasks/in-progress/422-regenerate-stage-prompts-every-release.md -->
+
+## [2026-11-24] ADR-004: Prompt releases gate and deploy the full stage set
+
+- **Context:** The release script regenerated and deployed only the full prompt. Stage artifacts stayed stale, and the assembler had no mode that could prove freshness without rewriting files.
+- **Decision:** Add an exact-byte freshness check that rebuilds into a temporary tree. The release script regenerates the full prompt and all stage artifacts, runs the check before deployment, then copies and compares the complete set.
+- **Consequences:** Missing or drifted stage artifacts block a release. Generated files stay out of Git, and a failed comparison halts under strict shell mode.
+- **Rollback:** Remove the check mode and release-script gate, restore the prior deploy block, and regenerate the full prompt from fragments.

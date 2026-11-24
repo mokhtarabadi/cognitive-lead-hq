@@ -160,3 +160,12 @@
 - **Decision:** Add sprint and planner to ALLOWED_STAGES, the routing manifest, and the stage tiers; document aliases (code review maps to review, planning maps to plan); regression-test every stage literal in prompt-facing Markdown against the admitted set.
 - **Consequences:** Two persona-scoped artifacts join the six existing ones; stage drift becomes test-enforced instead of prose-enforced.
 - **Rollback strategy:** Revert the enum line, the two manifest objects, the two tier lines, the added tests, and the docs sentences; no runtime state is touched.
+
+<!-- provenance: tasks/in-progress/422-regenerate-stage-prompts-every-release.md -->
+
+## [2026-11-24] ADR-016: Stale stage artifacts fall back instead of failing the turn
+
+- **Context:** The loader accepted any existing stage artifact without checking its release version. A stale artifact silently replaced current rules for every stage-scoped turn.
+- **Decision:** Compare the artifact version with the current source version. Skip a stale artifact with one stderr note and continue to the next candidate, ending at the full prompt. Explicit path and environment overrides remain ungated.
+- **Consequences:** Stage scoping is preserved while artifacts are fresh, and a release omission degrades safely instead of breaking the only automation path. The running singleton needs a Manager restart to load the new loader.
+- **Rollback:** Remove the version helpers and candidate-loop guard, then restart the singleton through the Manager-owned process.

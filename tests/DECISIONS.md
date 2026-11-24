@@ -41,3 +41,12 @@
 - **Decision:** (1) Re-anchor the executor guard to the ZAC deny-resource surface and the drift-guard mutation to a phrase verified present in HEAD; change the splitter's stale VP regex/count (`2-space indent`, `== 3`) to the real column-0, five-block structure so the byte-identity round trip is lossless — no shipped prompt edits. (2) Fix planner auth isolation at the test fixture: point `PLANNER_USERS_CONFIG` at a non-existent temp path so `_load_user_config` falls back to open local mode (fail-open on missing config — the documented no-auth behavior, not a security guard). The server's 401 is correct RFC 9110 behavior; no production change. (3) Fix the skill-registry race by per-test `tmp_path` isolation, not retry/sleep masking. (4) No test deleted to reach green; guard floor held at 960 test functions and 4 pre-existing skip/xfails.
 - **Consequences:** A future prompt regeneration that changes the VP block count or indentation requires a matching splitter update; the byte-identity gate catches any mismatch. Auth-enabled planner deployments still require real credentials; only the offline tests run open mode.
 - **Rollback:** Revert the three test files (`test_mcp_servers.py`, `test_planner_409_regression.py`, `test_skill_registry.py`) plus `scripts/prompt-build/split_system_prompt.py`; no runtime auth or server code was changed.
+
+<!-- provenance: tasks/in-progress/422-regenerate-stage-prompts-every-release.md -->
+
+## [2026-11-24] ADR-007: Pin stage freshness and release ordering offline
+
+- **Context:** Existing stage tests skipped missing artifacts and checked content shape, not freshness. A stale stage set could therefore pass while overriding the current full prompt.
+- **Decision:** Add hermetic tests that generate into temporary directories, mutate one artifact, and require the freshness gate to fail. Pin runtime fallback, fresh-artifact serving, explicit override priority, and release-script ordering.
+- **Consequences:** A clean clone needs no prebuilt `build/` tree to prove the gate. Stale full prompts, stale stage prompts, and deploy-before-check regressions all fail offline.
+- **Rollback:** Remove the added tests and helpers; no production behavior depends on the tests.

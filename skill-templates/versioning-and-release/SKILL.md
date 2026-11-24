@@ -66,8 +66,9 @@ All git commit messages MUST use lowercase prefixes followed by a colon and a sp
 2. Open `CHANGELOG.md` and insert a formal release entry under the new version header, categorizing your modifications correctly.
 3. Open the active task file in `tasks/` and ensure your final reasoning and files modified are accurately logged under the "Execution Log & Reasoning" section.
 4. If a release includes changes to system behavior, skills, MCP servers, task templates, or workflow rules, `system-prompt.md` version MUST be bumped.
-5. If a release is metadata-only (e.g., LICENSE addition), the CHANGELOG MUST explicitly state: "system-prompt.md version unchanged."
-6. The `[Unreleased]` section MUST be empty after a release. All entries MUST be moved under the new version header.
+5. If the repository generates stage-scoped prompt artifacts, every release that changes prompt sources must regenerate the full prompt and every declared stage artifact, then pass the repository freshness gate before deployment. A release with a stale stage artifact is incomplete.
+6. If a release is metadata-only (e.g., LICENSE addition), the CHANGELOG MUST explicitly state: "system-prompt.md version unchanged."
+7. The `[Unreleased]` section MUST be empty after a release. All entries MUST be moved under the new version header.
 
 ### Phase 3: Staging & Factual Diff Injection
 

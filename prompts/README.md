@@ -121,6 +121,18 @@ security boundary applies to its entries as to include paths:
 - **Parent-directory traversal in manifest entries** (e.g. `../outside.md`)
   is rejected by the assembler with a `ValueError` naming the unsafe entry.
 
+## Stage Prompt Freshness
+
+A fragment or version edit makes all eight stage artifacts stale because `01-system_version.md` and every other common fragment ships inside each of them. Regenerate the full prompt and every stage artifact before release:
+
+```bash
+python3 scripts/prompt-build/assemble_system_prompt.py
+python3 scripts/prompt-build/assemble_system_prompt.py --stages
+python3 scripts/prompt-build/assemble_system_prompt.py --check
+```
+
+`--check` is the machine gate: it regenerates into a temporary directory, compares exact bytes, and exits 1 on any missing or stale artifact. `build/` stays gitignored, so the gate and the release script, not a commit of generated files, are the enforcement.
+
 ## Sync Verification
 
 The lint MCP server exposes `lint_system_prompt_sync()`, which re-runs the

@@ -16,4 +16,5 @@ Maintenance tooling: docs-sync gate and system-prompt assembler/splitter. Enforc
 - Defensive shell/Python protocol: strict mode, no error masking on data commands.
 - Assembler output must be byte-identical to committed `system-prompt.md` (lint gate).
 - Version bump in `<system_version>` required on every prompt rebuild.
+- Every prompt release regenerates AND verifies the full prompt plus all eight stage artifacts before global install; `assemble_system_prompt.py --check` exits 1 on drift.
 - Auto-format exclusions live in two places: `.prettierignore`, which prettier reads, and the `case` arm in `scripts/format-guard.sh`. Both directions are pinned by `test_format_guard_matches_prettierignore` and `test_prettierignore_covers_guard_arms`, so editing one without the other is a red test. The exclusion is defense in depth: these files are Prettier-stable today, and the guard keeps them that way rather than repairing them.

@@ -7,6 +7,7 @@ translate, enrich, and prompt-refactor steps, and every clarification
 or response must stay in simple English.
 """
 
+import re
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
@@ -67,10 +68,23 @@ def test_prompt_refactor_in_executor_matrix():
 
 
 def test_executor_handoff_uses_requested_language():
-    # Historical name retained; the executor documents the always-English
-    # handoff (option 1: update-tests), see the executor handoff rule and
-    # prompts/fragments/24-language_policy.md.
+    # Historical name retained: the documented policy is always-English
+    # output, and this test enforces that policy semantically rather than
+    # pinning one exact sentence, so wording drift in the executor no
+    # longer fakes a regression (see prompts/fragments/24-language_policy.md).
     text = _read(EXECUTOR)
-    assert "regardless of the input language" in text
-    assert "simple English but technical" in text
-    assert "English inside, requested language outside" not in text
+    start = text.index("## Output Contract")
+    rest = text[start + len("## Output Contract") :]
+    end = rest.find("\n## ")
+    section = rest if end == -1 else rest[:end]
+    assert "simple English but technical" in section
+    assert re.search(r"regardless of the (?:user's )?input language", section), (
+        "the Output Contract lost its input-language independence clause"
+    )
+    assert "English inside, requested language outside" not in section
+    assert not re.search(
+        r"(?:respond|reply|write|answer)[^\n]{0,40}in (?:the )?"
+        r"(?:Manager's|requested|input|user's) language",
+        section,
+        re.I,
+    ), "the executor now instructs non-English Manager-facing output"

@@ -27,3 +27,12 @@
 - **Decision:** Each `question`-tool option now leads with a brief ([YYYY-MM-DD HH:MM] sender — first 80 chars, type/topic); the numeric ID stays the machine value only, and the closing prompt asks for option numbers, names, or All, with a numbered-list manual fallback and server-side number-to-ID mapping.
 - **Consequences:** The Manager picks by visible brief instead of transcribing IDs; the sync registry still keys on numeric IDs.
 - **Rollback:** Restore the prior Phase 2 steps from git history.
+
+<!-- provenance: tasks/in-progress/422-regenerate-stage-prompts-every-release.md -->
+
+## [2026-11-24] ADR-005: Stage-artifact regeneration is conditional and project-agnostic
+
+- **Context:** A release omitted stage-prompt regeneration and shipped stale scoped prompts. The reusable versioning skill needed to prevent the same class of omission without embedding HQ-specific paths or commands.
+- **Decision:** Add a conditional rule: repositories that generate stage-scoped prompt artifacts must regenerate the full set and pass their freshness gate before deployment. Concrete commands remain in the owning repository's docs and scripts.
+- **Consequences:** Downstream projects receive the safeguard only when their architecture has stage artifacts. The template stays portable and contains no HQ scaffolding.
+- **Rollback:** Remove the conditional item from the versioning skill and restore the prior Phase 2 numbering.

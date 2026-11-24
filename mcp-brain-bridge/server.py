@@ -1630,6 +1630,45 @@ def _stage_prompt_candidates(stage: Optional[str]) -> list[Path]:
     return out
 
 
+_SYSTEM_VERSION_RE = re.compile(r"<system_version>(.*?)</system_version>")
+
+
+def _artifact_system_version(path: Path) -> Optional[str]:
+    """Return the ``<system_version>`` an artifact declares, or None.
+
+    Unreadable files and files with no version tag both read as None, which
+    the guard treats as "not current". A prompt with no version marker must
+    never win an argument with a staged artifact, because the marker is the
+    contract the release gate enforces.
+    """
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return None
+    match = _SYSTEM_VERSION_RE.search(text)
+    return match.group(1) if match else None
+
+
+def _expected_system_version() -> Optional[str]:
+    """The version every served stage artifact must carry, or None to disable.
+
+    Sources in trust order: the fragment the assembler itself reads, the
+    bridge-root full prompt, then the global install copy. None means no
+    source is readable at all — a stripped install — so the guard stays
+    silent rather than failing the only automation path.
+    """
+    root = _bridge_root()
+    for source in (
+        root / "prompts" / "fragments" / "01-system_version.md",
+        root / "system-prompt.md",
+        Path.home() / ".config" / "opencode" / "system-prompt.md",
+    ):
+        version = _artifact_system_version(source)
+        if version:
+            return version
+    return None
+
+
 def load_system_prompt(
     explicit_path: Optional[str] = None, stage: Optional[str] = None
 ) -> str:
@@ -1648,16 +1687,42 @@ def load_system_prompt(
     ~/.config/opencode) with a .md suffix.
     """
     candidates: list[Path] = []
+    ungated_candidates: list[Path] = []
     if explicit_path:
-        candidates.append(_check_prompt_path(Path(explicit_path)))
+        override = _check_prompt_path(Path(explicit_path))
+        candidates.append(override)
+        ungated_candidates.append(override)
     stage_candidates = _stage_prompt_candidates(stage)
     candidates.extend(stage_candidates)
     env_path = os.environ.get("BRAIN_SYSTEM_PROMPT", "").strip()
     if env_path:
-        candidates.append(_check_prompt_path(Path(env_path)))
+        override = _check_prompt_path(Path(env_path))
+        candidates.append(override)
+        ungated_candidates.append(override)
     candidates.append(Path.home() / ".config" / "opencode" / "system-prompt.md")
+    expected = _expected_system_version() if stage_candidates else None
     for path in candidates:
         if path.is_file():
+            # A stale stage artifact carries the previous release's rules.
+            # Skip it, never serve it, never raise: the next candidate (a
+            # second artifact home, then the full prompt) still gives the
+            # Brain current instructions. Explicit and environment overrides
+            # stay ungated even when they name the same path as a stage
+            # candidate, because operator intent outranks automatic freshness.
+            if (
+                expected is not None
+                and path in stage_candidates
+                and path not in ungated_candidates
+            ):
+                found = _artifact_system_version(path)
+                if found != expected:
+                    print(
+                        f"brain-bridge: stage artifact {path.name} is stale "
+                        f"(v{found or 'unknown'} != current v{expected}); "
+                        "served the full system prompt",
+                        file=sys.stderr,
+                    )
+                    continue
             # A known stage whose artifact never made it to disk fell back
             # to a lower-priority candidate. The note says so, because a
             # silent scope loss looks exactly like a routing bug to
