@@ -59,10 +59,15 @@ Format: JSON with:
 - `task_id`, `session_key`, `response_id`
 - `created_at_utc` (ISO-8601 UTC)
 - `truncated` (boolean)
+- `block_count` (int)
+- `raw_bytes` (int)
 - `byte_counts` (output + xml_blocks byte sizes)
 - `xml_blocks` (array of extracted XML strings)
-- `full_output` (complete raw output including XML)
+- `full_output` (immutable raw provider text captured before triage, including XML)
+- `diagnostics` (object with `code`, `withheld_chars`, `raw_bytes`, `raw_persisted`)
 - `address` (repo-relative POSIX path)
+
+Inline/transcript reject views may be compact previews; `full_output` remains the immutable raw provider text captured before triage.
 
 Retention: 50 files / 5 MB per session, oldest-first by mtime.
 

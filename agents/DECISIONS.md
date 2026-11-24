@@ -251,3 +251,14 @@ Context: The executor mentioned cache retrieval but did not require recovery bef
 Decision: Add a mandatory gate separating Smart Compact cache omission, Code Mode truncation, and Brain output-address stubbing, with bounded retries and live-file checks for cached code.
 Consequences: Important plans, verdicts, XML blocks, and evidence are recovered before use; an unrecoverable loss is logged and surfaced instead of guessed.
 Rollback: Remove the gate section and its two cross-references, then regenerate the prompt and re-run the suite.
+
+<!-- provenance: tasks/in-progress/424-raw-first-brain-output.md -->
+
+## Reject-shaped Brain reports preserve raw output
+
+Date: 2026-11-24
+Status: accepted
+Context: Strict XML rejection previously replaced the provider answer with a compact preview before persistence, destroying the only raw copy and forcing a divergent re-emission.
+Decision: The executor now reads artifact `full_output` for reject-shaped reports and runs one deterministic parse helper before deciding whether complete XML is executable or a re-emission is required.
+Consequences: Hands can inspect the entire Brain answer without allowing malformed XML to execute; marker prefixes and bounded recovery remain unchanged.
+Rollback: Remove the reject-to-raw route and helper command from the recovery gate and Brain result section, then regenerate the prompt and re-run the suite.

@@ -45,3 +45,12 @@
 - **Decision:** Split universal release rules into a portable core and move HQ safeguards into a clearly labeled optional Harness Profile. Add a new Brain orchestration template that names the deployed runbook and stage manifest instead of HQ repository paths.
 - **Consequences:** Downstream projects receive portable release and Brain guidance. Portability is test-enforced for both templates; harness safeguards remain available where required.
 - **Rollback:** Restore the prior skill bodies, remove the Brain template and registry row, and delete the two portability tests.
+
+<!-- provenance: tasks/in-progress/424-raw-first-brain-output.md -->
+
+## [2026-11-24] ADR-007: Brain skill describes raw-first deterministic recovery
+
+- **Context:** The portable Brain skill described pointer recovery but not the raw-before-triage guarantee or the shared deterministic helper.
+- **Decision:** Add one portable sentence stating that the deployed bridge preserves raw provider text and exposes one deterministic parse helper, so rejected extraction never hides the complete answer.
+- **Consequences:** Downstream users know to read the artifact and validate with the helper before re-emitting, without inheriting HQ repository paths.
+- **Rollback:** Remove the added sentence and regenerate the affected skill copy.

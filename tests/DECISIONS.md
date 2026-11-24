@@ -50,3 +50,12 @@
 - **Decision:** Add hermetic tests that generate into temporary directories, mutate one artifact, and require the freshness gate to fail. Pin runtime fallback, fresh-artifact serving, explicit override priority, and release-script ordering.
 - **Consequences:** A clean clone needs no prebuilt `build/` tree to prove the gate. Stale full prompts, stale stage prompts, and deploy-before-check regressions all fail offline.
 - **Rollback:** Remove the added tests and helpers; no production behavior depends on the tests.
+
+<!-- provenance: tasks/in-progress/424-raw-first-brain-output.md -->
+
+## [2026-11-24] ADR-008: Pin raw Brain output and deterministic recovery
+
+- **Context:** A strict reject destroyed the raw provider answer before persistence, and no regression test proved artifact equality or Hands fallback safety.
+- **Decision:** Add a hermetic recovery suite covering raw equality on strict and semantic reject, truthful block counts, diagnostics, compact transcript pointers, legacy artifacts, fence-corpus parity, and non-executable partial XML.
+- **Consequences:** Future triage changes cannot silently replace raw output or weaken the executability gate; the helper and bridge share one parser contract.
+- **Rollback:** Remove the recovery suite and helper; no production behavior depends on the tests.

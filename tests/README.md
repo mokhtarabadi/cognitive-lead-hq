@@ -7,6 +7,7 @@ Offline-only verification suite for the HQ platform: Brain Bridge turns, capabil
 ## Files
 
 - `test_brain_bridge.py` — XML extractor, prompt loader, Responses-API parser, env fallbacks.
+- `test_raw_output_recovery.py` — Raw-before-triage equality, truthful counts, compact reject transcript, deterministic helper, and partial-block non-executability.
 - `test_brain_capability.py` / `test_brain_preflight.py` — Capability manifest and request preflight gates.
 - `test_brain_diff_attach.py` — Diff attachment on QA/reviewer turns.
 - `test_bundle_tasks.py` — META bundling, verbatim preservation, auto-archive moves.

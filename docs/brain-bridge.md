@@ -19,7 +19,8 @@ only; no copy-paste relay instructions` in autopilot, `MODE: MANUAL
    (`~/.config/opencode/system-prompt.md`, override via
    `BRAIN_SYSTEM_PROMPT`) and sends system + history + new prompt
    to the LLM over the OpenAI Responses API via httpx.
-3. **Output comes back raw.** When it contains a structured block
+3. **Output comes back raw.** Triage no longer mutates persisted raw
+   provider text. When it contains a structured block
    (`<hands_implementation_task>`, `<hands_discovery_task>`,
    `<hands_combined_task>`, `<failure_report>`, `<hotfix>`), the bridge returns
    `XML_EXTRACTED` with the block; otherwise `REPORT` with the text.
@@ -284,7 +285,7 @@ records the selected `model` and the effective `risk_tier` (metadata only
 
 ## Oversized Output Path
 
-`brain_turn` measures the inline result (`output` plus `xml_blocks`) against `BRAIN_OUTPUT_INLINE_MAX` (default 50000 chars). Above the cap, `output` becomes a pointer line starting with `[brain-output]` naming the persisted artifact (`output_address`); when XML was extracted, `xml_blocks` returns empty, `block_count` reports the count, and an `[xml]` pointer line states the blocks live in the same artifact under `xml_blocks`. Below the cap the result is byte-identical to the previous contract. When persistence degraded and `output_address` is missing, nothing is stubbed — the inline text stays. The Hands reads the artifact with native file tools and executes the extracted blocks from it (contract in `agents/cognitive-executor.md`): full text under `full_output`, extracted blocks under `xml_blocks`. The `[brain-output]` and `[xml]` marker prefixes are part of the contract and never rename silently.
+`brain_turn` measures the inline result (`output` plus `xml_blocks`) against `BRAIN_OUTPUT_INLINE_MAX` (default 50000 chars). Above the cap, `output` becomes a pointer line starting with `[brain-output]` naming the persisted artifact (`output_address`); when XML was extracted, `xml_blocks` returns empty, `block_count` reports the count, and an `[xml]` pointer line states the blocks live in the same artifact under `xml_blocks`. Below the cap, the `output` and `xml_blocks` strings keep their existing inline shape, while additive `block_count` and `diagnostics` metadata is always present. When persistence degraded and `output_address` is missing, nothing is stubbed — the inline text stays. The Hands reads the artifact with native file tools and executes the extracted blocks from it (contract in `agents/cognitive-executor.md`): full text under `full_output`, extracted blocks under `xml_blocks`. Reject turns keep the full raw output in the artifact with `block_count`, `raw_bytes`, and `diagnostics`; strict reject transcripts store a compact preview plus the artifact pointer, while semantic reject previews embed the raw text inline exactly as before. Before deciding to re-emit, the Hands runs its deterministic helper, which stays local and preserves the one-tool MCP contract. The `[brain-output]` and `[xml]` marker prefixes are part of the contract and never rename silently.
 
 ## Stage Contract
 

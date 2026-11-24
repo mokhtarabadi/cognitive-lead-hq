@@ -702,6 +702,9 @@ def persist_brain_turn_output(
     full_output,
     truncated,
     clock,
+    block_count=None,
+    raw_bytes=None,
+    diagnostics=None,
 ):
     """Serialize each process-local artifact write and retention pass.
 
@@ -719,6 +722,9 @@ def persist_brain_turn_output(
             full_output=full_output,
             truncated=truncated,
             clock=clock,
+            block_count=block_count,
+            raw_bytes=raw_bytes,
+            diagnostics=diagnostics,
         )
 
 
@@ -731,6 +737,9 @@ def _persist_brain_turn_output_locked(
     full_output,
     truncated,
     clock,
+    block_count=None,
+    raw_bytes=None,
+    diagnostics=None,
 ):
     """Write one per-turn artifact atomically and enforce retention.
 
@@ -774,6 +783,9 @@ def _persist_brain_turn_output_locked(
         },
         "xml_blocks": blocks,
         "full_output": full_text,
+        "block_count": (block_count if block_count is not None else len(blocks)),
+        "raw_bytes": (raw_bytes if raw_bytes is not None else output_byte_count),
+        "diagnostics": diagnostics,
     }
     # Address is repo-relative POSIX so the Hands can open it from the
     # project root with native tools; never an absolute path (no leak
@@ -3119,6 +3131,7 @@ def _shape_oversized_result(result: dict) -> None:
     cap = _output_inline_cap()
     output_text = result.get("output") or ""
     blocks = result.get("xml_blocks") or []
+    result["block_count"] = len(blocks)
     # Measure against the same bytes the artifact counted for this turn.
     inline_chars = len(output_text) + len(json.dumps(blocks, ensure_ascii=False))
     address = result.get("output_address")
@@ -4952,12 +4965,18 @@ def brain_turn(
     # (structured fatal) — the continuity capture below treats None as
     # empty, never a crash.
     resp_data: Any = None
+    raw_output = ""
+    inline_text = ""
+    reject_code: Optional[str] = None
     for _transport_pass in (0, 1):
         if _budget_over_hint_text is not None:
             # Pre-send budget guard tripped: skip the provider entirely and
             # ride the normal REPORT tail below with the hint text.
             output = _budget_over_hint_text
             xml_blocks = []
+            raw_output = output
+            inline_text = output
+            reject_code = None
             _raw_text_present = False
             diag = {
                 "status": "complete",
@@ -5027,6 +5046,9 @@ def brain_turn(
                 diag["error"] or str(exc), diag.get("error_code")
             )
             xml_blocks = []
+            raw_output = output
+            inline_text = output
+            reject_code = None
             _raw_text_present = False
             break
         _raw_text = parse_responses_text(resp_data)
@@ -5057,6 +5079,9 @@ def brain_turn(
         # REPORT text is bounded: first 2000 chars ride along, the
         # remainder is named by a marker instead of pasted whole.
         output_text = output or ""
+        raw_output = output_text  # immutable provider text, captured before triage
+        inline_text = output_text
+        reject_code = None
         try:
             xml_blocks = extract_xml_blocks(output_text)
         except ValueError as exc:
@@ -5078,12 +5103,13 @@ def brain_turn(
                     if len(output_text) > 2000
                     else ""
                 )
-                output = (
+                inline_text = (
                     f"[xml-strict-reject]\n- {exc}\n[/xml-strict-reject]\n"
                     + shown
                     + rest
                 )
                 xml_blocks = []
+                reject_code = msg.split(":", 1)[0]
             else:
                 raise
         if xml_blocks:
@@ -5097,13 +5123,14 @@ def brain_turn(
                     f"({len(sem_problems)} problems)",
                     file=sys.stderr,
                 )
-                output = (
+                inline_text = (
                     "[xml-semantic-reject]\n"
                     + "\n".join(f"- {p}" for p in sem_problems)
                     + "\n[/xml-semantic-reject]\n"
-                    + output
+                    + raw_output
                 )
                 xml_blocks = []
+                reject_code = "XML_SEMANTIC_REJECT"
         diag = parse_responses_diagnostics(resp_data)
         diag["requested_model"] = model
         _log_provider_diagnostics(diag)
@@ -5182,6 +5209,17 @@ def brain_turn(
             diag, task_id, _exhaust_state, _first_effort, _recovery_effort
         )
         xml_blocks = []
+    if reject_code is None:
+        # Empty-output, refusal, budget, and truncation hints are display
+        # text, not provider text. Keep raw_output immutable while the
+        # inline/transcript view follows the final hint.
+        inline_text = output
+    elif TRUNCATION_UNRECOVERABLE in output:
+        # A strict reject can race with terminal upstream truncation. The
+        # truncation hint is the actionable inline result, while raw_output
+        # still preserves the provider fragment and reject_code preserves
+        # the parser diagnosis.
+        inline_text = output
     fence_drops = list(_last_fence_drops)
     # Continuity capture (Task 329 F2/F3): replayable provider items
     # plus estimator calibration from this turn's observed usage. The
@@ -5196,6 +5234,45 @@ def brain_turn(
             _seen_input = _as_int(_seen_usage.get("input_tokens"))
             if _seen_input is not None:
                 _note_observed_ratio(budget_chars, _seen_input)
+    try:
+        raw_bytes = len(raw_output.encode("utf-8"))
+    except UnicodeEncodeError:
+        # The persistence helper will reject the same text with OSError;
+        # diagnostics must not crash the turn before that degradation runs.
+        raw_bytes = 0
+    diagnostics = {
+        "code": reject_code,
+        "withheld_chars": max(len(raw_output) - len(inline_text), 0),
+        "raw_bytes": raw_bytes,
+        "raw_persisted": False,
+    }
+    artifact_diagnostics = dict(diagnostics)
+    artifact_diagnostics["raw_persisted"] = True
+    output_address = None
+    # Per-turn persistence is best-effort. The artifact always receives the
+    # immutable provider text, never the compact reject preview.
+    try:
+        output_address = persist_brain_turn_output(
+            project_root,
+            history_key,
+            task_id,
+            diag.get("response_id"),
+            xml_blocks,
+            raw_output,
+            diag.get("status") == "incomplete",
+            clock=time.gmtime,
+            block_count=len(xml_blocks),
+            raw_bytes=raw_bytes,
+            diagnostics=artifact_diagnostics,
+        )
+        diagnostics["raw_persisted"] = True
+    except OSError as exc:
+        print(f"brain-bridge: output persistence skipped ({exc})", file=sys.stderr)
+    if reject_code and output_address:
+        inline_text += (
+            f"\n[brain-output] Raw provider text preserved at {output_address}. "
+            "Read it with native file tools before deciding to re-emit."
+        )
     if history_key:
         prompt_hash = hashlib.sha256(effective_prompt.encode("utf-8")).hexdigest()
         # Store the compact form: attachment markers, not attachment
@@ -5214,7 +5291,7 @@ def brain_turn(
         append_turn(
             history_key,
             "assistant",
-            output,
+            inline_text,
             model=model,
             prompt_hash=prompt_hash,
             truncated=truncated_count,
@@ -5226,7 +5303,10 @@ def brain_turn(
     result: dict[str, Any] = {
         "status": "XML_EXTRACTED" if xml_blocks else "REPORT",
         "xml_blocks": xml_blocks,
-        "output": output,
+        "output": inline_text,
+        "output_address": output_address,
+        "block_count": len(xml_blocks),
+        "diagnostics": diagnostics,
         "model": model,
         # History loss and attachment loss are two different failures and
         # are reported separately. ``history_turns_dropped`` is canonical;
@@ -5273,26 +5353,6 @@ def brain_turn(
     except Exception:
         # Extractor itself never raises, but the assignment must not either.
         result["tool_calls"] = []
-    # Per-turn persistence (best-effort by design): the artifact holds
-    # xml_blocks plus the full raw output so a truncated inline payload
-    # can be recovered from ``output_address`` with native tools. A
-    # persistence failure must never fail the turn itself. The clock is
-    # injected (universal datetime rule) rather than read from the
-    # wall clock inside the helper.
-    try:
-        result["output_address"] = persist_brain_turn_output(
-            project_root,
-            history_key,
-            task_id,
-            diag.get("response_id"),
-            xml_blocks,
-            output,
-            diag.get("status") == "incomplete",
-            clock=time.gmtime,
-        )
-    except OSError as exc:
-        print(f"brain-bridge: output persistence skipped ({exc})", file=sys.stderr)
-        result["output_address"] = None
     debug: dict[str, Any] = {"provider": diag}
     if fence_drops:
         debug["fenced_blocks"] = len(fence_drops)

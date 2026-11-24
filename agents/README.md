@@ -22,6 +22,7 @@ Defines the two OpenCode agent personas for the Cognitive Lead HQ: primary execu
 - Render call envelope: `openchamber_render` takes `action: "render.page"` and `parameters` as a real object, never a JSON-encoded string. The executor self-checks the envelope before the program; a `parameters: Expected object` error is rebuilt, never retried verbatim.
 - No runtime code here; changes are prompt-contract changes with system-wide effect.
 - Omitted-output recovery is mandatory: important Smart Compact, Code Mode, and Brain pointer losses use distinct bounded routes before the executor acts.
+- Brain raw output is immutable: reject previews never replace artifact `full_output`; Hands uses the deterministic helper and executes only complete validated XML.
 
 ### Free-tier bash gate
 

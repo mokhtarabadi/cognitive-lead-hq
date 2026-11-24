@@ -5,6 +5,7 @@
 | Namespace | Key | Summary | Tags |
 | :--- | :--- | :--- | :--- |
 | architecture | brain-hands-architecture-2026-08-21 | # Brain + Hands Architecture Decision — 2026-08-21 |  |
+| architecture | brain-raw-output-completeness | Brain raw output must be persisted before triage and remain available to Hands in full. | architecture, brain, output-contracts, reliability |
 | architecture | mcp-tool-output-addressing | # MCP tool output and input strings address the calling agent | mcp, tool-output, agent-facing, conventions |
 | architecture | responses_api_best_practice_audit_2026_10_21 | # Responses API best-practice audit (2026-10-21) — Brain Bridge |  |
 | architecture | responses_api_provider_diagnostics | # Responses-API servers must surface provider diagnostics |  |

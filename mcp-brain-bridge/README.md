@@ -7,6 +7,7 @@ Brain Bridge MCP daemon: single-tool (`brain_turn`) automation path for planning
 ## Files
 
 - `server.py` — MCP daemon entrypoint exposing `brain_turn` (only automation path).
+- `parse_brain_output.py` — Shared deterministic Hands helper for inspecting and validating one persisted artifact without executing its XML.
 - `capability.py` — Capability preflight mapping required tools to AVAILABLE/UNAVAILABLE.
 - `preflight.py` — Request validation (project_root must hold `tasks/`, memory binding).
 - `loop_guard.py` — Diff-hash spin guard (same hash 3x stops autopilot fix loop).
@@ -82,7 +83,29 @@ Resolution contract: see docs/brain-bridge.md, section Multi-Project Root Resolu
 
 ## Oversized Output Path
 
-Results above BRAIN_OUTPUT_INLINE_MAX arrive as pointers: the output field begins with the brain-output marker naming the artifact path (output_address), extracted XML moves to the same artifact under xml_blocks with block_count and an xml pointer line inline, and small results stay byte-identical. When no artifact address exists, nothing is stubbed. Full text under full_output, extracted blocks under xml_blocks.
+Results above BRAIN_OUTPUT_INLINE_MAX arrive as pointers: the output field begins with the brain-output marker naming the artifact path (output_address), extracted XML moves to the same artifact under xml_blocks with block_count and an xml pointer line inline, and the output/xml_blocks strings keep their existing inline shape below the cap. Additive block_count and diagnostics metadata is present on every result. When no artifact address exists, nothing is stubbed. Full text under full_output, extracted blocks under xml_blocks.
+
+## Raw Output Before Triage
+
+The bridge captures immutable provider text before XML extraction, semantic validation, and hint or reject rewriting. The per-turn artifact persists that text under `full_output`; the inline result and replay transcript may instead carry a bounded preview plus `output_address`. Strict and semantic reject previews never replace the persisted raw text. Persistence remains best-effort: if the artifact cannot be written, `output_address` is `None`, `diagnostics.raw_persisted` is `false`, and the turn still returns its preview.
+
+Artifacts add three fields without changing existing consumers:
+
+- `block_count` (int): number of XML blocks retained for the turn; rejects retain zero.
+- `raw_bytes` (int): UTF-8 byte length of the raw provider text.
+- `diagnostics` (object):
+  - `code`: strict reject code or `XML_SEMANTIC_REJECT`; `null` when no reject code applies.
+  - `withheld_chars` (int): character-count gap between the raw text and the inline preview.
+  - `raw_bytes` (int): UTF-8 byte length of the raw provider text.
+  - `raw_persisted` (bool): whether the raw-text artifact write succeeded.
+
+Hands inspects a persisted artifact with the shared deterministic helper from the project root:
+
+```bash
+python3 mcp-brain-bridge/parse_brain_output.py <artifact-path>
+```
+
+The helper re-parses `full_output`, applies the bridge's extraction and Hands semantic checks, and emits JSON containing `blocks`, `block_count`, `validation_problems`, and `executable`. It reports rather than executes content. Malformed, truncated, or contract-incomplete XML remains visible in the artifact but has `executable: false`; it is never repaired into an executable block. Legacy artifacts without the additive keys remain readable.
 
 ## Sprint and Planner Stages
 

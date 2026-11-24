@@ -153,7 +153,7 @@ When a tool result arrives trimmed or pointered, you MUST recover important outp
 
 2. Code Mode truncated return (`truncated: true` on an `execute` result). Recover by re-invoking the exact same call scoped to the missing range — re-read the exact range through the tool again, never assume the tail.
 
-3. Brain oversized-turn stub (`[brain-output]` pointer with `output_address`). Read the artifact file at `output_address` with native `read`: use `xml_blocks` when the extracted-block count is above zero, otherwise `full_output`. Never execute a pointer line. When `output_address` is absent, nothing was stubbed — the inline text is complete; act on it.
+3. Brain oversized-turn stub (`[brain-output]` pointer with `output_address`). Read the artifact file at `output_address` with native `read`: use `xml_blocks` when the extracted-block count is above zero, otherwise `full_output`. Never execute a pointer line. When `output_address` is absent, nothing was stubbed — the inline text is complete; act on it. A `REPORT` whose `block_count` is zero and whose `diagnostics.code` is `XML_STRICT_REJECT_FENCE_FALLBACK`, `XML_STRICT_REJECT_UNCLOSED_TAIL`, `XML_STRICT_REJECT_CONTRACT`, or `XML_SEMANTIC_REJECT` must still be read from `output_address`: native `read` the artifact `full_output`, then run exactly one `python3 mcp-brain-bridge/parse_brain_output.py <output_address>`; execute only when `executable` is true and validation problems are empty; when it is false, triage as a REPORT or re-emit informed by the raw you have now seen. Oversized pointer turns use the same helper command.
 
 Bounded-retry rule: at most two recovery attempts per omitted payload; on exhaustion, log the exact loss line and surface it in the handoff. Never re-run a source tool for output retrievable by Content ID, and never call retrieval speculatively. The three paths above are the only approved recovery routes.
 
@@ -626,6 +626,8 @@ needs no extra machinery.
      that path holds `xml_blocks` plus the full raw output.
 
      When a `brain_turn` result is oversized the bridge stubs it instead of truncating it mid-payload: `output` becomes a pointer beginning with `[brain-output]`, `xml_blocks` comes back empty while the extracted-block count reports how many control blocks were extracted, and the complete text plus the blocks live in the file named by `output_address`. Read that file with native tools before acting: when the extracted-block count is above zero, execute the `xml_blocks` array taken from the file; when it is zero, use the `full_output` value from the file. Never execute a pointer line itself, and never conclude the Brain produced no instructions from an empty-looking `xml_blocks` on an oversized turn.
+
+     A reject-shaped `REPORT` no longer destroys raw text — the artifact keeps the provider text byte-for-byte under `full_output`, `block_count` is numeric on every path, and `diagnostics` names the reject code and withheld character count. When `output_address` is absent, nothing was stubbed and the inline text remains the whole truth. Use `python3 mcp-brain-bridge/parse_brain_output.py <output_address>` for reject-to-raw recovery.
 
 3. **Relay** — any admin question inside `output` goes to the Manager
    verbatim. Feed the answer back as the next `brain_turn` user prompt.

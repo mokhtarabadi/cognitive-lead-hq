@@ -42,6 +42,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - **Prompt and workflow hardening META 417 (tasks 414/415/416):** reconciled the manual/automatic topology across both DECISIONS files, `docs/architecture.md` and the executor (superseded-note, single finalization sequence, one mode template per autonomy level, no escape-hatch OR); consolidated approval literals and ZAC into single normative blocks with per-surface actors; rebound the brainstorm panel to the Personas Roster with the multi-label carve-out; added the mandatory Context Map Before Brain Calls contract (turn classes A/B/C, audit line, forbidden shapes) to the executor, discovery agent, READMEs, `AGENTS.md` and the governance audit template; added the direct-input plan gate and Brain context-before-plan rule; removed the Template Preservation rule, the duplicate QA/review invocation, the duplicate Strict Tooling Gate sentences and the phantom `@google/design.md` lint command; verified no fragment path and no roster pointer reaches the assembled prompt (the roster is inline) and the Browser-facing prompt carries no fragment-file references. `01-system_version.md` bumped 9.90.1 to 9.92.0 (phases 1B and 2 consolidated into one cycle), `system-prompt.md` regenerated, prompt-sync suite 66 passed (44 existing + 22 new regression assertions: 14 plan-round plus 8 QA-round).
 
+## [9.96.0] - 2026-11-24
+
+### Added
+
+- Raw-before-triage Brain output persistence: every turn artifact keeps immutable provider text under `full_output`, with additive `block_count`, `raw_bytes`, and `diagnostics` metadata.
+- Deterministic Hands helper `mcp-brain-bridge/parse_brain_output.py`, sharing the bridge extractor and semantic validator without executing malformed XML.
+- Raw-output recovery suite covering strict/semantic rejects, truthful counts, compact transcripts, legacy artifacts, nested fences, and partial-block non-executability.
+
+### Fixed
+
+- Strict and semantic reject previews no longer destroy the raw Brain answer or force an uninformed re-emission.
+- Executor recovery now reads reject artifacts and runs the deterministic helper before deciding whether XML is executable.
+- Documentation and ADRs now distinguish immutable artifact raw text from compact inline/transcript previews.
+
+Changed files: `mcp-brain-bridge/server.py`, `mcp-brain-bridge/parse_brain_output.py`, `mcp-brain-bridge/README.md`, `mcp-brain-bridge/DECISIONS.md`, `agents/cognitive-executor.md`, `agents/README.md`, `agents/DECISIONS.md`, `docs/brain-bridge.md`, `docs/data_model.md`, `skill-templates/brain-orchestration/SKILL.md`, `skill-templates/DECISIONS.md`, `tests/test_raw_output_recovery.py`, `tests/test_brain_bridge.py`, `tests/test_prompt_sync.py`, `tests/README.md`, `tests/DECISIONS.md`, `prompts/fragments/01-system_version.md`, `system-prompt.md`, `.opencode/memory/architecture/brain-raw-output-completeness.md`, `.opencode/memory/index.md`. No commit from Hands.
+
 ## [9.95.0] - 2026-11-24
 
 ### Added

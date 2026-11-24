@@ -67,7 +67,7 @@ def test_small_brain_result_stays_inline_unchanged(monkeypatch):
     }
     bridge._shape_oversized_result(result)
     assert result["output"] == "ok"
-    assert "block_count" not in result
+    assert result["block_count"] == 0
     assert "xml" not in result
 
 
@@ -119,7 +119,7 @@ def test_small_result_with_xml_keeps_blocks_inline(monkeypatch):
     }
     bridge._shape_oversized_result(result)
     assert result["xml_blocks"] == blocks
-    assert "block_count" not in result
+    assert result["block_count"] == 1
     assert result["output"] == "short"
 
 
@@ -4800,6 +4800,8 @@ def test_brain_output_persisted_every_turn(tmp_path, monkeypatch):
         assert payload["response_id"] == "resp_abc123"
         assert payload["address"] == addr
         assert set(payload["byte_counts"]) == {"output", "xml_blocks"}
+        assert payload["block_count"] == len(payload["xml_blocks"])
+        assert payload["raw_bytes"] == len(payload["full_output"].encode("utf-8"))
 
 
 def test_brain_output_address_present_and_backward_compat(tmp_path, monkeypatch):
@@ -4827,6 +4829,9 @@ def test_brain_output_address_present_and_backward_compat(tmp_path, monkeypatch)
         "byte_counts",
         "xml_blocks",
         "full_output",
+        "block_count",
+        "raw_bytes",
+        "diagnostics",
         "address",
     }
     assert "unknown" not in addr
