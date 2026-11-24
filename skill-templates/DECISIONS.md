@@ -36,3 +36,12 @@
 - **Decision:** Add a conditional rule: repositories that generate stage-scoped prompt artifacts must regenerate the full set and pass their freshness gate before deployment. Concrete commands remain in the owning repository's docs and scripts.
 - **Consequences:** Downstream projects receive the safeguard only when their architecture has stage artifacts. The template stays portable and contains no HQ scaffolding.
 - **Rollback:** Remove the conditional item from the versioning skill and restore the prior Phase 2 numbering.
+
+<!-- provenance: tasks/in-progress/423-portable-release-omitted-output-brain-skill.md -->
+
+## [2026-11-24] ADR-006: Portable release core plus optional harness profile
+
+- **Context:** The release skill hard-coded HQ files and tools, so downstream projects inherited instructions that did not apply to their repository.
+- **Decision:** Split universal release rules into a portable core and move HQ safeguards into a clearly labeled optional Harness Profile. Add a new Brain orchestration template that names the deployed runbook and stage manifest instead of HQ repository paths.
+- **Consequences:** Downstream projects receive portable release and Brain guidance. Portability is test-enforced for both templates; harness safeguards remain available where required.
+- **Rollback:** Restore the prior skill bodies, remove the Brain template and registry row, and delete the two portability tests.

@@ -40,6 +40,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - **Prompt and workflow hardening META 417 (tasks 414/415/416):** reconciled the manual/automatic topology across both DECISIONS files, `docs/architecture.md` and the executor (superseded-note, single finalization sequence, one mode template per autonomy level, no escape-hatch OR); consolidated approval literals and ZAC into single normative blocks with per-surface actors; rebound the brainstorm panel to the Personas Roster with the multi-label carve-out; added the mandatory Context Map Before Brain Calls contract (turn classes A/B/C, audit line, forbidden shapes) to the executor, discovery agent, READMEs, `AGENTS.md` and the governance audit template; added the direct-input plan gate and Brain context-before-plan rule; removed the Template Preservation rule, the duplicate QA/review invocation, the duplicate Strict Tooling Gate sentences and the phantom `@google/design.md` lint command; verified no fragment path and no roster pointer reaches the assembled prompt (the roster is inline) and the Browser-facing prompt carries no fragment-file references. `01-system_version.md` bumped 9.90.1 to 9.92.0 (phases 1B and 2 consolidated into one cycle), `system-prompt.md` regenerated, prompt-sync suite 66 passed (44 existing + 22 new regression assertions: 14 plan-round plus 8 QA-round).
 
+## [9.95.0] - 2026-11-24
+
+### Added
+
+- Portable Harness Profile for the versioning skill, keeping universal release rules separate from Cognitive Lead safeguards.
+- `brain-orchestration` skill template describing participants, seven seats, stages, modes, approvals, context maps, and output recovery with portable deployed-contract wording.
+- Mandatory omitted-output recovery gate in the Cognitive Executor, with distinct bounded routes for Smart Compact cache omissions, Code Mode truncation, and Brain output-address stubs.
+
+### Changed
+
+- Skill registry and template catalog now list 25 templates.
+- System version bumped to 9.95.0; full prompt and all eight stage artifacts regenerated and freshness-checked.
+
+### Fixed
+
+- None (improvement task).
+
+Changed files: `skill-templates/versioning-and-release/SKILL.md`, `skill-templates/brain-orchestration/SKILL.md`, `skill-templates/README.md`, `skill-templates/DECISIONS.md`, `agents/cognitive-executor.md`, `agents/README.md`, `agents/DECISIONS.md`, `prompts/fragments/01-system_version.md`, `prompts/fragments/07-agent_skills_registry.md`, `prompts/fragments/DECISIONS.md`, `system-prompt.md`, `tests/test_versioning_skill_portability.py`, `tests/test_executor_recovery_gate.py`, `tests/test_brain_orchestration_skill.py`, `tests/test_prompt_sync.py`, `tests/README.md`, `.opencode/memory/architecture/skill-template-portability-rule.md`, `.opencode/memory/index.md`. Task 423. No commit from Hands.
+
 ## [9.94.1] - 2026-11-24
 
 ### Added

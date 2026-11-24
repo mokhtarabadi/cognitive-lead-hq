@@ -146,3 +146,11 @@ Rollback: Restore the Brain-owned automatic-mode overrides and remove the corres
 - **Decision:** Align the discovery summary phase to the four-surface shape, naming the `Tree:` line and its role as the source of the audit line's tree slot. Add one sentence to the worked-examples preamble stating that the examples are prompt text, so their unwrapped outer blocks are not a contradiction of the four-backtick emission rule. Hold the version at 9.93.0, because a bump is owed per shipped change rather than per rebuild inside one unreleased change.
 - **Consequences:** All four manifest surfaces state one shape, and the tree path has a named home for the audit line. The worked examples stay authoritative for the placeholder ban without modelling a forbidden emission. Four residuals (I33-I36) plus one audit-line observation (I37) remain open as documentation debt.
 - **Rollback:** Restore the prior discovery summary sentence, drop the preamble paragraph, restore version 9.92.0 and regenerate.
+
+<!-- provenance: tasks/in-progress/423-portable-release-omitted-output-brain-skill.md -->
+## [2026-11-24] ADR-017: Brain orchestration becomes a portable skill
+
+- **Context:** Brain's participants, seats, stages, modes, gates, and output-recovery paths were spread across runbooks and prompt fragments, making correct use dependent on memorizing internal files.
+- **Decision:** Register a Brain orchestration skill that distills the deployed contract. Its authority wording names the deployed runbook and stage manifest rather than HQ repository paths after the portability rule check.
+- **Consequences:** Agents and downstream projects can load one skill to plan, implement, brainstorm, test, review, and close work without inventing tools or bypassing approval gates.
+- **Rollback:** Remove the registry row and template, decrement the version marker, regenerate prompts, and re-run the registry and portability tests.

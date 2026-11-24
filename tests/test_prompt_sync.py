@@ -48,7 +48,7 @@ def test_shipped_version_is_expected_minor_bump():
     shipped = re.search(
         r"<system_version>(.*?)</system_version>", _read(SHIPPED)
     ).group(1)
-    assert shipped == "9.94.1"
+    assert shipped == "9.95.0"
 
 
 def test_shipped_prompt_documents_context_path_line_ranges():
@@ -373,9 +373,9 @@ def test_executor_contains_full_dto_mandate():
     )
 
 
-def test_shipped_prompt_version_is_9_94_1():
+def test_shipped_prompt_version_is_9_95_0():
     prompt = _read_shipped_prompt_for_approval_contract()
-    assert "9.94.1" in prompt
+    assert "9.95.0" in prompt
 
 
 def test_openui_validity_gate_in_executor_and_fragment():

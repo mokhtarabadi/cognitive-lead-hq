@@ -11,6 +11,9 @@ Offline-only verification suite for the HQ platform: Brain Bridge turns, capabil
 - `test_brain_diff_attach.py` — Diff attachment on QA/reviewer turns.
 - `test_bundle_tasks.py` — META bundling, verbatim preservation, auto-archive moves.
 - `test_prompt_sync.py` — Assembled prompt equals committed `system-prompt.md` (rtk mandate included).
+- `test_versioning_skill_portability.py` — Rejects harness literals in the portable release core and preserves the optional profile.
+- `test_executor_recovery_gate.py` — Pins mandatory recovery for omitted, truncated, and Brain-pointered output.
+- `test_brain_orchestration_skill.py` — Pins Brain participants, seats, stages, gates, and portable authority wording.
 - `test_stage_prompts.py` — Stage routing, runtime freshness fallback, assembler freshness gate, and release ordering.
 - `test_session_lifecycle.py` / `test_loop_guard.py` — Session ledger lifecycle and spin-guard hashing.
 - `test_mcp_servers.py` / `test_skill_registry.py` / `test_input_validation_pipeline.py` — Server contracts, registry, input pipeline.

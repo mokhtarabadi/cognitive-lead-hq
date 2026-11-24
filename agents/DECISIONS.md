@@ -240,3 +240,14 @@ Context: The executor carried two competing numeric length budgets and a duplica
 Decision: Both agent contracts now carry the Manager-Facing Concision Contract verbatim, with the executor's duplicate bullets retired and its Output Contract phrase aligned; the retired Type Drift Sentinel sentence now assigns the gate to manual review.
 Consequences: One user-facing response rule across prompt, executor, and discovery agent; internal channels and frozen pipeline strings stay comprehensive and unchanged.
 Rollback: Restore the prior bullets and final sentence from git history, decrement the version marker to 9.93.0, regenerate the prompt, and re-run both lints.
+
+<!-- provenance: tasks/in-progress/423-portable-release-omitted-output-brain-skill.md -->
+
+## Mandatory omitted-output recovery gate
+
+Date: 2026-11-24
+Status: accepted
+Context: The executor mentioned cache retrieval but did not require recovery before acting on important omitted output, and it mixed three distinct loss paths.
+Decision: Add a mandatory gate separating Smart Compact cache omission, Code Mode truncation, and Brain output-address stubbing, with bounded retries and live-file checks for cached code.
+Consequences: Important plans, verdicts, XML blocks, and evidence are recovered before use; an unrecoverable loss is logged and surfaced instead of guessed.
+Rollback: Remove the gate section and its two cross-references, then regenerate the prompt and re-run the suite.

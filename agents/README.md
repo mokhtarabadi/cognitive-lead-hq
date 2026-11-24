@@ -21,6 +21,7 @@ Defines the two OpenCode agent personas for the Cognitive Lead HQ: primary execu
 - OpenUI validity gate: every `openchamber_render` program is self-checked before the call — exact component signatures, plain string or number `Table` cells, balanced brackets, no named arguments, one statement per line. An arity diagnostic is treated as a source defect, not a renderer bug.
 - Render call envelope: `openchamber_render` takes `action: "render.page"` and `parameters` as a real object, never a JSON-encoded string. The executor self-checks the envelope before the program; a `parameters: Expected object` error is rebuilt, never retried verbatim.
 - No runtime code here; changes are prompt-contract changes with system-wide effect.
+- Omitted-output recovery is mandatory: important Smart Compact, Code Mode, and Brain pointer losses use distinct bounded routes before the executor acts.
 
 ### Free-tier bash gate
 

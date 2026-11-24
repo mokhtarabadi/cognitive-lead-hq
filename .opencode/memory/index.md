@@ -8,6 +8,7 @@
 | architecture | mcp-tool-output-addressing | # MCP tool output and input strings address the calling agent | mcp, tool-output, agent-facing, conventions |
 | architecture | responses_api_best_practice_audit_2026_10_21 | # Responses API best-practice audit (2026-10-21) — Brain Bridge |  |
 | architecture | responses_api_provider_diagnostics | # Responses-API servers must surface provider diagnostics |  |
+| architecture | skill-template-portability-rule | Skill templates are project-agnostic; harness-specific names belong only in an optional profile or deployed-contract ... | architecture, skills, portability |
 | architecture | zen-proxy-ownership | # zen-proxy is owned by this repo (2026-10-23) | zen-proxy, gateway, brain-provider, systemd, global-install |
 | opencode_config | blowsh_image_policy | # Blowsh image and proxy policy — two optional backends (supersedes direct-only rule) | blowsh, docker, images, opencode, proxy |
 | opencode_config | brain-deepseek-fixes-2026-11-22 | # Brain DeepSeek hardening (2026-11-22) |  |
