@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [9.96.0] - 2026-11-24
+
 ### Changed
 
 - **Brain runtime keeps Qwen with a bounded effort and ordered timeouts (no task file):** set the deployed `BRAIN_REASONING_EFFORT` from `max` to `medium`, added explicit `BRAIN_HTTP_READ_TIMEOUT=960`, `BRAIN_OVERALL_DEADLINE_S=1200`, and `ZEN_PROXY_UPSTREAM_TIMEOUT=900`, and raised the global Brain MCP execution timeout from 600000ms to 1500000ms. Updated `.env.example`, `LLM.txt`, Brain and Zen living-folder docs, both ADR files, and this changelog. The repository `opencode.json` remains MCP-free by design. No Brain call, no task file, no commit.
@@ -41,8 +43,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **Brain bridge chat-completions hardening (task 412):** the chat-completions converter now passes usage details through (`input_tokens_details.cached_tokens`, `output_tokens_details.reasoning_tokens`), folding DeepSeek top-level `prompt_cache_hit_tokens`/`reasoning_tokens` into the nested shape when absent, ignoring non-dict detail payloads, and logging a warning when an unsupported Responses input item is dropped. Output token budget raised to 131072 for max-effort turns via `BRAIN_MAX_TOKENS`. Six regression tests added; 396 passed.
 
 - **Prompt and workflow hardening META 417 (tasks 414/415/416):** reconciled the manual/automatic topology across both DECISIONS files, `docs/architecture.md` and the executor (superseded-note, single finalization sequence, one mode template per autonomy level, no escape-hatch OR); consolidated approval literals and ZAC into single normative blocks with per-surface actors; rebound the brainstorm panel to the Personas Roster with the multi-label carve-out; added the mandatory Context Map Before Brain Calls contract (turn classes A/B/C, audit line, forbidden shapes) to the executor, discovery agent, READMEs, `AGENTS.md` and the governance audit template; added the direct-input plan gate and Brain context-before-plan rule; removed the Template Preservation rule, the duplicate QA/review invocation, the duplicate Strict Tooling Gate sentences and the phantom `@google/design.md` lint command; verified no fragment path and no roster pointer reaches the assembled prompt (the roster is inline) and the Browser-facing prompt carries no fragment-file references. `01-system_version.md` bumped 9.90.1 to 9.92.0 (phases 1B and 2 consolidated into one cycle), `system-prompt.md` regenerated, prompt-sync suite 66 passed (44 existing + 22 new regression assertions: 14 plan-round plus 8 QA-round).
-
-## [9.96.0] - 2026-11-24
 
 ### Added
 
