@@ -33,3 +33,42 @@ A real `fetch_web` on `https://example.com` must return page text with `isError:
 ## Rollback
 
 Recreate blowsh with either proxy mode's variables. See `docs/blowsh-proxy-options.md`.
+
+## Troubleshooting: "Browsh did not start in HTTP mode within timeout"
+
+Symptom: every `search_web`/`fetch_web` fails with that error and logs show
+`A headless Firefox is already running` plus `unexpected child exit (code=1)`.
+
+Cause: an orphaned `firefox-esr` process (or stale `.parentlock`/`lock` files)
+holds the `browsh-profile` volume. Browsh refuses to start a second instance
+against that profile, so the manager's circuit opens. This is a profile-state
+problem, not a proxy problem — it reproduces with `PROXY_TYPE=none`.
+
+Fix (direct mode, no proxy):
+
+```bash
+docker stop blowsh-singleton
+docker rm blowsh-singleton
+docker volume rm browsh-profile
+docker run -d --name blowsh-singleton --restart unless-stopped \
+  -p 127.0.0.1:8107:8107 \
+  -v browsh-profile:/data/browsh-profile \
+  -e MCP_TRANSPORT=http -e MCP_HOST=0.0.0.0 -e MCP_PORT=8107 \
+  -e BROWSH_STARTUP_TIMEOUT_MS=120000 \
+  -e BROWSH_QUEUE_TIMEOUT_MS=600000 \
+  -e BROWSH_REQUEST_TIMEOUT_MS=180000 \
+  -e SEARCH_DEADLINE_MS=900000 \
+  -e BROWSH_CRASH_WINDOW_MS=60000 \
+  -e BROWSH_CRASH_THRESHOLD=3 \
+  -e BROWSH_CRASH_COOLDOWN_MS=30000 \
+  -e BROWSH_PROFILE_DIR=/data/browsh-profile \
+  -e BROWSH_COLS=160 -e BROWSH_ROWS=60 \
+  -e PROXY_TYPE=none \
+  ghcr.io/mokhtarabadi/blowsh-mcp:latest
+```
+
+Verify with `fetch_web` on `https://example.com` returning `isError:false`.
+
+Note: removing the volume wipes the profile; do this only when the profile is
+stuck. Prefer clearing just the lock files inside the container first if the
+Firefox process can be killed cleanly.

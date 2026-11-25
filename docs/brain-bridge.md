@@ -151,12 +151,15 @@ repo-root `.env`). Real process env wins; blank counts as unset. See
 | `BRAIN_HTTP_READ_TIMEOUT`       | `600` code default; deployed `960` — httpx read timeout for the provider call                                                                        |
 | `BRAIN_OVERALL_DEADLINE_S`      | `900` code default; deployed `1200` — whole retry-sequence deadline; must sit above the proxy hop and below the MCP client timeout                   |
 
-The deployed Brain uses `http://127.0.0.1:8081/go/chat` with
-`chat_completions`, `qwen3.8-flash`, and `BRAIN_REASONING_EFFORT=medium`. The
-`zen-proxy` hop imposes its own upstream silence timeout, so the binding
-ordering is `ZEN_PROXY_UPSTREAM_TIMEOUT` (900s) ≤ `BRAIN_HTTP_READ_TIMEOUT`
-(960s) ≤ `BRAIN_OVERALL_DEADLINE_S` (1200s) ≤ the MCP client's execution
-timeout (1500000ms). The current bridge checks the overall deadline between
+The deployed Brain uses `http://127.0.0.1:8081/go/resp` with
+`responses`, `muse-spark-1.3-contributor` as the default and T0 model,
+`gpt-6-luna` for T1/T2, and `BRAIN_REASONING_EFFORT=max`. Stage routing is
+`qa:T2,plan:T0,review:T2,sprint:T0,brainstorm:T2,implement:T0,closure:T0,planner:T0`;
+unlisted stages fall back to the default model. The `zen-proxy` hop imposes
+its own upstream silence timeout, so the binding ordering is
+`ZEN_PROXY_UPSTREAM_TIMEOUT` (900s) ≤ `BRAIN_HTTP_READ_TIMEOUT` (960s) ≤
+`BRAIN_OVERALL_DEADLINE_S` (1200s) ≤ the MCP client's execution timeout
+(1500000ms). The current bridge checks the overall deadline between
 attempts, so the read timeout remains the in-flight hard stop. A proxy
 timeout below a real turn's duration surfaces here as
 `RemoteProtocolError: Server disconnected without sending a response`.

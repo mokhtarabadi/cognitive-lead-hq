@@ -55,9 +55,11 @@ In `chat_completions` mode:
 
 ## Deployed Runtime Configuration
 
-The current deployment keeps `qwen3.8-flash` on the Chat Completions mount
-(`BRAIN_API_BASE=http://127.0.0.1:8081/go/chat`,
-`BRAIN_UPSTREAM_MODE=chat_completions`) with `BRAIN_REASONING_EFFORT=medium`.
+The current deployment keeps `muse-spark-1.3-contributor` on the Responses mount
+(`BRAIN_API_BASE=http://127.0.0.1:8081/go/resp`,
+`BRAIN_UPSTREAM_MODE=responses`) with `BRAIN_MODEL_LOW=muse-spark-1.3-contributor`,
+`BRAIN_MODEL_HIGH=gpt-6-luna`, `BRAIN_REASONING_EFFORT=max`, and
+`BRAIN_STAGE_TIERS=qa:T2,plan:T0,review:T2,sprint:T0,brainstorm:T2,implement:T0,closure:T0,planner:T0`.
 The binding timeout ladder is `ZEN_PROXY_UPSTREAM_TIMEOUT=900s` ≤
 `BRAIN_HTTP_READ_TIMEOUT=960s` ≤ `BRAIN_OVERALL_DEADLINE_S=1200s` ≤ the MCP
 client execution timeout (`1500000ms`). Code defaults remain 600s read and
