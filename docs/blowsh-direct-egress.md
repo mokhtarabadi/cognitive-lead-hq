@@ -72,3 +72,20 @@ Verify with `fetch_web` on `https://example.com` returning `isError:false`.
 Note: removing the volume wipes the profile; do this only when the profile is
 stuck. Prefer clearing just the lock files inside the container first if the
 Firefox process can be killed cleanly.
+
+### Known runtime bug: idle kill orphans Firefox
+
+`clearProcess()` SIGTERMs the Browsh process group, but in this image the
+Firefox child can survive the kill and keep the profile lock. The next
+`ensureStarted()` then fails with "Browsh did not start in HTTP mode within
+timeout" / "A headless Firefox is already running".
+
+Workaround used in production: disable the broken respawn paths and clean
+locks on boot:
+
+- `BROWSH_IDLE_TIMEOUT_MS=86400000` (effectively never idle-kill)
+- `BROWSH_RECYCLE_REQUESTS=1000000` (effectively never recycle)
+- `BROWSH_HEALTH_PROBE_TIMEOUT_MS=10000`
+- container command prefix: `pkill -f firefox-esr; sleep 1; rm -f ...locks...; exec node dist/server.js`
+
+This keeps one long-lived browser and avoids the orphaned-Firefox respawn.
