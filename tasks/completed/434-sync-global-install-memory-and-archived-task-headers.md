@@ -1,9 +1,10 @@
 # Task 434: Sync global-install memory and archived task headers
 
-**File:** `tasks/qa/434-sync-global-install-memory-and-archived-task-headers.md`
+**File:** `tasks/completed/434-sync-global-install-memory-and-archived-task-headers.md`
 **Source:** manager
 **Type:** chore
-**Status:** qa
+**Status:** closed
+**Finished:** 2026-11-27T11:06:09Z
 **Submitted:** 2026-11-27T10:38:10Z
 **Started:** 2026-11-27T10:38:06Z
 
@@ -94,46 +95,5 @@ None. The staged diff matches the corrected scope exactly.
 ## Factual Git Diff
 
 <!-- BEGIN_GIT_DIFF -->
-```diff
-diff --git a/CHANGELOG.md b/CHANGELOG.md
-index 6c1dd71..bf5d42f 100644
---- a/CHANGELOG.md
-+++ b/CHANGELOG.md
-@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
- 
- ## [Unreleased]
- 
-+### Changed
-+
-+- **Chore: sync global-install memory and archived headers after release with no code change:** recorded the zen-bridge install target and the zen-proxy retirement in `global-install-upgrade.md`, and applied the `Superseded-By` pointers the bundler wrote to the six archived task headers. No code, test, or runtime behaviour change; full suite `940 passed`.
-+
- ## [9.97.0] - 2026-11-27
- 
- ### Changed
-diff --git a/tests/test_prompt_sync.py b/tests/test_prompt_sync.py
-index a9e187d..c5e1f74 100644
---- a/tests/test_prompt_sync.py
-+++ b/tests/test_prompt_sync.py
-@@ -48,7 +48,7 @@ def test_shipped_version_is_expected_minor_bump():
-     shipped = re.search(
-         r"<system_version>(.*?)</system_version>", _read(SHIPPED)
-     ).group(1)
--    assert shipped == "9.96.0"
-+    assert shipped == "9.97.0"
- 
- 
- def test_shipped_prompt_documents_context_path_line_ranges():
-@@ -374,9 +374,9 @@ def test_executor_contains_full_dto_mandate():
-     )
- 
- 
--def test_shipped_prompt_version_is_9_96_0():
-+def test_shipped_prompt_version_is_9_97_0():
-     prompt = _read_shipped_prompt_for_approval_contract()
--    assert "9.96.0" in prompt
-+    assert "9.97.0" in prompt
- 
- 
- def test_openui_validity_gate_in_executor_and_fragment():
-```
+**Factual Git Diff:** Stored in Commit Hash: `53fe9b73bb264a04be6735d814a46ce0fede831f`
 <!-- END_GIT_DIFF -->
