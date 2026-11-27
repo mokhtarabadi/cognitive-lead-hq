@@ -5,6 +5,9 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
+### Changed
+
+- **Task 425 — enhanced Python zen-proxy:** stdlib-only `zen-proxy/proxy.py`; Bun/JS removed; caller supplies model/prompt/key; cached OpenCode-v2 identity; responses/chat/models/discovery/CONNECT endpoints; CONNECT allowlist 403; 413 body cap; chunked 400; GET body fix; timeout 504/502; CONNECT tunnels through upstream HTTP proxy from `.env`; Brain on `muse-spark-1.3-contributor` with key in MCP env. Verified health/models/chat/responses/CONNECT 200 and `brain_turn` completed. Docs, `.env.example`, ADR-010 updated.
 
 ## [9.96.0] - 2026-11-24
 

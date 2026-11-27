@@ -141,3 +141,57 @@ journal. No new env knobs. Install/restart remain Manager actions.
 - **Decision:** Keep the proxy at 900 seconds and document the full deployed order: proxy 900 ≤ Bridge read 960 ≤ Bridge overall 1200 ≤ MCP client 1500 seconds. The proxy owns no new setting beyond its existing `ZEN_PROXY_UPSTREAM_TIMEOUT`.
 - **Consequences:** The proxy has time to emit its own 504 before the Bridge read timeout, and the MCP client has time to receive the Bridge result. No proxy code or default changes.
 - **Rollback:** Restore the previous caller settings; the proxy default remains 900 seconds.
+
+## [2026-11-26] ADR-007: Additive free-tier identity layer (headers + preamble + manifest)
+
+- **Context:** Task 425 extended scope. The free-tier gateway (Zen) requires a client identity bundle (`x-opencode-client`, `x-opencode-project` sha1, harness preamble, tool manifest) to serve free models. Previously ADR-005 declined to adopt these because the slice authenticated with a real Go key. Now the Brain needs to use a free-tier model (seaglass-alpha-free) on /zen/resp, so the identity bundle is required. The Bun TLS fingerprint (which turns 429 into 200) is NOT adopted in this phase; it remains a separate, larger task. Only the additive header/preamble/manifest layer is added.
+- **Decision:** Add `zen-proxy/identity.py` (pure module) providing `build_client_headers`, `build_project_headers`, `load_preamble_text`, `load_tool_manifest_text`, `build_identity_headers`, `prepend_identity_to_system_prompt`. Wire additively into `proxy.py` `out_headers` via `setdefault` (never overwriting a real client value). Ship `agent-preamble.txt` and `agent-tools.json` copied from the reference (MIT, (c) 2026 12errh). The preamble/manifest files are loaded best-effort and return empty string when absent.
+- **Consequences:** Free-tier requests now carry the identity bundle. System-prompt prepend is deferred (body is opaque bytes in the current scope). The Bun TLS fingerprint gap remains; free-tier generation may still 429 until a Bun transport is added. No change to ModelNotServedHere, ROUTES, allowlists, or the failure contract.
+- **Rollback:** Remove `zen-proxy/identity.py`, revert the two edits in `zen-proxy/proxy.py`, delete the copied preamble/manifest files. The proxy returns to allowlist-only behaviour.
+- Hotfix 2026-11-26 removed shipped preamble plus manifest files as dead stale bundle, loaders now return empty string.
+
+## [2026-11-26] ADR-008: Bun sidecar for upstream TLS fingerprint
+
+- **Context:** Task 425 Phase 3. The free-tier gateway fingerprints the client TLS stack: Python urllib answers 429 FreeUsageLimitError, Bun fetch answers 200. ADR-005/ADR-007 explicitly declined the Bun TLS bypass; this ADR reverses only the transport part, keeping the failure contract and allowlists unchanged.
+- **Decision:** Add `zen-proxy/bun_fetch.mjs` (Bun fetch sidecar) and `zen-proxy/transport.py` (pure module: bun_available, fetch_via_bun, fetch_via_python, fetch_upstream). Wire into `proxy.py` by replacing the single `urllib.request.urlopen` call site with `transport.fetch_upstream` (Bun first, Python fallback on transport failure). NOTE: the sidecar buffers the full response body (BytesIO), so SSE is relayed as one buffered chunk, not true incremental streaming; large payloads are held in memory. Tests mock urlopen by forcing bun_available False.
+- **Consequences:** Upstream fetch now uses Bun TLS when available, fixing the 429 root cause. Fallback to Python keeps the slice working without Bun. 45+9+9 tests pass. Free-tier quota may still 429 until quota resets; end-to-end Brain probe is the final gate. Note: project hash uses the server working directory, so this proxy is single-tenant (all requests share one project bucket).
+- **Rollback:** Revert proxy.py wiring, delete bun_fetch.mjs and transport.py, remove the transport import. Proxy returns to urllib-only.
+
+## [2026-11-26] ADR-009: Replace Python proxy with pure Bun
+
+- **Context:** Manager wants paid Go models usable anywhere, especially Brain, with zero caller setup; Python removed.
+- **Consequences:** Simpler, no Python/uv. Paid Go quota still applies. No free models.
+- **Rollback:** Restore Python files from git; restore old systemd service and proxy.py.
+
+## [2026-11-27] ADR-010: Enhanced Python proxy restored
+
+- **Context:** overnight manager directive: remove all Bun/JS, restore a simple professional Python proxy with everything learned from OpenCode v2 reverse engineering.
+- **Decision:** stdlib-only Python proxy.py with HTTP CONNECT, cached identity, caller-supplied key/model, responses/chat/models/discovery endpoints, no free models. Key lives in MCP server env, not repo .env.
+- **Consequences:** no JS/Bun dependency; all endpoints verified 200; Brain works on muse-spark-1.3-contributor.
+- **Rollback:** restore previous proxy.py from git; JS artifacts are removed.
+
+### Hardening addendum (2026-11-27)
+
+- CONNECT restricted to `opencode.ai` and `models.opencode.ai` on ports 80/443; other targets return 403.
+- Body cap restored via `ZEN_PROXY_MAX_BODY_BYTES` (default 32 MiB); oversized requests return 413.
+
+### Final hardening (2026-11-27)
+
+- Response header strip is case-insensitive, preserves `content-encoding`.
+- CONNECT authority-form to non-allowlisted hosts returns 403; malformed targets 400.
+
+### Final reviewer addendum (2026-11-27)
+
+- Bun sidecar deleted; Python-only canonical. Chunked transfer-encoding rejected with 400. CONNECT host lowercased before allowlist check.
+
+### Postfix (2026-11-27)
+
+- Malformed CONNECT requests carrying a disallowed Host header return 403.
+
+### Final postfix (2026-11-27)
+
+- Removed unused http.client and ssl imports; Python-only canonical enforced.
+
+### Final postfix (2026-11-27)
+
+- `pending = None` initialized before CONNECT proxy_url, fixing UnboundLocalError.
