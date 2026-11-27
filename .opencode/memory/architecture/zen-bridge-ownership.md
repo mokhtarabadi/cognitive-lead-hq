@@ -1,13 +1,13 @@
 ---
 created_at: "2026-10-23T00:00:00+00:00"
 status: active
-tags: [zen-proxy, gateway, brain-provider, systemd, global-install]
+tags: [zen-bridge, gateway, brain-provider, systemd, global-install]
 ---
 
-# zen-proxy is owned by this repo (2026-10-23)
+# zen-bridge is owned by this repo (2026-10-23)
 
-The loopback gateway sidecar on `127.0.0.1:8081` lives in `zen-proxy/` and is
-provisioned from `services/zen-proxy.service`. It was moved here from the
+The loopback gateway sidecar on `127.0.0.1:8081` lives in `zen-bridge/` and is
+provisioned from `services/zen-bridge.service`. It was moved here from the
 `code-server` homelab repo, which now keeps only a historical pointer.
 
 **Why:** its original consumer (Open-WebUI) was retired 2026-09-19, and the
@@ -25,14 +25,15 @@ Brain/Hands needs but landed in the other repo.
   returns `404 ModelNotServedHere` naming the correct mount.
 - The proxy holds **no API key**: the caller's `Authorization` header passes
   through. It reads the single global `~/.config/opencode/.env`.
-- Installed at `~/.config/opencode/zen-proxy/`, venv built with `uv`, unit
+- Installed at `~/.config/opencode/zen-bridge/`, venv built with `uv`, unit
   launches the venv interpreter directly (never `uv run` at runtime).
 
-**Timeout ordering (binding):** `ZEN_PROXY_UPSTREAM_TIMEOUT` (900) ≤
-`BRAIN_OVERALL_DEADLINE_S` (900) ≤ MCP client execution timeout (1200s).
+**Timeout ordering (binding):** `ZEN_BRIDGE_UPSTREAM_TIMEOUT` (900) ≤
+`BRAIN_HTTP_READ_TIMEOUT` (960) ≤ MCP client execution timeout (1500s).
+The bridge does not retry, so no outer deadline sits above them.
 A proxy timeout below a real turn's duration surfaces as
 `RemoteProtocolError: Server disconnected without sending a response`
 followed by `provider overall deadline hit`.
 
 **Do not** re-add a proxy copy to `code-server`; fix it here.
-Docs: `docs/zen-proxy.md`, `zen-proxy/DECISIONS.md`.
+Docs: `docs/zen-bridge.md`, `zen-bridge/DECISIONS.md`.

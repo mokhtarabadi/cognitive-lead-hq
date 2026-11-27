@@ -7,13 +7,14 @@
 - **Consequences:** All future structural or contract changes must be recorded here.
 - **Rollback:** N/A (baseline adoption).
 
-## [2026-10-23] ADR-002: zen-proxy is provisioned from this slice
+## [2026-10-23] ADR-002: the loopback gateway bridge is provisioned from this slice
 
 - **Context:** The Brain's provider hop (`127.0.0.1:8081`) was owned by the
   `code-server` homelab repo while its only consumer lived here, so every
   behavioural change landed in a repo that did not own the need.
-- **Decision:** `zen-proxy.service` ships here next to the MCP units, points
-  `ExecStart` at `~/.config/opencode/zen-proxy/.venv/bin/python`, and reads
+- **Decision:** `zen-bridge.service` (renamed from `zen-proxy.service` on
+  2026-11-27) ships here next to the MCP units, points
+  `ExecStart` at `~/.config/opencode/zen-bridge/.venv/bin/python`, and reads
   the single global `~/.config/opencode/.env`. It stays out of the `mcp-*`
   naming because it speaks the OpenAI API, not MCP.
 - **Consequences:** One provisioning pass installs every loopback service;

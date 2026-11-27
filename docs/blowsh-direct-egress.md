@@ -1,6 +1,6 @@
 # blowsh direct egress (default mode)
 
-Direct egress is the default mode. It needs no proxy container and no `PROXY_*` variables beyond `PROXY_TYPE=none`. WARP and Psiphon remain available as opt-in alternatives; see `docs/blowsh-proxy-options.md`.
+Direct egress is the default mode. It needs no proxy container and no `PROXY_*` variables beyond `PROXY_TYPE=none`. A proxy remains available as an opt-in alternative; see `docs/blowsh-proxy-options.md`.
 
 ## Deploy
 

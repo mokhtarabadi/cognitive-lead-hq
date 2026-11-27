@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "description": "Stage-to-persona routing table for the Brain prompt pipeline. Single source of truth for the assembler (scripts/prompt-build/assemble_system_prompt.py) and the bridge (mcp-brain-bridge/server.py). The full prompt stays the committed fallback for a missing or unknown stage. Manager-term aliases: \"code review\" routes to the review stage; \"planning\" routes to the plan stage; sprint scope work uses the sprint stage; Kanban file-state work uses the planner stage.",
+  "description": "Stage-to-persona routing table for the Brain prompt pipeline. Single source of truth for the assembler (scripts/prompt-build/assemble_system_prompt.py) and the bridge (mcp-brain-bridge/server.py). The full prompt stays the committed fallback for a missing or unknown stage. Each stage ships ONE lead persona block plus the full seven-seat roster in the catalog and the roster table, and the auto_load Layer 3 rule lets the model adopt another seat when a task needs it. Rationale: one primary persona per system message avoids conflicting duties, and per-stage blocks keep the prompt small. Manager-term aliases: \"code review\" routes to the review stage; \"planning\" routes to the plan stage; sprint scope work uses the sprint stage; Kanban file-state work uses the planner stage.",
   "common_fragments": [
     "01-system_version.md",
     "02-role.md",

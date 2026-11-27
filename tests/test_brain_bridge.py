@@ -271,12 +271,12 @@ def test_parse_responses_text_empty_and_malformed():
     assert bridge.parse_responses_text({"output": [{"type": "other"}]}) == ""
 
 
-def test_responses_url_default_and_override(monkeypatch):
+def test_provider_base_default_and_override(monkeypatch):
     monkeypatch.delenv("BRAIN_API_BASE", raising=False)
-    assert bridge._responses_url() == "https://api.openai.com/v1/responses"
-    # Loopback http stays allowed (local proxy); trailing slash is stripped.
+    assert bridge._provider_base() == "https://api.openai.com/v1"
+    # Loopback http stays allowed (local bridge); trailing slash is stripped.
     monkeypatch.setenv("BRAIN_API_BASE", "http://localhost:1/base/")
-    assert bridge._responses_url() == "http://localhost:1/base/responses"
+    assert bridge._provider_base() == "http://localhost:1/base"
 
 
 # --- hotfix hardening (QA_REJECTED follow-up, mocked HTTP only) ---
@@ -295,6 +295,12 @@ class _FakeResp:
         self.headers = {"content-type": ctype}
 
     def json(self):
+        if isinstance(self._payload, Exception):
+            raise self._payload
+        return self._payload
+
+    def model_dump(self):
+        """LiteLLM response shape: the scripted payload is already a dict."""
         if isinstance(self._payload, Exception):
             raise self._payload
         return self._payload
@@ -329,18 +335,18 @@ def _ok_payload(text="ok"):
     }
 
 
-def _stub_httpx(monkeypatch):
-    stub = _types.ModuleType("httpx")
-    stub.TimeoutException = type("TimeoutException", (Exception,), {})
-    stub.TransportError = type("TransportError", (Exception,), {})
+def _stub_httpx(monkeypatch, script=None):
+    """Point the bridge's provider seam at a scripted fake LiteLLM.
 
-    class _Timeout:
-        def __init__(self, *a, **k):
-            self.args, self.kwargs = a, k
+    Kept under the historical name so existing tests keep their call sites;
+    the module no longer stubs ``httpx`` because the bridge sends through
+    LiteLLM.
+    """
+    from litellm_double import FakeLiteLLM
 
-    stub.Timeout = _Timeout
-    monkeypatch.setitem(sys.modules, "httpx", stub)
-    return stub
+    fake = FakeLiteLLM(script or [])
+    monkeypatch.setattr(bridge, "_litellm_module", lambda: fake)
+    return fake
 
 
 def test_api_key_empty_raises(monkeypatch):
@@ -349,40 +355,6 @@ def test_api_key_empty_raises(monkeypatch):
 
     with _pt.raises(RuntimeError, match="empty"):
         bridge._get_api_key()
-
-
-def test_post_retry_succeeds_after_429(monkeypatch):
-    _stub_httpx(monkeypatch)
-    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
-    monkeypatch.setattr(_time, "sleep", lambda s: None)
-    script = [_FakeResp(429, "slow down"), _FakeResp(200, "fine", _ok_payload())]
-    resp, attempts = bridge._post_with_retry(
-        _FakeClient(script), "http://x/responses", {}
-    )
-    assert resp.status_code == 200
-    assert attempts == 2
-
-
-def test_post_final_500_raises_without_key_leak(monkeypatch):
-    _stub_httpx(monkeypatch)
-    monkeypatch.setenv("BRAIN_API_KEY", "sk-SECRET-XYZ")
-    monkeypatch.setattr(_time, "sleep", lambda s: None)
-    script = [_FakeResp(500, "boom")]
-    import pytest as _pt
-
-    with _pt.raises(RuntimeError) as exc:
-        bridge._post_with_retry(_FakeClient(script), "http://x/responses", {})
-    msg = str(exc.value)
-    assert "500" in msg
-    assert "SECRET" not in msg
-
-
-def test_resp_json_non_json_raises():
-    import pytest as _pt
-
-    resp = _FakeResp(200, "<html>not json</html>", ValueError("bad"), "text/html")
-    with _pt.raises(RuntimeError, match="non-JSON"):
-        bridge._resp_json(resp)
 
 
 def test_task_id_allowlist_rejects_separators(tmp_path, monkeypatch):
@@ -418,23 +390,7 @@ def test_brain_turn_never_drops_history(tmp_path, monkeypatch):
         bridge.append_turn("215", "user", "x" * 30000)
     holder = {}
     script = [_FakeResp(200, "fine", _ok_payload())]
-
-    class _CapClient(_FakeClient):
-        def post(self, url, json=None, headers=None, **kwargs):
-            holder["body"] = json
-            return super().post(url, json=json, headers=headers, **kwargs)
-
-    stub = _types.ModuleType("httpx")
-    stub.Client = lambda *a, **k: _CapClient(script)
-    stub.TimeoutException = Exception
-    stub.TransportError = Exception
-
-    class _Timeout:
-        def __init__(self, *a, **k):
-            pass
-
-    stub.Timeout = _Timeout
-    monkeypatch.setitem(sys.modules, "httpx", stub)
+    _mk_bridge_client(monkeypatch, script, holder)
     call = bridge.brain_turn
     target = call.fn if hasattr(call, "fn") else call
     result = target("q", task_id="215")
@@ -452,24 +408,40 @@ def test_brain_turn_never_drops_history(tmp_path, monkeypatch):
 
 
 def _mk_bridge_client(monkeypatch, script, holder=None):
-    class _CapClient(_FakeClient):
-        def post(self, url, json=None, headers=None, **kwargs):
+    """Install a capture-capable fake LiteLLM on the bridge seam.
+
+    ``holder["body"]`` receives the keyword payload handed to LiteLLM with
+    the provider-prefixed model normalized back to the bare id, matching the
+    shape older assertions expect.
+    """
+    from litellm_double import FakeLiteLLM
+
+    class _CapLiteLLM(FakeLiteLLM):
+        def responses(self, **kwargs):
             if holder is not None:
-                holder["body"] = json
-            return super().post(url, json=json, headers=headers, **kwargs)
+                captured = {
+                    key: value
+                    for key, value in kwargs.items()
+                    if key
+                    not in {
+                        "api_base",
+                        "api_key",
+                        "extra_headers",
+                        "timeout",
+                        "num_retries",
+                    }
+                }
+                extra_body = captured.pop("extra_body", None)
+                if isinstance(extra_body, dict):
+                    captured.update(extra_body)
+                model = str(captured.get("model", ""))
+                captured["model"] = model.split("/", 1)[-1]
+                holder["body"] = captured
+            return super().responses(**kwargs)
 
-    stub = _types.ModuleType("httpx")
-    stub.Client = lambda *a, **k: _CapClient(script)
-    stub.TimeoutException = type("TimeoutException", (Exception,), {})
-    stub.TransportError = type("TransportError", (Exception,), {})
-
-    class _Timeout:
-        def __init__(self, *a, **k):
-            self.args, self.kwargs = a, k
-
-    stub.Timeout = _Timeout
-    monkeypatch.setitem(sys.modules, "httpx", stub)
-    return stub
+    fake = _CapLiteLLM(script)
+    monkeypatch.setattr(bridge, "_litellm_module", lambda: fake)
+    return fake
 
 
 def _mk_sys_prompt(tmp_path, monkeypatch, text="sys"):
@@ -478,51 +450,6 @@ def _mk_sys_prompt(tmp_path, monkeypatch, text="sys"):
     prompt_file.parent.mkdir(parents=True, exist_ok=True)
     prompt_file.write_text(text, encoding="utf-8")
     monkeypatch.setenv("BRAIN_SYSTEM_PROMPT", str(prompt_file))
-
-
-def test_post_overall_deadline_fast_fail(monkeypatch):
-    _stub_httpx(monkeypatch)
-    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
-    monkeypatch.setattr(_time, "sleep", lambda s: None)
-    # The env override wins over the code default, so clear it before
-    # patching the default — otherwise an ambient .env value (900) keeps
-    # the deadline real and the turn just exhausts its retries.
-    monkeypatch.delenv("BRAIN_OVERALL_DEADLINE_S", raising=False)
-    monkeypatch.setattr(bridge, "_DEFAULT_OVERALL_DEADLINE_S", 0)
-    import pytest as _pt
-
-    with _pt.raises(RuntimeError, match="deadline"):
-        bridge._post_with_retry(
-            _FakeClient([_FakeResp(500, "boom")]), "http://x/responses", {}
-        )
-
-
-def test_overall_deadline_env_override(monkeypatch):
-    monkeypatch.setenv("BRAIN_OVERALL_DEADLINE_S", "1200")
-    assert bridge._overall_deadline_s() == 1200.0
-    monkeypatch.setenv("BRAIN_OVERALL_DEADLINE_S", "junk")
-    import pytest as _pt
-
-    with _pt.raises(RuntimeError, match="BRAIN_OVERALL_DEADLINE_S"):
-        bridge._overall_deadline_s()
-    monkeypatch.setenv("BRAIN_OVERALL_DEADLINE_S", "-5")
-    with _pt.raises(RuntimeError, match="BRAIN_OVERALL_DEADLINE_S"):
-        bridge._overall_deadline_s()
-    monkeypatch.delenv("BRAIN_OVERALL_DEADLINE_S")
-    assert bridge._overall_deadline_s() == bridge._DEFAULT_OVERALL_DEADLINE_S
-
-
-def test_post_retry_after_honored(monkeypatch):
-    _stub_httpx(monkeypatch)
-    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
-    sleeps = []
-    monkeypatch.setattr(_time, "sleep", lambda s: sleeps.append(s))
-    r429 = _FakeResp(429, "slow down")
-    r429.headers["Retry-After"] = "2"
-    script = [r429, _FakeResp(200, "fine", _ok_payload())]
-    resp, _ = bridge._post_with_retry(_FakeClient(script), "http://x/responses", {})
-    assert resp.status_code == 200
-    assert sleeps and sleeps[0] >= 2
 
 
 def test_strip_quadruple_tilde_unclosed_fences():
@@ -1249,22 +1176,7 @@ def test_brain_turn_writes_metadata(tmp_path, monkeypatch):
     monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
     monkeypatch.setenv("BRAIN_MODEL", "test-model-1")
     script = [_FakeResp(200, "fine", _ok_payload())]
-
-    class _CapClient(_FakeClient):
-        def post(self, url, json=None, headers=None, **kwargs):
-            return super().post(url, json=json, headers=headers, **kwargs)
-
-    stub = _types.ModuleType("httpx")
-    stub.Client = lambda *a, **k: _CapClient(script)
-    stub.TimeoutException = Exception
-    stub.TransportError = Exception
-
-    class _Timeout:
-        def __init__(self, *a, **k):
-            pass
-
-    stub.Timeout = _Timeout
-    monkeypatch.setitem(sys.modules, "httpx", stub)
+    _mk_bridge_client(monkeypatch, script)
     call = bridge.brain_turn
     target = call.fn if hasattr(call, "fn") else call
     result = target("hello", task_id="218")
@@ -1277,140 +1189,49 @@ def test_brain_turn_writes_metadata(tmp_path, monkeypatch):
 
 
 def test_taxonomy_fatal_400_no_retry(monkeypatch):
-    _stub_httpx(monkeypatch)
+    """A bad credential still surfaces through the LiteLLM seam."""
+    _stub_httpx(monkeypatch, [ValueError("bad request")])
     monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
-    client = _FakeClient([_FakeResp(400, "bad request")])
-    with pytest.raises(RuntimeError, match="no retry"):
-        bridge._post_with_retry(client, "http://x/responses", {})
-    assert client.calls == 1
+    with pytest.raises(RuntimeError):
+        bridge._post_with_litellm({"model": "m", "input": "hi"})
 
 
 def test_taxonomy_fatal_401_no_retry(monkeypatch):
-    _stub_httpx(monkeypatch)
-    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
-    client = _FakeClient([_FakeResp(401, "unauthorized")])
-    with pytest.raises(RuntimeError, match="401"):
-        bridge._post_with_retry(client, "http://x/responses", {})
-    assert client.calls == 1
+    """A provider 401 becomes a RuntimeError carrying the status."""
+    from litellm_double import FakeLiteLLMError
 
-
-def test_taxonomy_retryable_503_then_200(monkeypatch):
-    import time as _tmod
-
-    _stub_httpx(monkeypatch)
-    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
-    monkeypatch.setattr(_tmod, "sleep", lambda s: None)
-    script = [_FakeResp(503, "busy"), _FakeResp(200, "fine", {"ok": True})]
-    resp, attempts = bridge._post_with_retry(
-        _FakeClient(script), "http://x/responses", {}
+    _stub_httpx(
+        monkeypatch,
+        [FakeLiteLLMError("unauthorized", status_code=401, code="invalid_api_key")],
     )
-    assert resp.status_code == 200
-    assert attempts == 2
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    with pytest.raises(RuntimeError, match="401"):
+        bridge._post_with_litellm({"model": "m", "input": "hi"})
+
+
+def test_taxonomy_terminal_429_never_retries(monkeypatch):
+    """A 429 is reported like any other provider error, with no retry advice."""
+    from litellm_double import FakeLiteLLMError
+
+    _stub_httpx(
+        monkeypatch,
+        [
+            FakeLiteLLMError(
+                "quota hit",
+                status_code=429,
+                code="insufficient_quota",
+                body={"error": {"code": "insufficient_quota"}},
+            )
+        ],
+    )
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    with pytest.raises(RuntimeError) as exc:
+        bridge._post_with_litellm({"model": "m", "input": "hi"})
+    assert "429" in str(exc.value)
+    assert "no retry" not in str(exc.value)
 
 
 # --- hotfix taxonomy per-class tests (Step 4-9, direct _post unit) ---
-
-
-def _ensure_httpx_exc(monkeypatch):
-    import sys as _sysmod
-
-    _stub_httpx(monkeypatch)
-    _sysmod.modules["httpx"].TimeoutException = type(
-        "TimeoutException", (Exception,), {}
-    )
-    _sysmod.modules["httpx"].TransportError = type("TransportError", (Exception,), {})
-    return _sysmod.modules["httpx"]
-
-
-def test_taxonomy_fatal_403_no_retry(monkeypatch):
-    _ensure_httpx_exc(monkeypatch)
-    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
-    client = _FakeClient([_FakeResp(403, "forbidden")])
-    with pytest.raises(RuntimeError, match="no retry"):
-        bridge._post_with_retry(client, "http://x/responses", {})
-    assert client.calls == 1
-
-
-def test_taxonomy_fatal_404_no_retry(monkeypatch):
-    _ensure_httpx_exc(monkeypatch)
-    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
-    client = _FakeClient([_FakeResp(404, "not here")])
-    with pytest.raises(RuntimeError, match="no retry"):
-        bridge._post_with_retry(client, "http://x/responses", {})
-    assert client.calls == 1
-
-
-def test_taxonomy_fatal_422_no_retry(monkeypatch):
-    _ensure_httpx_exc(monkeypatch)
-    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
-    client = _FakeClient([_FakeResp(422, "unprocessable")])
-    with pytest.raises(RuntimeError, match="no retry"):
-        bridge._post_with_retry(client, "http://x/responses", {})
-    assert client.calls == 1
-
-
-def test_taxonomy_retryable_429_then_200(monkeypatch):
-    import time as _tmod
-
-    _ensure_httpx_exc(monkeypatch)
-    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
-    monkeypatch.setattr(_tmod, "sleep", lambda s: None)
-    script = [_FakeResp(429, "slow"), _FakeResp(200, "fine", {"ok": True})]
-    resp, attempts = bridge._post_with_retry(
-        _FakeClient(script), "http://x/responses", {}
-    )
-    assert resp.status_code == 200
-    assert attempts == 2
-
-
-def test_taxonomy_timeout_then_200(monkeypatch):
-    import time as _tmod
-
-    httpx_stub = _ensure_httpx_exc(monkeypatch)
-    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
-    monkeypatch.setattr(_tmod, "sleep", lambda s: None)
-    script = [
-        httpx_stub.TimeoutException("timed out"),
-        _FakeResp(200, "fine", {"ok": True}),
-    ]
-    resp, attempts = bridge._post_with_retry(
-        _FakeClient(script), "http://x/responses", {}
-    )
-    assert resp.status_code == 200
-    assert attempts == 2
-
-
-def test_taxonomy_message_contract(monkeypatch):
-    _ensure_httpx_exc(monkeypatch)
-    monkeypatch.setenv("BRAIN_API_KEY", "sk-SECRET-XYZ")
-    client = _FakeClient([_FakeResp(403, "denied detail")])
-    with pytest.raises(RuntimeError) as exc:
-        bridge._post_with_retry(client, "http://x/responses", {})
-    msg = str(exc.value)
-    assert "403" in msg and "responses" in msg and "denied detail" in msg
-    assert "SECRET" not in msg
-
-
-def test_taxonomy_sleep_skipped_on_fatal(monkeypatch):
-    import time as _tmod
-
-    _ensure_httpx_exc(monkeypatch)
-    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
-    sleeps = []
-    monkeypatch.setattr(_tmod, "sleep", lambda s: sleeps.append(s))
-    client = _FakeClient([_FakeResp(404, "gone")])
-    with pytest.raises(RuntimeError, match="no retry"):
-        bridge._post_with_retry(client, "http://x/responses", {})
-    assert sleeps == []
-    assert client.calls == 1
-
-
-def test_taxonomy_non_httpx_error_propagates(monkeypatch):
-    _ensure_httpx_exc(monkeypatch)
-    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
-    client = _FakeClient([ValueError("boom")])
-    with pytest.raises(ValueError, match="boom"):
-        bridge._post_with_retry(client, "http://x/responses", {})
 
 
 def test_task_id_allowlist_rejects_traversal(tmp_path, monkeypatch):
@@ -1532,6 +1353,7 @@ def test_brain_turn_include_diff_unresolvable_warns(tmp_path, monkeypatch, capsy
     monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
     _mk_sys_prompt(tmp_path, monkeypatch)
     monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    monkeypatch.setenv("BRAIN_DEBUG", "1")
     monkeypatch.delenv("BRAIN_TEMPERATURE", raising=False)
     holder = {}
     _mk_bridge_client(monkeypatch, [_FakeResp(200, "fine", _ok_payload("ok"))], holder)
@@ -2221,18 +2043,20 @@ class _SeqClient(_FakeClient):
 
 
 def _mk_seq_client(monkeypatch, script, holder):
-    stub = _types.ModuleType("httpx")
-    stub.Client = lambda *a, **k: _SeqClient(script, holder)
-    stub.TimeoutException = type("TimeoutException", (Exception,), {})
-    stub.TransportError = type("TransportError", (Exception,), {})
+    """Install a fake LiteLLM that records every call payload in order."""
+    from litellm_double import FakeLiteLLM
 
-    class _Timeout:
-        def __init__(self, *a, **k):
-            self.args, self.kwargs = a, k
+    class _SeqLiteLLM(FakeLiteLLM):
+        def responses(self, **kwargs):
+            captured = dict(kwargs)
+            model = str(captured.get("model", ""))
+            captured["model"] = model.split("/", 1)[-1]
+            holder.setdefault("bodies", []).append(_copy.deepcopy(captured))
+            return super().responses(**kwargs)
 
-    stub.Timeout = _Timeout
-    monkeypatch.setitem(sys.modules, "httpx", stub)
-    return stub
+    fake = _SeqLiteLLM(script)
+    monkeypatch.setattr(bridge, "_litellm_module", lambda: fake)
+    return fake
 
 
 _TRUNCATED_IMPLEMENT = (
@@ -2923,6 +2747,8 @@ def _run_turn(monkeypatch, tmp_path, payload, prompt="q", task_id="232"):
     monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
     _mk_sys_prompt(tmp_path, monkeypatch)
     monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    # Chatter is gated behind BRAIN_DEBUG; these cases assert the warnings.
+    monkeypatch.setenv("BRAIN_DEBUG", "1")
     _mk_bridge_client(monkeypatch, [_FakeResp(200, "fine", payload)])
     target = (
         bridge.brain_turn.fn if hasattr(bridge.brain_turn, "fn") else bridge.brain_turn
@@ -3064,13 +2890,14 @@ def test_output_budget_hint_contract():
     assert "reasoning=18" in hint
 
 
-def test_log_provider_diagnostics_reports_visible_tokens(capsys):
+def test_log_provider_diagnostics_reports_visible_tokens(capsys, monkeypatch):
     """The diag line exposes the visible-token count (output minus reasoning).
 
     A near-zero value there is the signature of a reasoning trace that ate
     the whole output budget, so the field is the measurement the budget fix
     relies on.
     """
+    monkeypatch.setenv("BRAIN_DEBUG", "1")
     bridge._log_provider_diagnostics(
         {
             "status": "completed",
@@ -3090,8 +2917,11 @@ def test_log_provider_diagnostics_reports_visible_tokens(capsys):
     assert "reasoning_tokens=90" in err
 
 
-def test_log_provider_diagnostics_visible_tokens_none_without_usage(capsys):
+def test_log_provider_diagnostics_visible_tokens_none_without_usage(
+    capsys, monkeypatch
+):
     """Missing usage must not crash or invent a visible count."""
+    monkeypatch.setenv("BRAIN_DEBUG", "1")
     bridge._log_provider_diagnostics(
         {
             "status": "incomplete",
@@ -3476,6 +3306,7 @@ def test_writes_avoid_legacy_global_when_no_root(tmp_path, monkeypatch, capsys):
     fake_home = tmp_path / "home5"
     fake_home.mkdir()
     monkeypatch.setenv("HOME", str(fake_home))
+    monkeypatch.setenv("BRAIN_DEBUG", "1")
     _clean_session_env(monkeypatch)
     bare = tmp_path / "bare5"
     bare.mkdir()
@@ -3547,6 +3378,7 @@ def _run_turn_capture(
     _mk_sys_prompt(tmp_path, monkeypatch)
     monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
     monkeypatch.delenv("BRAIN_TEMPERATURE", raising=False)
+    monkeypatch.setenv("BRAIN_DEBUG", "1")
     holder = {}
     _mk_bridge_client(monkeypatch, [_FakeResp(200, "fine", payload)], holder=holder)
     target = (
@@ -4432,15 +4264,15 @@ def test_https_guard_rejects_plaintext_remote():
     assert "BRAIN_API_BASE" in str(exc.value)
 
 
-def test_responses_url_rejects_plaintext_remote(monkeypatch):
+def test_provider_base_rejects_plaintext_remote(monkeypatch):
     monkeypatch.setenv("BRAIN_API_BASE", "http://api.example.com/v1")
     with pytest.raises(RuntimeError):
-        bridge._responses_url()
+        bridge._provider_base()
 
 
-def test_responses_url_accepts_https(monkeypatch):
+def test_provider_base_accepts_https(monkeypatch):
     monkeypatch.setenv("BRAIN_API_BASE", "https://openrouter.ai/api/v1")
-    assert bridge._responses_url() == "https://openrouter.ai/api/v1/responses"
+    assert bridge._provider_base() == "https://openrouter.ai/api/v1"
 
 
 # --- R2: configurable read timeout (Task 265) ---
@@ -5298,399 +5130,31 @@ def test_brain_turn_output_address_propagated_and_degraded(tmp_path, monkeypatch
     assert degraded["status"] == "REPORT"
 
 
-# --- Task 401: Chat-completions translation and upstream mode ---
+# --- Provider base resolution (LiteLLM era) ---
 
 
-def test_upstream_mode_default_and_validation(monkeypatch):
-    monkeypatch.delenv("BRAIN_UPSTREAM_MODE", raising=False)
-    assert bridge._upstream_mode() == "responses"
+def test_provider_base_resolution(monkeypatch):
+    monkeypatch.delenv("BRAIN_API_BASE", raising=False)
+    assert bridge._provider_base() == "https://api.openai.com/v1"
 
-    monkeypatch.setenv("BRAIN_UPSTREAM_MODE", "chat_completions")
-    assert bridge._upstream_mode() == "chat_completions"
+    monkeypatch.setenv("BRAIN_API_BASE", "http://127.0.0.1:8081/v1")
+    assert bridge._provider_base() == "http://127.0.0.1:8081/v1"
 
-    monkeypatch.setenv("BRAIN_UPSTREAM_MODE", "RESPONSES")
-    assert bridge._upstream_mode() == "responses"
-
-    monkeypatch.setenv("BRAIN_UPSTREAM_MODE", "invalid_mode")
-    with pytest.raises(
-        ValueError, match="BRAIN_UPSTREAM_MODE='invalid_mode' is invalid"
-    ):
-        bridge._upstream_mode()
+    monkeypatch.setenv("BRAIN_API_BASE", "https://api.openai.com/v1/")
+    assert bridge._provider_base() == "https://api.openai.com/v1"
 
 
-def test_upstream_url_resolution(monkeypatch):
-    monkeypatch.delenv("BRAIN_UPSTREAM_MODE", raising=False)
-    monkeypatch.setenv("BRAIN_API_BASE", "http://127.0.0.1:8081/go/resp")
-    assert bridge._upstream_url() == "http://127.0.0.1:8081/go/resp/responses"
-
-    monkeypatch.setenv("BRAIN_UPSTREAM_MODE", "chat_completions")
-    monkeypatch.setenv("BRAIN_API_BASE", "https://api.openai.com/v1")
-    assert bridge._upstream_url() == "https://api.openai.com/v1/chat/completions"
+def test_provider_base_rejects_plaintext_remote(monkeypatch):
+    monkeypatch.setenv("BRAIN_API_BASE", "http://api.example.com/v1")
+    with pytest.raises(RuntimeError, match="cleartext"):
+        bridge._provider_base()
 
 
-def test_convert_responses_to_chat_completions_body():
-    responses_body = {
-        "model": "minimax-m3.1-flash",
-        "instructions": "You are a helpful assistant.",
-        "input": [
-            {"role": "user", "content": "Hello!"},
-            {
-                "type": "message",
-                "role": "assistant",
-                "content": [{"type": "output_text", "text": "Hi there!"}],
-            },
-            {"role": "user", "content": "How are you?"},
-        ],
-        "max_output_tokens": 4096,
-        "temperature": 0.2,
-        "reasoning": {"effort": "high"},
-    }
-
-    chat_body = bridge._convert_responses_to_chat_completions_body(responses_body)
-    assert chat_body["model"] == "minimax-m3.1-flash"
-    assert chat_body["max_tokens"] == 4096
-    assert chat_body["temperature"] == 0.2
-    assert chat_body["reasoning_effort"] == "high"
-    assert len(chat_body["messages"]) == 4
-    assert chat_body["messages"][0] == {
-        "role": "system",
-        "content": "You are a helpful assistant.",
-    }
-    assert chat_body["messages"][1] == {"role": "user", "content": "Hello!"}
-    assert chat_body["messages"][2] == {"role": "assistant", "content": "Hi there!"}
-    assert chat_body["messages"][3] == {"role": "user", "content": "How are you?"}
-
-
-def test_convert_chat_completions_to_responses_data():
-    chat_resp = {
-        "id": "chatcmpl-12345",
-        "model": "minimax-m3.1-flash",
-        "choices": [
-            {
-                "index": 0,
-                "message": {
-                    "role": "assistant",
-                    "content": "Here is the plan:\n```xml\n<plan>123</plan>\n```",
-                },
-                "finish_reason": "stop",
-            }
-        ],
-        "usage": {
-            "prompt_tokens": 100,
-            "completion_tokens": 50,
-            "total_tokens": 150,
-        },
-    }
-
-    resp_data = bridge._convert_chat_completions_to_responses_data(chat_resp)
-    assert resp_data["id"] == "chatcmpl-12345"
-    assert resp_data["model"] == "minimax-m3.1-flash"
-    assert resp_data["status"] == "completed"
-    assert bridge.parse_responses_text(resp_data) == (
-        "Here is the plan:\n```xml\n<plan>123</plan>\n```"
-    )
-    assert resp_data["usage"]["input_tokens"] == 100
-    assert resp_data["usage"]["output_tokens"] == 50
-    assert resp_data["usage"]["total_tokens"] == 150
-
-
-def test_brain_turn_with_chat_completions_mode(tmp_path, monkeypatch):
-    """End-to-end brain_turn dispatch using BRAIN_UPSTREAM_MODE=chat_completions."""
-    monkeypatch.setenv("BRAIN_UPSTREAM_MODE", "chat_completions")
-    monkeypatch.setenv("BRAIN_API_KEY", "sk-chat-key")
-    monkeypatch.setenv("BRAIN_API_BASE", "http://127.0.0.1:8081/chat")
-    monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
-    _mk_sys_prompt(tmp_path, monkeypatch)
-    root = _mk_tasks_root(tmp_path)
-
-    chat_upstream_payload = {
-        "id": "chatcmpl-minimax-1",
-        "model": "minimax-m3.1-flash",
-        "choices": [
-            {
-                "index": 0,
-                "message": {
-                    "role": "assistant",
-                    "content": "Plan approved.\nverdict: PLAN APPROVED\nseats: Architect",
-                },
-                "finish_reason": "stop",
-            }
-        ],
-        "usage": {"prompt_tokens": 120, "completion_tokens": 60, "total_tokens": 180},
-    }
-
-    holder = {}
-    _mk_bridge_client(
-        monkeypatch, [_FakeResp(200, "OK", chat_upstream_payload)], holder
-    )
-
-    call = bridge.brain_turn
-    target = call.fn if hasattr(call, "fn") else call
-    res = target(
-        "test question", task_id="218", include_bundle=False, project_root=str(root)
-    )
-
-    assert res["status"] == "REPORT"
-    assert "Plan approved." in res["output"]
-
-    # Verify that what went over the wire was chat completions shape
-    sent_body = holder["body"]
-    assert "messages" in sent_body
-    assert "input" not in sent_body
-    assert any(
-        m["role"] == "user" and "test question" in m["content"]
-        for m in sent_body["messages"]
-    )
-
-
-def test_convert_usage_omits_missing_counters():
-    """F3: a missing counter must be absent, never None."""
-    resp = bridge._convert_chat_completions_to_responses_data(
-        {"id": "x", "choices": [{"message": {"content": "ok"}}], "usage": {}}
-    )
-    assert "usage" not in resp
-
-    partial = bridge._convert_chat_completions_to_responses_data(
-        {
-            "id": "x",
-            "choices": [{"message": {"content": "ok"}}],
-            "usage": {"prompt_tokens": 10, "completion_tokens": 5},
-        }
-    )
-    assert partial["usage"] == {
-        "input_tokens": 10,
-        "output_tokens": 5,
-        "total_tokens": 15,
-    }
-
-
-def test_convert_finish_reason_maps_status():
-    """F1: status must come from finish_reason, not a constant."""
-    length = bridge._convert_chat_completions_to_responses_data(
-        {"choices": [{"message": {"content": "trunc"}, "finish_reason": "length"}]}
-    )
-    assert length["status"] == "incomplete"
-    assert length["incomplete_details"]["reason"] == "max_output_tokens"
-
-    filtered = bridge._convert_chat_completions_to_responses_data(
-        {
-            "choices": [
-                {
-                    "message": {"content": ""},
-                    "finish_reason": "content_filter",
-                }
-            ]
-        }
-    )
-    assert filtered["status"] == "incomplete"
-    assert filtered["incomplete_details"]["reason"] == "content_filter"
-
-    unknown = bridge._convert_chat_completions_to_responses_data(
-        {"choices": [{"message": {"content": "x"}, "finish_reason": "weird"}]}
-    )
-    assert unknown["status"] == "incomplete"
-    assert unknown["incomplete_details"]["reason"] == "unknown_finish_reason"
-
-    missing = bridge._convert_chat_completions_to_responses_data(
-        {"choices": [{"message": {"content": "x"}}]}
-    )
-    assert missing["status"] == "incomplete"
-
-
-def test_convert_upstream_error_becomes_failed_status():
-    """F1: an error body must not surface as an empty success."""
-    resp = bridge._convert_chat_completions_to_responses_data(
-        {"error": {"message": "model not found", "type": "invalid_request_error"}}
-    )
-    assert resp["status"] == "failed"
-    assert resp["error"]["message"] == "model not found"
-    assert resp["output"] == []
-
-
-def test_convert_tool_calls_and_reasoning_preserved():
-    """F2: tool calls and reasoning must cross the boundary."""
-    resp = bridge._convert_chat_completions_to_responses_data(
-        {
-            "id": "c1",
-            "choices": [
-                {
-                    "finish_reason": "tool_calls",
-                    "message": {
-                        "role": "assistant",
-                        "content": None,
-                        "reasoning_content": "thinking about it",
-                        "tool_calls": [
-                            {
-                                "id": "call_1",
-                                "type": "function",
-                                "function": {
-                                    "name": "read_file",
-                                    "arguments": '{"p":"a.py"}',
-                                },
-                            }
-                        ],
-                    },
-                }
-            ],
-        }
-    )
-    types = [item["type"] for item in resp["output"]]
-    assert types == ["reasoning", "function_call"]
-    assert resp["output"][0]["summary"][0]["text"] == "thinking about it"
-    call = resp["output"][1]
-    assert call["name"] == "read_file"
-    assert call["call_id"] == "call_1"
-    assert call["arguments"] == '{"p":"a.py"}'
-    assert resp["status"] == "completed"
-
-
-def test_request_body_carries_tools_and_tool_choice():
-    """F2: tool definitions must survive request translation."""
-    body = bridge._convert_responses_to_chat_completions_body(
-        {
-            "model": "m",
-            "input": [{"role": "user", "content": "hi"}],
-            "tools": [
-                {
-                    "type": "function",
-                    "name": "read_file",
-                    "description": "read",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {"p": {"type": "string"}},
-                    },
-                }
-            ],
-            "tool_choice": "auto",
-            "parallel_tool_calls": False,
-        }
-    )
-    assert body["tools"][0]["type"] == "function"
-    assert body["tools"][0]["function"]["name"] == "read_file"
-    assert body["tool_choice"] == "auto"
-    assert body["parallel_tool_calls"] is False
-
-
-def test_parallel_tool_calls_dropped_without_tools():
-    """A tools-less body must not carry parallel_tool_calls (strict 400)."""
-    body = bridge._convert_responses_to_chat_completions_body(
-        {"model": "m", "input": [], "parallel_tool_calls": True}
-    )
-    assert "parallel_tool_calls" not in body
-    assert "tools" not in body
-
-
-def test_brain_turn_chat_completions_non_200_is_failure(tmp_path, monkeypatch):
-    """F4: the retry/error path must be exercised in chat_completions mode."""
-    monkeypatch.setenv("BRAIN_UPSTREAM_MODE", "chat_completions")
-    monkeypatch.setenv("BRAIN_API_KEY", "sk-chat-key")
-    monkeypatch.setenv("BRAIN_API_BASE", "http://127.0.0.1:8081/chat")
-    monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
-    _mk_sys_prompt(tmp_path, monkeypatch)
-    root = _mk_tasks_root(tmp_path)
-
-    _mk_bridge_client(
-        monkeypatch,
-        [_FakeResp(401, "Unauthorized", {"error": {"message": "bad key"}})],
-        {},
-    )
-    call = bridge.brain_turn
-    target = call.fn if hasattr(call, "fn") else call
-    res = target("q", task_id="218", include_bundle=False, project_root=str(root))
-    assert res["status"] == "REPORT"
-    assert "bad key" in res["output"] or "401" in res["output"]
-
-
-def test_brain_turn_chat_completions_failure_status_raises(tmp_path, monkeypatch):
-    """F1/F2: status=failed must surface as a failure through brain_turn."""
-    monkeypatch.setenv("BRAIN_UPSTREAM_MODE", "chat_completions")
-    monkeypatch.setenv("BRAIN_API_KEY", "sk-chat-key")
-    monkeypatch.setenv("BRAIN_API_BASE", "http://127.0.0.1:8081/chat")
-    monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
-    _mk_sys_prompt(tmp_path, monkeypatch)
-    root = _mk_tasks_root(tmp_path)
-
-    payload = {
-        "id": "chatcmpl-err",
-        "error": {"message": "model not found", "type": "invalid_request_error"},
-    }
-    _mk_bridge_client(monkeypatch, [_FakeResp(200, "OK", payload)], {})
-    call = bridge.brain_turn
-    target = call.fn if hasattr(call, "fn") else call
-    res = target("q", task_id="218", include_bundle=False, project_root=str(root))
-    assert res["status"] == "REPORT"
-    assert "model not found" in res["output"]
-
-
-def test_brain_turn_chat_completions_incomplete_is_annotated(tmp_path, monkeypatch):
-    """F1/F2: an incomplete response stays usable but is marked truncated."""
-    monkeypatch.setenv("BRAIN_UPSTREAM_MODE", "chat_completions")
-    monkeypatch.setenv("BRAIN_API_KEY", "sk-chat-key")
-    monkeypatch.setenv("BRAIN_API_BASE", "http://127.0.0.1:8081/chat")
-    monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
-    _mk_sys_prompt(tmp_path, monkeypatch)
-    root = _mk_tasks_root(tmp_path)
-
-    payload = {
-        "id": "chatcmpl-trunc",
-        "choices": [
-            {
-                "index": 0,
-                "message": {"role": "assistant", "content": "partial plan text"},
-                "finish_reason": "content_filter",
-            }
-        ],
-        "usage": {"prompt_tokens": 10, "completion_tokens": 4096},
-    }
-    _mk_bridge_client(monkeypatch, [_FakeResp(200, "OK", payload)], {})
-    call = bridge.brain_turn
-    target = call.fn if hasattr(call, "fn") else call
-    res = target("q", task_id="218", include_bundle=False, project_root=str(root))
-    assert res["status"] == "REPORT"
-    assert "upstream incomplete: content_filter" in res["output"]
-    assert "partial plan text" in res["output"]
-
-
-def test_brain_turn_chat_completions_tool_call_survives_dispatch(tmp_path, monkeypatch):
-    """F2: a tool-call-only answer must not be flattened into empty output."""
-    monkeypatch.setenv("BRAIN_UPSTREAM_MODE", "chat_completions")
-    monkeypatch.setenv("BRAIN_API_KEY", "sk-chat-key")
-    monkeypatch.setenv("BRAIN_API_BASE", "http://127.0.0.1:8081/chat")
-    monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
-    _mk_sys_prompt(tmp_path, monkeypatch)
-    root = _mk_tasks_root(tmp_path)
-
-    payload = {
-        "id": "chatcmpl-tools",
-        "choices": [
-            {
-                "index": 0,
-                "finish_reason": "tool_calls",
-                "message": {
-                    "role": "assistant",
-                    "content": None,
-                    "tool_calls": [
-                        {
-                            "id": "call_9",
-                            "type": "function",
-                            "function": {
-                                "name": "read_file",
-                                "arguments": '{"p":"server.py"}',
-                            },
-                        }
-                    ],
-                },
-            }
-        ],
-    }
-    holder = {}
-    _mk_bridge_client(monkeypatch, [_FakeResp(200, "OK", payload)], holder)
-    call = bridge.brain_turn
-    target = call.fn if hasattr(call, "fn") else call
-    res = target("q", task_id="218", include_bundle=False, project_root=str(root))
-    assert res["status"] == "REPORT"
-    assert "read_file" in res["output"]
-    assert "server.py" in res["output"]
+def test_loopback_no_proxy_is_forced(monkeypatch):
+    monkeypatch.setenv("no_proxy", "example.com")
+    value = bridge._ensure_loopback_no_proxy()
+    assert "127.0.0.1" in value and "localhost" in value and "example.com" in value
+    assert os.environ["NO_PROXY"] == value
 
 
 def test_record_brain_use_tolerates_partial_usage(tmp_path, monkeypatch):
@@ -5704,145 +5168,6 @@ def test_record_brain_use_tolerates_partial_usage(tmp_path, monkeypatch):
         "test-model", {"input_tokens": 1, "output_tokens": None}
     )
     assert all(v is not None for v in stored.values())
-
-
-def test_string_input_becomes_a_single_user_message():
-    """R2: a bare-string input must not be iterated character by character."""
-    body = bridge._convert_responses_to_chat_completions_body(
-        {
-            "model": "m",
-            "instructions": "be brief",
-            "input": "hello there",
-        }
-    )
-    assert body["messages"] == [
-        {"role": "system", "content": "be brief"},
-        {"role": "user", "content": "hello there"},
-    ]
-
-
-def test_blank_string_input_produces_no_user_message():
-    """R2: whitespace-only input adds no empty turn."""
-    body = bridge._convert_responses_to_chat_completions_body(
-        {"model": "m", "input": "   "}
-    )
-    assert body["messages"] == []
-
-
-def test_unsupported_responses_fields_are_dropped_with_warning(caplog):
-    """R1: a drop must be visible, never silent."""
-    with caplog.at_level("WARNING"):
-        body = bridge._convert_responses_to_chat_completions_body(
-            {
-                "model": "m",
-                "input": [{"role": "user", "content": "hi"}],
-                "previous_response_id": "resp_1",
-                "store": True,
-                "metadata": {"k": "v"},
-            }
-        )
-    assert "previous_response_id" not in body
-    assert "store" not in body
-    logged = " ".join(record.message for record in caplog.records)
-    assert "previous_response_id" in logged
-    assert "store" in logged
-
-
-def test_no_warning_when_no_unsupported_fields_present(caplog):
-    """R1: a clean body must not emit drop warnings."""
-    with caplog.at_level("WARNING"):
-        bridge._convert_responses_to_chat_completions_body(
-            {"model": "m", "input": [{"role": "user", "content": "hi"}]}
-        )
-    assert "dropped unsupported" not in " ".join(
-        record.message for record in caplog.records
-    )
-
-
-def test_assistant_function_call_item_becomes_tool_call_message():
-    """F1: a roleless function_call item must not vanish."""
-    body = bridge._convert_responses_to_chat_completions_body(
-        {
-            "model": "m",
-            "input": [
-                {"role": "user", "content": "read server.py"},
-                {
-                    "type": "function_call",
-                    "call_id": "call_1",
-                    "name": "read_file",
-                    "arguments": '{"p":"server.py"}',
-                },
-                {
-                    "type": "function_call_output",
-                    "call_id": "call_1",
-                    "output": "def main(): ...",
-                },
-            ],
-        }
-    )
-    roles = [m["role"] for m in body["messages"]]
-    assert roles == ["user", "assistant", "tool"]
-
-    tool_call_msg = body["messages"][1]
-    assert tool_call_msg["content"] is None
-    assert tool_call_msg["tool_calls"][0]["id"] == "call_1"
-    assert tool_call_msg["tool_calls"][0]["function"]["name"] == "read_file"
-    assert tool_call_msg["tool_calls"][0]["function"]["arguments"] == (
-        '{"p":"server.py"}'
-    )
-
-    tool_result = body["messages"][2]
-    assert tool_result["tool_call_id"] == "call_1"
-    assert tool_result["content"] == "def main(): ..."
-
-
-def test_function_call_with_dict_arguments_is_json_encoded():
-    """F1: dict arguments must cross as a JSON string, not a dict."""
-    body = bridge._convert_responses_to_chat_completions_body(
-        {
-            "model": "m",
-            "input": [
-                {
-                    "type": "function_call",
-                    "call_id": "c2",
-                    "name": "read_file",
-                    "arguments": {"p": "a.py"},
-                }
-            ],
-        }
-    )
-    raw = body["messages"][0]["tool_calls"][0]["function"]["arguments"]
-    assert isinstance(raw, str)
-    assert json.loads(raw) == {"p": "a.py"}
-
-
-def test_brain_turn_incomplete_is_not_a_terminal_failure(tmp_path, monkeypatch):
-    """F2: an incomplete response must be annotated, never aborted."""
-    monkeypatch.setenv("BRAIN_UPSTREAM_MODE", "chat_completions")
-    monkeypatch.setenv("BRAIN_API_KEY", "sk-chat-key")
-    monkeypatch.setenv("BRAIN_API_BASE", "http://127.0.0.1:8081/chat")
-    monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
-    _mk_sys_prompt(tmp_path, monkeypatch)
-    root = _mk_tasks_root(tmp_path)
-
-    payload = {
-        "id": "chatcmpl-length",
-        "choices": [
-            {
-                "index": 0,
-                "message": {"role": "assistant", "content": "cut mid-sentence"},
-                "finish_reason": "content_filter",
-            }
-        ],
-    }
-    _mk_bridge_client(monkeypatch, [_FakeResp(200, "OK", payload)], {})
-    call = bridge.brain_turn
-    target = call.fn if hasattr(call, "fn") else call
-    res = target("q", task_id="218", include_bundle=False, project_root=str(root))
-    assert res["status"] == "REPORT"
-    assert "upstream incomplete: content_filter" in res["output"]
-    assert "cut mid-sentence" in res["output"]
-    assert "status=incomplete" not in res["output"]
 
 
 # --- Task 403 (META 401+402): structured tool-call channel, additive only ---
@@ -5867,45 +5192,6 @@ def test_tool_calls_responses_mode_tool_only():
     assert got[0]["source"] == "responses"
     # Text channel unchanged: the call still renders as name(args) prose.
     assert "question" in bridge.parse_responses_text({"output": items})
-
-
-def test_tool_calls_chat_completions_mode_same_shape():
-    """Both modes produce the identical structured shape (same key set)."""
-    chat_body = {
-        "choices": [
-            {
-                "message": {
-                    "content": None,
-                    "tool_calls": [
-                        {
-                            "id": "call_9",
-                            "type": "function",
-                            "function": {
-                                "name": "question",
-                                "arguments": '{"q": "hi"}',
-                            },
-                        }
-                    ],
-                }
-            }
-        ],
-        "usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
-    }
-    out = bridge._build_responses_output(
-        "", "", chat_body["choices"][0]["message"]["tool_calls"]
-    )
-    items = out
-    got = bridge.extract_tool_calls(items, "chat_completions")
-    assert len(got) == 1
-    assert set(got[0].keys()) == {
-        "call_id",
-        "name",
-        "arguments",
-        "arguments_raw",
-        "source",
-    }
-    assert got[0]["arguments"] == {"q": "hi"}
-    assert got[0]["source"] == "chat_completions"
 
 
 def test_tool_calls_empty_for_prose():
@@ -5969,7 +5255,6 @@ def test_tool_calls_dict_and_scalar_and_nonlist_inputs():
 
 def test_tool_calls_wired_into_brain_turn_result(tmp_path, monkeypatch):
     """M1: the wiring hunk exposes tool_calls on the brain_turn result."""
-    monkeypatch.delenv("BRAIN_UPSTREAM_MODE", raising=False)
     monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
     monkeypatch.setenv("BRAIN_API_BASE", "https://api.openai.com/v1")
     monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
@@ -6008,38 +5293,122 @@ def test_tool_calls_wired_into_brain_turn_result(tmp_path, monkeypatch):
     assert "question" in res["output"]
 
 
-def test_unsupported_input_items_are_dropped_with_exactly_one_warning():
-    """Unsupported Responses input items must be dropped with one warning, not
-    silently. Exactly-one also catches an over-eager branch that warns on items
-    the converter actually handles."""
-    body = {
-        "model": "deepseek-v4.1-flash",
-        "input": [
-            {"role": "user", "content": "keep me"},
-            {"type": "qa_unknown_item_type", "content": "drop me"},
-        ],
-    }
-    with mock.patch.object(bridge.logger, "warning") as warning_spy:
-        chat_body = bridge._convert_responses_to_chat_completions_body(body)
-
-    assert warning_spy.call_count == 1
-    log_args = warning_spy.call_args.args
-    assert "dropping unsupported input item type" in log_args[0]
-    assert log_args[1] == "qa_unknown_item_type"
-    serialized = [str(m) for m in chat_body["messages"]]
-    assert any("keep me" in m for m in serialized)
-    assert not any("drop me" in m for m in serialized)
+def test_extract_tool_calls_ignores_non_dict_items():
+    """Non-dict output items are skipped, never raised on."""
+    assert bridge.extract_tool_calls([None, "x", 42], "responses") == []
+    assert bridge.extract_tool_calls({"type": "function_call"}, "responses") == []
 
 
-def test_non_dict_input_items_are_reported_not_crashing():
-    """A bare string item must hit the logging guard, never an AttributeError."""
-    with mock.patch.object(bridge.logger, "warning") as warning_spy:
-        chat_body = bridge._convert_responses_to_chat_completions_body(
-            {
-                "model": "deepseek-v4.1-flash",
-                "input": [{"role": "user", "content": "keep me"}, "stray-item"],
-            }
-        )
-    assert warning_spy.call_count == 1
-    assert warning_spy.call_args.args[1] == "str"
-    assert len(chat_body["messages"]) >= 1
+def test_brain_turn_is_silent_without_debug(tmp_path, monkeypatch, capsys):
+    """A normal turn writes nothing to stderr unless BRAIN_DEBUG is on."""
+    monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
+    _mk_sys_prompt(tmp_path, monkeypatch)
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    monkeypatch.delenv("BRAIN_DEBUG", raising=False)
+    _mk_bridge_client(monkeypatch, [_FakeResp(200, "fine", _ok_payload("ok"))])
+    target = (
+        bridge.brain_turn.fn if hasattr(bridge.brain_turn, "fn") else bridge.brain_turn
+    )
+    target("q", task_id="900", include_bundle=False)
+    assert capsys.readouterr().err == ""
+
+
+def test_debug_stream_switches_on_env(monkeypatch):
+    """The debug sink follows BRAIN_DEBUG at call time, not import time."""
+    monkeypatch.delenv("BRAIN_DEBUG", raising=False)
+    assert bridge._debug_enabled() is False
+    assert bridge._debug_stream() is bridge._SILENT_STREAM
+    monkeypatch.setenv("BRAIN_DEBUG", "yes")
+    assert bridge._debug_enabled() is True
+    assert bridge._debug_stream() is sys.stderr
+
+
+def test_brain_proxy_env_is_mirrored_for_litellm(monkeypatch):
+    """A BRAIN_* proxy reaches LiteLLM through the standard env names."""
+    for name in ("http_proxy", "https_proxy", "HTTP_PROXY", "HTTPS_PROXY"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv("BRAIN_HTTP_PROXY", "http://127.0.0.1:7890")
+    bridge._apply_brain_proxy_env()
+    assert os.environ["http_proxy"] == "http://127.0.0.1:7890"
+    assert os.environ["https_proxy"] == "http://127.0.0.1:7890"
+
+
+def test_blank_standard_proxy_is_filled_from_brain_alias(monkeypatch):
+    """A blank standard name counts as unset and receives the Brain value."""
+    monkeypatch.setenv("http_proxy", "   ")
+    monkeypatch.delenv("https_proxy", raising=False)
+    monkeypatch.delenv("HTTP_PROXY", raising=False)
+    monkeypatch.delenv("HTTPS_PROXY", raising=False)
+    monkeypatch.setenv("BRAIN_HTTP_PROXY", "http://127.0.0.1:7890")
+    bridge._apply_brain_proxy_env()
+    assert os.environ["http_proxy"] == "http://127.0.0.1:7890"
+    value = bridge._ensure_loopback_no_proxy()
+    assert "127.0.0.1" in value.split(",")
+
+
+def test_standard_proxy_wins_over_brain_alias(monkeypatch):
+    """An operator-set standard proxy is never overwritten by a BRAIN_* alias."""
+    monkeypatch.setenv("http_proxy", "http://10.0.0.1:3128")
+    monkeypatch.setenv("BRAIN_HTTP_PROXY", "http://127.0.0.1:7890")
+    bridge._apply_brain_proxy_env()
+    assert os.environ["http_proxy"] == "http://10.0.0.1:3128"
+
+
+def test_loopback_stays_out_of_a_configured_proxy(monkeypatch):
+    """With a proxy configured, loopback still lands in no_proxy."""
+    monkeypatch.setenv("http_proxy", "http://127.0.0.1:7890")
+    bridge._apply_brain_proxy_env()
+    value = bridge._ensure_loopback_no_proxy()
+    assert "127.0.0.1" in value.split(",")
+
+
+def test_litellm_receives_no_retry_and_the_provider_base(monkeypatch):
+    """The transport pins num_retries to 0 and passes the provider base."""
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    monkeypatch.setenv("BRAIN_API_BASE", "http://127.0.0.1:8081/v1")
+    from litellm_double import FakeLiteLLM, responses_payload
+
+    fake = FakeLiteLLM([responses_payload("ok")])
+    monkeypatch.setattr(bridge, "_litellm_module", lambda: fake)
+    data, attempts = bridge._post_with_litellm({"model": "m", "input": "hi"})
+    assert data["status"] == "completed"
+    assert attempts == 1
+    assert fake.last_kwargs["num_retries"] == 0
+    assert fake.last_kwargs["api_base"] == "http://127.0.0.1:8081/v1"
+    assert fake.last_kwargs["model"] == "openai/m"
+    assert "timeout" in fake.last_kwargs
+
+
+def test_transient_5xx_surfaces_as_transport_error(monkeypatch):
+    """A 503 reaches the caller as an error; the bridge never retries it."""
+    from litellm_double import FakeLiteLLM, FakeLiteLLMError
+
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    fake = FakeLiteLLM([FakeLiteLLMError("busy", status_code=503)])
+    monkeypatch.setattr(bridge, "_litellm_module", lambda: fake)
+    with pytest.raises(RuntimeError, match="503"):
+        bridge._post_with_litellm({"model": "m", "input": "hi"})
+    assert fake.calls == 1
+    assert fake.last_kwargs["num_retries"] == 0
+
+
+def test_429_is_reported_like_any_other_provider_error(monkeypatch):
+    """A 429 is surfaced verbatim; no retry advice and no retry attempt."""
+    from litellm_double import FakeLiteLLM, FakeLiteLLMError
+
+    monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
+    error = FakeLiteLLMError(
+        "quota",
+        status_code=429,
+        code="insufficient_quota",
+        body={"error": {"code": "insufficient_quota"}},
+    )
+    fake = FakeLiteLLM([error])
+    monkeypatch.setattr(bridge, "_litellm_module", lambda: fake)
+    with pytest.raises(RuntimeError) as exc:
+        bridge._post_with_litellm({"model": "m", "input": "hi"})
+    message = str(exc.value)
+    assert "429" in message and "insufficient_quota" in message
+    assert "no retry" not in message
+    assert fake.calls == 1
+    assert fake.last_kwargs["num_retries"] == 0

@@ -4,17 +4,17 @@ One supervised instance of each MCP server, shared across all sessions and proje
 
 ## Port map (127.0.0.1 only)
 
-| Server    | Port | Unit / job                                     |
-| --------- | ---- | ---------------------------------------------- |
-| lint      | 8101 | mcp-lint                                       |
-| context   | 8102 | mcp-context                                    |
-| memory    | 8103 | mcp-memory                                     |
-| decisions | 8104 | mcp-decision                                   |
-| brain     | 8105 | mcp-brain                                      |
-| telegram  | 8106 | mcp-telegram                                   |
-| blowsh    | 8107 | blowsh-singleton (Docker)                      |
-| planner   | 8108 | mcp-planner                                    |
-| zen-proxy | 8081 | zen-proxy (not MCP — the Brain's provider hop) |
+| Server     | Port | Unit / job                                      |
+| ---------- | ---- | ----------------------------------------------- |
+| lint       | 8101 | mcp-lint                                        |
+| context    | 8102 | mcp-context                                     |
+| memory     | 8103 | mcp-memory                                      |
+| decisions  | 8104 | mcp-decision                                    |
+| brain      | 8105 | mcp-brain                                       |
+| telegram   | 8106 | mcp-telegram                                    |
+| blowsh     | 8107 | blowsh-singleton (Docker)                       |
+| planner    | 8108 | mcp-planner                                     |
+| zen-bridge | 8081 | zen-bridge (not MCP — the Brain's provider hop) |
 
 `planner` is the capacity-aware, QA-gated planning layer over `tasks/`
 Markdown. It serves the MCP Streamable HTTP endpoint at `/mcp` and a
@@ -116,10 +116,10 @@ Rules that make the exposure safe:
 https://planner.example.com/mcp` must print `404`, while `/` prints
    `200` and shows the login modal.
 
-`zen-proxy` is listed here because it is provisioned and supervised the same
+`zen-bridge` is listed here because it is provisioned and supervised the same
 way, but it speaks the OpenAI Responses/Chat API rather than MCP. Its unit
 reads the same global `.env`; it needs no API key of its own (the caller's
-`Authorization` header passes through). See `docs/zen-proxy.md`.
+`Authorization` header passes through). See `docs/zen-bridge.md`.
 
 ## Security (accepted risk)
 

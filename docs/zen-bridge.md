@@ -2,7 +2,7 @@
 
 ## What it is
 
-`zen-proxy/proxy.py` is a minimal, professional, dependency-free proxy written
+`zen-bridge/proxy.py` is a minimal, professional, dependency-free proxy written
 in pure Python (stdlib). It lets paid OpenCode Go models be used from anywhere,
 especially the Brain, with no caller-side session or header setup.
 
@@ -19,14 +19,14 @@ especially the Brain, with no caller-side session or header setup.
 Python 3.9+ is required. Check: `python3 --version`. No packages to install.
 
 ```bash
-mkdir -p ~/.config/opencode/zen-proxy
-cp zen-proxy/proxy.py ~/.config/opencode/zen-proxy/
-chmod +x ~/.config/opencode/zen-proxy/proxy.py
+mkdir -p ~/.config/opencode/zen-bridge
+cp zen-bridge/proxy.py ~/.config/opencode/zen-bridge/
+chmod +x ~/.config/opencode/zen-bridge/proxy.py
 ```
 
 ## Systemd user service
 
-`~/.config/systemd/user/zen-proxy.service`:
+`~/.config/systemd/user/zen-bridge.service`:
 
 ```ini
 [Unit]
@@ -37,7 +37,7 @@ Wants=network-online.target
 [Service]
 Type=simple
 EnvironmentFile=%h/.config/opencode/.env
-ExecStart=/usr/bin/python3 %h/.config/opencode/zen-proxy/proxy.py
+ExecStart=/usr/bin/python3 %h/.config/opencode/zen-bridge/proxy.py
 Restart=always
 RestartSec=5
 
@@ -47,26 +47,29 @@ WantedBy=default.target
 
 ```bash
 systemctl --user daemon-reload
-systemctl --user enable --now zen-proxy.service
-systemctl --user status zen-proxy.service
-journalctl --user -u zen-proxy -f
+systemctl --user enable --now zen-bridge.service
+systemctl --user status zen-bridge.service
+journalctl --user -u zen-bridge -f
 ```
 
 ## Configuration (environment)
 
-| Variable                   | Default                      | Purpose                                   |
-| -------------------------- | ---------------------------- | ----------------------------------------- |
-| `OPENCODE_BASE`            | `https://opencode.ai`        | upstream base                             |
-| `OPENCODE_MODELS_HOST`     | `https://models.opencode.ai` | model discovery                           |
-| `OPENCODE_PROJECT_ID`      | `global`                     | `x-opencode-project`                      |
-| `OPENCODE_CLIENT`          | `cli`                        | `x-opencode-client`                       |
-| `OPENCODE_CHANNEL`         | `latest`                     | `x-opencode-channel`                      |
-| `OPENCODE_VERSION`         | `2.3.2`                      | `x-opencode-version`                      |
-| `OPENCODE_NAME`            | `cli`                        | User-Agent suffix                         |
-| `PORT`                     | `8081`                       | listen port                               |
-| `UPSTREAM_TIMEOUT_SEC`     | `900`                        | upstream timeout                          |
-| `ZEN_PROXY_MAX_BODY_BYTES` | `33554432`                   | request body cap                          |
-| `BRAIN_API_KEY`            | optional                     | fallback key injected into MCP server env |
+| Variable                      | Default                      | Purpose                                    |
+| ----------------------------- | ---------------------------- | ------------------------------------------ |
+| `OPENCODE_BASE`               | `https://opencode.ai`        | upstream base                              |
+| `OPENCODE_MODELS_HOST`        | `https://models.opencode.ai` | model discovery                            |
+| `OPENCODE_PROJECT_ID`         | `global`                     | `x-opencode-project`                       |
+| `OPENCODE_CLIENT`             | `cli`                        | `x-opencode-client`                        |
+| `OPENCODE_CHANNEL`            | `latest`                     | `x-opencode-channel`                       |
+| `OPENCODE_VERSION`            | `2.3.2`                      | `x-opencode-version`                       |
+| `OPENCODE_NAME`               | `cli`                        | User-Agent suffix                          |
+| `PORT`                        | `8081`                       | listen port                                |
+| `UPSTREAM_TIMEOUT_SEC`        | `900`                        | upstream timeout (legacy alias)            |
+| `ZEN_BRIDGE_UPSTREAM_TIMEOUT` | `900`                        | upstream timeout (wins over the alias)     |
+| `ZEN_BRIDGE_MAX_BODY_BYTES`   | `33554432`                   | request body cap                           |
+| `ZEN_BRIDGE_HTTPS_PROXY`      | unset                        | upstream proxy for gateway traffic         |
+| `ZEN_BRIDGE_NO_PROXY`         | loopback                     | hosts never proxied; loopback always added |
+| `BRAIN_API_KEY`               | optional                     | fallback key injected into MCP server env  |
 
 The API key is **not** in this repository. The caller sends
 `Authorization: Bearer <key>`, or the MCP server supplies `BRAIN_API_KEY` in
@@ -115,13 +118,13 @@ BRAIN_API_KEY=<key supplied externally>
 - HTTP CONNECT tunnel via `curl -x http://127.0.0.1:8081` → 200
 - `brain_turn` on `muse-spark-1.3-contributor` → completed
 - CONNECT allowlist: only `opencode.ai`, `models.opencode.ai` on ports 443/80
-- Request body cap: `ZEN_PROXY_MAX_BODY_BYTES` (default 32 MiB), oversized → 413
+- Request body cap: `ZEN_BRIDGE_MAX_BODY_BYTES` (default 32 MiB), oversized → 413
 
 ## Verification log (2026-11-27, final)
 
-- Python-only: no JS/Bun source remains; `ls -l zen-proxy/proxy.py` -> success; no references in docs.
+- Python-only: no JS/Bun source remains; `ls -l zen-bridge/proxy.py` -> success; no references in docs.
 - `.env.example`: no live `100.74.8.111` IP; `BRAIN_API_BASE` commented example present.
-- `python3 -m py_compile zen-proxy/proxy.py` -> exit 0.
+- `python3 -m py_compile zen-bridge/proxy.py` -> exit 0.
 - `curl -s http://127.0.0.1:8081/health` -> 200 `status ok`.
 - `curl -s -o /dev/null -w %{http_code} http://127.0.0.1:8081/v1/models` -> 200.
 - `curl -X CONNECT ... Host:example.com` -> 403.

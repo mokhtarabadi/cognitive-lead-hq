@@ -18,7 +18,7 @@ Offline-only verification suite for the HQ platform: Brain Bridge turns, capabil
 - `test_stage_prompts.py` — Stage routing, runtime freshness fallback, assembler freshness gate, and release ordering.
 - `test_session_lifecycle.py` / `test_loop_guard.py` — Session ledger lifecycle and spin-guard hashing.
 - `test_mcp_servers.py` / `test_skill_registry.py` / `test_input_validation_pipeline.py` — Server contracts, registry, input pipeline.
-- `test_zen_proxy.py` — the zen-proxy slice: failure contract, body limits, stream termination, request log, allowlist refresher.
+- `test_litellm_double.py` — the shared offline LiteLLM double every Brain suite scripts through.
 - `golden/` — Golden fixtures for deterministic comparisons.
 
 ## Test isolation & fixture re-anchoring
@@ -31,4 +31,4 @@ Offline tests must own every path they write. Use the pytest `tmp_path` fixture 
 - Prompt-sync tests are blocking gates; a drifted `system-prompt.md` must fail.
 - The OpenUI validity gate and the `openchamber_render` call envelope are pinned in both the executor agent and the hands-protocol fragment; removing either side fails the suite.
 - Golden files are versioned truth; update them only with the behavior change that justifies the diff.
-- The zen-proxy suite replaces the upstream with a fake response object, so it never spends gateway quota.
+- The zen-bridge suite replaces the upstream with a fake response object, so it never spends gateway quota.

@@ -1,3 +1,12 @@
+## One Lead Persona Per Stage, Full Roster Plus Adoption Rule
+
+Date: 2026-11-27
+Status: active (supersedes the stage-scoped roster AND the brief all-seven-blocks change)
+Context: The stage split originally cut each artifact down to its own persona slice, so a QA round could not adopt the Architect even though the roster table named all seven. The first correction shipped all seven full blocks per stage; that returned the size win and, worse, put seven competing duty sets in one system message, which is the documented multi-persona conflict failure mode.
+Decision: Each stage ships exactly one lead persona block (its declared roster from `prompts/stage-manifest.json`) plus the full seven-seat roster in the catalog and the roster table, and `auto_load` gains "Layer 3 — roster adoption": any seat may be adopted in a turn when the task needs it, declared in the bracket label and reasoned from that seat's duty line, with one lead speaker outside a brainstorm turn.
+Consequences: Artifacts stay small (qa 90 KB vs 104 KB for the full prompt) and no two duties argue inside one identity. Seat availability is a rule, not a duplicated block. Tests assert the lead block matches the declared roster, that every artifact can name all seven seats, and that the adoption rule is present.
+Rollback: restore all-seven rosters and regenerate; the adoption rule is additive and harmless either way.
+
 ## Unify Architecture to 100% Brain Turn and Permanently Eliminate Manual Mode
 
 Date: 2026-11-08

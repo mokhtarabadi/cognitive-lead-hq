@@ -5,5 +5,6 @@ description = "Unified Brain bridge: system-prompt loader + Responses-API call +
 requires-python = ">=3.10"
 dependencies = [
     "mcp[cli]>=1.0,<2.0",
-    "httpx>=0.28",
+    # LiteLLM pulls httpx itself; the bridge no longer imports it directly.
+    "litellm>=1.111.0,<2.0",
     ]

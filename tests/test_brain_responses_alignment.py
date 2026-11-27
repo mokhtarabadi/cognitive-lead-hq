@@ -157,37 +157,6 @@ def test_effort_validation_normalizes_case(monkeypatch):
     assert bridge._get_reasoning_effort() == "xhigh"
 
 
-# --- Terminal 429 classifier (F6) ------------------------------------------
-
-
-@pytest.mark.parametrize(
-    "code",
-    [
-        "credit_balance_exhausted",
-        "organization_spend_limit_exceeded",
-        "project_spend_limit_exceeded",
-        "organization_usage_limit_exceeded",
-        "insufficient_quota",
-        "billing_hard_limit_exceeded",
-    ],
-)
-def test_terminal_429_codes_are_terminal(code):
-    assert bridge._terminal_429_code(429, {"error": {"code": code}}) == code
-
-
-def test_non_terminal_429_returns_none():
-    assert (
-        bridge._terminal_429_code(429, {"error": {"code": "rate_limit_exceeded"}})
-        is None
-    )
-    assert bridge._terminal_429_code(429, {"error": {"message": "slow down"}}) is None
-    assert bridge._terminal_429_code(429, "slow down") is None
-    assert (
-        bridge._terminal_429_code(500, {"error": {"code": "insufficient_quota"}})
-        is None
-    )
-
-
 # --- Effort vocabulary and ladder (F8) --------------------------------------
 
 
@@ -365,10 +334,11 @@ def test_replay_keeps_normal_id_reasoning_item():
     assert body["input"][3] is original
 
 
-def test_replay_drop_logs_no_item_fields(capsys):
+def test_replay_drop_logs_no_item_fields(capsys, monkeypatch):
     # The overlong-item diagnostic must not carry item-derived values —
     # only the id length and the cap. A sentinel in `type` must never
     # reach stderr, and the item must not reach the wire either.
+    monkeypatch.setenv("BRAIN_DEBUG", "1")
     long_id = "rs_" + "ab" * 32
     assert len(long_id) == 67
     raw = (
@@ -428,6 +398,12 @@ class _FakeResp:
             raise self._payload
         return self._payload
 
+    def model_dump(self):
+        """LiteLLM response shape: the scripted payload is already a dict."""
+        if isinstance(self._payload, Exception):
+            raise self._payload
+        return self._payload
+
 
 class _FakeClient:
     def __init__(self, script):
@@ -457,30 +433,33 @@ def _mk_sys_prompt(tmp_path, monkeypatch, text="sys"):
 
 
 def _stub_client(monkeypatch, script):
-    stub = _types.ModuleType("httpx")
-    stub.Client = lambda *a, **k: _FakeClient(script)
-    stub.TimeoutException = type("TimeoutException", (Exception,), {})
-    stub.TransportError = type("TransportError", (Exception,), {})
+    """Point the bridge's provider seam at a scripted fake LiteLLM."""
+    from litellm_double import FakeLiteLLM
 
-    class _Timeout:
-        def __init__(self, *a, **k):
-            self.args, self.kwargs = a, k
-
-    stub.Timeout = _Timeout
-    monkeypatch.setitem(sys.modules, "httpx", stub)
+    fake = FakeLiteLLM(script)
+    monkeypatch.setattr(bridge, "_litellm_module", lambda: fake)
+    return fake
 
 
 def test_fatal_4xx_returns_report_with_provider_diagnostics(tmp_path, monkeypatch):
     """A 400 with an error code must surface as a REPORT carrying
     debug.provider — never as a raw tool exception (F7)."""
-    import time as _time
+    from litellm_double import FakeLiteLLMError
 
     monkeypatch.setenv("BRAIN_SESSIONS_ROOT", str(tmp_path / "sessions"))
     _mk_sys_prompt(tmp_path, monkeypatch)
     monkeypatch.setenv("BRAIN_API_KEY", "sk-test-key")
-    monkeypatch.setattr(_time, "sleep", lambda s: None)
-    body_text = '{"error": {"message": "quota hit", "code": "insufficient_quota"}}'
-    _stub_client(monkeypatch, [_FakeResp(400, body_text, None)])
+    _stub_client(
+        monkeypatch,
+        [
+            FakeLiteLLMError(
+                "quota hit",
+                status_code=400,
+                code="insufficient_quota",
+                body={"error": {"message": "quota hit", "code": "insufficient_quota"}},
+            )
+        ],
+    )
     target = (
         bridge.brain_turn.fn if hasattr(bridge.brain_turn, "fn") else bridge.brain_turn
     )
@@ -505,24 +484,7 @@ def test_compaction_threshold_official_minimum(monkeypatch):
     assert bridge._compaction_threshold() == 1000
 
 
-def test_chat_conversion_warns_on_responses_only_cache_fields(caplog):
-    """prompt_cache_key and context_management have no Chat Completions
-    counterpart and must be dropped with a warning, never silently."""
-    body = {
-        "model": "m",
-        "input": [{"role": "user", "content": "hi"}],
-        "prompt_cache_key": "brain-x",
-        "context_management": [{"type": "compaction", "compact_threshold": 100000}],
-    }
-    with caplog.at_level("WARNING"):
-        chat = bridge._convert_responses_to_chat_completions_body(body)
-    logged = caplog.text
-    assert "prompt_cache_key" in logged
-    assert "context_management" in logged
-    assert "prompt_cache_key" not in chat
-    assert "context_management" not in chat
-
-# QA regression coverage for the chat-completions usage-details passthrough.
+# QA regression coverage for the LiteLLM transport.
 # Guards Task 412: cached_tokens and reasoning_tokens must reach budget math.
 
 
@@ -533,80 +495,36 @@ _ASSISTANT_CHOICE = {
 }
 
 
-def _convert(chat_resp: dict):
-    """Call the chat->responses converter with the same minimal arguments used
-    by the other alignment tests. Isolated here so a signature change touches
-    exactly one line."""
-    return bridge._convert_chat_completions_to_responses_data(chat_resp)
+def test_provider_error_keeps_provider_code():
+    """A provider error code survives the LiteLLM translation onto the report."""
+    from litellm_double import FakeLiteLLMError
+
+    error = FakeLiteLLMError(
+        "quota hit",
+        status_code=400,
+        code="insufficient_quota",
+        body={"error": {"message": "quota hit", "code": "insufficient_quota"}},
+    )
+    with pytest.raises(RuntimeError) as exc:
+        _raise_transport(error)
+    assert exc.value.provider_status == 400
+    assert exc.value.provider_code == "insufficient_quota"
 
 
-def _chat_resp(usage: dict) -> dict:
-    """Build a minimal chat-completion envelope carrying the given usage block."""
-    return {
-        "id": "chatcmpl-qa",
-        "object": "chat.completion",
-        "model": "deepseek-v4.1-flash",
-        "choices": [_ASSISTANT_CHOICE],
-        "usage": usage,
-    }
+def _raise_transport(error: Exception) -> None:
+    """Drive one LiteLLM failure through the bridge transport translation."""
+    from litellm_double import FakeLiteLLM
 
-
-def test_usage_details_openai_style_are_passed_through():
-    """OpenAI nests cache hits and reasoning tokens under *_tokens_details."""
-    data = _convert(_chat_resp({
-        "prompt_tokens": 100,
-        "completion_tokens": 40,
-        "total_tokens": 140,
-        "prompt_tokens_details": {"cached_tokens": 80},
-        "completion_tokens_details": {"reasoning_tokens": 25},
-    }))
-    usage = data["usage"]
-    assert usage["input_tokens"] == 100
-    assert usage["output_tokens"] == 40
-    assert usage["input_tokens_details"]["cached_tokens"] == 80
-    assert usage["output_tokens_details"]["reasoning_tokens"] == 25
-
-
-def test_usage_details_deepseek_top_level_fields_are_folded_in():
-    """DeepSeek reports prompt_cache_hit_tokens and reasoning_tokens at top level."""
-    data = _convert(_chat_resp({
-        "prompt_tokens": 100,
-        "completion_tokens": 40,
-        "total_tokens": 140,
-        "prompt_cache_hit_tokens": 64,
-        "reasoning_tokens": 12,
-    }))
-    usage = data["usage"]
-    assert usage["input_tokens_details"]["cached_tokens"] == 64
-    assert usage["output_tokens_details"]["reasoning_tokens"] == 12
-
-
-def test_nested_details_win_over_top_level_deepseek_fields():
-    """Nested *_tokens_details values must take precedence over top-level aliases."""
-    data = _convert(_chat_resp({
-        "prompt_tokens": 100,
-        "completion_tokens": 40,
-        "total_tokens": 140,
-        "prompt_tokens_details": {"cached_tokens": 90},
-        "prompt_cache_hit_tokens": 64,
-        "completion_tokens_details": {"reasoning_tokens": 30},
-        "reasoning_tokens": 12,
-    }))
-    usage = data["usage"]
-    assert usage["input_tokens_details"]["cached_tokens"] == 90
-    assert usage["output_tokens_details"]["reasoning_tokens"] == 30
-
-
-def test_malformed_or_absent_details_do_not_add_detail_keys():
-    """Non-dict detail payloads are ignored and must never raise or leak keys."""
-    data = _convert(_chat_resp({
-        "prompt_tokens": 10,
-        "completion_tokens": 5,
-        "total_tokens": 15,
-        "prompt_tokens_details": "not-a-dict",
-        "completion_tokens_details": ["not", "a", "dict"],
-    }))
-    usage = data["usage"]
-    assert usage["input_tokens"] == 10
-    assert "input_tokens_details" not in usage
-    assert "output_tokens_details" not in usage
+    fake = FakeLiteLLM([error])
+    original = bridge._litellm_module
+    bridge._litellm_module = lambda: fake  # type: ignore[assignment]
+    previous_key = os.environ.get("BRAIN_API_KEY")
+    os.environ["BRAIN_API_KEY"] = "sk-test-key"
+    try:
+        bridge._post_with_litellm({"model": "m", "input": "hi"})
+    finally:
+        bridge._litellm_module = original  # type: ignore[assignment]
+        if previous_key is None:
+            os.environ.pop("BRAIN_API_KEY", None)
+        else:
+            os.environ["BRAIN_API_KEY"] = previous_key

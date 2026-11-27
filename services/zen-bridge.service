@@ -1,0 +1,27 @@
+[Unit]
+Description=zen-bridge loopback sidecar (OpenAI-compatible clients -> OpenCode Zen/Go gateways)
+After=network-online.target
+Wants=network-online.target
+Documentation=file:///home/mohammad/cognitive-lead-hq/docs/zen-bridge.md
+
+[Service]
+Type=simple
+# Same global .env every other slice reads (<server-dir>/../.env), so no
+# secret is duplicated. The bridge itself needs no API key: it passes the
+# caller's Authorization header through and mints a session id per request
+# when the client sends no session header.
+EnvironmentFile=-%h/.config/opencode/.env
+WorkingDirectory=%h/.config/opencode/zen-bridge
+# Outbound egress for gateway traffic. Direct by default; uncomment the
+# lines below to send it through the local mixed proxy. NO_PROXY (and the
+# bridge's own loopback guard) keeps every 127.0.0.1 / localhost hop out of
+# the tunnel, so the Brain -> zen-bridge leg stays a direct loopback call.
+#Environment=ZEN_BRIDGE_HTTPS_PROXY=http://127.0.0.1:7890
+#Environment=ZEN_BRIDGE_HTTP_PROXY=http://127.0.0.1:7890
+#Environment=ZEN_BRIDGE_NO_PROXY=localhost,127.0.0.1,::1
+ExecStart=%h/.config/opencode/zen-bridge/.venv/bin/python %h/.config/opencode/zen-bridge/proxy.py
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=default.target

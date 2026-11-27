@@ -46,26 +46,11 @@ def _setup(tmp_path, monkeypatch, raw):
     prompt.write_text("sys", encoding="utf-8")
     monkeypatch.setenv("BRAIN_SYSTEM_PROMPT", str(prompt))
     (tmp_path / "tasks" / "backlog").mkdir(parents=True)
-    stub = types.ModuleType("httpx")
+    from litellm_double import FakeLiteLLM
 
-    class _Client:
-        def __init__(self, *args, **kwargs):
-            pass
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *args):
-            return False
-
-        def post(self, *args, **kwargs):
-            return _FakeResp(_payload(raw))
-
-    stub.Client = _Client
-    stub.TimeoutException = type("TimeoutException", (Exception,), {})
-    stub.TransportError = type("TransportError", (Exception,), {})
-    stub.Timeout = type("Timeout", (), {"__init__": lambda self, *a, **k: None})
-    monkeypatch.setitem(sys.modules, "httpx", stub)
+    monkeypatch.setattr(
+        bridge, "_litellm_module", lambda: FakeLiteLLM([_FakeResp(_payload(raw))])
+    )
     target = (
         bridge.brain_turn.fn if hasattr(bridge.brain_turn, "fn") else bridge.brain_turn
     )

@@ -1,5 +1,13 @@
 # Architectural Decisions: mcp-brain-bridge
 
+## [2026-11-27] ADR-015: LiteLLM transport, no retries (supersedes ADR-004 and ADR-014)
+
+- **Context:** the ADRs below describe a hand-written `httpx` transport with a retry ladder, an overall deadline, a terminal-429 classifier, and a Chat Completions protocol bridge. None of that code exists any more.
+- **Decision:** every turn now goes through `_post_with_litellm` (`litellm.responses` with `model="openai/<id>"` and `api_base=BRAIN_API_BASE`). `BRAIN_UPSTREAM_MODE` and the Chat Completions converter are deleted; the bridge speaks the Responses API only. The bridge pins `num_retries=0`: a failed turn returns a `PROVIDER_ERROR` report and the caller decides whether to retry, so `BRAIN_LITELLM_RETRIES`, the terminal-429 classifier, and `BRAIN_OVERALL_DEADLINE_S` are retired. `BRAIN_HTTP_READ_TIMEOUT` is the only in-flight bound.
+- **Alternatives considered:** keeping a legacy transport behind a flag — rejected, the Manager required one path and no retry policy in the Brain; keeping the terminal-429 classifier for a friendlier message — rejected, it exists only to shape retry advice the bridge no longer gives.
+- **Consequences:** the timeout ordering collapses to `ZEN_BRIDGE_UPSTREAM_TIMEOUT` ≤ `BRAIN_HTTP_READ_TIMEOUT` ≤ MCP client timeout. Earlier timeout/retry ADRs stay as history. A provider outage now surfaces directly to the caller every time.
+- **Rollback:** restore the previous `server.py` and `pyproject.toml` from git history; no data migration is involved.
+
 ## [2026-11-14] ADR-014: Chat Completions Ingress and Protocol Bridge
 
 - **Context:** `mcp-brain-bridge` historically spoke only OpenAI Responses API (`/responses`), making chat-completions-only models (such as MiniMax Flash or custom OpenAI chat proxies) inaccessible without an external translation daemon.

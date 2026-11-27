@@ -278,28 +278,21 @@ def _ok_payload(text="ok"):
 
 
 def _mk_bridge_client(monkeypatch, script):
-    clients = []
+    """Install a fake LiteLLM; returns the clients that actually get called.
 
-    class _CapClient(_FakeClient):
-        def post(self, url, json=None, headers=None, **kwargs):
-            return super().post(url, json=json, headers=headers, **kwargs)
+    The recorded list stays empty until the bridge really reaches the
+    provider, so call-count assertions keep their meaning.
+    """
+    from litellm_double import FakeLiteLLM
 
-    def _factory(*a, **k):
-        client = _CapClient(script)
-        clients.append(client)
-        return client
+    clients: list = []
 
-    stub = _types.ModuleType("httpx")
-    stub.Client = _factory
-    stub.TimeoutException = type("TimeoutException", (Exception,), {})
-    stub.TransportError = type("TransportError", (Exception,), {})
+    class _RecordingLiteLLM(FakeLiteLLM):
+        def responses(self, **kwargs):
+            clients.append(self)
+            return super().responses(**kwargs)
 
-    class _Timeout:
-        def __init__(self, *a, **k):
-            self.args, self.kwargs = a, k
-
-    stub.Timeout = _Timeout
-    monkeypatch.setitem(sys.modules, "httpx", stub)
+    monkeypatch.setattr(bridge, "_litellm_module", lambda: _RecordingLiteLLM(script))
     return clients
 
 

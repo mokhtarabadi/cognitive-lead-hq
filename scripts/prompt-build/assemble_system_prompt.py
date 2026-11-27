@@ -35,24 +35,26 @@ Include-marker format:
     Each {{PARAM}} placeholder in the shared file is replaced by its value.
 
 Stage mode (per-stage prompt artifacts):
-    The Brain prompt ships a shared COMMON core plus a stage-scoped persona
-    roster. The always-shipping part lives in the personas catalog fragment
-    (06-personas-catalog.md: the <personas> wrapper plus the <auto_load>
-    block); the seven <persona> blocks live as verbatim slices in
+    The Brain prompt ships a shared COMMON core plus the full seven-seat
+    persona roster. The always-shipping part lives in the personas catalog
+    fragment (06-personas-catalog.md: the <personas> wrapper plus the
+    <auto_load> block); the seven <persona> blocks live as verbatim slices in
     prompts/fragments/personas/<slug>.md, listed in canonical catalog order
     by prompts/fragments/personas/manifest.txt.
 
     The assembler splices the persona blocks into the catalog at build time:
-    <personas> + <persona block> ... + <auto_load> ... + </personas>. The
-    persona order for the FULL prompt comes from the personas manifest; the
-    persona order for a STAGE artifact comes from the stage routing manifest
-    (prompts/stage-manifest.json), which is the single source of truth shared
+    <personas> + <persona block> ... + <auto_load> ... + </personas>. Both the
+    full prompt and every stage artifact carry all seven seats: a stage turn
+    must be able to reason as every seat, so the roster is never stage-scoped.
+    (Before 2026-11-27 a stage shipped only its own seat; that was the defect
+    the seven-seat contract replaced.) The stage routing manifest
+    (prompts/stage-manifest.json) remains the single source of truth shared
     with the Brain bridge (mcp-brain-bridge/server.py).
 
     Byte-identity contract (stage mode):
-      - A stage artifact is the common fragments verbatim plus the stage's
-        own persona roster, so the "brainstorm" stage (all seven personas)
-        is byte-identical to the full prompt.
+      - Every stage artifact is the common fragments verbatim plus the full
+        seven-seat roster, so all eight artifacts are byte-identical to the
+        full prompt.
       - The output is byte-stable: the same inputs always produce the same
         bytes (no timestamps, no dict-order dependence, no random ids).
 """

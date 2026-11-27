@@ -217,30 +217,33 @@ def _ok_payload(text="ok"):
 
 
 def _stub_httpx(monkeypatch, script, holder):
-    class _CapClient:
-        def __init__(self, *a, **k):
-            pass
+    """Install a capture-capable fake LiteLLM on the bridge seam."""
+    from litellm_double import FakeLiteLLM
 
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *a):
-            return False
-
-        def post(self, url, json=None, headers=None, **kwargs):
+    class _CapLiteLLM(FakeLiteLLM):
+        def responses(self, **kwargs):
             holder["calls"] = holder.get("calls", 0) + 1
-            holder["body"] = json
-            item = script.pop(0) if len(script) > 1 else script[0]
-            if isinstance(item, Exception):
-                raise item
-            return item
+            captured = {
+                key: value
+                for key, value in kwargs.items()
+                if key
+                not in {
+                    "api_base",
+                    "api_key",
+                    "extra_headers",
+                    "timeout",
+                    "num_retries",
+                }
+            }
+            extra = captured.pop("extra_body", None)
+            if isinstance(extra, dict):
+                captured.update(extra)
+            model = str(captured.get("model", ""))
+            captured["model"] = model.split("/", 1)[-1]
+            holder["body"] = captured
+            return super().responses(**kwargs)
 
-    stub = _types.ModuleType("httpx")
-    stub.Client = _CapClient
-    stub.TimeoutException = type("TimeoutException", (Exception,), {})
-    stub.TransportError = type("TransportError", (Exception,), {})
-    stub.Timeout = lambda *a, **k: None  # noqa: E731
-    monkeypatch.setitem(sys.modules, "httpx", stub)
+    monkeypatch.setattr(bridge, "_litellm_module", lambda: _CapLiteLLM(script))
 
 
 def _mk_env(tmp_path, monkeypatch):
@@ -307,6 +310,7 @@ def test_brain_turn_emits_session_start_manifest_diagnostic(
     tmp_path, monkeypatch, capsys
 ):
     proj = _mk_env(tmp_path, monkeypatch)
+    monkeypatch.setenv("BRAIN_DEBUG", "1")
     holder = {}
     _stub_httpx(monkeypatch, [_FakeResp(200, "fine", _ok_payload())], holder)
     call = bridge.brain_turn

@@ -345,17 +345,30 @@ class _RecClient:
 
 
 def _stub_client(monkeypatch, script, bodies):
-    stub = types.ModuleType("httpx")
-    stub.Client = lambda *a, **k: _RecClient(script, bodies)
-    stub.TimeoutException = type("TimeoutException", (Exception,), {})
-    stub.TransportError = type("TransportError", (Exception,), {})
+    """Install a fake LiteLLM that records every call payload in order."""
+    from litellm_double import FakeLiteLLM
 
-    class _Timeout:
-        def __init__(self, *a, **k):
-            self.args, self.kwargs = a, k
+    class _RecLiteLLM(FakeLiteLLM):
+        def responses(self, **kwargs):
+            captured = {
+                key: value
+                for key, value in kwargs.items()
+                if key
+                not in {
+                    "api_base",
+                    "api_key",
+                    "extra_headers",
+                    "timeout",
+                    "num_retries",
+                }
+            }
+            extra = captured.pop("extra_body", None)
+            if isinstance(extra, dict):
+                captured.update(extra)
+            bodies.append(captured)
+            return super().responses(**kwargs)
 
-    stub.Timeout = _Timeout
-    monkeypatch.setitem(sys.modules, "httpx", stub)
+    monkeypatch.setattr(bridge, "_litellm_module", lambda: _RecLiteLLM(script))
 
 
 def _ok_payload(text="ok"):
@@ -426,7 +439,15 @@ def test_brain_turn_unsupported_param_returns_report(tmp_path, monkeypatch):
     proj = _turn_env(tmp_path, monkeypatch)
     monkeypatch.setenv("BRAIN_TEMPERATURE", "0.7")
     bodies: list = []
-    script = [_FakeResp(400, _unsupported_400_text("temperature"))]
+    from litellm_double import FakeLiteLLMError
+
+    script = [
+        FakeLiteLLMError(
+            _unsupported_400_text("temperature"),
+            status_code=400,
+            code="unsupported_parameter",
+        )
+    ]
     _stub_client(monkeypatch, script, bodies)
     call = bridge.brain_turn
     target = call.fn if hasattr(call, "fn") else call

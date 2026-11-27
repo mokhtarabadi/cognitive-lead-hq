@@ -229,6 +229,7 @@ def test_build_diff_attach_via_project_root(monkeypatch, tmp_path):
 
 
 def test_build_diff_attach_unresolvable_says_so(monkeypatch, capsys):
+    monkeypatch.setenv("BRAIN_DEBUG", "1")
     monkeypatch.setattr(
         bridge, "_resolve_task_file", lambda tid, project_root=None: None
     )
@@ -238,6 +239,7 @@ def test_build_diff_attach_unresolvable_says_so(monkeypatch, capsys):
 
 
 def test_build_diff_attach_empty_diff_says_so(monkeypatch, tmp_path, capsys):
+    monkeypatch.setenv("BRAIN_DEBUG", "1")
     target = tmp_path / "99-sample.md"
     target.write_text("# Task 99: no diff\n", encoding="utf-8")
     monkeypatch.setattr(

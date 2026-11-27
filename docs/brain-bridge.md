@@ -18,7 +18,11 @@ only; no copy-paste relay instructions` in autopilot, `MODE: MANUAL
 2. **The bridge loads the system prompt** from the global install
    (`~/.config/opencode/system-prompt.md`, override via
    `BRAIN_SYSTEM_PROMPT`) and sends system + history + new prompt
-   to the LLM over the OpenAI Responses API via httpx.
+   to the LLM over the OpenAI Responses API through LiteLLM. LiteLLM owns
+   the HTTP client, timeout, and provider-error translation; the bridge
+   pins `num_retries=0`, so a failed turn is reported to the caller and
+   never retried here. The bridge keeps prompt shaping, the wire
+   passthrough, and the response/triage logic.
 3. **Output comes back raw.** Triage no longer mutates persisted raw
    provider text. When it contains a structured block
    (`<hands_implementation_task>`, `<hands_discovery_task>`,
@@ -148,19 +152,19 @@ repo-root `.env`). Real process env wins; blank counts as unset. See
 | `BRAIN_USE_INSTRUCTIONS`        | off — when on, the system prompt moves to top-level `instructions` instead of a `role: system` input item (F10; probed OK)                           |
 | `BRAIN_CHARS_PER_TOKEN`         | unset — explicit chars-per-token override for the pre-send estimate; otherwise calibrated from observed `usage.input_tokens`, else `4.0` (F3)        |
 | `BRAIN_COMPACTION_THRESHOLD`    | `100000` — token threshold for `context_management` compaction (F3)                                                                                  |
-| `BRAIN_HTTP_READ_TIMEOUT`       | `600` code default; deployed `960` — httpx read timeout for the provider call                                                                        |
-| `BRAIN_OVERALL_DEADLINE_S`      | `900` code default; deployed `1200` — whole retry-sequence deadline; must sit above the proxy hop and below the MCP client timeout                   |
+| `BRAIN_HTTP_READ_TIMEOUT`       | `600` code default; deployed `960` — provider read timeout for one LiteLLM call                                                                      |
+| `BRAIN_OVERALL_DEADLINE_S`      | retired — the bridge does not retry, so no outer deadline exists                                                                                     |
 
 The deployed Brain uses `http://127.0.0.1:8081/go/resp` with
 `responses`, `muse-spark-1.3-contributor` as the default and T0 model,
 `gpt-6-luna` for T1/T2, and `BRAIN_REASONING_EFFORT=max`. Stage routing is
 `qa:T2,plan:T0,review:T2,sprint:T0,brainstorm:T2,implement:T0,closure:T0,planner:T0`;
-unlisted stages fall back to the default model. The `zen-proxy` hop imposes
+unlisted stages fall back to the default model. The `zen-bridge` hop imposes
 its own upstream silence timeout, so the binding ordering is
-`ZEN_PROXY_UPSTREAM_TIMEOUT` (900s) ≤ `BRAIN_HTTP_READ_TIMEOUT` (960s) ≤
-`BRAIN_OVERALL_DEADLINE_S` (1200s) ≤ the MCP client's execution timeout
-(1500000ms). The current bridge checks the overall deadline between
-attempts, so the read timeout remains the in-flight hard stop. A proxy
+`ZEN_BRIDGE_UPSTREAM_TIMEOUT` (900s) ≤ `BRAIN_HTTP_READ_TIMEOUT` (960s) ≤
+the MCP client's execution timeout (1500000ms). The read timeout is the
+in-flight hard stop for a single turn; there is no outer deadline because
+the bridge never retries. A proxy
 timeout below a real turn's duration surfaces here as
 `RemoteProtocolError: Server disconnected without sending a response`.
 
@@ -168,6 +172,24 @@ timeout below a real turn's duration surfaces here as
 the measured ~4.6 chars/token) — room for full context and diff reports
 plus the whole session thread. Set `BRAIN_INPUT_BUDGET` to a smaller
 positive integer to restore a tighter ceiling.
+
+### Transport, proxy, and error ownership
+
+- **No retries, by design.** `num_retries=0` is pinned on every call. A failed
+  turn returns a `PROVIDER_ERROR` report and the decision to try again belongs
+  to whoever invoked `brain_turn`. There is no retry counter, no backoff, and
+  no rate-limit-code classifier in this bridge.
+- **The read timeout is the only in-flight bound** (`BRAIN_HTTP_READ_TIMEOUT`).
+  A turn either finishes or fails within it.
+- **Proxy resolution is sticky and additive-only.** `BRAIN_HTTPS_PROXY` /
+  `BRAIN_HTTP_PROXY` are resolved first, then mirrored onto the standard
+  `http_proxy`/`https_proxy` names (both cases) because LiteLLM reads them
+  through `trust_env`. A blank or whitespace-only standard value counts as
+  unset and is filled; a truthy host-wide value is never overwritten. The
+  mirror is a once-per-turn process-env mutation, not a per-request context.
+- **Loopback is always exempt.** `127.0.0.1`, `localhost`, and `::1` are
+  appended to `no_proxy`/`NO_PROXY` when missing and never removed, so the
+  Brain → zen-bridge hop stays direct.
 
 Every cap above follows the blank-means-unset rule: an unset **or blank**
 variable applies the documented default, and a real non-empty value wins.

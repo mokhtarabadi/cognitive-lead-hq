@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
-"""Enhanced zen-proxy — pure Python stdlib, no external dependencies.
+"""Enhanced zen-bridge — pure Python stdlib, no external dependencies.
 
-Purpose: let paid OpenCode Go models be used anywhere (especially the Brain)
-through a single local endpoint that behaves like the real OpenCode client.
+Purpose: act as the loopback bridge that lets paid OpenCode Go models be used
+anywhere (especially the Brain) through a single local endpoint that behaves
+like the real OpenCode client. The Brain calls this bridge over loopback with
+no proxy; the bridge itself reaches the Go gateway through the proxy values
+resolved below.
 
 Features:
   * HTTP CONNECT proxy support (works as a normal HTTP proxy).
@@ -50,8 +53,83 @@ CHANNEL = os.environ.get("OPENCODE_CHANNEL", "latest")
 VERSION = os.environ.get("OPENCODE_VERSION", "2.3.2")
 NAME = os.environ.get("OPENCODE_NAME", "cli")
 PROJECT_ID = os.environ.get("OPENCODE_PROJECT_ID", "global")
-TIMEOUT = float(os.environ.get("UPSTREAM_TIMEOUT_SEC", "900"))
-MAX_BODY_BYTES = int(os.environ.get("ZEN_PROXY_MAX_BODY_BYTES", "33554432"))
+TIMEOUT = float(
+    os.environ.get(
+        "ZEN_BRIDGE_UPSTREAM_TIMEOUT", os.environ.get("UPSTREAM_TIMEOUT_SEC", "900")
+    )
+)
+MAX_BODY_BYTES = int(
+    os.environ.get(
+        "ZEN_BRIDGE_MAX_BODY_BYTES",
+        os.environ.get("ZEN_PROXY_MAX_BODY_BYTES", "33554432"),
+    )
+)
+
+
+def _env_first(*names: str) -> str:
+    """Return the first non-empty environment value among ``names``."""
+    for name in names:
+        value = os.environ.get(name, "").strip()
+        if value:
+            return value
+    return ""
+
+
+def upstream_proxy_url() -> str:
+    """Resolve the upstream HTTP proxy for gateway traffic.
+
+    Precedence: the bridge-specific ``ZEN_BRIDGE_*`` keys first, then the
+    standard lowercase names, then the uppercase names. An empty result means
+    direct egress.
+    """
+    return _env_first(
+        "ZEN_BRIDGE_HTTPS_PROXY",
+        "ZEN_BRIDGE_HTTP_PROXY",
+        "https_proxy",
+        "http_proxy",
+        "HTTPS_PROXY",
+        "HTTP_PROXY",
+    )
+
+
+def no_proxy_hosts() -> tuple[str, ...]:
+    """Hosts that must never go through the upstream proxy (loopback)."""
+    raw = _env_first("ZEN_BRIDGE_NO_PROXY", "no_proxy", "NO_PROXY")
+    hosts = [item.strip().lower() for item in raw.split(",") if item.strip()]
+    for loopback in ("localhost", "127.0.0.1", "::1"):
+        if loopback not in hosts:
+            hosts.append(loopback)
+    return tuple(hosts)
+
+
+def host_bypasses_proxy(host: str) -> bool:
+    """True when ``host`` is loopback or listed in the no-proxy set."""
+    candidate = (host or "").strip().lower()
+    for entry in no_proxy_hosts():
+        if entry.startswith(".") and candidate.endswith(entry[1:]):
+            return True
+        if candidate == entry or candidate.endswith("." + entry):
+            return True
+    return False
+
+
+def _build_opener() -> urllib.request.OpenerDirector:
+    """Build the gateway opener, honoring the bridge-specific proxy keys.
+
+    ``urllib`` only reads the standard names on its own, so the explicit
+    handler keeps ``ZEN_BRIDGE_HTTPS_PROXY`` authoritative. An empty proxy
+    value installs a no-proxy handler (direct egress).
+    """
+    proxy = upstream_proxy_url()
+    handlers = [
+        urllib.request.ProxyHandler({"http": proxy, "https": proxy})
+        if proxy
+        else urllib.request.ProxyHandler({})
+    ]
+    return urllib.request.build_opener(*handlers)
+
+
+OPENER = _build_opener()
 
 
 # --------------------------------------------------------------------------
@@ -180,13 +258,7 @@ class ProxyHandler(BaseHTTPRequestHandler):
         # tunnel through it; otherwise connect directly. Direct-only hosts are
         # honoured via no_proxy so loopback never loops through the proxy.
         pending = None
-        proxy_url = (
-            os.environ.get("https_proxy")
-            or os.environ.get("HTTPS_PROXY")
-            or os.environ.get("http_proxy")
-            or os.environ.get("HTTP_PROXY")
-            or ""
-        )
+        proxy_url = upstream_proxy_url() if not host_bypasses_proxy(host) else ""
         try:
             if proxy_url:
                 p = urllib.parse.urlsplit(proxy_url)
@@ -342,7 +414,7 @@ class ProxyHandler(BaseHTTPRequestHandler):
             upstream, data=body if body else None, headers=headers, method=self.command
         )
         try:
-            with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
+            with OPENER.open(req, timeout=TIMEOUT) as resp:
                 raw = resp.read()
                 status = resp.status
                 resp_headers = dict(resp.headers.items())
@@ -436,7 +508,7 @@ class ThreadingProxy(ThreadingHTTPServer):
 
 def main() -> None:
     server = ThreadingProxy(("127.0.0.1", PORT), ProxyHandler)
-    print(f"zen-proxy (python, enhanced) on :{PORT} -> {BASE}", flush=True)
+    print(f"zen-bridge (python, enhanced) on :{PORT} -> {BASE}", flush=True)
     try:
         server.serve_forever()
     except KeyboardInterrupt:

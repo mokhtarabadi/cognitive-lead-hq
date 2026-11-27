@@ -32,44 +32,36 @@ Brain Bridge MCP daemon: single-tool (`brain_turn`) automation path for planning
   ships behind a `BRAIN_SEND_*` / `BRAIN_USE_INSTRUCTIONS` switch
   defaulting to off, so default wire bytes never change silently.
 
-## Upstream Modes & Chat Completions Protocol Bridge
+## Transport: LiteLLM, No Retries
 
-`BRAIN_UPSTREAM_MODE` controls whether the bridge emits OpenAI Responses API requests or Chat Completions requests:
+Every turn goes through `litellm.responses(model="openai/<id>", api_base=BRAIN_API_BASE)`.
 
-- `responses` (default): posts to `BRAIN_API_BASE/responses` with native Responses format.
-- `chat_completions`: posts to `BRAIN_API_BASE/chat/completions` with OpenAI-compatible Chat Completions format.
-
-In `chat_completions` mode:
-
-- `instructions` and `input` are mapped to role-tagged `messages` (plain string `input` is supported as a single user message).
-- `function_call` input items become `assistant` tool-call messages and `function_call_output` items become `role="tool"` messages with JSON arguments.
-- `max_output_tokens` translates to `max_tokens`.
-- `reasoning.effort` translates to `reasoning_effort`.
-- `tools`, `tool_choice`, and `parallel_tool_calls` are converted to Chat Completions function calling shapes.
-- Responses-only fields (`store`, `previous_response_id`, `metadata`, `include`, `truncation`, `service_tier`, `text`, `prompt_cache_key`, `context_management`) are dropped with a logged warning. `prompt_cache_key` and `context_management` are added by the Responses builder behind `BRAIN_SEND_CACHE_KEY` and `BRAIN_SEND_CONTEXT_MANAGEMENT`, so chat-completions mode warns when those switches would otherwise be silently discarded.
-- `BRAIN_COMPACTION_THRESHOLD` must be an integer of at least 1000, the minimum documented by the OpenAI Responses API for `context_management.compaction.compact_threshold`. Smaller values fail loud at startup instead of being rejected upstream.
-- Responses are normalized into Responses API data structures: status is derived from `finish_reason` (`stop`/`tool_calls` -> `completed`, `length`/`content_filter`/unknown -> `incomplete`), errors map to `status: failed`, omitted usage counters remain omitted, and tool calls / reasoning content are preserved in `output`.
-- `parse_responses_text` renders `function_call` items as `name(arguments)` text for agent consumption.
-- Only an unrecognised status aborts while `status=incomplete` is annotated with `[upstream incomplete: <reason>]` and returned; `_record_brain_use` guards against null tokens in quota arithmetic.
-- Structured tool calls (additive, both modes): `brain_turn` returns `tool_calls`, one entry per `function_call` item with `call_id`, `name`, `arguments` (parsed dict), `arguments_raw` (original string), and `source` (`responses` or `chat_completions`). A tool-call-only answer is detectable as a non-empty list without parsing prose; prose-only answers yield `[]`. The text channel above is unchanged.
+- The bridge pins `num_retries=0`. A failed turn returns a `PROVIDER_ERROR`
+  report; deciding whether to try again belongs to the caller.
+- `BRAIN_HTTP_READ_TIMEOUT` is the only in-flight bound. There is no retry
+  ladder, no backoff, no rate-limit-code classifier, and no outer deadline.
+- Provider failures keep `debug.provider` with status, code, and error type so
+  the caller can reason about the failure.
+- `parse_responses_text` renders `function_call` items as `name(arguments)`
+  text; structured tool calls remain available through `tool_calls`.
 
 ## Deployed Runtime Configuration
 
 The current deployment keeps `muse-spark-1.3-contributor` on the Responses mount
-(`BRAIN_API_BASE=http://127.0.0.1:8081/go/resp`,
-`BRAIN_UPSTREAM_MODE=responses`) with `BRAIN_MODEL_LOW=muse-spark-1.3-contributor`,
+(`BRAIN_API_BASE=http://127.0.0.1:8081/go/resp`) with
+`BRAIN_MODEL_LOW=muse-spark-1.3-contributor`,
 `BRAIN_MODEL_HIGH=gpt-6-luna`, `BRAIN_REASONING_EFFORT=max`, and
 `BRAIN_STAGE_TIERS=qa:T2,plan:T0,review:T2,sprint:T0,brainstorm:T2,implement:T0,closure:T0,planner:T0`.
-The binding timeout ladder is `ZEN_PROXY_UPSTREAM_TIMEOUT=900s` ≤
-`BRAIN_HTTP_READ_TIMEOUT=960s` ≤ `BRAIN_OVERALL_DEADLINE_S=1200s` ≤ the MCP
-client execution timeout (`1500000ms`). Code defaults remain 600s read and
-900s overall; the deployed values are explicit operator settings. The overall
-deadline is checked between attempts, so the read timeout remains the
-in-flight hard stop.
+The binding timeout ladder is `ZEN_BRIDGE_UPSTREAM_TIMEOUT=900s` ≤
+`BRAIN_HTTP_READ_TIMEOUT=960s` ≤ the MCP client execution timeout
+(`1500000ms`). There is no outer deadline: the bridge does not retry, so the
+read timeout is the only in-flight bound.
 
-## Stage-Scoped System Prompts
+## Stage System Prompts
 
 `brain_turn(stage=...)` selects the system prompt the Brain receives. The routing table is `prompts/stage-manifest.json` in the repository — the same file the assembler uses to generate the artifacts — so a stage is declared once and both sides agree on it. `resolve_stage_prompt_path(stage)` is pure and side-effect free: it returns the artifact path for a known stage and `None` for an unknown or empty stage.
+
+Each stage ships its declared lead persona block(s) — one for qa, review, implement, closure, sprint, and planner; five for plan; seven for brainstorm — plus the full seven-seat roster and the `auto_load` Layer 3 adoption rule, so a turn can adopt another seat when the task needs it without carrying seven competing identities. One primary persona per system message is deliberate: multiple full persona blocks argue with each other and burn context on every turn.
 
 Resolution order in `load_system_prompt`: explicit `system_prompt_path` → the stage artifact (repo copy first, then the `~/.config/opencode/` install) → `BRAIN_SYSTEM_PROMPT` → the full committed prompt. A stage artifact whose `<system_version>` differs from the current source is skipped with a stderr note and the full prompt serves; an explicit `system_prompt_path` override is never gated. A known stage whose artifact is missing on disk falls through to the full prompt with one stderr note; it never returns an empty prompt and never raises because of a stage. An unknown stage string is rejected loudly by the preflight gate (`PreflightError`) rather than silently downgraded, so a typo fails visible instead of quietly running unscoped. `preflight.ALLOWED_STAGES` accepts `plan`, `implement`, `qa`, `review`, `closure`, and `brainstorm`. A changed loader needs a Manager restart to take effect in the running singleton.
 

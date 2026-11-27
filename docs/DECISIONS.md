@@ -57,3 +57,11 @@
 - **Consequences:** the shared, rotating exit country remains a preference and must be re-traced after any change. Verified 2026-11-22: `ip=172.105.78.25`, `loc=DE`, `colo=FRA`, `warp=off` from both the proxy container and blowsh's own `fetch_web`. The sibling `psiphon-proxy/ADR-002` records the build-context decision.
 - **Rollback:** restore `EgressRegion=US`, rebuild `psiphon-proxy:us`, recreate the proxy and blowsh with the same `PROXY_*` variables.
 - **Rollback:** remove either build context and its container and recreate blowsh in direct mode.
+
+## [2026-11-27] ADR-009: WARP and Psiphon build contexts removed; blowsh proxy support is env-only
+
+- **Context:** the Manager directed removal of the `warp-proxy/` and `psiphon-proxy/` projects and every reference to them. blowsh must keep proxy support, but it must not depend on a named container backend this repo builds and owns.
+- **Decision:** delete both build contexts and their guides (`docs/blowsh-warp-proxy.md`, `docs/blowsh-psiphon-proxy.md`); `docs/blowsh-proxy-options.md` now documents direct egress plus any operator-supplied HTTP proxy selected through `PROXY_TYPE`, `PROXY_HOST`, `PROXY_PORT`, and `PROXY_BYPASS`. Direct remains the default. ADR-005, ADR-007, and ADR-008 stay in this file as history and are superseded by this entry.
+- **Alternatives considered:** (a) keep both contexts as optional — rejected, the Manager required their removal; (b) keep only one — rejected, the request covered both; (c) drop proxy support entirely — rejected, blowsh still needs an opt-in proxy path.
+- **Consequences:** no backend image is maintained here. An operator who needs a specific exit operates their own proxy and points blowsh at it; the deployment must share a Docker network with blowsh, publish no host ports, and keep `PROXY_BYPASS=localhost,127.0.0.1`.
+- **Rollback:** restore either directory from git history at the commit preceding this ADR and rebuild the image; the `PROXY_*` contract is unchanged.

@@ -4,7 +4,7 @@
 # requires-python = ">=3.10"
 # dependencies = [
 #     "mcp[cli]>=1.0,<2.0",
-#     "httpx>=0.28",
+#     "litellm>=1.111.0,<2.0",
 # ]
 # ///
 
@@ -14,8 +14,8 @@ One tool. ``brain_turn`` is the automation path: the Hands builds a user
 prompt from its current machine state (e.g. "QA engineer please make
 the adversarial testing" + the task file), the server prepends the
 latest system prompt (read from the global install) as the system
-message, calls the LLM over the OpenAI Responses API via httpx, and
-returns the output — with any machine XML blocks extracted. The Hands
+message, calls the LLM over the OpenAI Responses API through LiteLLM,
+and returns the output — with any machine XML blocks extracted. The Hands
 locates files and pulls ranges with its own native OpenCode tools; the
 bridge exposes no file tools.
 
@@ -23,7 +23,7 @@ bridge exposes no file tools.
 state (e.g. "QA engineer please make the adversarial testing" + the task
 file), the server prepends the latest system prompt (read from the global
 install) as the system message, calls the LLM over the OpenAI Responses
-API via httpx, and returns the output — with any machine XML blocks
+API through LiteLLM, and returns the output — with any machine XML blocks
 extracted.
 
 Manager rule: if the output has XML, the Hands takes only the XML; if
@@ -50,10 +50,10 @@ History is bounded (last 40 messages) so long sessions cannot overflow
 the context.
 
 Transport: stdio FastMCP, mirroring the other servers. The model is
-called over the OpenAI Responses API (``{api_base}/responses``) via
-``httpx`` — plain HTTPS POST, no SDK needed. ``httpx`` is imported
-lazily inside the call path so module import (and unit tests) never
-need network access or provider credentials.
+called through ``litellm.responses`` against ``{api_base}/responses`` —
+LiteLLM owns the HTTP client, retries, timeout, and provider-error
+translation. Both imports are lazy so module import (and unit tests)
+never needs network access or provider credentials.
 """
 
 from __future__ import annotations
@@ -96,9 +96,41 @@ def _load_env_files(server_dir: Optional[Path] = None) -> Optional[str]:
     )
 
 
+def _debug_enabled() -> bool:
+    """True when ``BRAIN_DEBUG`` is truthy; per-turn chatter defaults off."""
+    return os.environ.get("BRAIN_DEBUG", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+
+class _SilentStream:
+    """Write sink used when ``BRAIN_DEBUG`` is off."""
+
+    def write(self, *_args: Any, **_kwargs: Any) -> int:
+        return 0
+
+    def flush(self) -> None:
+        return None
+
+
+_SILENT_STREAM = _SilentStream()
+
+
+def _debug_stream() -> Any:
+    """Current debug sink: real stderr when enabled, a silent sink otherwise.
+
+    Resolved per call so a test or a long-lived process can toggle
+    ``BRAIN_DEBUG`` without restarting the server.
+    """
+    return sys.stderr if _debug_enabled() else _SILENT_STREAM
+
+
 _loaded_from = _load_env_files()
 if _loaded_from is not None:
-    print(f"brain-bridge: loaded env from {_loaded_from}", file=sys.stderr)
+    print(f"brain-bridge: loaded env from {_loaded_from}", file=_debug_stream())
 
 logger = logging.getLogger(__name__)
 
@@ -120,7 +152,7 @@ except ImportError:
         print(
             "brain-bridge: loop_guard sibling missing under both import names; "
             "per-project sessions disabled, legacy global applies",
-            file=sys.stderr,
+            file=_debug_stream(),
         )
         _shared_project_root = None  # type: ignore[assignment]
         _shared_legacy_root = None  # type: ignore[assignment]
@@ -892,7 +924,7 @@ def _workspace_root() -> Path:
             "brain-bridge: could not resolve the active project root "
             f"({exc}); falling back to the bridge install dir {install_root}. "
             "Set BRAIN_PROJECT_ROOT (or BRAIN_WORKSPACE_ROOT) to silence this.",
-            file=sys.stderr,
+            file=_debug_stream(),
         )
         return install_root
 
@@ -1093,7 +1125,7 @@ def _build_task_attach(task_id: str, project_root: Optional[str] = None) -> str:
             f"{_TASK_FILE_MARKER}{tid}: {rel}]\n" + "```markdown\n" + cleaned + "\n```"
         )
     except Exception as exc:  # never fail a turn on attach problems
-        print(f"brain-bridge: task attach skipped ({exc})", file=sys.stderr)
+        print(f"brain-bridge: task attach skipped ({exc})", file=_debug_stream())
         return ""
 
 
@@ -1139,7 +1171,7 @@ def build_diff_attach(task_id: str, project_root: Optional[str] = None) -> str:
             print(
                 f"brain-bridge: diff attach skipped "
                 f"(task file unresolvable for {task_id!r})",
-                file=sys.stderr,
+                file=_debug_stream(),
             )
             return (
                 f"[changed-hunks:{tid}: UNAVAILABLE — task file "
@@ -1155,7 +1187,7 @@ def build_diff_attach(task_id: str, project_root: Optional[str] = None) -> str:
             print(
                 f"brain-bridge: diff attach skipped "
                 f"(no Factual Git Diff block in {path.name})",
-                file=sys.stderr,
+                file=_debug_stream(),
             )
             return (
                 f"[changed-hunks:{tid}: EMPTY — no Factual Git Diff "
@@ -1186,7 +1218,7 @@ def build_diff_attach(task_id: str, project_root: Optional[str] = None) -> str:
         diff = diff.replace(chr(96) * 3, chr(96) * 2 + chr(8203) + chr(96))
         return f"[changed-hunks:{tid}: {rel}]\n" + "```diff\n" + diff + "\n```"
     except Exception as exc:  # never fail a turn on attach problems
-        print(f"brain-bridge: diff attach skipped ({exc})", file=sys.stderr)
+        print(f"brain-bridge: diff attach skipped ({exc})", file=_debug_stream())
         tid = task_id.strip() if isinstance(task_id, str) else "task"
         return (
             f"[changed-hunks:{tid}: UNAVAILABLE — attach raised "
@@ -1355,7 +1387,7 @@ def _build_context_bundle(root: Optional[str] = None) -> str:
     if missing:
         print(
             f"brain-bridge: context bundle skipped {missing} missing files",
-            file=sys.stderr,
+            file=_debug_stream(),
         )
     return "\n\n".join(parts)
 
@@ -1458,7 +1490,7 @@ def _load_stage_manifest() -> Optional[dict]:
         print(
             f"[brain-bridge] stage manifest {path} is unreadable ({exc}); "
             "serving the full prompt.",
-            file=sys.stderr,
+            file=_debug_stream(),
         )
         return None
     try:
@@ -1467,14 +1499,14 @@ def _load_stage_manifest() -> Optional[dict]:
         print(
             f"[brain-bridge] stage manifest {path} is not valid JSON ({exc}); "
             "serving the full prompt.",
-            file=sys.stderr,
+            file=_debug_stream(),
         )
         return None
     if not isinstance(data, dict):
         print(
             f"[brain-bridge] stage manifest {path} is not a JSON object; "
             "serving the full prompt.",
-            file=sys.stderr,
+            file=_debug_stream(),
         )
         return None
     return data
@@ -1634,7 +1666,7 @@ def _stage_prompt_candidates(stage: Optional[str]) -> list[Path]:
         except ValueError as exc:
             print(
                 f"brain-bridge: stage artifact rejected ({exc})",
-                file=sys.stderr,
+                file=_debug_stream(),
             )
             continue
         if checked not in out:
@@ -1732,7 +1764,7 @@ def load_system_prompt(
                         f"brain-bridge: stage artifact {path.name} is stale "
                         f"(v{found or 'unknown'} != current v{expected}); "
                         "served the full system prompt",
-                        file=sys.stderr,
+                        file=_debug_stream(),
                     )
                     continue
             # A known stage whose artifact never made it to disk fell back
@@ -1743,7 +1775,7 @@ def load_system_prompt(
                 print(
                     f"brain-bridge: no stage artifact for {stage!r}; "
                     "served the full system prompt",
-                    file=sys.stderr,
+                    file=_debug_stream(),
                 )
             # An UNKNOWN stage also degrades to the full prompt, but it
             # carries no warning at all today. The preflight gate rejects
@@ -1754,7 +1786,7 @@ def load_system_prompt(
                 print(
                     f"brain-bridge: unknown stage {stage!r}; "
                     "served the full system prompt",
-                    file=sys.stderr,
+                    file=_debug_stream(),
                 )
             return path.read_text(encoding="utf-8")
     raise FileNotFoundError(
@@ -2472,7 +2504,7 @@ def _sanitize_replay_item(item: Any) -> Any:
             f"brain-bridge: dropping replayed item with "
             f"{len(item_id)}-char id (provider cap {_REPLAY_MAX_ID_LEN}); "
             f"continuity for that block is skipped, the turn proceeds",
-            file=sys.stderr,
+            file=_debug_stream(),
         )
         return None
     if not any(k in _REPLAY_DROPPED_KEYS for k in item):
@@ -2658,105 +2690,7 @@ def _get_api_key() -> str:
     return key
 
 
-# Retry policy for provider calls: 3 attempts, exponential backoff.
-#: Retryable statuses. INTENTIONALLY NARROW: only these 5xx (plus 429
-#: and network timeouts) are retried. Other 5xx (501, 505, …) fall
-#: through to the generic provider error. Do NOT expand this set
-#: without a task: broadening retries burns latency on hopeless calls.
-#: DOCUMENTATION ONLY — the branch below checks membership directly.
-_RETRYABLE_STATUS = {429, 500, 502, 503, 504}
-
-# Fatal client errors: never retried — the request itself is wrong
-# (bad auth, bad route, bad payload). Other 4xx fail fast the same way.
-# NOTE (Task 329 F9): the old ``_FATAL_STATUS`` constant listed
-# {400, 401, 403, 404, 422} but was never referenced — the branch below
-# is range-based, so the constant was deleted rather than kept in sync.
-
 # Overall deadline (seconds) for the whole retry sequence. Sleeps are
-# capped by the remaining budget; hitting the deadline fast-fails instead
-# of sleeping past it.
-# 2026-10-22: was hard-coded 500, which fired before a single deep
-# xhigh/max turn could finish (gpt-6-luna spends 14-19K reasoning tokens
-# on a large prompt = 5-10 min), so long turns failed as
-# "provider overall deadline hit (500.0s)" no matter the read timeout.
-# Env-tunable; must stay above the proxy's upstream timeout when one is
-# in the path (zen-proxy defaults to 900).
-_DEFAULT_OVERALL_DEADLINE_S = 900.0
-
-
-def _overall_deadline_s() -> float:
-    """Whole-sequence provider deadline; override via BRAIN_OVERALL_DEADLINE_S.
-
-    Fail-loud on a non-numeric or non-positive value: a silent fallback
-    would change the timeout contract without saying so.
-    """
-    raw = os.environ.get("BRAIN_OVERALL_DEADLINE_S", "").strip()
-    if not raw:
-        return _DEFAULT_OVERALL_DEADLINE_S
-    try:
-        val = float(raw)
-    except ValueError:
-        raise RuntimeError(f"BRAIN_OVERALL_DEADLINE_S must be a number, got {raw!r}")
-    if val <= 0:
-        raise RuntimeError(f"BRAIN_OVERALL_DEADLINE_S must be > 0, got {raw!r}")
-    return val
-
-
-#: Billing/spend/quota 429 codes that must NEVER be retried (Task 329
-#: F6, per the official error-codes guide): "Retrying billing, spend, or
-#: quota errors won't restore API access." These fail terminal with an
-#: actionable hint instead of burning three attempts plus backoff.
-_TERMINAL_429_CODES = frozenset(
-    {
-        "credit_balance_exhausted",
-        "organization_spend_limit_exceeded",
-        "project_spend_limit_exceeded",
-        "organization_usage_limit_exceeded",
-        "insufficient_quota",
-        "billing_hard_limit_exceeded",
-    }
-)
-
-
-def _terminal_429_code(status: Any, data: Any) -> Optional[str]:
-    """Return the terminal billing/spend/quota code, or None (pure).
-
-    Only 429 responses are examined; anything else returns None so the
-    existing retry/fatal branches keep their behavior. Unknown 429 codes
-    and unparseable bodies return None — current retry behavior is the
-    safe default against false-terminal classification.
-    """
-    if status != 429:
-        return None
-    if isinstance(data, dict):
-        error = data.get("error")
-        if isinstance(error, dict):
-            code = error.get("code")
-            if isinstance(code, str) and code.strip().lower() in _TERMINAL_429_CODES:
-                return code.strip().lower()
-    return None
-
-
-def _error_code_from_body(text: Any) -> Optional[str]:
-    """Best-effort ``error.code`` extraction from a response body (pure).
-
-    Never raises: non-JSON or misshapen bodies yield None.
-    """
-    try:
-        if not isinstance(text, str) or not text.strip():
-            return None
-        data = json.loads(text)
-    except (ValueError, TypeError):
-        return None
-    if isinstance(data, dict):
-        error = data.get("error")
-        if isinstance(error, dict):
-            code = error.get("code")
-            if isinstance(code, str) and code.strip():
-                return code.strip()
-    return None
-
-
 # Empty-output contract (Task 232): a REPORT with blank output is a
 # transport/model flake, never a verdict. The bridge MUST NOT return it
 # silently — it substitutes the EMPTY_OUTPUT_RETRY hint so the caller
@@ -2789,21 +2723,6 @@ _REASONING_BUDGET_FLOOR = 32768
 _PROMPT_WARN_CHARS = 60000
 
 
-def _retry_after_s(resp: Any) -> float:
-    """Seconds from the Retry-After header (cap 120). 0 when missing/invalid."""
-    try:
-        raw = resp.headers.get("Retry-After", "")
-    except Exception:
-        return 0.0
-    try:
-        val = float(str(raw).strip().split(",")[0])
-    except (ValueError, TypeError):
-        return 0.0
-    if val < 0:
-        return 0.0
-    return min(val, 120.0)
-
-
 def _transport_fail(
     message: str,
     attempts: int,
@@ -2830,120 +2749,183 @@ def _transport_fail(
     return err
 
 
-def _post_with_retry(client: Any, url: str, payload: dict[str, Any]) -> tuple[Any, int]:
-    """POST with retries on transient failures (429/5xx + network
-    timeouts). Returns (resp, attempts). Honors Retry-After on 429
-    (plus small jitter) before exponential backoff. Final failure
-    raises RuntimeError with status + URL path + a 500-char body
-    snippet. Fatal client errors (400/401/403/404/422 and other 4xx)
-    fail fast with a no-retry error. Headers (and the key) never
-    enter error strings."""
-    import random
-    import time
+def _litellm_module() -> Any:
+    """Import LiteLLM lazily and keep its own logging quiet."""
+    import litellm
 
-    import httpx
+    litellm.suppress_debug_info = True
+    try:
+        litellm.set_verbose = False
+    except Exception:  # pragma: no cover - attribute differs across versions
+        pass
+    # LiteLLM installs INFO handlers on its own logger; the Brain is an MCP
+    # server whose stderr is operator surface, so keep it to warnings.
+    logging.getLogger("LiteLLM").setLevel(logging.WARNING)
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    return litellm
 
-    _deadline_s = _overall_deadline_s()
-    deadline = time.monotonic() + _deadline_s
-    last_status: int = -1
-    last_snippet: str = "no attempt made"
-    attempts = 0
-    for attempt in range(3):
-        if time.monotonic() >= deadline:
-            raise _transport_fail(
-                f"provider overall deadline hit ({_deadline_s}s) at "
-                f"{url.rsplit('/', 1)[-1]}: {last_snippet}",
-                attempts,
-            )
-        attempts += 1
-        retry_after = 0.0
-        try:
-            resp = client.post(
-                url,
-                json=payload,
-                headers={"Authorization": "Bearer " + _get_api_key()},
-            )
-        except (httpx.TimeoutException, httpx.TransportError) as exc:
-            last_status, last_snippet = -1, f"{type(exc).__name__}: {exc}"[:500]
-        else:
-            if resp.status_code < 400:
-                return resp, attempts
-            last_status, last_snippet = resp.status_code, resp.text[:500]
-            if resp.status_code == 429:
-                # Terminal billing/spend/quota codes (Task 329 F6): the
-                # official guide says retrying these cannot restore
-                # access, so fail at once with an actionable hint. The
-                # body parse is best-effort — an unparseable body keeps
-                # the current retry behavior.
-                try:
-                    _terminal_data = json.loads(resp.text) if resp.text else None
-                except (ValueError, TypeError):
-                    _terminal_data = None
-                _terminal_code = _terminal_429_code(resp.status_code, _terminal_data)
-                if _terminal_code is not None:
-                    raise _transport_fail(
-                        f"provider billing/quota error 429 "
-                        f"({_terminal_code}, no retry) at "
-                        f"{url.rsplit('/', 1)[-1]}: {last_snippet}. "
-                        "Add credits or raise the organization/project "
-                        "spend or usage limit before sending another request.",
-                        attempts,
-                        provider_status=resp.status_code,
-                        provider_code=_terminal_code,
-                    )
-            if resp.status_code not in _RETRYABLE_STATUS:
-                if 400 <= resp.status_code < 500:
-                    raise _transport_fail(
-                        f"fatal provider error {resp.status_code} (no retry) at "
-                        f"{url.rsplit('/', 1)[-1]}: {last_snippet}",
-                        attempts,
-                        provider_status=resp.status_code,
-                        provider_code=_error_code_from_body(resp.text),
-                    )
-                raise _transport_fail(
-                    f"provider error {resp.status_code} at "
-                    f"{url.rsplit('/', 1)[-1]}: {last_snippet}",
-                    attempts,
-                    provider_status=resp.status_code,
-                    provider_code=_error_code_from_body(resp.text),
-                )
-            if resp.status_code == 429:
-                retry_after = _retry_after_s(resp)
-        base = 2**attempt
-        if retry_after > 0:
-            base = max(base, retry_after)
-        delay = base + random.uniform(0, 0.25)
-        remaining = deadline - time.monotonic()
-        if remaining <= 0:
-            raise _transport_fail(
-                f"provider overall deadline hit ({_deadline_s}s) at "
-                f"{url.rsplit('/', 1)[-1]}: {last_snippet}",
-                attempts,
-            )
-        time.sleep(min(delay, remaining))
-    raise _transport_fail(
-        f"provider failed after 3 attempts ({last_status}) at "
-        f"{url.rsplit('/', 1)[-1]}: {last_snippet}",
-        attempts,
+
+def _ensure_loopback_no_proxy() -> str:
+    """Guarantee loopback hosts never travel through an outbound proxy.
+
+    The Brain reaches zen-bridge on 127.0.0.1; a global ``http_proxy`` must
+    never capture that hop. Returns the resulting no_proxy value.
+    """
+    current = os.environ.get("no_proxy") or os.environ.get("NO_PROXY") or ""
+    hosts = [part.strip() for part in current.split(",") if part.strip()]
+    for host in ("127.0.0.1", "localhost", "::1"):
+        if host not in hosts:
+            hosts.append(host)
+    value = ",".join(hosts)
+    os.environ["no_proxy"] = value
+    os.environ["NO_PROXY"] = value
+    return value
+
+
+def brain_proxy_url() -> str:
+    """Outbound proxy used for a non-loopback provider base.
+
+    Empty means direct egress. The loopback hop is always exempt through
+    ``_ensure_loopback_no_proxy``.
+    """
+    for name in (
+        "BRAIN_HTTPS_PROXY",
+        "BRAIN_HTTP_PROXY",
+        "https_proxy",
+        "HTTPS_PROXY",
+        "http_proxy",
+        "HTTP_PROXY",
+    ):
+        value = os.environ.get(name, "").strip()
+        if value:
+            return value
+    return ""
+
+
+def _apply_brain_proxy_env() -> str:
+    """Publish the resolved Brain proxy under the standard names.
+
+    LiteLLM/httpx read ``http_proxy``/``https_proxy`` (and their uppercase
+    twins) through ``trust_env``, so a ``BRAIN_*``-specific value has to be
+    mirrored onto those names before the call.
+
+    Blank-means-unset: an empty or whitespace-only standard name is filled
+    from the Brain value, while a truthy host-wide proxy is never
+    overwritten. The mirror is additive and sticky for the process, so the
+    only values this can change are the ones nobody had set.
+    """
+    proxy = brain_proxy_url()
+    if not proxy:
+        return ""
+    for name in ("http_proxy", "https_proxy", "HTTP_PROXY", "HTTPS_PROXY"):
+        if not os.environ.get(name, "").strip():
+            os.environ[name] = proxy
+    return proxy
+
+
+def _provider_base() -> str:
+    """Resolve and validate the provider base URL."""
+    default = "https://api.openai.com/v1"
+    base = os.environ.get("BRAIN_API_BASE", default).strip() or default
+    return _https_guard(base, "BRAIN_API_BASE").rstrip("/")
+
+
+def _litellm_error_text(exc: Exception) -> str:
+    """Best-effort provider message, bounded for error strings."""
+    message = getattr(exc, "message", None) or str(exc)
+    return str(message)[:800]
+
+
+def _litellm_provider_meta(
+    exc: Exception,
+) -> tuple[Optional[int], Optional[str], Optional[str]]:
+    """Extract status, provider code, and error type from a LiteLLM error."""
+    status = getattr(exc, "status_code", None)
+    code = getattr(exc, "code", None)
+    return (
+        status if isinstance(status, int) else None,
+        code if isinstance(code, str) else None,
+        type(exc).__name__,
     )
 
 
-def _resp_json(resp: Any) -> Any:
-    """Parse a provider response. Raises RuntimeError with status +
-    content-type + snippet on malformed bodies instead of leaking a
-    bare decode error."""
+def _post_with_litellm(body: dict[str, Any]) -> tuple[dict[str, Any], int]:
+    """Send one Responses-API turn through LiteLLM.
+
+    LiteLLM owns the HTTP client, the request timeout, and provider-error
+    translation. ``num_retries`` is pinned to 0: this bridge never retries.
+    A failed turn surfaces to the caller, and deciding whether to try again
+    belongs to whoever invoked ``brain_turn``. The bridge keeps only prompt
+    shaping, the wire-shape passthrough, and the response shape the rest of
+    this module already consumes (a Responses-API JSON dict).
+    """
+    litellm = _litellm_module()
+    _ensure_loopback_no_proxy()
+    _apply_brain_proxy_env()
+    params = dict(body)
+    model = str(params.pop("model", "") or "").strip()
+    if not model:
+        raise _transport_fail("request body carries no model", 0)
+    kwargs: dict[str, Any] = {}
+    for key in (
+        "input",
+        "instructions",
+        "max_output_tokens",
+        "reasoning",
+        "temperature",
+        "top_p",
+        "tools",
+        "tool_choice",
+        "store",
+        "include",
+        "truncation",
+        "text",
+        "metadata",
+        "parallel_tool_calls",
+        "user",
+        "previous_response_id",
+        "safety_identifier",
+        "service_tier",
+    ):
+        if key in params:
+            kwargs[key] = params.pop(key)
+    params.pop("stream", None)
+    if params:
+        # Any remaining Responses field rides through unchanged.
+        kwargs["extra_body"] = params
+    api_base = _provider_base()
+    api_key = _get_api_key()
     try:
-        return resp.json()
-    except (json.JSONDecodeError, ValueError) as exc:
-        ctype = "?"
-        try:
-            ctype = resp.headers.get("content-type", "?")
-        except Exception:
-            pass
-        raise RuntimeError(
-            f"provider returned non-JSON (status {resp.status_code}, "
-            f"{ctype}): {resp.text[:500]}"
+        response = litellm.responses(
+            model=f"openai/{model}",
+            api_base=api_base,
+            api_key=api_key,
+            extra_headers={"Authorization": "Bearer " + api_key},
+            timeout=_get_read_timeout(),
+            num_retries=0,
+            **kwargs,
+        )
+    except Exception as exc:  # LiteLLM raises provider-specific subclasses
+        status, code, err_type = _litellm_provider_meta(exc)
+        raise _transport_fail(
+            f"provider error ({err_type}) status={status} code={code}: "
+            f"{_litellm_error_text(exc)}",
+            0,
+            provider_status=status,
+            provider_code=code,
+            provider_type=err_type,
         ) from exc
+    if hasattr(response, "model_dump"):
+        data = response.model_dump()
+    elif isinstance(response, dict):
+        data = response
+    elif hasattr(response, "json"):
+        # Test doubles and thin wrappers expose json(); a real LiteLLM
+        # response always takes the model_dump() branch above.
+        data = response.json()
+    else:  # pragma: no cover - defensive shape guard
+        data = json.loads(response.model_dump_json())
+    return data, 1
 
 
 def _https_guard(base: str, env_key: str) -> str:
@@ -2981,33 +2963,6 @@ def _get_read_timeout() -> float:
     if val <= 0:
         raise RuntimeError(f"BRAIN_HTTP_READ_TIMEOUT must be > 0, got {raw!r}")
     return val
-
-
-def _make_client() -> Any:
-    """Build the provider HTTP client (lazy httpx: imports stay offline)."""
-    import httpx
-
-    return httpx.Client(
-        timeout=httpx.Timeout(connect=10, read=_get_read_timeout(), write=30, pool=10)
-    )
-
-
-def _send_with_retry(
-    make_client: Any,
-    url: str,
-    body: dict[str, Any],
-) -> tuple[Any, int]:
-    """POST with stateless retry (429/5xx + timeouts via _post_with_retry).
-
-    No correction memory and no escalation: 4xx fails fast inside
-    ``_post_with_retry`` and propagates to the caller. Renamed from
-    ``_send_with_learning`` (Task 329 F9) — the old name promised a
-    learning seam whose kwargs (task_key/task_id/session_id/project_root)
-    the body never used.
-    """
-    with make_client() as client:
-        resp, attempts = _post_with_retry(client, url, body)
-    return resp, attempts
 
 
 # Max prior messages re-sent per turn. Bounds context for long tasks.
@@ -3386,14 +3341,14 @@ def _write_sessions_root(project_root: Optional[str] = None) -> Path:
     print(
         "brain-bridge: no project root found; writing to "
         "cwd/tasks/.sessions instead of legacy global",
-        file=sys.stderr,
+        file=_debug_stream(),
     )
     try:
         return Path.cwd() / "tasks" / ".sessions"
     except OSError:
         print(
             "brain-bridge: cwd unavailable; keeping legacy global write",
-            file=sys.stderr,
+            file=_debug_stream(),
         )
         return root
 
@@ -3573,7 +3528,7 @@ def load_history(
             print(
                 "brain-bridge: reading legacy global session "
                 f"({task_id}); migrate it under tasks/.sessions/",
-                file=sys.stderr,
+                file=_debug_stream(),
             )
             path = legacy
     if not path.is_file():
@@ -3599,7 +3554,7 @@ def load_history(
     if skipped:
         print(
             f"brain-bridge: load_history skipped {skipped} malformed lines",
-            file=sys.stderr,
+            file=_debug_stream(),
         )
     return turns
 
@@ -3764,7 +3719,9 @@ def save_fed_context(
         try:
             path.unlink(missing_ok=True)
         except OSError as exc:
-            print(f"brain-bridge: fed-context clear skipped ({exc})", file=sys.stderr)
+            print(
+                f"brain-bridge: fed-context clear skipped ({exc})", file=_debug_stream()
+            )
         return
     if len(content) > _FED_CONTEXT_CAP:
         content = (
@@ -3781,7 +3738,7 @@ def save_fed_context(
             os.fsync(fh.fileno())
         os.replace(tmp, path)
     except OSError as exc:
-        print(f"brain-bridge: fed-context save skipped ({exc})", file=sys.stderr)
+        print(f"brain-bridge: fed-context save skipped ({exc})", file=_debug_stream())
 
 
 def load_fed_context(task_id: str, project_root: Optional[str] = None) -> str:
@@ -4098,7 +4055,7 @@ def _task_candidate(
             "cap": cap,
         }
     except Exception as exc:  # never fail a turn on attach problems
-        print(f"brain-bridge: task attach skipped ({exc})", file=sys.stderr)
+        print(f"brain-bridge: task attach skipped ({exc})", file=_debug_stream())
         return None
 
 
@@ -4120,7 +4077,7 @@ def _diff_candidate(task_id: object, project_root: Optional[str] = None) -> dict
             print(
                 f"brain-bridge: diff attach skipped "
                 f"(task file unresolvable for {task_id!r})",
-                file=sys.stderr,
+                file=_debug_stream(),
             )
             return {
                 "kind": "diff",
@@ -4143,7 +4100,7 @@ def _diff_candidate(task_id: object, project_root: Optional[str] = None) -> dict
             print(
                 f"brain-bridge: diff attach skipped "
                 f"(no Factual Git Diff block in {path.name})",
-                file=sys.stderr,
+                file=_debug_stream(),
             )
             return {
                 "kind": "diff",
@@ -4171,7 +4128,7 @@ def _diff_candidate(task_id: object, project_root: Optional[str] = None) -> dict
             "cap": cap,
         }
     except Exception as exc:  # never fail a turn on attach problems
-        print(f"brain-bridge: diff attach skipped ({exc})", file=sys.stderr)
+        print(f"brain-bridge: diff attach skipped ({exc})", file=_debug_stream())
         return {
             "kind": "diff",
             "path": str(task_id),
@@ -4394,7 +4351,7 @@ def _note_checkpoint(
     try:
         _ledger_checkpoint(scope, name, task_id=task_id, project_root=project_root)
     except Exception as exc:  # never fail a turn on ledger problems
-        print(f"brain-bridge: checkpoint skipped ({exc})", file=sys.stderr)
+        print(f"brain-bridge: checkpoint skipped ({exc})", file=_debug_stream())
 
 
 @mcp.tool()
@@ -4571,7 +4528,7 @@ def brain_turn(
             " ".join(f"{k}={v}" for k, v in sorted(manifest.items()))
             or "(no tools referenced)",
         ),
-        file=sys.stderr,
+        file=_debug_stream(),
     )
     try:
         _append_ledger_event(
@@ -4582,7 +4539,7 @@ def brain_turn(
             project_root=project_root,
         )
     except Exception as exc:  # never fail a turn on ledger problems
-        print(f"brain-bridge: ledger event skipped ({exc})", file=sys.stderr)
+        print(f"brain-bridge: ledger event skipped ({exc})", file=_debug_stream())
     try:
         _gate_capability(manifest, stage=stage)
     except CapabilityBlockedError as exc:
@@ -4665,7 +4622,7 @@ def brain_turn(
                 _pcand["slot"] = "paths"
                 candidates.append(_pcand)
         except OSError as exc:  # I/O only: a bad cap value fails loudly
-            print(f"brain-bridge: paths attach skipped ({exc})", file=sys.stderr)
+            print(f"brain-bridge: paths attach skipped ({exc})", file=_debug_stream())
     if task_id:
         # Explicit flag stands alone: a lean turn (include_bundle=False,
         # the documented EMPTY_OUTPUT_RETRY shape) with include_diff=True
@@ -4685,13 +4642,13 @@ def brain_turn(
                     print(
                         "brain-bridge: QA turn without include_diff, "
                         "auto-attaching diff",
-                        file=sys.stderr,
+                        file=_debug_stream(),
                     )
                 elif _diff_cand.get("inline"):
                     print(
                         "brain-bridge: include_diff=True but no hunks "
                         "attached (see reason above)",
-                        file=sys.stderr,
+                        file=_debug_stream(),
                     )
 
     # Tier precedence: an explicit ``risk_tier`` wins; otherwise the
@@ -4715,7 +4672,7 @@ def brain_turn(
         print(
             f"brain-bridge: sessions root {_sessions_root(project_root)} "
             f"({_scope} {history_key})",
-            file=sys.stderr,
+            file=_debug_stream(),
         )
     history = (
         load_history(history_key, project_root=project_root) if history_key else []
@@ -4744,7 +4701,7 @@ def brain_turn(
                     }
                 )
         except Exception as exc:  # never fail a turn on pin problems
-            print(f"brain-bridge: fed-context skipped ({exc})", file=sys.stderr)
+            print(f"brain-bridge: fed-context skipped ({exc})", file=_debug_stream())
 
     def _hist_chars() -> int:
         return sum(len(turn["content"]) for turn in history)
@@ -4792,7 +4749,7 @@ def brain_turn(
             + "; ".join(_sufficiency_gaps)
             + " — Brain must request the missing context from the Hands "
             "before committing to a plan",
-            file=sys.stderr,
+            file=_debug_stream(),
         )
 
     before_blocks: list[str] = []
@@ -4899,7 +4856,7 @@ def brain_turn(
             f"trimmed_history={_trimmed_history} trimmed_diffs={_trimmed_diffs} "
             f"trimmed_context={_trimmed_context} "
             f"trimmed_bundle={_trimmed_bundle}); provider skipped",
-            file=sys.stderr,
+            file=_debug_stream(),
         )
     # Sidecar only: the split descriptor never touches wire bytes —
     # effective_prompt, chat payload, and prompt_hash stay identical.
@@ -4931,13 +4888,13 @@ def brain_turn(
             f"{_model_window_chars()}ch window); oversized prompts have returned "
             "empty output before — if this turn comes back empty, retry lean "
             "(include_bundle=false, same task_id, short prompt)",
-            file=sys.stderr,
+            file=_debug_stream(),
         )
     if truncated_count:
         print(
             f"brain-bridge: truncated {truncated_count} middle history turns "
             f"(budget_chars={budget_chars} est_tokens~{budget_chars // 4})",
-            file=sys.stderr,
+            file=_debug_stream(),
         )
     body = _build_request_body(system_prompt, history, effective_prompt, model=model)
     if "reasoning" in body:
@@ -4992,25 +4949,8 @@ def brain_turn(
             project_root=project_root,
         )
         try:
-            mode = _upstream_mode()
-            target_url = _upstream_url()
-            wire_body = (
-                _convert_responses_to_chat_completions_body(body)
-                if mode == "chat_completions"
-                else body
-            )
-            resp, attempts = _send_with_retry(
-                _make_client,
-                target_url,
-                wire_body,
-            )
+            resp_data, attempts = _post_with_litellm(body)
             _total_attempts += attempts
-            raw_data = _resp_json(resp)
-            resp_data = (
-                _convert_chat_completions_to_responses_data(raw_data)
-                if mode == "chat_completions"
-                else raw_data
-            )
             # A translated response can carry status=failed or status=incomplete
             # with an empty output list. parse_responses_text() would reduce that
             # to "" and the session would be recorded as an ordinary report, so
@@ -5121,7 +5061,7 @@ def brain_turn(
                 print(
                     "brain-bridge: xml failed semantic validation "
                     f"({len(sem_problems)} problems)",
-                    file=sys.stderr,
+                    file=_debug_stream(),
                 )
                 inline_text = (
                     "[xml-semantic-reject]\n"
@@ -5136,7 +5076,7 @@ def brain_turn(
         _log_provider_diagnostics(diag)
         _note = _model_substitution_note(diag, model)
         if _note is not None:
-            print(f"brain-bridge: {_note}", file=sys.stderr)
+            print(f"brain-bridge: {_note}", file=_debug_stream())
         if not xml_blocks and not output.strip():
             # Empty-output triage (Task 259): classify the provider diagnosis
             # BEFORE falling back to the flake hint. Order is load-bearing:
@@ -5185,7 +5125,7 @@ def brain_turn(
                     "usable XML); discarding fragment and re-issuing once "
                     "server-side with reasoning effort "
                     f"{_next_effort!r} (was {_first_effort!r})",
-                    file=sys.stderr,
+                    file=_debug_stream(),
                 )
                 _recovery_used = True
                 continue
@@ -5267,7 +5207,7 @@ def brain_turn(
         )
         diagnostics["raw_persisted"] = True
     except OSError as exc:
-        print(f"brain-bridge: output persistence skipped ({exc})", file=sys.stderr)
+        print(f"brain-bridge: output persistence skipped ({exc})", file=_debug_stream())
     if reject_code and output_address:
         inline_text += (
             f"\n[brain-output] Raw provider text preserved at {output_address}. "
@@ -5330,19 +5270,7 @@ def brain_turn(
     # scanned for function_call items, so a tool-call-only answer is
     # detectable without parsing prose. output, xml_blocks, and debug below
     # are untouched; any failure here degrades to [] and never fails a turn.
-    try:
-        _mode_fn = globals().get("_upstream_mode")
-        if callable(_mode_fn):
-            _src_mode = _mode_fn()
-        else:
-            _src_mode = os.environ.get("BRAIN_UPSTREAM_MODE", "responses")
-    except Exception:
-        # Never fail a turn on mode detection; default is the safe path.
-        _src_mode = "responses"
-    if _src_mode not in ("responses", "chat_completions"):
-        # Coerce unexpected values (None, "", unknown) to the default so
-        # the recorded source is always one of the two known modes.
-        _src_mode = "responses"
+    _src_mode = "responses"
     try:
         _items = resp_data.get("output", []) if isinstance(resp_data, dict) else []
     except Exception:
@@ -5360,298 +5288,6 @@ def brain_turn(
     result["debug"] = debug
     _shape_oversized_result(result)
     return result
-
-
-def _upstream_mode() -> str:
-    """Upstream protocol mode; override via ``BRAIN_UPSTREAM_MODE``.
-
-    Defaults to ``responses`` (OpenAI Responses API /responses endpoint).
-    Set to ``chat_completions`` to connect to OpenAI-compatible
-    /chat/completions endpoints (such as MiniMax Flash or custom gateways).
-    """
-    mode = (
-        os.environ.get("BRAIN_UPSTREAM_MODE", "responses").strip().lower()
-        or "responses"
-    )
-    if mode not in ("responses", "chat_completions"):
-        raise ValueError(
-            f"BRAIN_UPSTREAM_MODE={mode!r} is invalid; expected 'responses' or 'chat_completions'"
-        )
-    return mode
-
-
-def _upstream_url() -> str:
-    """Upstream endpoint URL resolved based on ``BRAIN_UPSTREAM_MODE``."""
-    default = "https://api.openai.com/v1"
-    base = os.environ.get("BRAIN_API_BASE", default).strip() or default
-    base = _https_guard(base, "BRAIN_API_BASE")
-    mode = _upstream_mode()
-    if mode == "chat_completions":
-        return base.rstrip("/") + "/chat/completions"
-    return base.rstrip("/") + "/responses"
-
-
-def _responses_url() -> str:
-    """Responses endpoint; override via ``BRAIN_API_BASE``."""
-    return _upstream_url()
-
-
-def _convert_responses_to_chat_completions_body(body: dict[str, Any]) -> dict[str, Any]:
-    """Translate a Responses API request body into a Chat Completions request body.
-
-    Handles:
-    - Flattening Responses 'input' and 'instructions' into 'messages' array
-    - Converting 'max_output_tokens' to 'max_tokens'
-    - Preserving 'model', 'temperature'
-    - Mapping 'reasoning.effort' to top-level 'reasoning_effort' when present
-    """
-    # Responses-only fields with no Chat Completions counterpart. Dropping one
-    # silently is worse than saying so: `previous_response_id` in particular
-    # carries multi-turn history, so a quiet drop ships the next turn without
-    # its context and the model answers blind.
-    _CHAT_UNSUPPORTED_FIELDS: tuple[str, ...] = (
-        "store",
-        "previous_response_id",
-        "metadata",
-        "include",
-        "truncation",
-        "service_tier",
-        "text",
-        # Audit 404: these two are added by _build_request_body behind
-        # BRAIN_SEND_CACHE_KEY / BRAIN_SEND_CONTEXT_MANAGEMENT. The chat
-        # wire format has no counterpart, so warn instead of dropping them
-        # silently (the rule stated just above this tuple).
-        "prompt_cache_key",
-        "context_management",
-    )
-
-    chat_body: dict[str, Any] = {
-        "model": body.get("model", ""),
-    }
-    for _dropped in _CHAT_UNSUPPORTED_FIELDS:
-        if body.get(_dropped) is not None:
-            logger.warning(
-                "BRAIN_UPSTREAM_MODE=chat_completions dropped unsupported "
-                "Responses field %s; the chat completions wire format has no "
-                "equivalent",
-                _dropped,
-            )
-    messages: list[dict[str, Any]] = []
-
-    # System instruction handling
-    instructions = body.get("instructions")
-    if isinstance(instructions, str) and instructions.strip():
-        messages.append({"role": "system", "content": instructions})
-
-    # `input` is a string on the most common single-turn call. Iterating a
-    # str yields characters, every one of which fails the dict guard below,
-    # so the user turn would vanish without this branch.
-    raw_input = body.get("input")
-    if isinstance(raw_input, str):
-        if raw_input.strip():
-            messages.append({"role": "user", "content": raw_input})
-        raw_input = []
-
-    for item in raw_input or []:
-        if not isinstance(item, dict):
-            logger.warning(
-                "chat converter: dropping unsupported input item type %r",
-                type(item).__name__,
-            )
-            continue
-        role = item.get("role")
-        content = item.get("content")
-        # If the item is already a message role
-        if role in ("system", "user", "assistant"):
-            if isinstance(content, str):
-                messages.append({"role": role, "content": content})
-            elif isinstance(content, list):
-                # Flatten text parts if structured content
-                text_parts = []
-                for part in content:
-                    if isinstance(part, dict):
-                        if (
-                            part.get("type") in ("text", "output_text")
-                            or "text" in part
-                        ):
-                            text_parts.append(part.get("text", ""))
-                    elif isinstance(part, str):
-                        text_parts.append(part)
-                messages.append({"role": role, "content": "\n".join(text_parts)})
-        elif item.get("type") == "message":
-            # Responses item format
-            msg_role = item.get("role", "assistant")
-            item_content = item.get("content")
-            if isinstance(item_content, list):
-                text_parts = []
-                for chunk in item_content:
-                    if isinstance(chunk, dict):
-                        if (
-                            chunk.get("type") in ("text", "output_text")
-                            or "text" in chunk
-                        ):
-                            text_parts.append(chunk.get("text", ""))
-                    elif isinstance(chunk, str):
-                        text_parts.append(chunk)
-                messages.append({"role": msg_role, "content": "\n".join(text_parts)})
-            elif isinstance(item_content, str):
-                messages.append({"role": msg_role, "content": item_content})
-        elif item.get("type") == "function_call":
-            # An assistant tool call has no "role" key, so the two branches
-            # above cannot see it. Dropping it silently severs a multi-turn
-            # tool chain: the model's own call disappears and the next turn
-            # shows a tool result with no request behind it.
-            call_id = item.get("call_id")
-            call_name = item.get("name")
-            call_args = item.get("arguments")
-            if isinstance(call_name, str) and call_name:
-                call_entry: dict[str, Any] = {
-                    "id": call_id if isinstance(call_id, str) else call_name,
-                    "type": "function",
-                    "function": {
-                        "name": call_name,
-                        # Arguments travel as a JSON string on the chat
-                        # completions wire, never as a dict.
-                        "arguments": call_args
-                        if isinstance(call_args, str)
-                        else json.dumps(call_args if call_args is not None else {}),
-                    },
-                }
-                messages.append(
-                    {"role": "assistant", "content": None, "tool_calls": [call_entry]}
-                )
-        elif item.get("type") == "function_call_output":
-            # The matching tool result. Chat completions pairs a tool result
-            # with role="tool" plus the originating call id, so the id must
-            # survive the crossing or the provider rejects the whole request.
-            output_payload = item.get("output")
-            if isinstance(output_payload, (dict, list)):
-                output_payload = json.dumps(output_payload)
-            if not isinstance(output_payload, str):
-                output_payload = "" if output_payload is None else str(output_payload)
-            messages.append(
-                {
-                    "role": "tool",
-                    "tool_call_id": item.get("call_id"),
-                    "content": output_payload,
-                }
-            )
-        else:
-            logger.warning(
-                "chat converter: dropping unsupported input item type %r",
-                item.get("type"),
-            )
-
-    chat_body["messages"] = messages
-
-    if "max_output_tokens" in body:
-        chat_body["max_tokens"] = body["max_output_tokens"]
-    elif "max_tokens" in body:
-        chat_body["max_tokens"] = body["max_tokens"]
-
-    if "temperature" in body:
-        chat_body["temperature"] = body["temperature"]
-
-    reasoning = body.get("reasoning")
-    if isinstance(reasoning, dict) and "effort" in reasoning:
-        chat_body["reasoning_effort"] = reasoning["effort"]
-
-    # Tool definitions must survive the crossing, otherwise a
-    # chat-completions-only model can never call a tool and the Brain's
-    # hands protocol dead-ends. Responses uses a flat function list; chat
-    # completions nests the same fields under "function".
-    tools = body.get("tools")
-    if isinstance(tools, list) and tools:
-        mapped_tools: list[dict[str, Any]] = []
-        for tool in tools:
-            if not isinstance(tool, dict):
-                continue
-            if tool.get("type") == "function" and isinstance(
-                tool.get("function"), dict
-            ):
-                # Already chat-completions shaped; pass through unchanged.
-                mapped_tools.append(tool)
-                continue
-            name = tool.get("name")
-            if not isinstance(name, str) or not name:
-                continue
-            parameters = tool.get("parameters")
-            mapped_tools.append(
-                {
-                    "type": "function",
-                    "function": {
-                        "name": name,
-                        "description": tool.get("description", ""),
-                        "parameters": parameters
-                        if isinstance(parameters, dict)
-                        else {"type": "object", "properties": {}},
-                    },
-                }
-            )
-        if mapped_tools:
-            chat_body["tools"] = mapped_tools
-
-    # tool_choice: Responses accepts a bare string or a named-function dict;
-    # chat completions needs the nested {"type":"function","function":{"name":..}}.
-    tool_choice = body.get("tool_choice")
-    if isinstance(tool_choice, str):
-        chat_body["tool_choice"] = tool_choice
-    elif isinstance(tool_choice, dict) and isinstance(tool_choice.get("name"), str):
-        chat_body["tool_choice"] = {
-            "type": "function",
-            "function": {"name": tool_choice["name"]},
-        }
-
-    # Only forward parallel_tool_calls when tools are actually present; sending
-    # it without a tools array is a 400 on strict OpenAI-compatible gateways.
-    if "tools" in chat_body and "parallel_tool_calls" in body:
-        chat_body["parallel_tool_calls"] = body["parallel_tool_calls"]
-
-    return chat_body
-
-
-def _build_responses_output(
-    output_text: str,
-    reasoning_text: str,
-    tool_calls: list[dict[str, Any]],
-) -> list[dict[str, Any]]:
-    """Assemble a Responses-shaped ``output`` list from Chat Completions parts.
-
-    Order is deliberate and matches how the Brain scans output: reasoning
-    first (diagnostics), then the assistant message, then function calls.
-    Sections with no content are omitted rather than emitted empty, because
-    an empty ``output_text`` block makes ``parse_responses_text`` return ""
-    and the caller cannot tell "no answer" from "empty answer".
-    """
-    items: list[dict[str, Any]] = []
-    if reasoning_text:
-        items.append(
-            {
-                "type": "reasoning",
-                "summary": [{"type": "summary_text", "text": reasoning_text}],
-            }
-        )
-    if output_text:
-        items.append(
-            {
-                "type": "message",
-                "role": "assistant",
-                "content": [{"type": "output_text", "text": output_text}],
-            }
-        )
-    for call in tool_calls:
-        function = call.get("function")
-        if not isinstance(function, dict):
-            continue
-        items.append(
-            {
-                "type": "function_call",
-                "call_id": call.get("id"),
-                "name": function.get("name"),
-                "arguments": function.get("arguments"),
-            }
-        )
-    return items
 
 
 def extract_tool_calls(output_items: Any, source_mode: str) -> list[dict[str, Any]]:
@@ -5721,33 +5357,6 @@ def extract_tool_calls(output_items: Any, source_mode: str) -> list[dict[str, An
     return tool_calls
 
 
-# Chat Completions finish_reason -> Responses API status/incomplete_reason.
-# The Brain branches on `status`, so an unmapped or unknown reason must never
-# be reported as a clean completion.
-_FINISH_REASON_TO_STATUS: dict[str, tuple[str, str | None]] = {
-    "stop": ("completed", None),
-    "length": ("incomplete", "max_output_tokens"),
-    "content_filter": ("incomplete", "content_filter"),
-    "tool_calls": ("completed", None),
-    "function_call": ("completed", None),
-}
-
-
-def _responses_status_from_finish(finish_reason: Any) -> tuple[str, str | None]:
-    """Map a Chat Completions ``finish_reason`` to (status, incomplete_reason).
-
-    Returns ``("completed", None)`` only for reasons that mean the model
-    produced a final answer. An absent or unrecognised reason returns
-    ``("incomplete", "unknown_finish_reason")`` so a truncated or filtered
-    response is never mistaken for success.
-    """
-    if isinstance(finish_reason, str):
-        mapped = _FINISH_REASON_TO_STATUS.get(finish_reason.strip().lower())
-        if mapped is not None:
-            return mapped
-    return ("incomplete", "unknown_finish_reason")
-
-
 def _upstream_failure_message(resp_data: Any) -> str | None:
     """Return a human-readable failure reason when a response is not usable.
 
@@ -5772,135 +5381,6 @@ def _upstream_failure_message(resp_data: Any) -> str | None:
                 return f"brain upstream failed: {message.strip()}"
         return "brain upstream failed: no error message provided"
     return None
-
-
-def _convert_chat_completions_to_responses_data(
-    chat_resp: dict[str, Any],
-) -> dict[str, Any]:
-    """Translate a Chat Completions response JSON into the Responses API structure.
-
-    Normalizes choices[0].message.content into output[type=message] and usage fields.
-    """
-    if not isinstance(chat_resp, dict):
-        return {"output": []}
-
-    # Upstream errors arrive as a 200-with-error body on some gateways and as a
-    # non-2xx body on others. Surface both as status=failed with the message
-    # preserved, so the Brain reports a failure instead of empty output.
-    upstream_error = chat_resp.get("error")
-    if upstream_error:
-        err_message = (
-            upstream_error.get("message")
-            if isinstance(upstream_error, dict)
-            else str(upstream_error)
-        )
-        return {
-            "id": chat_resp.get("id"),
-            "model": chat_resp.get("model"),
-            "status": "failed",
-            "error": {"message": err_message or "upstream error"},
-            "output": [],
-        }
-
-    output_text = ""
-    _finish_reason: Any = None
-    # Tool calls and reasoning are first-class outputs for an agent brain: a
-    # chat-completions model that answers with a tool call has no message
-    # content at all, so reading content alone silently returns empty output.
-    tool_calls: list[dict[str, Any]] = []
-    reasoning_text = ""
-    choices = chat_resp.get("choices")
-    if isinstance(choices, list) and choices:
-        first = choices[0]
-        if isinstance(first, dict):
-            _finish_reason = first.get("finish_reason")
-            msg = first.get("message")
-            if isinstance(msg, dict):
-                # Some gateways return content as a list of parts; flatten it
-                # with the same rule the request converter uses.
-                raw_content = msg.get("content")
-                if isinstance(raw_content, str):
-                    output_text = raw_content
-                elif isinstance(raw_content, list):
-                    parts = [
-                        p.get("text", "")
-                        for p in raw_content
-                        if isinstance(p, dict) and isinstance(p.get("text"), str)
-                    ]
-                    output_text = "\n".join(parts)
-                # MiniMax and DeepSeek-style gateways name it reasoning_content;
-                # OpenAI-compatible ones use message.reasoning.
-                for key in ("reasoning_content", "reasoning"):
-                    candidate = msg.get(key)
-                    if isinstance(candidate, str) and candidate.strip():
-                        reasoning_text = candidate
-                        break
-                raw_calls = msg.get("tool_calls")
-                if isinstance(raw_calls, list):
-                    tool_calls = [c for c in raw_calls if isinstance(c, dict)]
-
-    # Status comes from the finish reason, never hardcoded: downstream
-    # session classification reads this field to decide XML_EXTRACTED vs REPORT.
-    _status, _incomplete_reason = _responses_status_from_finish(_finish_reason)
-
-    resp_data: dict[str, Any] = {
-        "id": chat_resp.get("id"),
-        "model": chat_resp.get("model"),
-        "status": _status,
-        "output": _build_responses_output(output_text, reasoning_text, tool_calls),
-    }
-
-    if _incomplete_reason is not None:
-        resp_data_incomplete: dict[str, Any] = {"reason": _incomplete_reason}
-        resp_data["incomplete_details"] = resp_data_incomplete
-
-    # Usage mapping: a counter that the upstream omitted stays OMITTED.
-    # Storing None here would leak into quota accounting and budget math,
-    # where None inside an arithmetic expression raises or silently voids
-    # the total. Presence of the key means "the provider reported a number".
-    usage = chat_resp.get("usage")
-    if isinstance(usage, dict):
-        mapped_usage: dict[str, Any] = {}
-        if isinstance(usage.get("prompt_tokens"), int):
-            mapped_usage["input_tokens"] = usage["prompt_tokens"]
-        if isinstance(usage.get("completion_tokens"), int):
-            mapped_usage["output_tokens"] = usage["completion_tokens"]
-        if isinstance(usage.get("total_tokens"), int):
-            mapped_usage["total_tokens"] = usage["total_tokens"]
-        # Derived total only when the provider omitted it but both halves exist.
-        if "total_tokens" not in mapped_usage and (
-            "input_tokens" in mapped_usage and "output_tokens" in mapped_usage
-        ):
-            mapped_usage["total_tokens"] = (
-                mapped_usage["input_tokens"] + mapped_usage["output_tokens"]
-            )
-        # Pass through usage details so reasoning-token spend and cache
-        # hits (DeepSeek prompt_cache_hit_tokens / OpenAI cached_tokens) are
-        # visible to the budget math instead of being silently dropped.
-        details_in: dict[str, Any] | None = None
-        prompt_details = usage.get("prompt_tokens_details")
-        if isinstance(prompt_details, dict):
-            details_in = dict(prompt_details)
-        # DeepSeek reports prompt_cache_hit_tokens at the top level rather
-        # than under prompt_tokens_details.cached_tokens.
-        if isinstance(usage.get("prompt_cache_hit_tokens"), int):
-            details_in = details_in or {}
-            details_in.setdefault("cached_tokens", usage["prompt_cache_hit_tokens"])
-        if details_in:
-            mapped_usage["input_tokens_details"] = details_in
-        details_out: dict[str, Any] = {}
-        completion_details = usage.get("completion_tokens_details")
-        if isinstance(completion_details, dict):
-            details_out.update(completion_details)
-        # DeepSeek may also surface reasoning tokens at the top level.
-        if isinstance(usage.get("reasoning_tokens"), int):
-            details_out.setdefault("reasoning_tokens", usage["reasoning_tokens"])
-        if details_out:
-            mapped_usage["output_tokens_details"] = details_out
-        if mapped_usage:
-            resp_data["usage"] = mapped_usage
-
-    return resp_data
 
 
 def _get_reasoning_effort() -> str:
@@ -6258,28 +5738,21 @@ def _log_provider_diagnostics(diag: dict) -> None:
         f"http_status={diag.get('provider_status_code')} "
         f"error={diag.get('error')!r} error_code={diag.get('error_code')!r} "
         f"refusal={diag.get('refusal')!r}",
-        file=sys.stderr,
+        file=_debug_stream(),
     )
 
 
 def _provider_error_hint(error: str, code: Optional[str] = None) -> str:
     """Surface a top-level provider error verbatim (Task 259, terminal).
 
-    Task 329 F6: a terminal billing/spend/quota code appends the
-    actionable remedy — retrying those can never restore access.
+    No retry advice here: the bridge never retries, so the remedy is the
+    caller's decision, not a policy baked into this hint.
     """
-    hint = (
+    return (
         f"{PROVIDER_ERROR}: the provider returned an error "
         "(terminal for this turn, never a verdict):\n"
         f"{error}"
     )
-    if isinstance(code, str) and code.strip().lower() in _TERMINAL_429_CODES:
-        hint += (
-            "\nThis is a billing, spend, or quota error: do NOT retry — "
-            "add credits or raise the organization/project spend or usage "
-            "limit before sending another request."
-        )
-    return hint
 
 
 def _provider_refusal_hint(refusal: str) -> str:
@@ -6418,7 +5891,7 @@ def _maybe_warn_reasoning_budget(effort: str, max_tokens: int) -> None:
             f"max_output_tokens={max_tokens} (< {_REASONING_BUDGET_FLOOR}) "
             "can exhaust the output budget and return blank text; raise "
             "BRAIN_MAX_TOKENS or lower BRAIN_REASONING_EFFORT.",
-            file=sys.stderr,
+            file=_debug_stream(),
         )
 
 

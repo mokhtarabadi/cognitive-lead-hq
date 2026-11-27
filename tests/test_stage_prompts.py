@@ -54,7 +54,9 @@ CONTRACT_STAGES = (
     "brainstorm",
 )
 
-#: Persona slugs per stage, per the same contract table.
+#: Fixture manifest rosters. Production now ships all seven seats per stage
+#: (2026-11-27); these narrower tuples exist only to keep the assembler and
+#: loader fixtures varied, never as a contract the artifacts must match.
 CONTRACT_PERSONAS = {
     "plan": (
         "software-architect",
@@ -359,11 +361,10 @@ def test_preflight_stage_gate_admits_brainstorm_and_rejects_unknown(tmp_path):
 
 
 def test_manifest_declares_the_contract_stage_set():
-    """The manifest lists exactly the contract stages, and each stage
-    carries exactly its contracted persona slice.
+    """The manifest lists exactly the contract stages with their lead seats.
 
-    QA sees the QA persona alone; planning sees the five planning seats
-    (no QA, no Reviewer); brainstorming sees all seven.
+    A stage ships one lead persona block plus the full roster; the auto_load
+    Layer 3 rule covers adoption of any other seat when a task needs it.
     """
     if not MANIFEST.is_file():
         pytest.skip("prompts/stage-manifest.json not generated yet (prompt lane)")
@@ -371,18 +372,11 @@ def test_manifest_declares_the_contract_stage_set():
     stages = data.get("stages") if isinstance(data, dict) else None
     assert isinstance(stages, dict), f"manifest declares no stage map: {sorted(data)}"
     assert set(stages) == set(CONTRACT_STAGES)
-    # QA-only slice.
-    assert set(_persona_slugs(stages["qa"])) == {"qa-engineer"}
-    # The other single-seat stages.
-    assert set(_persona_slugs(stages["implement"])) == {"senior-programmer"}
-    assert set(_persona_slugs(stages["review"])) == {"code-reviewer"}
-    assert set(_persona_slugs(stages["closure"])) == {"senior-programmer"}
-    # Planning carries the five planning seats and neither QA nor Reviewer.
-    assert set(_persona_slugs(stages["plan"])) == set(CONTRACT_PERSONAS["plan"])
-    assert "qa-engineer" not in _persona_slugs(stages["plan"])
-    assert "code-reviewer" not in _persona_slugs(stages["plan"])
-    # Brainstorming carries all seven.
-    assert set(_persona_slugs(stages["brainstorm"])) == set(ALL_PERSONAS)
+    for stage in CONTRACT_STAGES:
+        assert set(_persona_slugs(stages[stage])) == set(CONTRACT_PERSONAS[stage]), (
+            f"stage {stage!r} roster is {_persona_slugs(stages[stage])}, "
+            f"expected {CONTRACT_PERSONAS[stage]}"
+        )
     assert len(_persona_slugs(stages["brainstorm"])) == 7
 
 
@@ -401,13 +395,11 @@ def _artifact_persona_names(text):
     return [match.split('"')[0] for match in _PERSONA_NAME_RE.findall(block)]
 
 
-def test_stage_artifacts_carry_only_their_contract_personas():
-    """The QA artifact ships the QA persona alone; planning ships the five
-    planning seats and neither QA nor Reviewer; brainstorming ships all
-    seven.
+def test_stage_artifacts_carry_their_contract_personas():
+    """Each artifact ships its declared lead persona block(s), never more.
 
-    This is the point of the split: a scoped artifact must not leak the
-    other personas' instructions back into the turn.
+    Seven full blocks in one prompt make duties argue; the roster plus the
+    Layer 3 adoption rule is what lets any seat be used when needed.
     """
     artifacts = _stage_artifact_files()
     if not artifacts:
@@ -483,18 +475,34 @@ class _FakeClient:
 
 
 def _stub_httpx(monkeypatch, payload, holder):
-    """Install a fake httpx module so the turn never touches the network."""
-    stub = types.ModuleType("httpx")
-    stub.Client = lambda *a, **k: _FakeClient(payload, holder)
-    stub.TimeoutException = type("TimeoutException", (Exception,), {})
-    stub.TransportError = type("TransportError", (Exception,), {})
+    """Install a fake LiteLLM so the turn never touches the network."""
+    from litellm_double import FakeLiteLLM
 
-    class _Timeout:
-        def __init__(self, *a, **k):
-            self.args, self.kwargs = a, k
+    class _CapLiteLLM(FakeLiteLLM):
+        def responses(self, **kwargs):
+            captured = {
+                key: value
+                for key, value in kwargs.items()
+                if key
+                not in {
+                    "api_base",
+                    "api_key",
+                    "extra_headers",
+                    "timeout",
+                    "num_retries",
+                }
+            }
+            extra = captured.pop("extra_body", None)
+            if isinstance(extra, dict):
+                captured.update(extra)
+            holder["body"] = captured
+            return super().responses(**kwargs)
 
-    stub.Timeout = _Timeout
-    monkeypatch.setitem(sys.modules, "httpx", stub)
+    monkeypatch.setattr(
+        bridge,
+        "_litellm_module",
+        lambda: _CapLiteLLM([_FakeResp(200, "fine", payload)]),
+    )
 
 
 def _ok_payload(text="ok"):
@@ -530,7 +538,9 @@ def test_preflight_rejects_unknown_stage_loudly_while_loader_degrades_to_full(
     text = bridge.load_system_prompt(None, stage="definitely-not-a-stage")
     assert text.strip() != ""
     assert "FULL PROMPT" in text
-    # The degradation is reported, not silent.
+    # The degradation is reported when debug logging is on.
+    monkeypatch.setenv("BRAIN_DEBUG", "1")
+    bridge.load_system_prompt(None, stage="definitely-not-a-stage")
     assert capsys.readouterr().err.strip() != ""
 
 
@@ -548,6 +558,7 @@ def test_corrupt_stage_manifest_reports_on_stderr_and_degrades_to_full(
     full = fake_bridge_root / "system-prompt.md"
     full.write_text("FULL PROMPT", encoding="utf-8")
     monkeypatch.delenv("BRAIN_SYSTEM_PROMPT", raising=False)
+    monkeypatch.setenv("BRAIN_DEBUG", "1")
 
     text = bridge.load_system_prompt(None, stage="qa")
 
@@ -727,11 +738,12 @@ def test_preflight_stage_gate_admits_sprint_and_planner(tmp_path):
 
 
 def test_sprint_and_planner_stages_route_their_seats():
-    """Sprint and planner carry dedicated artifacts and single-seat rosters.
+    """Sprint and planner keep dedicated artifacts and their lead seat.
 
-    Why: the Manager's stage audit named both seats and the approved
-    fix made them first-class instead of aliases; a missing roster
-    entry would silently fall back to the full prompt.
+    Why: the Manager's stage audit named both seats and the approved fix made
+    them first-class instead of aliases; a missing roster entry would silently
+    fall back to the full prompt. Every stage also carries the full roster and
+    the Layer 3 adoption rule, so the lead seat never narrows who can speak.
     """
     manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
     stages = manifest["stages"]
@@ -951,3 +963,56 @@ def test_release_script_generates_and_checks_stage_prompts_before_deploy():
     check = script.index("--check")
     deploy = script.index("cp system-prompt.md")
     assert stages < check < deploy, (stages, check, deploy)
+
+
+SEVEN_SEATS = {
+    "software-architect": "Software Architect",
+    "ui-ux-designer": "UI/UX Designer",
+    "senior-programmer": "Senior Programmer",
+    "project-planner": "Project Planner",
+    "sprint-strategist": "Sprint Strategist",
+    "qa-engineer": "QA Engineer",
+    "code-reviewer": "Code Reviewer",
+}
+
+
+def test_every_stage_names_all_seven_seats():
+    """Every stage prompt must be able to name and adopt all seven seats.
+
+    Best practice is one primary persona per system message: seven full
+    blocks argue with each other and burn context on every turn. So a stage
+    ships one lead persona block plus the roster, and the auto_load Layer 3
+    rule lets it adopt another seat when a task needs one. Presence of the
+    names is the contract; the blocks stay scoped.
+    """
+    manifest = json.loads(
+        (REPO / "prompts" / "stage-manifest.json").read_text(encoding="utf-8")
+    )
+    for stage, spec in manifest["stages"].items():
+        artifact = (REPO / spec["artifact_dir"] / spec["artifact"]).read_text(
+            encoding="utf-8"
+        )
+        for slug, seat in SEVEN_SEATS.items():
+            assert seat in artifact, f"{stage} cannot name {seat}"
+        assert "Layer 3 — roster adoption" in artifact, (
+            f"{stage} ships no roster-adoption rule"
+        )
+        blocks = re.findall(r'<persona name="([^"]+)"', artifact)
+        assert len(blocks) == len(spec["personas"]), (
+            f"{stage} ships {len(blocks)} persona blocks for {len(spec['personas'])} "
+            "declared seats"
+        )
+
+
+def test_stage_artifact_lead_persona_matches_its_roster():
+    """The lead block in each artifact is one of that stage's declared seats."""
+    manifest = json.loads(
+        (REPO / "prompts" / "stage-manifest.json").read_text(encoding="utf-8")
+    )
+    for stage, spec in manifest["stages"].items():
+        text = (REPO / spec["artifact_dir"] / spec["artifact"]).read_text(
+            encoding="utf-8"
+        )
+        blocks = re.findall(r'<persona name="([^"]+)"', text)
+        declared = {SEVEN_SEATS[slug] for slug in spec["personas"]}
+        assert set(blocks) <= declared, f"{stage} ships an undeclared persona"

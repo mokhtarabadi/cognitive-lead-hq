@@ -10,15 +10,15 @@
 | architecture | responses_api_best_practice_audit_2026_10_21 | # Responses API best-practice audit (2026-10-21) — Brain Bridge |  |
 | architecture | responses_api_provider_diagnostics | # Responses-API servers must surface provider diagnostics |  |
 | architecture | skill-template-portability-rule | Skill templates are project-agnostic; harness-specific names belong only in an optional profile or deployed-contract ... | architecture, skills, portability |
-| architecture | zen-proxy-ownership | # zen-proxy is owned by this repo (2026-10-23) | zen-proxy, gateway, brain-provider, systemd, global-install |
-| opencode_config | blowsh_image_policy | # Blowsh image and proxy policy — two optional backends (supersedes direct-only rule) | blowsh, docker, images, opencode, proxy |
+| architecture | zen-bridge-ownership | # zen-bridge is owned by this repo (2026-10-23) | zen-bridge, gateway, brain-provider, systemd, global-install |
+| opencode_config | blowsh_image_policy | # Blowsh image and proxy policy — direct by default, any HTTP proxy by env (supersedes two-backend rule) | blowsh, docker, images, opencode, proxy |
 | opencode_config | brain-deepseek-fixes-2026-11-22 | # Brain DeepSeek hardening (2026-11-22) |  |
-| opencode_config | brain-model-routing-2026-10-24 | # Brain on zen-proxy chat mount with DeepSeek V4.1 Flash (Manager order 2026-11-22) |  |
-| opencode_config | brain-model-routing-2026-11-22 | # Brain on zen-proxy chat mount with DeepSeek V4.1 Flash (Manager order 2026-11-22) |  |
+| opencode_config | brain-model-routing-2026-10-24 | # Brain on zen-bridge chat mount with DeepSeek V4.1 Flash (Manager order 2026-11-22) |  |
+| opencode_config | brain-model-routing-2026-11-22 | # Brain on zen-bridge chat mount with DeepSeek V4.1 Flash (Manager order 2026-11-22) |  |
 | opencode_config | global-skills-copy-excludes-docs | # Global skills copy must exclude DECISIONS.md and README.md | skills, opencode |
 | opencode_config | opencode_openchamber_versions_2026_11_02 | # OpenCode / OpenChamber versions — verified 2026-11-22 |  |
 | opencode_config | plugin_policy_magic_compact_2026_10_02 | # OpenCode plugin policy — Smart Compact (updated 2026-11-13) |  |
-| opencode_config | shared_http_proxy_endpoint | Use http://100.74.8.111:7890 as the shared HTTP/HTTPS egress proxy for OpenChamber, blowsh, and zen-proxy. OpenChambe... |  |
+| opencode_config | shared_http_proxy_endpoint | Use http://100.74.8.111:7890 as the shared HTTP/HTTPS egress proxy for OpenChamber, blowsh, and zen-bridge. OpenChamb... |  |
 | opencode_config | skill-sources-multiple-roots | # Skills load from ONE writable global root | skills, opencode, openchamber |
 | opencode_config | smart_compact_verified_2026_10_13 | # Smart Compact v0.2.1 verified live (2026-10-13, post-restart smoke test) |  |
 | opencode_config | v2_server_password_sync_2026_09_26 | # V2 server auth — managed mode only (updated 2026-10-01) |  |

@@ -1,5 +1,5 @@
 [project]
-name = "cognitive-zen-proxy"
+name = "cognitive-zen-bridge"
 version = "1.0.0"
 description = "Loopback sidecar between OpenAI-compatible clients and the OpenCode Zen/Go gateways"
 requires-python = ">=3.11"

@@ -108,14 +108,14 @@ rm -rf ~/.cache/opencode/npm/git-opencode-*-plugin-* ~/.cache/opencode/packages/
 #    sync must happen BEFORE the restart or the service crash-loops.
 systemctl --user daemon-reload
 for s in lint context memory brain telegram planner; do systemctl --user restart mcp-$s; done
-systemctl --user restart zen-proxy
+systemctl --user restart zen-bridge
 
 # 5. Verify — drift audit, then the Manager restarts OpenCode to load the new binary.
 diff -q /tmp/cognitive-lead-hq/system-prompt.md ~/.config/opencode/system-prompt.md
 ls -1d ~/.config/opencode/skills/*/ | wc -l          # expect 24
 ls ~/.config/opencode/agents/*.md | wc -l            # expect 2
 ls ~/.config/opencode/system-prompt.*.md | wc -l     # expect 7 (full + 6 stages)
-systemctl --user is-active mcp-brain mcp-context mcp-lint mcp-memory mcp-planner zen-proxy
+systemctl --user is-active mcp-brain mcp-context mcp-lint mcp-memory mcp-planner zen-bridge
 ```
 
 > **The Manager restarts OpenCode and OpenChamber.** The Hands prepares the install and says so; it never restarts the editor or the app itself. The V1→V2 upgrade itself is a one-time migration; after V2, an upgrade is this chain.
@@ -152,16 +152,16 @@ Store this value — you will use it to construct absolute paths in the global c
 Create the global OpenCode directories:
 
 ```bash
-for d in mcp-context-server mcp-memory-server mcp-lint-server mcp-brain-bridge mcp-planner-server mcp-common zen-proxy; do
+for d in mcp-context-server mcp-memory-server mcp-lint-server mcp-brain-bridge mcp-planner-server mcp-common zen-bridge; do
   mkdir -p ~/.config/opencode/$d
 done
 mkdir -p ~/.config/opencode/skills
 ```
 
-> `zen-proxy` is not an MCP server — it is the loopback gateway sidecar the
+> `zen-bridge` is not an MCP server — it is the loopback gateway sidecar the
 > Brain Bridge calls as its provider (`BRAIN_API_BASE` → `127.0.0.1:8081`).
 > It is installed globally alongside the servers so one provisioning pass
-> covers both. See the copy block below and `docs/zen-proxy.md`.
+> covers both. See the copy block below and `docs/zen-bridge.md`.
 
 ---
 
@@ -187,11 +187,11 @@ cp -r /tmp/cognitive-lead-hq/mcp-planner-server/static/. \
    ~/.config/opencode/mcp-planner-server/static/
 chmod +x ~/.config/opencode/mcp-planner-server/server.py
 
-# zen-proxy: the gateway sidecar the Brain calls as its provider. Source only —
+# zen-bridge: the gateway sidecar the Brain calls as its provider. Source only —
 # it is stdlib-only, so the venv has nothing to install (built in §7.5).
-cp /tmp/cognitive-lead-hq/zen-proxy/{proxy.py,pyproject.toml,README.md,DECISIONS.md} \
-   ~/.config/opencode/zen-proxy/
-chmod +x ~/.config/opencode/zen-proxy/proxy.py
+cp /tmp/cognitive-lead-hq/zen-bridge/{proxy.py,pyproject.toml,README.md,DECISIONS.md} \
+   ~/.config/opencode/zen-bridge/
+chmod +x ~/.config/opencode/zen-bridge/proxy.py
 
 # Preserve system-prompt.md globally for the user's Orchestrator
 cp /tmp/cognitive-lead-hq/system-prompt.md ~/.config/opencode/system-prompt.md
@@ -396,13 +396,13 @@ The `cli.json` `plugins` entry enables the todolist TUI sidebar strip.
 
 **Important:** Replace `$HOME` with the actual absolute path resolved in Step 3 (e.g., `/home/alice` or `/Users/alice`). This is critical — MCP servers will NOT work with relative paths or `~` in the global config because OpenCode may be invoked from any working directory.
 
-**Launch form + credentials:** no session spawns servers anymore — the 7 MCP singletons plus the `zen-proxy` gateway sidecar run as supervised services on `127.0.0.1:8101-8108` and `:8081` (started in Step 7.5, full map in `docs/services.md`), and the config above only points at them via `type: "remote"`. The old per-session stdio storm (and its `mcp connect failed: Request timed out` failures, ~200/day before the 2026-09-29 singleton fix) is gone by construction. The Brain timeout ladder is `ZEN_PROXY_UPSTREAM_TIMEOUT=900s` ≤ `BRAIN_HTTP_READ_TIMEOUT=960s` ≤ `BRAIN_OVERALL_DEADLINE_S=1200s` ≤ the MCP client execution timeout (`1500000ms`). Keep `BRAIN_REASONING_EFFORT=medium` for normal Qwen Flash turns; use `xhigh` only when deeper reasoning is required. Credentials (`BRAIN_*`, `TELEGRAM_*`) are **not** in the OpenCode config: each server self-loads `.env` at import, in order `<server-dir>/.env` → `<server-dir>/../.env` → `<cwd>/.env`, never overriding real process env. For the global install that effective file is **`~/.config/opencode/.env`** (seeded in Step 5, `chmod 600`); for servers run straight from the repo it is the repo-root `.env`. The systemd/launchd/Windows units therefore need **no** `EnvironmentFile=` for these keys. Telegram prerequisites (clone + `uv sync` + `.env` + allowed-root dirs) are still installed per §7.6 — only the launch moved into the `mcp-telegram` service.
+**Launch form + credentials:** no session spawns servers anymore — the 7 MCP singletons plus the `zen-bridge` gateway sidecar run as supervised services on `127.0.0.1:8101-8108` and `:8081` (started in Step 7.5, full map in `docs/services.md`), and the config above only points at them via `type: "remote"`. The old per-session stdio storm (and its `mcp connect failed: Request timed out` failures, ~200/day before the 2026-09-29 singleton fix) is gone by construction. The Brain timeout ladder is `ZEN_BRIDGE_UPSTREAM_TIMEOUT=900s` ≤ `BRAIN_HTTP_READ_TIMEOUT=960s` ≤ the MCP client execution timeout (`1500000ms`). The bridge does not retry, so there is no outer deadline to keep above them. Keep `BRAIN_REASONING_EFFORT=medium` for normal Qwen Flash turns; use `xhigh` only when deeper reasoning is required. Credentials (`BRAIN_*`, `TELEGRAM_*`) are **not** in the OpenCode config: each server self-loads `.env` at import, in order `<server-dir>/.env` → `<server-dir>/../.env` → `<cwd>/.env`, never overriding real process env. For the global install that effective file is **`~/.config/opencode/.env`** (seeded in Step 5, `chmod 600`); for servers run straight from the repo it is the repo-root `.env`. The systemd/launchd/Windows units therefore need **no** `EnvironmentFile=` for these keys. Telegram prerequisites (clone + `uv sync` + `.env` + allowed-root dirs) are still installed per §7.6 — only the launch moved into the `mcp-telegram` service.
 
 **QA/review run through the bridge:** the Hands calls `brain_turn` with the instruction + task file (see the Bridge section in `agents/cognitive-executor.md`); history continues under the active session thread (ambient `OPENCODE_SESSION_ID` auto-detection). No per-persona commands or learning stores.
 
 > **Project vs Global `opencode.json` (full V2, 2026-10-01):** The **repo's** `opencode.json` (committed) carries **no `mcp` section at all** — all 7 MCP servers live in the **global** `~/.config/opencode/opencode.json` (created here) under `mcp.servers` as `type: "remote"` loopback URLs (identical for every user — no per-machine paths). New installations and `global-install-upgrade` (Step 5 in `.opencode/memory/workflows/global-install-upgrade.md`) must keep this split — `diff` of repo vs global `opencode.json` will always differ (repo has no `mcp`, global has 7 remote entries) by design; verify global shows 7 `127.0.0.1:810*/mcp` URLs (8101 lint, 8102 context, 8103 memory, 8105 brain, 8106 telegram, 8107 blowsh, 8108 planner — there is no 8104 entry, the decision server was retired).
 
-**Telegram is optional but auto-configured:** the entry above points at `~/.config/opencode/mcp-telegram-server` (installed in the opencode config dir per global-install-upgrade, absolute path required) with three allowed roots (`/tmp/telegram-mcp` for temp state + `~/.config/opencode/mcp-telegram-server/downloads` for exported media + `$HOME` so home files upload). If you cloned elsewhere, update the venv-python path, the `main.py` path and the trailing roots — keep them inside `$HOME` or `/tmp` and ensure `telegram_download_media` can write there. The server is installed in Step 7.6 even before you have API credentials; it stays idle (no `TELEGRAM_SESSION_STRING`) until you finish 7.6. For Docker blowsh no host binary is needed — pull the auto-built `ghcr.io/mokhtarabadi/blowsh-mcp:latest` per Step 7.6, and keep the `warp-net` + `warp-socks` containers from Step 7.5 running; all blowsh egress goes through WARP.
+**Telegram is optional but auto-configured:** the entry above points at `~/.config/opencode/mcp-telegram-server` (installed in the opencode config dir per global-install-upgrade, absolute path required) with three allowed roots (`/tmp/telegram-mcp` for temp state + `~/.config/opencode/mcp-telegram-server/downloads` for exported media + `$HOME` so home files upload). If you cloned elsewhere, update the venv-python path, the `main.py` path and the trailing roots — keep them inside `$HOME` or `/tmp` and ensure `telegram_download_media` can write there. The server is installed in Step 7.6 even before you have API credentials; it stays idle (no `TELEGRAM_SESSION_STRING`) until you finish 7.6. For Docker blowsh no host binary is needed — pull the auto-built `ghcr.io/mokhtarabadi/blowsh-mcp:latest` per Step 7.6 and run it with direct egress by default; when a proxy is needed, set the generic `PROXY_TYPE` / `PROXY_HOST` / `PROXY_PORT` / `PROXY_BYPASS` variables to any HTTP proxy you operate.
 
 ---
 
@@ -414,7 +414,7 @@ The config in Step 7 points at services — they must be running before OpenCode
 # Python singletons (Linux): install + start the 7 systemd user units
 # (run from your clone of this repo — services/ ships in the clone, no /tmp copy needed)
 mkdir -p ~/.config/systemd/user
-cp services/mcp-*.service services/zen-proxy.service ~/.config/systemd/user/
+cp services/mcp-*.service services/zen-bridge.service ~/.config/systemd/user/
 
 # planner: build its venv from the committed lock BEFORE starting the unit
 # (ExecStart needs .venv/bin/python), and point the dashboard at the project
@@ -431,23 +431,18 @@ for s in lint context memory brain telegram planner; do
   systemctl --user enable --now mcp-$s
 done
 
-# zen-proxy: the Brain's provider hop. Build its venv with uv (no deps) and
+# zen-bridge: the Brain's provider hop. Build its venv with uv (no deps) and
 # start it BEFORE the brain, so the first brain_turn does not race the port.
-cd ~/.config/opencode/zen-proxy && uv venv .venv
-systemctl --user enable --now zen-proxy
+cd ~/.config/opencode/zen-bridge && uv venv .venv
+systemctl --user enable --now zen-bridge
 curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:8081/health   # 200
 
-# Blowsh is MANDATORY behind the Cloudflare WARP proxy on this host. Both the
-# browser renders and the Node-side axios egress use the WARP exit IP, so a
-# rebuild that drops the proxy vars is not a valid deployment. The proxy must
-# live in a container on the same bridge: the host firewall drops container-
-# to-host TCP. Full guide, verification and rollback: docs/blowsh-warp-proxy.md.
+# Blowsh runs with direct egress by default. Proxy support is opt-in and
+# backend-agnostic: point PROXY_TYPE/PROXY_HOST/PROXY_PORT at any HTTP proxy
+# you operate (one reachable from the container's network), and keep loopback
+# in PROXY_BYPASS so the Browsh control channel stays direct.
 # Always pull the auto-built remote image ghcr.io/mokhtarabadi/blowsh-mcp:latest
 # from the GitHub image repo — never build locally and never pin a version tag.
-docker network create warp-net
-docker run -d --name warp-socks --restart unless-stopped --network warp-net \
-  -e NET_PORT=9091 \
-  ghcr.io/mon-ius/docker-warp-socks:v8
 
 # Blowsh singleton (any OS with Docker): one persistent container.
 # The render path serializes through one browser slot, so the four budgets
@@ -460,7 +455,7 @@ docker run -d --name warp-socks --restart unless-stopped --network warp-net \
 # single search ends in its own honest deadline.hit. It does NOT cover
 # fetch_web_batch, which is serial over up to 10 URLs with a per-item
 # budget: keep batches small or pass an explicit per-item deadline_ms.
-docker run -d --name blowsh-singleton --restart unless-stopped --network warp-net \
+docker run -d --name blowsh-singleton --restart unless-stopped \
   -p 127.0.0.1:8107:8107 \
   -v browsh-profile:/data/browsh-profile \
   -e MCP_TRANSPORT=http -e MCP_HOST=0.0.0.0 -e MCP_PORT=8107 \
@@ -469,8 +464,7 @@ docker run -d --name blowsh-singleton --restart unless-stopped --network warp-ne
   -e BROWSH_REQUEST_TIMEOUT_MS=180000 \
   -e BROWSH_QUEUE_TIMEOUT_MS=600000 \
   -e SEARCH_DEADLINE_MS=900000 \
-  -e PROXY_TYPE=http -e PROXY_HOST=warp-socks -e PROXY_PORT=9091 \
-  -e PROXY_BYPASS=localhost,127.0.0.1 \
+  -e PROXY_TYPE=none -e PROXY_BYPASS=localhost,127.0.0.1 \
   ghcr.io/mokhtarabadi/blowsh-mcp:latest
 ```
 
@@ -484,7 +478,7 @@ Verify before continuing:
 opencode debug config | grep -c '127.0.0.1:810'   # 7 MCP entries resolved
 systemctl --user is-active mcp-planner   # active
 curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:8108/        # 200 — planner dashboard
-systemctl --user is-active zen-proxy    # active — the Brain's provider hop
+systemctl --user is-active zen-bridge    # active — the Brain's provider hop
 curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:8081/health   # 200
 ```
 
@@ -537,8 +531,8 @@ Do **not** `pip install telegram-mcp` / `uvx telegram-mcp` — that name on PyPI
 docker pull ghcr.io/mokhtarabadi/blowsh-mcp:latest
 docker run --rm ghcr.io/mokhtarabadi/blowsh-mcp:latest node -e "console.log('image ok')"  # image smoke test (server itself runs as the persistent singleton, not stdio)
 ```
-- The `warp-net` bridge and `warp-socks` container in Step 7.5 are mandatory, not optional. `docs/blowsh-warp-proxy.md` is the canonical guide for deployment, verification and rollback.
-- If you cannot use Docker, install natively: Node 20.18+, Firefox in PATH, Browsh CLI, `html2markdown` — see https://github.com/mokhtarabadi/blowsh-mcp#installation. Then change the `blowsh` command to `["node", "dist/server.js"]` with the native checkout path, and route that process through the WARP proxy yourself.
+- Blowsh runs with direct egress by default. A proxy is optional and backend-agnostic: set `PROXY_TYPE=http` with `PROXY_HOST`/`PROXY_PORT` for any proxy you operate; see `docs/blowsh-proxy-options.md` for deployment and verification.
+- If you cannot use Docker, install natively: Node 20.18+, Firefox in PATH, Browsh CLI, `html2markdown` — see https://github.com/mokhtarabadi/blowsh-mcp#installation. Then change the `blowsh` command to `["node", "dist/server.js"]` with the native checkout path, and point it at a proxy yourself if you need one.
 
 Telemetry-free cache/SSRF defaults (`CACHE_TTL_MS=300000`, `ALLOW_PRIVATE_URLS=false`) need no extra config. The render-path defaults are `BROWSH_REQUEST_TIMEOUT_MS=180000`, `BROWSH_QUEUE_TIMEOUT_MS=600000` and `BROWSH_STARTUP_TIMEOUT_MS=120000` (`browshManager.ts`); the singleton runbook above sets them explicitly, and the full environment table with the ladder invariant is at the end of this step.
 
@@ -566,10 +560,10 @@ silently inherit a tighter budget.
 | `BROWSH_PREWARM` | 1 | default | Prewarm the browser at boot |
 | `GUARD_DETECT` | 1 | default | Enable the bot-block detector |
 | `GUARD_CACHE_TTL_MS` | 3600000 | default | Bot-block verdict cache |
-| `PROXY_TYPE` | none | **http** (mandatory) | Egress protocol; HTTP covers both Firefox and Node axios (no SOCKS agent in this image) |
-| `PROXY_HOST` | none | warp-socks | WARP proxy container, resolved on `warp-net` |
-| `PROXY_PORT` | none | 9091 | WARP proxy listen port |
-| `PROXY_BYPASS` | none | localhost,127.0.0.1 | Required: protects the Browsh loopback control channel on 127.0.0.1:4333 |
+| `PROXY_TYPE` | none | none (optional `http`) | Egress protocol; `http` covers both Firefox and Node axios (no SOCKS agent in this image) |
+| `PROXY_HOST` | none | none (your proxy host) | Proxy host reachable from the container's network |
+| `PROXY_PORT` | none | none (your proxy port) | Proxy listen port |
+| `PROXY_BYPASS` | none | localhost,127.0.0.1 | Required when a proxy is set: protects the Browsh loopback control channel on 127.0.0.1:4333 |
 
 **The ladder is a hard invariant, not a suggestion.** The render path
 serializes through one browser slot, so the three budgets must agree or a
@@ -819,7 +813,7 @@ After completing all steps, verify:
 - [ ] `~/.config/opencode/mcp-lint-server/server.py` exists and is executable
 - [ ] `~/.config/opencode/mcp-brain-bridge/server.py` exists and is executable (plus its sibling modules `capability.py`, `preflight.py`, `loop_guard.py`, `session_ledger.py`)
 - [ ] `~/.config/opencode/mcp-common/src/mcp_common/env.py` exists
-- [ ] `~/.config/opencode/zen-proxy/proxy.py` exists and is executable, `~/.config/opencode/zen-proxy/.venv/bin/python` exists (built with `uv venv`), and `systemctl --user is-active zen-proxy` returns `active` on `127.0.0.1:8081` (`curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8081/health` → 200); the unit reads `~/.config/opencode/.env` and needs no API key of its own
+- [ ] `~/.config/opencode/zen-bridge/proxy.py` exists and is executable, `~/.config/opencode/zen-bridge/.venv/bin/python` exists (built with `uv venv`), and `systemctl --user is-active zen-bridge` returns `active` on `127.0.0.1:8081` (`curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8081/health` → 200); the unit reads `~/.config/opencode/.env` and needs no API key of its own
 - [ ] Skills are installed under `~/.config/opencode/skills/` — exactly **24 skill directories**, including `kanban-lifecycle`, and NO stray `DECISIONS.md` / `README.md` at the skills root (OpenChamber counts them as fake skills) and no retired names (`task-generator`, `audit-agents`, `bundle-tasks`, …). The legacy `~/.agents/skills` root must NOT exist (removed 2026-11-13 with Freebuff) — if it reappears, delete it.
 - [ ] `~/.config/opencode/agents/cognitive-executor.md` exists
 - [ ] `~/.config/opencode/agents/cognitive-discovery.md` exists
@@ -834,7 +828,7 @@ After completing all steps, verify:
 - [ ] `~/.config/opencode/opencode.json` all 7 `mcp` entries are `type: "remote"` loopback URLs (8101 lint, 8102 context execution 120000, 8103 memory, 8105 brain execution 1500000, 8106 telegram timeout 300000, 8107 blowsh timeout 960000, 8108 planner timeout 15000/30000) served by the supervised singletons — no stdio/`uv run` entries remain
 - [ ] `~/.config/opencode/opencode-shell-strategy.md` exists (instructions file referenced by the `instructions` key)
 - [ ] `/tmp/cognitive-lead-hq` no longer exists
-- [ ] `docker pull ghcr.io/mokhtarabadi/blowsh-mcp:latest` succeeds (or `docker` not installed → blowsh stays disabled, document it); `warp-net` + `warp-socks` are running and `blowsh-singleton` shows `PROXY_TYPE=http` with `warp=on` (see `docs/blowsh-warp-proxy.md`)
+- [ ] `docker pull ghcr.io/mokhtarabadi/blowsh-mcp:latest` succeeds (or `docker` not installed → blowsh stays disabled, document it); `blowsh-singleton` runs and returns a Cloudflare trace through `fetch_web` (direct exit unless you configured a proxy; see `docs/blowsh-proxy-options.md`)
 - [ ] `~/.config/opencode/mcp-telegram-server/main.py` exists if telegram enabled (`ls $HOME/.config/opencode/mcp-telegram-server/main.py`); otherwise server stays `enabled:false` and no crash
 - [ ] Telegram smoke check (only if `TELEGRAM_SESSION_STRING` set): `telegram_get_messages` or `list_accounts` returns without `No Telegram session configured`
 - [ ] `.env` is seeded (repo-root `.env` for CLI runs and `~/.config/opencode/.env` for the singleton services; `chmod 600`) — verify `grep -c BRAIN_API_KEY .env ~/.config/opencode/.env`

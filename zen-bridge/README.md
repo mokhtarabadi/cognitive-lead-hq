@@ -1,4 +1,4 @@
-# Slice: zen-proxy
+# Slice: zen-bridge
 
 ## Duties
 
@@ -70,19 +70,33 @@ the response body are never written to the log.
 ## Files
 
 - `proxy.py` — the whole server (`BaseHTTPRequestHandler` + `ThreadingHTTPServer`, stdlib only).
-- `refresh_allowlists.py` — reports allowlist drift against the live gateway catalogue and, on `--apply`, rewrites only the four allowlist literals. Read-only against upstream, never touches git, never writes a key.
 - `pyproject.toml` — no runtime dependencies; exists so the venv is built by `uv`.
 - `README.md` / `DECISIONS.md` — this slice's docs and ADRs.
-- `tests/test_zen_proxy.py` — the slice's own suite (offline, fake upstream).
+- Tests: `tests/test_zen_bridge.py` is not present yet; bridge behaviour is
+  covered indirectly by the Brain suites. Creating the slice-local suite is
+  open follow-up work.
 
 ## Configuration
 
-| Variable                     | Default    | Meaning                                                                    |
-| ---------------------------- | ---------- | -------------------------------------------------------------------------- |
-| `ZEN_PROXY_UPSTREAM_TIMEOUT` | `900`      | upstream socket timeout, seconds; also the silence wall of a stream        |
-| `ZEN_PROXY_MAX_BODY_BYTES`   | `33554432` | hard cap on an inbound request body                                        |
-| `ZEN_PROXY_DRAIN_TIMEOUT_S`  | `30`       | how long a `SIGTERM` waits for in-flight requests                          |
-| `ZEN_PROXY_AUDIT`            | `0`        | `1` writes prompts and responses to `~/.local/share/zen-proxy/audit-logs/` |
+| Variable                      | Default               | Meaning                                                             |
+| ----------------------------- | --------------------- | ------------------------------------------------------------------- |
+| `ZEN_BRIDGE_UPSTREAM_TIMEOUT` | `900`                 | upstream socket timeout, seconds; also the silence wall of a stream |
+| `UPSTREAM_TIMEOUT_SEC`        | `900`                 | legacy alias, ignored when `ZEN_BRIDGE_UPSTREAM_TIMEOUT` is set     |
+| `ZEN_BRIDGE_MAX_BODY_BYTES`   | `33554432`            | hard cap on an inbound request body                                 |
+| `ZEN_BRIDGE_HTTPS_PROXY`      | unset                 | upstream proxy for gateway traffic (first in precedence)            |
+| `ZEN_BRIDGE_HTTP_PROXY`       | unset                 | proxy for plain-HTTP routes                                         |
+| `ZEN_BRIDGE_NO_PROXY`         | loopback              | hosts that must never be proxied; loopback is always appended       |
+| `PORT`                        | `8081`                | loopback listen port                                                |
+| `OPENCODE_BASE`               | `https://opencode.ai` | gateway root                                                        |
+
+## Two-hop routing
+
+The Brain calls this bridge over loopback (`BRAIN_API_BASE=http://127.0.0.1:8081/v1`)
+with no proxy in between; the bridge then reaches the OpenCode gateway through
+the `ZEN_BRIDGE_*` proxy values. Proxy precedence is `ZEN_BRIDGE_HTTPS_PROXY`,
+`ZEN_BRIDGE_HTTP_PROXY`, then the standard lowercase names, then the uppercase
+names. `127.0.0.1`, `localhost`, and `::1` are always excluded from proxying, so
+the loopback leg can never be tunnelled.
 
 A malformed value stops the process with a readable message and exit code
 2 instead of starting with a substituted default.
@@ -94,10 +108,10 @@ A malformed value stops the process with a readable message and exit code
 - **Allowlists gate both `GET /models` and `POST`.** A model posted to the
   wrong mount gets `404 ModelNotServedHere` naming the correct route instead
   of an opaque upstream 400.
-- **Timeout ordering.** `ZEN_PROXY_UPSTREAM_TIMEOUT` (900s) must sit at or
-  below the caller's read timeout (`BRAIN_HTTP_READ_TIMEOUT`, 960s), overall
-  deadline (`BRAIN_OVERALL_DEADLINE_S`, 1200s), and MCP client execution
-  timeout (1500000ms). A hidden 300s here is what silently killed long
+- **Timeout ordering.** `ZEN_BRIDGE_UPSTREAM_TIMEOUT` (900s) must sit at or
+  below the caller's read timeout (`BRAIN_HTTP_READ_TIMEOUT`, 960s) and the MCP
+  client execution timeout (1500000ms). The Brain does not retry, so no outer
+  deadline sits above them. A hidden 300s here is what silently killed long
   reasoning turns before 2026-10-22.
 - **Never truncate a replayed item id** in a caller; that rule lives in the
   bridge, but it exists because of this gateway's strict input validation.
@@ -106,5 +120,5 @@ A malformed value stops the process with a readable message and exit code
   turn off as a short answer.
 - **Never log a credential.** The journal line carries the request id, the
   model and the timing; the `Authorization` value stays in the header.
-- Audit mode (`ZEN_PROXY_AUDIT=1`) writes prompts to local disk. Leave it off
-  outside active debugging.
+- The bridge ships no audit mode and no drain knob; only the documented
+  `ZEN_BRIDGE_*` settings exist. Never add a second, undocumented switch.

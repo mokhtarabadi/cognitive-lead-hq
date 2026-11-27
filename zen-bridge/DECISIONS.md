@@ -1,4 +1,4 @@
-# Architectural Decisions: zen-proxy
+# Architectural Decisions: zen-bridge
 
 ## [2026-10-22] ADR-001: This slice owns the proxy, not the homelab repo
 
@@ -12,9 +12,9 @@
   owning one runtime contract is what let fixes go missing (the owner repo's
   docs still described 8081 as closed while it served live traffic).
 - **Decision:** Move source, docs, and the systemd unit here. Install
-  globally next to the MCP server slices (`~/.config/opencode/zen-proxy/`),
+  globally next to the MCP server slices (`~/.config/opencode/zen-bridge/`),
   build the venv with `uv`, and launch through that venv interpreter from
-  `services/zen-proxy.service`. Read configuration from the single global
+  `services/zen-bridge.service`. Read configuration from the single global
   `~/.config/opencode/.env`. `code-server` keeps only a historical pointer.
 - **Consequences:** One repo owns the proxy's behaviour and its consumer.
   The port (8081), the four mount paths, and `BRAIN_API_BASE` are unchanged,
@@ -22,7 +22,7 @@
   passes the caller's `Authorization` header through and mints a session id
   per request when the caller sends none (superseding the `ZEN_SESSION_ID`
   fallback this ADR originally described — see ADR-005).
-- **Rollback:** Restore `archive/zen-proxy-native-2026-09-27/` from
+- **Rollback:** Restore `archive/zen-bridge-native-2026-09-27/` from
   `code-server` git history, re-point the unit to that path, restart.
 
 ## [2026-10-22] ADR-002: Upstream timeout is tunable and defaults to 900s
@@ -62,7 +62,7 @@
 - **Context:** For days, free-tier errors (`FreeUsageLimitError`) were happening on every Zen mount. A full matrix of UA (`Chrome` vs `opencode/…`), session (zero UUID vs real session vs fresh), and endpoint (Chat vs Responses) showed: **all Zen mounts fail, all Go mounts succeed** with the identical `oc_sk_` key. The live `opencode-go` session (pid env `OPENCODE_SESSION_ID`) was using `crouton-alpha-free` through `/zen/go/v1` and working. The proxy's allowlists were stale (13 vs 30 upstream Go models) and `crouton-alpha-free` was listed only on the Zen side.
 - **Decision:** Refresh `GO_CHAT`/`GO_RESP` to the 2026-11-08 upstream (30 ids, minus the messages-only `claude-*`/`gemini-*` family, which are not OpenAI-API compatible). Exception: `gemini-4-argon` stays allowlisted as the OpenAI-compatible member of the gemini family; other `gemini-*` and `claude-*` remain excluded. Group `crouton-alpha-free` and `iceman-contributor-free` on `/go/resp` and `/go/chat`, keeping them on the Zen mounts for list parity. The per-model window overrides lived in `MODEL_WINDOWS` there; they were never read and are gone since ADR-005, which keeps only the `grok-4.7` 500k caveat next to the allowlist.
 - **Consequences:** The Brain (which goes through `/go/resp`) can now address the model the user is actually running in the UI; `ModelNotServedHere` points callers to the right mount. Zen's free mount keeps its free quota (still exhausted for this account), which is now an explicit known gap.
-- **Rollback:** Restore the previous `GO_CHAT`/`GO_RESP` blocks in `zen-proxy/proxy.py` from git history, copy to `~/.config/opencode/zen-proxy/`, `systemctl --user restart zen-proxy`.
+- **Rollback:** Restore the previous `GO_CHAT`/`GO_RESP` blocks in `zen-bridge/proxy.py` from git history, copy to `~/.config/opencode/zen-bridge/`, `systemctl --user restart zen-bridge`.
 
 ## [2026-11-13] ADR-005: Every failure answers with a status, and the slice proves its own streams
 
@@ -97,23 +97,23 @@
   writes only the safe removals.
 - **Attribution:** The patterns for the failure contract, the bounded body
   read, the fail-loud environment parsing, the terminal-event detection and
-  the catalogue-refresh safety rules follow `github.com/12errh/zen-proxy`
+  the catalogue-refresh safety rules follow `github.com/12errh/zen-bridge`
   (MIT, (c) 2026 12errh). No code was copied from it and none of its
   free-tier gate bypass (harness preamble, tool manifest, CLI header
   spoofing, Bun TLS fingerprint) was adopted: this slice authenticates with
   a real Go key and does not impersonate the CLI. The MIT notice travels with
   the ideas.
-- **Rollback:** Revert `zen-proxy/proxy.py` to the previous revision, copy it
-  to `~/.config/opencode/zen-proxy/`, `systemctl --user restart zen-proxy`.
+- **Rollback:** Revert `zen-bridge/proxy.py` to the previous revision, copy it
+  to `~/.config/opencode/zen-bridge/`, `systemctl --user restart zen-bridge`.
   The new environment variables have defaults, so no configuration rollback
   is needed.
 
 ## [2026-11-17] ADR-006: unknown routes answer the JSON failure contract
 
-- **Context:** an audit against `github.com/12errh/zen-proxy` (MIT, (c) 2026 12errh) noted that its unmatched paths return a JSON `not_found` error, while our `_send_upstream` called the stdlib `send_error(404, ...)` and emitted an HTML body with no `X-Request-Id`. That contradicted the slice's own failure contract, "every failure answers with a parseable JSON error, never with a dropped socket" (`zen-proxy/README.md:20-22`), which the Brain Bridge relies on when deciding to retry.
+- **Context:** an audit against `github.com/12errh/zen-bridge` (MIT, (c) 2026 12errh) noted that its unmatched paths return a JSON `not_found` error, while our `_send_upstream` called the stdlib `send_error(404, ...)` and emitted an HTML body with no `X-Request-Id`. That contradicted the slice's own failure contract, "every failure answers with a parseable JSON error, never with a dropped socket" (`zen-bridge/README.md:20-22`), which the Brain Bridge relies on when deciding to retry.
 - **Decision:** an unmatched path now uses `_send_error(404, "UnknownRoute", <message>, <fresh request id>)`. The mount allowlists, Authorization passthrough, silence timeout and 900<=900<=1200 ordering are untouched.
-- **Consequences:** a caller can parse the rejection like every other error; the new `UnknownRoute` type is documented in `zen-proxy/README.md` and `docs/zen-proxy.md`. One test in `tests/test_zen_proxy.py` now asserts the JSON envelope, the `UnknownRoute` type and the request-id header; it failed before the source change and passes after. No upstream behavior was copied beyond the idea that rejection bodies should be machine-readable.
-- **Rollback:** restore `self.send_error(404, "unknown zen-proxy route")` in `_send_upstream` and revert the test and the two doc rows.
+- **Consequences:** a caller can parse the rejection like every other error; the new `UnknownRoute` type is documented in `zen-bridge/README.md` and `docs/zen-bridge.md`. One test in `tests/test_zen_proxy.py` now asserts the JSON envelope, the `UnknownRoute` type and the request-id header; it failed before the source change and passes after. No upstream behavior was copied beyond the idea that rejection bodies should be machine-readable.
+- **Rollback:** restore `self.send_error(404, "unknown zen-bridge route")` in `_send_upstream` and revert the test and the two doc rows.
 
 ## 2026-11-22 — Allowlist prune, keyless refresh, health counts
 
@@ -145,15 +145,15 @@ journal. No new env knobs. Install/restart remain Manager actions.
 ## [2026-11-26] ADR-007: Additive free-tier identity layer (headers + preamble + manifest)
 
 - **Context:** Task 425 extended scope. The free-tier gateway (Zen) requires a client identity bundle (`x-opencode-client`, `x-opencode-project` sha1, harness preamble, tool manifest) to serve free models. Previously ADR-005 declined to adopt these because the slice authenticated with a real Go key. Now the Brain needs to use a free-tier model (seaglass-alpha-free) on /zen/resp, so the identity bundle is required. The Bun TLS fingerprint (which turns 429 into 200) is NOT adopted in this phase; it remains a separate, larger task. Only the additive header/preamble/manifest layer is added.
-- **Decision:** Add `zen-proxy/identity.py` (pure module) providing `build_client_headers`, `build_project_headers`, `load_preamble_text`, `load_tool_manifest_text`, `build_identity_headers`, `prepend_identity_to_system_prompt`. Wire additively into `proxy.py` `out_headers` via `setdefault` (never overwriting a real client value). Ship `agent-preamble.txt` and `agent-tools.json` copied from the reference (MIT, (c) 2026 12errh). The preamble/manifest files are loaded best-effort and return empty string when absent.
+- **Decision:** Add `zen-bridge/identity.py` (pure module) providing `build_client_headers`, `build_project_headers`, `load_preamble_text`, `load_tool_manifest_text`, `build_identity_headers`, `prepend_identity_to_system_prompt`. Wire additively into `proxy.py` `out_headers` via `setdefault` (never overwriting a real client value). Ship `agent-preamble.txt` and `agent-tools.json` copied from the reference (MIT, (c) 2026 12errh). The preamble/manifest files are loaded best-effort and return empty string when absent.
 - **Consequences:** Free-tier requests now carry the identity bundle. System-prompt prepend is deferred (body is opaque bytes in the current scope). The Bun TLS fingerprint gap remains; free-tier generation may still 429 until a Bun transport is added. No change to ModelNotServedHere, ROUTES, allowlists, or the failure contract.
-- **Rollback:** Remove `zen-proxy/identity.py`, revert the two edits in `zen-proxy/proxy.py`, delete the copied preamble/manifest files. The proxy returns to allowlist-only behaviour.
+- **Rollback:** Remove `zen-bridge/identity.py`, revert the two edits in `zen-bridge/proxy.py`, delete the copied preamble/manifest files. The proxy returns to allowlist-only behaviour.
 - Hotfix 2026-11-26 removed shipped preamble plus manifest files as dead stale bundle, loaders now return empty string.
 
 ## [2026-11-26] ADR-008: Bun sidecar for upstream TLS fingerprint
 
 - **Context:** Task 425 Phase 3. The free-tier gateway fingerprints the client TLS stack: Python urllib answers 429 FreeUsageLimitError, Bun fetch answers 200. ADR-005/ADR-007 explicitly declined the Bun TLS bypass; this ADR reverses only the transport part, keeping the failure contract and allowlists unchanged.
-- **Decision:** Add `zen-proxy/bun_fetch.mjs` (Bun fetch sidecar) and `zen-proxy/transport.py` (pure module: bun_available, fetch_via_bun, fetch_via_python, fetch_upstream). Wire into `proxy.py` by replacing the single `urllib.request.urlopen` call site with `transport.fetch_upstream` (Bun first, Python fallback on transport failure). NOTE: the sidecar buffers the full response body (BytesIO), so SSE is relayed as one buffered chunk, not true incremental streaming; large payloads are held in memory. Tests mock urlopen by forcing bun_available False.
+- **Decision:** Add `zen-bridge/bun_fetch.mjs` (Bun fetch sidecar) and `zen-bridge/transport.py` (pure module: bun_available, fetch_via_bun, fetch_via_python, fetch_upstream). Wire into `proxy.py` by replacing the single `urllib.request.urlopen` call site with `transport.fetch_upstream` (Bun first, Python fallback on transport failure). NOTE: the sidecar buffers the full response body (BytesIO), so SSE is relayed as one buffered chunk, not true incremental streaming; large payloads are held in memory. Tests mock urlopen by forcing bun_available False.
 - **Consequences:** Upstream fetch now uses Bun TLS when available, fixing the 429 root cause. Fallback to Python keeps the slice working without Bun. 45+9+9 tests pass. Free-tier quota may still 429 until quota resets; end-to-end Brain probe is the final gate. Note: project hash uses the server working directory, so this proxy is single-tenant (all requests share one project bucket).
 - **Rollback:** Revert proxy.py wiring, delete bun_fetch.mjs and transport.py, remove the transport import. Proxy returns to urllib-only.
 
@@ -195,3 +195,11 @@ journal. No new env knobs. Install/restart remain Manager actions.
 ### Final postfix (2026-11-27)
 
 - `pending = None` initialized before CONNECT proxy_url, fixing UnboundLocalError.
+
+## [2026-11-27] ADR-009: Renamed zen-proxy -> zen-bridge, proxy egress is env-driven
+
+- **Context:** the slice is no longer only a proxy: it is the loopback bridge the Brain calls, and it decides its own egress. The old name described the transport, not the role, and the deployment docs still used `ZEN_PROXY_*` keys while CONNECT ignored the bridge's own proxy keys entirely (it read only the standard lowercase/uppercase pair).
+- **Decision:** rename the directory, module identity, systemd unit, docs, and memory records to `zen-bridge`. Add `upstream_proxy_url()`, `no_proxy_hosts()`, `host_bypasses_proxy()`, and an env-aware `OpenerDirector` so reverse-proxy traffic honours `ZEN_BRIDGE_HTTP_PROXY` / `ZEN_BRIDGE_HTTPS_PROXY` before the standard names, and so `ZEN_BRIDGE_NO_PROXY` plus the forced loopback entry keep local traffic direct. Body cap becomes `ZEN_BRIDGE_MAX_BODY_BYTES` with `ZEN_PROXY_MAX_BODY_BYTES` honoured as a legacy fallback.
+- **Alternatives considered:** (a) keep the name and only document the role — rejected, the rename was a direct Manager instruction; (b) set `http_proxy` in the unit instead of bridge-specific keys — rejected, a global value would capture unrelated outbound calls made by the same process.
+- **Consequences:** the Brain -> bridge leg stays a direct loopback call even when the host sets a global proxy; only the bridge -> gateway leg can be tunnelled. Operators must use the new key names; the legacy body-cap alias stays for one cycle.
+- **Rollback:** revert the rename commit and restore the previous unit; no data or protocol change is involved.

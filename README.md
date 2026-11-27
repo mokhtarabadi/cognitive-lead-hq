@@ -162,7 +162,7 @@ cp .env.example .env
 ### Documentation
 
 - [Brain Bridge Server](mcp-brain-bridge/server.py) — one tool, system-prompt loader + Responses-API call + XML extractor
-- [zen-proxy](docs/zen-proxy.md) — the loopback gateway hop behind `BRAIN_API_BASE` (session minting, model filters, effort rewrite, timeout ordering)
+- [zen-bridge](docs/zen-bridge.md) — the loopback gateway hop behind `BRAIN_API_BASE` (session minting, model filters, effort rewrite, timeout ordering)
 - [Blowsh Web Skill](skill-templates/blowsh/SKILL.md) — live-web search/fetch/crawl via the blowsh MCP server
 - [Cognitive Executor Agent](agents/cognitive-executor.md) (Bridge + Autopilot sections)
 - [Setup Guide](docs/setup.md)
@@ -200,12 +200,12 @@ cp .env.example .env
 ├── mcp-planner-server/                 # Capacity-aware, QA-gated planning layer
 │   ├── server.py                       # FastMCP planning tools + dashboard/MCP on 127.0.0.1:8108
 │   └── static/index.html               # Standalone dashboard (Jalali + Gregorian timeline)
-├── zen-proxy/                          # Loopback gateway sidecar (NOT an MCP server)
+├── zen-bridge/                          # Loopback gateway sidecar (NOT an MCP server)
 │   ├── proxy.py                        # Zen/Go mount proxy: session minting, model filters, effort rewrite
 │   ├── pyproject.toml                  # Stdlib-only; exists so `uv venv` provisions the runtime
 │   └── DECISIONS.md                    # ADRs: repo ownership, upstream timeout, POST gating
 ├── services/                           # systemd units / launchd plists for the singletons
-│   └── zen-proxy.service               # Brain's provider hop on 127.0.0.1:8081
+│   └── zen-bridge.service               # Brain's provider hop on 127.0.0.1:8081
 ├── prompts/                            # System prompt source tree (fragments + shared partials)
 │   ├── README.md                       # Authoring workflow guide
 │   ├── manifest.txt                    # Ordered fragment list (assembly order)
@@ -411,7 +411,7 @@ Full HQ install covering all core MCP servers plus skills plus both agents is do
 
 **Optional — auto-installed via `LLM.txt` Step 7.6:**
 
-- `blowsh` (Docker, auto-built `ghcr.io/mokhtarabadi/blowsh-mcp:latest` from the GitHub image repo, behind the Cloudflare WARP proxy on `warp-net`, 5 tools) — **JS-capable browsing (retired browser MCP replacement).** `fetch_web` (plain/html/markdown/pdf + selector/max_chars/wait_ms + focus/toc/must_contain/archive/stitch probes), `search_web` (DuckDuckGo+Bing+Brave+Mojeek consensus, intent verticals), `extract_links`, `fetch_web_batch` (10 URLs), `crawl_web` (sitemap-aware multi-page docs/API refs/wikis with focus/depth/char budgets). SSRF guard, TTL cache. Timeout 960s (above `SEARCH_DEADLINE_MS`, so a full search ends in its own `deadline.hit`). See https://github.com/mokhtarabadi/blowsh-mcp, `skill-templates/blowsh/SKILL.md`, and `docs/telegram-setup.md` (setup maps to same global install).
+- `blowsh` (Docker, auto-built `ghcr.io/mokhtarabadi/blowsh-mcp:latest` from the GitHub image repo, direct egress by default with optional `PROXY_*` env, 5 tools) — **JS-capable browsing (retired browser MCP replacement).** `fetch_web` (plain/html/markdown/pdf + selector/max_chars/wait_ms + focus/toc/must_contain/archive/stitch probes), `search_web` (DuckDuckGo+Bing+Brave+Mojeek consensus, intent verticals), `extract_links`, `fetch_web_batch` (10 URLs), `crawl_web` (sitemap-aware multi-page docs/API refs/wikis with focus/depth/char budgets). SSRF guard, TTL cache. Timeout 960s (above `SEARCH_DEADLINE_MS`, so a full search ends in its own `deadline.hit`). See https://github.com/mokhtarabadi/blowsh-mcp, `skill-templates/blowsh/SKILL.md`, and `docs/telegram-setup.md` (setup maps to same global install).
 - `telegram` (Telethon, 80+ tools, `$HOME/.config/opencode/mcp-telegram-server/.venv/bin/python` + absolute `main.py` path in opencode config dir) — Accounts (`list_accounts`, multi-account `account` param), chats/groups, messages (`send_message`/`reply_to_message` with `account="personal"`/`"work"`), contacts/aliases, media (`send_file`/`download_media`), events (`wait_for_settled_message`, `enable_incoming_feed`). File roots required for media tools (`/tmp/telegram-mcp` + `$HOME/.config/opencode/mcp-telegram-server/downloads`). Used by `skill-templates/telegram-suite/SKILL.md` (Parts 1–3: HTML formatting, range → ZIP export, supergroup → tasks sync — contract in `docs/telegram-message-formatting.md`) — see `docs/telegram-setup.md` §6 for the full skill→tool→config table. Single vs work/personal setup documented there plus `LLM.txt` 7.6 (absolute paths, installed in `~/.config/opencode/`).
 
 ### Meta-Task Bundling — Pure MCP (No CLI Required)
