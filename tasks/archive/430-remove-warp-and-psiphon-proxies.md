@@ -1,9 +1,11 @@
 # Task 430: Remove warp-proxy and psiphon-proxy Projects and All References
 
-**File:** `tasks/backlog/430-remove-warp-and-psiphon-proxies.md`
+**File:** `tasks/archive/430-remove-warp-and-psiphon-proxies.md`
 **Source:** manager
 **Type:** improvement
-**Status:** backlog
+**Status:** superseded
+**Superseded-By:** `432-brain-litellm-zen-bridge-cleanup`
+**Superseded-At:** `2026-11-27 09:00 UTC`
 
 ## Goal
 
@@ -80,6 +82,8 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
   configuration; the build contexts are self-contained.
 
 ---
+
+> **Superseded:** This task was bundled into META task `432-brain-litellm-zen-bridge-cleanup` and archived on 2026-11-27 09:00 UTC. See `tasks/backlog/432-brain-litellm-zen-bridge-cleanup.md` (or its Kanban successor) for the unified execution. History preserved via `git log --follow -- tasks/archive/430-remove-warp-and-psiphon-proxies.md`.
 
 ## Execution Log & Reasoning
 

@@ -1,9 +1,11 @@
 # Task 427: Migrate Brain Bridge to LiteLLM and Gate Debug Output by Env
 
-**File:** `tasks/backlog/427-migrate-brain-bridge-to-litellm.md`
+**File:** `tasks/archive/427-migrate-brain-bridge-to-litellm.md`
 **Source:** manager
 **Type:** feature
-**Status:** backlog
+**Status:** superseded
+**Superseded-By:** `432-brain-litellm-zen-bridge-cleanup`
+**Superseded-At:** `2026-11-27 09:00 UTC`
 
 ## Goal
 
@@ -93,6 +95,8 @@ The task is NOT done unless ALL of the following are true (unconditional, applie
   revert the bridge commit and restore the pinned dependency set.
 
 ---
+
+> **Superseded:** This task was bundled into META task `432-brain-litellm-zen-bridge-cleanup` and archived on 2026-11-27 09:00 UTC. See `tasks/backlog/432-brain-litellm-zen-bridge-cleanup.md` (or its Kanban successor) for the unified execution. History preserved via `git log --follow -- tasks/archive/427-migrate-brain-bridge-to-litellm.md`.
 
 ## Execution Log & Reasoning
 

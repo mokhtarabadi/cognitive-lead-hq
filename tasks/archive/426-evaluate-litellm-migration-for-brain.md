@@ -1,9 +1,11 @@
 # Task 426: Evaluate migrating Brain to LiteLLM
 
-**File:** `tasks/in-progress/426-evaluate-litellm-migration-for-brain.md`
+**File:** `tasks/archive/426-evaluate-litellm-migration-for-brain.md`
 **Source:** manager
 **Type:** research
-**Status:** in-progress
+**Status:** superseded
+**Superseded-By:** `432-brain-litellm-zen-bridge-cleanup`
+**Superseded-At:** `2026-11-27 09:00 UTC`
 **Started:** 2026-11-27T07:40:49Z
 
 ## Goal
@@ -70,6 +72,8 @@ Commands and citations:
 ## Definition of Done
 
 - [x] Findings recorded; task remains in backlog for Manager review
+
+> **Superseded:** This task was bundled into META task `432-brain-litellm-zen-bridge-cleanup` and archived on 2026-11-27 09:00 UTC. See `tasks/backlog/432-brain-litellm-zen-bridge-cleanup.md` (or its Kanban successor) for the unified execution. History preserved via `git log --follow -- tasks/archive/426-evaluate-litellm-migration-for-brain.md`.
 
 ## Execution Log & Reasoning
 

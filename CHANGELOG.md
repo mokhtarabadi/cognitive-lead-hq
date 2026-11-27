@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [9.97.0] - 2026-11-27
+
 ### Changed
 
 - **META 432 follow-up — retry policy removed from the Brain; every stage now ships all seven seats:** pinned `num_retries=0` on the LiteLLM call and deleted the retry ladder residue — `_litellm_retries`/`BRAIN_LITELLM_RETRIES`, the `_TERMINAL_429_CODES` classifier with `_terminal_429_code` and the quota-retry advice in `_provider_error_hint`, `_error_payload`, and `_overall_deadline_s`/`BRAIN_OVERALL_DEADLINE_S`. A failed turn now surfaces a `PROVIDER_ERROR` report and retrying is the caller's decision. Removed the matching tests and every doc/env reference, including the timeout ladder in `LLM.txt`, `docs/brain-bridge.md`, `.env.example`, and the zen-bridge ownership memory. Separately, the stage prompt design was settled on one lead persona per stage plus the full seven-seat roster and a new `auto_load` Layer 3 adoption rule, instead of duplicating seven persona blocks into every artifact: the all-blocks variant was reverted because multiple full personas in one system message conflict and burn context. All eight artifacts were regenerated (lead block only: qa 90 KB, full prompt 104 KB) and the stale installed copies under `~/.config/opencode/` were re-synced from 9.93.0. Stage and prompt-sync tests assert lead-roster match, seven nameable seats, and the adoption rule. A project-wide leftover audit also refreshed `mcp-brain-bridge/README.md`, added ADR-015, and removed stale caches. Full suite `940 passed`.
