@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- **Chore: sync global-install memory and archived headers after release with no code change:** recorded the zen-bridge install target and the zen-proxy retirement in `global-install-upgrade.md`, and applied the `Superseded-By` pointers the bundler wrote to the six archived task headers. No code, test, or runtime behaviour change; full suite `940 passed`.
+
 ## [9.97.0] - 2026-11-27
 
 ### Changed
